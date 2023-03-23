@@ -1,0 +1,176 @@
+---
+output: html_document
+params:
+  Prolific ID: NA
+  Pavlovia ID: NA 
+  deviceType: NA 
+  cores: NA
+  system: NA
+  browser: NA
+  resolution: NA
+  ok: NA
+  error: NA
+  warning: NA 
+  block_condition: NA
+  conditionName: NA
+  targetTask: NA
+  targetKind: NA
+  experiment: NA
+---
+
+## `r params$experiment[1]`
+
+### `r format(Sys.time(), '%B %d, %Y')`
+
+```{=html}
+<style>
+.main-container {
+    margin-left: 0;
+    margin-right: 0;
+}
+</style>
+```
+
+**Each line summarizes one CSV result file, a participant’s session. Sort by clicking a tiny up or down arrow near any column heading.**
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, inlcude = FALSE, warning=FALSE)
+```
+
+
+```{r, echo = F, inlcude = FALSE, message=FALSE}
+library(DT)
+library(dplyr)
+source("random_rgb.R")
+```
+
+```{css, include = TRUE}
+.dataTables_filter {
+position:relative; 
+right: 86%; 
+top:0px;
+}
+```
+
+```{r, echo = F, include = FALSE}
+dt <- tibble(
+  `Prolific ID` = params$`Prolific ID`,
+  `Pavlovia ID` = params$`Pavlovia ID`,
+  deviceType = params$deviceType,
+  cores = params$cores,
+  system = params$system,
+  browser = params$browser,
+  resolution = params$resolution,
+  ok = params$ok,
+  error = params$error,
+  warning = params$warning,
+  block_condition = params$block_condition,
+  conditionName = params$conditionName,
+  targetTask = params$targetTask,
+  targetKind = params$targetKind)
+participants <- unique(dt$`Pavlovia ID`)
+```
+
+
+```{r, include = TRUE}
+datatable(
+    dt, 
+    filter = "top",
+    escape = FALSE,
+    width = "180%",
+    options = list(
+      autoWidth = FALSE,
+      paging = FALSE,
+      scrollX=TRUE,
+      columnDefs = list(
+        list(visible = FALSE, targets = c(0)),
+        list(targets = c(9), 
+             width = '150px',
+             className = 'details-control1',
+             render = JS(
+      "function(data, type, row, meta) {",
+      "return type === 'display' && data.length > 20 ?",
+      "data.substr(0, 20) + '...' : data;",
+      "}")),
+      list(targets = c(10), 
+             width = '150px',
+             className = 'details-control2',
+             render = JS(
+      "function(data, type, row, meta) {",
+      "return type === 'display' && data.length > 20 ?",
+      "data.substr(0, 20) + '...' : data;",
+      "}")),
+      list(targets = c(1), render = JS(
+      "function(data, type, row, meta) {",
+      "return type === 'display' && data.length > 6 ?",
+      "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+      "}"), className = 'information-control1'),
+      list(targets = c(2), render = JS(
+      "function(data, type, row, meta) {",
+      "return type === 'display' && data.length > 6 ?",
+      "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+      "}"), className = 'information-control2'),
+          list(width = '250px', targets = c(5, 6), className = 'dt-center'),
+          list(width = '50px', targets = c(3,4,7,8,11), className = 'dt-center'),
+          list(width = '200px', targets = c(12))
+      )
+    ),
+    callback = JS("
+                   table.column(9).nodes().to$().css({cursor: 'pointer'});
+                  var format1 = function(d) {
+                  return'<p>' + d[9] + '</p>'
+                  };
+                  table.on('click', 'td.details-control1', function() {
+                  var td = $(this), row = table.row(td.closest('tr'));
+                  if (row.child.isShown()) {
+                  row.child.hide();
+                  } else {
+                  row.child(format1(row.data())).show();
+                  }
+                  })
+                  table.column(10).nodes().to$().css({cursor: 'pointer'});
+                  var format2 = function(d) {
+                  return'<p>' + d[10] + '</p>'
+                  };
+                  table.on('click', 'td.details-control2', function() {
+                  var td = $(this), row = table.row(td.closest('tr'));
+                  if (row.child.isShown()) {
+                  row.child.hide();
+                  } else {
+                  row.child(format2(row.data())).show();
+                  }
+                  })
+                  table.column(1).nodes().to$().css({cursor: 'pointer'});
+                  var format3 = function(d) {
+                  return'<p>' + d[1] + '</p> <p>' + d[2] + '</p>'
+                  };
+                  table.column(2).nodes().to$().css({cursor: 'pointer'});
+                  var format4 = function(d) {
+                  return'<p>' + d[1] + '</p> <p>' + d[2] + '</p>'
+                  };
+                  table.on('click', 'td.information-control1', function() {
+                  var td = $(this), row = table.row(td.closest('tr'));
+                  if (row.child.isShown()) {
+                  row.child.hide();
+                  } else {
+                  row.child(format3(row.data())).show();
+                  }
+                  });
+                  table.on('click', 'td.information-control2', function() {
+                  var td = $(this), row = table.row(td.closest('tr'));
+                  if (row.child.isShown()) {
+                  row.child.hide();
+                  } else {
+                  row.child(format4(row.data())).show();
+                  }
+                  });"
+                  
+  )) %>% 
+  formatStyle(names(dt),color = 'black', lineHeight="10px") %>% 
+  formatStyle(names(dt)[-1],
+              'Pavlovia ID', 
+              backgroundColor = styleEqual(participants, random_rgb(length(participants))))
+```
+
+
+
