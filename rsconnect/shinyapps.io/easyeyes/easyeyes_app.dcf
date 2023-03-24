@@ -5,10 +5,10 @@ account: easyeyes
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 8620121
-bundleId: 7001368
+bundleId: 7001394
 url: https://easyeyes.shinyapps.io/easyeyes_app/
-when: 1679637559.88611
-lastSyncTime: 1679637559.88612
+when: 1679637959.39113
+lastSyncTime: 1679637959.39115
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: dashboard.css|error-report.html|README.md
+ignoredFiles: error-report.html|README.md

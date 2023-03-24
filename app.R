@@ -249,6 +249,19 @@ server <- function(input, output, session) {
                })
   
   
+  downloadtheme <- theme(legend.position = "right", 
+                         legend.box = "vertical", 
+                         legend.justification = c(1,1),
+                         legend.margin = margin(-0.4),
+                         legend.key.size = unit(4.5, "mm"),
+                         legend.title = element_text(size=12),
+                         legend.text = element_text(size=12),
+                         panel.grid.major = element_blank(), 
+                         panel.grid.minor = element_blank(),
+                         panel.background = element_blank(), axis.title = element_text(size = 12),
+                         axis.text = element_text(size = 12),
+                         axis.line = element_line(colour = "black"),
+                         plot.title = element_text(size=12))
   
   output$report <- downloadHandler(
     filename = function(){ ifelse(input$file_name == "", "error report.html", paste0(input$file_name, '.html'))},
@@ -269,7 +282,7 @@ server <- function(input, output, session) {
         grDevices::png(..., width = width, height = height,
                        res = 300, units = "in")
       }
-      ggsave(file, plot = meanPlot() + coord_fixed(ratio = 1), device = device)
+      ggsave(file, plot = meanPlot() + coord_fixed(ratio = 1) + downloadtheme, device = device)
     })
   output$downloadMedianPlot <- downloadHandler(
     filename = 'median.png',
@@ -278,7 +291,7 @@ server <- function(input, output, session) {
         grDevices::png(..., width = width, height = height,
                        res = 300, units = "in")
       }
-      ggsave(file, plot = medianPlot() + coord_fixed(ratio = 1), device = device)
+      ggsave(file, plot = medianPlot() + coord_fixed(ratio = 1) + downloadtheme, device = device)
     })
   output$downloadRegressionPlot<- downloadHandler(
     filename = 'regression.png',
@@ -287,7 +300,7 @@ server <- function(input, output, session) {
         grDevices::png(..., width = width, height = height,
                        res = 300, units = "in")
       }
-      ggsave(file, plot = regressionPlot() + coord_fixed(ratio = 1), device = device)
+      ggsave(file, plot = regressionPlot() + coord_fixed(ratio = 1) + downloadtheme, device = device)
     })
 }
 
