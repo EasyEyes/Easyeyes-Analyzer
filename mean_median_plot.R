@@ -1,7 +1,5 @@
 library(ggplot2)
-source("threshold_and_warning.R")
-get_mean_median_df <- function(data_list, summary_list){
-  df_list <- generate_rsvp_reading_crowding(data_list, summary_list)
+get_mean_median_df <- function(df_list){
   reading <- df_list[[1]]
   crowding <- df_list[[2]]
   rsvp_speed <- df_list[[3]]
@@ -63,9 +61,9 @@ get_mean_median_df <- function(data_list, summary_list){
   return(list(rsvp_vs_ordinary_vs_crowding, N_text))
 }
 
-mean_plot <- function(data_list, summary_list){
-  rsvp_vs_ordinary_vs_crowding <- get_mean_median_df(data_list, summary_list)[[1]]
-  N_text <- get_mean_median_df(data_list, summary_list)[[2]]
+mean_plot <- function(reaing_rsvp_crowding_df){
+  rsvp_vs_ordinary_vs_crowding <- reaing_rsvp_crowding_df[[1]]
+  N_text <- reaing_rsvp_crowding_df[[2]]
   
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, 
          aes(x = 10^(avg_log_crowding), 
@@ -86,9 +84,9 @@ mean_plot <- function(data_list, summary_list){
   return(p)
 }
 
-median_plot <- function(data_list,summary_list){
-  rsvp_vs_ordinary_vs_crowding <- get_mean_median_df(data_list, summary_list)[[1]]
-  N_text <- get_mean_median_df(data_list, summary_list)[[2]]
+median_plot <- function(reaing_rsvp_crowding_df){
+  rsvp_vs_ordinary_vs_crowding <- reaing_rsvp_crowding_df[[1]]
+  N_text <- reaing_rsvp_crowding_df[[2]]
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, 
          aes(x = 10^(median_log_crowding), 
              y = 10^(median_log_SpeedWPM), 

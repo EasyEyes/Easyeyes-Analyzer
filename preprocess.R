@@ -96,15 +96,23 @@ read_files <- function(file_list){
     if (!('psychojsWindowDimensions' %in% colnames(t))) {
       t$psychojsWindowDimensions <- NA
     }
-    t <- t %>% mutate(screenWidthPx = t$screenWidthPx[1],
-                      screenHeightPx = t$screenHeightPx[1],
+    screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
+                          unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
+                          NA)
+    screenHeight <- ifelse(length(unique(t$screenHeightPx)) > 1,
+                           unique(t$screenHeightPx)[!is.na(unique(t$screenHeightPx))] , 
+                           NA)
+    t <- t %>% mutate(screenWidthPx = screenWidth,
+                      screenHeightPx = screenHeight,
                       browser = ifelse(deviceBrowser == "", "", paste0(deviceBrowser, 
                                                                        " ", 
                                                                        str_split(deviceBrowserVersion, "[.]")[[1]][1])),
                       resolution = paste0(screenWidthPx, " x ", screenHeightPx),
                       block_condition = ifelse(block_condition == "",staircaseName, block_condition))
     t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
-    t$resolution = ifelse(t$resolution[1] == "NA x NA", t$psychojsWindowDimensions, t$resolution)
+    psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[1]
+    WindowDimensions <- paste0(psychojsWindowDimensions[1], " x ", psychojsWindowDimensions[2])
+    t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
     info <- filter(t, is.na(questMeanAtEndOfTrialsLoop)) %>% select(block_condition, conditionName) %>% distinct(block_condition, conditionName)
     t <- t %>% rename("cores" = "hardwareConcurrency")
     

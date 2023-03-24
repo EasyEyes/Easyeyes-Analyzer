@@ -47,7 +47,7 @@ source("random_rgb.R")
 ```{css, include = TRUE}
 .dataTables_filter {
 position:relative; 
-right: 86%; 
+float: left !important; 
 top:0px;
 }
 ```

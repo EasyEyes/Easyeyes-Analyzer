@@ -1,0 +1,14 @@
+name: easyeyes_app
+title:
+username:
+account: easyeyes
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 8620121
+bundleId: 7001368
+url: https://easyeyes.shinyapps.io/easyeyes_app/
+when: 1679637559.88611
+lastSyncTime: 1679637559.88612
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: dashboard.css|error-report.html|README.md

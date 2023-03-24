@@ -20,38 +20,54 @@ source("summary_table.R")
 source("threshold_and_warning.R")
 source("random_rgb.R")
 source("mean_median_plot.R")
+source("regression_plot.R")
 library(shiny)
+library(bslib)
 options(shiny.maxRequestSize=70*1024^2)
 
 # Define UI for application that draws a histogram
-ui <- fluidPage( 
-                 navbarPage(
-                   tags$head(
-                     # Note the wrapping of the string in HTML()
-                     tags$style(HTML("
-                    .dataTables_filter{
-        float: left !important;
-    }
-                     .form-group {
-                     margin-bottom: 10px;
-                     }
-                                     "))),
-                   title = 'EasyEyes Analysis',
-                   
-                   tabPanel('Error Report', 
-                            fileInput("file", NULL, accept = ".csv",buttonLabel = "Select CSV files", multiple = T),
-                            div(style = "margin-top: -10px"),
-                            fluidRow(column(width = 2,downloadButton("report", "Download report")), column(width = 3,textInput('file_name', NULL, "error report"))),
-                            DT::dataTableOutput('ex1')),
-                   tabPanel('Threshold',  
-                            fluidRow(tableOutput('ex3')),
-                            fluidRow(tableOutput('ex2'))),
-                   tabPanel('Plots', 
-                            plotOutput("meanPlot", width = "100%"),
-                            downloadButton("downloadMeanPlot", "Download plot one"), 
-                            plotOutput("medianPlot", width = "100%"),
-                            downloadButton("downloadMedianPlot", "Download plot two"))
-))
+ui <- navbarPage(
+  tags$head(
+    # Note the wrapping of the string in HTML()
+    tags$style(HTML("
+      .dataTables_filter{
+      float: left !important;
+      }
+  .form-group {
+  margin-bottom: 10px;
+  margin-top: 0px;
+  }
+  .container-fluid {
+  padding-left:5px;
+  padding-right:0px;
+  }
+  "))),
+  title = 'EasyEyes Analysis',
+  tabPanel('Error Report', 
+           fileInput("file", NULL, accept = ".csv",buttonLabel = "Select CSV files", multiple = T),
+           fluidRow(column(width = 2,downloadButton("report", "Download report")), column(width = 3,textInput('file_name', NULL, "error report"))),
+           textOutput("instruction"),
+           DT::dataTableOutput('ex1')),
+  tabPanel('Threshold',  
+           fluidRow(tableOutput('ex3')),
+           fluidRow(tableOutput('ex2'))),
+  tabPanel('Plots', 
+           splitLayout(cellWidths = c("50%", "50%"),
+                       plotOutput("meanPlot", width = "100%"),
+                       plotOutput("medianPlot", width = "100%")),
+           splitLayout(cellWidths = c("50%", "50%"),
+                       downloadButton("downloadMeanPlot", "Download Mean plot"), 
+                       downloadButton("downloadMedianPlot", "Download Median plot")
+                       ),
+           splitLayout(cellWidths = c("50%", "50%"),
+                       plotOutput("regressionPlot", width = "100%")
+                       ),
+           splitLayout(cellWidths = c("50%", "50%"),
+                       downloadButton("downloadRegressionPlot", "Download Regression plot")
+           ),
+           
+  )
+)
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
@@ -60,25 +76,39 @@ server <- function(input, output, session) {
     require(input$file)
     return(read_files(input$file$data)[[1]])
   })
+  
   summary_list <- reactive({
     require(input$file)
     return(read_files(input$file$data)[[2]])
   })
+  
   summary_table <- reactive({
     generate_summary_table(data_list())
   })
+  
   threshold_and_warnings <- reactive({
     require(input$file)
     return(generate_threshold(data_list(), summary_list()))
   })
+  
+  df_list <- reactive({
+    return(generate_rsvp_reading_crowding(data_list(), summary_list()))
+    })
+  
+  reaing_rsvp_crowding_df <- reactive({return(get_mean_median_df(df_list()))})
+  
   meanPlot <- reactive({
     require(input$file)
-    mean_plot(data_list(), summary_list())
+    mean_plot(reaing_rsvp_crowding_df())
   })
   
   medianPlot <- reactive({
     require(input$file)
-    median_plot(data_list(), summary_list())
+    median_plot(reaing_rsvp_crowding_df())
+  })
+  
+  regressionPlot <- reactive({
+    regression_plot(df_list())
   })
   
   observeEvent(input$file, 
@@ -193,39 +223,29 @@ server <- function(input, output, session) {
                  output$ex3 <- renderTable(
                    threshold_and_warnings()[[1]]
                  )
+                 output$instruction <- renderText("From each column’s heading, to the right are buttons to sort up and down, and below is a text box for selection.")
+                 
+                 plt_theme <- theme(legend.position = "right", 
+                                    legend.box = "vertical", 
+                                    legend.justification = c(1,1),
+                                    legend.margin = margin(-0.4),
+                                    legend.key.size = unit(4.5, "mm"),
+                                    legend.title = element_text(size=20),
+                                    legend.text = element_text(size=20),
+                                    panel.grid.major = element_blank(), 
+                                    panel.grid.minor = element_blank(),
+                                    panel.background = element_blank(), axis.title = element_text(size = 25),
+                                    axis.text = element_text(size = 20),
+                                    axis.line = element_line(colour = "black"),
+                                    plot.title = element_text(size=20))
                  output$meanPlot <- renderPlot({
-                   meanPlot() +
-                     theme(legend.position = "right", 
-                           legend.box = "vertical", 
-                           legend.justification = c(1,1),
-                           legend.margin = margin(-0.4),
-                           legend.key.size = unit(4.5, "mm"),
-                           legend.title = element_text(size=25),
-                           legend.text = element_text(size=25),
-                           panel.grid.major = element_blank(), 
-                           panel.grid.minor = element_blank(),
-                           panel.background = element_blank(), axis.title = element_text(size = 25),
-                           axis.text = element_text(size = 25),
-                           axis.line = element_line(colour = "black"),
-                           plot.title = element_text(size=25)) +
-                     coord_fixed(ratio = 1)
+                   meanPlot() + plt_theme + coord_fixed(ratio = 1)
                    }, res = 96)
-                 output$medianPlot <- renderPlot({medianPlot() + 
-                     theme(legend.position = "right", 
-                           legend.box = "vertical", 
-                           legend.justification = c(1,1),
-                           legend.margin = margin(-0.4),
-                           legend.key.size = unit(4.5, "mm"),
-                           legend.title = element_text(size=25),
-                           legend.text = element_text(size=25),
-                           panel.grid.major = element_blank(), 
-                           panel.grid.minor = element_blank(),
-                           panel.background = element_blank(), axis.title = element_text(size = 25),
-                           axis.text = element_text(size = 25),
-                           axis.line = element_line(colour = "black"),
-                           plot.title = element_text(size=25)) + 
-                     coord_fixed(ratio = 1)
+                 output$medianPlot <- renderPlot({medianPlot() + plt_theme + coord_fixed(ratio = 1)
                    }, res = 96)
+                 output$regressionPlot <- renderPlot({
+                   regressionPlot() + plt_theme + coord_fixed(ratio = 1)
+                 })
                })
   
   
@@ -259,6 +279,15 @@ server <- function(input, output, session) {
                        res = 300, units = "in")
       }
       ggsave(file, plot = medianPlot() + coord_fixed(ratio = 1), device = device)
+    })
+  output$downloadRegressionPlot<- downloadHandler(
+    filename = 'regression.png',
+    content = function(file) {
+      device <- function(..., width, height) {
+        grDevices::png(..., width = width, height = height,
+                       res = 300, units = "in")
+      }
+      ggsave(file, plot = regressionPlot() + coord_fixed(ratio = 1), device = device)
     })
 }
 
