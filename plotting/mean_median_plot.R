@@ -79,7 +79,6 @@ mean_plot <- function(reaing_rsvp_crowding_df){
     labs(x = "Crowding distance (deg)", y = "Reading speed (word/min)") +
     annotation_logticks(short = unit(0.1, "cm"),                                                                        mid = unit(0.1, "cm"),
                         long = unit(0.3, "cm")) + 
-    ggtitle("Mean") + 
     scale_shape_manual(values = sample(0:25, length(unique(rsvp_vs_ordinary_vs_crowding$font)), F))
   return(p)
 }
@@ -99,7 +98,6 @@ median_plot <- function(reaing_rsvp_crowding_df){
     annotation_logticks(short = unit(0.1, "cm"),                                                
                         mid = unit(0.1, "cm"),
                         long = unit(0.3, "cm")) +
-    ggtitle("Median") + 
     scale_shape_manual(values = sample(0:25, length(unique(rsvp_vs_ordinary_vs_crowding$font)), F))
   return(p)
 }

@@ -1,9 +1,9 @@
 library(tidyr)
 random_rgb <- function(n){
   zero <- rep(255,n)
-  r <- sample(230:250, n, T)
-  g <- sample(230:250, n, T)
-  b <- sample(230:250, n, T)
+  r <- sample(240:245, n, T)
+  g <- sample(240:245, n, T)
+  b <- sample(240:245, n, T)
   
   t <- tibble(r,g,b,zero) %>% 
     mutate(rg = rgb(r,g,zero,maxColorValue = 255),

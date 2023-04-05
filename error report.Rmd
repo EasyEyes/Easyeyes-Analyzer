@@ -1,9 +1,9 @@
 ---
 output: html_document
 params:
-  Prolific ID: NA
-  Pavlovia ID: NA 
-  deviceType: NA 
+  Prolific participant ID: NA
+  Pavlovia session ID: NA 
+  device type: NA 
   cores: NA
   system: NA
   browser: NA
@@ -11,14 +11,18 @@ params:
   ok: NA
   error: NA
   warning: NA 
-  block_condition: NA
-  conditionName: NA
-  targetTask: NA
-  targetKind: NA
-  experiment: NA
+  block condition: NA
+  condition name: NA
+  target task: NA
+  target kind: NA
+  experiment: ""
 ---
+```{r, echo = F, inlcude = FALSE, message=FALSE}
+title <- trimws(paste(unique(params$experiment), collapse = ", "))
+title <- ifelse(title == "", "error report", title)
+```
 
-## `r params$experiment[1]`
+## `r title`
 
 ### `r format(Sys.time(), '%B %d, %Y')`
 
@@ -41,7 +45,7 @@ knitr::opts_chunk$set(echo = FALSE, inlcude = FALSE, warning=FALSE)
 ```{r, echo = F, inlcude = FALSE, message=FALSE}
 library(DT)
 library(dplyr)
-source("random_rgb.R")
+source("./error report/random_rgb.R")
 ```
 
 ```{css, include = TRUE}
@@ -54,9 +58,9 @@ top:0px;
 
 ```{r, echo = F, include = FALSE}
 dt <- tibble(
-  `Prolific ID` = params$`Prolific ID`,
-  `Pavlovia ID` = params$`Pavlovia ID`,
-  deviceType = params$deviceType,
+  `Prolific participant ID` = params$`Prolific participant ID`,
+  `Pavlovia session ID` = params$`Pavlovia session ID`,
+  `device type` = params$`device type`,
   cores = params$cores,
   system = params$system,
   browser = params$browser,
@@ -64,17 +68,19 @@ dt <- tibble(
   ok = params$ok,
   error = params$error,
   warning = params$warning,
-  block_condition = params$block_condition,
-  conditionName = params$conditionName,
-  targetTask = params$targetTask,
-  targetKind = params$targetKind)
-participants <- unique(dt$`Pavlovia ID`)
+  `block condition` = params$`block condition`,
+  `condition name` = params$`condition name`,
+  `target task` = params$`target task`,
+  `target kind` = params$`target kind`)
+participants <- unique(dt$`Pavlovia session ID`)
 ```
 
 
 ```{r, include = TRUE}
+set.seed(2023)
 datatable(
     dt, 
+    class = list(stripe = FALSE),
     filter = "top",
     escape = FALSE,
     width = "180%",
@@ -168,7 +174,7 @@ datatable(
   )) %>% 
   formatStyle(names(dt),color = 'black', lineHeight="10px") %>% 
   formatStyle(names(dt)[-1],
-              'Pavlovia ID', 
+              'Pavlovia session ID', 
               backgroundColor = styleEqual(participants, random_rgb(length(participants))))
 ```
 

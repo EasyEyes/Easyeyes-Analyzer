@@ -38,7 +38,7 @@ regression_plot <- function(df_list){
   
   t <- rbind(crowding_vs_rsvp_summary, reading_crowding)
   corr <- t %>% group_by(targetKind) %>% 
-     summarize(correlation = round(cor(log_crowding_distance_deg,avg_log_WPM),2))
+     summarize(correlation = round(cor(log_crowding_distance_deg,avg_log_WPM, use = "pairwise.complete.obs"),2))
    t <- t %>% left_join(corr, by = "targetKind") %>% mutate(targetKind = paste0(targetKind, ", R =  ", correlation))
   
   # plot for the regression

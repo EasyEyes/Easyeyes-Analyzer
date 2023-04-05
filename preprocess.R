@@ -1,16 +1,20 @@
 library(dplyr)
 library(stringr)
-read_files <- function(file_list){
+read_files <- function(file){
+  file_list <- file$data
   data_list <- list()
   summary_list <- list()
   n <- length(file_list)
+  experiment <- rep(NA,n)
+  readingCorpus <- c()
   j = 1
   for (i in 1 : n) {
     t <- tibble()
     try({t <- read.csv(file_list[i], stringsAsFactors=F)}, silent = TRUE)
     if (!('participant' %in% colnames(t))) {
-      t <- tibble(participant = "")
-      t$error <- "invalid file"
+      t <- tibble(participant = str_split(file$name[i], "[_]")[[1]][1],
+                  ProlificParticipantID = str_split(file$name[i], "[_]")[[1]][2])
+      t$error <- "Incomplete"
     }
     if (!('ProlificParticipantID' %in% colnames(t))) {
       t$ProlificParticipantID <- ""
@@ -21,11 +25,20 @@ read_files <- function(file_list){
     if (!('warning' %in% colnames(t))) {
       t$warning <- ""
     }
+    if (!('readingCorpus' %in% colnames(t))) {
+      t$readingCorpus <- ""
+    }
     if ('readingPageWords' %in% colnames(t)) {
-      t$wordPerMin <- (t$readingPageWords + t$readingLinesPerPage - 1) / (t$readingPageDurationOnsetToOffsetSec / 60)
+      t$wordPerMin <- (as.numeric(t$readingPageWords) + as.numeric(t$readingLinesPerPage) - 1) / (as.numeric(t$readingPageDurationOnsetToOffsetSec) / 60)
     }
     if (!('readingPageWords' %in% colnames(t))) {
       t$wordPerMin <- NA
+    }
+    if (!('readingNumberOfQuestions' %in% colnames(t))) {
+      t$readingNumberOfQuestions <- NA
+    }
+    if (!('readWordIdentifiedBool' %in% colnames(t))) {
+      t$readWordIdentifiedBool <- NA
     }
     if (!('targetFinishSec' %in% colnames(t))) {
       t$targetFinishSec <- NA
@@ -69,6 +82,12 @@ read_files <- function(file_list){
     if (!('hardwareConcurrency' %in% colnames(t))) {
       t$hardwareConcurrency <- NA
     }
+    if (!('experiment' %in% colnames(t))) {
+      t$experiment <- ""
+    }
+    if (!('experimentCompleteBool' %in% colnames(t))) {
+      t$experimentCompleteBool <- FALSE
+    }
     if (!('block' %in% colnames(t))) {
       t$block <- NA
     }
@@ -94,7 +113,7 @@ read_files <- function(file_list){
       t$thresholdParameter <- ""
     }
     if (!('psychojsWindowDimensions' %in% colnames(t))) {
-      t$psychojsWindowDimensions <- NA
+      t$psychojsWindowDimensions <- "NA,NA"
     }
     screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                           unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
@@ -111,11 +130,16 @@ read_files <- function(file_list){
                       block_condition = ifelse(block_condition == "",staircaseName, block_condition))
     t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
     psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[1]
-    WindowDimensions <- paste0(psychojsWindowDimensions[1], " x ", psychojsWindowDimensions[2])
+    WindowDimensions <- paste0(psychojsWindowDimensions[[1]][1], " x ", psychojsWindowDimensions[[1]][2])
     t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
-    info <- filter(t, is.na(questMeanAtEndOfTrialsLoop)) %>% select(block_condition, conditionName) %>% distinct(block_condition, conditionName)
-    t <- t %>% rename("cores" = "hardwareConcurrency")
-    
+    info <- filter(t, is.na(questMeanAtEndOfTrialsLoop)) %>% 
+      select(block_condition, conditionName) %>% 
+      distinct(block_condition, conditionName) %>% 
+      filter(conditionName != "" & block_condition != "")
+    t <- t %>% 
+      rename("cores" = "hardwareConcurrency") %>% 
+      select(-conditionName) %>% 
+      left_join(info, by = "block_condition")
     info <- t %>% 
       filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
       distinct(participant, block, staircaseName, conditionName, targetKind, font)
@@ -130,6 +154,14 @@ read_files <- function(file_list){
     summary_list[[j]] <- summaries
     data_list[[j]] <- t
     j = j + 1
+    experiment[i] <- trimws(t$experiment[1])
+    readingCorpus <- c(readingCorpus,unique(t$readingCorpus))
   }
-  return(list(data_list, summary_list))
+  readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
+  experiment <- experiment[experiment!=""]
+  return(list(data_list, 
+              summary_list, 
+              paste(unique(experiment), collapse = "_"),
+              paste(unique(readingCorpus), collapse = "_")
+              ))
 }

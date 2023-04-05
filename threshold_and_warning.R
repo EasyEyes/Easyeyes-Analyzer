@@ -1,11 +1,11 @@
 library(foreach)
 library(dplyr)
-generate_rsvp_reading_crowding <- function(data_list, summary_list) {
+generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]]
   }
   crowding <- all_summary %>% 
-    filter(thresholdParameter != "size", targetKind == "letter", conditionName != "practice") %>% 
+    filter(thresholdParameter != "size", targetKind == "letter", !grepl("practice",conditionName)) %>% 
     select(participant, conditionName, questMeanAtEndOfTrialsLoop, font) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
   ########################### RSVP READING ############################
@@ -16,20 +16,34 @@ generate_rsvp_reading_crowding <- function(data_list, summary_list) {
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
   ################################ READING #######################################
-  reading <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% select(block_condition, participant, conditionName, font, wordPerMin, targetKind, thresholdParameter) %>% 
+  reading <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+    data_list[[i]] %>% 
+      select(block_condition, participant, conditionName, font, wordPerMin, 
+             targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
       mutate(log_WPM = log10(wordPerMin)) %>% 
       filter(targetKind == "reading" & font !="")
   }
   
-  return(list(reading, crowding, rsvp_speed))
+  fluency <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+    if("questionAndAnswerCorrectAnswer" %in% colnames(data_list[[i]])) {
+      data_list[[i]] %>% filter(grepl("fluency", conditionName, fixed=TRUE) ) %>% 
+        select(block, participant, conditionName, questionAndAnswerResponse, trials.thisN,
+               questionAndAnswerNickname, questionAndAnswerQuestion, targetKind, questionAndAnswerCorrectAnswer)
+    }
+  }
+  fluency <- 
+    fluency %>% 
+    group_by(participant) %>% 
+    summarize(accuracy = mean(questionAndAnswerResponse == questionAndAnswerCorrectAnswer))
+  
+  return(list(reading, crowding, rsvp_speed, fluency))
 }
 generate_threshold <- function(data_list, summary_list){
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]]
   }
   crowding <- all_summary %>% 
-    filter(thresholdParameter != "size", targetKind == "letter", conditionName != "practice") %>% 
+    filter(thresholdParameter != "size", targetKind == "letter", !grepl("practice",conditionName)) %>% 
     select(participant, conditionName, questMeanAtEndOfTrialsLoop, font) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
   ########################### RSVP READING ############################
@@ -73,7 +87,7 @@ generate_threshold <- function(data_list, summary_list){
     mutate(targetKind = "reading")
   
   threshold_all <- all_summary %>%
-    filter(conditionName != "practice") %>% 
+    filter(!grepl("practice",conditionName)) %>% 
     group_by(conditionName, thresholdParameter) %>%
     dplyr::summarize(
       m = mean(questMeanAtEndOfTrialsLoop),
@@ -83,7 +97,7 @@ generate_threshold <- function(data_list, summary_list){
       parameter = "threshold")
   
   practice_all <- all_summary %>%
-    filter(conditionName == "practice") %>% 
+    filter(grepl("practice",conditionName)) %>% 
     group_by(conditionName, participant, thresholdParameter) %>%
     dplyr::summarize(pm = mean(questMeanAtEndOfTrialsLoop)) %>% 
     ungroup() %>% 
