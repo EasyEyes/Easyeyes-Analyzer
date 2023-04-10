@@ -46,11 +46,22 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
     geom_point(size = 2) +
     scale_y_log10() +
     scale_x_log10() + 
-    annotation_logticks(short = unit(0.1, "cm"),                                                
-                        mid = unit(0.1, "cm"),
-                        long = unit(0.3, "cm")) + 
     scale_shape_manual(values = sample(0:25, length(unique(t$font)), F)) + 
     ggtitle("Average Crowding Distance Left vs Right") +
     xlab("Left") +
-    ylab("Right")
+    ylab("Right") + 
+    theme(legend.position = "right", 
+          legend.box = "vertical", 
+          legend.justification = c(1,1),
+          legend.margin = margin(-0.4),
+          legend.key.size = unit(4.5, "mm"),
+          legend.title = element_text(size=16),
+          legend.text = element_text(size=16),
+          panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(), 
+          axis.title = element_text(size = 16),
+          axis.text = element_text(size = 16),
+          axis.line = element_line(colour = "black"),
+          plot.title = element_text(size=16))
 }

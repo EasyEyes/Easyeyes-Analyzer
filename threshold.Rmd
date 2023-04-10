@@ -1,0 +1,45 @@
+---
+output: pdf_document
+params:
+  warning: NA
+  conditionName: NA
+  thresholdParameter: NA
+  m: NA
+  sd: NA
+  se: NA
+  N: NA
+  parameter: NA
+  experiment: ""
+---
+
+```{r set title, echo = F, inlcude = FALSE, message=FALSE}
+title <- trimws(paste(unique(params$experiment), collapse = ", "))
+title <- ifelse(title == "", "threshold", title)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(dplyr)
+```
+
+## `r title`
+
+### `r format(Sys.time(), '%B %d, %Y')`
+
+#### Threshold
+
+```{r}
+threshold <- tibble(
+  conditionName = params$conditionName,
+  m = params$m,
+  sd = params$sd,
+  se = params$se,
+  parameter = params$parameter)
+knitr::kable(threshold)
+```
+
+
+```{r}
+knitr::kable(tibble(warning = params$warning))
+```
+

@@ -132,6 +132,7 @@ read_files <- function(file){
     psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[1]
     WindowDimensions <- paste0(psychojsWindowDimensions[[1]][1], " x ", psychojsWindowDimensions[[1]][2])
     t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
+    t$resolution = ifelse(t$resolution[1] == "NA x NA", "unknown", t$resolution)
     info <- filter(t, is.na(questMeanAtEndOfTrialsLoop)) %>% 
       select(block_condition, conditionName) %>% 
       distinct(block_condition, conditionName) %>% 
@@ -142,7 +143,7 @@ read_files <- function(file){
       left_join(info, by = "block_condition")
     info <- t %>% 
       filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
-      distinct(participant, block, staircaseName, conditionName, targetKind, font)
+      distinct(participant, block_condition, staircaseName, conditionName, targetKind, font)
     
     summaries <- t %>% 
       filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
@@ -161,7 +162,7 @@ read_files <- function(file){
   experiment <- experiment[experiment!=""]
   return(list(data_list, 
               summary_list, 
-              paste(unique(experiment), collapse = "_"),
-              paste(unique(readingCorpus), collapse = "_")
+              paste(unique(experiment), collapse = "-"),
+              paste(unique(readingCorpus), collapse = "-")
               ))
 }

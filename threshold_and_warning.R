@@ -6,13 +6,13 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   }
   crowding <- all_summary %>% 
     filter(thresholdParameter != "size", targetKind == "letter", !grepl("practice",conditionName)) %>% 
-    select(participant, conditionName, questMeanAtEndOfTrialsLoop, font) %>%
+    select(participant, block_condition ,conditionName, questMeanAtEndOfTrialsLoop, font) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
   ########################### RSVP READING ############################
   
   rsvp_speed <- all_summary %>% 
     filter(targetKind == "rsvpReading") %>% 
-    select(block, participant, conditionName, questMeanAtEndOfTrialsLoop, font, targetKind, thresholdParameter) %>%
+    select(participant, block_condition,conditionName, questMeanAtEndOfTrialsLoop, font, targetKind, thresholdParameter) %>%
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
   ################################ READING #######################################
@@ -23,6 +23,32 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
       mutate(log_WPM = log10(wordPerMin)) %>% 
       filter(targetKind == "reading" & font !="")
   }
+  
+  nQs <- as.numeric(reading$readingNumberOfQuestions[1])
+  
+  ################################ READING RETENTION #######################################
+  
+  reading_accuracy <- tibble()
+  for (i in 1:length(data_list)) {
+    t <- data_list[[i]]
+    if ("readWordIdentifiedBool" %in% colnames(t)) {
+      readingQuestions <- t %>% 
+        filter(!is.na(readWordIdentifiedBool)) %>% 
+        select(participant,readWordIdentifiedBool)
+      if(nrow(readingQuestions) > 0) {
+        n_blocks = nrow(readingQuestions)/nQs
+        r <- reading %>% filter(participant == readingQuestions$participant[1])
+        blocks <- unique(r$block_condition)[1:n_blocks]
+        readingQuestions <- cbind(readingQuestions,tibble(block_condition = rep(blocks,each = nQs)))
+        reading_accuracy <- rbind(reading_accuracy,readingQuestions)
+      }
+    }
+  }
+  reading_accuracy <- reading_accuracy %>% 
+    group_by(participant, block_condition) %>% 
+    summarize(accuracy = mean(readWordIdentifiedBool))
+  reading <- reading %>% left_join(reading_accuracy, by = c("participant", "block_condition") )
+  reading$accuracy = factor(reading$accuracy, levels = c(0,0.2,0.4,0.6,0.8,1))
   
   fluency <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     if("questionAndAnswerCorrectAnswer" %in% colnames(data_list[[i]])) {
@@ -38,6 +64,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   
   return(list(reading, crowding, rsvp_speed, fluency))
 }
+
 generate_threshold <- function(data_list, summary_list){
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]]
@@ -46,20 +73,24 @@ generate_threshold <- function(data_list, summary_list){
     filter(thresholdParameter != "size", targetKind == "letter", !grepl("practice",conditionName)) %>% 
     select(participant, conditionName, questMeanAtEndOfTrialsLoop, font) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
+  
   ########################### RSVP READING ############################
   
   rsvp_speed <- all_summary %>% 
     filter(targetKind == "rsvpReading") %>% 
-    select(block, participant, conditionName, questMeanAtEndOfTrialsLoop, font, targetKind, thresholdParameter) %>%
+    select(block_condition, participant, conditionName, questMeanAtEndOfTrialsLoop, font, targetKind, thresholdParameter) %>%
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
+  
+  crowding_vs_rsvp <- merge(crowding,rsvp_speed, by = c("participant", "font"))
+  
+  
   ################################ READING #######################################
   reading <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     data_list[[i]] %>% select(block_condition, participant, conditionName, font, wordPerMin, targetKind, thresholdParameter) %>% 
       mutate(log_WPM = log10(wordPerMin)) %>% 
       filter(targetKind == "reading" & font !="")
   }
-  crowding_vs_rsvp <- merge(crowding,rsvp_speed, by = c("participant", "font"))
   
   reading_each <- reading %>% 
     group_by(font, participant, block_condition, thresholdParameter) %>%

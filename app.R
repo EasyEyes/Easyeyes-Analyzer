@@ -1,61 +1,3 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
-data_table_call_back = "
-                   table.column(9).nodes().to$().css({cursor: 'pointer'});
-                  var format1 = function(d) {
-                  return'<p>' + d[9] + '</p>'
-                  };
-                  table.on('click', 'td.details-control1', function() {
-                  var td = $(this), row = table.row(td.closest('tr'));
-                  if (row.child.isShown()) {
-                  row.child.hide();
-                  } else {
-                  row.child(format1(row.data())).show();
-                  }
-                  })
-                  table.column(10).nodes().to$().css({cursor: 'pointer'});
-                  var format2 = function(d) {
-                  return'<p>' + d[10] + '</p>'
-                  };
-                  table.on('click', 'td.details-control2', function() {
-                  var td = $(this), row = table.row(td.closest('tr'));
-                  if (row.child.isShown()) {
-                  row.child.hide();
-                  } else {
-                  row.child(format2(row.data())).show();
-                  }
-                  })
-                  table.column(1).nodes().to$().css({cursor: 'pointer'});
-                  var format3 = function(d) {
-                  return'<p>' + d[1] + '</p> <p>' + d[2] + '</p>'
-                  };
-                  table.column(2).nodes().to$().css({cursor: 'pointer'});
-                  var format4 = function(d) {
-                  return'<p>' + d[1] + '</p> <p>' + d[2] + '</p>'
-                  };
-                  table.on('click', 'td.information-control1', function() {
-                  var td = $(this), row = table.row(td.closest('tr'));
-                  if (row.child.isShown()) {
-                  row.child.hide();
-                  } else {
-                  row.child(format3(row.data())).show();
-                  }
-                  });
-                  table.on('click', 'td.information-control2', function() {
-                  var td = $(this), row = table.row(td.closest('tr'));
-                  if (row.child.isShown()) {
-                  row.child.hide();
-                  } else {
-                  row.child(format4(row.data())).show();
-                  }
-                  });"
 
 library(shiny)
 require(foreach)
@@ -65,8 +7,9 @@ require(ggplot2)
 require(stringr)
 require(emojifont)
 require(DT)
+library(ggpubr)
 
-
+source('./constant.R')
 source("preprocess.R")
 source("./error report/summary_table.R")
 source("threshold_and_warning.R")
@@ -75,7 +18,10 @@ source("./plotting/mean_median_plot.R")
 source("./plotting/regression_plot.R")
 source("./plotting/histogram.R")
 source("./plotting/crowding_plot.R")
+source("./plotting/test_retest.R")
+source("./plotting/scatter_plots.R")
 library(bslib)
+
 options(shiny.maxRequestSize=70*1024^2)
 
 ui <- navbarPage(
@@ -90,25 +36,30 @@ ui <- navbarPage(
       }
   .form-group {
   margin-bottom: 10px;
-  margin-top: 10px;
   }
   .container-fluid {
   padding-left:5px;
   padding-right:0px;
   }
   "))),
-  title = 'EasyEyes Analysis',
-  tabPanel('Error Report', 
-           span(textOutput("experiment"), style="font-size:20px; margin-top:0px"),
-           fileInput("file", NULL, accept = ".csv", buttonLabel = "Select CSV files", multiple = T),
-           div(style = "margin-top: -10px"),
-           fluidRow(column(width = 2,downloadButton("report", "Download report"))),
+  title = textOutput("app_title"),
+  tabPanel('Sessions', 
+           # span(textOutput("experiment"), style="font-size:20px; margin-top:0px"),
+           fluidRow(column(width = 2, fileInput("file", NULL, accept = ".csv", buttonLabel = "Select CSV files", multiple = T)),
+                    column(width = 2, downloadButton("report", "Download report")),
+                    column(width = 2, textInput("search", label = NULL))
+                    ),
            textOutput("instruction"),
            DT::dataTableOutput('ex1')),
-  tabPanel('Threshold',  
+  tabPanel('Stats',  
+           downloadButton("threshold", "Download"),
            fluidRow(tableOutput('ex3')),
            fluidRow(tableOutput('ex2'))),
   tabPanel('Plots', 
+           radioButtons("fileType", "Select download file type:",
+                        c("pdf" = "pdf",
+                          "eps" = "eps"),
+                        inline = TRUE, selected = "pdf"),
            splitLayout(cellWidths = c("50%", "50%"),
                        plotOutput("meanPlot", width = "100%"),
                        plotOutput("medianPlot", width = "100%")),
@@ -126,26 +77,42 @@ ui <- navbarPage(
            ),
            splitLayout(cellWidths = c("50%", "50%"),
                        plotOutput("retentionHistogram", width = "100%"),
-                       plotOutput("crowdingScatterPlot", width = "100%")
+                       plotOutput("readingSpeedRetention", width = "100%")
+                       
            ),
            splitLayout(cellWidths = c("50%", "50%"),
                        downloadButton("downloadRetentionHistogram", "Download"),
-                       downloadButton("downloadCrowdingScatterPlot", "Download")
+                       downloadButton("downloadReadingSpeedRetention", "Download")
            ),
            splitLayout(cellWidths = c("50%", "50%"),
                        plotOutput("crowdingAvgPlot", width = "100%"),
-                       # plotOutput("crowdingScatterPlot", width = "100%")
+                       plotOutput("crowdingScatterPlot", width = "100%")
            ),
            splitLayout(cellWidths = c("50%", "50%"),
                        downloadButton("downloadCrowdingAvgPlot", "Download"),
-                       # downloadButton("downloadCrowdingScatterPlot", "Download")
-           )
-           
+                       downloadButton("downloadCrowdingScatterPlot", "Download")
+           ),
+           h3("Test and Retest plots"),
+           splitLayout(cellWidths = c("50%", "50%"),
+                       plotOutput("readingTestRetest", width = "100%"),
+                       plotOutput("crowdingTestRetest", width = "100%")
+           ),
+           splitLayout(cellWidths = c("50%", "50%"),
+                       downloadButton("downloadReadingTestRetest", "Download"),
+                       downloadButton("downloadCrowdingTestRetest", "Download")
+           ),
+           splitLayout(cellWidths = c("50%", "50%"),
+                       plotOutput("rsvpReadingTestRetest", width = "100%")
+           ),
+           splitLayout(cellWidths = c("50%", "50%"),
+                       downloadButton("downloadRsvpReadingTestRetest", "Download")
+           ),
   )
 )
 
 server <- function(input, output, session) {
   output$file_name <- renderText({input$file_name})
+  #### reactive objects ####
   files <- reactive({
     require(input$file)
     return(read_files(input$file))
@@ -153,68 +120,90 @@ server <- function(input, output, session) {
   data_list <- reactive({
     return(files()[[1]])
   })
-  
   summary_list <- reactive({
     return(files()[[2]])
   })
-  
   experiment_names <- reactive({
     return(trimws(files()[[3]]))
+  })
+  app_title <- reactiveValues(default = "EasyEyes Analysis")
+  observeEvent(input$file,{
+    app_title$default <- experiment_names()
+  })
+  
+  output$app_title <- renderText({
+    ifelse(app_title$default == "", "EasyEyes Analysis", app_title$default)
   })
   
   readingCorpus <- reactive({
     return(trimws(files()[[4]]))
   })
-  
+  #### reactive dataframes
   summary_table <- reactive({
     generate_summary_table(data_list())
   })
-  
   threshold_and_warnings <- reactive({
     require(input$file)
     return(generate_threshold(data_list(), summary_list()))
   })
-  
   df_list <- reactive({
     return(generate_rsvp_reading_crowding_fluency(data_list(), summary_list()))
     })
-  
-  reaing_rsvp_crowding_df <- reactive({return(get_mean_median_df(df_list()))})
-  
+  reaing_rsvp_crowding_df <- reactive({
+    return(get_mean_median_df(df_list()))
+    })
+  #### reactive plots #####
   meanPlot <- reactive({
     require(input$file)
-    mean_plot(reaing_rsvp_crowding_df())
+    mean_plot(reaing_rsvp_crowding_df()) +  
+      coord_fixed(ratio = 1) + 
+      labs(title = paste(c("Mean", experiment_names()), collapse = "\n"))
   })
-  
   medianPlot <- reactive({
     require(input$file)
-    median_plot(reaing_rsvp_crowding_df())
+    median_plot(reaing_rsvp_crowding_df()) + 
+      coord_fixed(ratio = 1) + 
+      labs(title = paste(c("Median", experiment_names()), collapse = "\n"))
   })
-  
   crowdingBySide <- reactive({
     crowding_by_side(df_list()[[2]])
   })
-  
   crowdingPlot <- reactive({
     crowding_scatter_plot(crowdingBySide())
   })
-  
   crowdingAvgPlot <- reactive({
     crowding_mean_scatter_plot(crowdingBySide())
   })
-  
   regressionPlot <- reactive({
     regression_plot(df_list())
   })
-  
   fluency_histogram <- reactive({
     get_fluency_histogram(df_list()[[4]])
   })
-  
   retention_histogram <- reactive({
-    get_reading_retention_histogram(data_list(), df_list()[[1]])
+    get_reading_retention_histogram(df_list()[[1]]) + ggtitle(paste(experiment_names(),readingCorpus(),sep="\n"))
+  })
+  readingTestRetest <- reactive({
+    get_test_retest_reading(df_list()[[1]])
+  })
+  crowdingTestRetest <- reactive({
+    get_test_retest_crowding(df_list()[[2]])
+  })
+  rsvpReadingTestRetest <- reactive({
+    get_test_retest_rsvp(df_list()[[3]]) 
   })
   
+  readingSpeedRetention <- reactive({
+    reading_speed_vs_retention(df_list()[[1]]) + 
+      ggtitle(paste(experiment_names(), 
+                    readingCorpus(), 
+                    "reading speed vs retention",
+                    sep = "\n"))
+  })
+  
+  #### Event Handler ####
+  
+  # This execute when user upload a bunch of csv files
   observeEvent(input$file, 
                {
                  set.seed(2023)
@@ -233,6 +222,11 @@ server <- function(input, output, session) {
                        autoWidth = FALSE,
                        paging = FALSE,
                        scrollX=TRUE,
+                       searching = FALSE,
+                       language = list(
+                         info = 'Showing _TOTAL_ entries',
+                         infoFiltered =  "(filtered from _MAX_ entries)"
+                       ),
                        columnDefs = list(
                          list(visible = FALSE, targets = c(0)),
                          list(targets = c(9),
@@ -281,33 +275,13 @@ server <- function(input, output, session) {
                  output$ex3 <- renderTable(
                    threshold_and_warnings()[[1]]
                  )
-                 output$instruction <- renderText("In each column’s heading, to the right are buttons to sort up and down, and below is a text box for selection.")
+                 output$instruction <- renderText(instruction)
                  output$experiment <- renderText(experiment_names())
-                 plt_theme <- theme(legend.position = "right", 
-                                    legend.box = "vertical", 
-                                    legend.justification = c(1,1),
-                                    legend.margin = margin(-0.4),
-                                    legend.key.size = unit(4.5, "mm"),
-                                    legend.title = element_text(size=14),
-                                    legend.text = element_text(size=14),
-                                    panel.grid.major = element_blank(), 
-                                    panel.grid.minor = element_blank(),
-                                    panel.background = element_blank(), 
-                                    axis.title = element_text(size = 14),
-                                    axis.text = element_text(size = 14),
-                                    axis.line = element_line(colour = "black"),
-                                    plot.title = element_text(size=14))
                  output$meanPlot <- renderPlot({
-                   meanPlot() + 
-                     plt_theme + 
-                     coord_fixed(ratio = 1) + 
-                     labs(title = paste(c("Mean", experiment_names(), readingCorpus()), collapse = "\n"))
+                   meanPlot() + plt_theme
                    }, res = 96)
                  output$medianPlot <- renderPlot({
-                   medianPlot() + 
-                     plt_theme + 
-                     coord_fixed(ratio = 1) + 
-                     labs(title = paste(c("Mean", experiment_names(), readingCorpus()), collapse = "\n"))
+                   medianPlot() + plt_theme
                    }, res = 96)
                  output$regressionPlot <- renderPlot({
                    regressionPlot() + plt_theme + coord_fixed(ratio = 1)
@@ -324,22 +298,23 @@ server <- function(input, output, session) {
                  output$crowdingAvgPlot <- renderPlot({
                    crowdingAvgPlot() + plt_theme + coord_fixed(ratio = 1)
                  })
+                 output$readingTestRetest <- renderPlot({
+                   readingTestRetest()
+                 })
+                 output$crowdingTestRetest <- renderPlot({
+                   crowdingTestRetest()
+                 })
+                 output$rsvpReadingTestRetest <- renderPlot({
+                   rsvpReadingTestRetest()
+                 })
+                 output$readingSpeedRetention <- renderPlot({
+                   readingSpeedRetention()
+                 })
+                 
+                 
                })
   
-  
-  downloadtheme <- theme(legend.position = "right", 
-                         legend.box = "vertical", 
-                         legend.justification = c(1,1),
-                         legend.margin = margin(-0.4),
-                         legend.key.size = unit(4.5, "mm"),
-                         legend.title = element_text(size=16),
-                         legend.text = element_text(size=16),
-                         panel.grid.major = element_blank(), 
-                         panel.grid.minor = element_blank(),
-                         panel.background = element_blank(), axis.title = element_text(size = 16),
-                         axis.text = element_text(size = 16),
-                         axis.line = element_line(colour = "black"),
-                         plot.title = element_text(size=16))
+  #### download handlers ####
   
   output$report <- downloadHandler(
     filename = function(){ ifelse(experiment_names() == "", "error report.html", paste0(experiment_names(), ".html"))},
@@ -353,70 +328,89 @@ server <- function(input, output, session) {
     }
   )
   
-  output$downloadMeanPlot <- downloadHandler(
-    filename = 'mean.png',
+  output$threshold <- downloadHandler(
+    filename = function(){ ifelse(experiment_names() == "", "threshold.pdf", paste0("threshold-",experiment_names(), ".pdf"))},
     content = function(file) {
-      device <- function(..., width, height) {
-        grDevices::png(..., width = width, height = height,
-                       res = 250, units = "in")
-      }
-      ggsave(file, plot = meanPlot() + downloadtheme + coord_fixed(ratio = 1), device = device)
-    })
-  output$downloadMedianPlot <- downloadHandler(
-    filename = 'median.png',
-    content = function(file) {
-      device <- function(..., width, height) {
-        grDevices::png(..., width = width, height = height,
-                       res = 150, units = "in")
-      }
-      ggsave(file, plot = medianPlot() + downloadtheme + coord_fixed(ratio = 1), device = device, dpi = 150)
-    })
-  output$downloadRegressionPlot<- downloadHandler(
-    filename = 'regression.png',
-    content = function(file) {
-      device <- function(..., width, height) {
-        grDevices::png(..., width = width, height = height,
-                       res = 150, units = "in")
-      }
-      ggsave(file, plot = regressionPlot() + downloadtheme + coord_fixed(ratio = 1), device = device, dpi = 150)
-    })
-  output$downloadFluencyHistogram<- downloadHandler(
-    filename = 'fluency.png',
-    content = function(file) {
-      device <- function(..., width, height) {
-        grDevices::png(..., width = width, height = height,
-                       res = 150, units = "in")
-      }
-      ggsave(file, plot = fluency_histogram() + downloadtheme, device = device)
-    })
-  output$downloadRetentionHistogram<- downloadHandler(
-    filename = 'retention.png',
-    content = function(file) {
-      device <- function(..., width, height) {
-        grDevices::png(..., width = width, height = height,
-                       res = 150, units = "in")
-      }
-      ggsave(file, plot = retention_histogram() + downloadtheme, device = device)
-    })
-  
-  output$downloadCrowdingScatterPlot<- downloadHandler(
-    filename = 'crowding_left_vs_right.png',
-    content = function(file) {
-      device <- function(..., width, height) {
-        grDevices::png(..., width = width, height = height,
-                       res = 150, units = "in")
-      }
-      ggsave(file, plot = crowdingPlot(), device = device)
-    })
-  output$downloadCrowdingAvgPlot <- downloadHandler(
-    filename = 'average_crowding_left_vs_right.png',
-    content = function(file) {
-      device <- function(..., width, height) {
-        grDevices::png(..., width = width, height = height,
-                       res = 150, units = "in")
-      }
-      ggsave(file, plot = crowdingAvgPlot() + downloadtheme + coord_fixed(ratio = 1), device = device)
-    })
+      tempReport <- file.path(tempdir(), "threshold.Rmd")
+      file.copy("threshold.Rmd", tempReport, overwrite = TRUE)
+      rmarkdown::render(tempReport, output_file = file,
+                        params = c(threshold_and_warnings()[[1]], threshold_and_warnings()[[2]] %>% mutate(experiment = experiment_names())),
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
+  toListen <- reactive({
+    list(input$file,input$fileType)
+  })
+  # download plots handlers
+  observeEvent(toListen(), {
+    
+    output$downloadMeanPlot <- downloadHandler(
+      filename = paste(experiment_names(), paste0('mean.', input$fileType), sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = meanPlot() + downloadtheme + coord_fixed(ratio = 1))
+      })
+    
+    output$downloadMedianPlot <- downloadHandler(
+      filename = paste(experiment_names(),paste0('median.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = medianPlot() + downloadtheme + coord_fixed(ratio = 1))
+      })
+    
+    output$downloadRegressionPlot <- downloadHandler(
+      filename = paste(experiment_names(),paste0('regression.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = regressionPlot() + downloadtheme + coord_fixed(ratio = 1))
+      })
+    
+    output$downloadFluencyHistogram <- downloadHandler(
+      filename = paste(experiment_names(),paste0('fluency.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = fluency_histogram() + downloadtheme)
+      })
+    
+    output$downloadRetentionHistogram <- downloadHandler(
+      filename = paste(experiment_names(),paste0('retention.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = retention_histogram() + downloadtheme)
+      })
+    
+    output$downloadCrowdingScatterPlot <- downloadHandler(
+      filename = paste(experiment_names(),paste0('crowding_left_vs_right.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = crowdingPlot())
+      })
+    
+    output$downloadCrowdingAvgPlot <- downloadHandler(
+      filename = paste(experiment_names(),paste0('average_crowding_left_vs_right.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = crowdingAvgPlot() + downloadtheme + coord_fixed(ratio = 1))
+      })
+    
+    output$downloadReadingSpeedRetention <- downloadHandler(
+      filename = paste(experiment_names(),paste0('reading-speed-vs-retention.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = readingSpeedRetention())
+      })
+    
+    output$downloadReadingTestRetest <- downloadHandler(
+      filename = paste(experiment_names(),paste0('reading-test-retest.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = readingTestRetest())
+      })
+    
+    output$downloadCrowdingTestRetest <- downloadHandler(
+      filename = paste(experiment_names(),paste0('crowding-test-retest.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = crowdingTestRetest())
+      })
+    
+    output$downloadRsvpReadingTestRetest <- downloadHandler(
+      filename = paste(experiment_names(),paste0('rsvp-test-retest.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = rsvpReadingTestRetest())
+      })
+  })
 }
 
 # Run the application 

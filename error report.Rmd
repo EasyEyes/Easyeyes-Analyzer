@@ -1,5 +1,4 @@
 ---
-output: html_document
 params:
   Prolific participant ID: NA
   Pavlovia session ID: NA 
@@ -16,13 +15,13 @@ params:
   target task: NA
   target kind: NA
   experiment: ""
+title: "`r paste(unique(params$experiment), collapse = '-')`"
+output: html_document
 ---
 ```{r, echo = F, inlcude = FALSE, message=FALSE}
-title <- trimws(paste(unique(params$experiment), collapse = ", "))
-title <- ifelse(title == "", "error report", title)
+library(ggplot2)
+source("./constant.R")
 ```
-
-## `r title`
 
 ### `r format(Sys.time(), '%B %d, %Y')`
 
@@ -35,7 +34,7 @@ title <- ifelse(title == "", "error report", title)
 </style>
 ```
 
-**Each line summarizes one CSV result file, a participant’s session. Sort by clicking a tiny up or down arrow near any column heading.**
+`r instruction`
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, inlcude = FALSE, warning=FALSE)
@@ -121,56 +120,7 @@ datatable(
           list(width = '200px', targets = c(12))
       )
     ),
-    callback = JS("
-                   table.column(9).nodes().to$().css({cursor: 'pointer'});
-                  var format1 = function(d) {
-                  return'<p>' + d[9] + '</p>'
-                  };
-                  table.on('click', 'td.details-control1', function() {
-                  var td = $(this), row = table.row(td.closest('tr'));
-                  if (row.child.isShown()) {
-                  row.child.hide();
-                  } else {
-                  row.child(format1(row.data())).show();
-                  }
-                  })
-                  table.column(10).nodes().to$().css({cursor: 'pointer'});
-                  var format2 = function(d) {
-                  return'<p>' + d[10] + '</p>'
-                  };
-                  table.on('click', 'td.details-control2', function() {
-                  var td = $(this), row = table.row(td.closest('tr'));
-                  if (row.child.isShown()) {
-                  row.child.hide();
-                  } else {
-                  row.child(format2(row.data())).show();
-                  }
-                  })
-                  table.column(1).nodes().to$().css({cursor: 'pointer'});
-                  var format3 = function(d) {
-                  return'<p>' + d[1] + '</p> <p>' + d[2] + '</p>'
-                  };
-                  table.column(2).nodes().to$().css({cursor: 'pointer'});
-                  var format4 = function(d) {
-                  return'<p>' + d[1] + '</p> <p>' + d[2] + '</p>'
-                  };
-                  table.on('click', 'td.information-control1', function() {
-                  var td = $(this), row = table.row(td.closest('tr'));
-                  if (row.child.isShown()) {
-                  row.child.hide();
-                  } else {
-                  row.child(format3(row.data())).show();
-                  }
-                  });
-                  table.on('click', 'td.information-control2', function() {
-                  var td = $(this), row = table.row(td.closest('tr'));
-                  if (row.child.isShown()) {
-                  row.child.hide();
-                  } else {
-                  row.child(format4(row.data())).show();
-                  }
-                  });"
-                  
+    callback = JS(data_table_call_back
   )) %>% 
   formatStyle(names(dt),color = 'black', lineHeight="10px") %>% 
   formatStyle(names(dt)[-1],
