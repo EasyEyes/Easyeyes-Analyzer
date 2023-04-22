@@ -4,10 +4,22 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]]
   }
+  eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+    t <- data_list[[i]] %>% distinct(participant, conditionName, targetEccentricityXDeg, targetEccentricityYDeg)
+  }
   crowding <- all_summary %>% 
     filter(thresholdParameter != "size", targetKind == "letter", !grepl("practice",conditionName)) %>% 
-    select(participant, block_condition ,conditionName, questMeanAtEndOfTrialsLoop, font) %>%
+    select(participant,
+           block_condition,
+           conditionName, 
+           questMeanAtEndOfTrialsLoop, 
+           font) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
+  crowding <- crowding %>% 
+    left_join(eccentricityDeg, by = c("participant", "conditionName")) %>% 
+    mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg), 
+           targetEccentricityYDeg = as.numeric(targetEccentricityYDeg)) %>% 
+    mutate(bouma_factor = log_crowding_distance_deg/sqrt(targetEccentricityXDeg^2+targetEccentricityYDeg^2))
   ########################### RSVP READING ############################
   
   rsvp_speed <- all_summary %>% 

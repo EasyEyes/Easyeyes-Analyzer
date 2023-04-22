@@ -34,11 +34,14 @@ get_mean_median_df <- function(df_list){
               median_log_SpeedWPM = median(log10(avg_wordPerMin), na.rm = T),
               se = sd(log10(avg_wordPerMin), na.rm = T)/sqrt(n()))
   # average log crowding distance degree by font
-  crowding_byfont <- crowding%>% 
+  crowding_byfont <- crowding %>% 
     group_by(font) %>% 
     summarize(avg_log_crowding = mean(log_crowding_distance_deg, na.rm = T),
               median_log_crowding = median(log_crowding_distance_deg, na.rm = T),
-              se_crowding = sd(log_crowding_distance_deg, na.rm = T)/sqrt(n()))
+              se_crowding = sd(log_crowding_distance_deg, na.rm = T)/sqrt(n()),
+              mean_bouma_factor = mean(bouma_factor, na.rm = T),
+              median_bouma_factor = median(bouma_factor, na.rm = T),
+              se_bouma_factor = sd(bouma_factor, na.rm = T)/sqrt(n()))
   # average log rsvp reading wpm by font
   rsvp_byfont <- rsvp_speed%>% 
     group_by(font) %>% 
@@ -52,52 +55,59 @@ get_mean_median_df <- function(df_list){
   rsvp_vs_ordinary_vs_crowding <- rbind(reading_vs_crowding,RSVP_vs_crowding)
   
   N_reading <- length(unique(reading_valid$participant))
-  N_rsvp <- length(unique(RSVP_vs_crowding$participant))
-  if (N_reading == N_rsvp) {
-    N_text = paste0(" = ", N_reading)
-  } else {
-    N_text = paste0(" = ", min(N_reading, N_rsvp), " to ", max(N_reading, N_rsvp))
-  }
+  N_rsvp <- length(unique(rsvp_speed$participant))
+  N_text = max(N_reading,N_rsvp)
   return(list(rsvp_vs_ordinary_vs_crowding, N_text))
 }
 
-mean_plot <- function(reaing_rsvp_crowding_df){
-  rsvp_vs_ordinary_vs_crowding <- reaing_rsvp_crowding_df[[1]]
-  N_text <- reaing_rsvp_crowding_df[[2]]
+
+mean_plot <- function(reading_rsvp_crowding_df){
+  rsvp_vs_ordinary_vs_crowding <- reading_rsvp_crowding_df[[1]]
+  N_text <- reading_rsvp_crowding_df[[2]]
   
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, 
-         aes(x = 10^(avg_log_crowding), 
+         aes(x = 10^(mean_bouma_factor), 
              y = 10^(avg_log_SpeedWPM), 
-             color = targetKind
+             color = font
          )) +
-    geom_point(aes(shape = font), size = 3) + 
+    geom_point(aes(shape = targetKind), size = 3) + 
     scale_y_log10() +
     scale_x_log10() + 
     geom_errorbar(aes(ymin=10^(avg_log_SpeedWPM-se), ymax=10^(avg_log_SpeedWPM+se)), width=0) +
-    geom_errorbar(aes(xmin=10^(avg_log_crowding-se_crowding), xmax=10^(avg_log_crowding+se_crowding)), width=0) +
+    geom_errorbar(aes(xmin=10^(mean_bouma_factor-se_bouma_factor), xmax=10^(mean_bouma_factor+se_bouma_factor)), width=0) +
     theme_bw() + 
-    labs(x = "Crowding distance (deg)", y = "Reading speed (word/min)") +
-    annotation_logticks(short = unit(0.1, "cm"),                                                                        mid = unit(0.1, "cm"),
-                        long = unit(0.3, "cm")) + 
-    scale_shape_manual(values = sample(0:25, length(unique(rsvp_vs_ordinary_vs_crowding$font)), F))
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) + 
+    # annotate("text", 10^(max(rsvp_vs_ordinary_vs_crowding$mean_bouma_factor)), 
+    #          y=10^(min(rsvp_vs_ordinary_vs_crowding$avg_log_SpeedWPM - rsvp_vs_ordinary_vs_crowding$se)), 
+    #          label = paste("italic(n)==",N_text), 
+    #          parse = TRUE) +
+    coord_fixed(ratio = 1) + 
+    labs(x = "Bouma Factor", y = "Reading speed (word/min)")
+    # annotation_logticks(short = unit(0.1, "cm"),                                                                        mid = unit(0.1, "cm"),
+    #                     long = unit(0.3, "cm"))
   return(p)
 }
 
-median_plot <- function(reaing_rsvp_crowding_df){
-  rsvp_vs_ordinary_vs_crowding <- reaing_rsvp_crowding_df[[1]]
-  N_text <- reaing_rsvp_crowding_df[[2]]
+median_plot <- function(reading_rsvp_crowding_df){
+  rsvp_vs_ordinary_vs_crowding <- reading_rsvp_crowding_df[[1]]
+  N_text <- reading_rsvp_crowding_df[[2]]
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, 
-         aes(x = 10^(median_log_crowding), 
+         aes(x = 10^(median_bouma_factor), 
              y = 10^(median_log_SpeedWPM), 
-             color = targetKind)) +
-    geom_point(aes(shape = font), size = 3) + 
+             color = font)) +
+    geom_point(aes(shape = targetKind), size = 3) + 
     scale_y_log10() +
     scale_x_log10() + 
     theme_bw() + 
-    labs(x = "Crowding distance (deg)", y = "Reading speed (word/min)") +
-    annotation_logticks(short = unit(0.1, "cm"),                                                
-                        mid = unit(0.1, "cm"),
-                        long = unit(0.3, "cm")) +
-    scale_shape_manual(values = sample(0:25, length(unique(rsvp_vs_ordinary_vs_crowding$font)), F))
+    # annotate("text", x = 10^(max(rsvp_vs_ordinary_vs_crowding$median_bouma_factor)), 
+    #          y = 10^(min(rsvp_vs_ordinary_vs_crowding$median_log_SpeedWPM - rsvp_vs_ordinary_vs_crowding$se)), 
+    #          label = paste("italic(n)==",N_text), 
+    #          parse = TRUE) +
+    labs(x = "Bouma Factor", y = "Reading speed (word/min)") + 
+    coord_fixed(ratio = 1) + 
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+    # annotation_logticks(short = unit(0.1, "cm"),                                                
+    #                     mid = unit(0.1, "cm"),
+    #                     long = unit(0.3, "cm"))
   return(p)
 }

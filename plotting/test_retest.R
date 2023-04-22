@@ -38,10 +38,16 @@ get_test_retest_reading <- function(reading){
           strip.text = element_text(size=12),
           axis.title = element_text(size = 16),
           axis.text = element_text(size = 16),
-          axis.line = element_line(colour = "black")) +
-    xlab("Word per minute (test)") +
-    ylab("CWord per minute (retest)") + 
-    ggtitle("Reading") + 
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
+          plot.title = element_text(size = 16),
+          plot.subtitle = element_text(size = 16)) +
+    xlab("Retest reading (word/min)”") +
+    ylab("Retest reading (word/min)”") + 
+    annotate("text", x = 2800, 
+             y = 100, 
+             label = paste("italic(n)==",length(unique(reading_test_retest$participant))), 
+             parse = TRUE) +
     annotation_logticks(short = unit(0.1, "cm"),                                                                        
                         mid = unit(0.1, "cm"),
                         long = unit(0.3, "cm")) +
@@ -56,10 +62,12 @@ get_test_retest_crowding <- function(crowding){
   conditionNames <- unique(crowding$conditionName)
   crowding_test_retest <- tibble()
   for (i in 1:length(conditionNames)){
-    tmp <- crowding %>% filter(conditionName == conditionNames[i]) %>% 
-      pivot_wider(names_from = block_condition, values_from = log_crowding_distance_deg) %>% 
-      rename(test = 4,
-             retest = 5)
+    tmp <- crowding %>% 
+      filter(conditionName == conditionNames[i]) %>%
+      select(participant, block_condition, conditionName,bouma_factor) %>% 
+      pivot_wider(names_from = block_condition, values_from = bouma_factor) %>% 
+      rename(test = 3,
+             retest = 4)
     crowding_test_retest <- rbind(crowding_test_retest, tmp)
     
   }
@@ -83,10 +91,16 @@ get_test_retest_crowding <- function(crowding){
           strip.text = element_text(size=12,hjust = 0),
           axis.title = element_text(size = 16),
           axis.text = element_text(size = 16),
-          axis.line = element_line(colour = "black")) +
-    xlab("Crowding distance degree (test)") +
-    ylab("Crowding distance degree (retest)") + 
-    ggtitle("Crowding") + 
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1), 
+          plot.title = element_text(size = 16),
+          plot.subtitle = element_text(size = 16)) +
+    xlab("Retest Bouma factor") +
+    ylab("Bouma factor") + 
+    annotate("text", x = 90, 
+             y = 0.3, 
+             label = paste("italic(n)==",length(unique(crowding_test_retest$participant))), 
+             parse = TRUE) +
     annotation_logticks(short = unit(0.1, "cm"),
                         mid = unit(0.1, "cm"),
                         long = unit(0.3, "cm")) +
@@ -126,10 +140,17 @@ get_test_retest_rsvp <- function(rsvp_speed){
           strip.text = element_text(size=12),
           axis.title = element_text(size = 16),
           axis.text = element_text(size = 16),
-          axis.line = element_line(colour = "black")) +
-    xlab("Word per minute (test)") +
-    ylab("CWord per minute (retest)") + 
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
+          plot.title = element_text(size = 16),
+          plot.subtitle = element_text(size = 16)) +
+    xlab("RSVP reading (word/min)”") +
+    ylab("Retest RSVP reading (word/min)") + 
     ggtitle("RSVP Reading") + 
+    annotate("text", x = 10^(max(rsvp_test_retest$test)*0.9), 
+             y = 10^(min(rsvp_test_retest$retest)*0.9), 
+             label = paste("italic(n)==",length(unique(rsvp_test_retest$participant))), 
+             parse = TRUE) +
     annotation_logticks(short = unit(0.1, "cm"),
                         mid = unit(0.1, "cm"),
                         long = unit(0.3, "cm")) +

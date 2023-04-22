@@ -1,3 +1,4 @@
+library(dplyr)
 regression_plot <- function(df_list){
   reading <- df_list[[1]]
   crowding <- df_list[[2]]
@@ -22,7 +23,7 @@ regression_plot <- function(df_list){
   
   crowding_summary <- crowding %>% 
     group_by(participant, font) %>% 
-    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg))
+    summarize(bouma_factor = mean(bouma_factor))
   
   reading_crowding <- reading_valid %>% 
     select(participant, font, avg_wordPerMin) %>% 
@@ -33,23 +34,29 @@ regression_plot <- function(df_list){
     mutate(targetKind = "reading")
   crowding_vs_rsvp_summary <- crowding_vs_rsvp %>% 
     group_by(participant, font) %>% 
-    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg), avg_log_WPM = mean(block_avg_log_WPM)) %>% 
+    summarize(bouma_factor = mean(bouma_factor), avg_log_WPM = mean(block_avg_log_WPM)) %>% 
     mutate(targetKind = "RsvpReading")
   
   t <- rbind(crowding_vs_rsvp_summary, reading_crowding)
   corr <- t %>% group_by(targetKind) %>% 
-     summarize(correlation = round(cor(log_crowding_distance_deg,avg_log_WPM, use = "pairwise.complete.obs"),2))
+     summarize(correlation = round(cor(bouma_factor,avg_log_WPM, use = "pairwise.complete.obs"),2))
    t <- t %>% left_join(corr, by = "targetKind") %>% mutate(targetKind = paste0(targetKind, ", R =  ", correlation))
   
   # plot for the regression
-  p <- ggplot(t,aes(x = 10^(log_crowding_distance_deg), y = 10^(avg_log_WPM), color = targetKind)) + 
+  p <- ggplot(t,aes(x = 10^(bouma_factor), y = 10^(avg_log_WPM), color = targetKind)) + 
     geom_point() +
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10() + 
     scale_y_log10() +
-    labs(x="crowding distance", y = "reading speed (word/min)") +
+    coord_fixed(ratio = 1) + 
+    labs(x="Bouma factor", y = "Reading (word/min)") +
     theme_bw() + 
     annotation_logticks() +
-    guides(color=guide_legend(title="Regression and correlation"))
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+    # annotate("text", x = 10^(max(t$bouma_factor)), 
+    #          y = 10^(min(t$avg_log_WPM)), 
+    #          label = paste("italic(n)==", n_distinct(t$participant)), 
+    #          parse = TRUE) +
+    guides(color=guide_legend(title="targetKind and correlation"))
   return(p)
 }

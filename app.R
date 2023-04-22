@@ -8,6 +8,7 @@ require(stringr)
 require(emojifont)
 require(DT)
 library(ggpubr)
+library(shinyjs)
 
 source('./constant.R')
 source("preprocess.R")
@@ -20,7 +21,6 @@ source("./plotting/histogram.R")
 source("./plotting/crowding_plot.R")
 source("./plotting/test_retest.R")
 source("./plotting/scatter_plots.R")
-library(bslib)
 
 options(shiny.maxRequestSize=70*1024^2)
 
@@ -50,7 +50,7 @@ ui <- navbarPage(
                     column(width = 2, textInput("search", label = NULL))
                     ),
            textOutput("instruction"),
-           DT::dataTableOutput('ex1')),
+           shinycssloaders::withSpinner(DT::dataTableOutput('ex1')), type = 5, color = "#0dc5c1", size = 2),
   tabPanel('Stats',  
            downloadButton("threshold", "Download"),
            fluidRow(tableOutput('ex3')),
@@ -127,14 +127,24 @@ server <- function(input, output, session) {
     return(trimws(files()[[3]]))
   })
   app_title <- reactiveValues(default = "EasyEyes Analysis")
+  
   observeEvent(input$file,{
     app_title$default <- experiment_names()
+  })
+  
+  table_default <- reactiveValues(default = 0)
+  
+  observeEvent(input$file,{
+    table_default$default <- 1
   })
   
   output$app_title <- renderText({
     ifelse(app_title$default == "", "EasyEyes Analysis", app_title$default)
   })
   
+  output$ex1 <- renderDataTable({
+    datatable(tibble())
+  })
   readingCorpus <- reactive({
     return(trimws(files()[[4]]))
   })
@@ -155,55 +165,81 @@ server <- function(input, output, session) {
   #### reactive plots #####
   meanPlot <- reactive({
     require(input$file)
-    mean_plot(reaing_rsvp_crowding_df()) +  
-      coord_fixed(ratio = 1) + 
-      labs(title = paste(c("Mean", experiment_names()), collapse = "\n"))
+    mean_plot(reaing_rsvp_crowding_df()) +
+      labs(title = paste(c("Reading Speed, mean", 
+                           experiment_names()), collapse = "\n"),
+           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   medianPlot <- reactive({
     require(input$file)
     median_plot(reaing_rsvp_crowding_df()) + 
-      coord_fixed(ratio = 1) + 
-      labs(title = paste(c("Median", experiment_names()), collapse = "\n"))
+      labs(title = paste(c("Reading Speed, median", 
+                         experiment_names()), collapse = "\n"),
+         subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   crowdingBySide <- reactive({
     crowding_by_side(df_list()[[2]])
   })
   crowdingPlot <- reactive({
-    crowding_scatter_plot(crowdingBySide())
+    crowding_scatter_plot(crowdingBySide())  + 
+      labs(title = paste(c("Crowding, left vs. right, by observer", 
+                           experiment_names()), collapse = "\n"),
+           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   crowdingAvgPlot <- reactive({
-    crowding_mean_scatter_plot(crowdingBySide())
+    crowding_mean_scatter_plot(crowdingBySide())  + 
+      labs(title = paste(c("Crowding, left vs. right, by font", 
+                           experiment_names()), collapse = "\n"),
+           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   regressionPlot <- reactive({
-    regression_plot(df_list())
+    regression_plot(df_list()) +
+      labs(title = paste(c("Regression of reading vs crowding", 
+                           experiment_names()), collapse = "\n"),
+           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   fluency_histogram <- reactive({
-    get_fluency_histogram(df_list()[[4]])
+    get_fluency_histogram(df_list()[[4]]) + 
+      labs(title = paste(c("English fluency histogram", 
+                           experiment_names()), collapse = "\n"),
+           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   retention_histogram <- reactive({
-    get_reading_retention_histogram(df_list()[[1]]) + ggtitle(paste(experiment_names(),readingCorpus(),sep="\n"))
+    get_reading_retention_histogram(df_list()[[1]]) + 
+      labs(title = paste(c("Reading retention histogram", 
+                           experiment_names()), collapse = "\n"),
+           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   readingTestRetest <- reactive({
-    get_test_retest_reading(df_list()[[1]])
+    get_test_retest_reading(df_list()[[1]]) + 
+      labs(title = paste(c("Test retest of reading", 
+                           experiment_names()), collapse = "\n"),
+           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   crowdingTestRetest <- reactive({
-    get_test_retest_crowding(df_list()[[2]])
+    get_test_retest_crowding(df_list()[[2]]) + 
+      labs(title = paste(c("Test retest of crowding", 
+                           experiment_names()), collapse = "\n"),
+           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   rsvpReadingTestRetest <- reactive({
-    get_test_retest_rsvp(df_list()[[3]]) 
+    get_test_retest_rsvp(df_list()[[3]])  + 
+      labs(title = paste(c("Test retest of rsvp reading", 
+                           experiment_names()), collapse = "\n"),
+           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   
   readingSpeedRetention <- reactive({
     reading_speed_vs_retention(df_list()[[1]]) + 
-      ggtitle(paste(experiment_names(), 
-                    readingCorpus(), 
-                    "reading speed vs retention",
-                    sep = "\n"))
+      labs(title = paste(c("Reading vs retention", 
+                           experiment_names()), collapse = "\n"),
+           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   
   #### Event Handler ####
   
   # This execute when user upload a bunch of csv files
+  
   observeEvent(input$file, 
                {
                  set.seed(2023)
@@ -228,7 +264,8 @@ server <- function(input, output, session) {
                          infoFiltered =  "(filtered from _MAX_ entries)"
                        ),
                        columnDefs = list(
-                         list(visible = FALSE, targets = c(0)),
+                         list(visible = FALSE, targets = c(0,16)),
+                         list(orderData=16, targets=11),
                          list(targets = c(9),
                               width = '500px',
                               className = 'details-control1',
@@ -273,7 +310,8 @@ server <- function(input, output, session) {
                    threshold_and_warnings()[[2]] %>% select(-thresholdParameter)
                  )
                  output$ex3 <- renderTable(
-                   threshold_and_warnings()[[1]]
+                   # threshold_and_warnings()[[1]]
+                   df_list()[[2]]
                  )
                  output$instruction <- renderText(instruction)
                  output$experiment <- renderText(experiment_names())
@@ -348,13 +386,13 @@ server <- function(input, output, session) {
     output$downloadMeanPlot <- downloadHandler(
       filename = paste(experiment_names(), paste0('mean.', input$fileType), sep = "-"),
       content = function(file) {
-        ggsave(file, plot = meanPlot() + downloadtheme + coord_fixed(ratio = 1))
+        ggsave(file, plot = meanPlot() + downloadtheme)
       })
     
     output$downloadMedianPlot <- downloadHandler(
       filename = paste(experiment_names(),paste0('median.', input$fileType),sep = "-"),
       content = function(file) {
-        ggsave(file, plot = medianPlot() + downloadtheme + coord_fixed(ratio = 1))
+        ggsave(file, plot = medianPlot() + downloadtheme)
       })
     
     output$downloadRegressionPlot <- downloadHandler(
@@ -367,7 +405,7 @@ server <- function(input, output, session) {
       filename = paste(experiment_names(),paste0('fluency.', input$fileType),sep = "-"),
       content = function(file) {
         ggsave(file, plot = fluency_histogram() + downloadtheme)
-      })
+      }) 
     
     output$downloadRetentionHistogram <- downloadHandler(
       filename = paste(experiment_names(),paste0('retention.', input$fileType),sep = "-"),

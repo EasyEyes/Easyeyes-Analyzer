@@ -10,6 +10,7 @@ reading_speed_vs_retention <- function(reading){
     geom_point(aes(x = accuracy, y = wordPerMin)) +
     annotation_logticks(sides = "l") +
     scale_y_log10() + 
+    theme_bw() + 
     theme(legend.position = "right", 
           legend.box = "vertical", 
           legend.justification = c(1,1),
@@ -23,7 +24,8 @@ reading_speed_vs_retention <- function(reading){
           axis.title = element_text(size = 16),
           axis.text = element_text(size = 16),
           axis.line = element_line(colour = "black"),
-          plot.title = element_text(size=16)) +
-    xlab("reading retention") +
-    ylab("Word per minute")
+          plot.title = element_text(size=16),
+          plot.subtitle = element_text(size=16)) +
+    xlab("Reading retention (proportion correct)") +
+    ylab("Reading (word/min)")
 }

@@ -14,6 +14,8 @@ params:
   condition name: NA
   target task: NA
   target kind: NA
+  threshold parameter: NA
+  order: NA
   experiment: ""
 title: "`r paste(unique(params$experiment), collapse = '-')`"
 output: html_document
@@ -70,7 +72,9 @@ dt <- tibble(
   `block condition` = params$`block condition`,
   `condition name` = params$`condition name`,
   `target task` = params$`target task`,
-  `target kind` = params$`target kind`)
+  `target kind` = params$`target kind`,
+  `threshold parameter` = params$`threshold parameter`,
+  `order` = params$`order`)
 participants <- unique(dt$`Pavlovia session ID`)
 ```
 
@@ -88,7 +92,8 @@ datatable(
       paging = FALSE,
       scrollX=TRUE,
       columnDefs = list(
-        list(visible = FALSE, targets = c(0)),
+        list(visible = FALSE, targets = c(0,16)),
+        list(orderData=16, targets=11),
         list(targets = c(9), 
              width = '150px',
              className = 'details-control1',

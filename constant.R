@@ -72,7 +72,8 @@ downloadtheme <- theme(legend.position = "right",
                        panel.background = element_blank(), axis.title = element_text(size = 16),
                        axis.text = element_text(size = 16),
                        axis.line = element_line(colour = "black"),
-                       plot.title = element_text(size=16))
+                       plot.title = element_text(size=16),
+                       plot.subtitle = element_text(size=16))
 
 ##### ggplot display theme #####
 
@@ -89,6 +90,7 @@ plt_theme <- theme(legend.position = "right",
                    axis.title = element_text(size = 14),
                    axis.text = element_text(size = 14),
                    axis.line = element_line(colour = "black"),
-                   plot.title = element_text(size=14))
+                   plot.title = element_text(size=14),
+                   plot.subtitle = element_text(size=14))
 
 instruction <- "All rows belonging to the same Pavlovia session (a CSV results file) have the same pastel shade.  Each row is a session event: ending, error, or warning. The right side of each column’s heading has buttons to sort up and down, and below is a text box for selection."

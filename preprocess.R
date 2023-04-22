@@ -40,6 +40,12 @@ read_files <- function(file){
     if (!('readWordIdentifiedBool' %in% colnames(t))) {
       t$readWordIdentifiedBool <- NA
     }
+    if (!('targetEccentricityXDeg' %in% colnames(t))) {
+      t$targetEccentricityXDeg <- NA
+    }
+    if (!('targetEccentricityYDeg' %in% colnames(t))) {
+      t$targetEccentricityYDeg <- NA
+    }
     if (!('targetFinishSec' %in% colnames(t))) {
       t$targetFinishSec <- NA
     }
@@ -129,18 +135,18 @@ read_files <- function(file){
                       resolution = paste0(screenWidthPx, " x ", screenHeightPx),
                       block_condition = ifelse(block_condition == "",staircaseName, block_condition))
     t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
+    t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
     psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[1]
     WindowDimensions <- paste0(psychojsWindowDimensions[[1]][1], " x ", psychojsWindowDimensions[[1]][2])
     t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
-    t$resolution = ifelse(t$resolution[1] == "NA x NA", "unknown", t$resolution)
+    t$resolution = ifelse(t$resolution[1] == "NA x NA", "", t$resolution)
     info <- filter(t, is.na(questMeanAtEndOfTrialsLoop)) %>% 
       select(block_condition, conditionName) %>% 
       distinct(block_condition, conditionName) %>% 
       filter(conditionName != "" & block_condition != "")
     t <- t %>% 
-      rename("cores" = "hardwareConcurrency") %>% 
-      select(-conditionName) %>% 
-      left_join(info, by = "block_condition")
+      rename("cores" = "hardwareConcurrency")
+
     info <- t %>% 
       filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
       distinct(participant, block_condition, staircaseName, conditionName, targetKind, font)
@@ -150,7 +156,8 @@ read_files <- function(file){
       select(
         staircaseName, 
         thresholdParameter,
-        questMeanAtEndOfTrialsLoop)
+        questMeanAtEndOfTrialsLoop
+        )
     summaries <- merge(info, summaries, by = ("staircaseName"))
     summary_list[[j]] <- summaries
     data_list[[j]] <- t
