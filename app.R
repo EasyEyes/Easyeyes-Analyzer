@@ -9,6 +9,7 @@ require(emojifont)
 require(DT)
 library(ggpubr)
 library(shinyjs)
+library(lubridate)
 
 source('./constant.R')
 source("preprocess.R")
@@ -20,10 +21,10 @@ source("./plotting/regression_plot.R")
 source("./plotting/histogram.R")
 source("./plotting/crowding_plot.R")
 source("./plotting/test_retest.R")
+source("./other/getBits.R")
 source("./plotting/scatter_plots.R")
 
 options(shiny.maxRequestSize=70*1024^2)
-
 ui <- navbarPage(
   tags$head(
     # Note the wrapping of the string in HTML()
@@ -107,7 +108,10 @@ ui <- navbarPage(
            splitLayout(cellWidths = c("50%", "50%"),
                        downloadButton("downloadRsvpReadingTestRetest", "Download")
            ),
-  )
+  ),
+  tabPanel('Other',  
+           fluidRow(tableOutput('other1')),
+           fluidRow(tableOutput('other2')))
 )
 
 server <- function(input, output, session) {
@@ -127,19 +131,14 @@ server <- function(input, output, session) {
     return(trimws(files()[[3]]))
   })
   app_title <- reactiveValues(default = "EasyEyes Analysis")
-  
+  output$app_title <- renderText({
+    "EasyEyes Analysis"
+  })
   observeEvent(input$file,{
     app_title$default <- experiment_names()
-  })
-  
-  table_default <- reactiveValues(default = 0)
-  
-  observeEvent(input$file,{
-    table_default$default <- 1
-  })
-  
-  output$app_title <- renderText({
-    ifelse(app_title$default == "", "EasyEyes Analysis", app_title$default)
+    output$app_title <- renderText({
+      app_title$default
+    })
   })
   
   output$ex1 <- renderDataTable({
@@ -236,6 +235,12 @@ server <- function(input, output, session) {
            subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
   })
   
+  
+  ##### request from Francesca #####
+  
+  bitsCalculation <- reactive({
+    getBits(data_list())
+  })
   #### Event Handler ####
   
   # This execute when user upload a bunch of csv files
@@ -246,8 +251,11 @@ server <- function(input, output, session) {
                  participants <- reactive({
                    unique(summary_table()$`Pavlovia session ID`)
                    })
+                 prolific_id <- reactive({
+                   unique(summary_table()$`Prolific participant ID`)
+                 })
                  output$ex1 <- DT::renderDataTable(
-                   datatable(
+                   dt <- datatable(
                      summary_table(),
                      class = list(stripe = FALSE),
                      selection = 'none',
@@ -264,9 +272,9 @@ server <- function(input, output, session) {
                          infoFiltered =  "(filtered from _MAX_ entries)"
                        ),
                        columnDefs = list(
-                         list(visible = FALSE, targets = c(0,16)),
-                         list(orderData=16, targets=11),
-                         list(targets = c(9),
+                         list(visible = FALSE, targets = c(0,22)),
+                         list(orderData=22, targets=17),
+                         list(targets = c(14),
                               width = '500px',
                               className = 'details-control1',
                               render = JS(
@@ -274,7 +282,7 @@ server <- function(input, output, session) {
                                 "return type === 'display' && data.length > 20 ?",
                                 "data.substr(0, 20) + '...' : data;",
                                 "}")),
-                         list(targets = c(10),
+                         list(targets = c(15),
                               width = '250px',
                               className = 'details-control2',
                               render = JS(
@@ -293,8 +301,8 @@ server <- function(input, output, session) {
                            "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
                            "}"), className = 'information-control2'),
                          list(width = '250px', targets = c(5, 6), className = 'dt-center'),
-                         list(width = '50px', targets = c(3,4,7,8,11), className = 'dt-center'),
-                         list(width = '200px', targets = c(12))
+                         list(width = '50px', targets = c(3,4,7,13,17), className = 'dt-center'),
+                         list(width = '200px', targets = c(18))
                        )
                      ),
                      callback = JS(
@@ -303,7 +311,9 @@ server <- function(input, output, session) {
                      formatStyle(names(summary_table()), lineHeight="15px") %>% 
                      formatStyle(names(summary_table())[-1],
                                  'Pavlovia session ID',
-                                 backgroundColor = styleEqual(participants(), random_rgb(length(participants()))))
+                                 backgroundColor = styleEqual(participants(), random_rgb(length(participants())))) %>% 
+                     formatStyle(names(summary_table())[1],
+                                 'Prolific participant ID',backgroundColor = styleEqual(prolific_id(), random_rgb(length(prolific_id()))))
                  )
                  
                  output$ex2 <- renderTable(
@@ -348,7 +358,7 @@ server <- function(input, output, session) {
                  output$readingSpeedRetention <- renderPlot({
                    readingSpeedRetention()
                  })
-                 
+                 output$other1 <- renderDataTable(datatable(bitsCalculation()))
                  
                })
   
@@ -358,7 +368,7 @@ server <- function(input, output, session) {
     filename = function(){ ifelse(experiment_names() == "", "error report.html", paste0(experiment_names(), ".html"))},
     content = function(file) {
       tempReport <- file.path(tempdir(), "error report.Rmd")
-      file.copy("error report.Rmd", tempReport, overwrite = TRUE)
+      file.copy("rmd/error report.Rmd", tempReport, overwrite = TRUE)
       rmarkdown::render(tempReport, output_file = file,
                         params = summary_table() %>% mutate(experiment = experiment_names()),
                         envir = new.env(parent = globalenv())
@@ -370,7 +380,7 @@ server <- function(input, output, session) {
     filename = function(){ ifelse(experiment_names() == "", "threshold.pdf", paste0("threshold-",experiment_names(), ".pdf"))},
     content = function(file) {
       tempReport <- file.path(tempdir(), "threshold.Rmd")
-      file.copy("threshold.Rmd", tempReport, overwrite = TRUE)
+      file.copy("rmd/threshold.Rmd", tempReport, overwrite = TRUE)
       rmarkdown::render(tempReport, output_file = file,
                         params = c(threshold_and_warnings()[[1]], threshold_and_warnings()[[2]] %>% mutate(experiment = experiment_names())),
                         envir = new.env(parent = globalenv())

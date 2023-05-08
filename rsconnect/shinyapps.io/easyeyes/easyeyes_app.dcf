@@ -5,10 +5,10 @@ account: easyeyes
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 8620121
-bundleId: 7121701
+bundleId: 7154607
 url: https://easyeyes.shinyapps.io/easyeyes_app/
-when: 1682174686.13981
-lastSyncTime: 1682174686.13982
+when: 1682819851.26714
+lastSyncTime: 1682819851.26715
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: .RData|error report/.DS_Store|README.md|threshold.pdf

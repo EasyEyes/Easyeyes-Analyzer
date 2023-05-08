@@ -15,7 +15,13 @@ read_files <- function(file){
       t <- tibble(participant = str_split(file$name[i], "[_]")[[1]][1],
                   ProlificParticipantID = str_split(file$name[i], "[_]")[[1]][2])
       t$error <- "Incomplete"
+      t$rows <- 0
+      t$cols <- 0
+    } else {
+      t$cols <- ncol(t)
+      t$rows <- ifelse(nrow(t) == 0, 0, nrow(t) + 1)
     }
+    
     if (!('ProlificParticipantID' %in% colnames(t))) {
       t$ProlificParticipantID <- ""
     }
@@ -52,6 +58,9 @@ read_files <- function(file){
     if (!('targetStartSec' %in% colnames(t))) {
       t$targetStartSec <- NA
     }
+    if (!('targetDurationSec' %in% colnames(t))) {
+      t$targetDurationSec <- NA
+    }
     if (!('targetMeasuredDurationSec' %in% colnames(t))) {
       t$targetMeasuredDurationSec <- t$targetFinishSec-t$targetStartSec
     }
@@ -84,6 +93,9 @@ read_files <- function(file){
     }
     if (!('deviceSystem' %in% colnames(t))) {
       t$deviceSystem <- ""
+    }
+    if (!('date' %in% colnames(t))) {
+      t$date <- ""
     }
     if (!('hardwareConcurrency' %in% colnames(t))) {
       t$hardwareConcurrency <- NA

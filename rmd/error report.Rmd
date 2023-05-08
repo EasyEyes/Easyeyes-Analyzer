@@ -1,0 +1,158 @@
+---
+params:
+  Prolific participant ID: NA
+  Pavlovia session ID: NA 
+  device type: NA 
+  cores: NA
+  tardyMs: NA
+  excessMs: NA
+  date: NA
+  rows: NA
+  cols: NA
+  system: NA
+  browser: NA
+  resolution: NA
+  ok: NA
+  error: NA
+  warning: NA 
+  block condition: NA
+  trial: NA
+  condition name: NA
+  target task: NA
+  target kind: NA
+  threshold parameter: NA
+  order: NA
+  experiment: ""
+title: "`r paste(unique(params$experiment), collapse = '-')`"
+output: html_document
+---
+```{r, echo = F, inlcude = FALSE, message=FALSE}
+library(ggplot2)
+source("./constant.R")
+```
+
+### `r format(Sys.time(), '%B %d, %Y')`
+
+```{=html}
+<style>
+.main-container {
+    margin-left: 0;
+    margin-right: 0;
+}
+</style>
+```
+
+`r instruction`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, inlcude = FALSE, warning=FALSE)
+```
+
+
+```{r, echo = F, inlcude = FALSE, message=FALSE}
+library(DT)
+library(dplyr)
+source("./error report/random_rgb.R")
+```
+
+```{css, include = TRUE}
+.dataTables_filter {
+position:relative; 
+float: left !important; 
+top:0px;
+}
+```
+
+```{r, echo = F, include = FALSE}
+dt <- tibble(
+  `Prolific participant ID` = params$`Prolific participant ID`,
+  `Pavlovia session ID` = params$`Pavlovia session ID`,
+  `device type` = params$`device type`,
+  system = params$system,
+  browser = params$browser,
+  cores = params$cores,
+  tardyMs = params$tardyMs,
+  excessMs = params$excessMs,
+  date = params$date,
+  rows = params$rows,
+  cols= params$cols,
+  resolution = params$resolution,
+  ok = params$ok,
+  error = params$error,
+  warning = params$warning,
+  `block condition` = params$`block condition`,
+  trial = params$trial,
+  `condition name` = params$`condition name`,
+  `target task` = params$`target task`,
+  `target kind` = params$`target kind`,
+  `threshold parameter` = params$`threshold parameter`,
+  `order` = params$`order`)
+participants <- unique(dt$`Pavlovia session ID`)
+prolific_id <- unique(dt$`Prolific participant ID`)
+```
+
+
+```{r, include = TRUE}
+set.seed(2023)
+datatable(dt,
+          class = list(stripe = FALSE),
+          selection = 'none',
+          filter = "top",
+          escape = FALSE,
+          width = "200%",
+          options = list(
+            autoWidth = FALSE,
+            paging = FALSE,
+            scrollX=TRUE,
+            searching = FALSE,
+            language = list(
+              info = 'Showing _TOTAL_ entries',
+              infoFiltered =  "(filtered from _MAX_ entries)"
+            ),
+            columnDefs = list(
+              list(visible = FALSE, targets = c(0,22)),
+              list(orderData=22, targets=17),
+              list(targets = c(14),
+                   width = '500px',
+                   className = 'details-control1',
+                   render = JS(
+                     "function(data, type, row, meta) {",
+                     "return type === 'display' && data.length > 20 ?",
+                     "data.substr(0, 20) + '...' : data;",
+                     "}")),
+              list(targets = c(15),
+                   width = '250px',
+                   className = 'details-control2',
+                   render = JS(
+                     "function(data, type, row, meta) {",
+                     "return type === 'display' && data.length > 20 ?",
+                     "data.substr(0, 20) + '...' : data;",
+                     "}")),
+              list(targets = c(1), render = JS(
+                "function(data, type, row, meta) {",
+                "return type === 'display' && data.length > 6 ?",
+                "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                "}"), className = 'information-control1'),
+              list(targets = c(2), render = JS(
+                "function(data, type, row, meta) {",
+                "return type === 'display' && data.length > 6 ?",
+                "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                "}"), className = 'information-control2'),
+              list(width = '250px', targets = c(5, 6), className = 'dt-center'),
+              list(width = '50px', targets = c(3,4,7,13,17), className = 'dt-center'),
+              list(width = '200px', targets = c(18))
+            )
+          ),
+          callback = JS(data_table_call_back
+          )) %>% 
+  formatStyle(names(dt),color = 'black', lineHeight="10px") %>% 
+  formatStyle(names(dt)[-1],
+              'Pavlovia session ID', 
+              backgroundColor = styleEqual(participants, random_rgb(length(participants)))) %>% 
+  formatStyle(names(dt)[1],
+              'Prolific participant ID', 
+              backgroundColor = styleEqual(prolific_id, random_rgb(length(prolific_id))))
+```
+
+
+

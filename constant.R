@@ -1,9 +1,9 @@
 
 #### dataTable callback function
 data_table_call_back = "
-    table.column(9).nodes().to$().css({cursor: 'pointer'});
+    table.column(14).nodes().to$().css({cursor: 'pointer'});
     var format1 = function(d) {
-      return '<p>' + d[9] + '</p>';
+      return '<p>' + d[14] + '</p>';
     };
     table.on('click', 'td.details-control1', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -14,9 +14,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(10).nodes().to$().css({cursor: 'pointer'});
+    table.column(15).nodes().to$().css({cursor: 'pointer'});
     var format2 = function(d) {
-      return '<p>' + d[10] + '</p>';
+      return '<p>' + d[15] + '</p>';
     };
     table.on('click', 'td.details-control2', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -51,13 +51,51 @@ data_table_call_back = "
         row.child(format4(row.data())).show();
       }
     });
-
+    
     $('div.has-feedback input[type=\"search\"]').attr('placeholder', '');
     
     $('#search').keyup(function(){
       table.search($(this).val()).draw() ;
 })
   "
+
+callback_2 <- "function MergeGridCells() {
+    var dimension_cells = new Array();
+    var dimension_col = null;
+    var columnCount = table.length;
+for (dimension_col = 0; dimension_col <= columnCount; dimension_col++) {
+  // first_instance holds the first instance of identical td
+  var first_instance = null;
+  var rowspan = 1;
+  // iterate through rows
+  table.find('tr').each(function () {
+    
+    // find the td of the correct column (determined by the dimension_col set above)
+    var dimension_td = $(this).find('td:nth-child(' + dimension_col + ')');
+    
+    
+    
+    if (first_instance === null) {
+      // must be the first row
+      first_instance = dimension_td;
+    } else if (dimension_td.text() === first_instance.text()) {
+      // the current td is identical to the previous
+      // remove the current td
+      // dimension_td.remove();
+      dimension_td.attr('hidden', true);
+      ++rowspan;
+      // increment the rowspan attribute of the first instance
+      first_instance.attr('rowspan', rowspan);
+    } else {
+      // this cell is different from the last
+      first_instance = dimension_td;
+      rowspan = 1;
+    }
+  });
+}
+}
+MergeGridCells();
+"
 
 ##### ggplot download theme #####
 downloadtheme <- theme(legend.position = "right", 
