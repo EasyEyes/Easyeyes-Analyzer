@@ -13,7 +13,8 @@ read_files <- function(file){
     try({t <- read.csv(file_list[i], stringsAsFactors=F)}, silent = TRUE)
     if (!('participant' %in% colnames(t))) {
       t <- tibble(participant = str_split(file$name[i], "[_]")[[1]][1],
-                  ProlificParticipantID = str_split(file$name[i], "[_]")[[1]][2])
+                  ProlificParticipantID = str_split(file$name[i], "[_]")[[1]][2],
+                  experiment = str_split(file$name[i], "[_]")[[1]][3])
       t$error <- "Incomplete"
       t$rows <- 0
       t$cols <- 0
@@ -42,6 +43,12 @@ read_files <- function(file){
     }
     if (!('readingNumberOfQuestions' %in% colnames(t))) {
       t$readingNumberOfQuestions <- NA
+    }
+    if (!('key_resp.keys' %in% colnames(t))) {
+      t$key_resp.keys <- NA
+    }
+    if (!('correctAns' %in% colnames(t))) {
+      t$correctAns <- NA
     }
     if (!('readWordIdentifiedBool' %in% colnames(t))) {
       t$readWordIdentifiedBool <- NA
@@ -101,7 +108,7 @@ read_files <- function(file){
       t$hardwareConcurrency <- NA
     }
     if (!('experiment' %in% colnames(t))) {
-      t$experiment <- ""
+      t$experiment <- str_split(file$name[i], "[_]")[[1]][3]
     }
     if (!('experimentCompleteBool' %in% colnames(t))) {
       t$experimentCompleteBool <- FALSE

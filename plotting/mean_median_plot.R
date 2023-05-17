@@ -1,4 +1,5 @@
 library(ggplot2)
+library(ggpp)
 get_mean_median_df <- function(df_list){
   reading <- df_list[[1]]
   crowding <- df_list[[2]]
@@ -66,17 +67,17 @@ mean_plot <- function(reading_rsvp_crowding_df){
   N_text <- reading_rsvp_crowding_df[[2]]
   
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, 
-         aes(x = 10^(mean_bouma_factor), 
+         aes(x = mean_bouma_factor, 
              y = 10^(avg_log_SpeedWPM), 
-             color = font
+             color = targetKind
          )) +
-    geom_point(aes(shape = targetKind), size = 3) + 
+    geom_point(aes(shape = font), size = 3) + 
+    geom_line() + 
     scale_y_log10() +
     scale_x_log10() + 
     geom_errorbar(aes(ymin=10^(avg_log_SpeedWPM-se), ymax=10^(avg_log_SpeedWPM+se)), width=0) +
-    geom_errorbar(aes(xmin=10^(mean_bouma_factor-se_bouma_factor), xmax=10^(mean_bouma_factor+se_bouma_factor)), width=0) +
+    geom_errorbar(aes(xmin=(mean_bouma_factor-se_bouma_factor), xmax=(mean_bouma_factor+se_bouma_factor)), width=0) +
     theme_bw() + 
-    theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) + 
     # annotate("text", 10^(max(rsvp_vs_ordinary_vs_crowding$mean_bouma_factor)), 
     #          y=10^(min(rsvp_vs_ordinary_vs_crowding$avg_log_SpeedWPM - rsvp_vs_ordinary_vs_crowding$se)), 
     #          label = paste("italic(n)==",N_text), 
@@ -92,10 +93,10 @@ median_plot <- function(reading_rsvp_crowding_df){
   rsvp_vs_ordinary_vs_crowding <- reading_rsvp_crowding_df[[1]]
   N_text <- reading_rsvp_crowding_df[[2]]
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, 
-         aes(x = 10^(median_bouma_factor), 
+         aes(x = median_bouma_factor, 
              y = 10^(median_log_SpeedWPM), 
-             color = font)) +
-    geom_point(aes(shape = targetKind), size = 3) + 
+             color = targetKind)) +
+    geom_point(aes(shape = font), size = 3) + 
     scale_y_log10() +
     scale_x_log10() + 
     theme_bw() + 
@@ -104,8 +105,7 @@ median_plot <- function(reading_rsvp_crowding_df){
     #          label = paste("italic(n)==",N_text), 
     #          parse = TRUE) +
     labs(x = "Bouma Factor", y = "Reading speed (word/min)") + 
-    coord_fixed(ratio = 1) + 
-    theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+    coord_fixed(ratio = 1)
     # annotation_logticks(short = unit(0.1, "cm"),                                                
     #                     mid = unit(0.1, "cm"),
     #                     long = unit(0.3, "cm"))

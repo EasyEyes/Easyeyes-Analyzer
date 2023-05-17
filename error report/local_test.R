@@ -8,7 +8,7 @@ require(ggsignif)
 require(DT)
 # store name of experiment in experiment object
 rm(list = ls())
-experiment = "EnglishTest"
+experiment = "CrowdingVisualAndReading19"
 # locate the folder that you store experiments
 setwd("~/Downloads")
 # get the folder name for your experiment
@@ -29,7 +29,8 @@ for (i in 1 : n){
   try({t <- read.csv(file_names[i], stringsAsFactors=F)}, silent = TRUE)
   if (!('participant' %in% colnames(t))) {
     t <- tibble(participant = str_split(file_names[i], "[_]")[[1]][1],
-                ProlificParticipantID = str_split(file_names[i], "[_]")[[1]][2])
+                ProlificParticipantID = str_split(file_names[i], "[_]")[[1]][2],
+                experimentName = str_split(file_names[i], "[_]")[[1]][3])
     t$error <- "Incomplete"
     t$rows <- 0
     t$cols <- 0
@@ -61,6 +62,12 @@ for (i in 1 : n){
   }
   if (!('readWordIdentifiedBool' %in% colnames(t))) {
     t$readWordIdentifiedBool <- NA
+  }
+  if (!('key_resp.keys' %in% colnames(t))) {
+    t$key_resp.keys <- NA
+  }
+  if (!('correctAns' %in% colnames(t))) {
+    t$correctAns <- NA
   }
   if (!('targetEccentricityXDeg' %in% colnames(t))) {
     t$targetEccentricityXDeg <- NA

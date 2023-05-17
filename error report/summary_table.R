@@ -56,7 +56,8 @@ generate_summary_table <- function(data_list){
   #### incomplete files ####
   noerror_fails = tibble()
   for (i in 1 : length(data_list)) {
-    if (tail(data_list[[i]]$experimentCompleteBool, 1) == 'FALSE') {
+    if (tail(data_list[[i]]$experimentCompleteBool, 1) == 'FALSE' | 
+        is.na(tail(data_list[[i]]$experimentCompleteBool, 1))) {
       if (!data_list[[i]]$participant[1] %in% error$participant) {
         t <- data_list[[i]] %>% 
           distinct(ProlificParticipantID,participant, deviceType,
@@ -140,8 +141,10 @@ generate_summary_table <- function(data_list){
   
   #### order block_condition by splitting and order block and condition order ####
   summary_df <- summary_df %>% 
-    mutate(block = as.numeric(unlist(lapply(summary_df$`block condition`, FUN = function(x){unlist(str_split(x, "[_]"))[1]}))),
-           condition = as.numeric(unlist(lapply(summary_df$`block condition`, FUN = function(x){unlist(str_split(x, "[_]"))[2]}))))
+    mutate(block = as.numeric(unlist(lapply(summary_df$`block condition`, 
+                                            FUN = function(x){unlist(str_split(x, "[_]"))[1]}))),
+           condition = as.numeric(unlist(lapply(summary_df$`block condition`, 
+                                                FUN = function(x){unlist(str_split(x, "[_]"))[2]}))))
   block_condition_order <- summary_df %>%
     distinct(block, condition) %>%
     arrange(block, condition) %>%

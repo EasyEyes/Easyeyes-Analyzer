@@ -19,7 +19,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
     left_join(eccentricityDeg, by = c("participant", "conditionName")) %>% 
     mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg), 
            targetEccentricityYDeg = as.numeric(targetEccentricityYDeg)) %>% 
-    mutate(bouma_factor = log_crowding_distance_deg/sqrt(targetEccentricityXDeg^2+targetEccentricityYDeg^2))
+    mutate(bouma_factor = 10^(log_crowding_distance_deg)/sqrt(targetEccentricityXDeg^2+targetEccentricityYDeg^2))
   ########################### RSVP READING ############################
   
   rsvp_speed <- all_summary %>% 

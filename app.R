@@ -10,6 +10,7 @@ require(DT)
 library(ggpubr)
 library(shinyjs)
 library(lubridate)
+library(ggpp)
 
 source('./constant.R')
 source("preprocess.R")
@@ -26,9 +27,12 @@ source("./plotting/scatter_plots.R")
 
 options(shiny.maxRequestSize=70*1024^2)
 ui <- navbarPage(
-  tags$head(
-    # Note the wrapping of the string in HTML()
-    tags$style(HTML("
+  title = textOutput("app_title"),
+  tabPanel('Sessions', 
+           # span(textOutput("experiment"), style="font-size:20px; margin-top:0px"),
+           tags$head(
+             # Note the wrapping of the string in HTML()
+             tags$style(HTML("
     .navbar{
     margin-bottom: 10px
     }
@@ -38,15 +42,15 @@ ui <- navbarPage(
   .form-group {
   margin-bottom: 10px;
   }
+  .form-group .form-control {
+  width: 150px;
+  }
   .container-fluid {
   padding-left:5px;
   padding-right:0px;
   }
   "))),
-  title = textOutput("app_title"),
-  tabPanel('Sessions', 
-           # span(textOutput("experiment"), style="font-size:20px; margin-top:0px"),
-           fluidRow(column(width = 2, fileInput("file", NULL, accept = ".csv", buttonLabel = "Select CSV files", multiple = T)),
+           fluidRow(column(width = 3, fileInput("file", NULL, accept = ".csv", buttonLabel = "Select CSV files", multiple = T)),
                     column(width = 2, downloadButton("report", "Download report")),
                     column(width = 2, textInput("search", label = NULL))
                     ),
@@ -61,33 +65,43 @@ ui <- navbarPage(
                         c("pdf" = "pdf",
                           "eps" = "eps"),
                         inline = TRUE, selected = "pdf"),
+           #### mean - median ####
            splitLayout(cellWidths = c("50%", "50%"),
-                       plotOutput("meanPlot", width = "100%"),
-                       plotOutput("medianPlot", width = "100%")),
+                       shinycssloaders::withSpinner(plotOutput("meanPlot", width = "100%")),
+                       shinycssloaders::withSpinner(plotOutput("medianPlot", width = "100%"))),
            splitLayout(cellWidths = c("50%", "50%"),
                        downloadButton("downloadMeanPlot", "Download"), 
                        downloadButton("downloadMedianPlot", "Download")
                        ),
+           #### regression ####
            splitLayout(cellWidths = c("50%", "50%"),
-                       plotOutput("regressionPlot", width = "100%"),
-                       plotOutput("fluencyHistogram", width = "100%")
+                       shinycssloaders::withSpinner(plotOutput("regressionPlot", width = "100%")),
+                       shinycssloaders::withSpinner(plotOutput("regressionAndMeanPlot", width = "100%"))
                        ),
            splitLayout(cellWidths = c("50%", "50%"),
                        downloadButton("downloadRegressionPlot", "Download"),
-                       downloadButton("downloadFluencyHistogram", "Download")
+                       downloadButton("downloadRegressionAndMeanPlot", "Download")
+           ),
+           ####fluency ####
+           splitLayout(cellWidths = c("50%", "50%"),
+                       shinycssloaders::withSpinner(plotOutput("fluencyHistogram", width = "100%"))
            ),
            splitLayout(cellWidths = c("50%", "50%"),
-                       plotOutput("retentionHistogram", width = "100%"),
-                       plotOutput("readingSpeedRetention", width = "100%")
-                       
+                       downloadButton("downloadFluencyHistogram", "Download")
+           ),
+           #### retention ####
+           splitLayout(cellWidths = c("50%", "50%"),
+                       shinycssloaders::withSpinner(plotOutput("retentionHistogram", width = "100%")),
+                       shinycssloaders::withSpinner(plotOutput("readingSpeedRetention", width = "100%"))
            ),
            splitLayout(cellWidths = c("50%", "50%"),
                        downloadButton("downloadRetentionHistogram", "Download"),
                        downloadButton("downloadReadingSpeedRetention", "Download")
            ),
+           #### crowding ####
            splitLayout(cellWidths = c("50%", "50%"),
-                       plotOutput("crowdingAvgPlot", width = "100%"),
-                       plotOutput("crowdingScatterPlot", width = "100%")
+                       shinycssloaders::withSpinner(plotOutput("crowdingAvgPlot", width = "100%")),
+                       shinycssloaders::withSpinner(plotOutput("crowdingScatterPlot", width = "100%"))
            ),
            splitLayout(cellWidths = c("50%", "50%"),
                        downloadButton("downloadCrowdingAvgPlot", "Download"),
@@ -95,27 +109,36 @@ ui <- navbarPage(
            ),
            h3("Test and Retest plots"),
            splitLayout(cellWidths = c("50%", "50%"),
-                       plotOutput("readingTestRetest", width = "100%"),
-                       plotOutput("crowdingTestRetest", width = "100%")
+                       shinycssloaders::withSpinner(plotOutput("readingTestRetest", width = "100%")),
+                       shinycssloaders::withSpinner(plotOutput("crowdingTestRetest", width = "100%"))
            ),
            splitLayout(cellWidths = c("50%", "50%"),
                        downloadButton("downloadReadingTestRetest", "Download"),
                        downloadButton("downloadCrowdingTestRetest", "Download")
            ),
            splitLayout(cellWidths = c("50%", "50%"),
-                       plotOutput("rsvpReadingTestRetest", width = "100%")
+                       shinycssloaders::withSpinner(plotOutput("rsvpReadingTestRetest", width = "100%"))
            ),
            splitLayout(cellWidths = c("50%", "50%"),
                        downloadButton("downloadRsvpReadingTestRetest", "Download")
            ),
   ),
-  tabPanel('Other',  
-           fluidRow(tableOutput('other1')),
-           fluidRow(tableOutput('other2')))
+  tabPanel('Bits',  
+           h3("All Participant"),
+           textOutput('all participant I'),
+           splitLayout(cellWidths = c("50%", "50%"),
+                       tableOutput('all participant prob')
+           ),
+           h3("Each Participant"),
+           tableOutput('each participant I'),
+           splitLayout(cellWidths = c("50%", "50%"),
+                       tableOutput('each participant prob')
+           ))
 )
 
 server <- function(input, output, session) {
   output$file_name <- renderText({input$file_name})
+  
   #### reactive objects ####
   files <- reactive({
     require(input$file)
@@ -137,17 +160,57 @@ server <- function(input, output, session) {
   observeEvent(input$file,{
     app_title$default <- experiment_names()
     output$app_title <- renderText({
-      app_title$default
+      ifelse(app_title$default == "", "EasyEyes Analysis", app_title$default)
     })
   })
-  
+  #### place holder ####
   output$ex1 <- renderDataTable({
     datatable(tibble())
   })
+  
+  output$meanPlot <- renderPlot({
+    ggplot()
+  }, res = 96)
+  output$medianPlot <- renderPlot({
+    ggplot()
+  }, res = 96)
+  output$regressionPlot <- renderPlot({
+    ggplot()
+  })
+  output$regressionAndMeanPlot <- renderPlot({
+    ggplot()
+  })
+  output$fluencyHistogram <- renderPlot({
+    ggplot()
+  })
+  output$retentionHistogram <- renderPlot({
+    ggplot()
+  })
+  output$crowdingScatterPlot <- renderPlot({
+    ggplot()
+  })
+  output$crowdingAvgPlot <- renderPlot({
+    ggplot()
+  })
+  output$readingTestRetest <- renderPlot({
+    ggplot()
+  })
+  output$crowdingTestRetest <- renderPlot({
+    ggplot()
+  })
+  output$rsvpReadingTestRetest <- renderPlot({
+    ggplot()
+  })
+  output$readingSpeedRetention <- renderPlot({
+    ggplot()
+  })
+  
   readingCorpus <- reactive({
     return(trimws(files()[[4]]))
   })
-  #### reactive dataframes
+  
+  #### reactive dataframes ####
+  
   summary_table <- reactive({
     generate_summary_table(data_list())
   })
@@ -158,23 +221,33 @@ server <- function(input, output, session) {
   df_list <- reactive({
     return(generate_rsvp_reading_crowding_fluency(data_list(), summary_list()))
     })
-  reaing_rsvp_crowding_df <- reactive({
+  reading_rsvp_crowding_df <- reactive({
     return(get_mean_median_df(df_list()))
     })
+  
   #### reactive plots #####
+  
   meanPlot <- reactive({
     require(input$file)
-    mean_plot(reaing_rsvp_crowding_df()) +
+    mean_plot(reading_rsvp_crowding_df()) +
       labs(title = paste(c("Reading Speed, mean", 
-                           experiment_names()), collapse = "\n"),
-           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                           experiment_names()), collapse = "\n")) +
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   medianPlot <- reactive({
     require(input$file)
-    median_plot(reaing_rsvp_crowding_df()) + 
+    median_plot(reading_rsvp_crowding_df()) + 
       labs(title = paste(c("Reading Speed, median", 
-                         experiment_names()), collapse = "\n"),
-         subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                         experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   crowdingBySide <- reactive({
     crowding_by_side(df_list()[[2]])
@@ -182,65 +255,121 @@ server <- function(input, output, session) {
   crowdingPlot <- reactive({
     crowding_scatter_plot(crowdingBySide())  + 
       labs(title = paste(c("Crowding, left vs. right, by observer", 
-                           experiment_names()), collapse = "\n"),
-           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                           experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   crowdingAvgPlot <- reactive({
     crowding_mean_scatter_plot(crowdingBySide())  + 
       labs(title = paste(c("Crowding, left vs. right, by font", 
-                           experiment_names()), collapse = "\n"),
-           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                           experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   regressionPlot <- reactive({
     regression_plot(df_list()) +
       labs(title = paste(c("Regression of reading vs crowding", 
-                           experiment_names()), collapse = "\n"),
-           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                           experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
+  })
+  regressionAndMeanPlot <- reactive({
+    regression_and_mean_plot(df_list(), reading_rsvp_crowding_df()) +
+      labs(title = paste(c("Regression of reading vs crowding",
+                           experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   fluency_histogram <- reactive({
     get_fluency_histogram(df_list()[[4]]) + 
       labs(title = paste(c("English fluency histogram", 
-                           experiment_names()), collapse = "\n"),
-           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                           experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   retention_histogram <- reactive({
     get_reading_retention_histogram(df_list()[[1]]) + 
       labs(title = paste(c("Reading retention histogram", 
-                           experiment_names()), collapse = "\n"),
-           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                           experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   readingTestRetest <- reactive({
     get_test_retest_reading(df_list()[[1]]) + 
       labs(title = paste(c("Test retest of reading", 
-                           experiment_names()), collapse = "\n"),
-           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                           experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   crowdingTestRetest <- reactive({
     get_test_retest_crowding(df_list()[[2]]) + 
       labs(title = paste(c("Test retest of crowding", 
-                           experiment_names()), collapse = "\n"),
-           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                           experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   rsvpReadingTestRetest <- reactive({
     get_test_retest_rsvp(df_list()[[3]])  + 
       labs(title = paste(c("Test retest of rsvp reading", 
-                           experiment_names()), collapse = "\n"),
-           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                           experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   
   readingSpeedRetention <- reactive({
     reading_speed_vs_retention(df_list()[[1]]) + 
       labs(title = paste(c("Reading vs retention", 
-                           experiment_names()), collapse = "\n"),
-           subtitle = bquote(italic("N =")~.(length(unique(df_list()[[1]]$participant)))))
+                           experiment_names()), collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
   })
   
   
   ##### request from Francesca #####
   
-  bitsCalculation <- reactive({
-    getBits(data_list())
+  allMeasures <- reactive({
+    get_measures(data_list())
   })
+  
+  prob_all <- reactive({
+    get_prob(get_counts_all(allMeasures())) %>% select(-participant)
+  })
+  
+  prob_each <- reactive({
+    get_prob(get_counts_each_participant(allMeasures()))
+  })
+  
+  
   #### Event Handler ####
   
   # This execute when user upload a bunch of csv files
@@ -320,8 +449,7 @@ server <- function(input, output, session) {
                    threshold_and_warnings()[[2]] %>% select(-thresholdParameter)
                  )
                  output$ex3 <- renderTable(
-                   # threshold_and_warnings()[[1]]
-                   df_list()[[2]]
+                   threshold_and_warnings()[[1]]
                  )
                  output$instruction <- renderText(instruction)
                  output$experiment <- renderText(experiment_names())
@@ -333,6 +461,9 @@ server <- function(input, output, session) {
                    }, res = 96)
                  output$regressionPlot <- renderPlot({
                    regressionPlot() + plt_theme + coord_fixed(ratio = 1)
+                 })
+                 output$regressionAndMeanPlot <- renderPlot({
+                   regressionAndMeanPlot() + plt_theme + coord_fixed(ratio = 1)
                  })
                  output$fluencyHistogram <- renderPlot({
                    fluency_histogram() + plt_theme
@@ -358,8 +489,10 @@ server <- function(input, output, session) {
                  output$readingSpeedRetention <- renderPlot({
                    readingSpeedRetention()
                  })
-                 output$other1 <- renderDataTable(datatable(bitsCalculation()))
-                 
+                 output$`all participant prob` <- renderTable(prob_all())
+                 output$`all participant I` <- renderText(paste0("I(X;Y) = ", round(get_bits(prob_all()),2)))
+                 output$`each participant prob` <- renderTable(prob_each())
+                 output$`each participant I` <- renderTable(get_bits_each(prob_each()))
                })
   
   #### download handlers ####
@@ -409,6 +542,12 @@ server <- function(input, output, session) {
       filename = paste(experiment_names(),paste0('regression.', input$fileType),sep = "-"),
       content = function(file) {
         ggsave(file, plot = regressionPlot() + downloadtheme + coord_fixed(ratio = 1))
+      })
+    
+    output$downloadRegressionAndMeanPlot <- downloadHandler(
+      filename = paste(experiment_names(),paste0('regression.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = regressionAndMeanPlot() + downloadtheme + coord_fixed(ratio = 1))
       })
     
     output$downloadFluencyHistogram <- downloadHandler(

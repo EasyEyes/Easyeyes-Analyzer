@@ -1,5 +1,5 @@
 crowding_by_side <- function(crowding) {
-  crowding$side <- str_sub(crowding$conditionName,-1,-1)
+  crowding$side <- ifelse(grepl("left", crowding$conditionName), "L", "R")
   crowding_L <- crowding %>% filter(side == "L") %>% select(-conditionName, -side)
   crowding_R <- crowding %>% filter(side == "R") %>% select(-conditionName, -side)
   crowding_L_R <- crowding_L %>% 
@@ -10,7 +10,7 @@ crowding_by_side <- function(crowding) {
 }
 
 crowding_scatter_plot <- function(crowding_L_R){
-  ggplot(crowding_L_R,aes(x = 10^(bouma_factor_Left), y = 10^(bouma_factor_Right))) + 
+  ggplot(crowding_L_R,aes(x = bouma_factor_Left, y = bouma_factor_Right)) + 
     geom_point(size = 1) + 
     facet_wrap(~font) + 
     scale_y_log10(breaks = c(1,3,10,30)) +
@@ -43,7 +43,7 @@ crowding_scatter_plot <- function(crowding_L_R){
 crowding_mean_scatter_plot <- function(crowding_L_R){
   t <- crowding_L_R %>% group_by(font) %>% summarize(avg_bouma_factor_Left = mean(bouma_factor_Left),
                                                      avg_bouma_factor_Right = mean(bouma_factor_Right))
-  ggplot(t, aes(x = 10^(avg_bouma_factor_Left), y = 10^(avg_bouma_factor_Right), color = font, shape = font)) + 
+  ggplot(t, aes(x = avg_bouma_factor_Left, y = avg_bouma_factor_Right, color = font, shape = font)) + 
     geom_point(size = 2) +
     scale_y_log10() +
     scale_x_log10() + 
