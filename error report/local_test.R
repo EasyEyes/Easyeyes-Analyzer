@@ -8,7 +8,7 @@ require(ggsignif)
 require(DT)
 # store name of experiment in experiment object
 rm(list = ls())
-experiment = "CrowdingVisualAndReading19"
+experiment = "sound calibration"
 # locate the folder that you store experiments
 setwd("~/Downloads")
 # get the folder name for your experiment
@@ -26,7 +26,7 @@ j = 1
 
 for (i in 1 : n){
   t <- tibble()
-  try({t <- read.csv(file_names[i], stringsAsFactors=F)}, silent = TRUE)
+  try({t <- read_csv(file_names[i])}, silent = TRUE)
   if (!('participant' %in% colnames(t))) {
     t <- tibble(participant = str_split(file_names[i], "[_]")[[1]][1],
                 ProlificParticipantID = str_split(file_names[i], "[_]")[[1]][2],
@@ -45,6 +45,9 @@ for (i in 1 : n){
   if (!('error' %in% colnames(t))) {
     t$error <- ""
   }
+  if (!('questionAndAnswerResponse' %in% colnames(t))) {
+    t$questionAndAnswerResponse <- ""
+  }
   if (!('warning' %in% colnames(t))) {
     t$warning <- ""
   }
@@ -54,20 +57,23 @@ for (i in 1 : n){
   if ('readingPageWords' %in% colnames(t)) {
     t$wordPerMin <- (as.numeric(t$readingPageWords) + as.numeric(t$readingLinesPerPage) - 1) / (as.numeric(t$readingPageDurationOnsetToOffsetSec) / 60)
   }
+  if (!('viewingDistanceDesiredCm' %in% colnames(t))) {
+    t$viewingDistanceDesiredCm <- NA
+  }
   if (!('readingPageWords' %in% colnames(t))) {
     t$wordPerMin <- NA
   }
   if (!('readingNumberOfQuestions' %in% colnames(t))) {
     t$readingNumberOfQuestions <- NA
   }
-  if (!('readWordIdentifiedBool' %in% colnames(t))) {
-    t$readWordIdentifiedBool <- NA
-  }
   if (!('key_resp.keys' %in% colnames(t))) {
     t$key_resp.keys <- NA
   }
   if (!('correctAns' %in% colnames(t))) {
     t$correctAns <- NA
+  }
+  if (!('readWordIdentifiedBool' %in% colnames(t))) {
+    t$readWordIdentifiedBool <- NA
   }
   if (!('targetEccentricityXDeg' %in% colnames(t))) {
     t$targetEccentricityXDeg <- NA
@@ -124,7 +130,7 @@ for (i in 1 : n){
     t$hardwareConcurrency <- NA
   }
   if (!('experiment' %in% colnames(t))) {
-    t$experiment <- ""
+    t$experiment <- str_split(file$name[i], "[_]")[[1]][3]
   }
   if (!('experimentCompleteBool' %in% colnames(t))) {
     t$experimentCompleteBool <- FALSE
@@ -156,6 +162,7 @@ for (i in 1 : n){
   if (!('psychojsWindowDimensions' %in% colnames(t))) {
     t$psychojsWindowDimensions <- "NA,NA"
   }
+  t$age <- t$questionAndAnswerResponse[2]
   screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                         unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                         NA)
@@ -175,29 +182,54 @@ for (i in 1 : n){
   WindowDimensions <- paste0(psychojsWindowDimensions[[1]][1], " x ", psychojsWindowDimensions[[1]][2])
   t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
   t$resolution = ifelse(t$resolution[1] == "NA x NA", "", t$resolution)
-  info <- filter(t, is.na(questMeanAtEndOfTrialsLoop)) %>% 
+  info <- dplyr::filter(t, is.na(questMeanAtEndOfTrialsLoop)) %>% 
     select(block_condition, conditionName) %>% 
     distinct(block_condition, conditionName) %>% 
-    filter(conditionName != "" & block_condition != "")
+    dplyr::filter(conditionName != "" & block_condition != "")
   t <- t %>% 
     rename("cores" = "hardwareConcurrency")
   
   info <- t %>% 
-    filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
-    distinct(participant, block_condition, staircaseName, conditionName, targetKind, font)
+    dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
+    distinct(participant, block_condition, staircaseName, conditionName, 
+             targetKind, font, experiment)
   
   summaries <- t %>% 
-    filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
+    dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
     select(
+      block_condition,
       staircaseName, 
       thresholdParameter,
       questMeanAtEndOfTrialsLoop
     )
-  summaries <- merge(info, summaries, by = ("staircaseName"))
+  if(n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
+    summaries <- summaries %>% 
+      select(-staircaseName) %>% 
+      left_join(info, by = "block_condition")
+  } else {
+    summaries <- summaries %>% 
+      select(-block_condition)
+    summaries <- merge(info, summaries, by = ("staircaseName"))
+  }
   summary_list[[j]] <- summaries
   data_list[[j]] <- t
   j = j + 1
 }
 
-summary_df <- generate_summary_table(data_list)
-datatable(summary_df)
+generate_threshold(data_list, summary_list)
+# test summary table
+# summary_df <- generate_summary_table(data_list)
+# datatable(summary_df)
+rsvp_speed <- generate_rsvp_reading_crowding_fluency(data_list,summary_list)[[3]]
+plot_rsvp_vs_x_height(rsvp_speed)[[1]]
+plot_rsvp_vs_x_height(rsvp_speed)[[2]]
+## test sound calibration
+sound_list <- preprocess_sound_data(data_list)
+all_sound_data <- get_all_sound_data(sound_list)
+micro_cali_result <- all_sound_data[[7]] %>% filter(id == 4)
+IR <- all_sound_data[[9]][[1]] %>% filter(id == 1)
+plot_IR_response_0to6(IR)
+plot_impulse_response(micro_cali_result)
+
+
+## test RSVP plots

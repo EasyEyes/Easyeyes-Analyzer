@@ -1,0 +1,966 @@
+#
+# This is the server logic of a Shiny web application. You can run the
+# application by clicking 'Run App' above.
+#
+# Find out more about building applications with Shiny here:
+#
+#    http://shiny.rstudio.com/
+#
+options(shiny.maxRequestSize=100*1024^2)
+library(shiny)
+require(foreach)
+require(dplyr)
+require(readr)
+require(stringr)
+require(emojifont)
+require(DT)
+library(ggpubr)
+library(shinyjs)
+library(lubridate)
+require(ggpp)
+library(svglite)
+# library(showtext)
+
+source('./load_fonts.R')
+source('./constant.R')
+source("./preprocess.R")
+
+source("threshold_and_warning.R")
+
+source("./error report/random_rgb.R")
+source("./error report/summary_table.R")
+
+source("./plotting/mean_median_plot.R")
+source("./plotting/regression_plot.R")
+source("./plotting/histogram.R")
+source("./plotting/crowding_plot.R")
+source("./plotting/test_retest.R")
+source("./plotting/scatter_plots.R")
+source("./plotting/crowding_sloan_vs_times.R")
+source("./plotting/reading_vs_font_size.R")
+
+source("./other/getBits.R")
+source("./other/sound_calibration.R")
+source("./other/sound_plots.R")
+source("./other/read_IR_csv.R")
+source("./other/read_IR_json.R")
+library(shiny)
+
+# Define server logic required to draw a histogram
+shinyServer(function(input, output, session) {
+  
+  #### place holder ####
+  output$ex1 <- renderDataTable({
+    datatable(tibble())
+  })
+  
+  output$meanPlot <- renderPlot({
+    ggplot()
+  }, res = 96)
+  output$medianPlot <- renderPlot({
+    ggplot()
+  }, res = 96)
+  output$regressionPlot <- renderPlot({
+    ggplot()
+  })
+  output$regressionFontPlot <- renderPlot({
+    ggplot()
+  })
+  
+  output$regressionFontPlotWithLabel <- renderPlot({
+    ggplot()
+  })
+  output$regressionAndMeanPlot <- renderPlot({
+    ggplot()
+  })
+  output$fluencyHistogram <- renderPlot({
+    ggplot()
+  })
+  output$retentionHistogram <- renderPlot({
+    ggplot()
+  })
+  output$crowdingScatterPlot <- renderPlot({
+    ggplot()
+  })
+  output$crowdingAvgPlot <- renderPlot({
+    ggplot()
+  })
+  
+  output$SloanVsTimesMeanPlot <- renderPlot({
+    ggplot()
+  })
+  
+  output$SloanVsTimesSDPlot <- renderPlot({
+    ggplot()
+  })
+  output$readingTestRetest <- renderPlot({
+    ggplot()
+  })
+  output$crowdingTestRetest <- renderPlot({
+    ggplot()
+  })
+  output$rsvpReadingTestRetest <- renderPlot({
+    ggplot()
+  })
+  output$readingSpeedRetention <- renderPlot({
+    ggplot()
+  })
+  #### reactive objects ####
+  
+  
+  files <- reactive({
+    require(input$file)
+    showModal(modalDialog("Reading files", footer=NULL))
+    t <- read_files(input$file)
+    removeModal()
+    return(t)
+  })
+  
+  data_list <- reactive({
+    t <- tryCatch({t <- files()[[1]]}, error = function(e) {
+      "An error occurred while computing the value."
+    })
+    return(t)
+  })
+  summary_list <- reactive({
+    t <- tryCatch({t <- files()[[2]]}, error = function(e) {
+      "An error occurred while computing the value."
+    })
+    return(t)
+  })
+  experiment_names <- reactive({
+    t <- tryCatch({t <- files()[[3]]}, error = function(e) {
+      "An error occurred while computing the value."
+    })
+    return(trimws(files()[[3]]))
+  })
+  
+  readingCorpus <- reactive({
+    t <- tryCatch({t <- files()[[4]]}, error = function(e) {
+      "An error occurred while computing the value."
+    })
+    return(trimws(files()[[4]]))
+  })
+  
+  app_title <- reactiveValues(default = "EasyEyes Analyze")
+  output$app_title <- renderText({
+    "EasyEyes Analyze"
+  })
+  
+  #### reactive dataframes ####
+  
+  summary_table <- reactive({
+    require(input$file)
+    generate_summary_table(data_list())
+  })
+  threshold_and_warnings <- reactive({
+    require(input$file)
+    return(generate_threshold(data_list(), summary_list()))
+  })
+  df_list <- reactive({
+    return(generate_rsvp_reading_crowding_fluency(data_list(), summary_list()))
+  })
+  reading_rsvp_crowding_df <- reactive({
+    return(get_mean_median_df(df_list()))
+  })
+  
+  
+  ##### SOUND CALIBRATION ####
+  sound_list <- reactive({
+    preprocess_sound_data(data_list())
+  })
+  
+  all_sound_data <- reactive({
+    get_all_sound_data(sound_list())
+  })
+  
+  #### reactive plots #####
+  
+  reading_vs_font_size <- reactive({
+    plot_rsvp_vs_x_height(df_list()[[3]])
+  })
+  
+  reading_60cm_1.2mm_vs_1.4mm <- reactive({
+    get_60cm_scatter(df_list()[[3]])
+  })
+  
+  reading_30cm_1.2mm_vs_1.4mm <- reactive({
+    get_30cm_scatter(df_list()[[3]])
+  })
+  
+  reading_diff_60cm_vs_age <- reactive({
+    plot_60cm_speed_diff_vs_age(df_list()[[3]])
+  })
+  
+  meanPlot <- reactive({
+    mean_plot(reading_rsvp_crowding_df()) +
+      labs(title = paste(c(experiment_names(),
+                           "Reading Speed, mean" 
+      ), collapse = "\n")) +
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
+  })
+  medianPlot <- reactive({
+    median_plot(reading_rsvp_crowding_df()) + 
+      labs(title = paste(c(experiment_names(),
+                           "Reading Speed, median"), 
+                         collapse = "\n")) + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
+  })
+  crowdingBySide <- reactive({
+    crowding_by_side(df_list()[[2]])
+  })
+  crowdingPlot <- reactive({
+    crowding_scatter_plot(crowdingBySide())  + 
+      labs(title = paste(c(experiment_names(),
+                           "Crowding, left vs. right, by observer"
+      ), collapse = "\n"))
+  })
+  crowdingAvgPlot <- reactive({
+    crowding_mean_scatter_plot(crowdingBySide())  + 
+      coord_fixed(ratio = 1) + 
+      labs(title = paste(c(experiment_names(),
+                           "Crowding, left vs. right, by font"
+      ), collapse = "\n"))
+  })
+  
+  sloan_vs_times <- reactive({
+    sloan_vs_times_plots(df_list()[[2]])
+  })
+  
+  sloan_vs_times_means <- reactive({
+    sloan_vs_times()[[1]] + 
+      labs(title = experiment_names(),
+           subtitle = "Crowding Sloan vs Times, mean")
+  })
+  
+  sloan_vs_times_sd <- reactive({
+    sloan_vs_times()[[2]] + 
+      labs(title = experiment_names(),
+           subtitle = "Crowding Sloan vs Times, sd")
+  })
+  
+  regressionPlot <- reactive({
+    regression_plot(df_list()) +
+      labs(title = experiment_names(),
+           subtitle = "Regression of reading vs crowding") + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
+  })
+  regressionAndMeanPlot <- reactive({
+    regression_and_mean_plot_byfont(df_list(), reading_rsvp_crowding_df()) +
+      labs(title = experiment_names(),
+           subtitle = "Regression of reading vs crowding")
+  })
+  regressionFontPlot <- reactive({
+    regression_font(df_list(),reading_rsvp_crowding_df()) +
+      labs(title = experiment_names(),
+           subtitle = "Regression of reading vs crowding")
+  })
+  
+  regressionFontPlotWithLabel <- reactive({
+    regression_font_with_label(df_list(),reading_rsvp_crowding_df()) +
+      labs(title = experiment_names(),
+           subtitle = "Regression of reading vs crowding")
+  })
+  
+  fluency_histogram <- reactive({
+    get_fluency_histogram(df_list()[[4]]) + 
+      labs(title = experiment_names(),
+           subtitle = "English fluency histogram") + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
+  })
+  retention_histogram <- reactive({
+    get_reading_retention_histogram(df_list()[[1]]) + 
+      labs(title = experiment_names(),
+           subtitle = "Reading retention histogram") + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
+  })
+  readingTestRetest <- reactive({
+    get_test_retest_reading(df_list()[[1]]) + 
+      labs(title = experiment_names(),
+           subtitle = "Test retest of reading") + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
+  })
+  crowdingTestRetest <- reactive({
+    get_test_retest_crowding(df_list()[[2]]) + 
+      labs(title = experiment_names(),
+           subtitle = "Test retest of crowding") + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
+  })
+  rsvpReadingTestRetest <- reactive({
+    get_test_retest_rsvp(df_list()[[3]])  + 
+      labs(title = experiment_names(),
+           subtitle = "Test retest of rsvp reading") + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
+  })
+  
+  readingSpeedRetention <- reactive({
+    reading_speed_vs_retention(df_list()[[1]]) + 
+      labs(title = experiment_names(),
+           subtitle = "Reading vs retention") + 
+      ggpp::geom_text_npc(
+        aes(npcx = "left",
+            npcy = "bottom",
+            label = paste0("italic('N=')~", length(unique(df_list()[[1]]$participant)))), 
+        parse = T)
+  })
+  
+  soundLevelPlot <- reactive({
+    plot_sound_level(all_sound_data())
+  })
+  
+  recordFreqPlot <- reactive({
+    plot_record_freq(all_sound_data())
+  })
+  
+  
+  
+  ##### request from Francesca #####
+  
+  allMeasures <- reactive({
+    get_measures(data_list())
+  })
+  
+  prob_all <- reactive({
+    get_prob(get_counts_all(allMeasures())) %>% select(-participant)
+  })
+  
+  prob_each <- reactive({
+    get_prob_each_block(get_counts_each_block(allMeasures()))
+  })
+  
+  
+  
+  #### IR and IIR csv ####
+  
+  IRtmp <- reactive({
+    if(is.null(input$IRcsv)) return(NULL)
+    return(get_IR_plot(input$IRcsv))
+  })
+  output$fileUploaded <- reactive({
+    return(!is.null(IRtmp()))
+  })
+  outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
+  output$IRtmpOne <- renderPlot(IRtmp()[[1]] + plt_theme)
+  output$IRtmpTwo <- renderPlot(IRtmp()[[2]] + plt_theme)
+  output$IRtmpThree <- renderPlot(IRtmp()[[3]] + plt_theme)
+  
+  #### IR and IIR json ####
+  
+  observeEvent(input$fileJSON,{
+    IRjson <- reactive({
+      if(is.null(input$fileJSON)) return(NULL)
+      return(read_IR_JSON(input$fileJSON))
+      })
+  
+  jsonPlots <- reactive({
+    return(get_json_plots(IRjson(), input$jsonResult))
+  })
+  
+  updateSelectInput(session, "jsonResult",choices = unique(IRjson()$name))
+  
+  output$IRtmpFour <- renderPlot(
+    jsonPlots()[[1]] + plt_theme
+    )
+  output$IRtmpFive <- renderPlot(
+    jsonPlots()[[2]] + plt_theme
+    )
+  output$IRtmpSix <- renderPlot(
+    jsonPlots()[[3]] + plt_theme
+    )
+  
+  output$jsonUploaded <- reactive({
+    return(!is.null(IRjson()))
+  })
+  
+  outputOptions(output, 'jsonUploaded', suspendWhenHidden=FALSE)})
+  
+  
+  
+  
+  #### Event Handler ####
+
+  observeEvent(input$file, 
+               {
+                 app_title$default <- experiment_names()
+                 output$app_title <- renderText({
+                   ifelse(app_title$default == "", "EasyEyes Analysis", app_title$default)
+                 })
+                 set.seed(2023)
+                 participants <- reactive({
+                   unique(summary_table()$`Pavlovia session ID`)
+                 })
+                 prolific_id <- reactive({
+                   unique(summary_table()$`Prolific participant ID`)
+                 })
+                 #### summary page ####
+                 output$instruction <- renderText(instruction)
+                 output$experiment <- renderText(experiment_names())
+                 output$ex1 <- DT::renderDataTable(
+                   dt <- datatable(
+                     summary_table(),
+                     class = list(stripe = FALSE),
+                     selection = 'none',
+                     filter = "top",
+                     escape = FALSE,
+                     width = "200%",
+                     options = list(
+                       autoWidth = FALSE,
+                       paging = FALSE,
+                       scrollX=TRUE,
+                       searching = FALSE,
+                       language = list(
+                         info = 'Showing _TOTAL_ entries',
+                         infoFiltered =  "(filtered from _MAX_ entries)"
+                       ),
+                       columnDefs = list(
+                         list(visible = FALSE, targets = c(0,22)),
+                         list(orderData=22, targets=17),
+                         list(targets = c(14),
+                              width = '500px',
+                              className = 'details-control1',
+                              render = JS(
+                                "function(data, type, row, meta) {",
+                                "return type === 'display' && data.length > 20 ?",
+                                "data.substr(0, 20) + '...' : data;",
+                                "}")),
+                         list(targets = c(15),
+                              width = '250px',
+                              className = 'details-control2',
+                              render = JS(
+                                "function(data, type, row, meta) {",
+                                "return type === 'display' && data.length > 20 ?",
+                                "data.substr(0, 20) + '...' : data;",
+                                "}")),
+                         list(targets = c(1), render = JS(
+                           "function(data, type, row, meta) {",
+                           "return type === 'display' && data.length > 6 ?",
+                           "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                           "}"), className = 'information-control1'),
+                         list(targets = c(2), render = JS(
+                           "function(data, type, row, meta) {",
+                           "return type === 'display' && data.length > 6 ?",
+                           "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                           "}"), className = 'information-control2'),
+                         list(width = '250px', targets = c(5, 6), className = 'dt-center'),
+                         list(width = '50px', targets = c(3,4,7,13,17), className = 'dt-center'),
+                         list(width = '200px', targets = c(18))
+                       )
+                     ),
+                     callback = JS(
+                       data_table_call_back
+                     )) %>%
+                     formatStyle(names(summary_table()), lineHeight="15px") %>% 
+                     formatStyle(names(summary_table())[-1],
+                                 'Pavlovia session ID',
+                                 backgroundColor = styleEqual(participants(), random_rgb(length(participants())))) %>% 
+                     formatStyle(names(summary_table())[1],
+                                 'Prolific participant ID',backgroundColor = styleEqual(prolific_id(), random_rgb(length(prolific_id()))))
+                 )
+                 #### stats page ####
+                 output$ex2 <- renderTable(
+                   threshold_and_warnings()[[2]]
+                 )
+                 output$ex3 <- renderTable(
+                   if (nrow(threshold_and_warnings()[[1]]) > 0) {
+                     threshold_and_warnings()[[1]]
+                   } else {
+                     tibble()
+                   }
+                 )
+                 output$ex4 <- renderTable(
+                   threshold_and_warnings()[[3]]
+                 )
+                 #### plots ####
+                 output$readingVsXheightLog <- renderPlot({
+                   p1 <- reading_vs_font_size()[[1]]
+                   p1 + 
+                     plt_theme +  
+                     labs(title = paste(c(experiment_names(),
+                                          "reading speed vs x height" 
+                   ), collapse = "\n"))
+                 }, res = 96)
+                 output$readingVsXheightLinear <- renderPlot({
+                   p2 <- reading_vs_font_size()[[2]]
+                   p2 + 
+                     plt_theme +  
+                     labs(title = paste(c(experiment_names(),
+                                          "reading speed vs x height" 
+                     ), collapse = "\n"))
+                 }, res = 96)
+                 
+                 output$reading60cm1.2mmVs1.4mm <- renderPlot({
+                   p1 <- reading_60cm_1.2mm_vs_1.4mm()
+                   p1 + 
+                     plt_theme +  
+                     labs(title = paste(c(experiment_names(),
+                                          "reading speed 1.4mm vs 1.2mm, 60cm" 
+                     ), collapse = "\n"))
+                 }, res = 96)
+                 
+                 output$reading30cm1.2mmVs1.4mm <- renderPlot({
+                   p1 <- reading_30cm_1.2mm_vs_1.4mm()
+                   p1 + 
+                     plt_theme +  
+                     labs(title = paste(c(experiment_names(),
+                                          "reading speed 1.4mm vs 1.2mm, 30cm" 
+                     ), collapse = "\n"))
+                 }, res = 96)
+                 
+                 output$reading60cmDiffVsAge <- renderPlot({
+                   p1 <- reading_diff_60cm_vs_age()
+                   p1 + 
+                     plt_theme +  
+                     labs(title = paste(c(experiment_names(),
+                                          "reading speed difference vs age, 60cm" 
+                     ), collapse = "\n"))
+                 }, res = 96)
+                 
+                 
+                 output$meanPlot <- renderPlot({
+                   meanPlot() + plt_theme
+                 }, res = 96)
+                 output$medianPlot <- renderPlot({
+                   medianPlot() + plt_theme
+                 }, res = 96)
+                 #### regression plots #####
+                 output$regressionPlot <- renderPlot({
+                   regressionPlot() + plt_theme
+                 })
+                 output$regressionFontPlot <- renderPlot({
+                   regressionFontPlot() + plt_theme
+                 })
+                 output$regressionFontPlotWithLabel <- renderPlot({
+                   regressionFontPlotWithLabel() + plt_theme
+                 })
+                 output$regressionAndMeanPlot <- renderPlot({
+                   regressionAndMeanPlot() + plt_theme
+                 })
+                 #### fluency ####
+                 output$fluencyHistogram <- renderPlot({
+                   fluency_histogram() + plt_theme
+                 })
+                 output$retentionHistogram <- renderPlot({
+                   retention_histogram() + plt_theme
+                 })
+                 
+                 #### crowding ####
+                 output$crowdingScatterPlot <- renderPlot({
+                   crowdingPlot()
+                 })
+                 output$crowdingAvgPlot <- renderPlot({
+                   crowdingAvgPlot() + plt_theme
+                 })
+                 
+                 output$SloanVsTimesMeanPlot <- renderPlot({
+                   sloan_vs_times_means() + plt_theme
+                 })
+                 
+                 output$SloanVsTimesSDPlot <- renderPlot({
+                   sloan_vs_times_sd() + plt_theme
+                 })
+                 
+                 #### test retest ####
+                 output$readingTestRetest <- renderPlot({
+                   readingTestRetest()
+                 })
+                 output$crowdingTestRetest <- renderPlot({
+                   crowdingTestRetest()
+                 })
+                 output$rsvpReadingTestRetest <- renderPlot({
+                   rsvpReadingTestRetest()
+                 })
+                 output$readingSpeedRetention <- renderPlot({
+                   readingSpeedRetention()
+                 })
+                 # output$`all participant prob` <- renderTable(prob_all())
+                 output$`all participant I` <- renderText(paste0("I(X;Y) = ", round(get_bits(prob_all()),2)))
+                 # output$`each blcck prob` <- renderTable(prob_each())
+                 output$`each block I` <- renderTable(prob_each())
+                 #### sound calibration server side####
+                 output$`sound table` <- renderTable(all_sound_data()[[1]] %>% 
+                                                       select(-ProlificParticipantID,
+                                                              -`Pavlovia Session ID`), 
+                                                     digits = 1)
+                 output$`Dynamic Range Compression Model` <- 
+                   renderTable(expr = all_sound_data()[[5]], 
+                               rownames = all_sound_data()[[6]],
+                               colnames = F,
+                               digits = 1)
+                 output$`sound level plot` <- renderPlot({
+                   soundLevelPlot()
+                 })
+                 output$`record freq plot` <- renderPlot({
+                   recordFreqPlot()
+                 })
+                 
+                 options <- 1:n_distinct(all_sound_data()[[7]]$id)
+                 updateSelectInput(session, "round",choices = options)
+                 
+                 output$impulseResponsePlot <- renderPlot({
+                   roundData <- all_sound_data()[[7]] %>% filter(id == input$round)
+                   plot_impulse_response(roundData)
+                 })
+                 
+                 output$microphoneRecordingPlot <- renderPlot({
+                   roundData <- all_sound_data()[[8]] %>% filter(id == input$round)
+                   plot_microphone_recording_1000hz(roundData)
+                 })
+                 
+                 output$impulseResponsePlotA <- renderPlot({
+                   roundData <- all_sound_data()[[9]][[1]] %>% filter(id == input$round)
+                   plot_IR_response_0to6(roundData)
+                 })
+                 
+                 output$impulseResponsePlotB <- renderPlot({
+                   roundData <- all_sound_data()[[9]][[1]] %>% filter(id == input$round)
+                   plot_IR_response_0to50(roundData)
+                 })
+                 
+                 output$impulseResponsePlotC <- renderPlot({
+                   roundData <- all_sound_data()[[9]][[1]] %>% filter(id == input$round)
+                   plot_IR_response_0to400(roundData)
+                 })
+                 
+               })
+  
+  
+  #### download handlers ####
+  output$sessionCsv <- downloadHandler(
+    filename = function(){ ifelse(app_title$default == "Easy", "sessions.csv", paste0(app_title$default, "-sessions.csv"))},
+    content = function(filename) {
+      write.csv(summary_table() %>% select(-order),file = filename)
+    }
+  )
+  
+  output$report <- downloadHandler(
+    filename = function(){ ifelse(experiment_names() == "", "error report.html", paste0(experiment_names(), ".html"))},
+    content = function(file) {
+      tempReport <- file.path(tempdir(), "error report.Rmd")
+      file.copy("rmd/error report.Rmd", tempReport, overwrite = TRUE)
+      rmarkdown::render(tempReport, output_file = file,
+                        params = summary_table() %>% mutate(experiment = experiment_names()),
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
+  
+  output$thresholdOne <- downloadHandler(
+    filename = function(){ ifelse(experiment_names() == "", "threshold_all_participant.csv", paste0(experiment_names(), "-threshold_all_participant.csv"))},
+    content = function(filename) {
+      write.csv(threshold_and_warnings()[[2]],file = filename)
+    }
+  )
+  
+  output$thresholdTwo <- downloadHandler(
+    filename = function(){ ifelse(experiment_names() == "", "threshold.csv", paste0(experiment_names(), "-threshold.csv"))},
+    content = function(filename) {
+      write.csv(threshold_and_warnings()[[3]], file = filename)
+    }
+  )
+  
+  output$thresholdThree <- downloadHandler(
+    filename = function(){ ifelse(experiment_names() == "", "all-threshold.csv", paste0(experiment_names(), "-all-threshold.csv"))},
+    content = function(filename) {
+      write.csv(threshold_and_warnings()[[4]], file = filename)
+    }
+  )
+  
+  output$`sound_data` <- downloadHandler(
+    filename = function(){ ifelse(experiment_names() == "", "sound-calibration.csv", paste0(experiment_names(), "sound-calibration.csv"))},
+    content = function(filename) {
+      write.csv(all_sound_data()[[1]], file = filename)
+    }
+  )
+  #### update download handler ####
+  toListen <- reactive({
+    list(input$file,input$fileType)
+  })
+  
+  toListenSound <- reactive({
+    list(input$file,input$fileTypeSound)
+  })
+  
+  observeEvent(toListenSound(),{
+    
+    output$downloadSoundLevelPlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('sound-level-1000Hz.', input$fileTypeSound),sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = soundLevelPlot(),
+               width = 8.4,
+               height = 15,
+               units = "cm",
+               device = ifelse(input$fileTypeSound == "svg", svglite, input$fileTypeSound))
+      })
+    
+    output$downloadRecordFreqPlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('sound-gain-vs-freq.', input$fileTypeSound),sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = recordFreqPlot(),
+               height = 12,
+               units = "cm",
+               device = ifelse(input$fileTypeSound == "svg", svglite, input$fileTypeSound))
+      })
+    
+    output$downloadImpulseResponsePlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('impulse-response.', input$fileTypeSound),sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = plot_impulse_response(all_sound_data()[[7]] %>% filter(id == input$round)),
+               height = 12,
+               units = "cm",
+               device = ifelse(input$fileTypeSound == "svg", svglite, input$fileTypeSound))
+      })
+    output$downloadMicrophoneRecordingPlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('microphone-recording-1000Hz.', input$fileTypeSound),sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = plot_microphone_recording_1000hz(all_sound_data()[[8]] %>% filter(id == input$round)),
+               height = 12,
+               units = "cm",
+               device = ifelse(input$fileTypeSound == "svg", svglite, input$fileTypeSound))
+      })
+    output$downloadImpulseResponsePlotA <- downloadHandler(
+      filename = paste(app_title$default,paste0('impulse-response-plotB.', input$fileTypeSound),sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = plot_IR_response_0to6(all_sound_data()[[9]][[1]] %>% filter(id == input$round)),
+               height = 12,
+               units = "cm",
+               device = ifelse(input$fileTypeSound == "svg", svglite, input$fileTypeSound))
+      })
+    output$downloadImpulseResponsePlotB <- downloadHandler(
+      filename = paste(app_title$default,paste0('impulse-response-plotB.', input$fileTypeSound),sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = plot_IR_response_0to50(all_sound_data()[[9]][[1]] %>% filter(id == input$round)),
+               height = 12,
+               units = "cm",
+               device = ifelse(input$fileTypeSound == "svg", svglite, input$fileTypeSound))
+      })
+    output$downloadImpulseResponsePlotC <- downloadHandler(
+      filename = paste(app_title$default,paste0('impulse-response-plotC.', input$fileTypeSound),sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = plot_IR_response_0to400(all_sound_data()[[9]][[1]] %>% filter(id == input$round)),
+               height = 12,
+               units = "cm",
+               device = ifelse(input$fileTypeSound == "svg", svglite, input$fileTypeSound))
+      })
+  })
+  # download plots handlers
+  observeEvent(toListen(), {
+    output$downloadReadingVsXheightLog <- downloadHandler(
+      filename = paste(app_title$default, paste0('reading-vs-x-height-log-scale.', input$fileType), sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = reading_vs_font_size()[[1]] + 
+                 downloadtheme + 
+                 labs(title = paste(c(experiment_names(),
+                                      "reading speed vs x height, log scale" 
+                 ), collapse = "\n")), 
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadReadingVsXheightLinear <- downloadHandler(
+      filename = paste(app_title$default, paste0('reading-vs-x-height-linear.', input$fileType), sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = reading_vs_font_size()[[2]] + 
+                 downloadtheme +
+                 labs(title = paste(c(experiment_names(),
+                                      "reading speed vs x height, linear scale" 
+                 ), collapse = "\n")), 
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadReading60cm1.2mmVs1.4mm <- downloadHandler(
+      filename = paste(app_title$default, paste0('reading-1.4mm-vs-1.2mm-60cm.', input$fileType), sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = reading_60cm_1.2mm_vs_1.4mm() + 
+                 downloadtheme +
+                 labs(title = paste(c(experiment_names(),
+                                      "reading speed 1.4mm vs 1.2mm, 60cm" 
+                 ), collapse = "\n")), 
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadReading30cm1.2mmVs1.4mm <- downloadHandler(
+      filename = paste(app_title$default, paste0('reading-1.4mm-vs-1.2mm-30cm.', input$fileType), sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = reading_30cm_1.2mm_vs_1.4mm() + 
+                 downloadtheme +
+                 labs(title = paste(c(experiment_names(),
+                                      "reading speed 1.4mm vs 1.2mm, 30cm" 
+                 ), collapse = "\n")), 
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadReading60cmDiffVsAge <- downloadHandler(
+      filename = paste(app_title$default, paste0('reading-speed-difference-vs-age-60cm.', input$fileType), sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = reading_diff_60cm_vs_age() + 
+                 downloadtheme +
+                 labs(title = paste(c(experiment_names(),
+                                      "reading speed difference vs age, 60cm" 
+                 ), collapse = "\n")), 
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    
+    
+    output$downloadMeanPlot <- downloadHandler(
+      filename = paste(app_title$default, paste0('mean.', input$fileType), sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = meanPlot() + downloadtheme, 
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadMedianPlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('median.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = medianPlot() + downloadtheme,
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadRegressionPlot <- downloadHandler(
+      filename = paste(app_title$default, paste0('regression.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = regressionPlot() + downloadtheme + coord_fixed(ratio = 1),
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadRegressionAndMeanPlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('regression.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, 
+               plot = regressionAndMeanPlot() + downloadtheme + coord_fixed(ratio = 1),
+               device = ifelse(input$fileType == "svg", svglite, input$fileType),
+               width = 8.1,
+               height = 8.1,
+               dpi = 1200
+        )
+      })
+    output$downloadRegressionFontPlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('regression.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = regressionFontPlot() + downloadtheme + coord_fixed(ratio = 1),
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadRegressionFontPlotWithLabel <- downloadHandler(
+      filename = paste(app_title$default,paste0('regression.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = regressionFontPlotWithLabel() + downloadtheme + coord_fixed(ratio = 1),
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadFluencyHistogram <- downloadHandler(
+      filename = paste(app_title$default,paste0('fluency.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = fluency_histogram() + downloadtheme,
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      }) 
+    
+    output$downloadRetentionHistogram <- downloadHandler(
+      filename = paste(app_title$default,paste0('retention.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = retention_histogram() + downloadtheme,
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadCrowdingScatterPlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('crowding_left_vs_right.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = crowdingPlot(),
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadCrowdingAvgPlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('average_crowding_left_vs_right.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = crowdingAvgPlot() + downloadtheme,
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadSloanVsTimesMeanPlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('sloan_vs_times_mean.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = sloan_vs_times_means() + downloadtheme,
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadSloanVsTimesSDPlot <- downloadHandler(
+      filename = paste(app_title$default,paste0('sloan_vs_times_sd.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = sloan_vs_times_sd() + downloadtheme,
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadReadingSpeedRetention <- downloadHandler(
+      filename = paste(app_title$default,paste0('reading-speed-vs-retention.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = readingSpeedRetention(),
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadReadingTestRetest <- downloadHandler(
+      filename = paste(app_title$default,paste0('reading-test-retest.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = readingTestRetest(),
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadCrowdingTestRetest <- downloadHandler(
+      filename = paste(app_title$default,paste0('crowding-test-retest.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = crowdingTestRetest(),
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+    
+    output$downloadRsvpReadingTestRetest <- downloadHandler(
+      filename = paste(app_title$default,paste0('rsvp-test-retest.', input$fileType),sep = "-"),
+      content = function(file) {
+        ggsave(file, plot = rsvpReadingTestRetest(),
+               device = ifelse(input$fileType == "svg", svglite, input$fileType))
+      })
+  })
+})

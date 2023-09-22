@@ -69,10 +69,9 @@ mean_plot <- function(reading_rsvp_crowding_df){
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, 
          aes(x = mean_bouma_factor, 
              y = 10^(avg_log_SpeedWPM), 
-             color = targetKind
+             color = font
          )) +
-    geom_point(aes(shape = font), size = 3) + 
-    geom_line() + 
+    geom_point(aes(shape = targetKind), size = 3) + 
     scale_y_log10() +
     scale_x_log10() + 
     geom_errorbar(aes(ymin=10^(avg_log_SpeedWPM-se), ymax=10^(avg_log_SpeedWPM+se)), width=0) +
@@ -95,8 +94,8 @@ median_plot <- function(reading_rsvp_crowding_df){
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, 
          aes(x = median_bouma_factor, 
              y = 10^(median_log_SpeedWPM), 
-             color = targetKind)) +
-    geom_point(aes(shape = font), size = 3) + 
+             color = font)) +
+    geom_point(aes(shape = targetKind), size = 3) + 
     scale_y_log10() +
     scale_x_log10() + 
     theme_bw() + 

@@ -1,3 +1,4 @@
+library(dplyr)
 get_lateness_and_duration <- function(all_files){
   t <- all_files %>% 
     select(participant, date, targetMeasuredLatenessSec, targetMeasuredDurationSec, targetDurationSec) %>% 
@@ -41,14 +42,14 @@ generate_summary_table <- function(data_list){
   
   #### errors ####
   error <- all_files %>% 
-    filter(error != "" & error != "Incomplete") %>%
+    dplyr::filter(error != "" & error != "Incomplete") %>%
     mutate(warning = "") %>% 
     mutate(ok = emoji("x"))
   
   
   #### warnings ####
   warnings <- all_files %>% 
-    filter(warning != "") %>%
+    dplyr::filter(warning != "") %>%
     mutate(error = "") %>% 
     mutate(ok = emoji("large_orange_diamond"))
   
@@ -68,7 +69,7 @@ generate_summary_table <- function(data_list){
         info <- data_list[[i]] %>% 
           distinct(block, block_condition, conditionName, 
                    targetTask, targetKind, thresholdParameter) %>% 
-          filter(block_condition != "", conditionName != "") 
+          dplyr::filter(block_condition != "", conditionName != "") 
         if (nrow(info) > 0) {
           info <- info %>% tail(1)
         } else {
@@ -96,7 +97,7 @@ generate_summary_table <- function(data_list){
       info <- data_list[[i]] %>% 
         distinct(block, block_condition, conditionName, 
                  targetTask, targetKind, thresholdParameter) %>% 
-        filter(block_condition != "" & conditionName != "") %>% 
+        dplyr::filter(block_condition != "" & conditionName != "") %>% 
         tail(1)
       t <- cbind(t, info)
       t$ok <- emoji("white_check_mark")

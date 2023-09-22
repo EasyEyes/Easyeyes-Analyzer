@@ -5,10 +5,8 @@ account: easyeyes
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 8620121
-bundleId: 7230526
+bundleId: 7671186
 url: https://easyeyes.shinyapps.io/easyeyes_app/
-when: 1684348393.76002
-lastSyncTime: 1684348393.76003
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: .RData|error report/.DS_Store|README.md
+ignoredFiles: fonts/Agoesa.otf|fonts/Quela.otf|fonts/Times New Roman.ttf|README.md

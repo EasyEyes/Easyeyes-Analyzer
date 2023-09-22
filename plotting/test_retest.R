@@ -144,7 +144,7 @@ get_test_retest_rsvp <- function(rsvp_speed){
           axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
           plot.title = element_text(size = 16),
           plot.subtitle = element_text(size = 16)) +
-    xlab("RSVP reading (word/min)”") +
+    xlab("RSVP reading (word/min)") +
     ylab("Retest RSVP reading (word/min)") + 
     ggtitle("RSVP Reading") + 
     annotate("text", x = 10^(max(rsvp_test_retest$test)*0.9), 

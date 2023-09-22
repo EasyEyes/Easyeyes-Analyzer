@@ -13,6 +13,23 @@ get_measures <- function(data_list){
   return(all_measures)
 }
 
+get_counts_each_block <- function(all_measures) {
+  counts_each_block <- all_measures %>% 
+    group_by(block_condition, conditionName) %>% 
+    mutate(n = n()) %>% 
+    group_by(x) %>% 
+    mutate(`n(x)` = n()) %>% 
+    ungroup() %>% 
+    group_by(y) %>% 
+    mutate(`n(y)` = n()) %>% 
+    ungroup() %>% 
+    group_by(x,y) %>% 
+    mutate(`n(x,y)` = n()) %>% 
+    ungroup()
+  return(counts_each_block)
+}
+
+
 get_counts_all <- function(all_measures){
   counts_all <- all_measures %>% 
     mutate(n = n()) %>% 
@@ -39,12 +56,24 @@ get_prob <- function(counts) {
   return(prob)
 }
 
+get_prob_each_block <- function(counts) {
+  prob <- counts %>% 
+    group_by(block_condition, conditionName) %>% 
+    mutate(`p(x)` = `n(x)`/n,
+           `p(y)` = `n(y)`/n,
+           `p(x,y)` = `n(x,y)`/n) %>% 
+    select(-c(`n(x)`,`n(y)`,`n(x,y)`)) %>% 
+    distinct() %>% 
+    mutate(`I(x,y)` = `p(x,y)` * log2(`p(x,y)`/(`p(x)` * `p(y)`)))
+  return(prob)
+}
+
 get_bits <- function(prob){
   return(sum(prob$`I(x,y)`))
 }
 
 get_bits_each <- function(prob){
-  I <- prob %>% group_by(participant) %>% summarize(`I(X|Y)` = sum(`I(x,y)`))
+  I <- prob %>% group_by(block_condition, conditionName) %>% summarize(`I(X|Y)` = sum(`I(x,y)`))
   return(I)
 }
 

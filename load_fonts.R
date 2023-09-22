@@ -1,0 +1,6 @@
+# library(showtext)
+# sysfonts::font_add("Agoesa", regular = "./fonts/Agoesa.otf")
+# sysfonts::font_add("Quela", regular = "./fonts/Quela.otf")
+# sysfonts::font_add("Times New Roman", regular = "./fonts/Times New Roman.ttf")
+# showtext_auto()
+

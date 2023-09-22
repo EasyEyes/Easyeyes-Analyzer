@@ -7,13 +7,17 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     t <- data_list[[i]] %>% distinct(participant, conditionName, targetEccentricityXDeg, targetEccentricityYDeg)
   }
+  eccentricityDeg <- eccentricityDeg %>% 
+    filter(!is.na(targetEccentricityXDeg),
+           !is.na(targetEccentricityYDeg))
   crowding <- all_summary %>% 
     filter(thresholdParameter != "size", targetKind == "letter", !grepl("practice",conditionName)) %>% 
     select(participant,
            block_condition,
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
-           font) %>%
+           font,
+           experiment) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
   crowding <- crowding %>% 
     left_join(eccentricityDeg, by = c("participant", "conditionName")) %>% 
@@ -36,31 +40,55 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
       filter(targetKind == "reading" & font !="")
   }
   
+  #### get viewing distance and font size####
+  
+  viewingdistance <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
+    data_list[[i]] %>% 
+      select(block_condition, participant, viewingDistanceDesiredCm) %>% 
+      filter(!is.na(viewingDistanceDesiredCm)) %>% 
+      distinct()
+  }
+  
+  age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+    data_list[[i]] %>% 
+      select(participant, age) %>% 
+      distinct()
+  }
+  
+  rsvp_speed <- rsvp_speed %>% 
+    left_join(viewingdistance, by = c("block_condition", "participant")) %>% 
+    left_join(age, by = "participant")
+  
   nQs <- as.numeric(reading$readingNumberOfQuestions[1])
   
   ################################ READING RETENTION #######################################
   
   reading_accuracy <- tibble()
-  for (i in 1:length(data_list)) {
-    t <- data_list[[i]]
-    if ("readWordIdentifiedBool" %in% colnames(t)) {
-      readingQuestions <- t %>% 
-        filter(!is.na(readWordIdentifiedBool)) %>% 
-        select(participant,readWordIdentifiedBool)
-      if(nrow(readingQuestions) > 0) {
-        n_blocks = nrow(readingQuestions)/nQs
-        r <- reading %>% filter(participant == readingQuestions$participant[1])
-        blocks <- unique(r$block_condition)[1:n_blocks]
-        readingQuestions <- cbind(readingQuestions,tibble(block_condition = rep(blocks,each = nQs)))
-        reading_accuracy <- rbind(reading_accuracy,readingQuestions)
+  if (!is.na(nQs) & nQs > 0) { 
+    for (i in 1:length(data_list)) {
+      t <- data_list[[i]]
+      if ("readWordIdentifiedBool" %in% colnames(t)) {
+        readingQuestions <- t %>% 
+          filter(!is.na(readWordIdentifiedBool)) %>% 
+          select(participant,readWordIdentifiedBool)
+        if(nrow(readingQuestions) > 0) {
+          n_blocks = nrow(readingQuestions)/nQs
+          r <- reading %>% filter(participant == readingQuestions$participant[1])
+          blocks <- unique(r$block_condition)[1:n_blocks]
+          readingQuestions <- cbind(readingQuestions,tibble(block_condition = rep(blocks,each = nQs)))
+          reading_accuracy <- rbind(reading_accuracy,readingQuestions)
+        }
       }
     }
+    }
+  if (nrow(reading_accuracy) > 0) {
+    reading_accuracy <- reading_accuracy %>% 
+      group_by(participant, block_condition) %>% 
+      summarize(accuracy = mean(readWordIdentifiedBool))
+    reading <- reading %>% left_join(reading_accuracy, by = c("participant", "block_condition") )
+    reading$accuracy = factor(reading$accuracy, levels = c(0,0.2,0.4,0.6,0.8,1))
   }
-  reading_accuracy <- reading_accuracy %>% 
-    group_by(participant, block_condition) %>% 
-    summarize(accuracy = mean(readWordIdentifiedBool))
-  reading <- reading %>% left_join(reading_accuracy, by = c("participant", "block_condition") )
-  reading$accuracy = factor(reading$accuracy, levels = c(0,0.2,0.4,0.6,0.8,1))
+  
   
   fluency <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     if("questionAndAnswerCorrectAnswer" %in% colnames(data_list[[i]])) {
@@ -69,11 +97,12 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
                questionAndAnswerNickname, questionAndAnswerQuestion, targetKind, questionAndAnswerCorrectAnswer)
     }
   }
-  fluency <- 
-    fluency %>% 
-    group_by(participant) %>% 
-    summarize(accuracy = mean(questionAndAnswerResponse == questionAndAnswerCorrectAnswer))
-  
+  if (nrow(fluency) > 0) {
+    fluency <- 
+      fluency %>% 
+      group_by(participant) %>% 
+      summarize(accuracy = mean(questionAndAnswerResponse == questionAndAnswerCorrectAnswer))
+  }
   return(list(reading, crowding, rsvp_speed, fluency))
 }
 
@@ -130,45 +159,53 @@ generate_threshold <- function(data_list, summary_list){
     mutate(targetKind = "reading")
   
   threshold_all <- all_summary %>%
-    filter(!grepl("practice",conditionName)) %>% 
-    group_by(conditionName, thresholdParameter) %>%
+    group_by(participant, conditionName) %>%
     dplyr::summarize(
-      m = mean(questMeanAtEndOfTrialsLoop),
-      se = sd(questMeanAtEndOfTrialsLoop)/sqrt(n()), 
-      sd = sd (questMeanAtEndOfTrialsLoop),
-      N = n(),
-      parameter = "threshold")
+      pm = mean(questMeanAtEndOfTrialsLoop),
+      sd = sd(questMeanAtEndOfTrialsLoop)) %>% 
+    mutate(parameter = "threshold") %>% 
+    ungroup() 
   
-  practice_all <- all_summary %>%
-    filter(grepl("practice",conditionName)) %>% 
-    group_by(conditionName, participant, thresholdParameter) %>%
-    dplyr::summarize(pm = mean(questMeanAtEndOfTrialsLoop)) %>% 
-    ungroup() %>% 
+  
+  threshold_summary <- threshold_all %>% 
+    mutate(variance = sd^2) %>% 
     group_by(conditionName) %>% 
     dplyr::summarize(
-      m = mean(pm),
-      se = sd(pm)/sqrt(n()), 
-      sd = sd(pm),
+      m = mean(pm, na.rm = T),
+      `se across participants` = sd(pm)/sqrt(n()), 
+      `sd across participants` = sd(pm),
+      `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
       N = n(),
       parameter = "threshold")
   
   wpm_all <- reading %>% 
     filter(!participant %in% reading_exceed_1500$participant) %>%
     filter(conditionName != "") %>% 
-    group_by(conditionName, participant, thresholdParameter) %>%
-    dplyr::summarize(
-      pm = mean(wordPerMin, na.rm =T), .group = "keep") %>% 
+    group_by(conditionName, participant) %>%
+    dplyr::summarize(pm = mean(wordPerMin, na.rm =T),
+                     sd = sd(wordPerMin, na.rm =T)) %>% 
     filter(!is.na(pm)) %>% 
-    ungroup() %>% 
-    group_by(conditionName, thresholdParameter) %>% 
+    mutate(parameter = "word per minute") %>% 
+    ungroup()
+  
+  wpm_summary <- wpm_all %>% 
+    mutate(variance = sd^2) %>% 
+    group_by(conditionName) %>% 
     dplyr::summarize(
       m = mean(pm),
-      se = sd(pm)/sqrt(n()), 
-      sd = sd(pm),
+      `se across participants` = sd(pm)/sqrt(n()), 
+      `sd across participants` = sd(pm),
+      `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
       N = n(),
       parameter = "word per minute")
-  threshold <- rbind(threshold_all, practice_all, wpm_all) %>% mutate(m = round(m,3),
-                                                                      sd = round(sd,3),
-                                                                      se = round(se,3))
-  return(list(reading_exceed_1500 %>% select(warning), threshold))
+  threshold_each <- rbind(threshold_all, wpm_all) %>% 
+    mutate(m = round(pm,3),
+           sd = round(sd,3)) %>% 
+    select(participant, conditionName, m, sd, parameter)
+  threshold <- rbind(threshold_summary, wpm_summary) %>% 
+    mutate(m = round(m,3),
+           `se across participants` = round(`se across participants`,3),
+           `sd across participants` = round(`sd across participants`,3),
+           `sd across repetitions` = round(`sd across repetitions`,3))
+  return(list(reading_exceed_1500 %>% select(warning), threshold, threshold_each, all_summary))
 }

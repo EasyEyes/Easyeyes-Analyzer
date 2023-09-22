@@ -97,21 +97,23 @@ for (dimension_col = 0; dimension_col <= columnCount; dimension_col++) {
 MergeGridCells();
 "
 
+library(ggplot2)
 ##### ggplot download theme #####
 downloadtheme <- theme(legend.position = "right", 
                        legend.box = "vertical", 
                        legend.justification = c(1,1),
                        legend.margin = margin(-0.4),
                        legend.key.size = unit(4.5, "mm"),
-                       legend.title = element_text(size=16),
-                       legend.text = element_text(size=16),
+                       legend.title = element_text(size=14),
                        panel.grid.major = element_blank(), 
                        panel.grid.minor = element_blank(),
-                       panel.background = element_blank(), axis.title = element_text(size = 16),
-                       axis.text = element_text(size = 16),
+                       panel.background = element_blank(), 
+                       axis.title = element_text(size = 14),
+                       axis.text = element_text(size = 14),
                        axis.line = element_line(colour = "black"),
-                       plot.title = element_text(size=16),
-                       plot.subtitle = element_text(size=16))
+                       plot.title = element_text(size=11),
+                       plot.subtitle = element_text(size=14))
+
 
 ##### ggplot display theme #####
 
@@ -128,7 +130,21 @@ plt_theme <- theme(legend.position = "right",
                    axis.title = element_text(size = 14),
                    axis.text = element_text(size = 14),
                    axis.line = element_line(colour = "black"),
-                   plot.title = element_text(size=14),
+                   plot.title = element_text(size=11),
                    plot.subtitle = element_text(size=14))
 
 instruction <- "All rows belonging to the same Pavlovia session (a CSV results file) have the same pastel shade.  Each row is a session event: ending, error, or warning. The right side of each column’s heading has buttons to sort up and down, and below is a text box for selection."
+
+
+scale_family <- function(...) {
+  nfamily <- length(quartzFonts())
+  namesfamily <- names(quartzFonts())
+  discrete_scale("family", "family_d", function(n)namesfamily[(1:n)%%nfamily+1])
+}
+
+eq1_text <- "\\(\\text{totalDBSPL} = 10 log_{10}(10 ^ {\\frac{\\text{backgroundDbSpl}}{10}} + 10 ^ {\\frac{(\\text{gainDbSpl} + \\text{inDb})}{10}}) \\\\  
+\\text{outDB} = \\begin{cases} T + \\frac{(\\text{totalDBSPL} - T)}{R} & \\text{if} \\ \\ \\text{totalDBSPL} > T + \\frac{W}{2} \\\\
+\\text{totalDBSPL} + \\frac{(1-R)}{R}\\frac{(\\text{totalDBSPL} - (T-\\frac{W}{2}))^2}{2W} & \\text{if} \\ \\ T - \\frac{W}{2} < \\text{totalDBSPL} \\leq T + \\frac{W}{2} \\\\ 
+\\text{totalDBSPL} & \\text{if} \\ \\ \\text{totalDBSPL} \\leq T - \\frac{W}{2} \\end{cases}\\)"
+
+reference <- "http://eecs.qmul.ac.uk/~josh/documents/2012/GiannoulisMassbergReiss-dynamicrangecompression-JAES2012.pdf"
