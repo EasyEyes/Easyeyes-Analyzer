@@ -142,9 +142,9 @@ scale_family <- function(...) {
   discrete_scale("family", "family_d", function(n)namesfamily[(1:n)%%nfamily+1])
 }
 
-eq1_text <- "\\(\\text{totalDBSPL} = 10 log_{10}(10 ^ {\\frac{\\text{backgroundDbSpl}}{10}} + 10 ^ {\\frac{(\\text{gainDbSpl} + \\text{inDb})}{10}}) \\\\  
-\\text{outDB} = \\begin{cases} T + \\frac{(\\text{totalDBSPL} - T)}{R} & \\text{if} \\ \\ \\text{totalDBSPL} > T + \\frac{W}{2} \\\\
-\\text{totalDBSPL} + \\frac{(1-R)}{R}\\frac{(\\text{totalDBSPL} - (T-\\frac{W}{2}))^2}{2W} & \\text{if} \\ \\ T - \\frac{W}{2} < \\text{totalDBSPL} \\leq T + \\frac{W}{2} \\\\ 
-\\text{totalDBSPL} & \\text{if} \\ \\ \\text{totalDBSPL} \\leq T - \\frac{W}{2} \\end{cases}\\)"
+eq1_text <- "\\(totalDBSPL = 10 \\text{log}_{10}(10 ^ {\\frac{backgroundDbSpl}{10}} + 10 ^ {\\frac{(gainDbSpl + inDb)}{10}}) \\\\  
+outDB = \\begin{cases} T + \\frac{(totalDBSPL - T)}{R} & \\text{if} \\ \\ totalDBSPL > T + \\frac{W}{2} \\\\
+totalDBSPL + \\frac{(1-R)}{R}\\frac{(totalDBSPL - (T-\\frac{W}{2}))^2}{2W} & \\text{if} \\ \\ T - \\frac{W}{2} < totalDBSPL \\leq T + \\frac{W}{2} \\\\ 
+totalDBSPL & \\text{if} \\ \\ totalDBSPL \\leq T - \\frac{W}{2} \\end{cases}\\)"
 
 reference <- "http://eecs.qmul.ac.uk/~josh/documents/2012/GiannoulisMassbergReiss-dynamicrangecompression-JAES2012.pdf"
