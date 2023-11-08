@@ -1,6 +1,7 @@
 
 
 
+
 source('./constant.R')
 library(shiny)
 library(svglite)
@@ -389,18 +390,26 @@ shinyUI(
         align = "center",
         downloadButton("downloadRecordFreqPlotSystem", "Download")
       )),
-      fixedRow(
-        column(
-          width = 12,
-          align = "center",
-          withSpinner(imageOutput("record freq plot component", height = "100%"), type = 4)
-        ),
-        column(
-          width = 12,
-          align = "center",
-          downloadButton("downloadRecordFreqPlotComponent", "Download")
-        )
-      ),
+      fixedRow(column(
+        width = 12,
+        align = "center",
+        withSpinner(imageOutput("record freq plot component", height = "100%"), type = 4)
+      )),
+      fixedRow(column(
+        width = 12,
+        align = "center",
+        downloadButton("downloadRecordFreqPlotComponent", "Download")
+      )),
+      fixedRow(column(
+        width = 12,
+        align = "center",
+        withSpinner(imageOutput("power variation", height = "100%"), type = 4)
+      )),
+      fixedRow(column(
+        width = 12,
+        align = "center",
+        downloadButton("downloadPowerVariation", "Download")
+      )),
       fluidRow(style = "padding-top:0px;",
                column(
                  width = 12,

@@ -1,12 +1,11 @@
 require(jsonlite)
 require(dplyr)
 
-# jsonFile <- fromJSON("FreeNeonMouse355_threshold_0001_2023-11-01_14h09.43.734_M1.json")
-
+# jsonFile <- fromJSON("GreatYellowShark379_threshold_0001_2023-11-07_17h37.28.485_M1.json", simplifyDataFrame = F)
 
 preprocessJSON <- function(fileJSON) {
   file_list <- fileJSON$data
-  jsonFile <- fromJSON(file_list[1])
+  jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
   
   
   #### volume ####
@@ -143,7 +142,7 @@ plotComponentIRTime <- function(fileJSON) {
   time <- 1 / defaultF
   t$time <- seq(0, (nrow(t) - 1) * time, time)
   p <- ggplot(t, aes(x = time, y = IR)) +
-    geom_line() +
+    geom_line(size = 0.8) +
     labs(title = "Loudspeaker IR", x = "Time (ms)") +
     theme_bw()
   return(p)
@@ -159,14 +158,14 @@ plotComponentIIR <- function(fileJSON) {
     t <- tibble(IIR = jsonFile$`Loudspeaker Component IIR`)
     t$time <- seq(0, (nrow(t) - 1) * time, time)
     p <- ggplot(t, aes(x = time, y = IIR)) +
-      geom_line() +
+      geom_line(size = 0.8) +
       labs(title = "Loudspeaker IIR", x = "Time (ms)") +
       theme_bw()
   } else {
     t <- tibble(IIR = jsonFile$`Microphone Component IIR`)
     t$time <- seq(0, (nrow(t) - 1) * time, time)
     p <- ggplot(t, aes(x = time, y = IIR)) +
-      geom_line() +
+      geom_line(size = 0.8) +
       labs(title = "Microphone IIR", x = "Time (ms)") +
       theme_bw()
   }
@@ -188,11 +187,18 @@ plotComponetIRPSD <-
         Freq = jsonFile$`Loudspeaker Component IR`$Freq,
         Gain = jsonFile$`Loudspeaker Component IR`$Gain
       )
+      t <- t %>% filter(Freq >= 20,  Freq <= 16000, is.finite(Gain))
+      minY =  floor(min(t$Gain) / 10) * 10 - 40
+      maxY =  ceiling(max(t$Gain) / 10) * 10 + 40
+      
       p <- ggplot(t, aes(x = Freq, y = Gain)) +
-        geom_line() +
-        scale_x_log10(limits = c(20, 16000)) +
+        geom_line(size = 0.8) +
+        scale_y_continuous(limits = c(minY,maxY),breaks = seq(minY,maxY,10)) + 
+        scale_x_log10(limits = c(20, 16000), 
+                      breaks = c(20, 100, 200, 1000, 2000, 10000, 16000),
+                      expand = c(0, 0)) +
         theme_bw() +
-        labs(title = "Loudspeaker gain calibration") +
+        labs(title = "Loudspeaker profile") +
         add_transducerTable_component(
           transducerTable = sound_data[[7]],
           position = c("left", "bottom"),
@@ -207,11 +213,17 @@ plotComponetIRPSD <-
         Freq = jsonFile$`Microphone Component IR`$Freq,
         Gain = jsonFile$`Microphone Component IR`$Gain
       )
+      t <- t %>% filter(Freq >= 20,Freq <= 16000, is.finite(Gain))
+      minY =  floor(min(t$Gain) / 10) * 10 - 40
+      maxY =  ceiling(max(t$Gain) / 10) * 10 + 40
       p <- ggplot(t, aes(x = Freq, y = Gain)) +
-        geom_line() +
-        scale_x_log10() +
+        geom_line(size = 0.8) +
+        scale_y_continuous(limits = c(minY,maxY),breaks = seq(minY,maxY,10)) + 
+        scale_x_log10(limits = c(20, 16000) , 
+                      breaks = c(20, 100, 200, 1000, 2000, 10000, 16000),
+                      expand = c(0, 0)) +
         theme_bw() +
-        labs(title = "Microphone gain calibration") +
+        labs(title = "Microphone profile") +
         add_transducerTable_loudspeaker(
           transducerTable = sound_data[[7]],
           position = c("left", "bottom"),
@@ -226,6 +238,113 @@ plotComponetIRPSD <-
     return(p)
   }
 
+plot_power_variations <- function(fileJSON,
+                                  sound_data,
+                                  subtitleOne,
+                                  subtitleTwo,
+                                  subtitleThree) {
+  file_list <- fileJSON$data
+  jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
+  transducer <- ifelse("Loudspeaker Component IR" %in% names(jsonFile), "Loudspeaker", "Microphone")
+  t <- tibble(time = jsonFile$recordingChecks$unfiltered[[1]]$warmupT,
+              power = jsonFile$recordingChecks$unfiltered[[1]]$warmupDb,
+              label = "MLS Warmup") %>% 
+    rbind(tibble(time = jsonFile$recordingChecks$unfiltered[[1]]$recT,
+                 power = jsonFile$recordingChecks$unfiltered[[1]]$recDb,
+                 label = paste0("MLS Data, SD = ", jsonFile$recordingChecks$unfiltered[[1]]$sd))) %>% 
+    rbind(tibble(time = jsonFile$recordingChecks$system[[1]]$recT,
+                 power = jsonFile$recordingChecks$system[[1]]$recDb,
+                 label = paste0("Loudspeaker+Microphone Data, SD = ", jsonFile$recordingChecks$system[[1]]$sd))) %>%
+    rbind(tibble(time = jsonFile$recordingChecks$system[[1]]$warmupT,
+                 power = jsonFile$recordingChecks$system[[1]]$warmupDb,
+                 label = "Loudspeaker+Microphone Warmup")) %>%
+    rbind(tibble(time = jsonFile$recordingChecks$component[[1]]$recT,
+                 power = jsonFile$recordingChecks$component[[1]]$recDb,
+                 label = paste0(transducer, " Data, SD = ", jsonFile$recordingChecks$component[[1]]$sd))) %>%
+    rbind(tibble(time = jsonFile$recordingChecks$component[[1]]$warmupT,
+                 power = jsonFile$recordingChecks$component[[1]]$warmupDb,
+                 label = paste(transducer,"Warmup")))
+  t$label <- factor(t$label,
+                    levels = c("MLS Warmup",
+                               "Loudspeaker+Microphone Warmup",
+                               paste(transducer,"Warmup"),
+                               paste0("MLS Data, SD = ", jsonFile$recordingChecks$unfiltered[[1]]$sd), 
+                               paste0("Loudspeaker+Microphone Data, SD = ", jsonFile$recordingChecks$system[[1]]$sd),
+                               paste0(transducer, " Data, SD = ", jsonFile$recordingChecks$component[[1]]$sd)))
+  maxY <- ceiling(max(t$power/10)) * 10 + 30
+  minY <- floor(min(t$power/10)) * 10 - 30
+  p <- ggplot(t, aes(x = time, y = power, color = label, linetype = label)) + 
+    geom_line() +
+    scale_x_continuous(n.breaks = 10) + 
+    scale_y_continuous(limits=c(minY,maxY),
+                       breaks = seq(minY,maxY,10),
+                       expand = c(0,0)) +
+    scale_color_manual(values = c("red","#3366FF","#33FF00","red","#3366FF","#33FF00")) +
+    scale_linetype_manual(values = c(2,2,2,1,1,1)) +
+    theme_bw() + 
+    theme(
+      legend.position = c(0.50, 0.95),
+      legend.box = "horizontal",
+      legend.key = element_rect(colour = NA, fill = NA),
+      legend.key.height = unit(1, "mm"),
+      # legend.margin = margin(
+      #   t = 0,
+      #   b = -.1,
+      #   l = -2.5,
+      #   r = -3,
+      #   unit = "in"
+      # ),
+      panel.background = element_blank(),
+      legend.background = element_rect(fill='transparent',color = 'transparent'),
+      axis.line = element_line(colour = "black"),
+      legend.title = element_text(size = 12),
+      legend.text = element_text(size = 12),
+      axis.title = element_text(size = 12),
+      axis.text = element_text(size = 12),
+      plot.title = element_text(size = 16),
+      plot.subtitle = element_text(size = 12),
+      plot.margin = margin(
+        t = .5,
+        r = .5,
+        b = .5,
+        l = .5,
+        "inch"
+      )
+    ) +
+    guides(color = guide_legend(keywidth = unit(1, "cm"),
+                                fill = NULL,
+                                color = NULL,
+                                ncol = 2),
+           guide_legend(keywidth = unit(1, "cm"),
+                        fill = NULL,
+                        color = NULL,
+                        ncol = 3)) +
+    labs(color = NULL, 
+         linetype = NULL,
+         title = "Power Variation in Recordings",
+         x = "Power (dB)",
+         y = "Time (s)")
+  if ("Loudspeaker Component IR" %in% names(jsonFile)) {
+    p <- p + add_transducerTable_component(
+      transducerTable = sound_data[[7]],
+      position = c("left", "bottom"),
+      title_text = "",
+      subtitleOne = subtitleOne,
+      subtitleTwo = subtitleTwo,
+      subtitleThree = subtitleThree
+    )
+  } else {
+   p <- p + add_transducerTable_loudspeaker(
+       transducerTable = sound_data[[7]],
+       position = c("left", "bottom"),
+       title_text = "",
+       subtitleOne = subtitleOne,
+       subtitleTwo = subtitleTwo,
+       subtitleThree = subtitleThree
+     )
+  } 
+  return(p)
+}
 
 read_iir_JSON <- function(fileJSON) {
   file_list <- fileJSON$data
@@ -394,7 +513,7 @@ plot_record_freq_system <- function(sound_data,
   )
   
   tmp <- t %>% filter(is.finite(gain))
-  maxY <- ceiling(max(tmp$gain) / 10) * 10 + 10
+  maxY <- ceiling(max(tmp$gain) / 10) * 10 + 20
   
   p1 <- ggplot() +
     geom_line(data = t,
@@ -403,7 +522,7 @@ plot_record_freq_system <- function(sound_data,
                 y = gain,
                 color = label,
                 linetype = label
-              )) +
+              ), size = 0.8) +
     scale_x_log10(
       breaks = c(20, 100, 200, 1000, 2000, 10000, 16000),
       limits = c(20, 16000),
@@ -420,15 +539,14 @@ plot_record_freq_system <- function(sound_data,
     theme(
       legend.position = c(0.45, 0.95),
       legend.box = "horizontal",
+      legend.key.height = unit(1, "mm"),
       legend.margin = margin(
         t = 0,
         b = -.1,
-        l = -3,
+        l = -2.5,
         r = -3,
         unit = "in"
       ),
-      legend.key = element_rect(fill = "white"),
-      legend.key.size = unit(4.5, "mm"),
       panel.background = element_blank(),
       axis.text.x = element_text(
         angle = 30,
@@ -450,14 +568,18 @@ plot_record_freq_system <- function(sound_data,
         "inch"
       )
     ) +
-    guides(color = guide_legend(keywidth = unit(0.7, "cm"),
-                                ncol = 3)) +
+    guides(color = guide_legend(keywidth = unit(1, "cm"),
+                                fill = NULL,
+                                ncol = 3),
+           guide_legend(keywidth = unit(1, "cm"),
+                        fill = NULL,
+                        ncol = 3)) +
     # coord_fixed(ratio = 0.02, clip = "off") +
     labs(
       x = "Frequency (Hz)",
       y = "Power spectral density (dB)",
-      color = "Spetra",
-      linetype = "Spetra",
+      color = NULL,
+      linetype = NULL,
       title = "Loudspeaker + Microphone"
     ) +
     add_transducerTable_system(
@@ -577,7 +699,7 @@ plot_record_freq_component <- function(sound_data,
   tt <- paste(tt, "and expected", tmp$SD, "dB over", range)
   
   tmp <- t %>% filter(is.finite(gain))
-  maxY <- ceiling(max(tmp$gain) / 10) * 10 + 10
+  maxY <- ceiling(max(tmp$gain) / 10) * 10 + 20
   
   p1 <- ggplot(t) +
     geom_line(aes(
@@ -585,7 +707,7 @@ plot_record_freq_component <- function(sound_data,
       y = gain,
       color = label,
       linetype = label
-    )) +
+    ), size = 0.8) +
     scale_x_log10(
       breaks = c(20, 100, 200, 1000, 2000, 10000, 16000),
       limits = c(20, 16000),
@@ -613,12 +735,12 @@ plot_record_freq_component <- function(sound_data,
       legend.margin = margin(
         t = 0,
         b = -.3,
-        l = -3,
+        l = -2.5,
         r = -3,
         unit = "in"
       ),
-      legend.key = element_rect(fill = "white"),
-      legend.key.size = unit(4.5, "mm"),
+      legend.key = element_rect(color = NA,fill = NA),
+      legend.key.height = unit(1, "mm"),
       panel.background = element_blank(),
       axis.text.x = element_text(
         angle = 30,
@@ -627,15 +749,19 @@ plot_record_freq_component <- function(sound_data,
       ),
       axis.line = element_line(colour = "black")
     ) +
-    guides(color = guide_legend(keywidth = unit(0.7, "cm"),
-                                ncol = 3)) +
+    guides(color = guide_legend(keywidth = unit(1, "cm"),
+                                fill = NULL,
+                                ncol = 3),
+           linetype = guide_legend(keywidth = unit(1, "cm"),
+                                   fill = NULL,
+                                   ncol = 3)) +
     # coord_fixed(ratio = 0.02, clip = "off") +
     labs(
       x = "Frequency (Hz)",
       y = "Power spectral density (dB)",
       title = "Loudspeaker",
-      color = "Spectra",
-      linetype = "Spectra"
+      color = NULL,
+      linetype = NULL
     )
   if (transducerLabel == "microphone gain") {
     p1 <-
@@ -715,7 +841,7 @@ plot_sound_level <- function(sound_data) {
   p <-
     ggplot(data = volume_task, aes(x = `in (dB)`, y = `out (dB SPL)`)) +
     geom_point(size = 3) +
-    geom_line(data = model, aes(x = x, y = y)) +
+    geom_line(data = model, aes(x = x, y = y), size = 0.8) +
     ggpp::geom_text_npc(aes(
       npcx = "left",
       npcy = "top",
@@ -744,7 +870,7 @@ plot_sound_level <- function(sound_data) {
         r = 0,
         unit = "cm"
       ),
-      legend.key = element_rect(fill = "white"),
+      legend.key = element_rect(fill = NA, color = NA),
       plot.title = element_text(size = 12, hjust = 0.5)
     ) +
     ggtitle("Sound Level at 1000 Hz") +
@@ -774,21 +900,21 @@ get_json_plots <- function(result, selected) {
     mutate(db = cumsum((IR) ^ 2))
   
   p1 <- ggplot(IR_0to6, aes(x = time, y = IR)) +
-    geom_line() +
+    geom_line(size = 0.8) +
     xlab("Time (ms)") +
     ylab("v/v.s") +
     theme_bw() +
     ggtitle("0 to 6 ms")
   
   p2 <- ggplot(IR_0to50, aes(x = time, y = IR)) +
-    geom_line() +
+    geom_line(size = 0.8) +
     xlab("Time (ms)") +
     ylab("v/v.s") +
     theme_bw() +
     ggtitle("0 to 50 ms")
   
   p3 <- ggplot(IR_0to400, aes(x = time, y = db)) +
-    geom_line() +
+    geom_line(size = 0.8) +
     xlab("Time (ms)") +
     ylab("dB") +
     theme_bw() +
@@ -843,7 +969,7 @@ get_transducer_table <- function(jsonFile) {
     c(loudspeaker$CalibrationDate, NA)
   ))
   
-  colnames(transducerTable) <- c("Loudspeaker", "Microphone")
+  colnames(transducerTable) <- c("Loudspeaker    ", "Microphone")
   return(transducerTable)
 }
 
@@ -863,14 +989,14 @@ get_iir_plot <- function(iir) {
       aes(x = Hz_component_iir,
           y = dB_component_iir,
           color = "Loudspeaker IIR"),
-      size = 1
+      size = .8
     ) +
     geom_line(
       data = component_iir_no_bandpass,
       aes(x = Hz_component_iir_no_bandpass,
           y = dB_component_iir_no_bandpass,
           color = "Loudspeaker IIR (No Bandpass)"),
-      size = 1
+      size = .8
     ) +
     scale_x_log10(limits = c(20, 20000), n.breaks = 15) +
     scale_y_continuous(limits = c(
@@ -906,14 +1032,14 @@ get_iir_plot <- function(iir) {
       aes(x = Hz_system_iir,
           y = dB_system_iir,
           color = "System IIR"),
-      size = 1
+      size = .8
     ) +
     geom_line(
       data = system_iir_no_bandpass,
       aes(x = Hz_system_iir_no_bandpass,
           y = dB_system_iir_no_bandpass,
           color = "System IIR (No Bandpass)"),
-      size = 1
+      size = .8
     ) +
     scale_x_log10(limits = c(20, 20000), n.breaks = 15) +
     scale_y_continuous(limits = c(
@@ -971,7 +1097,7 @@ get_convolution_plot <- function(sound_data) {
   systemConv <- convolutions$system
   componentConv <- convolutions$component
   p1 <- ggplot(systemConv, aes(x = freq, y = gain)) +
-    geom_line() +
+    geom_line(size = 0.8) +
     scale_x_log10(breaks = c(20, 100, 200, 1000, 2000, 10000, 16000)) +
     coord_fixed(0.05) +
     theme_bw() +
@@ -979,7 +1105,7 @@ get_convolution_plot <- function(sound_data) {
          x = "Frequency (Hz)",
          title = "Power Spetral Density of system convolution (filtered mls)")
   p2 <- ggplot(componentConv, aes(x = freq, y = gain)) +
-    geom_line() +
+    geom_line(size = 0.8) +
     scale_x_log10(breaks = c(20, 100, 200, 1000, 2000, 10000, 16000)) +
     coord_fixed(0.05) +
     theme_bw() +

@@ -504,32 +504,29 @@ shinyServer(function(input, output, session) {
            alt = "Power Spectral Density")
     }, deleteFile = TRUE)
     
-    #
-    # output$`spectrumSubtractedNoise` <- renderImage({
-    #   outfile <- tempfile(fileext='.svg')
-    #   ggsave(file=outfile,
-    #          plot=recordFreqSubtractedNoisePlot() +
-    #            add_transducerTable_system(sound_data()[[7]],
-    #                                          c("left","bottom"),
-    #                                          subtitleOne = subtitleOne()) +
-    #            sound_theme_display)
-    #   list(src = outfile,
-    #        contenttype = 'svg',
-    #        alt = "Power Spectral Density Subtracted Noise")
-    # }, deleteFile = TRUE)
-    #
-    # output$`filteredSpectrumW/WONoise` <- renderImage({
-    #   outfile <- tempfile(fileext='.svg')
-    #   ggsave(file=outfile,
-    #          plot=recordFreqFilteredSubtractedNoisePlot() +
-    #            add_transducerTable_system(sound_data()[[7]],
-    #                                       c("left","bottom"),
-    #                                       subtitleOne = subtitleOne()) +
-    #            sound_theme_display)
-    #   list(src = outfile,
-    #        contenttype = 'svg',
-    #        alt = "Filtered MLS Power Spectral Density Subtracted Noise")
-    # }, deleteFile = TRUE)
+    output$`power variation` <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot_power_variations(
+          input$fileJSON,
+          sound_data(),
+          subtitleOne(),
+          subtitleTwo(),
+          subtitleThree()$component
+        ) +
+          sound_theme_display,
+        height = 6.5,
+        width = 8.5,
+        units = "in"
+      )
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = "Power Spectral Density")
+    }, deleteFile = TRUE)
+    
+    
+    
     
     #### IIR ####
     output$IRtmpFour <- renderImage({
@@ -585,9 +582,13 @@ shinyServer(function(input, output, session) {
     
     output$componentIRTime <- renderImage({
       outfile <- tempfile(fileext = '.svg')
-      ggsave(file = outfile,
-             plot = plotComponentIRTime(input$fileJSON) +
-               sound_theme_display)
+      ggsave(
+        file = outfile,
+        plot = plotComponentIRTime(input$fileJSON) +
+          sound_theme_display,
+        height = 8,
+        width = 8
+      )
       list(src = outfile,
            contenttype = 'svg',
            alt = "IIR two")
@@ -604,7 +605,9 @@ shinyServer(function(input, output, session) {
           subtitleTwo(),
           subtitleThree()$component
         ) +
-          sound_theme_display
+          sound_theme_display,
+        height = 8,
+        width = 8,
       )
       list(src = outfile,
            contenttype = 'svg',
@@ -756,23 +759,28 @@ shinyServer(function(input, output, session) {
                        names(summary_table())[-1],
                        'Pavlovia session ID',
                        backgroundColor = styleEqual(participants(), random_rgb(length(participants(
+                         
                        ))))
                      ) %>%
                      formatStyle(
                        names(summary_table())[1],
                        'Prolific participant ID',
                        backgroundColor = styleEqual(prolific_id(), random_rgb(length(prolific_id(
+                         
                        ))))
                      )
                  )
                  #### stats page ####
-                 output$ex2 <- renderTable(threshold_and_warnings()[[2]])
-                 output$ex3 <- renderTable(if (nrow(threshold_and_warnings()[[1]]) > 0) {
-                   threshold_and_warnings()[[1]]
-                 } else {
-                   tibble()
-                 })
-                 output$ex4 <- renderTable(threshold_and_warnings()[[3]])
+                 output$ex2 <-
+                   renderTable(threshold_and_warnings()[[2]])
+                 output$ex3 <-
+                   renderTable(if (nrow(threshold_and_warnings()[[1]]) > 0) {
+                     threshold_and_warnings()[[1]]
+                   } else {
+                     tibble()
+                   })
+                 output$ex4 <-
+                   renderTable(threshold_and_warnings()[[3]])
                  #### plots ####
                  output$readingVsXheightLog <- renderPlot({
                    p1 <- reading_vs_font_size()[[1]]
@@ -890,6 +898,7 @@ shinyServer(function(input, output, session) {
                  # output$`all participant prob` <- renderTable(prob_all())
                  output$`all participant I` <-
                    renderText(paste0("I(X;Y) = ", round(get_bits(prob_all(
+                     
                    )), 2)))
                  # output$`each blcck prob` <- renderTable(prob_each())
                  output$`each block I` <- renderTable(prob_each())
@@ -1206,8 +1215,44 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         ggsave(
           file,
-          plot =  plotComponetIRPSD(input$fileJSON) +
+          plot =  plotComponetIRPSD(
+            input$fileJSON,
+            sound_data(),
+            subtitleOne(),
+            subtitleTwo(),
+            subtitleThree()$component
+          ) +
             sound_theme_display,
+          height = 8,
+          width = 8,
+          unit = "in",
+          device = ifelse(
+            input$fileTypeSound == "svg",
+            svglite,
+            input$fileTypeSound
+          )
+        )
+      }
+    )
+    
+    output$downloadPowerVariation <- downloadHandler(
+      filename = paste(paste0(
+        'power-variation.', input$fileTypeSound
+      ), sep = "-"),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = plot_power_variations(
+            input$fileJSON,
+            sound_data(),
+            subtitleOne(),
+            subtitleTwo(),
+            subtitleThree()$component
+          ) +
+            sound_theme_display,
+          height = 6.5,
+          width = 8.5,
+          unit = "in",
           device = ifelse(
             input$fileTypeSound == "svg",
             svglite,
