@@ -1,7 +1,7 @@
 require(jsonlite)
 require(dplyr)
 
-# jsonFile <- fromJSON("GreatYellowShark379_threshold_0001_2023-11-07_17h37.28.485_M1.json", simplifyDataFrame = F)
+# jsonFile <- fromJSON("BoldBrownDog864_testSoundCalibration288_0001_2023-11-09_02h00.24.551_sound.json", simplifyDataFrame = F)
 
 preprocessJSON <- function(fileJSON) {
   file_list <- fileJSON$data
@@ -251,16 +251,16 @@ plot_power_variations <- function(fileJSON,
               label = "MLS Warmup") %>% 
     rbind(tibble(time = jsonFile$recordingChecks$unfiltered[[1]]$recT,
                  power = jsonFile$recordingChecks$unfiltered[[1]]$recDb,
-                 label = paste0("MLS Data, SD = ", jsonFile$recordingChecks$unfiltered[[1]]$sd))) %>% 
+                 label = paste0("MLS Data, SD = ", jsonFile$recordingChecks$unfiltered[[1]]$sd, " dB"))) %>% 
     rbind(tibble(time = jsonFile$recordingChecks$system[[1]]$recT,
                  power = jsonFile$recordingChecks$system[[1]]$recDb,
-                 label = paste0("Loudspeaker+Microphone Data, SD = ", jsonFile$recordingChecks$system[[1]]$sd))) %>%
+                 label = paste0("Loudspeaker+Microphone Data, SD = ", jsonFile$recordingChecks$system[[1]]$sd, " dB"))) %>%
     rbind(tibble(time = jsonFile$recordingChecks$system[[1]]$warmupT,
                  power = jsonFile$recordingChecks$system[[1]]$warmupDb,
                  label = "Loudspeaker+Microphone Warmup")) %>%
     rbind(tibble(time = jsonFile$recordingChecks$component[[1]]$recT,
                  power = jsonFile$recordingChecks$component[[1]]$recDb,
-                 label = paste0(transducer, " Data, SD = ", jsonFile$recordingChecks$component[[1]]$sd))) %>%
+                 label = paste0(transducer, " Data, SD = ", jsonFile$recordingChecks$component[[1]]$sd, " dB"))) %>%
     rbind(tibble(time = jsonFile$recordingChecks$component[[1]]$warmupT,
                  power = jsonFile$recordingChecks$component[[1]]$warmupDb,
                  label = paste(transducer,"Warmup")))
@@ -268,14 +268,16 @@ plot_power_variations <- function(fileJSON,
                     levels = c("MLS Warmup",
                                "Loudspeaker+Microphone Warmup",
                                paste(transducer,"Warmup"),
-                               paste0("MLS Data, SD = ", jsonFile$recordingChecks$unfiltered[[1]]$sd), 
-                               paste0("Loudspeaker+Microphone Data, SD = ", jsonFile$recordingChecks$system[[1]]$sd),
-                               paste0(transducer, " Data, SD = ", jsonFile$recordingChecks$component[[1]]$sd)))
-  maxY <- ceiling(max(t$power/10)) * 10 + 30
-  minY <- floor(min(t$power/10)) * 10 - 30
+                               paste0("MLS Data, SD = ", jsonFile$recordingChecks$unfiltered[[1]]$sd, " dB"), 
+                               paste0("Loudspeaker+Microphone Data, SD = ", jsonFile$recordingChecks$system[[1]]$sd, " dB"),
+                               paste0(transducer, " Data, SD = ", jsonFile$recordingChecks$component[[1]]$sd, " dB")))
+  maxY <- ceiling(max(t$power/10)) * 10 + 20
+  minY <- floor(min(t$power/10)) * 10 - 50
   p <- ggplot(t, aes(x = time, y = power, color = label, linetype = label)) + 
-    geom_line() +
-    scale_x_continuous(n.breaks = 10) + 
+    geom_line(size = 0.8) +
+    scale_x_continuous(limits = c(0,3.5),
+                       breaks = seq(0,3.5,0.5),
+                       expand = c(0,0)) + 
     scale_y_continuous(limits=c(minY,maxY),
                        breaks = seq(minY,maxY,10),
                        expand = c(0,0)) +
@@ -283,17 +285,10 @@ plot_power_variations <- function(fileJSON,
     scale_linetype_manual(values = c(2,2,2,1,1,1)) +
     theme_bw() + 
     theme(
-      legend.position = c(0.50, 0.95),
+      legend.position = c(0.50, 0.93),
       legend.box = "horizontal",
       legend.key = element_rect(colour = NA, fill = NA),
       legend.key.height = unit(1, "mm"),
-      # legend.margin = margin(
-      #   t = 0,
-      #   b = -.1,
-      #   l = -2.5,
-      #   r = -3,
-      #   unit = "in"
-      # ),
       panel.background = element_blank(),
       legend.background = element_rect(fill='transparent',color = 'transparent'),
       axis.line = element_line(colour = "black"),
@@ -305,9 +300,9 @@ plot_power_variations <- function(fileJSON,
       plot.subtitle = element_text(size = 12),
       plot.margin = margin(
         t = .5,
-        r = .5,
+        r = 0,
         b = .5,
-        l = .5,
+        l = 0,
         "inch"
       )
     ) +
@@ -322,8 +317,8 @@ plot_power_variations <- function(fileJSON,
     labs(color = NULL, 
          linetype = NULL,
          title = "Power Variation in Recordings",
-         x = "Power (dB)",
-         y = "Time (s)")
+         y = "Power (dB)",
+         x = "Time (s)")
   if ("Loudspeaker Component IR" %in% names(jsonFile)) {
     p <- p + add_transducerTable_component(
       transducerTable = sound_data[[7]],
@@ -514,7 +509,7 @@ plot_record_freq_system <- function(sound_data,
   
   tmp <- t %>% filter(is.finite(gain))
   maxY <- ceiling(max(tmp$gain) / 10) * 10 + 20
-  
+  minY <- floor(min(tmp$gain) / 10) * 10
   p1 <- ggplot() +
     geom_line(data = t,
               aes(
@@ -529,15 +524,15 @@ plot_record_freq_system <- function(sound_data,
       expand = c(0, 0)
     ) +
     scale_y_continuous(
-      breaks = seq(-160, maxY, 10),
-      limits = c(-160, maxY),
+      breaks = seq(minY, maxY, 10),
+      limits = c(minY, maxY),
       expand = c(0, 0)
     ) +
     scale_color_manual(values = c("#CCCCCC", "red", "#3366FF", "red", "#3366FF", "#9900CC")) +
     scale_linetype_manual(values = c(1, 1, 1, 2, 2, 2)) +
     theme_bw() +
     theme(
-      legend.position = c(0.45, 0.95),
+      legend.position = c(0.45, 0.97),
       legend.box = "horizontal",
       legend.key.height = unit(1, "mm"),
       legend.margin = margin(
@@ -649,6 +644,7 @@ plot_record_freq_component <- function(sound_data,
     filter(label == "Recording of filtered MLS")
   interpolated_values <-
     approx(sound_data[[14]]$freq, sound_data[[14]]$gain, xout = tmp$freq)$y
+  
   tmp$transducergain = interpolated_values
   tmp <- tmp %>% mutate(gain = gain - transducergain) %>%
     select(freq,
@@ -660,8 +656,6 @@ plot_record_freq_component <- function(sound_data,
   tmp <- t %>%
     filter(label == "Recording of MLS")
   
-  interpolated_values <-
-    approx(sound_data[[14]]$freq, sound_data[[14]]$gain, xout = tmp$freq)$y
   tmp$transducergain = interpolated_values
   tmp <- tmp %>% mutate(gain = gain - transducergain) %>%
     select(freq,
@@ -669,15 +663,6 @@ plot_record_freq_component <- function(sound_data,
            label)
   t <- t %>% filter(label != "Recording of MLS") %>%
     rbind(tmp)
-  
-  tmp <- t %>%
-    filter(
-      label == "Expected corr",
-      freq >= sound_data[[12]]$calibrateSoundMinHz,
-      freq <= sound_data[[12]]$calibrateSoundMaxHz
-    ) %>%
-    group_by(label) %>%
-    summarize(SD = round(sd(gain), 1))
   
   tmp <- t %>%
     filter(
@@ -695,12 +680,20 @@ plot_record_freq_component <- function(sound_data,
   
   tt <- paste("SD: actual", tmp$SD, "dB")
   
+  tmp <- t %>%
+    filter(
+      label == "Expected corr",
+      freq >= sound_data[[12]]$calibrateSoundMinHz,
+      freq <= sound_data[[12]]$calibrateSoundMaxHz
+    ) %>%
+    group_by(label) %>%
+    summarize(SD = round(sd(gain), 1))
   
   tt <- paste(tt, "and expected", tmp$SD, "dB over", range)
   
-  tmp <- t %>% filter(is.finite(gain))
+  tmp <- t %>% filter(freq <= 16000, is.finite(gain))
   maxY <- ceiling(max(tmp$gain) / 10) * 10 + 20
-  
+  minY <- floor(min(tmp$gain) / 10) * 10
   p1 <- ggplot(t) +
     geom_line(aes(
       x = freq,
@@ -714,8 +707,8 @@ plot_record_freq_component <- function(sound_data,
       expand = c(0, 0)
     ) +
     scale_y_continuous(
-      breaks = seq(-160, maxY, 10),
-      limits = c(-160, maxY),
+      breaks = seq(minY, maxY, 10),
+      limits = c(minY, maxY),
       expand = c(0, 0)
     ) +
     scale_color_manual(values = c(
@@ -730,7 +723,7 @@ plot_record_freq_component <- function(sound_data,
     scale_linetype_manual(values = c(1, 1, 1, 2, 2, 2, 2)) +
     theme_bw() +
     theme(
-      legend.position = c(0.4, 0.97),
+      legend.position = c(0.4, 0.99),
       legend.box = "horizontal",
       legend.margin = margin(
         t = 0,
@@ -784,7 +777,7 @@ plot_record_freq_component <- function(sound_data,
         subtitleThree$component
       )
   }
-  return(p1)
+  return(list(p1, (maxY- minY)/20))
 }
 
 
@@ -838,6 +831,8 @@ plot_sound_level <- function(sound_data) {
   labels <- unique(volume_task$label)
   minY = plyr::round_any(min(volume_task$`out (dB SPL)`), 10, floor)
   maxY = plyr::round_any(max(volume_task$`out (dB SPL)`), 10, ceiling)
+  minX = plyr::round_any(min(volume_task$`in (dB)`), 10, floor)
+  maxX = plyr::round_any(max(volume_task$`in (dB)`), 10, ceiling)
   p <-
     ggplot(data = volume_task, aes(x = `in (dB)`, y = `out (dB SPL)`)) +
     geom_point(size = 3) +
@@ -849,8 +844,8 @@ plot_sound_level <- function(sound_data) {
     )) +
     scale_y_continuous(breaks = seq(minY, maxY, 10)) +
     scale_x_continuous(
-      n.breaks = 7,
-      limits = c(-60, 0),
+      breaks = unique(volume_task$`in (dB)`),
+      limits = c(minX, maxX),
       expand = c(0, 0)
     ) +
     coord_fixed(ratio = 1, clip = "off") +
@@ -955,19 +950,72 @@ get_transducer_table <- function(jsonFile) {
   )
   micGainDBSPL <-
     paste(round(micInfo$gainDBSPL, 1), "dB SPL at 1kHz                                             ")
-  transducerTable <- data.frame(rbind(
-    c(loudspeaker$gainDBSPL, micGainDBSPL),
-    c(loudspeaker$OEM, micInfo$OEM),
-    c(
-      paste(loudspeaker$fullLoudspeakerModelName, "  "),
-      micInfo$micModelName
-    ),
-    c(
-      paste(loudspeaker$fullLoudspeakerModelNumber, "  "),
-      micInfo$ID
-    ),
-    c(loudspeaker$CalibrationDate, NA)
-  ))
+  loudspeakerAudioDevice <- jsonFile$webAudioDeviceNames$loudspeaker
+  micAudioDevice <- jsonFile$webAudioDeviceNames$microphone
+  if (nchar(loudspeakerAudioDevice) > 0 && nchar(micAudioDevice) > 0) {
+    if (nchar(loudspeakerAudioDevice) > 0) {
+      indexLoudspeakers <- unlist(gregexpr(' ', loudspeakerAudioDevice))
+      if (length(indexLoudspeakers) > 1) {
+        indexLoudspeaker <- indexLoudspeakers[length(indexLoudspeakers) - 1]
+        loudspeakerAudioDeviceOne <- substr(loudspeakerAudioDevice, 1, indexLoudspeaker)
+        loudspeakerAudioDeviceTwo <- substr(loudspeakerAudioDevice, indexLoudspeaker+1, nchar(loudspeakerAudioDevice))
+      } else {
+        micAudioDeviceOne = micAudioDevice
+        micAudioDeviceTwo = ""
+      }
+    } else {
+      loudspeakerAudioDeviceOne = loudspeakerAudioDevice
+      loudspeakerAudioDeviceTwo = ""
+    }
+    
+    if (nchar(micAudioDevice) > 0) {
+      indexMics <- unlist(gregexpr(' ', micAudioDevice))
+      if (length(indexMics) > 1) {
+        indexMic <- indexMics[length(indexMics)-1]
+        micAudioDeviceOne <- substr(micAudioDevice, 1, indexMic)
+        micAudioDeviceTwo <- substr(micAudioDevice, indexMic+1, nchar(micAudioDevice))
+      } else {
+        micAudioDeviceOne = micAudioDevice
+        micAudioDeviceTwo = ""
+      }
+    } else {
+      micAudioDeviceOne = micAudioDevice
+      micAudioDeviceTwo = ""
+    }
+    transducerTable <- data.frame(rbind(
+      c(paste(loudspeakerAudioDeviceOne, " "), micAudioDeviceOne),
+      c(loudspeakerAudioDeviceTwo, micAudioDeviceTwo),
+      c(paste(jsonFile$sampleRate$loudspeaker, "Hz"),
+        paste(jsonFile$sampleRate$microphone, "Hz,", jsonFile$sampleSize, "bits")),
+      c(loudspeaker$gainDBSPL, micGainDBSPL),
+      c(loudspeaker$OEM, micInfo$OEM),
+      c(
+        paste(loudspeaker$fullLoudspeakerModelName, "  "),
+        micInfo$micModelName
+      ),
+      c(
+        paste(loudspeaker$fullLoudspeakerModelNumber, "  "),
+        micInfo$ID
+      ),
+      c(loudspeaker$CalibrationDate, NA)
+    ))
+  } else {
+    transducerTable <- data.frame(rbind(
+      c(paste(jsonFile$sampleRate$loudspeaker, "Hz"),
+        paste(jsonFile$sampleRate$microphone, "Hz,", jsonFile$sampleSize, "bits")),
+      c(loudspeaker$gainDBSPL, micGainDBSPL),
+      c(loudspeaker$OEM, micInfo$OEM),
+      c(
+        paste(loudspeaker$fullLoudspeakerModelName, "  "),
+        micInfo$micModelName
+      ),
+      c(
+        paste(loudspeaker$fullLoudspeakerModelNumber, "  "),
+        micInfo$ID
+      ),
+      c(loudspeaker$CalibrationDate, NA)
+    ))
+  }
   
   colnames(transducerTable) <- c("Loudspeaker    ", "Microphone")
   return(transducerTable)
@@ -1137,8 +1185,8 @@ add_transducerTable_system <- function(transducerTable,
     aes(
       npcx = position[1],
       npcy = position[2],
-      label = list(transducerTable %>% head(4)),
-      text = transducerTable$`Loudspeaker`[5]
+      label = list(transducerTable %>% head(nrow(transducerTable) - 1)),
+      text = transducerTable$`Loudspeaker`[nrow(transducerTable)]
     ),
     title_text = title_text,
     subtitleTOne = subtitleOne,
@@ -1147,7 +1195,7 @@ add_transducerTable_system <- function(transducerTable,
     leftShift = leftShift,
     table.theme = ttheme_default(
       base_size = 12,
-      padding = unit(c(1, 1), "mm"),
+      padding = unit(c(1, 2), "mm"),
       colhead = list(
         fg_params = list(hjust = 0,
                          x = 0.1),
@@ -1179,8 +1227,8 @@ add_transducerTable_component <- function(transducerTable,
     aes(
       npcx = position[1],
       npcy = position[2],
-      label = list(transducerTable %>% head(4)),
-      text = transducerTable$`Loudspeaker`[5]
+      label = list(transducerTable %>% head(nrow(transducerTable) - 1)),
+      text = transducerTable$`Loudspeaker`[nrow(transducerTable)]
     ),
     title_text = title_text,
     subtitleTOne = subtitleOne,
@@ -1189,7 +1237,7 @@ add_transducerTable_component <- function(transducerTable,
     leftShift = leftShift,
     table.theme = ttheme_default(
       base_size = 12,
-      padding = unit(c(1, 1), "mm"),
+      padding = unit(c(1, 2), "mm"),
       colhead = list(
         fg_params = list(
           hjust = 0,
@@ -1229,8 +1277,8 @@ add_transducerTable_loudspeaker <- function(transducerTable,
     aes(
       npcx = position[1],
       npcy = position[2],
-      label = list(transducerTable %>% head(4)),
-      text = transducerTable$`Loudspeaker`[5]
+      label = list(transducerTable %>% head(nrow(transducerTable) - 1)),
+      text = transducerTable$`Loudspeaker`[nrow(transducerTable)]
     ),
     title_text = title_text,
     subtitleTOne = subtitleOne,
@@ -1239,7 +1287,7 @@ add_transducerTable_loudspeaker <- function(transducerTable,
     leftShift = leftShift,
     table.theme = ttheme_default(
       base_size = 12,
-      padding = unit(c(1, 1), "mm"),
+      padding = unit(c(1, 2), "mm"),
       colhead = list(
         fg_params = list(
           hjust = 0,

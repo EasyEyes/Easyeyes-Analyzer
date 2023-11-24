@@ -1,0 +1,574 @@
+
+
+<body>
+  <!-- Include Firebase SDK -->
+  <!-- Include other Firebase SDKs as needed -->
+  <style>
+    .loader-profile {
+  border: 16px solid #f3f3f3; /* Light grey */
+  border-top: 16px solid #3498db; /* Blue */
+  margin-left: 300px;
+  margin-top: 200px;
+  border-radius: 50%;
+  width: 120px;
+  height: 120px;
+  animation: spin 2s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  
+  <script>
+    function getRandomColor(index) {
+      const colors = ["red", "blue", "green", "orange", "purple", "brown", "olive", "black"];
+      if (index < colors.length - 1) {
+        return colors[index];
+      } else {
+        // Generate random RGBA values
+        const randR = Math.floor(Math.random()*2) * 100;
+        const randG = Math.floor(Math.random()*2) * 100;
+        const randB = Math.floor(Math.random()*2) * 100;
+        const r = Math.floor(randR + Math.random() * 56);
+        const g = Math.floor(randG + Math.random() * 56);
+        const b = Math.floor(randB + Math.random() * 56);
+        const a = Math.random() * 0.5 + 0.5;
+
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+      }
+
+    }
+
+    function createChart(category, data, isLoudspeaker) {
+      // Create a canvas element
+
+      const plotCanvas = document.createElement("canvas");
+
+      plotCanvas.width = 200;
+      plotCanvas.height = 200;
+
+      let minY = Math.min(
+        ...data.map((dataset) =>
+          Math.min(
+            ...dataset.data
+              .filter((point) => !isNaN(point.y))
+              .map((point) => point.y)
+          )
+        )
+      );
+      
+      minY = Math.floor(minY / 10) * 10;
+      console.log(minY);
+      let maxY = Math.max(
+        ...data.map((dataset) =>
+          Math.max(
+            ...dataset.data
+              .filter((point) => !isNaN(point.y))
+              .map((point) => point.y)
+          )
+        )
+      );
+      maxY = Math.ceil(maxY / 10) * 10;
+      console.log(maxY);
+      // Create the chart
+
+      var chart = new Chart(plotCanvas, {
+        type: "line",
+        data: {
+          datasets: data
+        },
+        options: {
+          scales: {
+            x: {
+              type: "logarithmic",
+              position: "bottom",
+              title: {
+                display: true,
+                text: "Frequency (Hz)",
+                font: {
+                  size: "19px",
+                },
+              },
+              min: 20,
+              max: 20000,
+              ticks: {
+                callback: function (value, index, values) {
+                  const tickValues = [
+                    20, 100, 200, 1000, 2000, 10000, 16000, 20000,
+                  ];
+                  return tickValues.includes(value) ? value : "";
+                },
+                font: {
+                  size: 15,
+                },
+              },
+            },
+            y: {
+              type: "linear",
+              position: "left",
+              title: {
+                display: true,
+                text: "Gain (dB)",
+                font: {
+                  size: "19px",
+                },
+              },
+              min: minY - 30,
+              max: maxY + 30,
+              ticks: {
+                stepSize: 10,
+                font: {
+                  size: 15,
+                },
+              },
+            },
+          },
+          plugins: {
+            legend: {
+              labels: {
+                font: {
+                  size: 15,
+                },
+                usePointStyle: true,
+                pointStyle: "line",
+                generateLabels: function (chart) {
+                  const data = chart.data;
+
+                  if (data.datasets.length) {
+                    // Number of columns you want
+
+                    return data.datasets.map(function (dataset, i) {
+                      return {
+                        text: dataset.label,
+                        fillStyle: dataset.backgroundColor,
+                        strokeStyle: dataset.borderColor,
+                        lineWidth: dataset.borderWidth,
+                        hidden: !chart.isDatasetVisible(i),
+                        index: i,
+                        lineDash: dataset.borderDash,
+                        pointStyle: "line",
+                      };
+                    });
+                  }
+
+                  return [];
+                },
+              },
+            },
+            title: {
+              display: true,
+              text: "Profiles for " + category,
+              font: {
+                size: 22,
+                weight: "normal",
+                family: "system-ui",
+              },
+            },
+          },
+        },
+      });
+      document.getElementById("microphonePlots").appendChild(plotCanvas);
+    };
+
+
+  </script>
+  
+  <script type="module">
+    const firebaseConfig = {
+      apiKey: "AIzaSyDZopCl6jqND4sFYCSiB1GpCXreXd6-Q9s",
+      authDomain: "speaker-calibration.firebaseapp.com",
+      databaseURL: "https://speaker-calibration-default-rtdb.firebaseio.com",
+      projectId: "speaker-calibration",
+      storageBucket: "speaker-calibration.appspot.com",
+      messagingSenderId: "322038930574",
+      appId: "1:322038930574:web:d10ca9e7d60b6da9bafddf",
+      measurementId: "G-3724GD92R6",
+    };
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    var micOEMs = new Set();
+    var micModelNames = new Set();
+    var micIDs = new Set();
+
+
+    var mics = db.collection("Microphones");
+    var loudspeakers = db.collection("Loudspeakers");
+    await mics
+      .get()
+      .then((querySnapshot) => {
+        querySnapshot.forEach((doc) => {
+          micOEMs.add(doc.data().OEM);
+          micModelNames.add(doc.data().micModelName);
+          micIDs.add(doc.data().ID);
+        })
+      });
+
+      var speakerOEMs = new Set();
+      var speakerModelNames = new Set();
+      var speakerIDs = new Set();
+
+      await loudspeakers
+      .get()
+      .then((querySnapshot) => {
+        querySnapshot.forEach((doc) => {
+          speakerOEMs.add(doc.data().OEM);
+          speakerModelNames.add(doc.data().fullLoudspeakerModelName);
+          speakerIDs.add(doc.data().fullLoudspeakerModelNumber);
+        })
+      });
+      console.log(speakerOEMs,speakerModelNames,speakerIDs);
+
+    // Shiny.setInputValue("OEMs", OEMs);
+    // Shiny.setInputValue("MicModelNames",MicModelNames);
+    // Shiny.setInputValue("IDs", IDs);
+
+    const transducerSelect = document.getElementById("transducer");
+    transducerSelect.innerHTML = "";
+    let microphoneOption = document.createElement("option");
+    microphoneOption.value = "microphones";
+    microphoneOption.text = "microphones";
+    transducerSelect.add(microphoneOption);
+    let loudspeakerOption = document.createElement("option");
+    loudspeakerOption.value = "loudspeakers";
+    loudspeakerOption.text = "loudspeakers";
+    transducerSelect.add(loudspeakerOption);
+
+    const OEMSelect = document.getElementById("OEM");
+    const modelsContainer = document.getElementById("Model");
+    const IDcontainers = document.getElementById("IDs");
+    
+    function updateOEMsContainer() {
+      OEMSelect.innerHTML = "";
+      let OEMelement = document.createElement("option");
+      OEMelement.value = "All";
+      OEMelement.text = "All";
+      OEMSelect.add(OEMelement);
+     
+      if (transducerSelect.value == "microphones") {
+        micOEMs.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        OEMSelect.add(optionElement);
+      });
+      } else {
+        speakerOEMs.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        OEMSelect.add(optionElement);
+      });
+      }
+    }
+
+    function updateModelsContainer() {
+      modelsContainer.innerHTML = "";
+      let modelElement = document.createElement("option");
+      modelElement.value = "All";
+      modelElement.text = "All";
+      modelsContainer.add(modelElement);
+      if (transducerSelect.value == "microphones") {
+        micModelNames.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        modelsContainer.add(optionElement);
+      });
+      } else {
+        speakerModelNames.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        modelsContainer.add(optionElement);
+      });
+      }
+      
+    }
+    
+    function updateIDContainer() {
+      IDcontainers.innerHTML = "";
+      let IDElement = document.createElement("option");
+      IDElement.value = "All";
+      IDElement.text = "All";
+      IDcontainers.add(IDElement);
+      if (transducerSelect.value == "microphones") {
+        micIDs.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        IDcontainers.add(optionElement);
+      });
+      } else {
+        speakerIDs.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        IDcontainers.add(optionElement);
+      });
+      }
+    }
+    
+    updateOEMsContainer();
+    updateModelsContainer();
+    updateIDContainer();
+
+    async function updatePlot(whatToPlot) {
+      // const selectedModels = Array.from(modelsContainer.querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value);
+
+      document.getElementById("microphonePlots").innerHTML = "<div class='loader-profile'></div>";
+      const data = [];
+      let i = 0;
+      let query, selectedValue;
+      if (whatToPlot === "micOEM") {
+        micModelNames = new Set();
+        micIDs = new Set();
+        selectedValue = OEMSelect.value;
+        query = selectedValue == "All" ? mics : mics.where("OEM", "==", selectedValue);
+      } else if (whatToPlot === "micModelName") {
+        micIDs = new Set();
+        selectedValue = modelsContainer.value == "All" ? OEMSelect.value : modelsContainer.value;
+        let ModelQuery = OEMSelect.value == "All" ? mics.where("micModelName", "==", selectedValue) : mics.where("OEM", "==", OEMSelect.value).where("micModelName", "==", selectedValue);
+        query = modelsContainer.value == "All" ? 
+        mics.where("OEM", "==", selectedValue) :
+        ModelQuery;
+      } else if (whatToPlot === "micID") {
+        selectedValue = IDcontainers.value == "All" ? modelsContainer.value : IDcontainers.value;
+        let IDQuery = modelsContainer.value == "All" ?  mics.where("ID", "==", selectedValue) : mics.where("micModelName", "==", modelsContainer.value).where("ID", "==", selectedValue);;
+        query = IDcontainers.value == "All" ? 
+        mics.where("micModelName", "==", selectedValue) : 
+        IDQuery;
+      } else if (whatToPlot === "speakerOEM") {
+        speakerModelNames = new Set();
+        speakerIDs = new Set();
+        selectedValue = OEMSelect.value;
+        query = selectedValue == "All" ? loudspeakers : loudspeakers.where("OEM", "==", selectedValue);
+      } else if (whatToPlot === "speakerModelName") {
+        speakerIDs = new Set();
+        selectedValue = modelsContainer.value == "All" ? OEMSelect.value : modelsContainer.value;
+        let ModelQuery = OEMSelect.value == "All" ? loudspeakers.where("fullLoudspeakerModelName", "==", selectedValue) : loudspeakers.where("OEM", "==", OEMSelect.value).where("fullLoudspeakerModelName", "==", selectedValue);
+        query = modelsContainer.value == "All" ? 
+        loudspeakers.where("OEM", "==", selectedValue) :
+        ModelQuery;
+      } else {
+        selectedValue = IDcontainers.value == "All" ? modelsContainer.value : IDcontainers.value;
+        let IDQuery = modelsContainer.value == "All" ?  loudspeakers.where("ID", "==", selectedValue) : loudspeakers.where("fullLoudspeakerModelName", "==", modelsContainer.value).where("ID", "==", selectedValue);;
+        query = IDcontainers.value == "All" ? 
+        loudspeakers.where("fullLoudspeakerModelName", "==", selectedValue) : 
+        IDQuery;
+      }
+
+      try {
+        await query.get().then((querySnapshot) => {
+        querySnapshot.forEach((doc) => {
+          let docData;
+          if (transducerSelect.value == "microphones") {
+            docData = doc.data().linear.Freq.map((x, i) => ({ x: x, y: doc.data().linear.Gain[i] }));
+          } else {
+            docData = doc.data().ir.Freq.map((x, i) => ({ x: x, y: doc.data().ir.Gain[i] }));
+          }
+          let label;
+          
+          if (whatToPlot === "micOEM") {
+            micModelNames.add(doc.data().micModelName);
+            micIDs.add(doc.data().ID);
+            label = `${doc.data().micModelName}/${doc.data().isDefault ? "default" : doc.data().DateText}`;
+          } else if (whatToPlot === "micModelName") {
+            micIDs.add(doc.data().ID);
+            label = `${doc.data().ID}/${doc.data().isDefault ? "default" : doc.data().DateText}`;
+          } else if (whatToPlot === "micID") {
+            label = doc.data().isDefault ? "default" : doc.data().DateText;
+            // speakers
+          } else if (whatToPlot === "speakerOEM") {
+            speakerModelNames.add(doc.data().fullLoudspeakerModelName);
+            speakerIDs.add(doc.data().fullLoudspeakerModelNumber);
+            label = `${doc.data().fullLoudspeakerModelName}/${doc.data().CalibrationDate}`;
+          } else if (whatToPlot === "speakerModelName") {
+            speakerIDs.add(doc.data().fullLoudspeakerModelNumber);
+            label = `${doc.data().fullLoudspeakerModelNumber}/${doc.data().CalibrationDate}`;
+          } else if (whatToPlot === "speakerID") {
+            label = doc.data().CalibrationDate;
+          }
+
+          data.push({
+            label: label,
+            data: docData,
+            backgroundColor: "rgba(0, 0, 0, 0)",
+            pointRadius: 0,
+            borderColor: getRandomColor(i++),
+            showLine: true,
+            borderWidth: 2,
+          });
+        });
+
+        document.getElementById("microphonePlots").innerHTML = "";
+        if (whatToPlot === "micModelName") {
+          updateIDContainer();
+        } else if (whatToPlot === "micOEM") {
+          updateModelsContainer();
+          updateIDContainer();
+        }
+        createChart(selectedValue, data, false);
+
+      });
+      } catch (error) {
+        console.error("Error updating plot:", error);
+      }
+    }
+
+    transducerSelect.addEventListener("change", () => {
+      if (transducerSelect.value == "microphones") {
+        updateOEMsContainer();
+        updateModelsContainer();
+        updateIDContainer();
+        updatePlot("micOEM");
+      } else {
+        updateOEMsContainer();
+        updateModelsContainer();
+        updateIDContainer();
+        updatePlot("speakerOEM");
+      }
+    });
+
+    OEMSelect.addEventListener("change", async () => {
+      if (transducerSelect.value == "microphones") {
+        await updatePlot("micOEM");
+      } else {
+        await updatePlot("speakerOEM");
+      }
+    });
+
+    modelsContainer.addEventListener("change", async () => {
+      if (transducerSelect.value == "microphones") {
+        await updatePlot("micModelName");
+      } else {
+        await updatePlot("speakerModelName");
+      }
+    });
+
+    IDcontainers.addEventListener("change", async () => {
+      if (transducerSelect.value == "microphones") {
+        await updatePlot("micID");
+      } else {
+        await updatePlot("speakerID");
+      }
+    });
+    await updatePlot("micOEM");
+    // function updateModelOptions() {
+
+    //   const selectedOEM = OEMSelect.value;
+    //   const collectionIDs = micIDs[selectedOEM] || [];
+    //   modelsContainer.innerHTML = "";
+    //   collectionIDs.forEach((collectionID) => {
+    //     const optionElement = document.createElement("option");
+    //     optionElement.value = collectionID;
+    //     optionElement.text = collectionID;
+    //     modelsContainer.add(optionElement);
+    //   });
+
+    // };
+
+
+
+    // let data = [];
+    // Object.keys(micIDs).forEach((micID) => {
+    //   data = [];
+    //   micIDs[micID].forEach((collectionID) => {
+    //     var mic = db.collection(`Microphone/${micID}/${collectionID}`);
+    //     mic.get()
+    //       .then((querySnapshot) => {
+    //         querySnapshot.forEach((doc) => {
+    //           let docData = doc.data().linear.Freq.map((x, i) => ({ x: x, y: doc.data().linear.Gain[i] }));
+    //           data.push({
+    //             label: doc.id,
+    //             data: docData,
+    //             backgroundColor: "rgba(0, 0, 0, 0)",
+    //             pointRadius: 0,
+    //             showLine: true,
+    //             borderWidth: 2
+    //           });
+    //         })
+    //         createChart(micID, collectionID, data, `${micID}/${collectionID}`, false);
+    //         data = [];
+    //       });
+    //   });
+    // });
+
+    // Object.keys(loudspeakerIDs).forEach((loudspeakerID) => {
+    //   loudspeakerIDs[loudspeakerID].forEach((collectionID) => {
+    //     if (collectionID == "macbookpro18,1") {
+    //       var mic = db.collection(`Loudspeaker/${loudspeakerID}/${collectionID}`);
+    //       mic.orderBy("CalibrationDate").limit(3).get()
+    //         .then((querySnapshot) => {
+    //           querySnapshot.forEach((doc) => {
+    //             if (doc.data().ir) {
+    //               let docData = doc.data().ir.Freq.map((x, i) => ({ x: x, y: doc.data().ir.Gain[i] }));
+    //               data.push({
+    //                 label: doc.data().CalibrationDate,
+    //                 data: docData,
+    //                 backgroundColor: "rgba(0, 0, 0, 0)",
+    //                 pointRadius: 0,
+    //                 showLine: true,
+    //                 borderWidth: 2
+    //               });
+    //             }
+    //           })
+    //           console.log(data);
+    //           createChart(loudspeakerID, collectionID, data, `${loudspeakerID}/${collectionID}`, true);
+    //           data = [];
+    //         });
+    //     }
+    //     
+    //   });
+    // });
+
+    
+
+    // function updateModelCheckboxes() {
+    //   // Get the selected OEM
+    //   const selectedOEM = OEMSelect.value;
+
+    //   // Get the collectionIDs for the selected OEM
+    //   const collectionIDs = micIDs[selectedOEM] || [];
+
+    //   // Clear existing checkboxes
+    //   modelsContainer.innerHTML = "";
+
+    //   // Add new checkboxes
+    //   collectionIDs.forEach((collectionID) => {
+
+    //     const checkbox = document.createElement("input");
+    //     checkbox.type = "checkbox";
+    //     checkbox.value = collectionID;
+    //     checkbox.id = collectionID;
+    //     checkbox.checked = true;
+
+    //     const label = document.createElement("label");
+    //     label.htmlFor = collectionID;
+    //     label.appendChild(document.createTextNode(collectionID));
+
+    //     modelsContainer.appendChild(checkbox);
+    //     modelsContainer.appendChild(label);
+    //   });
+    // }
+
+
+
+
+
+    // modelsContainer.addEventListener("change", updatePlot);
+    document.getElementById('refreshButton').onclick = await updatePlot("micOEM");
+    // updateModelCheckboxes();
+    // updatePlot();
+
+  </script>
+
+
+</body>
+
+</html>

@@ -2,6 +2,9 @@
 
 
 
+
+
+
 source('./constant.R')
 library(shiny)
 library(svglite)
@@ -37,6 +40,13 @@ shinyUI(
       tags$head(
         tags$script(type = "text/javascript",
                     src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML")
+        # tags$script(type = "text/javascript",
+        #             src = "https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"),
+        # tags$script(type = "text/javascript",
+        #             src = "https://www.gstatic.com/firebasejs/10.6.0/firebase-firestore-compat.js"),
+        # tags$script(type = "text/javascript",
+        #             src = "https://cdn.jsdelivr.net/npm/chart.js")
+        
       ),
       fluidRow(
         column(
@@ -232,7 +242,7 @@ shinyUI(
     ),
     #### Sound ####
     tabPanel(
-      'Sound Calibration',
+      'Sound',
       fixedRow(column(
         width = 4,
         fileInput(
@@ -279,90 +289,94 @@ shinyUI(
           selected = "pdf"
         )
       )),
+      #### sound condition ####
       conditionalPanel(
         condition = "output.jsonUploaded",
-        fixedRow(column(
-          width = 12,
-          align = "center",
-          h4("Inverse Impulse Response")
-        )),
         fixedRow(
           column(
-            width = 6,
+            width = 12,
             align = "center",
-            withSpinner(plotOutput(
-              "IRtmpFour", width = "100%", height = "95%"
-            ),
-            type = 4)
+            h4("Inverse Impulse Response")
           ),
-          column(
-            width = 6,
-            align = "center",
-            withSpinner(plotOutput(
-              "IRtmpFive", width = "100%", height = "95%"
+          fixedRow(
+            column(
+              width = 6,
+              align = "center",
+              withSpinner(plotOutput(
+                "IRtmpFour", width = "100%", height = "95%"
+              ),
+              type = 4)
             ),
-            type = 4)
-          )
-        ),
-        fixedRow(
-          column(
-            width = 6,
-            align = "center",
-            downloadButton("downloadIRtmpFour", "Download")
+            column(
+              width = 6,
+              align = "center",
+              withSpinner(plotOutput(
+                "IRtmpFive", width = "100%", height = "95%"
+              ),
+              type = 4)
+            )
           ),
-          column(
-            width = 6,
-            align = "center",
-            downloadButton("downloadIRtmpFive", "Download")
-          )
-        ),
-        fixedRow(column(
-          width = 6,
-          align = "center",
-          withSpinner(
-            plotOutput("componentIIRTime", height = "100%", width = "100%"),
-            type = 4
-          )
-        )),
-        fixedRow(column(
-          width = 6,
-          align = "center",
-          downloadButton("downloadComponentIIRTime", "Download")
-        )),
-        fixedRow(column(
-          width = 12, align = "center", h4("Impulse Response")
-        )),
-        fixedRow(
-          column(
+          fixedRow(
+            column(
+              width = 6,
+              align = "center",
+              downloadButton("downloadIRtmpFour", "Download")
+            ),
+            column(
+              width = 6,
+              align = "center",
+              downloadButton("downloadIRtmpFive", "Download")
+            )
+          ),
+          fixedRow(column(
             width = 6,
             align = "center",
             withSpinner(
-              plotOutput("componentIRTime", height = "100%", width = "100%"),
+              plotOutput("componentIIRTime", height = "100%", width = "100%"),
               type = 4
             )
-          ),
-          column(
+          )),
+          fixedRow(column(
             width = 6,
             align = "center",
-            withSpinner(
-              plotOutput("componentIRPSD", height = "100%", width = "100%"),
-              type = 4
+            downloadButton("downloadComponentIIRTime", "Download")
+          )),
+          fixedRow(column(
+            width = 12, align = "center", h4("Impulse Response")
+          )),
+          fixedRow(
+            column(
+              width = 6,
+              align = "center",
+              withSpinner(
+                plotOutput("componentIRTime", height = "100%", width = "100%"),
+                type = 4
+              )
+            ),
+            column(
+              width = 6,
+              align = "center",
+              withSpinner(
+                plotOutput("componentIRPSD", height = "100%", width = "100%"),
+                type = 4
+              )
+            )
+          ),
+          fixedRow(
+            column(
+              width = 6,
+              align = "center",
+              downloadButton("downloadComponentIRTime", "Download")
+            ),
+            column(
+              width = 6,
+              align = "center",
+              downloadButton("downloadComponentIRPSD", "Download")
             )
           )
         ),
-        fixedRow(
-          column(
-            width = 6,
-            align = "center",
-            downloadButton("downloadComponentIRTime", "Download")
-          ),
-          column(
-            width = 6,
-            align = "center",
-            downloadButton("downloadComponentIRPSD", "Download")
-          )
-        )
       ),
+      ####  sound all ####
       fixedRow(
         column(
           width = 6,
@@ -427,7 +441,35 @@ shinyUI(
         downloadButton("downloadAutocorrelation", "Download")
       )
     ),
-    #### Bits ####
+    
+    ##### Profiles #####
+    
+    tabPanel(
+      'Profiles',
+      actionButton("refreshButton", "Refresh"),
+      column(width = 12,
+             align = "center",
+             div(
+               HTML(
+                 "<div class='row'>
+                 <label style='font-size: 16px; margin-right: 10px'>Transducer: </label><select style='margin-right: 20px;' id='transducer'></select>
+                 <label style='font-size: 16px; margin-right: 10px'>OEM: </label><select style='margin-right: 20px;' id='OEM'></select>
+                 <label style='font-size: 16px; margin-right: 10px'>Model Name: </label><select style='margin-right: 20px;' id='Model'></select>
+                 <label style='font-size: 16px; margin-right: 10px'>Model ID: </label><select style='margin-right: 20px'; id='IDs'></select>
+                  <label style='font-size: 16px; margin-right: 10px'>SD Tolerance: </label><input type='number'> </input>
+                 </div>
+              "
+               )
+             )),
+      # checkbox style selection panel
+      # column(width = 12, align = "center", div(HTML("<p style='font-size: 16px'>Select one model</p> <div id='Model'></div>"))),
+      fixedRow(
+        column(width = 3),
+        column(width = 8, div(style = "height: 800px;'", id = "microphonePlots")),
+        includeHTML("./www/firestore.html")
+      )
+    ),
+    #     #### Bits ####
     tabPanel(
       'Bits',
       h3("All blocks"),
