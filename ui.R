@@ -455,8 +455,9 @@ shinyUI(
                  <label style='font-size: 16px; margin-right: 10px'>Transducer: </label><select style='margin-right: 20px;' id='transducer'></select>
                  <label style='font-size: 16px; margin-right: 10px'>OEM: </label><select style='margin-right: 20px;' id='OEM'></select>
                  <label style='font-size: 16px; margin-right: 10px'>Model Name: </label><select style='margin-right: 20px;' id='Model'></select>
-                 <label style='font-size: 16px; margin-right: 10px'>Model ID: </label><select style='margin-right: 20px'; id='IDs'></select>
-                  <label style='font-size: 16px; margin-right: 10px'>SD Tolerance: </label><input type='number'> </input>
+                 <label style='font-size: 16px; margin-right: 10px'>Model Number: </label><select style='margin-right: 20px'; id='IDs'></select><br>
+                 <label style='font-size: 16px; margin-right: 10px'>Filtered by SD: </label><input type='checkbox' id='filterBool'> </input>
+                  <label style='font-size: 16px; margin-right: 10px'>Correction max SD (dB): </label><input type='number' id='SDTolerance'> </input>
                  </div>
               "
                )
@@ -465,7 +466,7 @@ shinyUI(
       # column(width = 12, align = "center", div(HTML("<p style='font-size: 16px'>Select one model</p> <div id='Model'></div>"))),
       fixedRow(
         column(width = 3),
-        column(width = 8, div(style = "height: 800px;'", id = "microphonePlots")),
+        column(width = 8, div(id = "microphonePlots")),
         includeHTML("./www/firestore.html")
       )
     ),

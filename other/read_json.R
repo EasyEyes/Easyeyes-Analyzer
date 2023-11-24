@@ -575,7 +575,7 @@ plot_record_freq_system <- function(sound_data,
       y = "Power spectral density (dB)",
       color = NULL,
       linetype = NULL,
-      title = "Loudspeaker + Microphone"
+      title = "Loudspeaker + Microphone Correction"
     ) +
     add_transducerTable_system(
       transducerTable = sound_data[[7]],
@@ -752,7 +752,7 @@ plot_record_freq_component <- function(sound_data,
     labs(
       x = "Frequency (Hz)",
       y = "Power spectral density (dB)",
-      title = "Loudspeaker",
+      title = ifelse(transducerLabel == "microphone gain", "Loudspeaker Correction", "Microphone Correction"),
       color = NULL,
       linetype = NULL
     )
