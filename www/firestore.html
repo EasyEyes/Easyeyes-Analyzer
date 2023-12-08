@@ -7,7 +7,6 @@
     .loader-profile {
   border: 16px solid #f3f3f3; /* Light grey */
   border-top: 16px solid #3498db; /* Blue */
-  margin-left: 300px;
   margin-top: 200px;
   border-radius: 50%;
   width: 120px;
@@ -25,6 +24,7 @@
   
   
   <script>
+    
     function getRandomColor(index) {
       const colors = ["red", "blue", "green", "orange", "purple", "brown", "olive", "black"];
       return colors[index % colors.length];
@@ -70,7 +70,7 @@
       console.log(maxY);
       // Create the chart
       plotCanvas.width = 1000;
-      plotCanvas.height = (maxY - minY) * 11 + Math.ceil(data.length/3)*10;
+      plotCanvas.height = (maxY - minY) * 8 + Math.ceil(data.length/3)*10;
 
       var chart = new Chart(plotCanvas, {
         type: "line",
@@ -169,14 +169,30 @@
           },
         },
       });
-      document.getElementById("microphonePlots").appendChild(plotCanvas);
+      document.getElementById("profilePlot").appendChild(plotCanvas);
     };
 
 
   </script>
   
   <script type="module">
-    document.getElementById("microphonePlots").innerHTML = "<div class='loader-profile'></div>";
+    window.alert = function(message) {
+    // Do nothing or log the message to console
+    console.log("Alert suppressed:", message);
+  };
+  console.error = function() {
+    // Do nothing or log the message to console
+    console.log("Error suppressed:", arguments);
+};
+
+// Override console.warn to suppress warning messages
+console.warn = function() {
+    // Do nothing or log the message to console
+    console.log("Warning suppressed:", arguments);
+};
+    let toShiny;
+    let checkBoxs=[];
+    document.getElementById('profilePlot').innerHTML = "<p style = 'font-size:20px'> Retrieving database menu <p> <br> <div class='loader-profile'></div>"
     const firebaseConfig = {
       apiKey: "AIzaSyDZopCl6jqND4sFYCSiB1GpCXreXd6-Q9s",
       authDomain: "speaker-calibration.firebaseapp.com",
@@ -191,16 +207,21 @@
     const db = firebase.firestore();
 
     function addToMap(map, value) {
-      const lowercaseValue = value.toLowerCase();
+      if (value) {
+        const lowercaseValue = value.toLowerCase();
       if (!map.has(lowercaseValue)) {
-        map.set(lowercaseValue, []);
+        map.set(lowercaseValue, new Set());
       }
-      map.get(lowercaseValue).push(value);
+      map.get(lowercaseValue).add(value);
+      } else {
+        return;
+      }
     }
 
     var micOEMs = new Set();
     var micModelNames = new Set();
     var micIDs = new Set();
+    var mic51IDs = new Set();
 
     var micOEMsMap = new Map();
     var micModelNamesMap = new Map();
@@ -213,22 +234,23 @@
         addToMap(micOEMsMap, doc.data().OEM);
         addToMap(micModelNamesMap, doc.data().micModelName);
         addToMap(micIDsMap, doc.data().ID);
+        mic51IDs.add(doc.data().ID_from_51Degrees);
       });
     });
     micOEMsMap.forEach((values, lowercaseOEM) => {
-      const firstCaseOEM = values[0];
+      const [firstCaseOEM] = values;
       if (firstCaseOEM) {
-        micOEMs.add(firstCaseOEM );
+        micOEMs.add(firstCaseOEM);
       }
     });
     micModelNamesMap.forEach((values, micModelName) => {
-      const firstCaseMicModelName = values[0];
+      const [firstCaseMicModelName] = values;
       if (firstCaseMicModelName) {
         micModelNames.add(firstCaseMicModelName);
       }
     });
     micIDsMap.forEach((values, lowercaseID) => {
-      const firstCaseID = values[0];
+      const [firstCaseID] = values;
       if (firstCaseID) {
         micIDs.add(firstCaseID);
       }
@@ -238,6 +260,7 @@
     var speakerOEMs = new Set();
     var speakerModelNames = new Set();
     var speakerIDs = new Set();
+    var speaker51IDs = new Set();
 
     var speakerOEMsMap = new Map();
     var speakerModelNamesMap = new Map();
@@ -250,37 +273,35 @@
         addToMap(speakerOEMsMap, doc.data().OEM);
         addToMap(speakerModelNamesMap, doc.data().fullLoudspeakerModelName);
         addToMap(speakerIDsMap, doc.data().fullLoudspeakerModelNumber);
+        speaker51IDs.add(doc.data().DeviceId);
         })
       });
     
       speakerOEMsMap.forEach((values, lowercaseOEM) => {
-        const firstCaseOEM = values[0];
+        const [firstCaseOEM] = values;
         if (firstCaseOEM) {
           speakerOEMs.add(firstCaseOEM);
-          console.log(firstCaseOEM);
         }
       });
       speakerModelNamesMap.forEach((values, speakerModelName) => {
-        const firstCaseMicModelName = values[0];
+        const [firstCaseMicModelName] = values;
         if (firstCaseMicModelName) {
           speakerModelNames.add(firstCaseMicModelName);
-          console.log(firstCaseMicModelName);
         }
       });
       speakerIDsMap.forEach((values, lowercaseID) => {
-        const firstCaseID = values[0];
+        const [firstCaseID] = values;
         if (firstCaseID) {
           speakerIDs.add(firstCaseID);
-          console.log(firstCaseID);
         }
       });
 
-    // Shiny.setInputValue("OEMs", OEMs);
-    // Shiny.setInputValue("MicModelNames",MicModelNames);
-    // Shiny.setInputValue("IDs", IDs);
+     console.log(speakerIDs);
 
     const SDToleranceContainer = document.getElementById("SDTolerance");
     const filterBoolContainer = document.getElementById("filterBool");
+    const DeviceIDContainer = document.getElementById("deviceID");
+    
     filterBoolContainer.checked = false;
     SDToleranceContainer.value = 10.0;
     const transducerSelect = document.getElementById("transducer");
@@ -369,96 +390,130 @@
       }
     }
     
+    function updateDeviceIDContainer() {
+      DeviceIDContainer.innerHTML = "";
+      let deviceIDelement = document.createElement("option");
+      deviceIDelement.value = "All";
+      deviceIDelement.text = "All";
+      DeviceIDContainer.add(deviceIDelement);
+     
+      if (transducerSelect.value == "Microphones") {
+        mic51IDs.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        DeviceIDContainer.add(optionElement);
+      });
+      } else {
+        speaker51IDs.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        DeviceIDContainer.add(optionElement);
+      });
+      }
+    }
+
     updateOEMsContainer();
     updateModelsContainer();
     updateIDContainer();
+    updateDeviceIDContainer();
+
+    function sanitizeForId(input) {
+    // Replace non-alphanumeric characters with underscores
+    return String(input).replace(/[^a-zA-Z0-9-]/g, '-');
+  }
 
     async function updatePlot(whatToPlot) {
       // const selectedModels = Array.from(modelsContainer.querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value);
 
-      document.getElementById("microphonePlots").innerHTML = "<div class='loader-profile'></div>";
+      document.getElementById("profilePlot").innerHTML = "<div class='loader-profile'></div>";
       const data = [];
       let i = 0;
       let query, selectedValue;
-      if (whatToPlot === "micOEM") {
-        // micModelNames = new Set();
-        // micIDs = new Set();
-        selectedValue = OEMSelect.value;
-        query = selectedValue == "All" ? mics : mics.where("OEM", "in", micOEMsMap.get(selectedValue.toLowerCase()) || []);
-      } else if (whatToPlot === "micModelName") {
-        // micIDs = new Set();
-        selectedValue = modelsContainer.value == "All" ? OEMSelect.value : modelsContainer.value;
-        let ModelQuery = OEMSelect.value == "All" ? mics.where("micModelName", "in", micModelNamesMap.get(selectedValue.toLowerCase())) :
-         mics.where("OEM", "in", micOEMsMap.get(OEMSelect.value.toLowerCase())).where("micModelName", "in",  micModelNamesMap.get(selectedValue.toLowerCase()));
-        query = modelsContainer.value == "All" ? 
-        mics.where("OEM", "==", selectedValue) :
-        ModelQuery;
-      } else if (whatToPlot === "micID") {
-        selectedValue = IDcontainers.value == "All" ? modelsContainer.value : IDcontainers.value;
-        let IDQuery = modelsContainer.value == "All" ?  mics.where("ID", "in", micIDsMap.get(selectedValue.toLowerCase())) : 
-        mics.where("micModelName", "in", micModelNamesMap.get(modelsContainer.value.toLowerCase()) || [])
-        .where("ID", "in", micIDsMap.get(selectedValue.toLowerCase()) || []);
-        query = IDcontainers.value == "All" ? 
-        mics.where("micModelName", "in", micModelNamesMap.get(selectedValue.toLowerCase()) || []) : 
-        IDQuery;
-      } else if (whatToPlot === "speakerOEM") {
-        // speakerModelNames = new Set();
-        // speakerIDs = new Set();
-        selectedValue = OEMSelect.value;
-        query = selectedValue == "All" ?
-         loudspeakers :
-          loudspeakers.where(
-            "OEM",
-             "in",
-              speakerOEMsMap.get(selectedValue.toLowerCase()));
-      } else if (whatToPlot === "speakerModelName") {
-        // speakerIDs = new Set();
-        selectedValue = modelsContainer.value == "All" ? OEMSelect.value : modelsContainer.value;
-        let ModelQuery = OEMSelect.value == "All" ?
-         loudspeakers
-         .where(
-          "fullLoudspeakerModelName",
-           "in",
-            speakerModelsMap.get(selectedValue.toLowerCase()))
-          : loudspeakers
-          .where(
-            "OEM",
-             "in",
-              speakerOEMsMap.get(OEMSelect.value.toLowerCase()))
-          .where(
-            "fullLoudspeakerModelName",
-             "in", 
-             speakerModelsMap.get(selectedValue.toLowerCase()));
-        query = modelsContainer.value == "All" ? 
-        loudspeakersloudspeakers
-          .where(
-            "OEM", 
-            "in", 
-            speakerOEMsMap.get(OEMSelect.value.toLowerCase())) :
-        ModelQuery;
+      let OEMquery, modelQuery, IDQuery;
+      if (transducerSelect.value == "Microphones") {
+        OEMquery = OEMSelect.value == "All" ?
+        mics :
+          mics.where("OEM", "in", [...micOEMsMap.get(OEMSelect.value.toLowerCase())] || []);
+        modelQuery = modelsContainer.value == "All" ?
+        OEMquery :
+          mics.where("micModelName", "in", [...micModelNamesMap.get(modelsContainer.value.toLowerCase())]);
+        IDQuery = IDcontainers.value == "All" ?
+        modelQuery : 
+        mics.where("ID", "in", [...micIDsMap.get(IDcontainers.value.toLowerCase())]);
       } else {
+        console.log("isLoudspeaker");
+        OEMquery = OEMSelect.value == "All" ?
+          loudspeakers :
+          loudspeakers.where(
+                "OEM",
+                "in",
+                  [...speakerOEMsMap.get(OEMSelect.value.toLowerCase())] || []);
+        modelQuery = modelsContainer.value == "All" ?
+          OEMquery :
+          loudspeakers
+            .where(
+              "fullLoudspeakerModelName",
+              "in",
+              [...speakerModelNamesMap.get(modelsContainer.value.toLowerCase())] || []);
+          IDQuery = IDcontainers.value == "All" ?
+          modelQuery : 
+          loudspeakers
+            .where("fullLoudspeakerModelNumber", "in", 
+            [...speakerIDsMap.get(IDcontainers.value.toLowerCase())] || []);
+      }
+
+      if (whatToPlot === "micOEM") {
+        selectedValue = OEMSelect.value; 
+        query = OEMquery;
+      } else if (whatToPlot === "micModelName") {
+        selectedValue = modelsContainer.value == "All" ? OEMSelect.value : modelsContainer.value;
+        query = modelQuery;
+      } else if (whatToPlot === "micID" || whatToPlot === "speakerID") {
         selectedValue = IDcontainers.value == "All" ? modelsContainer.value : IDcontainers.value;
-        let IDQuery = modelsContainer.value == "All" ? 
-        loudspeakers
-        .where("ID", "in", speakerIDsMap.get(selectedValue.toLowerCase())) :
-         loudspeakers
-         .where("fullLoudspeakerModelName", "in", speakerModelsMap.get(modelsContainer.value.toLowerCase()))
-         .where("ID", "in", speakerIDsMap.get(selectedValue.toLowerCase()));;
-        query = IDcontainers.value == "All" ? 
-        loudspeakers
-        .where("fullLoudspeakerModelName", "in", speakerModelsMap.get(selectedValue.toLowerCase())) : 
-        IDQuery;
+        query = IDQuery;
+      } else if (whatToPlot === "speakerOEM") {
+        selectedValue = OEMSelect.value; 
+        query = OEMquery;
+      } else if (whatToPlot === "speakerModelName") {
+        selectedValue = modelsContainer.value == "All" ? OEMSelect.value : modelsContainer.value;
+        query = modelQuery;
+      } else if (whatToPlot === "mic51ID") {
+        console.log("mic51ID");
+        query = mics.where("ID_from_51Degrees", "==", DeviceIDContainer.value);
+        console.log(query);
+      } else {
+        selectedValue = DeviceIDContainer.value;
+        query = loudspeakers.where("DeviceId", "==", DeviceIDContainer.value);
       }
 
       try {
+        toShiny = {
+          createDates:[],
+          jsonFileName:[],
+          OEMs:[],
+          modelNames:[],
+          modelNumbers:[],
+          SDs:[],
+          FilteredMLSRange:[],
+          labels:[],
+          title:[],
+          isDefault:[],
+        };
+        checkBoxs = {
+          id:[],
+          fileName:[]
+        };
+        let j = 1;
         await query.get().then((querySnapshot) => {
           querySnapshot.forEach((doc) => {
-          let docData;
-          if (transducerSelect.value == "Microphones") {
-            docData = doc.data().linear.Freq.map((x, i) => ({ x: x, y: doc.data().linear.Gain[i] }));
-          } else {
-            docData = doc.data().ir.Freq.map((x, i) => ({ x: x, y: doc.data().ir.Gain[i] }));
-          }
+          // let docData;
+          // if (transducerSelect.value == "Microphones") {
+          //   docData = doc.data().linear.Freq.map((x, i) => ({ x: x, y: doc.data().linear.Gain[i] }));
+          // } else {
+          //   docData = doc.data().ir.Freq.map((x, i) => ({ x: x, y: doc.data().ir.Gain[i] }));
+          // }
           let label;
           
           if (whatToPlot === "micOEM") {
@@ -478,86 +533,153 @@
           } else if (whatToPlot === "speakerModelName") {
             // speakerIDs.add(doc.data().fullLoudspeakerModelNumber);
             label = `${doc.data().fullLoudspeakerModelNumber}/${doc.data().CalibrationDate}`;
-          } else if (whatToPlot === "speakerID") {
+          } else{
             label = doc.data().CalibrationDate;
-          }
+          } 
 
           if (
-            !filterBoolContainer.checked ||
+            (!filterBoolContainer.checked ||
             doc.data().isDefault ||
-             doc.data().componentCorrectionSD <= SDToleranceContainer.value) 
+             doc.data().componentCorrectionSD <= SDToleranceContainer.value) &&
+             (doc.data().ir || doc.data().linear)) 
              {
-            data.push({
-            label: label,
-            data: docData,
-            backgroundColor: "rgba(0, 0, 0, 0)",
-            pointRadius: 0,
-            borderColor: getRandomColor(i),
-            borderDash: getBorderDash(i++),
-            showLine: true,
-            borderWidth: 2,
-          });
+              console.log(doc.data().ir)
+              console.log(doc.data().componentCorrectionSD);
+              // sent to shiny server to create datatable
+              toShiny.createDates.push(transducerSelect.value == "Microphones" ? doc.data().DateText: doc.data().CalibrationDate);
+              toShiny.jsonFileName.push(doc.data().jsonFileName);
+              checkBoxs.id.push(sanitizeForId(doc.data().jsonFileName));
+              checkBoxs.fileName.push(doc.data().jsonFileName);
+              toShiny.OEMs.push(doc.data().OEM);
+              toShiny.modelNames.push(
+                transducerSelect.value == "Microphones" ? 
+                doc.data().micModelName :
+                doc.data().fullLoudspeakerModelName);
+              toShiny.modelNumbers.push(
+                transducerSelect.value == "Microphones" ? 
+                doc.data().ID :
+                doc.data().fullLoudspeakerModelNumber
+                );
+              toShiny.SDs.push(doc.data().componentCorrectionSD);
+              toShiny.FilteredMLSRange.push(doc.data().filteredMLSComponentMax);
+              toShiny.labels.push(label);
+              toShiny.isDefault.push(doc.data().isDefault);
+              data.push(doc.data());
+            //   data.push({
+            //   label: label,
+            //   data: docData,
+            //   backgroundColor: "rgba(0, 0, 0, 0)",
+            //   pointRadius: 0,
+            //   borderColor: getRandomColor(i),
+            //   borderDash: getBorderDash(i++),
+            //   showLine: true,
+            //   borderWidth: 2,
+            // });
+            console.log("end processing", new Date());
           }
         });
 
-        document.getElementById("microphonePlots").innerHTML = "";
-        if (whatToPlot === "micModelName") {
-          updateIDContainer();
-        } else if (whatToPlot === "micOEM") {
-          updateModelsContainer();
-          updateIDContainer();
-        }
-        createChart(selectedValue, data, false);
+        console.log(toShiny);
+        Shiny.setInputValue("transducerType", transducerSelect.value);
+        Shiny.setInputValue("plotTitle", "Profiles for " + selectedValue);
+        Shiny.setInputValue("toShiny", JSON.stringify(toShiny));
+        Shiny.setInputValue("totalData", JSON.stringify(data));
 
-      });
+        // document.getElementById("profilePlot").innerHTML = "";
+        // if (whatToPlot === "micModelName") {
+        //   updateIDContainer();
+        // } else if (whatToPlot === "micOEM") {
+        //   updateModelsContainer();
+        //   updateIDContainer();
+        // }
+        // createChart(selectedValue, data, false);
+        
+  
+
+    //     const dataTable = $('#dataTable').DataTable({
+    //       "rowCallback": function(row, data) {
+    //         // Row callback function
+    //         for (var i = 0; i < data.length; i++) {
+    //             if (data[i] === null || data[i] == undefined) {
+    //                 $('td:eq(' + i + ')', row).html('NA')
+    //                     .css({ 'color': 'rgb(151,151,151)', 'font-style': 'italic' });
+    //             }
+    //         }
+    //     },
+    //     suppressWarnings: true,
+    //         data: toShiny.createDates.map((date, index) => [
+    //             date,
+    //             toShiny.jsonFileName[index],
+    //             toShiny.OEMs[index],
+    //             toShiny.modelNames[index],
+    //             toShiny.modelNumbers[index],
+    //             toShiny.SDs[index],
+    //             toShiny.FilteredMLSRange[index],
+    //             toShiny.labels[index],
+    //             toShiny.isDefault[index],
+    //             // `<input type="checkbox" id = "${sanitizeForId(toShiny.jsonFileName[index])}" class="row-checkbox" />`
+    //         ]),
+    //         paging: false,
+    //         stripeClasses: [],
+    //         order: [[8, 'desc']],
+    //         columns: [
+    //             { title: 'Date' },
+    //             { title: 'JSON File Name' },
+    //             { title: 'OEM' },
+    //             { title: 'Model Name' },
+    //             { title: 'Model Number' },
+    //             { title: 'SD' },
+    //             { title: 'Filtered MLS Range' },
+    //             { title: 'Label' },
+    //             { title: 'Is Default' },
+    //             // { title: 'Select', orderable: false }
+    //         ],
+    //       });
+    //   });
+    //   toShiny.jsonFileName.forEach((value) => {
+    // const sanitizedId = sanitizeForId(value);
+    // console.log(sanitizedId);
+});
       } catch (error) {
         console.error("Error updating plot:", error);
       }
     }
 
+
+    function refreshShinyPlot() {
+      const dataTableElement = $('#dataTable');
+
+    // Get the data of the selected rows
+    const selectedRowsData = $(dataTableElement).DataTable().rows('.selected').data().toArray();
+    console.log($(dataTableElement));
+    // Extract jsonFileName values from the selected rows
+    const jsonFileNames = selectedRowsData.map(row => row[1]); // Assuming jsonFileName is at index 1
+
+    // Perform actions based on the jsonFileNames
+    console.log('Selected jsonFileNames:', jsonFileNames);
+    };
+
+
+    // event listeners
     transducerSelect.addEventListener("change", () => {
+      updateOEMsContainer();
+      updateModelsContainer();
+      updateIDContainer();
+      updateDeviceIDContainer();
       if (transducerSelect.value == "Microphones") {
-        updateOEMsContainer();
-        updateModelsContainer();
-        updateIDContainer();
-        updatePlot("micOEM");
+        // updatePlot("micOEM");
       } else {
-        updateOEMsContainer();
-        updateModelsContainer();
-        updateIDContainer();
-        updatePlot("speakerOEM");
+        // updatePlot("speakerOEM");
       }
     });
 
-    OEMSelect.addEventListener("change", async () => {
-      if (transducerSelect.value == "Microphones") {
-        await updatePlot("micOEM");
-      } else {
-        await updatePlot("speakerOEM");
-      }
-    });
-
-    modelsContainer.addEventListener("change", async () => {
-      if (transducerSelect.value == "Microphones") {
-        await updatePlot("micModelName");
-      } else {
-        await updatePlot("speakerModelName");
-      }
-    });
-
-    IDcontainers.addEventListener("change", async () => {
-      if (transducerSelect.value == "Microphones") {
-        await updatePlot("micID");
-      } else {
-        await updatePlot("speakerID");
-      }
-    });
-    await updatePlot("micOEM");
 
     // modelsContainer.addEventListener("change", updatePlot);
     document.getElementById('refreshButton').onclick = async() => {
       if (transducerSelect.value == "Microphones") {
-        if (IDcontainers.value != "All") {
+        if (DeviceIDContainer.value != "All") {
+          await updatePlot("mic51ID");
+        } else if (IDcontainers.value != "All") {
           await updatePlot("micID");
         } else if (modelsContainer.value != "All") {
           await updatePlot("micModel");
@@ -565,7 +687,9 @@
           await updatePlot("micOEM");
         }
       } else {
-        if (IDcontainers.value != "All") {
+        if (DeviceIDContainer.value != "All") {
+          await updatePlot("speaker51ID");
+        } else if (IDcontainers.value != "All") {
           await updatePlot("speakerID");
         } else if (modelsContainer.value != "All") {
           await updatePlot("speakerModel");
@@ -574,8 +698,12 @@
         }
       }
     }
+    // document.getElementById("updatePlot").onclick = () => {
+    //   refreshShinyPlot();
+    // }
     // updateModelCheckboxes();
     // updatePlot();
+    document.getElementById('profilePlot').innerHTML = "<p style = 'font-size:20px'> Hit refresh or use selector to retrieve profiles <p>"
 
   </script>
 

@@ -41,7 +41,7 @@ source("./plotting/scatter_plots.R")
 source("./plotting/crowding_sloan_vs_times.R")
 source("./plotting/reading_vs_font_size.R")
 source("./plotting/customized_inplot_table.R")
-
+source("./plotting/profile_plot.R")
 
 
 source("./other/getBits.R")
@@ -130,6 +130,79 @@ shinyServer(function(input, output, session) {
     return(get_iir_plot(iir()))
   })
   
+  subtitle <- reactive({
+    inputParameters <- sound_data()[[12]]
+    subtitleOne <- paste0(
+      "MLS burst: ",
+      inputParameters$calibrateSoundBurstDb,
+      " dB, ",
+      inputParameters$calibrateSoundBurstSec,
+      " s, ",
+      inputParameters$calibrateSoundBurstRepeats,
+      " ",
+      "×",
+      ", ",
+      inputParameters$calibrateSoundHz,
+      " Hz"
+    )
+    
+    subtitleTwo <- paste0(
+      "IR: ",
+      inputParameters$calibrateSoundIRSec,
+      " s, IIR: ",
+      inputParameters$calibrateSoundIIRSec,
+      "s, ",
+      inputParameters$calibrateSoundMinHz,
+      " to ",
+      inputParameters$calibrateSoundMaxHz,
+      " Hz"
+    )
+    
+    subtitleThree <- list(
+      system = paste0(
+        inputParameters$calibrateSoundAttenuationSpeakerAndMicDb,
+        " dB attenuation of filtered MLS for amplitdue ",
+        round(inputParameters$filteredMLSMaxAbsSystem
+              * inputParameters$calibrateSoundAttenuationSpeakerAndMicGain, 1)
+        
+      ),
+      component = paste0(
+        inputParameters$calibrateSoundAttenuationComponentDb,
+        " dB attenuation of filtered MLS for amplitdue ",
+        round(inputParameters$filteredMLSMaxAbsComponent
+              * inputParameters$calibrateSoundAttenuationComponentGain, 1)
+      )
+    )
+    
+    subtitleFour <- paste0(
+        "SD (dB): Rec. MLS ",
+        inputParameters$mlsSD,
+        ", Speak+mic corr. ",
+        inputParameters$systemCorrectionSD,
+        ", ",
+        inputParameters$transducerType,
+        " corr. ",
+        inputParameters$componentCorrectionSD
+      )
+    
+    return(
+      list(
+        system = list(c(
+          subtitleOne,
+          subtitleTwo,
+          subtitleThree$system,
+          subtitleFour
+        )),
+        component = list(c(
+          subtitleOne,
+          subtitleTwo,
+          subtitleThree$component,
+          subtitleFour
+        ))
+      )
+    )
+    
+  })
   
   subtitleOne <- reactive({
     inputParameters <- sound_data()[[12]]
@@ -146,14 +219,17 @@ shinyServer(function(input, output, session) {
       inputParameters$calibrateSoundHz,
       " Hz"
     )
+    
   })
   
   subtitleTwo <- reactive({
     inputParameters <- sound_data()[[12]]
     subtitleTwo <- paste0(
-      "IIR: ",
+      "IR: ",
+      inputParameters$calibrateSoundIRSec,
+      " s, IIR: ",
       inputParameters$calibrateSoundIIRSec,
-      "s, ",
+      " s, ",
       inputParameters$calibrateSoundMinHz,
       " to ",
       inputParameters$calibrateSoundMaxHz,
@@ -427,6 +503,31 @@ shinyServer(function(input, output, session) {
     }, deleteFile = TRUE)
     
   })
+  
+  recording_variation <- reactive({
+    plot_power_variations(
+      input$fileJSON,
+      sound_data(),
+      subtitleOne(),
+      subtitleTwo(),
+      subtitleThree()$component
+    )
+  })
+  
+  volume_recording_variation <- reactive({
+    plot_volume_power_variations(
+      input$fileJSON,
+      sound_data(),
+      subtitleOne(),
+      subtitleTwo(),
+      subtitleThree()$component
+    )
+  })
+  
+  sound_level_plot <- reactive({
+    plot_sound_level(sound_data())
+  })
+  
   observeEvent(input$fileJSON, {
     #### sound calibration server side####
     output$`sound table` <- renderTable(sound_data()[[1]],
@@ -443,18 +544,17 @@ shinyServer(function(input, output, session) {
       outfile <- tempfile(fileext = '.svg')
       ggsave(
         file = outfile,
-        plot = plot_sound_level(sound_data()) +
+        plot = sound_level_plot()[[1]] +
           add_transducerTable_system(
             transducerTable = sound_data()[[7]],
             position = c("right", "bottom"),
             title_text = "",
-            subtitleOne = subtitleOne(),
-            subtitleTwo = subtitleTwo(),
-            subtitleThree = subtitleThree()$system,
-            leftShift = -0.28
+            subtitle = list(c(subtitleOne(),subtitleTwo(),subtitleThree()$system)),
+            leftShift = -0.7
           ) +
           sound_theme_display,
-        height = 8,
+        width = sound_level_plot()[[2]],
+        height = sound_level_plot()[[3]],
         units = "in"
       )
       list(src = outfile,
@@ -470,11 +570,13 @@ shinyServer(function(input, output, session) {
         plot = plot_record_freq_system(
           sound_data(),
           get_convolutions(input$fileJSON),
-          subtitleOne(),
-          subtitleTwo(),
-          subtitleThree()
-        ),
-        height = 13.5,
+          subtitle()$system
+        )[[1]],
+        height = plot_record_freq_system(
+          sound_data(),
+          get_convolutions(input$fileJSON),
+          subtitle()$system
+        )[[2]],
         width = 8.5,
         units = "in"
       )
@@ -487,9 +589,7 @@ shinyServer(function(input, output, session) {
       p <- plot_record_freq_component(
         sound_data(),
         get_convolutions(input$fileJSON),
-        subtitleOne(),
-        subtitleTwo(),
-        subtitleThree()
+        subtitle()$component
       )
       outfile <- tempfile(fileext = '.svg')
       ggsave(
@@ -509,21 +609,28 @@ shinyServer(function(input, output, session) {
       outfile <- tempfile(fileext = '.svg')
       ggsave(
         file = outfile,
-        plot_power_variations(
-          input$fileJSON,
-          sound_data(),
-          subtitleOne(),
-          subtitleTwo(),
-          subtitleThree()$component
-        ) +
-          sound_theme_display,
-        height = 7,
-        width = 9,
+        recording_variation()[[1]],
+        height = recording_variation()[[2]],
+        width = 8,
         units = "in"
       )
       list(src = outfile,
            contenttype = 'svg',
            alt = "Power Spectral Density")
+    }, deleteFile = TRUE)
+    
+    output$`volume power variation` <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        volume_recording_variation()[[1]],
+        height = volume_recording_variation()[[2]],
+        width = 8,
+        units = "in"
+      )
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = "Power variation")
     }, deleteFile = TRUE)
     
     
@@ -538,17 +645,16 @@ shinyServer(function(input, output, session) {
           add_transducerTable_system(
             sound_data()[[7]],
             c("left", "bottom"),
-            subtitleOne = subtitleOne(),
-            subtitleTwo = subtitleTwo(),
-            subtitleThree = subtitleThree()$system
+            subtitle = list(c(subtitleOne(),subtitleTwo(),subtitleThree()$system))
           ) +
-          sound_theme_display
+          sound_theme_display,
+        height = jsonPlots()[[3]]
       )
       list(src = outfile,
            contenttype = 'svg',
            alt = "IIR one")
     }, deleteFile = TRUE)
-
+    
     output$IRtmpFive <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
@@ -557,17 +663,16 @@ shinyServer(function(input, output, session) {
           add_transducerTable_component(
             sound_data()[[7]],
             c("left", "bottom"),
-            subtitleOne = subtitleOne(),
-            subtitleTwo = subtitleTwo(),
-            subtitleThree = subtitleThree()$component
+            subtitle = list(c(subtitleOne(),subtitleTwo(),subtitleThree()$component))
           ) +
-          sound_theme_display
+          sound_theme_display,
+        height = jsonPlots()[[4]]
       )
       list(src = outfile,
            contenttype = 'svg',
            alt = "IIR two")
     }, deleteFile = TRUE)
-
+    
     output$componentIIRTime <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(file = outfile,
@@ -577,10 +682,10 @@ shinyServer(function(input, output, session) {
            contenttype = 'svg',
            alt = "IIR three")
     }, deleteFile = TRUE)
-
-
+    
+    
     #### IR ####
-
+    
     output$componentIRTime <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
@@ -594,7 +699,7 @@ shinyServer(function(input, output, session) {
            contenttype = 'svg',
            alt = "IIR two")
     }, deleteFile = TRUE)
-
+    
     output$componentIRPSD <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
@@ -605,29 +710,134 @@ shinyServer(function(input, output, session) {
           subtitleOne(),
           subtitleTwo(),
           subtitleThree()$component
-        ) +
+        )[[1]] +
           sound_theme_display,
-        height = 8,
-        width = 8,
+        height = plotComponetIRPSD(
+          input$fileJSON,
+          sound_data(),
+          subtitleOne(),
+          subtitleTwo(),
+          subtitleThree()$component
+        )[[2]],
+        width = 8
       )
       list(src = outfile,
            contenttype = 'svg',
            alt = "IIR two")
     }, deleteFile = TRUE)
-
-
+    
+    
     outputOptions(output, 'jsonUploaded', suspendWhenHidden = FALSE)
   })
   
-  # observeEvent(input$OEMs, {
-  #   print(input$OEMs)
-  # }) 
-  # observeEvent(input$IDs, {
-  #   print(input$IDs)
-  # }) 
-  # observeEvent(input$MicModelNames, {
-  #   print(input$MicModelNames)
-  # }) 
+  observeEvent(input$toShiny, {
+    json <- fromJSON(input$toShiny)
+   if (input$transducerType == "Loudspeakers") {
+     options <- json$createDates
+   } else {
+     options <- ifelse(json$isDefault, paste0("default/",unlist(json$modelNumbers)), json$createDates)
+   }
+    options <- unique(options)
+    updateCheckboxGroupInput(session, 'profileSelection', choices = options,
+                             selected = NULL, inline = FALSE)
+    df <- data.frame(createDate = json$createDates,
+                     jsonFileName = json$jsonFileName,
+                     OEM = json$OEMs,
+                     modelNames =json$modelNames,
+                     modelNumber = unlist(json$modelNumbers),
+                     SD = json$SDs,
+                     maxAbsFilteredMLS = json$FilteredMLSRange,
+                     isDefault = json$isDefault) %>% 
+      arrange(desc(isDefault)) %>% 
+      select(-isDefault)
+    
+    rowCallback <- c(
+      "function(row, data){",
+      "  for(var i=0; i<data.length; i++){",
+      "    if(data[i] === null){",
+      "      $('td:eq('+i+')', row).html('NA')",
+      "        .css({'color': 'rgb(151,151,151)', 'font-style': 'italic'});",
+      "    }",
+      "  }",
+      "}"  
+    )
+    
+    output$profiles <- DT::renderDataTable(
+
+      datatable(df,
+                class = list(stripe = FALSE),
+                selection = 'none',
+                filter = "top",
+                options = list(paging = FALSE,
+                               searching = FALSE,
+                               rowCallback = JS(rowCallback)
+                ))
+    )
+    
+  })
+
+  observeEvent(input$doProfile,{
+    print(input$profileSelection)
+    p <- plot_filtered_profiles(input$transducerType, 
+                           fromJSON(input$totalData), 
+                           input$plotTitle,
+                           input$profileSelection)
+    output$profilePlot <- renderImage({
+      
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(file = outfile,
+             plot = p$plot,
+             height = p$height,
+             width = 12,
+             unit = "in")
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = "profile plot")
+    }, deleteFile = TRUE)
+    
+    output$downloadProfilePlot<- downloadHandler(
+      filename = paste0(
+        gsub("[^[:alnum:]]", "_", tolower(input$plotTitle)), '.', input$fileProfile
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = p$plot,
+          height = p$height,
+          width = 12,
+          dpi = 100,
+          device = ifelse(
+            input$fileProfile == "svg",
+            svglite,
+            input$fileProfile
+          )
+        )
+      }
+    )
+    
+  })
+  
+  profile_plot <- reactive({
+    plot_profiles(input$transducerType, fromJSON(input$totalData), input$plotTitle)
+  }) 
+  
+  observeEvent(input$totalData, {
+    
+    output$profilePlot <- renderImage({
+      
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(file = outfile,
+             plot = profile_plot()$plot,
+             height = profile_plot()$height,
+             width = 12,
+             unit = "in")
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = "profile plot")
+    }, deleteFile = TRUE)
+    
+  })
+  
   
   #### Event Handler ####
   
@@ -971,7 +1181,39 @@ shinyServer(function(input, output, session) {
     list(input$fileJSON, input$fileTypeSound)
   })
   
+  toListenProfile <- reactive({
+    list(input$totalData, input$fileProfile)
+  })
+  
+ 
+  observeEvent(toListenProfile(),{
+
+      output$downloadProfilePlot<- downloadHandler(
+        filename = paste0(
+          gsub("[^[:alnum:]]", "_", tolower(input$plotTitle)), '.', input$fileProfile
+        ),
+        content = function(file) {
+          ggsave(
+            file,
+            plot = profile_plot()$plot,
+            height = profile_plot()$height,
+            dpi = 100,
+            width = 12,
+            device = ifelse(
+              input$fileProfile == "svg",
+              svglite,
+              input$fileProfile
+            )
+          )
+        }
+      )
+    
+  })
   observeEvent(toListenSound(), {
+    output$file_name <- 
+      renderPrint({
+        input$fileJSON$name
+      })
     output$downloadSoundLevelPlot <- downloadHandler(
       filename = paste(paste0(
         'sound-level-1000Hz.', input$fileTypeSound
@@ -979,15 +1221,19 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         ggsave(
           file,
-          plot =  plot_sound_level(sound_data()) +
+          plot = sound_level_plot()[[1]] +
             add_transducerTable_system(
-              sound_data()[[7]],
-              c("right", "bottom"),
-              subtitleOne = subtitleOne(),
-              subtitleTwo = subtitleTwo(),
-              subtitleThree = subtitleThree()$system,
-              leftShift = -0.28
-            ) + sound_theme_display,
+              transducerTable = sound_data()[[7]],
+              position = c("right", "bottom"),
+              title_text = "",
+              subtitle = list(c(subtitleOne(),subtitleTwo(),subtitleThree()$system)),
+              leftShift = -0.6
+            ) +
+            sound_theme_display,
+          dpi = 100,
+          width = sound_level_plot()[[2]],
+          height = sound_level_plot()[[3]],
+          unit = "in",
           device = ifelse(
             input$fileTypeSound == "svg",
             svglite,
@@ -1007,12 +1253,15 @@ shinyServer(function(input, output, session) {
           plot = plot_record_freq_system(
             sound_data(),
             get_convolutions(input$fileJSON),
-            subtitleOne(),
-            subtitleTwo(),
-            subtitleThree()
-          ),
-          height = 13.5,
+            subtitle()$system
+          )[[1]] + sound_theme_display,
+          height = plot_record_freq_system(
+            sound_data(),
+            get_convolutions(input$fileJSON),
+            subtitle()$system
+          )[[2]],
           width = 8.5,
+          dpi = 100,
           units = "in",
           device = ifelse(
             input$fileTypeSound == "svg",
@@ -1034,19 +1283,15 @@ shinyServer(function(input, output, session) {
           plot = plot_record_freq_component(
             sound_data(),
             get_convolutions(input$fileJSON),
-            subtitleOne(),
-            subtitleTwo(),
-            subtitleThree()
-          )[[1]] +
-            sound_theme_display,
+            subtitle()$component
+          )[[1]] + sound_theme_display,
           height = plot_record_freq_component(
             sound_data(),
             get_convolutions(input$fileJSON),
-            subtitleOne(),
-            subtitleTwo(),
-            subtitleThree()
+            subtitle()$component
           )[[2]],
           width = 8.5,
+          dpi = 100,
           units = "in",
           device = ifelse(
             input$fileTypeSound == "svg",
@@ -1069,11 +1314,11 @@ shinyServer(function(input, output, session) {
             add_transducerTable_system(
               sound_data()[[7]],
               c("left", "bottom"),
-              subtitleOne = subtitleOne(),
-              subtitleTwo = subtitleTwo(),
-              subtitleThree = subtitleThree()$system
-            ) +
-            sound_theme_display,
+              subtitle = list(c(subtitleOne(),subtitleTwo(),subtitleThree()$system))
+            ) + sound_theme_display,
+          dpi = 100,
+          height = jsonPlots()[[3]],
+          units = "in",
           device = ifelse(
             input$fileTypeSound == "svg",
             svglite,
@@ -1095,14 +1340,14 @@ shinyServer(function(input, output, session) {
         ggsave(
           file,
           plot = jsonPlots()[[2]] +
-            add_transducerTable_system(
+            add_transducerTable_component(
               sound_data()[[7]],
               c("left", "bottom"),
-              subtitleOne = subtitleOne(),
-              subtitleTwo = subtitleTwo(),
-              subtitleThree = subtitleThree()$component
+              subtitle = list(c(subtitleOne(),subtitleTwo(),subtitleThree()$component))
             ) +
             sound_theme_display,
+          height = jsonPlots()[[4]],
+          dpi = 100,
           device = ifelse(
             input$fileTypeSound == "svg",
             svglite,
@@ -1119,8 +1364,9 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         ggsave(
           file,
-          plot =  plotComponentIIR(input$fileJSON) +
+          plot = plotComponentIIR(input$fileJSON) +
             sound_theme_display,
+          dpi = 100,
           device = ifelse(
             input$fileTypeSound == "svg",
             svglite,
@@ -1139,6 +1385,7 @@ shinyServer(function(input, output, session) {
           file,
           plot =  plotComponentIRTime(input$fileJSON) +
             sound_theme_display,
+          dpi = 100,
           device = ifelse(
             input$fileTypeSound == "svg",
             svglite,
@@ -1155,16 +1402,23 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         ggsave(
           file,
-          plot =  plotComponetIRPSD(
+          plot = plotComponetIRPSD(
             input$fileJSON,
             sound_data(),
             subtitleOne(),
             subtitleTwo(),
             subtitleThree()$component
-          ) +
+          )[[1]] +
             sound_theme_display,
-          height = 8,
+          height = plotComponetIRPSD(
+            input$fileJSON,
+            sound_data(),
+            subtitleOne(),
+            subtitleTwo(),
+            subtitleThree()$component
+          )[[2]],
           width = 8,
+          dpi = 100,
           unit = "in",
           device = ifelse(
             input$fileTypeSound == "svg",
@@ -1182,17 +1436,34 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         ggsave(
           file,
-          plot = plot_power_variations(
-            input$fileJSON,
-            sound_data(),
-            subtitleOne(),
-            subtitleTwo(),
-            subtitleThree()$component
-          ) +
+          recording_variation()[[1]] +
             sound_theme_display,
-          height = 7,
-          width = 9,
+          height = recording_variation()[[2]],
+          width = 8,
+          dpi = 100,
           unit = "in",
+          device = ifelse(
+            input$fileTypeSound == "svg",
+            svglite,
+            input$fileTypeSound
+          )
+        )
+      }
+    )
+    
+    output$downloadVolumePowerVariation <- downloadHandler(
+      filename = paste(paste0(
+        'power-variation.', input$fileTypeSound
+      ), sep = "-"),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = volume_recording_variation()[[1]] +
+            sound_theme_display,
+          height = volume_recording_variation()[[1]],
+          width = 8,
+          unit = "in",
+          dpi = 100,
           device = ifelse(
             input$fileTypeSound == "svg",
             svglite,
@@ -1211,6 +1482,7 @@ shinyServer(function(input, output, session) {
           file,
           plot = get_autocorrelation_plot(input$fileJSON) +
             sound_theme_display,
+          dpi = 100,
           device = ifelse(
             input$fileTypeSound == "svg",
             svglite,

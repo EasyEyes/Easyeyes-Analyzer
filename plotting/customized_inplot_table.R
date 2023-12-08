@@ -47,7 +47,7 @@ geom_table_costumized <- function(mapping = NULL, data = NULL,
 #' @export
 GeomTableNpcNew <-
   ggplot2::ggproto("GeomTableNpc", ggplot2::Geom,
-                   required_aes = c("npcx", "npcy", "label","text", "title_text","subtitleTOne", "subtitleTTwo", "subtitleTThree","leftShift"),
+                   required_aes = c("npcx", "npcy", "label","text", "title_text","subtitle","leftShift"),
                    
                    default_aes = ggplot2::aes(
                      colour = NA,
@@ -151,33 +151,64 @@ GeomTableNpcNew <-
                          
                          ## my customized code
                          title_text <- textGrob(data[["title_text"]], x=0.03, hjust=0, gp=gpar(fontsize=12))
-                         subtitleOneG <- textGrob(data[["subtitleTOne"]], x=0.03, hjust=0, gp=gpar(fontsize=12, fontFamily = "Arial"))
-                         subtitleTwoG <- textGrob(data[["subtitleTTwo"]], x=0.03, hjust=0, gp=gpar(fontsize=12))
-                         subtitleThreeG <- textGrob(data[["subtitleTThree"]], x=0.03, hjust=0, gp=gpar(fontsize=12))
+                         row_to_add <- list()
+                         if (data[["title_text"]][[1]] != "") {
+                           row_to_add <- list(title_text)
+                           gtb <- gtable_add_rows(gtb, 
+                                                  heights = grobHeight(title_text) + unit(0.4,"line"),
+                                                  pos = 0)
+                           index = 2
+                         } else {
+                           index = 1
+                         }
+                         subtitles <- unlist(data[["subtitle"]][[1]])
+                         for (i in 1: length(subtitles)) {
+                           tmp <- textGrob(subtitles[i], x=0.03, hjust=0, gp=gpar(fontsize=12))
+                           row_to_add[[index]] <- tmp
+                           index = index + 1
+                           gtb <- gtable_add_rows(gtb, 
+                                                  heights = grobHeight(tmp) + unit(0.3,"line"))
+                         }
                          
                          footnote <- textGrob(data[["text"]], x=0.03, hjust=0, gp=gpar(fontsize=12))
                          
                          gtb <- gtable_add_rows(gtb, 
                                                 heights = grobHeight(footnote)+ unit(0.3,"line"))
+                         row_to_add[[index]] <- footnote
                          
-                         gtb <- gtable_add_rows(gtb, 
-                                                heights = grobHeight(subtitleOneG) + unit(0.3,"line"))
-                         gtb <- gtable_add_rows(gtb, 
-                                                heights = grobHeight(subtitleTwoG) + unit(0.3,"line"))
-                         gtb <- gtable_add_rows(gtb, 
-                                                heights = grobHeight(subtitleThreeG) + unit(0.3,"line"))
+                         # gtb <- gtable_add_rows(gtb, 
+                         #                        heights = grobHeight(subtitleOneG) + unit(0.3,"line"))
+                         # gtb <- gtable_add_rows(gtb, 
+                         #                        heights = grobHeight(subtitleTwoG) + unit(0.3,"line"))
+                         # gtb <- gtable_add_rows(gtb, 
+                         #                        heights = grobHeight(subtitleThreeG) + unit(0.3,"line"))
+                         # gtb <- gtable_add_rows(gtb, 
+                         #                        heights = grobHeight(subtitleFourG) + unit(0.3,"line"))
+                         # gtb <- gtable_add_rows(gtb, 
+                         #                        heights = grobHeight(subtitleFiveG) + unit(0.3,"line"))
                          
                          
+                         # if (data[["title_text"]][[1]] != "") {
+                         #   gtb <- gtable_add_rows(gtb, 
+                         #                          heights = grobHeight(title_text) + unit(0.4,"line"),
+                         #                          pos = 0)
+                         #   gtb <- gtable_add_grob(gtb, list(title_text, subtitleOneG, subtitleTwoG, subtitleThreeG, subtitleFourG,subtitleFiveG,footnote),
+                         #                          t=c(1, (nrow(gtb) - 5) : nrow(gtb)), l=c(1,1,1,1,1,1,1),
+                         #                          r=ncol(gtb))
+                         # } else {
+                         #   gtb <- gtable_add_grob(gtb, list(subtitleOneG,subtitleTwoG, subtitleThreeG, subtitleFourG, subtitleFiveG,footnote),
+                         #                          t=(nrow(gtb) - 5) : nrow(gtb), l=c(1,1,1,1,1,1), 
+                         #                          r=ncol(gtb))
+                         # }
                          if (data[["title_text"]][[1]] != "") {
-                           gtb <- gtable_add_rows(gtb, 
-                                                  heights = grobHeight(title_text) + unit(0.4,"line"),
-                                                  pos = 0)
-                           gtb <- gtable_add_grob(gtb, list(title_text, subtitleOneG, subtitleTwoG, subtitleThreeG, footnote),
-                                                  t=c(1, nrow(gtb) - 3, nrow(gtb) - 2, nrow(gtb) - 1, nrow(gtb)), l=c(1,1,1,1,1),
+                           gtb <- gtable_add_grob(gtb, grobs = row_to_add,
+                                                  t=c(1, (nrow(gtb) - length(row_to_add) + 2) : nrow(gtb)), 
+                                                  l=rep(1,length(row_to_add)), 
                                                   r=ncol(gtb))
                          } else {
-                           gtb <- gtable_add_grob(gtb, list(subtitleOneG,subtitleTwoG, subtitleThreeG, footnote),
-                                                  t=c(nrow(gtb) - 3, nrow(gtb) - 2, nrow(gtb) - 1, nrow(gtb)), l=c(1,1,1,1), 
+                           gtb <- gtable_add_grob(gtb, grobs = row_to_add,
+                                                  t=(nrow(gtb) - length(row_to_add) + 1) : nrow(gtb), 
+                                                  l=rep(1,length(row_to_add)), 
                                                   r=ncol(gtb))
                          }
                          
