@@ -364,6 +364,7 @@ shinyUI(
             )
           )
         ),
+        
         fixedRow(
           column(
             width = 6,
@@ -375,8 +376,55 @@ shinyUI(
             align = "center",
             downloadButton("downloadComponentIRPSD", "Download")
           )
-        )
+        ),
+        fixedRow(
+          column(
+            width = 6,
+            align = "center",
+            withSpinner(
+              plotOutput("componentIR0To6", height = "100%", width = "100%"),
+              type = 4
+            )
+          ),
+          column(
+            width = 6,
+            align = "center",
+            withSpinner(
+              plotOutput("componentIR0To50", height = "100%", width = "100%"),
+              type = 4
+            )
+          )
+        ),
+        fixedRow(
+          column(
+            width = 6,
+            align = "center",
+            downloadButton("downloadComponentIR0To6", "Download")
+          ),
+          column(
+            width = 6,
+            align = "center",
+            downloadButton("downloadComponentIR0To50", "Download")
+          )
+        ),
+        fixedRow(
+          column(
+            width = 6,
+            align = "center",
+            withSpinner(
+              plotOutput("componentIR0To400", height = "100%", width = "100%"),
+              type = 4
+            )
+          )
+        ),
+        fixedRow(
+          column(
+            width = 6,
+            align = "center",
+            downloadButton("downloadComponentIR0To400", "Download")
+          )),
       ),
+      
       ####  sound all ####
       fixedRow(
         column(
@@ -476,12 +524,21 @@ shinyUI(
              div(
                HTML(
                  "<div class='row'>
+                 <label style='font-size: 16px; margin-left: 15px; margin-right: 10px'>  Filter by device: </label>
+                 <input style='font-size: 16px; margin-right: 10px;' type='radio' name='filterType' id='deviceBool' checked></input>
+                 <label style='font-size: 16px; margin-left: 15px; margin-right: 10px'>  Filter by screen: </label>
+                 <input style='font-size: 16px; margin-right: 10px;' type='radio' name='filterType' id='screenBool'></input>
+                 <br>
                  <label style='font-size: 16px; margin-left: 15px; margin-right: 10px'>  Transducer: </label><select style='margin-right: 20px;' id='transducer'></select>
                  <label style='font-size: 16px; margin-right: 10px'>OEM: </label><select style='margin-right: 20px;' id='OEM'></select>
                  <label style='font-size: 16px; margin-right: 10px'>Model Name: </label><select style='margin-right: 20px;' id='Model'></select>
-                 <label style='font-size: 16px; margin-right: 10px'>Model Number: </label><select style='margin-right: 20px'; id='IDs'></select><br>
-                 <label style='font-size: 16px; margin-left: 15px; margin-right: 10px'>51 degrees ID: </label><select style='margin-right: 20px;' id='deviceID'></select>
-                 <input type='checkbox' id='filterBool'> </input>
+                 <label style='font-size: 16px; margin-right: 10px'>Model Number: </label><select style='margin-right: 20px'; id='IDs'></select>
+                 <label style='font-size: 16px; margin-right: 10px'>51 degrees ID: </label><select style='margin-right: 20px;' id='deviceID'></select>
+                 <br>
+                 <label style='font-size: 16px; margin-left: 15px; margin-right: 10px'>Aspect Ratio: </label><select style='margin-right: 20px;' id='aspectRatio'></select>
+                 <label style='font-size: 16px; margin-right: 10px'>Screen Pixel Size: </label><select style='margin-right: 20px;' id='screenPx'></select>
+                 <br>
+                 <input style='font-size: 16px; margin-left: 15px; margin-right: 10px;' type='checkbox' id='filterBool'> </input>
                   <label style='font-size: 16px; margin-right: 10px'>Correction max SD (dB): </label><input type='number' id='SDTolerance'> </input>
                  </div>
               "

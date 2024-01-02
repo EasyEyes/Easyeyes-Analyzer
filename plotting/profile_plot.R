@@ -1,8 +1,7 @@
 plot_profiles <- function(transducerType, t, plotTitle) {
   dt <- tibble()
-  if (transducerType == "Microphones") {
+  if (transducerType == "Microphones" && ("linear" %in% names(t))) {
     for (i in 1:length(t$linear$Freq)) {
-      print(ifelse(t$isDefault[i], "default", t$DateText[i]))
       tmp <- tibble(freq = t$linear$Freq[[i]],
                     gain = t$linear$Gain[[i]],
                     label = ifelse(t$isDefault[i], 
@@ -11,15 +10,32 @@ plot_profiles <- function(transducerType, t, plotTitle) {
         filter(!is.na(label))
       dt <- dt %>% rbind(tmp)
     }
-  } else {
+  } else if ("ir" %in% names(t)) {
     for (i in 1:length(t$ir$Freq)) {
       tmp <- tibble(freq = t$ir$Freq[[i]],
                     gain = t$ir$Gain[[i]],
                     label = t$CalibrationDate[i]) %>% 
         filter(!is.na(label))
-      dt <- dt %>% rbind(tmp)
+      print(ncol(tmp))
+      
+      if (ncol(tmp) == 3){dt <- dt %>% rbind(tmp)}
     }
   }
+  if (nrow(dt) == 0) {
+    return(
+      list(
+        plot = ggplot() + 
+          theme_bw() +  
+          scale_y_continuous(limits = c(-20 ,20), breaks = seq(-20,20,10), expand = c(0,0)) + 
+          scale_x_log10(limits = c(20, 20000), 
+                        breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
+                        expand = c(0, 0)) + 
+          sound_theme_display,
+        height = 5
+      )
+    )
+  }
+  dt <- dt %>% filter(is.finite(gain))
   legendRows <- ceiling(n_distinct(dt$label)/3)
   maxY <- ceiling(max(dt$gain) /10) * 10
   minY <- floor(min(dt$gain) /10) * 10
@@ -69,7 +85,6 @@ plot_filtered_profiles <- function(transducerType, t, plotTitle, options) {
   dt <- tibble()
   if (transducerType == "Microphones") {
     for (i in 1:length(t$linear$Freq)) {
-      print(ifelse(t$isDefault[i], "default", t$DateText[i]))
       tmp <- tibble(freq = t$linear$Freq[[i]],
                     gain = t$linear$Gain[[i]],
                     label = ifelse(t$isDefault[i], 
@@ -84,10 +99,27 @@ plot_filtered_profiles <- function(transducerType, t, plotTitle, options) {
                     gain = t$ir$Gain[[i]],
                     label = t$CalibrationDate[i]) %>% 
         filter(!is.na(label))
-      dt <- dt %>% rbind(tmp)
+      if (ncol(tmp) == 3) {
+        dt <- dt %>% rbind(tmp)
+      }
     }
   }
+  if (nrow(dt) == 0) {
+    return(
+      list(
+        plot = ggplot() + 
+          theme_bw() +  
+          scale_y_continuous(limits = c(-40 ,40), breaks = seq(40,40,10), expand = c(0,0)) + 
+          scale_x_log10(limits = c(20, 20000), 
+                        breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
+                        expand = c(0, 0)) + 
+          sound_theme_display,
+        height = 5
+      )
+    )
+  }
   dt <- dt %>% filter(label %in% options)
+  dt <- dt %>% filter(is.finite(gain))
   legendRows <- ceiling(n_distinct(dt$label)/3)
   maxY <- ceiling(max(dt$gain)/10) * 10
   minY <- floor(min(dt$gain)/10) * 10

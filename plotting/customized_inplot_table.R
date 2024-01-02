@@ -47,7 +47,7 @@ geom_table_costumized <- function(mapping = NULL, data = NULL,
 #' @export
 GeomTableNpcNew <-
   ggplot2::ggproto("GeomTableNpc", ggplot2::Geom,
-                   required_aes = c("npcx", "npcy", "label","text", "title_text","subtitle","leftShift"),
+                   required_aes = c("npcx", "npcy", "label","text", "title_text","subtitle","leftShift", "fs","shrinkPadding","titleFont"),
                    
                    default_aes = ggplot2::aes(
                      colour = NA,
@@ -150,12 +150,15 @@ GeomTableNpcNew <-
                            )
                          
                          ## my customized code
-                         title_text <- textGrob(data[["title_text"]], x=0.03, hjust=0, gp=gpar(fontsize=12))
+                         shrinkPadding <- data[["shrinkPadding"]][[1]]
+                    
+                         fs = data[["fs"]][[1]]
+                         title_text <- gridtext::richtext_grob(data[["title_text"]], x=0.03, hjust=0, gp=gpar(fontsize=fs, fontface = data[["titleFont"]][[1]]))
                          row_to_add <- list()
                          if (data[["title_text"]][[1]] != "") {
                            row_to_add <- list(title_text)
                            gtb <- gtable_add_rows(gtb, 
-                                                  heights = grobHeight(title_text) + unit(0.4,"line"),
+                                                  heights = grobHeight(title_text) + unit(0.2,"line"),
                                                   pos = 0)
                            index = 2
                          } else {
@@ -163,43 +166,19 @@ GeomTableNpcNew <-
                          }
                          subtitles <- unlist(data[["subtitle"]][[1]])
                          for (i in 1: length(subtitles)) {
-                           tmp <- textGrob(subtitles[i], x=0.03, hjust=0, gp=gpar(fontsize=12))
+                           tmp <- gridtext::richtext_grob(subtitles[i], x=0.03, hjust=0, gp=gpar(fontsize=fs))
                            row_to_add[[index]] <- tmp
                            index = index + 1
                            gtb <- gtable_add_rows(gtb, 
-                                                  heights = grobHeight(tmp) + unit(0.3,"line"))
+                                                  heights = grobHeight(tmp) + unit(0.2,"line"))
                          }
                          
-                         footnote <- textGrob(data[["text"]], x=0.03, hjust=0, gp=gpar(fontsize=12))
+                         footnote <- textGrob(data[["text"]], x=0.03, hjust=0, gp=gpar(fontsize=fs))
                          
                          gtb <- gtable_add_rows(gtb, 
-                                                heights = grobHeight(footnote)+ unit(0.3,"line"))
+                                                heights = grobHeight(footnote)+ unit(0.2,"line"))
                          row_to_add[[index]] <- footnote
-                         
-                         # gtb <- gtable_add_rows(gtb, 
-                         #                        heights = grobHeight(subtitleOneG) + unit(0.3,"line"))
-                         # gtb <- gtable_add_rows(gtb, 
-                         #                        heights = grobHeight(subtitleTwoG) + unit(0.3,"line"))
-                         # gtb <- gtable_add_rows(gtb, 
-                         #                        heights = grobHeight(subtitleThreeG) + unit(0.3,"line"))
-                         # gtb <- gtable_add_rows(gtb, 
-                         #                        heights = grobHeight(subtitleFourG) + unit(0.3,"line"))
-                         # gtb <- gtable_add_rows(gtb, 
-                         #                        heights = grobHeight(subtitleFiveG) + unit(0.3,"line"))
-                         
-                         
-                         # if (data[["title_text"]][[1]] != "") {
-                         #   gtb <- gtable_add_rows(gtb, 
-                         #                          heights = grobHeight(title_text) + unit(0.4,"line"),
-                         #                          pos = 0)
-                         #   gtb <- gtable_add_grob(gtb, list(title_text, subtitleOneG, subtitleTwoG, subtitleThreeG, subtitleFourG,subtitleFiveG,footnote),
-                         #                          t=c(1, (nrow(gtb) - 5) : nrow(gtb)), l=c(1,1,1,1,1,1,1),
-                         #                          r=ncol(gtb))
-                         # } else {
-                         #   gtb <- gtable_add_grob(gtb, list(subtitleOneG,subtitleTwoG, subtitleThreeG, subtitleFourG, subtitleFiveG,footnote),
-                         #                          t=(nrow(gtb) - 5) : nrow(gtb), l=c(1,1,1,1,1,1), 
-                         #                          r=ncol(gtb))
-                         # }
+
                          if (data[["title_text"]][[1]] != "") {
                            gtb <- gtable_add_grob(gtb, grobs = row_to_add,
                                                   t=c(1, (nrow(gtb) - length(row_to_add) + 2) : nrow(gtb)), 

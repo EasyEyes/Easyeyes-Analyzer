@@ -55,7 +55,6 @@
       );
       
       minY = Math.floor(minY / 10) * 10;
-      console.log(minY);
 
       let maxY = Math.max(
         ...data.map((dataset) =>
@@ -67,7 +66,6 @@
         )
       );
       maxY = Math.ceil(maxY / 10) * 10;
-      console.log(maxY);
       // Create the chart
       plotCanvas.width = 1000;
       plotCanvas.height = (maxY - minY) * 8 + Math.ceil(data.length/3)*10;
@@ -176,6 +174,7 @@
   </script>
   
   <script type="module">
+    
     window.alert = function(message) {
     // Do nothing or log the message to console
     console.log("Alert suppressed:", message);
@@ -217,11 +216,30 @@ console.warn = function() {
         return;
       }
     }
+    function aspectRatio(a, b) {
+      // Euclidean algorithm
+      if (a && b) {
+        return `${Math.max(a,b) / Math.min(a,b)}:1`;
+      } else {
+        return "NA"
+      }
+    }
 
+    function getScreenPx(a, b) {
+      if (a && b) {
+        return `${a}x${b}`;
+      } else {
+        return "NA"
+      }
+    }
+
+    let gcdN;
     var micOEMs = new Set();
     var micModelNames = new Set();
     var micIDs = new Set();
     var mic51IDs = new Set();
+    var micScreenPx = new Set();
+    var micAspectRatio = new Set();
 
     var micOEMsMap = new Map();
     var micModelNamesMap = new Map();
@@ -235,8 +253,13 @@ console.warn = function() {
         addToMap(micModelNamesMap, doc.data().micModelName);
         addToMap(micIDsMap, doc.data().ID);
         mic51IDs.add(doc.data().ID_from_51Degrees);
+        micScreenPx.add(getScreenPx(doc.data().screenWidth,doc.data().screenHeight));
+        micAspectRatio.add(aspectRatio(doc.data().screenWidth,doc.data().screenHeight));
       });
     });
+    console.log(micScreenPx);
+    console.log(micAspectRatio);
+
     micOEMsMap.forEach((values, lowercaseOEM) => {
       const [firstCaseOEM] = values;
       if (firstCaseOEM) {
@@ -256,15 +279,17 @@ console.warn = function() {
       }
     });
 
-
     var speakerOEMs = new Set();
     var speakerModelNames = new Set();
     var speakerIDs = new Set();
     var speaker51IDs = new Set();
+    var speakerScreenPx = new Set();
+    var speakerAspectRatio = new Set();
 
     var speakerOEMsMap = new Map();
     var speakerModelNamesMap = new Map();
     var speakerIDsMap = new Map();
+
 
     await loudspeakers
     .get()
@@ -274,6 +299,8 @@ console.warn = function() {
         addToMap(speakerModelNamesMap, doc.data().fullLoudspeakerModelName);
         addToMap(speakerIDsMap, doc.data().fullLoudspeakerModelNumber);
         speaker51IDs.add(doc.data().DeviceId);
+        speakerScreenPx.add(getScreenPx(doc.data().screenWidth,doc.data().screenHeight));
+        speakerAspectRatio.add(aspectRatio(doc.data().screenWidth,doc.data().screenHeight));
         })
       });
     
@@ -296,11 +323,26 @@ console.warn = function() {
         }
       });
 
-     console.log(speakerIDs);
 
     const SDToleranceContainer = document.getElementById("SDTolerance");
     const filterBoolContainer = document.getElementById("filterBool");
+    const deviceBoolContainer = document.getElementById("deviceBool");
+    const screenBoolContainer = document.getElementById("screenBool");
     const DeviceIDContainer = document.getElementById("deviceID");
+    const screenPxContainer = document.getElementById("screenPx");
+    const aspectRatioContainer = document.getElementById("aspectRatio");
+
+    document.getElementById('deviceBool').addEventListener('change', function () {
+        if (this.checked) {
+            document.getElementById('screenBool').checked = false;
+        }
+    });
+
+    document.getElementById('screenBool').addEventListener('change', function () {
+        if (this.checked) {
+            document.getElementById('deviceBool').checked = false;
+        }
+    });
     
     filterBoolContainer.checked = false;
     SDToleranceContainer.value = 10.0;
@@ -414,10 +456,60 @@ console.warn = function() {
       }
     }
 
+    function updateScreenPxContainer() {
+      screenPxContainer.innerHTML = "";
+      let screenPxElement = document.createElement("option");
+      screenPxElement.value = "All";
+      screenPxElement.text = "All";
+      screenPxContainer.add(screenPxElement);
+     
+      if (transducerSelect.value == "Microphones") {
+        micScreenPx.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        screenPxContainer.add(optionElement);
+      });
+      } else {
+        speakerScreenPx.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        screenPxContainer.add(optionElement);
+      });
+      }
+    }
+
+    function updateAspectRatioContainer() {
+      aspectRatioContainer.innerHTML = "";
+      let aspectRatioElement = document.createElement("option");
+      aspectRatioElement.value = "All";
+      aspectRatioElement.text = "All";
+      aspectRatioContainer.add(aspectRatioElement);
+     
+      if (transducerSelect.value == "Microphones") {
+        micAspectRatio.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        aspectRatioContainer.add(optionElement);
+      });
+      } else {
+        speakerAspectRatio.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option;
+        optionElement.text = option;
+        aspectRatioContainer.add(optionElement);
+      });
+      }
+    }
+
     updateOEMsContainer();
     updateModelsContainer();
     updateIDContainer();
     updateDeviceIDContainer();
+    updateScreenPxContainer();
+    updateAspectRatioContainer();
 
     function sanitizeForId(input) {
     // Replace non-alphanumeric characters with underscores
@@ -425,8 +517,8 @@ console.warn = function() {
   }
 
     async function updatePlot(whatToPlot) {
+      console.log(whatToPlot);
       // const selectedModels = Array.from(modelsContainer.querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value);
-
       document.getElementById("profilePlot").innerHTML = "<div class='loader-profile'></div>";
       const data = [];
       let i = 0;
@@ -436,14 +528,13 @@ console.warn = function() {
         OEMquery = OEMSelect.value == "All" ?
         mics :
           mics.where("OEM", "in", [...micOEMsMap.get(OEMSelect.value.toLowerCase())] || []);
-        modelQuery = modelsContainer.value == "All" ?
+        modelQuery = modelsContainer?.value == "All" ?
         OEMquery :
-          mics.where("micModelName", "in", [...micModelNamesMap.get(modelsContainer.value.toLowerCase())]);
+          mics.where("micModelName", "in", [...micModelNamesMap.get(modelsContainer.value.toLowerCase())] || []);
         IDQuery = IDcontainers.value == "All" ?
         modelQuery : 
-        mics.where("ID", "in", [...micIDsMap.get(IDcontainers.value.toLowerCase())]);
+        mics.where("ID", "in", [...micIDsMap.get(IDcontainers.value.toLowerCase())] || []);      
       } else {
-        console.log("isLoudspeaker");
         OEMquery = OEMSelect.value == "All" ?
           loudspeakers :
           loudspeakers.where(
@@ -473,6 +564,9 @@ console.warn = function() {
       } else if (whatToPlot === "micID" || whatToPlot === "speakerID") {
         selectedValue = IDcontainers.value == "All" ? modelsContainer.value : IDcontainers.value;
         query = IDQuery;
+      } else if (whatToPlot == "micModelName") {
+        selectedValue = DeviceIDContainer.value;
+        query = loudspeakers.where("DeviceId", "==", DeviceIDContainer.value);
       } else if (whatToPlot === "speakerOEM") {
         selectedValue = OEMSelect.value; 
         query = OEMquery;
@@ -480,12 +574,15 @@ console.warn = function() {
         selectedValue = modelsContainer.value == "All" ? OEMSelect.value : modelsContainer.value;
         query = modelQuery;
       } else if (whatToPlot === "mic51ID") {
-        console.log("mic51ID");
-        query = mics.where("ID_from_51Degrees", "==", DeviceIDContainer.value);
-        console.log(query);
-      } else {
         selectedValue = DeviceIDContainer.value;
-        query = loudspeakers.where("DeviceId", "==", DeviceIDContainer.value);
+        query = mics.where("ID_from_51Degrees", "==", DeviceIDContainer.value);
+      } 
+      else if (whatToPlot === "aspectRatio") {
+        selectedValue = aspectRatioContainer.value;
+        query = transducerSelect.value == "Microphones" ? mics : loudspeakers;
+      } else {
+        selectedValue = screenPxContainer.value;
+        query = transducerSelect.value == "Microphones" ? mics : loudspeakers;
       }
 
       try {
@@ -506,14 +603,9 @@ console.warn = function() {
           fileName:[]
         };
         let j = 1;
+        
         await query.get().then((querySnapshot) => {
           querySnapshot.forEach((doc) => {
-          // let docData;
-          // if (transducerSelect.value == "Microphones") {
-          //   docData = doc.data().linear.Freq.map((x, i) => ({ x: x, y: doc.data().linear.Gain[i] }));
-          // } else {
-          //   docData = doc.data().ir.Freq.map((x, i) => ({ x: x, y: doc.data().ir.Gain[i] }));
-          // }
           let label;
           
           if (whatToPlot === "micOEM") {
@@ -533,67 +625,61 @@ console.warn = function() {
           } else if (whatToPlot === "speakerModelName") {
             // speakerIDs.add(doc.data().fullLoudspeakerModelNumber);
             label = `${doc.data().fullLoudspeakerModelNumber}/${doc.data().CalibrationDate}`;
-          } else{
+          } else if (whatToPlot === "speakerModelName"){
             label = doc.data().CalibrationDate;
-          } 
+          } else {
+            label = transducerSelect.value == "Microphones" ? doc.data().DateText : doc.data().CalibrationDate;
+          }
 
-          if (
+          const plotDevice = deviceBoolContainer.checked && 
             (!filterBoolContainer.checked ||
             doc.data().isDefault ||
              doc.data().componentCorrectionSD <= SDToleranceContainer.value) &&
-             (doc.data().ir || doc.data().linear)) 
+             (doc.data().ir || doc.data().linear);
+
+          let plotScreen = screenBoolContainer.checked && 
+          (!filterBoolContainer.checked ||
+            doc.data().isDefault ||
+             doc.data().componentCorrectionSD <= SDToleranceContainer.value);
+          
+          if (screenPxContainer.value != "All" ) {
+              plotScreen = plotScreen &&
+              (getScreenPx(doc.data().screenWidth, doc.data().screenHeight) == screenPxContainer.value);
+          } else if (aspectRatioContainer.value != "All") {
+              plotScreen = plotScreen && 
+              (aspectRatio(doc.data().screenWidth, doc.data().screenHeight) == aspectRatioContainer.value);
+          }
+          if (plotDevice || plotScreen) 
              {
-              console.log(doc.data().ir)
-              console.log(doc.data().componentCorrectionSD);
               // sent to shiny server to create datatable
               toShiny.createDates.push(transducerSelect.value == "Microphones" ? doc.data().DateText: doc.data().CalibrationDate);
-              toShiny.jsonFileName.push(doc.data().jsonFileName);
-              checkBoxs.id.push(sanitizeForId(doc.data().jsonFileName));
-              checkBoxs.fileName.push(doc.data().jsonFileName);
-              toShiny.OEMs.push(doc.data().OEM);
+              toShiny.jsonFileName.push(doc.data()?.jsonFileName);
+              // checkBoxs.id.push(sanitizeForId(doc.data()?.jsonFileName));
+              // checkBoxs.fileName.push(doc.data()?.jsonFileName);
+              toShiny.OEMs.push(doc.data()?.OEM || "unknown");
               toShiny.modelNames.push(
                 transducerSelect.value == "Microphones" ? 
-                doc.data().micModelName :
-                doc.data().fullLoudspeakerModelName);
+                doc.data()?.micModelName :
+                doc.data()?.fullLoudspeakerModelName);
               toShiny.modelNumbers.push(
                 transducerSelect.value == "Microphones" ? 
-                doc.data().ID :
-                doc.data().fullLoudspeakerModelNumber
+                (doc.data()?.ID  || "unknown") :
+                (doc.data()?.fullLoudspeakerModelNumber || "unknown")
                 );
-              toShiny.SDs.push(doc.data().componentCorrectionSD);
-              toShiny.FilteredMLSRange.push(doc.data().filteredMLSComponentMax);
+              toShiny.SDs.push(doc.data()?.componentCorrectionSD || NaN);
+              toShiny.FilteredMLSRange.push(doc.data()?.filteredMLSComponentMax || NaN);
               toShiny.labels.push(label);
-              toShiny.isDefault.push(doc.data().isDefault);
+              toShiny.isDefault.push(doc.data()?.isDefault || false);
               data.push(doc.data());
-            //   data.push({
-            //   label: label,
-            //   data: docData,
-            //   backgroundColor: "rgba(0, 0, 0, 0)",
-            //   pointRadius: 0,
-            //   borderColor: getRandomColor(i),
-            //   borderDash: getBorderDash(i++),
-            //   showLine: true,
-            //   borderWidth: 2,
-            // });
-            console.log("end processing", new Date());
           }
+          
         });
-
-        console.log(toShiny);
         Shiny.setInputValue("transducerType", transducerSelect.value);
         Shiny.setInputValue("plotTitle", "Profiles for " + selectedValue);
         Shiny.setInputValue("toShiny", JSON.stringify(toShiny));
         Shiny.setInputValue("totalData", JSON.stringify(data));
+       
 
-        // document.getElementById("profilePlot").innerHTML = "";
-        // if (whatToPlot === "micModelName") {
-        //   updateIDContainer();
-        // } else if (whatToPlot === "micOEM") {
-        //   updateModelsContainer();
-        //   updateIDContainer();
-        // }
-        // createChart(selectedValue, data, false);
-        
   
 
     //     const dataTable = $('#dataTable').DataTable({
@@ -666,6 +752,8 @@ console.warn = function() {
       updateModelsContainer();
       updateIDContainer();
       updateDeviceIDContainer();
+      updateScreenPxContainer();
+      updateAspectRatioContainer();
       if (transducerSelect.value == "Microphones") {
         // updatePlot("micOEM");
       } else {
@@ -673,36 +761,36 @@ console.warn = function() {
       }
     });
 
-
-    // modelsContainer.addEventListener("change", updatePlot);
     document.getElementById('refreshButton').onclick = async() => {
-      if (transducerSelect.value == "Microphones") {
+      if (transducerSelect.value == "Microphones" && deviceBoolContainer.checked) {
         if (DeviceIDContainer.value != "All") {
           await updatePlot("mic51ID");
         } else if (IDcontainers.value != "All") {
           await updatePlot("micID");
         } else if (modelsContainer.value != "All") {
-          await updatePlot("micModel");
+          await updatePlot("micModelName");
         } else {
           await updatePlot("micOEM");
         }
-      } else {
+      } else if (transducerSelect.value == "Loudspeakers" && deviceBoolContainer.checked) {
         if (DeviceIDContainer.value != "All") {
           await updatePlot("speaker51ID");
         } else if (IDcontainers.value != "All") {
           await updatePlot("speakerID");
         } else if (modelsContainer.value != "All") {
-          await updatePlot("speakerModel");
+          await updatePlot("speakerModelName");
         } else {
           await updatePlot("speakerOEM");
         }
+      } else if (screenBoolContainer.checked) {
+        if (aspectRatioContainer.value != "All") {
+          await updatePlot("aspectRatio");
+        } else {
+          await updatePlot("screenPx");
+        }
       }
     }
-    // document.getElementById("updatePlot").onclick = () => {
-    //   refreshShinyPlot();
-    // }
-    // updateModelCheckboxes();
-    // updatePlot();
+
     document.getElementById('profilePlot').innerHTML = "<p style = 'font-size:20px'> Hit refresh or use selector to retrieve profiles <p>"
 
   </script>
