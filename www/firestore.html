@@ -597,6 +597,12 @@ console.warn = function() {
           labels:[],
           title:[],
           isDefault:[],
+          T:[],
+          W:[],
+          Q:[],
+          gainDBSPL:[],
+          backgroundDBSPL:[],
+          RMSError:[],
         };
         checkBoxs = {
           id:[],
@@ -670,6 +676,12 @@ console.warn = function() {
               toShiny.FilteredMLSRange.push(doc.data()?.filteredMLSComponentMax || NaN);
               toShiny.labels.push(label);
               toShiny.isDefault.push(doc.data()?.isDefault || false);
+              toShiny.T.push(doc.data()?.T || NaN);
+              toShiny.W.push(doc.data()?.W || NaN);
+              toShiny.Q.push(doc.data()?.Q || NaN);
+              toShiny.gainDBSPL.push(doc.data()?.gainDBSPL || NaN);
+              toShiny.backgroundDBSPL.push(doc.data()?.backgroundDBSPL || NaN);
+              toShiny.RMSError.push(doc.data()?.RMSError);
               data.push(doc.data());
           }
           

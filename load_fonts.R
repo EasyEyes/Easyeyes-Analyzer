@@ -3,4 +3,3 @@
 # sysfonts::font_add("Quela", regular = "./fonts/Quela.otf")
 # sysfonts::font_add("Times New Roman", regular = "./fonts/Times New Roman.ttf")
 # showtext_auto()
-

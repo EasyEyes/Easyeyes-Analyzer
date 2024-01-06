@@ -164,6 +164,12 @@ GeomTableNpcNew <-
                          } else {
                            index = 1
                          }
+                         footnote <- textGrob(data[["text"]], x=0.03, hjust=0, gp=gpar(fontsize=fs))
+                         
+                         gtb <- gtable_add_rows(gtb, 
+                                                heights = grobHeight(footnote)+ unit(0.2,"line"))
+                         row_to_add[[index]] <- footnote
+                         index = index + 1
                          subtitles <- unlist(data[["subtitle"]][[1]])
                          for (i in 1: length(subtitles)) {
                            tmp <- gridtext::richtext_grob(subtitles[i], x=0.03, hjust=0, gp=gpar(fontsize=fs))
@@ -172,12 +178,6 @@ GeomTableNpcNew <-
                            gtb <- gtable_add_rows(gtb, 
                                                   heights = grobHeight(tmp) + unit(0.2,"line"))
                          }
-                         
-                         footnote <- textGrob(data[["text"]], x=0.03, hjust=0, gp=gpar(fontsize=fs))
-                         
-                         gtb <- gtable_add_rows(gtb, 
-                                                heights = grobHeight(footnote)+ unit(0.2,"line"))
-                         row_to_add[[index]] <- footnote
 
                          if (data[["title_text"]][[1]] != "") {
                            gtb <- gtable_add_grob(gtb, grobs = row_to_add,

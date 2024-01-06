@@ -5,6 +5,7 @@
 
 
 
+
 source('./constant.R')
 library(shiny)
 library(svglite)
@@ -37,10 +38,10 @@ shinyUI(
              padding-left:5px;
              padding-right:0px;
              }
-             .radio-inline { 
+             .radio-inline {
              font-size:16px;
              }
-             .control-label { 
+             .control-label {
              font-size:16px;
              }
             "
@@ -57,21 +58,29 @@ shinyUI(
         #             src = "https://cdn.jsdelivr.net/npm/chart.js")
         
       ),
+      fluidRow(column(
+        width = 4,
+        fileInput(
+          "file",
+          NULL,
+          accept = c(".csv", ".zip"),
+          buttonLabel = "Select CSV files or ZIP file",
+          multiple = T
+        )
+      )),
       fluidRow(
         column(
-          width = 4,
-          fileInput(
-            "file",
-            NULL,
-            accept = c(".csv", ".zip"),
-            buttonLabel = "Select CSV files or ZIP file",
-            multiple = T
-          )
-        )
+          width = 2,
+          align = "left",
+          downloadButton("report", "Download report")
+        ),
+        column(
+          width = 1,
+          align = "left",
+          downloadButton("sessionCsv", "Download csv")
+        ),
+        column(width = 1, textInput("search", label = NULL))
       ),
-      fluidRow( column(width = 2, align = "left", downloadButton("report", "Download report")),
-                column(width = 1, align = "left", downloadButton("sessionCsv", "Download csv")),
-                column(width = 1, textInput("search", label = NULL))),
       textOutput("instruction"),
       shinycssloaders::withSpinner(DT::dataTableOutput('ex1'), type = 4)
     ),
@@ -265,7 +274,7 @@ shinyUI(
       )),
       fixedRow(column(
         width = 12,
-        align = "center",
+        align = "left",
         radioButtons(
           "fileTypeSound",
           "Select download plot type:",
@@ -296,9 +305,6 @@ shinyUI(
         width = 12,
         align = "center",
         tableOutput('Dynamic Range Compression Model')
-      )),
-      fixedRow(column(
-        width = 12, align = "center", h4("Plots")
       )),
       #### sound condition ####
       conditionalPanel(
@@ -333,28 +339,50 @@ shinyUI(
             downloadButton("downloadIRtmpFive", "Download")
           )
         ),
+        fixedRow(
+          column(
+            width = 6,
+            align = "center",
+            withSpinner(
+              plotOutput("componentIIR0To10", height = "100%", width = "100%"),
+              type = 4
+            )
+          ),
+          column(
+            width = 6,
+            align = "center",
+            withSpinner(
+              plotOutput("componentIIR0To50", height = "100%", width = "100%"),
+              type = 4
+            )
+          )
+        ),
+        fixedRow(
+          column(
+            width = 6,
+            align = "center",
+            downloadButton("downloadComponentIIR0To10", "Download")
+          ),
+          column(
+            width = 6,
+            align = "center",
+            downloadButton("downloadComponentIIR0To50", "Download")
+          )
+        ),
         fixedRow(column(
           width = 6,
           align = "center",
           withSpinner(
-            plotOutput("componentIIRTime", height = "100%", width = "100%"),
+            plotOutput("componentIIR0To400", height = "100%", width = "100%"),
             type = 4
           )
         )),
         fixedRow(column(
           width = 6,
           align = "center",
-          downloadButton("downloadComponentIIRTime", "Download")
+          downloadButton("downloadComponentIIR0To400", "Download")
         )),
         fixedRow(
-          column(
-            width = 6,
-            align = "center",
-            withSpinner(
-              plotOutput("componentIRTime", height = "100%", width = "100%"),
-              type = 4
-            )
-          ),
           column(
             width = 6,
             align = "center",
@@ -362,22 +390,7 @@ shinyUI(
               plotOutput("componentIRPSD", height = "100%", width = "100%"),
               type = 4
             )
-          )
-        ),
-        
-        fixedRow(
-          column(
-            width = 6,
-            align = "center",
-            downloadButton("downloadComponentIRTime", "Download")
           ),
-          column(
-            width = 6,
-            align = "center",
-            downloadButton("downloadComponentIRPSD", "Download")
-          )
-        ),
-        fixedRow(
           column(
             width = 6,
             align = "center",
@@ -386,6 +399,21 @@ shinyUI(
               type = 4
             )
           ),
+        ),
+        
+        fixedRow(
+          column(
+            width = 6,
+            align = "center",
+            downloadButton("downloadComponentIRPSD", "Download")
+          ),
+          column(
+            width = 6,
+            align = "center",
+            downloadButton("downloadComponentIR0To6", "Download")
+          )
+        ),
+        fixedRow(
           column(
             width = 6,
             align = "center",
@@ -393,21 +421,7 @@ shinyUI(
               plotOutput("componentIR0To50", height = "100%", width = "100%"),
               type = 4
             )
-          )
-        ),
-        fixedRow(
-          column(
-            width = 6,
-            align = "center",
-            downloadButton("downloadComponentIR0To6", "Download")
           ),
-          column(
-            width = 6,
-            align = "center",
-            downloadButton("downloadComponentIR0To50", "Download")
-          )
-        ),
-        fixedRow(
           column(
             width = 6,
             align = "center",
@@ -421,8 +435,14 @@ shinyUI(
           column(
             width = 6,
             align = "center",
+            downloadButton("downloadComponentIR0To50", "Download")
+          ),
+          column(
+            width = 6,
+            align = "center",
             downloadButton("downloadComponentIR0To400", "Download")
-          )),
+          )
+        ),
       ),
       
       ####  sound all ####
@@ -430,7 +450,10 @@ shinyUI(
         column(
           width = 6,
           align = "center",
-          shinycssloaders::withSpinner(imageOutput("sound level plot", width = "100%",height = "100%"), type = 4)
+          shinycssloaders::withSpinner(
+            imageOutput("sound level plot", width = "100%", height = "100%"),
+            type = 4
+          )
         ),
         column(width = 6, tags$div(
           h6(eq1_text, style = "padding-top:100px;"),
@@ -446,7 +469,10 @@ shinyUI(
       fixedRow(column(
         width = 12,
         align = "center",
-        withSpinner(imageOutput("volume power variation", width = "100%",height = "100%"), type = 4)
+        withSpinner(
+          imageOutput("volume power variation", width = "100%", height = "100%"),
+          type = 4
+        )
       )),
       fixedRow(column(
         width = 12,
@@ -456,7 +482,10 @@ shinyUI(
       fixedRow(column(
         width = 12,
         align = "center",
-        withSpinner(imageOutput("power variation", width = "100%",height = "100%"), type = 4)
+        withSpinner(
+          imageOutput("power variation", width = "100%", height = "100%"),
+          type = 4
+        )
       )),
       fixedRow(column(
         width = 12,
@@ -506,24 +535,28 @@ shinyUI(
     tabPanel(
       'Profiles',
       fixedRow(
-        column(width = 12, align = "left", radioButtons(
-          "fileProfile",
-          "Select download file type:",
-          c(
-            "eps" = "eps",
-            "pdf" = "pdf",
-            "png" = "png",
-            "svg" = "svg"
-          ),
-          inline = TRUE,
-          selected = "png"
-        )),
-      div(
-      column(width = 12,
-             align = "left",
-             div(
-               HTML(
-                 "<div class='row'>
+        column(
+          width = 12,
+          align = "left",
+          radioButtons(
+            "fileProfile",
+            "Select download file type:",
+            c(
+              "eps" = "eps",
+              "pdf" = "pdf",
+              "png" = "png",
+              "svg" = "svg"
+            ),
+            inline = TRUE,
+            selected = "png"
+          )
+        ),
+        div(
+          column(width = 12,
+                 align = "left",
+                 div(
+                   HTML(
+                     "<div class='row'>
                  <label style='font-size: 16px; margin-left: 15px; margin-right: 10px'>  Filter by device: </label>
                  <input style='font-size: 16px; margin-right: 10px;' type='radio' name='filterType' id='deviceBool' checked></input>
                  <label style='font-size: 16px; margin-left: 15px; margin-right: 10px'>  Filter by screen: </label>
@@ -542,27 +575,51 @@ shinyUI(
                   <label style='font-size: 16px; margin-right: 10px'>Correction max SD (dB): </label><input type='number' id='SDTolerance'> </input>
                  </div>
               "
-               )
-             )),
-      HTML("<button id = 'refreshButton' style='background: #008000; color:white; width: 100px; margin-left: 15px;'> Plot </button>")),
-      conditionalPanel("input.totalData",
-                       fixedRow(style="margin-left:2px;", 
-                                column(width = 12, align = "left", 
-                      checkboxGroupInput(inputId = "profileSelection",
-                                                                      label = "select profiles",
-                                                                      inline = TRUE,
-                                                                      choices = NULL,
-                                                                      selected = NULL))),
-                      fixedRow(style="margin-left:2px;",
-                               column(width = 12, align = "left", actionButton("doProfile", "Plot selected profiles")))),
-      fixedRow(style="margin-left:2px;", column(width = 11, align = "left", plotOutput("profilePlot", height = "100%", width = "100%"))),
-      conditionalPanel("input.totalData", 
-                       fixedRow(style="margin-left:2px;", column(width = 11, align ="left", downloadButton("downloadProfilePlot", "Download")))),
-     
-      
-      # checkbox style selection panel
-      # column(width = 12, align = "center", div(HTML("<p style='font-size: 16px'>Select one model</p> <div id='Model'></div>"))),
-     
+                   )
+                 )),
+          HTML(
+            "<button id = 'refreshButton' style='background: #008000; color:white; width: 100px; margin-left: 15px;'> Plot </button>"
+          )
+        ),
+        conditionalPanel(
+          "input.totalData",
+          fixedRow(style = "margin-left:2px;",
+                   column(
+                     width = 12,
+                     align = "left",
+                     checkboxGroupInput(
+                       inputId = "profileSelection",
+                       label = "select profiles",
+                       inline = TRUE,
+                       choices = NULL,
+                       selected = NULL
+                     )
+                   )),
+          fixedRow(style = "margin-left:2px;",
+                   column(
+                     width = 12,
+                     align = "left",
+                     actionButton("doProfile", "Plot selected profiles")
+                   ))
+        ),
+        fixedRow(style = "margin-left:2px;", column(
+          width = 11,
+          align = "left",
+          plotOutput("profilePlot", height = "100%", width = "100%")
+        )),
+        conditionalPanel(
+          "input.totalData",
+          fixedRow(style = "margin-left:2px;", column(
+            width = 8,
+            align = "middle",
+            downloadButton("downloadProfilePlot", "Download")
+          ))
+        ),
+        
+        
+        # checkbox style selection panel
+        # column(width = 12, align = "center", div(HTML("<p style='font-size: 16px'>Select one model</p> <div id='Model'></div>"))),
+        
         # column(width = 8, div(id = "microphonePlots")),
         
         includeHTML("./www/firestore.html"),
