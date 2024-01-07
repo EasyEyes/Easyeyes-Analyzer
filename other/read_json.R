@@ -323,7 +323,7 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0)) + 
     scale_y_continuous(expand = c(0.1, 0.1),
-                       limits = c(-max(IIR_0to30$IIR)/10, max(IIR_0to30$IIR)/10),
+                       limits = c(-max(IIR_0to30$IIR)/2, max(IIR_0to30$IIR)/2),
                        oob = function(x, ...) x) +
     coord_cartesian(clip = 'on') +
     labs(
@@ -352,7 +352,8 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
   maxY <- ceiling(max(IIR_0to400$db)/10) * 10
   schroeder <- ggplot(IIR_0to400, aes(x = time, y = db)) +
     geom_line(size = 0.8) +
-    scale_x_continuous(expand = c(0, 0)) +
+    scale_x_continuous(expand = c(0, 0),
+                       limits = c(90, 200)) +
     scale_y_continuous(
       expand = c(0, 0),
       limits = c(maxY - 70, maxY),
