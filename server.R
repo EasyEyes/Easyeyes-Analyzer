@@ -1589,7 +1589,7 @@ shinyServer(function(input, output, session) {
       filename = paste0(
         "10-ms-of-",
         sound_data()[[12]]$transducerTypeF,
-        "inverse-impulse-response",
+        "-inverse-impulse-response",
         '.',
         input$fileTypeSound
       ),
@@ -1626,7 +1626,7 @@ shinyServer(function(input, output, session) {
       filename = paste0(
         "50-ms-of-",
         sound_data()[[12]]$transducerTypeF,
-        "inverse-impulse-response",
+        "-inverse-impulse-response",
         '.',
         input$fileTypeSound
       ),
@@ -1663,7 +1663,7 @@ shinyServer(function(input, output, session) {
       filename = paste0(
         "Schroeder-plot-of-",
         sound_data()[[12]]$transducerTypeF,
-        "inverse-impulse-response",
+        "-inverse-impulse-response",
         '.',
         input$fileTypeSound
       ),
@@ -1816,7 +1816,7 @@ shinyServer(function(input, output, session) {
       filename = paste0(
         "Schroeder-plot-of-",
         sound_data()[[12]]$transducerTypeF,
-        "impulse-response",
+        "-impulse-response",
         '.',
         input$fileTypeSound
       ),

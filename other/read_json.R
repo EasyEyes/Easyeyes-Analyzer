@@ -276,10 +276,10 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
   t$time <- seq(0, (nrow(t) - 1) * time, time)
   
   peak <- t$time[t$IIR == max(t$IIR)]
-  IIR_0to10 <- t %>% filter(time >= peak - 5,
-                            time <= peak + 5)
-  IIR_0to50 <- t %>% filter(time >= peak - 25,
-                            time <= peak + 25)
+  IIR_0to6 <- t %>% filter(time >= peak - 3,
+                            time <= peak + 3)
+  IIR_0to30 <- t %>% filter(time >= peak - 15,
+                            time <= peak + 15)
   
   d <- sum(t$IIR ^ 2)
   
@@ -287,23 +287,24 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
     filter(time <= peak + 100) %>%
     mutate(db = cumsum((IIR) ^ 2) / d)
   
-  minX <- ifelse(peak > 200, peak - 200, 0)
-  maxX <- ifelse(max(t$time) < peak + 200, max(t$time), peak + 200)
+  minX <- ifelse(peak > 50, peak - 50, 0)
+  maxX <- ifelse(max(t$time) < peak + 50, max(t$time), peak + 50)
   
-  ten <- ggplot(IIR_0to10, aes(x = time, y = IIR)) +
+  ten <- ggplot(IIR_0to6, aes(x = time, y = IIR)) +
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0)) + 
     scale_y_continuous(expand = c(0, 0),
-                       limits = c(-max(t$IIR), max(t$IIR) * 1.05)) +
+                       limits = c(-.5, .5)) +
     labs(
       title = ifelse(
         "Loudspeaker Component IR" %in% names(jsonFile),
-        "10 ms of Loudspeaker Inverse Impulse Response",
-        "10 ms of Microphone Inverse Impulse Response"
+        "6 ms of Loudspeaker Inverse Impulse Response",
+        "6 ms of Microphone Inverse Impulse Response"
       ),
       x = "Time (ms)",
       y = "Amplitude"
     ) +
+    theme_bw() +
     margin_theme +
     add_transducerTable_component(
       transducerTable = transducerTable,
@@ -315,10 +316,9 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
         "Loudspeaker",
         "Microphone"
       )
-    ) +
-    theme_bw()
+    )
   
-  fifty <- ggplot(IIR_0to50, aes(x = time, y = IIR)) +
+  fifty <- ggplot(IIR_0to30, aes(x = time, y = IIR)) +
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0)) + 
     scale_y_continuous(expand = c(0, 0),
@@ -326,12 +326,13 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
     labs(
       title = ifelse(
         "Loudspeaker Component IR" %in% names(jsonFile),
-        "50 ms of Loudspeaker Inverse Impulse Response",
-        "50 ms of Microphone Inverse Impulse Response"
+        "30 ms of Loudspeaker Inverse Impulse Response",
+        "30 ms of Microphone Inverse Impulse Response"
       ),
       x = "Time (ms)",
       y = "Amplitude"
     ) +
+    theme_bw() +
     margin_theme +
     add_transducerTable_component(
       transducerTable = transducerTable,
@@ -343,8 +344,7 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
         "Loudspeaker",
         "Microphone"
       )
-    ) +
-    theme_bw()
+    )
   
   schroeder <- ggplot(IIR_0to400, aes(x = time, y = db)) +
     geom_line(size = 0.8) +
@@ -364,6 +364,7 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
       x = "Time (ms)",
       y = "Cumulative power"
     ) +
+    theme_bw() +
     margin_theme +
     add_transducerTable_component(
       transducerTable = transducerTable,
@@ -375,8 +376,7 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
         "Loudspeaker",
         "Microphone"
       )
-    ) +
-    theme_bw()
+    )
   return(list(
     ten = ten,
     fifty = fifty,
@@ -1633,17 +1633,17 @@ get_ir_plots <- function(fileJSON) {
   
   peak <- t$time[t$IR == max(t$IR)]
   
-  IR_0to6 <- t %>% filter(time >= peak - 5,
-                          time <= peak + 5)
-  IR_0to50 <- t %>% filter(time >= peak - 25,
-                           time <= peak + 25)
+  IR_0to6 <- t %>% filter(time >= peak - 3,
+                          time <= peak + 3)
+  IR_0to30 <- t %>% filter(time >= peak - 15,
+                           time <= peak + 15)
   d <- sum((t$IR) ^ 2)
   IR_0to400 <- t %>%
-    filter(time <= peak + 200) %>%
+    filter(time <= peak + 75) %>%
     mutate(db = cumsum((IR) ^ 2) / d)
   
-  minX <- ifelse(peak-200 > 0, peak - 200, 0)
-  maxX <- ifelse(peak + 200 < max(t$time), peak + 200, max(t$time))
+  minX <- ifelse(peak-75 > 0, peak - 75, 0)
+  maxX <- ifelse(peak + 75 < max(t$time), peak + 75, max(t$time))
   
   p1 <- ggplot(IR_0to6, aes(x = time, y = IR)) +
     geom_line(size = 0.8) +
@@ -1655,12 +1655,12 @@ get_ir_plots <- function(fileJSON) {
     ggtitle(
       ifelse(
         "Loudspeaker Component IR" %in% names(jsonFile),
-        "10 ms of Loudspeaker Impulse Response",
-        "10 ms of Microphone Impulse Response"
+        "6 ms of Loudspeaker Impulse Response",
+        "6 ms of Microphone Impulse Response"
       )
     )
   
-  p2 <- ggplot(IR_0to50, aes(x = time, y = IR)) +
+  p2 <- ggplot(IR_0to30, aes(x = time, y = IR)) +
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0)) +
     xlab("Time (ms)") +
@@ -1670,10 +1670,14 @@ get_ir_plots <- function(fileJSON) {
     ggtitle(
       ifelse(
         "Loudspeaker Component IR" %in% names(jsonFile),
-        "50 ms of Loudspeaker Impulse Response",
-        "50 ms of Microphone Impulse Response"
+        "30 ms of Loudspeaker Impulse Response",
+        "30 ms of Microphone Impulse Response"
       )
     )
+  
+  tmp <- filter(IR_0to400, time >= minX, time <= maxX)
+  minY <- min(tmp$db)
+  maxY <- max(tmp$db)
   
   p3 <- ggplot(IR_0to400, aes(x = time, y = db)) +
     geom_line(size = 0.8) +
@@ -1681,13 +1685,13 @@ get_ir_plots <- function(fileJSON) {
                        limits = c(minX, maxX)) +
     scale_y_continuous(
       expand = c(0, 0),
-      limits = c(0, 1),
+      limits = c(minY, maxY),
       breaks = seq(0, 1, 0.2)
     ) +
-    margin_theme +
     xlab("Time (ms)") +
     ylab("Cumulative power") +
     theme_bw() +
+    margin_theme +
     ggtitle(
       ifelse(
         "Loudspeaker Component IR" %in% names(jsonFile),
@@ -2314,4 +2318,4 @@ sound_theme_soundLevel <-  theme(
 )
 
 margin_theme <-
-  theme(plot.margin = margin(l = 0.2, r = 0.3, unit = "inch"))
+  theme(plot.margin = unit(c(5.5,16,5.5,5.5), "pt"))
