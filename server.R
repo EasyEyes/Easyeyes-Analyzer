@@ -478,7 +478,7 @@ shinyServer(function(input, output, session) {
       input$fileJSON,
       sound_data(),
       subtitleOne(),
-      subtitleTwo()$system,
+      subtitleTwo()$component,
       subtitleThree()$component
     )
   })
@@ -488,7 +488,7 @@ shinyServer(function(input, output, session) {
       input$fileJSON,
       sound_data(),
       subtitleOne(),
-      subtitleTwo()$system,
+      subtitleTwo()$component,
       subtitleThree()$component
     )
   })

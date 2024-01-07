@@ -184,18 +184,21 @@ get_subtitle <- function(inputParameters) {
     "×",
     ", ",
     inputParameters$calibrateSoundHz,
-    " Hz"
+    " Hz (",
+    inputParameters$fs2,
+    " Hz)"
   )
   
   subtitleTwo <- list(
     system =  paste0(
       "Filtered MLS: ",
-      round(
+      format(round(
         inputParameters$calibrateSoundAttenuationSpeakerAndMicDb,
         1
+      ), nsmall = 1
       ),
       " dB, ampl. ",
-      round(inputParameters$filteredMLSMaxAbsSystem, 1),
+      format(round(inputParameters$filteredMLSMaxAbsSystem, 1), nsmall = 1),
       ", ",
       inputParameters$calibrateSoundMinHz,
       " – ",
@@ -206,9 +209,15 @@ get_subtitle <- function(inputParameters) {
     ),
     component = paste0(
       "Filtered MLS: ",
-      round(inputParameters$calibrateSoundAttenuationComponentDb, 1),
+      format(
+        round(
+          inputParameters$calibrateSoundAttenuationComponentDb,
+          1
+        ),
+        nsmall = 1
+      ),
       " dB, ampl. ",
-      round(inputParameters$filteredMLSMaxAbsComponent, 1),
+      format(round(inputParameters$filteredMLSMaxAbsComponent, 1), nsmall = 1),
       ", ",
       inputParameters$calibrateSoundMinHz,
       " – ",
