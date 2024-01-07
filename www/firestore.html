@@ -603,6 +603,7 @@ console.warn = function() {
           gainDBSPL:[],
           backgroundDBSPL:[],
           RMSError:[],
+          fs2:[]
         };
         checkBoxs = {
           id:[],
@@ -681,7 +682,8 @@ console.warn = function() {
               toShiny.Q.push(doc.data()?.Q || NaN);
               toShiny.gainDBSPL.push(doc.data()?.gainDBSPL || NaN);
               toShiny.backgroundDBSPL.push(doc.data()?.backgroundDBSPL || NaN);
-              toShiny.RMSError.push(doc.data()?.RMSError);
+              toShiny.RMSError.push(doc.data()?.RMSError || NaN);
+              toShiny.fs2.push(doc.data()?.fs2 || NaN);
               data.push(doc.data());
           }
           

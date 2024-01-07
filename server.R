@@ -835,7 +835,8 @@ shinyServer(function(input, output, session) {
       Q = json$Q,
       gainDBSPL = json$gainDBSPL,
       backgroundDBSPL = json$backgroundDBSPL,
-      RMSError = json$RMSError
+      RMSError = json$RMSError,
+      fs2 = json$fs2
     ) %>%
       arrange(desc(isDefault)) %>%
       select(-isDefault) %>%
@@ -845,7 +846,8 @@ shinyServer(function(input, output, session) {
         Q = round(Q, 1),
         gainDBSPL = round(gainDBSPL, 1),
         backgroundDBSPL = round(backgroundDBSPL, 1),
-        RMSError = round(RMSError, 1)
+        RMSError = round(RMSError, 1),
+        fs2 = fs2
       )
     
     rowCallback <- c(
