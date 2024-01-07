@@ -160,10 +160,13 @@ shinyServer(function(input, output, session) {
     return(list(
       system =  paste0(
         "Filtered MLS: ",
-        format(round(
-          inputParameters$calibrateSoundAttenuationSpeakerAndMicDb,
-          1
-        ),nsmall = 1),
+        format(
+          round(
+            inputParameters$calibrateSoundAttenuationSpeakerAndMicDb,
+            1
+          ),
+          nsmall = 1
+        ),
         " dB, ampl. ",
         round(inputParameters$filteredMLSMaxAbsSystem, 1),
         ", ",
@@ -176,7 +179,9 @@ shinyServer(function(input, output, session) {
       ),
       component = paste0(
         "Filtered MLS: ",
-        (round(inputParameters$calibrateSoundAttenuationComponentDb, 1)),
+        (
+          round(inputParameters$calibrateSoundAttenuationComponentDb, 1)
+        ),
         " dB, ampl. ",
         round(inputParameters$filteredMLSMaxAbsComponent, 1),
         ", ",
@@ -876,12 +881,13 @@ shinyServer(function(input, output, session) {
   })
   
   observeEvent(input$doProfile, {
-    p <- plot_filtered_profiles(
+    p <- getFilteredProfilePlots(
       input$transducerType,
       fromJSON(input$totalData),
       input$plotTitle,
       input$profileSelection
     )
+    
     output$profilePlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
@@ -909,21 +915,73 @@ shinyServer(function(input, output, session) {
             plot = p$plot,
             height = p$height,
             width = 8,
-            device = ifelse(
-              input$fileProfile == "svg",
-              svglite::svglite,
-              input$fileProfile
-            )
+            unit = "in",
+            limitsize = F,
+            device = svglite
           )
           rsvg::rsvg_png("tmp.svg", file,
                          height = 2000,
-                         width = 1800,)
+                         width = 1800)
         } else {
           ggsave(
             file,
             plot = p$plot,
             height = p$height,
             width = 8,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileProfile == "svg",
+              svglite::svglite,
+              input$fileProfile
+            )
+          )
+        }
+      }
+    )
+    output$shiftedProfilePlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot = p$shiftedPlot,
+        height = p$height,
+        width = 8,
+        unit = "in"
+      )
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = "profile plot")
+    }, deleteFile = TRUE)
+    
+    output$downloadShiftedProfilePlot <- downloadHandler(
+      filename = paste0(
+        gsub("[^[:alnum:]]", "_", tolower(input$plotTitle)),
+        "-shifted",
+        '.',
+        input$fileProfile
+      ),
+      content = function(file) {
+        if (input$fileTypeSound == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = p$shiftedPlot,
+            height = p$height,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 2000,
+                         width = 1800, )
+        } else {
+          ggsave(
+            file,
+            plot = p$shiftedPlot,
+            height = p$height,
+            width = 8,
+            unit = "in",
+            limitsize = F,
             device = ifelse(
               input$fileProfile == "svg",
               svglite::svglite,
@@ -937,9 +995,9 @@ shinyServer(function(input, output, session) {
   })
   
   profile_plot <- reactive({
-    plot_profiles(input$transducerType,
-                  fromJSON(input$totalData),
-                  input$plotTitle)
+    getProfilePlots(input$transducerType,
+                    fromJSON(input$totalData),
+                    input$plotTitle)
   })
   
   observeEvent(input$totalData, {
@@ -948,6 +1006,21 @@ shinyServer(function(input, output, session) {
       ggsave(
         file = outfile,
         plot = profile_plot()$plot,
+        height = profile_plot()$height,
+        width = 8,
+        unit = "in",
+        limitsize = FALSE
+      )
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = "profile plot")
+    }, deleteFile = TRUE)
+    
+    output$shiftedProfilePlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot = profile_plot()$shiftedPlot,
         height = profile_plot()$height,
         width = 8,
         unit = "in",
@@ -1316,17 +1389,74 @@ shinyServer(function(input, output, session) {
         input$fileProfile
       ),
       content = function(file) {
-        ggsave(
-          file,
-          plot = profile_plot()$plot,
-          height = profile_plot()$height,
-          dpi = 100,
-          width = 12,
-          limitsize = FALSE,
-          device = ifelse(input$fileProfile == "svg",
-                          svglite,
-                          input$fileProfile)
-        )
+        if (input$fileProfile == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = profile_plot()$plot,
+            height =  profile_plot()$height,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg",
+                         file,
+                         height = 2000,
+                         width = 1800, )
+        } else {
+          ggsave(
+            file,
+            plot =  profile_plot()$plot,
+            height =  profile_plot()$height,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileProfile == "svg",
+              svglite::svglite,
+              input$fileProfile
+            )
+          )
+        }
+      }
+    )
+    
+    output$downloadShiftedProfilePlot <- downloadHandler(
+      filename = paste0(
+        gsub("[^[:alnum:]]", "_", tolower(input$plotTitle)),
+        "-shifted",
+        '.',
+        input$fileProfile
+      ),
+      content = function(file) {
+        if (input$fileProfile == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = profile_plot()$shiftedPlot,
+            height = profile_plot()$height,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 2000,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = profile_plot()$shiftedPlot,
+            height = profile_plot()$height,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileProfile == "svg",
+              svglite::svglite,
+              input$fileProfile
+            )
+          )
+        }
       }
     )
     
@@ -1353,7 +1483,7 @@ shinyServer(function(input, output, session) {
           )
           rsvg::rsvg_png("tmp.svg", file,
                          height = 2000,
-                         width = 1800,)
+                         width = 1800)
         } else {
           ggsave(
             file,
@@ -1501,7 +1631,8 @@ shinyServer(function(input, output, session) {
             device = svglite::svglite
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
+                         width = 1800,
+                         height = 1800)
         } else {
           ggsave(
             file,
@@ -1558,7 +1689,8 @@ shinyServer(function(input, output, session) {
             device = svglite::svglite
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
+                         width = 1800,
+                         height = 1800)
         } else {
           ggsave(
             file,
@@ -1605,8 +1737,10 @@ shinyServer(function(input, output, session) {
             unit = "in",
             device = svglite
           )
-          rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
+          rsvg::rsvg_png("tmp.svg",
+                         file,
+                         width = 1800,
+                         height = 1800)
         } else {
           ggsave(
             file,

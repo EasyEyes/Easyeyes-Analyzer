@@ -6,6 +6,7 @@
 
 
 
+
 source('./constant.R')
 library(shiny)
 library(svglite)
@@ -602,17 +603,30 @@ shinyUI(
                      actionButton("doProfile", "Plot selected profiles")
                    ))
         ),
-        fixedRow(style = "margin-left:2px;", column(
-          width = 11,
-          align = "left",
-          plotOutput("profilePlot", height = "100%", width = "100%")
-        )),
+        fixedRow(style = "margin-left:2px;",
+                 column(
+                   width = 6,
+                   align = "middle",
+                   plotOutput("profilePlot", height = "100%", width = "100%")
+                 ),
+                 column(
+                   width = 6,
+                   align = "middle",
+                   plotOutput("shiftedProfilePlot", height = "100%", width = "100%")
+                 )
+                 ),
         conditionalPanel(
           "input.totalData",
-          fixedRow(style = "margin-left:2px;", column(
-            width = 8,
+          fixedRow(style = "margin-left:2px;", 
+                   column(
+            width = 6,
             align = "middle",
             downloadButton("downloadProfilePlot", "Download")
+          ),
+          column(
+            width = 6,
+            align = "middle",
+            downloadButton("downloadShiftedProfilePlot", "Download")
           ))
         ),
         

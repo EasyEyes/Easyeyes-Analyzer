@@ -225,7 +225,7 @@ get_subtitle <- function(inputParameters) {
       inputParameters$calibrateSoundIRSec,
       " s, IIR: ",
       inputParameters$calibrateSoundIIRSec,
-      "s, ",
+      " s, ",
       inputParameters$calibrateSoundMinHz,
       " – ",
       inputParameters$fMaxHzSystem,
@@ -236,7 +236,7 @@ get_subtitle <- function(inputParameters) {
       inputParameters$calibrateSoundIRSec,
       " s, IIR: ",
       inputParameters$calibrateSoundIIRSec,
-      "s, ",
+      " s, ",
       inputParameters$calibrateSoundMinHz,
       "–",
       inputParameters$fMaxHzComponent,
@@ -323,7 +323,7 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0)) + 
     scale_y_continuous(expand = c(0.1, 0.1),
-                       limits = c(-max(IIR_0to30$IIR)/2, max(IIR_0to30$IIR)/2),
+                       limits = c(-max(IIR_0to6$IIR)/10, max(IIR_0to6$IIR)/10),
                        oob = function(x, ...) x) +
     coord_cartesian(clip = 'on') +
     labs(
@@ -1673,7 +1673,7 @@ get_ir_plots <- function(fileJSON) {
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0,0),
-                       limits = c(-max(IR_0to30$IR)/10,max(IR_0to30$IR)/10),
+                       limits = c(-max(IR_0to30$IR),max(IR_0to30$IR)),
                        oob = function(x, ...) x) +
     coord_cartesian(clip = 'on') +
     xlab("Time (ms)") +
