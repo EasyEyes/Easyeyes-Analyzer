@@ -1,7 +1,7 @@
 require(jsonlite)
 require(dplyr)
 
-# jsonFile <- fromJSON("LuckyWhiteCat103_SoundCalibrationScientist68_0001_December 30, 2023 12_29 AM GMT-06_00_M1.json", simplifyVector = T)
+# jsonFile <- fromJSON("LoudGreenDuck719_threshold_0001_January 6, 2024 10_06 PM GMT-05_00_M1.json", simplifyVector = T)
 
 preprocessJSON <- function(fileJSON) {
   file_list <- fileJSON$data
@@ -28,8 +28,6 @@ preprocessJSON <- function(fileJSON) {
       "THD (%)" = "THD",
       "out @all Hz (dB SPL)" = "All Hz out (dB SPL)"
     )
-  
-  
   
   #### sound gain parameters ####
   dynamic_range_compression_model <-
@@ -92,7 +90,8 @@ preprocessJSON <- function(fileJSON) {
         "calibrateSoundAttenuationLoudspeakerGain" %in% names(jsonFile),
         "Loudspeaker",
         "Microphone"
-      )
+      ),
+      fs2 = jsonFile$fs2
     )
   if ("calibrateSoundAttenuationLoudspeakerGain" %in% names(jsonFile)) {
     inputParameters <- inputParameters %>% mutate(
@@ -173,7 +172,7 @@ preprocessJSON <- function(fileJSON) {
 get_subtitle <- function(inputParameters) {
   subtitleOne <- paste0(
     "MLS: ",
-    round(inputParameters$calibrateSoundBurstDb, 3),
+    (round(inputParameters$calibrateSoundBurstDb, 3)),
     " dB, ampl. ",
     round(10 ^ (
       inputParameters$calibrateSoundBurstDb / 20
@@ -182,7 +181,6 @@ get_subtitle <- function(inputParameters) {
     inputParameters$calibrateSoundBurstSec,
     " s, ",
     inputParameters$calibrateSoundBurstRepeats,
-    " ",
     "×",
     ", ",
     inputParameters$calibrateSoundHz,
@@ -278,14 +276,15 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
   peak <- t$time[t$IIR == max(t$IIR)]
   IIR_0to6 <- t %>% filter(time >= peak - 3,
                             time <= peak + 3)
-  IIR_0to30 <- t %>% filter(time >= peak - 15,
-                            time <= peak + 15)
+  IIR_0to30 <- t %>% filter(time >= 75,
+                            time <= 125)
   
-  d <- sum(t$IIR ^ 2)
   
   IIR_0to400 <- t %>%
-    filter(time <= peak + 100) %>%
-    mutate(db = cumsum((IIR) ^ 2) / d)
+    arrange(desc(time)) %>% 
+    mutate(db = cumsum(IIR ^ 2)) %>% 
+    mutate(db = db/max(db)) %>% 
+    mutate(db = 10 * log10(db))
   
   minX <- ifelse(peak > 50, peak - 50, 0)
   maxX <- ifelse(max(t$time) < peak + 50, max(t$time), peak + 50)
@@ -293,8 +292,9 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
   ten <- ggplot(IIR_0to6, aes(x = time, y = IIR)) +
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0)) + 
-    scale_y_continuous(expand = c(0, 0),
-                       limits = c(-.5, .5)) +
+    scale_y_continuous(expand = c(0.1, 0.1),
+                       limits = c(-max(IIR_0to6$IIR),max(IIR_0to6$IIR))
+                       ) +
     labs(
       title = ifelse(
         "Loudspeaker Component IR" %in% names(jsonFile),
@@ -305,6 +305,7 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
       y = "Amplitude"
     ) +
     theme_bw() +
+    coord_cartesian(clip = 'off') +
     margin_theme +
     add_transducerTable_component(
       transducerTable = transducerTable,
@@ -321,13 +322,15 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
   fifty <- ggplot(IIR_0to30, aes(x = time, y = IIR)) +
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0)) + 
-    scale_y_continuous(expand = c(0, 0),
-                       limits = c(-max(t$IIR), max(t$IIR) * 1.05)) +
+    scale_y_continuous(expand = c(0.1, 0.1),
+                       limits = c(-max(IIR_0to30$IIR)/10, max(IIR_0to30$IIR)/10)) +
+                       # oob = function(x, ...) x) +
+    coord_cartesian(clip = 'off') +
     labs(
       title = ifelse(
         "Loudspeaker Component IR" %in% names(jsonFile),
-        "30 ms of Loudspeaker Inverse Impulse Response",
-        "30 ms of Microphone Inverse Impulse Response"
+        "50 ms of Loudspeaker Inverse Impulse Response",
+        "50 ms of Microphone Inverse Impulse Response"
       ),
       x = "Time (ms)",
       y = "Amplitude"
@@ -346,14 +349,14 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
       )
     )
   
+  maxY <- ceiling(max(IIR_0to400$db)/10) * 10
   schroeder <- ggplot(IIR_0to400, aes(x = time, y = db)) +
     geom_line(size = 0.8) +
-    scale_x_continuous(expand = c(0, 0),
-                       limits = c(minX, maxX)) +
+    scale_x_continuous(expand = c(0, 0)) +
     scale_y_continuous(
       expand = c(0, 0),
-      limits = c(0, 1),
-      breaks = seq(0, 1, 0.2)
+      limits = c(maxY - 70, maxY),
+      breaks = seq(maxY - 70, maxY, 10)
     ) +
     labs(
       title = ifelse(
@@ -489,7 +492,7 @@ plot_power_variations <- function(fileJSON,
         time = jsonFile$recordingChecks$unfiltered[[1]]$warmupT,
         power = jsonFile$recordingChecks$unfiltered[[1]]$warmupDb,
         label = paste0("MLS, SD = ",
-                       jsonFile$recordingChecks$unfiltered[[1]]$sd,
+                       format(jsonFile$recordingChecks$unfiltered[[1]]$sd, nsmall = 1),
                        " dB")
       )
     ) %>%
@@ -499,7 +502,7 @@ plot_power_variations <- function(fileJSON,
         power = jsonFile$recordingChecks$system[[1]]$warmupDb,
         label = paste0(
           "Loudspeaker+Microphone corrected MLS, SD = ",
-          jsonFile$recordingChecks$system[[1]]$sd,
+          format(jsonFile$recordingChecks$system[[1]]$sd, nsmall = 1),
           " dB"
         )
       )
@@ -511,7 +514,7 @@ plot_power_variations <- function(fileJSON,
         label = paste0(
           transducer,
           "-corrected MLS, SD = ",
-          jsonFile$recordingChecks$component[[1]]$sd,
+          format(jsonFile$recordingChecks$component[[1]]$sd, nsmall = 1),
           " dB"
         )
       )
@@ -523,7 +526,7 @@ plot_power_variations <- function(fileJSON,
         time = jsonFile$recordingChecks$unfiltered[[1]]$recT,
         power = jsonFile$recordingChecks$unfiltered[[1]]$recDb,
         label = paste0("MLS, SD = ",
-                       jsonFile$recordingChecks$unfiltered[[1]]$sd,
+                       format(jsonFile$recordingChecks$unfiltered[[1]]$sd, nsmall = 1),
                        " dB")
       )
     ) %>%
@@ -533,7 +536,7 @@ plot_power_variations <- function(fileJSON,
         power = jsonFile$recordingChecks$system[[1]]$recDb,
         label = paste0(
           "Loudspeaker+Microphone corrected MLS, SD = ",
-          jsonFile$recordingChecks$system[[1]]$sd,
+          format(jsonFile$recordingChecks$system[[1]]$sd, nsmall = 1),
           " dB"
         )
       )
@@ -545,7 +548,7 @@ plot_power_variations <- function(fileJSON,
         label = paste0(
           transducer,
           "-corrected MLS, SD = ",
-          jsonFile$recordingChecks$component[[1]]$sd,
+          format(jsonFile$recordingChecks$component[[1]]$sd, nsmall = 1),
           " dB"
         )
       )
@@ -557,7 +560,7 @@ plot_power_variations <- function(fileJSON,
         time = jsonFile$recordingChecks$unfiltered[[1]]$postT,
         power = jsonFile$recordingChecks$unfiltered[[1]]$postDb,
         label = paste0("MLS, SD = ",
-                       jsonFile$recordingChecks$unfiltered[[1]]$sd,
+                       format(jsonFile$recordingChecks$unfiltered[[1]]$sd, nsmall = 1),
                        " dB")
       )
     ) %>%
@@ -567,7 +570,7 @@ plot_power_variations <- function(fileJSON,
         power = jsonFile$recordingChecks$system[[1]]$postDb,
         label = paste0(
           "Loudspeaker+Microphone corrected MLS, SD = ",
-          jsonFile$recordingChecks$system[[1]]$sd,
+          format(jsonFile$recordingChecks$system[[1]]$sd,nsmall = 1),
           " dB"
         )
       )
@@ -579,7 +582,7 @@ plot_power_variations <- function(fileJSON,
         label = paste0(
           transducer,
           "-corrected MLS, SD = ",
-          jsonFile$recordingChecks$component[[1]]$sd,
+          format(jsonFile$recordingChecks$component[[1]]$sd, nsmall = 1),
           " dB"
         )
       )
@@ -713,17 +716,17 @@ plot_volume_power_variations <- function(fileJSON,
     pre <- pre %>% rbind(tibble(
       time = volumeData[[name]]$preT,
       power = volumeData[[name]]$preDb,
-      label = paste0(name, " dB, SD=", volumeData[[name]]$sd, " dB")
+      label = paste0(name, " dB, SD=", format(volumeData[[name]]$sd, nsmall = 1), " dB")
     ))
     rec <- rec %>% rbind(tibble(
       time = volumeData[[name]]$recT,
       power = volumeData[[name]]$recDb,
-      label = paste0(name, " dB, SD=", volumeData[[name]]$sd, " dB")
+      label = paste0(name, " dB, SD=", format(volumeData[[name]]$sd, nsmall = 1), " dB")
     ))
     post <- post %>% rbind(tibble(
       time = volumeData[[name]]$postT,
       power = volumeData[[name]]$postDb,
-      label = paste0(name, " dB, SD=", volumeData[[name]]$sd, " dB")
+      label = paste0(name, " dB, SD=", format(volumeData[[name]]$sd, nsmall = 1), " dB")
     ))
   }
   medi = volumeData[[1]]$recT[length(volumeData[[1]]$recT) %/% 2]
@@ -1003,7 +1006,7 @@ plot_record_freq_system <- function(sound_data,
            freq <= sound_data[[12]]$fMaxHzSystem) %>%
     group_by(label) %>%
     filter(is.finite(gain)) %>%
-    summarize(SD = round(sd(gain), 1))
+    summarize(SD = format(round(sd(gain), 1), nsmall = 1))
   
   range <- paste0(
     " ",
@@ -1261,7 +1264,7 @@ plot_record_freq_component <- function(sound_data,
            freq <= sound_data[[12]]$fMaxHzComponent) %>%
     group_by(label) %>%
     filter(is.finite(gain)) %>%
-    summarize(SD = round(sd(gain), 1))
+    summarize(SD = format(round(sd(gain), 1), nsmall = 1))
   
   range <- paste0(sound_data[[12]]$calibrateSoundMinHz,
                   " – ",
@@ -1633,14 +1636,16 @@ get_ir_plots <- function(fileJSON) {
   
   peak <- t$time[t$IR == max(t$IR)]
   
-  IR_0to6 <- t %>% filter(time >= peak - 3,
-                          time <= peak + 3)
-  IR_0to30 <- t %>% filter(time >= peak - 15,
-                           time <= peak + 15)
-  d <- sum((t$IR) ^ 2)
+  IR_0to6 <- t %>% filter(time >= 608,
+                          time <= 614)
+  IR_0to30 <- t %>% filter(time >= 605,
+                           time <= 655)
+
   IR_0to400 <- t %>%
-    filter(time <= peak + 75) %>%
-    mutate(db = cumsum((IR) ^ 2) / d)
+    arrange(desc(time)) %>% 
+    mutate(db = cumsum((IR) ^ 2)) %>% 
+    mutate(db = db/max(db)) %>% 
+    mutate(db = 10 * log10(db))
   
   minX <- ifelse(peak-75 > 0, peak - 75, 0)
   maxX <- ifelse(peak + 75 < max(t$time), peak + 75, max(t$time))
@@ -1648,6 +1653,9 @@ get_ir_plots <- function(fileJSON) {
   p1 <- ggplot(IR_0to6, aes(x = time, y = IR)) +
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0,0),
+                       limits = c(-max(IR_0to6$IR), max(IR_0to6$IR))) +
+    coord_cartesian(clip = 'off') +
     xlab("Time (ms)") +
     ylab("Amplitude") +
     theme_bw() +
@@ -1663,6 +1671,9 @@ get_ir_plots <- function(fileJSON) {
   p2 <- ggplot(IR_0to30, aes(x = time, y = IR)) +
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0,0),
+                       limits = c(-max(IR_0to30$IR)/10,max(IR_0to30$IR)/10)) +
+    coord_cartesian(clip = 'off') +
     xlab("Time (ms)") +
     ylab("Amplitude") +
     theme_bw() +
@@ -1670,23 +1681,24 @@ get_ir_plots <- function(fileJSON) {
     ggtitle(
       ifelse(
         "Loudspeaker Component IR" %in% names(jsonFile),
-        "30 ms of Loudspeaker Impulse Response",
-        "30 ms of Microphone Impulse Response"
+        "50 ms of Loudspeaker Impulse Response",
+        "50 ms of Microphone Impulse Response"
       )
     )
   
   tmp <- filter(IR_0to400, time >= minX, time <= maxX)
+  
   minY <- min(tmp$db)
-  maxY <- max(tmp$db)
+  maxY <- ceiling(max(tmp$db)/10) * 10
   
   p3 <- ggplot(IR_0to400, aes(x = time, y = db)) +
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0),
-                       limits = c(minX, maxX)) +
+                       limits = c(600, 1000)) +
     scale_y_continuous(
       expand = c(0, 0),
-      limits = c(minY, maxY),
-      breaks = seq(0, 1, 0.2)
+      limits = c(maxY- 70, maxY),
+      breaks = seq(maxY- 70,maxY, 10)
     ) +
     xlab("Time (ms)") +
     ylab("Cumulative power") +
@@ -1734,7 +1746,7 @@ get_transducer_table <- function(jsonFile) {
     )
   )
   micGainDBSPL <-
-    paste(format(round(micInfo$gainDBSPL, 1), nsmall = 1), "dB SPL gain at 1 kHz                                             ")
+    paste(format(round(micInfo$gainDBSPL, 1), nsmall = 1), "dB gain at 1 kHz                                             ")
   loudspeakerAudioDevice <- jsonFile$webAudioDeviceNames$loudspeaker
   micAudioDevice <- jsonFile$webAudioDeviceNames$microphone
   if (nchar(loudspeakerAudioDevice) > 0 &&
@@ -1782,13 +1794,13 @@ get_transducer_table <- function(jsonFile) {
     }
     
     transducerTable <- data.frame(rbind(
-      c(paste(loudspeaker$gainDBSPL, "dB"), micGainDBSPL),
+      c(paste(format(loudspeaker$gainDBSPL, nsmall = 1), "dB"), micGainDBSPL),
       c(
         paste(jsonFile$sampleRate$loudspeaker, "Hz"),
         paste(
           jsonFile$sampleRate$microphone,
           "Hz,",
-          jsonFile$sampleSize,
+          ifelse(jsonFile$sampleSize == 16, 24, jsonFile$sampleSize),
           "bit sampling"
         )
       ),
@@ -1807,13 +1819,13 @@ get_transducer_table <- function(jsonFile) {
     ))
   } else {
     transducerTable <- data.frame(rbind(
-      c(paste(loudspeaker$gainDBSPL, "dB"), micGainDBSPL),
+      c(paste(format(loudspeaker$gainDBSPL, nsmall = 1), "dB"), micGainDBSPL),
       c(
         paste(jsonFile$sampleRate$loudspeaker, "Hz"),
         paste(
           jsonFile$sampleRate$microphone,
           "Hz,",
-          jsonFile$sampleSize,
+          ifelse(jsonFile$sampleSize == 16, 24, jsonFile$sampleSize),
           "bit sampling"
         )
       ),

@@ -131,7 +131,7 @@ shinyServer(function(input, output, session) {
   iirPlots <- reactive({
     return(get_iir_plot(iir()))
   })
-  
+  # TODO, replace the small multi symbol with \U2A09
   subtitleOne <- reactive({
     inputParameters <- sound_data()[[12]]
     subtitleOne <- paste0(
@@ -145,11 +145,12 @@ shinyServer(function(input, output, session) {
       inputParameters$calibrateSoundBurstSec,
       " s, ",
       inputParameters$calibrateSoundBurstRepeats,
-      " ",
       "×",
       ", ",
       inputParameters$calibrateSoundHz,
-      " Hz"
+      " Hz (",
+      inputParameters$fs2,
+      " Hz)"
     )
     
   })
@@ -159,10 +160,10 @@ shinyServer(function(input, output, session) {
     return(list(
       system =  paste0(
         "Filtered MLS: ",
-        round(
+        format(round(
           inputParameters$calibrateSoundAttenuationSpeakerAndMicDb,
           1
-        ),
+        ),nsmall = 1),
         " dB, ampl. ",
         round(inputParameters$filteredMLSMaxAbsSystem, 1),
         ", ",
@@ -175,7 +176,7 @@ shinyServer(function(input, output, session) {
       ),
       component = paste0(
         "Filtered MLS: ",
-        round(inputParameters$calibrateSoundAttenuationComponentDb, 1),
+        (round(inputParameters$calibrateSoundAttenuationComponentDb, 1)),
         " dB, ampl. ",
         round(inputParameters$filteredMLSMaxAbsComponent, 1),
         ", ",
@@ -513,6 +514,7 @@ shinyServer(function(input, output, session) {
         plot = sound_level_plot()[[1]],
         width = sound_level_plot()[[2]],
         height = sound_level_plot()[[3]],
+        device = svg,
         units = "in"
       )
       list(src = outfile,
@@ -676,8 +678,7 @@ shinyServer(function(input, output, session) {
         file = outfile,
         plot = sound_data()[[16]]$schroeder +
           sound_theme_display,
-        height = 6,
-        width = 6,
+        height = 5,
         unit = "in",
       )
       list(src = outfile,
@@ -782,8 +783,7 @@ shinyServer(function(input, output, session) {
             transducerType = sound_data()$inputParameters$transducerTypeF,
             leftShift = 0.03
           ) + sound_theme_display,
-        height = 6,
-        width = 6,
+        height = 5,
         unit = "in",
       )
       list(src = outfile,
@@ -1587,7 +1587,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadComponentIIR0To10 <- downloadHandler(
       filename = paste0(
-        "10-ms-of-",
+        "6-ms-of-",
         sound_data()[[12]]$transducerTypeF,
         "-inverse-impulse-response",
         '.',
@@ -1673,7 +1673,7 @@ shinyServer(function(input, output, session) {
             "tmp.svg",
             plot = sound_data()[[16]]$schroeder +
               sound_theme_display,
-            height = 6,
+            height = 5,
             unit = "in",
             device = svglite
           )
@@ -1684,7 +1684,7 @@ shinyServer(function(input, output, session) {
             file,
             plot = sound_data()[[16]]$schroeder +
               sound_theme_display,
-            height = 6,
+            height = 5,
             unit = "in",
             device = ifelse(
               input$fileTypeSound == "svg",
@@ -1698,7 +1698,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadComponentIR0To6 <- downloadHandler(
       filename = paste0(
-        '10-ms-of-',
+        '6-ms-of-',
         sound_data()[[12]]$transducerTypeF,
         '-Impulse-Response.',
         input$fileTypeSound
@@ -1838,8 +1838,7 @@ shinyServer(function(input, output, session) {
                 transducerType = sound_data()$inputParameters$transducerTypeF,
                 leftShift = 0.03,
               ) + sound_theme_display,
-            height = 6,
-            width = 6,
+            height = 5,
             unit = "in",
             device = svglite
           )
@@ -1862,8 +1861,7 @@ shinyServer(function(input, output, session) {
                 transducerType = sound_data()$inputParameters$transducerTypeF,
                 leftShift = 0.03
               ) + sound_theme_display,
-            height = 6,
-            width = 6,
+            height = 5,
             unit = "in",
             device = ifelse(
               input$fileTypeSound == "svg",
