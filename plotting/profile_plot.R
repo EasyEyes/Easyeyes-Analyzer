@@ -52,14 +52,14 @@ plot_profiles <- function(dt, plotTitle) {
                   expand = c(0, 0)) +
     scale_color_manual(values = colors) + 
     scale_linetype_manual(values = linetypes) +
-    geom_text_npc(aes(npcx="left", npcy="top", label = paste(t$sd, " dB SD at 1000hz"))) + 
+    geom_text_npc(aes(npcx="left", npcy="top", label = paste(t$sd, " dB SD at 1000 Hz"))) + 
     theme_bw() +
     theme(legend.position="top",
           plot.margin = margin(
-            t = 1,
-            r = .5,
-            b = .5,
-            l = .5,
+            t = 0,
+            r = .4,
+            b = 0,
+            l = .4,
             "inch"
           ),
           legend.text = element_text(margin = margin(t = -5, b = -5, unit = "pt"))) +
@@ -71,7 +71,7 @@ plot_profiles <- function(dt, plotTitle) {
          y = "Gain (dB)",
          color = "",
          linetype = "")
-  height = ceiling(( maxY - minY) / 14) + ceiling(legendRows/2)*0.03 + 1.5
+  height = ceiling((maxY - minY) / 14) + ceiling(legendRows/2)*0.015 + 1
   return (
     list(
       height = height,
@@ -108,10 +108,10 @@ plot_shifted_profiles <- function(dt, plotTitle) {
     theme_bw() +
     theme(legend.position="top",
           plot.margin = margin(
-            t = 1,
-            r = .5,
-            b = .5,
-            l = .5,
+            t = 0,
+            r = .4,
+            b = 0,
+            l = .4,
             "inch"
           ),
           legend.text = element_text(margin = margin(t = -5, b = -5, unit = "pt"))) +
@@ -123,7 +123,7 @@ plot_shifted_profiles <- function(dt, plotTitle) {
          y = "Gain (dB)",
          color = "",
          linetype = "")
-  height = ceiling(( maxY - minY) / 14) + ceiling(legendRows/2)*0.03 + 1.5
+  height = ceiling((maxY - minY) / 14) + ceiling(legendRows/2)*0.015 + 1
   return (
     list(
       height = height,

@@ -1,7 +1,7 @@
 require(jsonlite)
 require(dplyr)
 
-# jsonFile <- fromJSON("LoudGreenDuck719_threshold_0001_January 6, 2024 10_06 PM GMT-05_00_M1.json", simplifyVector = T)
+# jsonFile <- fromJSON("KindYellowDog516_threshold_0001_January 8, 2024 4_08 PM GMT-05_00_sound.json", simplifyVector = T)
 
 preprocessJSON <- function(fileJSON) {
   file_list <- fileJSON$data
@@ -1504,10 +1504,12 @@ plot_sound_level <-
     minX = plyr::round_any(min(volume_task$`in (dB)`), 10, floor)
     maxX = max(volume_task$`in (dB)`)
     p <-
-      ggplot(data = volume_task, aes(x = `in (dB)`, y = `out (dB SPL)`)) +
-      geom_point(size = 3) +
+      ggplot() +
+      geom_point(data = volume_task, aes(x = `in (dB)`, y = `out (dB SPL)`), size = 3) +
       geom_vline(xintercept = threshold, color = "red") +
       geom_line(data = model, aes(x = x, y = y), size = 0.8) +
+      geom_rect(aes(xmin = threshold, xmax = maxX, 
+                    ymin = minY, ymax = maxY), alpha = 0.1, fill = "red") +
       add_parameters_table(
         parametersTable = DRCMforDisplay,
         position = c("left", "top"),
@@ -1571,10 +1573,14 @@ plot_sound_level <-
       xlab("Input level (dB)")
     
     thd_data <- filter(volume_task, `in (dB)` > -45)
-    thd <- ggplot(thd_data, aes(y = `THD (%)`, x = `in (dB)`)) +
-      geom_line(size = 0.8) +
-      geom_point(size = 3) +
+    thd <- ggplot() +
+      geom_line(data = thd_data, aes(y = `THD (%)`, x = `in (dB)`), size = 0.8) +
+      geom_point(data = thd_data, aes(y = `THD (%)`, x = `in (dB)`), size = 3) +
       geom_vline(xintercept = threshold, color = "red") +
+      geom_rect(aes(xmin = threshold, xmax = maxX, 
+                    ymin = 0, ymax = ceiling(max(
+                      thd_data$`THD (%)`
+                    ) / 0.5) * 0.5), alpha = 0.1, fill = "red") +
       scale_y_continuous(
         limits = c(0, ceiling(max(
           thd_data$`THD (%)`
@@ -1628,8 +1634,7 @@ plot_sound_level <-
     )
     return(list(
       plot = cowplot::ggdraw(g) +
-        # theme(plot.background = element_rect(fill="white", color = NA)),
-        theme(plot.background = element_blank()),
+        theme(plot.background = element_rect(fill="white", color = NA)),
       width = width,
       height = height
     ))

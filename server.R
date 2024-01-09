@@ -881,10 +881,11 @@ shinyServer(function(input, output, session) {
   })
   
   observeEvent(input$doProfile, {
+    title = paste0(input$plotTitle, " ", input$transducerType)
     p <- getFilteredProfilePlots(
       input$transducerType,
       fromJSON(input$totalData),
-      input$plotTitle,
+      title,
       input$profileSelection
     )
     
@@ -920,7 +921,7 @@ shinyServer(function(input, output, session) {
             device = svglite
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         height = 2000,
+                         height = p$height* 300,
                          width = 1800)
         } else {
           ggsave(
@@ -972,7 +973,7 @@ shinyServer(function(input, output, session) {
             device = svglite
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         height = 2000,
+                         height = p$height* 300,
                          width = 1800, )
         } else {
           ggsave(
@@ -995,9 +996,10 @@ shinyServer(function(input, output, session) {
   })
   
   profile_plot <- reactive({
+    title = paste0(input$plotTitle, " ", input$transducerType)
     getProfilePlots(input$transducerType,
                     fromJSON(input$totalData),
-                    input$plotTitle)
+                    title)
   })
   
   observeEvent(input$totalData, {
@@ -1401,13 +1403,13 @@ shinyServer(function(input, output, session) {
           )
           rsvg::rsvg_png("tmp.svg",
                          file,
-                         height = 2000,
-                         width = 1800, )
+                         height = profile_plot()$height* 300,
+                         width = 1800)
         } else {
           ggsave(
             file,
             plot =  profile_plot()$plot,
-            height =  profile_plot()$height,
+            height =   profile_plot()$height,
             width = 8,
             unit = "in",
             limitsize = F,
@@ -1432,7 +1434,7 @@ shinyServer(function(input, output, session) {
         if (input$fileProfile == "png") {
           ggsave(
             "tmp.svg",
-            plot = profile_plot()$shiftedPlot,
+            plot =  profile_plot()$shiftedPlot,
             height = profile_plot()$height,
             width = 8,
             unit = "in",
@@ -1440,7 +1442,7 @@ shinyServer(function(input, output, session) {
             device = svglite
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         height = 2000,
+                         height =  profile_plot()$height * 300,
                          width = 1800)
         } else {
           ggsave(
