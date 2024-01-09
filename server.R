@@ -826,46 +826,13 @@ shinyServer(function(input, output, session) {
       selected = NULL,
       inline = FALSE
     )
-    df <- data.frame(
-      createDate = json$createDates,
-      jsonFileName = json$jsonFileName,
-      OEM = json$OEMs,
-      modelNames = json$modelNames,
-      modelNumber = unlist(json$modelNumbers),
-      SD = json$SDs,
-      maxAbsFilteredMLS = json$FilteredMLSRange,
-      isDefault = json$isDefault,
-      `T` = json$`T`,
-      W = json$W,
-      Q = json$Q,
-      gainDBSPL = json$gainDBSPL,
-      backgroundDBSPL = json$backgroundDBSPL,
-      RMSError = json$RMSError,
-      fs2 = json$fs2
-    ) %>%
-      arrange(desc(isDefault)) %>%
-      select(-isDefault) %>%
-      mutate(
-        `T` = round(`T`, 1),
-        W = round(W, 1),
-        Q = round(Q, 1),
-        gainDBSPL = round(gainDBSPL, 1),
-        backgroundDBSPL = round(backgroundDBSPL, 1),
-        RMSError = round(RMSError, 1),
-        fs2 = fs2
-      )
     
-    rowCallback <- c(
-      "function(row, data){",
-      "  for(var i=0; i<data.length; i++){",
-      "    if(data[i] === null){",
-      "      $('td:eq('+i+')', row).html('NA')",
-      "        .css({'color': 'rgb(151,151,151)', 'font-style': 'italic'});",
-      "    }",
-      "  }",
-      "}"
+    df <- get_profile_table(json, transducerType) %>% 
+      select(-label)
+    output$summaryStats <- renderTable({
+      get_profile_summary(df)
+    }, rownames = T, colnames = T
     )
-    
     output$profiles <- DT::renderDataTable(datatable(
       df,
       class = list(stripe = FALSE),
@@ -874,9 +841,16 @@ shinyServer(function(input, output, session) {
       options = list(
         paging = FALSE,
         searching = TRUE,
+        dom = 'Bfrtip',
         rowCallback = JS(rowCallback)
       )
     ))
+    output$downloadProfileTable <- downloadHandler(
+      filename = "profiles-table.csv",
+      content = function(filename) {
+        write.csv(df, file = filename)
+      }
+    )
     
   })
   
@@ -902,6 +876,36 @@ shinyServer(function(input, output, session) {
            contenttype = 'svg',
            alt = "profile plot")
     }, deleteFile = TRUE)
+    
+    json <- fromJSON(input$toShiny)
+    
+    df <- get_profile_table(json, get_profile_table) %>% 
+      filter(label %in% input$profileSelection) %>% 
+      select(-label)
+    
+    output$summaryStats <- renderTable({
+      get_profile_summary(df)
+    }, rownames = T, colnames = T
+    )
+    output$downloadProfileTable <- downloadHandler(
+      filename = "profiles-table.csv",
+      content = function(filename) {
+        write.csv(df, file = filename)
+      }
+    )
+    
+    output$profiles <- DT::renderDataTable(datatable(
+      df,
+      class = list(stripe = FALSE),
+      selection = 'none',
+      filter = "top",
+      options = list(
+        paging = FALSE,
+        searching = TRUE,
+        dom = 'Bfrtip',
+        rowCallback = JS(rowCallback)
+      )
+    ))
     
     output$downloadProfilePlot <- downloadHandler(
       filename = paste0(

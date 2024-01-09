@@ -637,7 +637,9 @@ shinyUI(
         # column(width = 8, div(id = "microphonePlots")),
         
         includeHTML("./www/firestore.html"),
+        fixedRow(column(tableOutput("summaryStats"), width = 12, align = "center")),
         DT::dataTableOutput('profiles'),
+        column(width = 12, align = "center", downloadButton("downloadProfileTable", "download profile table")),
         HTML('<table id="dataTable" class="display"></table>')
       )
     ),

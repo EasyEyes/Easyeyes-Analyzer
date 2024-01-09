@@ -174,5 +174,51 @@ getFilteredProfilePlots <- function(transducerType, t, plotTitle, options) {
 }
 
 
+get_profile_table <- function(json, transducerType) {
+  df <- data.frame(
+    createDate = json$createDates,
+    jsonFileName = json$jsonFileName,
+    OEM = json$OEMs,
+    modelName = json$modelNames,
+    modelNumber = unlist(json$modelNumbers),
+    componentCorrectionSD = json$SDs,
+    maxAbsFilteredMLS = json$FilteredMLSRange,
+    isDefault = json$isDefault,
+    `T` = json$`T`,
+    W = json$W,
+    Q = json$Q,
+    gainDBSPL = json$gainDBSPL,
+    speakerGain_dB = json$speakerGain_dB,
+    micGain_dB = json$micGain_dB,
+    backgroundDBSPL = json$backgroundDBSPL,
+    RMSError = json$RMSError,
+    fs2 = json$fs2
+  ) %>%
+    arrange(desc(isDefault)) %>%
+    mutate(
+      `T` = round(`T`, 1),
+      W = round(W, 1),
+      Q = round(Q, 1),
+      gainDBSPL = round(gainDBSPL, 1),
+      speakerGain_dB = round(speakerGain_dB, 1),
+      micGain_dB = round(micGain_dB, 1),
+      backgroundDBSPL = round(backgroundDBSPL, 1),
+      RMSError = round(RMSError, 1),
+      fs2 = fs2
+    ) %>% 
+    mutate(label = ifelse(isDefault, paste0("default/", modelNumber), createDate)) %>% 
+    select(-isDefault)
+  return(df)
+}
 
+get_profile_summary <- function(df) {
+  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W,Q,gainDBSPL,speakerGain_dB, micGain_dB, backgroundDBSPL, RMSError, fs2) %>% 
+    get_summary_stats() %>% 
+    select(mean,sd)
+  displayDf <- t(t)
+  
+  colnames(displayDf) <- c("componentCorrectionSD", "maxAbsFilteredMLS", "T", "W","Q","gainDBSPL", "speakerGain_dB", "micGain_dB", "backgroundDBSPL", "RMSError", "fs2")
+  rownames(displayDf) <- colnames(t)
+  return(displayDf)
+}
 

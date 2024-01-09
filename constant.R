@@ -98,6 +98,17 @@ for (dimension_col = 0; dimension_col <= columnCount; dimension_col++) {
 MergeGridCells();
 "
 
+rowCallback <- c(
+  "function(row, data){",
+  "  for(var i=0; i<data.length; i++){",
+  "    if(data[i] === null){",
+  "      $('td:eq('+i+')', row).html('NA')",
+  "        .css({'color': 'rgb(151,151,151)', 'font-style': 'italic'});",
+  "    }",
+  "  }",
+  "}"
+)
+
 library(ggplot2)
 ##### ggplot download theme #####
 downloadtheme <- theme(legend.position = "right", 

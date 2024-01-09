@@ -601,6 +601,8 @@ console.warn = function() {
           W:[],
           Q:[],
           gainDBSPL:[],
+          speakerGain_dB:[],
+          micGain_dB:[],
           backgroundDBSPL:[],
           RMSError:[],
           fs2:[]
@@ -680,7 +682,15 @@ console.warn = function() {
               toShiny.T.push(doc.data()?.T || NaN);
               toShiny.W.push(doc.data()?.W || NaN);
               toShiny.Q.push(doc.data()?.Q || NaN);
-              toShiny.gainDBSPL.push(doc.data()?.gainDBSPL || NaN);
+              toShiny.speakerGain_dB.push(
+                transducerSelect.value == "Microphones" ?  
+                NaN : doc.data()?.gainDBSPL || NaN);
+              toShiny.micGain_dB.push(
+                transducerSelect.value == "Microphones" ? 
+                doc.data()?.gainDBSPL : 
+                doc.data()?.micInfo.gainDBSPL
+                || NaN);
+              toShiny.gainDBSPL.push(transducerSelect.value == "Microphones" ? NaN : (doc.data()?.gainDBSPL + doc.data()?.micInfo.gainDBSPL));
               toShiny.backgroundDBSPL.push(doc.data()?.backgroundDBSPL || NaN);
               toShiny.RMSError.push(doc.data()?.RMSError || NaN);
               toShiny.fs2.push(doc.data()?.fs2 || NaN);
