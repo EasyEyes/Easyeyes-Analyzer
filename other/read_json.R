@@ -285,8 +285,8 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
   peak <- t$time[t$IIR == max(t$IIR)]
   IIR_0to6 <- t %>% filter(time >= peak - 3,
                             time <= peak + 3)
-  IIR_0to30 <- t %>% filter(time >= 75,
-                            time <= 125)
+  IIR_0to30 <- t %>% filter(time >= peak - 25,
+                            time <= peak + 25)
   
   
   IIR_0to400 <- t %>%
@@ -362,7 +362,7 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
   schroeder <- ggplot(IIR_0to400, aes(x = time, y = db)) +
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0),
-                       limits = c(90, 200)) +
+                       limits = c(minX, maxX)) +
     scale_y_continuous(
       expand = c(0, 0),
       limits = c(maxY - 70, maxY),
@@ -1651,10 +1651,10 @@ get_ir_plots <- function(fileJSON) {
   
   peak <- t$time[t$IR == max(t$IR)]
   
-  IR_0to6 <- t %>% filter(time >= 608,
-                          time <= 614)
-  IR_0to30 <- t %>% filter(time >= 605,
-                           time <= 655)
+  IR_0to6 <- t %>% filter(time >= peak - 0.6,
+                          time <= peak + 5.4)
+  IR_0to30 <- t %>% filter(time >= peak - 5,
+                           time <= peak + 45)
 
   IR_0to400 <- t %>%
     arrange(desc(time)) %>% 
@@ -1710,7 +1710,7 @@ get_ir_plots <- function(fileJSON) {
   p3 <- ggplot(IR_0to400, aes(x = time, y = db)) +
     geom_line(size = 0.8) +
     scale_x_continuous(expand = c(0, 0),
-                       limits = c(600, 1000)) +
+                       limits = c(peak-40, peak + 360)) +
     scale_y_continuous(
       expand = c(0, 0),
       limits = c(maxY- 70, maxY),

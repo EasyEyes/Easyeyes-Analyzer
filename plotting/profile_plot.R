@@ -5,6 +5,7 @@ preprocessProfiles <- function(transducerType, t) {
       tmp <- tibble(
         freq = t$linear$Freq[[i]],
         gain = t$linear$Gain[[i]],
+        isDefault = t$isDefault[i],
         label = ifelse(t$isDefault[i],
                        paste0("default/", t$ID[i]),
                        t$DateText[i])
@@ -17,11 +18,12 @@ preprocessProfiles <- function(transducerType, t) {
       tmp <- tibble(
         freq = t$ir$Freq[[i]],
         gain = t$ir$Gain[[i]],
+        isDefault = t$isDefault[i],
         label = t$CalibrationDate[i]
       ) %>%
         filter(!is.na(label))
       
-      if (ncol(tmp) == 3) {
+      if (ncol(tmp) == 4) {
         dt <- dt %>% rbind(tmp)
       }
     }
@@ -44,14 +46,16 @@ plot_profiles <- function(dt, plotTitle) {
   linetype_options <- c("solid", "dashed", "dotted", "twodash","longdash", "dotdash")
   colors <- color_options[0 : n_distinct(dt$label) %% length(color_options) + 1]
   linetypes <- linetype_options[(0 : n_distinct(dt$label) %/% length(color_options)) %% length(linetype_options) + 1]
+  udt <- dt %>% distinct(label, isDefault) %>% mutate(linewidths = ifelse(isDefault, 1.8,0.6)) %>% arrange(desc(label))
   p <- ggplot() +
-    geom_line(data = dt, aes(x = freq, y = gain, color = label, linetype = label), linewidth = 0.6) +                  
+    geom_line(data = dt, aes(x = freq, y = gain, color = label, linetype = label, linewidth = label)) +     
     scale_y_continuous(limits = c(minY ,maxY), breaks = seq(minY,maxY,10), expand = c(0,0)) + 
     scale_x_log10(limits = c(20, 20000), 
                   breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
                   expand = c(0, 0)) +
     scale_color_manual(values = colors) + 
     scale_linetype_manual(values = linetypes) +
+    scale_linewidth_manual(values = udt$linewidths) +
     geom_text_npc(aes(npcx="left", npcy="top", label = paste(t$sd, " dB SD at 1000 Hz"))) + 
     theme_bw() +
     theme(legend.position="top",
@@ -70,7 +74,8 @@ plot_profiles <- function(dt, plotTitle) {
          x = "Frequency (Hz)",
          y = "Gain (dB)",
          color = "",
-         linetype = "")
+         linetype = "",
+         linewidth = "")
   height = ceiling((maxY - minY) / 14) + ceiling(legendRows/2)*0.015 + 1
   return (
     list(
@@ -97,14 +102,16 @@ plot_shifted_profiles <- function(dt, plotTitle) {
   linetype_options <- c("solid", "dashed", "dotted", "twodash","longdash", "dotdash")
   colors <- color_options[0 : n_distinct(dt$label) %% length(color_options) + 1]
   linetypes <- linetype_options[(0 : n_distinct(dt$label) %/% length(color_options)) %% length(linetype_options) + 1]
+  udt <- shifted_dt %>% distinct(label, isDefault) %>% mutate(linewidths = ifelse(isDefault, 1.8,0.6)) %>% arrange(desc(label))
   p <- ggplot() +
-    geom_line(data = shifted_dt, aes(x = freq, y = gain, color = label, linetype = label), linewidth = 0.6) +                  
+    geom_line(data = shifted_dt, aes(x = freq, y = gain, color = label, linetype = label, linewidth = label)) +  
     scale_y_continuous(limits = c(minY ,maxY), breaks = seq(minY,maxY,10), expand = c(0,0)) + 
     scale_x_log10(limits = c(20, 20000), 
                   breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
                   expand = c(0, 0)) +
     scale_color_manual(values = colors) + 
     scale_linetype_manual(values = linetypes) +
+    scale_linewidth_manual(values = udt$linewidths) +
     theme_bw() +
     theme(legend.position="top",
           plot.margin = margin(
@@ -122,7 +129,8 @@ plot_shifted_profiles <- function(dt, plotTitle) {
          x = "Frequency (Hz)",
          y = "Gain (dB)",
          color = "",
-         linetype = "")
+         linetype = "",
+         linewidth = "")
   height = ceiling((maxY - minY) / 14) + ceiling(legendRows/2)*0.015 + 1
   return (
     list(
@@ -212,13 +220,18 @@ get_profile_table <- function(json, transducerType) {
 }
 
 get_profile_summary <- function(df) {
-  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W,Q,gainDBSPL,speakerGain_dB, micGain_dB, backgroundDBSPL, RMSError, fs2) %>% 
-    get_summary_stats() %>% 
-    select(mean,sd)
-  displayDf <- t(t)
-  
-  colnames(displayDf) <- c("componentCorrectionSD", "maxAbsFilteredMLS", "T", "W","Q","gainDBSPL", "speakerGain_dB", "micGain_dB", "backgroundDBSPL", "RMSError", "fs2")
-  rownames(displayDf) <- colnames(t)
+  displayDf <- tibble()
+  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W, Q, gainDBSPL, speakerGain_dB, micGain_dB, backgroundDBSPL, RMSError, fs2) %>% 
+    summarize(across(everything(), ~ mean(.x, na.rm = TRUE)))
+  displayDf <- rbind(displayDf,t)
+  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W, Q, gainDBSPL, speakerGain_dB, micGain_dB, backgroundDBSPL, RMSError, fs2) %>% 
+    summarize(across(everything(), ~ sd(.x, na.rm = TRUE)))
+  displayDf <- rbind(displayDf,t)
+  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W, Q, gainDBSPL, speakerGain_dB, micGain_dB, backgroundDBSPL, RMSError, fs2)
+  t <- colSums(!is.na(t))
+  displayDf <- rbind(displayDf,t)
+  # colnames(displayDf) <- c("componentCorrectionSD", "maxAbsFilteredMLS", "T","W","Q","gainDBSPL", "speakerGain_dB", "micGain_dB", "backgroundDBSPL", "RMSError", "fs2")
+  rownames(displayDf) <- c("mean", "sd", "N")
   return(displayDf)
 }
 
