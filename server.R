@@ -19,6 +19,7 @@ library(shinyjs)
 library(lubridate)
 require(ggpp)
 library(svglite)
+library(magick)
 # library(showtext)
 # library(systemfonts)
 # Enables automatic font loading for showtext
@@ -1978,7 +1979,7 @@ shinyServer(function(input, output, session) {
                   )
                 ),
                 transducerType = sound_data()$inputParameters$transducerTypeF,
-                leftShift = 0.03,
+                leftShift = 0.015,
               ) + sound_theme_display,
             height = 5,
             unit = "in",
@@ -2001,7 +2002,7 @@ shinyServer(function(input, output, session) {
                   )
                 ),
                 transducerType = sound_data()$inputParameters$transducerTypeF,
-                leftShift = 0.03
+                leftShift = 0.015
               ) + sound_theme_display,
             height = 5,
             unit = "in",

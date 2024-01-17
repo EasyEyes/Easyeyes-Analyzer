@@ -1,7 +1,7 @@
 require(jsonlite)
 require(dplyr)
 
-# jsonFile <- fromJSON("KindYellowDog516_threshold_0001_January 8, 2024 4_08 PM GMT-05_00_sound.json", simplifyVector = T)
+# jsonFile <- fromJSON("HappyBronzeLemon961_SoundCalibrationScientist86_0001_January 9, 2024 9_47 PM GMT-05_00_sound.json", simplifyVector = T)
 
 preprocessJSON <- function(fileJSON) {
   file_list <- fileJSON$data
@@ -1540,18 +1540,17 @@ plot_sound_level <-
       theme(
         plot.background = element_blank(),
         axis.ticks.length = unit(-0.2, "line"),
+        legend.position = "none",
         panel.grid.minor = element_blank(),
-        legend.position = "top",
         legend.box = "horizontal",
         plot.margin = margin(
-          t = -3.8,
+          t = 0,
           b = 0,
           l = 0,
           r = 0,
           unit = "inch"
         ),
         
-        legend.key = element_rect(fill = NA, color = NA),
         axis.text.x = element_text(vjust = 0.5,
                                    hjust = 0.5),
         plot.title = element_text(size = 12, hjust = 0.5)
@@ -1573,6 +1572,7 @@ plot_sound_level <-
       xlab("Input level (dB)")
     
     thd_data <- filter(volume_task, `in (dB)` > -45)
+    thdMax <- ceiling(max(thd_data$`THD (%)`) / 0.5) * 0.5
     thd <- ggplot() +
       geom_line(data = thd_data, aes(y = `THD (%)`, x = `in (dB)`), size = 0.8) +
       geom_point(data = thd_data, aes(y = `THD (%)`, x = `in (dB)`), size = 3) +
@@ -1582,12 +1582,8 @@ plot_sound_level <-
                       thd_data$`THD (%)`
                     ) / 0.5) * 0.5), alpha = 0.1, fill = "red") +
       scale_y_continuous(
-        limits = c(0, ceiling(max(
-          thd_data$`THD (%)`
-        ) / 0.5) * 0.5),
-        breaks = seq(0, ceiling(max(
-          thd_data$`THD (%)`
-        ) / 0.5) * 0.5, 0.5),
+        limits = c(0, thdMax),
+        breaks = seq(0, thdMax, 0.5),
         expand = c(0, 0)
       ) +
       scale_x_continuous(
@@ -1595,7 +1591,7 @@ plot_sound_level <-
         breaks = seq(minX, maxX, 10),
         expand = c(0, 0)
       ) +
-      coord_fixed(ratio = 6, clip = "off") +
+      coord_fixed(ratio = 6, clip = "on") +
       guides(color = guide_legend(
         order = 1,
         nrow = 2,
@@ -1605,22 +1601,24 @@ plot_sound_level <-
       theme(
         plot.background = element_blank(),
         panel.grid.minor = element_blank(),
-        legend.position = "top",
-        legend.box = "horizontal",
+        axis.title.x = element_blank(), 
+        axis.text.x = element_blank(),
+        legend.position = "none",
         axis.ticks.length = unit(-0.2, "line"),
         plot.margin = margin(
           t = 0,
-          b = 0,
+          b = -4.4 + thdMax * 0.4,
           l = 1.7,
           r = 2.3,
           unit = "inch"
         ),
-        legend.key = element_rect(fill = NA, color = NA),
-        axis.text.x = element_text(size = 0),
+        # -4 when max= 1.0%
+        # -3.8 when max= 1.5%
         plot.title = element_text(size = 12, hjust = 0.5)
       ) +
+      sound_theme_soundLevel +
       ggtitle("Sound Level at 1000 Hz") +
-      labs(x = NULL, y = "    THD (%)")
+      labs(x = NULL, y = "THD (%)         ")
     height = (maxY - minY) / 10 + 2 + ceiling(max(volume_task$`THD (%)`) /
                                                 6)
     width = (maxX - minX) / 8 + 2
@@ -1629,14 +1627,15 @@ plot_sound_level <-
       p,
       nrow = 2,
       widths = width,
-      heights = height,
       align = "v"
     )
     return(list(
-      plot = cowplot::ggdraw(g) +
-        theme(plot.background = element_rect(fill="white", color = NA)),
+      # plot = cowplot::ggdraw(g) +
+      #   theme(plot.background = element_rect(fill="white", color = NA)),
+      plot = g,
       width = width,
-      height = height
+      height = height,
+      thd = thd
     ))
   }
 
