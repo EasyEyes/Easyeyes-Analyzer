@@ -38,7 +38,6 @@ preprocessJSON <- function(fileJSON) {
   DRCMforDisplay <- dynamic_range_compression_model %>%
     select(`T`, W, `1/R`, gainDBSPL, backgroundDBSPL, RMSError) %>%
     mutate_if(is.numeric, round, digits = 1) %>% 
-    mutate(`T` = `T` - gainDBSPL) %>% 
     rename("gain" = "gainDBSPL") %>% 
     select(`T`, W, `1/R`, gain, RMSError)
   names = colnames(DRCMforDisplay)
@@ -1511,7 +1510,7 @@ plot_sound_level <-
     dynamic_range_compression_model <- sound_data[[5]] %>%
       select(`T`, W, `1/R`, gainDBSPL, RMSError)
     threshold <-
-      dynamic_range_compression_model$`T` - dynamic_range_compression_model$gainDBSPL
+      dynamic_range_compression_model$`T`
     model <- sound_data[[2]]
     micGainDBSPL <-
       as.numeric(unlist(strsplit(sound_data[[7]][1, 2], " "))[1])
@@ -1524,7 +1523,7 @@ plot_sound_level <-
     
     thd_data <- filter(volume_task, `in (dB)` > -45)
     thdMax <- ceiling(max(thd_data$`THD (%)`) / 0.5) * 0.5
-    thdMax = 4
+    # thdMax = 1
     
     p <-
       ggplot() +
