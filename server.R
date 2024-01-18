@@ -1007,7 +1007,7 @@ shinyServer(function(input, output, session) {
                     title)
   })
   
-  observeEvent(input$totalData, {
+  observeEvent(input$plotButton, {
     output$profilePlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
@@ -1022,7 +1022,7 @@ shinyServer(function(input, output, session) {
            contenttype = 'svg',
            alt = "profile plot")
     }, deleteFile = TRUE)
-    
+
     output$shiftedProfilePlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
@@ -1037,7 +1037,7 @@ shinyServer(function(input, output, session) {
            contenttype = 'svg',
            alt = "profile plot")
     }, deleteFile = TRUE)
-    
+
   })
   
   

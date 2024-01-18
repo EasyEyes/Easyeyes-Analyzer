@@ -458,7 +458,7 @@ shinyUI(
         ),
         column(width = 6, tags$div(
           h6(eq1_text, style = "padding-top:100px;"),
-          HTML("Based on Eq. 4 of Giannoulis et al. (2012)."),
+          # HTML("Based on Eq. 4 of Giannoulis et al. (2012)."),
           tags$a(href = reference, reference)
         )),
       ),
@@ -578,9 +578,10 @@ shinyUI(
               "
                    )
                  )),
-          HTML(
-            "<button id = 'refreshButton' style='background: #008000; color:white; width: 100px; margin-left: 15px;'> Plot </button>"
-          )
+          actionButton("refreshButton", "Get profile list", 
+                       style="color: white; background-color: blue; width: 150px; margin-left: 15px;"),
+          actionButton("plotButton", "Plot", 
+                       style="color: white; background-color: #008000; width: 100px; margin-left: 15px;"),
         ),
         conditionalPanel(
           "input.totalData",

@@ -203,8 +203,6 @@ plot_shifted_profiles <- function(dt, plotTitle) {
 
 getProfilePlots <- function(transducerType, t, plotTitle) {
   dt <- preprocessProfiles(transducerType,t)
-  print(nrow(dt))
-  print("getProfilePlots")
   if (nrow(dt) == 0) {
     return(
       list(
@@ -231,11 +229,9 @@ getProfilePlots <- function(transducerType, t, plotTitle) {
 
 getFilteredProfilePlots <- function(transducerType, t, plotTitle, options) {
   dt <- preprocessProfiles(transducerType,t)
-  print(nrow(dt))
   if (nrow(dt) > 0) {
     dt <- dt %>% filter(label %in% options)
   }
-  print(nrow(dt))
   if (nrow(dt) == 0) {
     return(
       list(

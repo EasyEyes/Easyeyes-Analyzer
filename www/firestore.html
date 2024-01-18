@@ -701,7 +701,10 @@ console.warn = function() {
         Shiny.setInputValue("plotTitle", "Profiles for " + selectedValue);
         Shiny.setInputValue("toShiny", JSON.stringify(toShiny));
         Shiny.setInputValue("totalData", JSON.stringify(data));
-       
+        console.log("done");
+        document.getElementById('profilePlot').display = false;
+        document.getElementById('profilePlot').innerHTML = "";
+        
 
   
 
@@ -748,7 +751,7 @@ console.warn = function() {
     //   toShiny.jsonFileName.forEach((value) => {
     // const sanitizedId = sanitizeForId(value);
     // console.log(sanitizedId);
-});
+  });
       } catch (error) {
         console.error("Error updating plot:", error);
       }
@@ -784,7 +787,14 @@ console.warn = function() {
       }
     });
 
+    document.getElementById('plotButton').onclick = async() => {
+      document.getElementById('profilePlot').innerHTML = "<div class='loader-profile'></div>";
+      document.getElementById('shiftedProfilePlot').innerHTML = "";
+    };
+
     document.getElementById('refreshButton').onclick = async() => {
+      document.getElementById('shiftedProfilePlot').display = false;
+        document.getElementById('shiftedProfilePlot').innerHTML = "";
       if (transducerSelect.value == "Microphones" && deviceBoolContainer.checked) {
         if (DeviceIDContainer.value != "All") {
           await updatePlot("mic51ID");

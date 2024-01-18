@@ -1441,20 +1441,23 @@ SoundLevelModel <- function(inDb, dynamic_range_compression_model) {
   W = dynamic_range_compression_model$W
   backgroundDBSPL = dynamic_range_compression_model$backgroundDBSPL
   gainDBSPL = dynamic_range_compression_model$gainDBSPL
-  totalDbSpl = 10 * log10(10 ^ (backgroundDBSPL / 10) +
-                            10 ^ ((gainDBSPL + inDb) / 10))
-  measuredDbSpl <- CompressorDb(totalDbSpl, `T`, R, W)
-  return(measuredDbSpl)
+  # totalDbSpl = 10 * log10(10 ^ (backgroundDBSPL / 10) +
+  #                           10 ^ ((gainDBSPL + inDb) / 10))
+  # updated Jan 18th, 2024
+  compressorDb <- CompressorDb(inDb, `T`, R, W)
+  outDb <- compressorDb + gainDBSPL
+  return(outDb)
   
 }
 
 CompressorDb <- function(inDb, `T`, R, W) {
   outDb = 0
+  Q = 1/R
   WFinal = ifelse(W >= 0, W, 0)
   if (inDb > `T` + WFinal / 2) {
-    outDb = `T` + (inDb - `T`) / R
+    outDb = `T` + Q* (inDb - `T`)
   } else if (inDb > (`T` - WFinal / 2)) {
-    outDb = inDb + ((1 / R - 1) * (inDb - (`T` - WFinal / 2)) ^ 2) / (2 * WFinal)
+    outDb = inDb + ((1 - Q) * (inDb - (`T` - WFinal / 2)) ^ 2) / (2 * WFinal)
   } else {
     outDb = inDb
   }
