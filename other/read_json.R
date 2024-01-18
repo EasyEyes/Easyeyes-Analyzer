@@ -37,7 +37,10 @@ preprocessJSON <- function(fileJSON) {
     get_sound_model(volume_task, dynamic_range_compression_model)
   DRCMforDisplay <- dynamic_range_compression_model %>%
     select(`T`, W, `1/R`, gainDBSPL, backgroundDBSPL, RMSError) %>%
-    mutate_if(is.numeric, round, digits = 1)
+    mutate_if(is.numeric, round, digits = 1) %>% 
+    mutate(`T` = `T` - gainDBSPL) %>% 
+    rename("gain" = "gainDBSPL") %>% 
+    select(`T`, W, `1/R`, gain, RMSError)
   names = colnames(DRCMforDisplay)
   DRCMforDisplay <- t(DRCMforDisplay)
   
@@ -1493,9 +1496,8 @@ plot_sound_level <-
     DRCMforDisplay[2, 2] = paste(DRCMforDisplay[2, 2] , "dB")
     DRCMforDisplay[4, 2] = paste(DRCMforDisplay[4, 2] , "dB")
     DRCMforDisplay[5, 2] = paste(DRCMforDisplay[5, 2] , "dB")
-    DRCMforDisplay[6, 2] = paste(DRCMforDisplay[6, 2] , "dB")
     dynamic_range_compression_model <- sound_data[[5]] %>%
-      select(`T`, W, `1/R`, gainDBSPL, backgroundDBSPL, RMSError)
+      select(`T`, W, `1/R`, gainDBSPL, RMSError)
     threshold <-
       dynamic_range_compression_model$`T` - dynamic_range_compression_model$gainDBSPL
     model <- sound_data[[2]]
@@ -1517,7 +1519,7 @@ plot_sound_level <-
         parametersTable = DRCMforDisplay,
         position = c("left", "top"),
         title_text = " Dynamic Range Compression Model",
-        leftShift = 0.02,
+        leftShift = 0.005,
         baseSize = 8,
         fs = 8,
         shrinkPadding = 0.8
@@ -2309,7 +2311,7 @@ add_parameters_table <- function(parametersTable,
         fg_params = list(
           hjust = 0,
           x = 0.1,
-          fontface = 1
+          fontface = rep(c(3, 1), each = nrow(parametersTable))
         ),
         bg_params = list(fill = NULL,
                          alpha = 0)
