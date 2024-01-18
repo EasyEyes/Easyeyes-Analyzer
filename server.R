@@ -175,7 +175,13 @@ shinyServer(function(input, output, session) {
         " – ",
         inputParameters$fMaxHzSystem,
         " Hz, ",
-        inputParameters$attenuatorDBSystem,
+        format(
+          round(
+            inputParameters$attenuatorDBSystem,
+            1
+          ),
+          nsmall = 1
+        ),
         " dB atten."
       ),
       component = paste0(
@@ -190,7 +196,13 @@ shinyServer(function(input, output, session) {
         " – ",
         inputParameters$fMaxHzComponent,
         " Hz, ",
-        inputParameters$attenuatorDBComponent,
+        format(
+          round(
+            inputParameters$attenuatorDBComponent,
+            1
+          ),
+          nsmall = 1
+        ),
         " dB atten."
       )
     ))

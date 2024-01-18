@@ -207,7 +207,13 @@ get_subtitle <- function(inputParameters) {
       " – ",
       inputParameters$fMaxHzSystem,
       " Hz, ",
-      inputParameters$attenuatorDBSystem,
+      format(
+        round(
+          inputParameters$attenuatorDBSystem,
+          1
+        ),
+        nsmall = 1
+      ),
       " dB atten."
     ),
     component = paste0(
@@ -226,7 +232,13 @@ get_subtitle <- function(inputParameters) {
       " – ",
       inputParameters$fMaxHzComponent,
       " Hz, ",
-      inputParameters$attenuatorDBComponent,
+      format(
+        round(
+          inputParameters$attenuatorDBComponent,
+          1
+        ),
+        nsmall = 1
+      ),
       " dB atten."
     )
   )
@@ -1457,10 +1469,10 @@ CompressorDb <- function(inDb, `T`, R, W) {
   outDb = 0
   Q = 1/R
   WFinal = ifelse(W >= 0, W, 0)
-  if (inDb > `T` + WFinal / 2) {
+  if (inDb >= `T` + WFinal / 2) {
     outDb = `T` + Q* (inDb - `T`)
-  } else if (inDb > (`T` - WFinal / 2)) {
-    outDb = inDb + ((1 - Q) * (inDb - (`T` - WFinal / 2)) ^ 2) / (2 * WFinal)
+  } else if (inDb >= (`T` - WFinal / 2)) {
+    outDb = inDb - (1 - Q) * (inDb - (T - WFinal / 2))^ 2 / (2 * WFinal)
   } else {
     outDb = inDb
   }
@@ -1506,8 +1518,14 @@ plot_sound_level <-
     
     minY = floor(min(volume_task$`out (dB SPL)`) / 10) * 10
     maxY = ceiling(max(volume_task$`out (dB SPL)`) / 10) * 10
+    maxY = ceiling(max(maxY, model$y)/ 10) * 10
     minX = plyr::round_any(min(volume_task$`in (dB)`), 10, floor)
     maxX = max(volume_task$`in (dB)`)
+    
+    thd_data <- filter(volume_task, `in (dB)` > -45)
+    thdMax <- ceiling(max(thd_data$`THD (%)`) / 0.5) * 0.5
+    thdMax = 4
+    
     p <-
       ggplot() +
       geom_point(data = volume_task, aes(x = `in (dB)`, y = `out (dB SPL)`), size = 3) +
@@ -1547,15 +1565,17 @@ plot_sound_level <-
         axis.ticks.length = unit(-0.2, "line"),
         legend.position = "none",
         panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=0.2),
         legend.box = "horizontal",
         plot.margin = margin(
-          t = 0,
+          t = -4.38 + thdMax * 0.4,
           b = 0,
           l = 0,
           r = 0,
           unit = "inch"
         ),
-        
+        # -4 when max= 1.0%
+        # -3.8 when max= 1.5%
         axis.text.x = element_text(vjust = 0.5,
                                    hjust = 0.5),
         plot.title = element_text(size = 12, hjust = 0.5)
@@ -1576,8 +1596,7 @@ plot_sound_level <-
       ylab("Output level (dB)") +
       xlab("Input level (dB)")
     
-    thd_data <- filter(volume_task, `in (dB)` > -45)
-    thdMax <- ceiling(max(thd_data$`THD (%)`) / 0.5) * 0.5
+   
     thd <- ggplot() +
       geom_line(data = thd_data, aes(y = `THD (%)`, x = `in (dB)`), size = 0.8) +
       geom_point(data = thd_data, aes(y = `THD (%)`, x = `in (dB)`), size = 3) +
@@ -1596,7 +1615,7 @@ plot_sound_level <-
         breaks = seq(minX, maxX, 10),
         expand = c(0, 0)
       ) +
-      coord_fixed(ratio = 6, clip = "on") +
+      coord_fixed(ratio = 6, clip = "off") +
       guides(color = guide_legend(
         order = 1,
         nrow = 2,
@@ -1612,19 +1631,17 @@ plot_sound_level <-
         axis.ticks.length = unit(-0.2, "line"),
         plot.margin = margin(
           t = 0,
-          b = -4.4 + thdMax * 0.4,
+          b = 0.1,
           l = 1.7,
           r = 2.3,
           unit = "inch"
         ),
-        # -4 when max= 1.0%
-        # -3.8 when max= 1.5%
         plot.title = element_text(size = 12, hjust = 0.5)
       ) +
       sound_theme_soundLevel +
       ggtitle("Sound Level at 1000 Hz") +
       labs(x = NULL, y = "THD (%)         ")
-    height = (maxY - minY) / 10 + 2 + ceiling(max(volume_task$`THD (%)`) /
+    height = (maxY - minY) / 10 + 2 + ceiling(thdMax /
                                                 6)
     width = (maxX - minX) / 8 + 2
     g = ggarrange(
