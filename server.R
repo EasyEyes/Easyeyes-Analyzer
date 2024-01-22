@@ -150,7 +150,8 @@ shinyServer(function(input, output, session) {
       ", ",
       inputParameters$calibrateSoundHz,
       " Hz (",
-      inputParameters$fs2,
+      format(round(inputParameters$fs2,1), 
+             nsmall = 1),
       " Hz)"
     )
     
@@ -809,9 +810,56 @@ shinyServer(function(input, output, session) {
            alt = "IIR two")
     }, deleteFile = TRUE)
     
+    output$cumSumPowerPlotSystem <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot = sound_data()[[17]]$p_system +
+          add_transducerTable_system(
+            sound_data()[[7]],
+            c("left", "bottom"),
+            subtitle = list(
+              c(
+                subtitleOne(),
+                subtitleTwo()$component,
+                subtitleThree()$component
+              )
+            ),
+            leftShift = 0.02
+          ) + sound_theme_display,
+        height = sound_data()[[17]]$height_system,
+        unit = "in",
+      )
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = "IIR two")
+    }, deleteFile = TRUE)
     
-    
-    
+    output$cumSumPowerPlotComponent <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot = sound_data()[[17]]$p_component +
+          add_transducerTable_component(
+            sound_data()[[7]],
+            c("left", "bottom"),
+            subtitle = list(
+              c(
+                subtitleOne(),
+                subtitleTwo()$component,
+                subtitleThree()$component
+              )
+            ),
+            transducerType = sound_data()$inputParameters$transducerTypeF,
+            leftShift = 0.02
+          ),
+        height = sound_data()[[17]]$height_component,
+        unit = "in",
+      )
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = "IIR two")
+    }, deleteFile = TRUE)
     
     outputOptions(output, 'jsonUploaded', suspendWhenHidden = FALSE)
   })
@@ -2143,9 +2191,122 @@ shinyServer(function(input, output, session) {
       }
     )
     
+    output$downloadCumSumPowerPlotSystem <- downloadHandler(
+      filename = paste0(
+        'cumulative-power-of-system-corrected-mls.',
+        input$fileTypeSound
+      ),
+      content = function(file) {
+        if (input$fileTypeSound == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = sound_data()[[17]]$p_system +
+              add_transducerTable_system(
+                sound_data()[[7]],
+                c("left", "bottom"),
+                subtitle = list(
+                  c(
+                    subtitleOne(),
+                    subtitleTwo()$component,
+                    subtitleThree()$component
+                  )
+                ),
+                leftShift = 0.02
+              ),
+            height = sound_data()[[17]]$height_system,
+            units = "in",
+            device = svglite::svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800,
+                         height = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = sound_data()[[17]]$p_system +
+              add_transducerTable_system(
+                sound_data()[[7]],
+                c("left", "bottom"),
+                subtitle = list(
+                  c(
+                    subtitleOne(),
+                    subtitleTwo()$component,
+                    subtitleThree()$component
+                  )
+                ),
+                leftShift = 0.02
+              ),
+            height = sound_data()[[17]]$height_system,
+            device = ifelse(
+              input$fileTypeSound == "svg",
+              svglite::svglite,
+              input$fileTypeSound
+            )
+          )
+        }
+      }
+    )
+    
+    output$downloadCumSumPowerPlotcomponent <- downloadHandler(
+      filename = paste0(
+        'cumulative-power-of-component-corrected-mls.',
+        input$fileTypeSound
+      ),
+      content = function(file) {
+        if (input$fileTypeSound == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = sound_data()[[17]]$p_component +
+              add_transducerTable_component(
+                sound_data()[[7]],
+                c("left", "bottom"),
+                subtitle = list(
+                  c(
+                    subtitleOne(),
+                    subtitleTwo()$component,
+                    subtitleThree()$component
+                  )
+                ),
+                transducerType = sound_data()$inputParameters$transducerTypeF,
+                leftShift = 0.02
+              ),
+            height = sound_data()[[17]]$height_component,
+            unit = "in",
+            device = svglite::svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800,
+                         height = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = sound_data()[[17]]$p_component +
+              add_transducerTable_component(
+                sound_data()[[7]],
+                c("left", "bottom"),
+                subtitle = list(
+                  c(
+                    subtitleOne(),
+                    subtitleTwo()$component,
+                     <- ()$component
+                  )
+                ),
+                transducerType = sound_data()$inputParameters$transducerTypeF,
+                leftShift = 0.02
+              ),
+            height = sound_data()[[17]]$height_component,
+            device = ifelse(
+              input$fileTypeSound == "svg",
+              svglite::svglite,
+              input$fileTypeSound
+            )
+          )
+        }
+      }
+    )
     output$downloadPowerVariation <- downloadHandler(
       filename = paste0(
-        'power-variation-in-wideband-recordings.',
+        'cumulative-power-of-system-corrected-mls.',
         input$fileTypeSound
       ),
       content = function(file) {

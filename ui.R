@@ -444,6 +444,36 @@ shinyUI(
             downloadButton("downloadComponentIR0To400", "Download")
           )
         ),
+        fixedRow(
+          column(
+            width = 6,
+            align = "center",
+            withSpinner(
+              plotOutput("cumSumPowerPlotSystem", height = "100%", width = "100%"),
+              type = 4
+            )
+          ),
+          column(
+            width = 6,
+            align = "center",
+            withSpinner(
+              plotOutput("cumSumPowerPlotComponent", height = "100%", width = "100%"),
+              type = 4
+            )
+          )
+        ),
+        fixedRow(
+          column(
+            width = 6,
+            align = "center",
+            downloadButton("downloadCumSumPowerPlotSystem", "Download")
+          ),
+          column(
+            width = 6,
+            align = "center",
+            downloadButton("downloadCumSumPowerPlotcomponent", "Download")
+          )
+        ),
       ),
       
       ####  sound all ####

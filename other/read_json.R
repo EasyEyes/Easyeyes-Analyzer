@@ -1,7 +1,7 @@
 require(jsonlite)
 require(dplyr)
 
-# jsonFile <- fromJSON("HappyBronzeLemon961_SoundCalibrationScientist86_0001_January 9, 2024 9_47 PM GMT-05_00_sound.json", simplifyVector = T)
+# jsonFile <- fromJSON("SuperYellowWolf857_threshold_0001_January 22, 2024 10_54 AM GMT-05_00_sound.json", simplifyVector = T)
 
 preprocessJSON <- function(fileJSON) {
   file_list <- fileJSON$data
@@ -134,6 +134,8 @@ preprocessJSON <- function(fileJSON) {
   componentIIRPlots <-
     plotComponentIIR(jsonFile, subtitle$system, transducerTable)
   
+  cumSumPowerPlot <- getCumSumPowerPlot(jsonFile)
+  
   sound_data <- list(
     volume_task = volume_task,
     #1
@@ -165,8 +167,10 @@ preprocessJSON <- function(fileJSON) {
     #14
     subtitle = subtitle,
     #15
-    componentIIRPlots = componentIIRPlots
+    componentIIRPlots = componentIIRPlots,
     #16
+    cumSumPowerPlot = cumSumPowerPlot
+    #17
   )
   return(sound_data)
 }
@@ -1428,26 +1432,115 @@ plot_record_freq_component <- function(sound_data,
   }
   return(list(
     plot = p1 + sound_theme_display,
-    height = (maxY - minY) / 14 + 1
+    height = (maxY - minY) / 14
   ))
 }
 
-grid_arrange_shared_legend <- function(...) {
-  plots <- list(...)
-  g <-
-    ggplotGrob(plots[[1]] + theme(legend.position = "bottom"))$grobs
-  legend <- g[[which(sapply(g, function(x)
-    x$name) == "guide-box")]]
-  lheight <- sum(legend$height)
-  arrangeGrob(
-    # change here
-    do.call(arrangeGrob, lapply(plots, function(x)
-      x + theme(legend.position = "none"))),
-    legend,
-    ncol = 1,
-    heights = unit.c(unit(1, "npc") - lheight, lheight)
+getCumSumPowerPlot <- function(jsonFile) {
+  if (!"filtered_mls_nbp_component" %in% names(jsonFile)) {
+    return(list(p_component = ggplot(),
+                height_component = 5,
+                p_system = ggplot(),
+                height_system = 5
+    ))
+  }
+  component <- rbind(
+    tibble(
+      x = jsonFile$filtered_mls_nbp_component$x,
+      y = jsonFile$filtered_mls_nbp_component$y,
+      label = "corrected mls"
+    ),
+    tibble(
+      x = jsonFile$Hz_component_convolution,
+      y = jsonFile$db_component_convolution,
+      label = "banpass filtered and corrected mls"
+    )
   )
+  system <- rbind(
+    tibble(
+      x = jsonFile$filtered_mls_nbp_system$x,
+      y = jsonFile$filtered_mls_nbp_system$y,
+      label = "corrected mls"
+    ),
+    tibble(
+      x = jsonFile$Hz_system_convolution,
+      y = jsonFile$db_system_convolution,
+      label = "banpass filtered and corrected mls"
+    )
+  )
+  component <- component %>%
+    group_by(label) %>%
+    mutate(power = 10 * log10(cumsum(y))) %>% 
+    filter(x > 20, x < 20000)
+  maxY <- ceiling(max(component$power / 10)) * 10
+  minY <- floor(min(component$power / 10)) * 10
+  height_component <- (maxY - minY)/14
+  p_component <- ggplot(component, aes(x = x, y = power, color = label)) +
+    geom_line() +
+    scale_x_log10(
+      limits = c(20, 20000),
+      breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
+      expand = c(0, 0)
+    ) +
+    scale_y_continuous(limits = c(minY, maxY),
+                       breaks = seq(minY, maxY, 10),
+                        expand = c(0,0)) + 
+    theme_bw() +
+    sound_theme_display +
+    theme(legend.position = c(0.5,0.9),
+          legend.direction = "vertical",
+          legend.background = element_rect(fill = 'transparent', color = 'transparent'),
+          plot.margin = margin(
+            t = 0,
+            b = 0,
+            l = 0,
+            r = 0.5,
+            unit = "inch"
+          )) +
+    labs(x = "Frequency (Hz)",
+         y = "Cumulative power (dB)",
+         title = "Cumulative power of component corrected mls",
+         color = "")
+  system <- system %>%
+    group_by(label) %>%
+    mutate(power = 10 * log10(cumsum(y))) %>% 
+    filter(x > 20, x < 20000)
+  maxY <- ceiling(max(system$power / 10)) * 10
+  minY <- floor(min(system$power / 10)) * 10
+  height_system <- (maxY - minY)/14
+  p_system <- ggplot(system, aes(x = x, y = power, color = label)) +
+    geom_line() +
+    scale_x_log10(
+      limits = c(20, 20000),
+      breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
+      expand = c(0, 0)
+    ) +
+    scale_y_continuous(limits = c(minY, maxY),
+                       breaks = seq(minY, maxY, 10),
+                       expand = c(0,0)) + 
+    theme_bw() +
+    sound_theme_display +
+    theme(legend.position = c(0.5,0.9),
+          legend.direction = "vertical",
+          legend.background = element_rect(fill = 'transparent', color = 'transparent'),
+          plot.margin = margin(
+            t = 0,
+            b = 0,
+            l = 0,
+            r = 0.5,
+            unit = "inch"
+          )) +
+    labs(x = "Frequency (Hz)",
+         y = "Cumulative power (dB)",
+         title = "Cumulative power of system corrected mls",
+         color = "")
+  return(list(p_component = p_component,
+              height_component = height_component,
+              p_system = p_system,
+              height_system = height_system
+              ))
 }
+
 
 SoundLevelModel <- function(inDb, dynamic_range_compression_model) {
   R = dynamic_range_compression_model$R
