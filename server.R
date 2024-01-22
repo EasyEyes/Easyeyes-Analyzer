@@ -816,8 +816,8 @@ shinyServer(function(input, output, session) {
     outputOptions(output, 'jsonUploaded', suspendWhenHidden = FALSE)
   })
   
-  observeEvent(input$toShiny, {
-    json <- fromJSON(input$toShiny)
+  observeEvent(input$toShinyOptions, {
+    json <- fromJSON(input$toShinyOptions)
     if (input$transducerType == "Loudspeakers") {
       options <- json$createDates
     } else {
@@ -835,10 +835,13 @@ shinyServer(function(input, output, session) {
     updateCheckboxGroupInput(
       session,
       'profileSelection',
+      label = "select profiles",
       choices = options,
       selected = NULL,
       inline = FALSE
     )
+    
+    session$sendCustomMessage("options", "true")
     
     df <- get_profile_table(json, transducerType) %>% 
       select(-label)
@@ -1019,7 +1022,57 @@ shinyServer(function(input, output, session) {
                     title)
   })
   
-  observeEvent(input$plotButton, {
+  observeEvent(input$totalData, {
+    json <- fromJSON(input$toShiny)
+    if (input$transducerType == "Loudspeakers") {
+      options <- json$createDates
+    } else {
+      if ("isDefault" %in% names(json)) {
+        options <-
+          ifelse(json$isDefault,
+                 paste0("default/", unlist(json$modelNumbers)),
+                 json$createDates)
+      } else {
+        options <- json$createDates
+      }
+      
+    }
+    options <- sort(unique(options), decreasing = F)
+    updateCheckboxGroupInput(
+      session,
+      'profileSelection',
+      label = "select profiles",
+      choices = options,
+      selected = NULL,
+      inline = FALSE
+    )
+    
+    session$sendCustomMessage("options", "true")
+    
+    df <- get_profile_table(json, transducerType) %>% 
+      select(-label)
+    output$summaryStats <- renderTable({
+      get_profile_summary(df)
+    }, rownames = T, colnames = T
+    )
+    output$profiles <- DT::renderDataTable(datatable(
+      df,
+      class = list(stripe = FALSE),
+      selection = 'none',
+      filter = "top",
+      options = list(
+        paging = FALSE,
+        searching = TRUE,
+        dom = 'Bfrtip',
+        rowCallback = JS(rowCallback)
+      )
+    ))
+    output$downloadProfileTable <- downloadHandler(
+      filename = "profiles-table.csv",
+      content = function(filename) {
+        write.csv(df, file = filename)
+      }
+    )
     output$profilePlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(

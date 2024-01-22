@@ -583,20 +583,21 @@ shinyUI(
           actionButton("plotButton", "Plot", 
                        style="color: white; background-color: #008000; width: 100px; margin-left: 15px;"),
         ),
+        fixedRow(style = "margin-left:2px;",
+                 column(
+                   width = 12,
+                   align = "left",
+                   checkboxGroupInput(
+                     inputId = "profileSelection",
+                     label = "",
+                     inline = TRUE,
+                     choices = NULL,
+                     selected = NULL
+                   )
+                 )),
         conditionalPanel(
           "input.totalData",
-          fixedRow(style = "margin-left:2px;",
-                   column(
-                     width = 12,
-                     align = "left",
-                     checkboxGroupInput(
-                       inputId = "profileSelection",
-                       label = "select profiles",
-                       inline = TRUE,
-                       choices = NULL,
-                       selected = NULL
-                     )
-                   )),
+          
           fixedRow(style = "margin-left:2px;",
                    column(
                      width = 12,
