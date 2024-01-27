@@ -273,6 +273,7 @@ shinyUI(
           multiple = F
         )
       )),
+      fixedRow(column(align = "left", width = 12, downloadButton("downloadNotebook", "Download jupyter notebook"))),
       fixedRow(column(
         width = 12,
         align = "left",
