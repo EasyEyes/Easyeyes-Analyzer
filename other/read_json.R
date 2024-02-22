@@ -128,15 +128,7 @@ preprocessJSON <- function(jsonFile) {
   }
   
   subtitle <- get_subtitle(inputParameters)
-  componentIIRPlots <-
-    plotComponentIIR(jsonFile, subtitle$system, transducerTable)
   
-  cumSumPowerPlot <- getCumSumPowerPlot(jsonFile)
-  
-  componentIR_PSD_plot <- plotComponentIRPSD(jsonFile,transducerTable,subtitle$component)
-  
-  recording_variation <- plot_power_variations(jsonFile,transducerTable, subtitle)
-  volume_power_variation <- plot_volume_power_variations(jsonFile, transducerTable, subtitle)
   
   
   sound_data <- list(
@@ -170,17 +162,8 @@ preprocessJSON <- function(jsonFile) {
     #14
     subtitle = subtitle,
     #15
-    componentIIRPlots = componentIIRPlots,
+    convolutions = convolutions
     #16
-    cumSumPowerPlot = cumSumPowerPlot,
-    #17
-    componentIR_PSD_plot = componentIR_PSD_plot,
-    #18
-    convolutions = convolutions,
-    #19
-    recording_variation = recording_variation,
-    #20
-    volume_power_variation = volume_power_variation
   )
   return(sound_data)
 }
@@ -331,8 +314,49 @@ get_subtitle <- function(inputParameters) {
   )))
 }
 
+SoundLevelModel <- function(inDb, dynamic_range_compression_model) {
+  R = dynamic_range_compression_model$R
+  `T` = dynamic_range_compression_model$`T`
+  W = dynamic_range_compression_model$W
+  backgroundDBSPL = dynamic_range_compression_model$backgroundDBSPL
+  gainDBSPL = dynamic_range_compression_model$gainDBSPL
+  # totalDbSpl = 10 * log10(10 ^ (backgroundDBSPL / 10) +
+  #                           10 ^ ((gainDBSPL + inDb) / 10))
+  # updated Jan 18th, 2024
+  compressorDb <- CompressorDb(inDb, `T`, R, W)
+  outDb <- compressorDb + gainDBSPL
+  return(outDb)
+  
+}
 
-plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
+CompressorDb <- function(inDb, `T`, R, W) {
+  outDb = 0
+  Q = 1/R
+  WFinal = ifelse(W >= 0, W, 0)
+  if (inDb >= `T` + WFinal / 2) {
+    outDb = `T` + Q* (inDb - `T`)
+  } else if (inDb >= (`T` - WFinal / 2)) {
+    outDb = inDb - (1 - Q) * (inDb - (T - WFinal / 2))^ 2 / (2 * WFinal)
+  } else {
+    outDb = inDb
+  }
+  return (outDb)
+}
+
+get_sound_model <-
+  function(volume_task,
+           dynamic_range_compression_model) {
+    minX = min(volume_task$`in (dB)`)
+    maxX = max(volume_task$`in (dB)`)
+    x = seq(minX, maxX, 0.1)
+    y = sapply(x, SoundLevelModel, dynamic_range_compression_model = dynamic_range_compression_model)
+    t <- tibble(x, y)
+    return(t)
+  }
+
+plotComponentIIR <- function(jsonFile, sound_data) {
+  subtitle <- sound_data$subtitle$component
+  transducerTable <- sound_data$transducerTable
   defaultF <- jsonFile$sampleRate$loudspeaker / 1000
   time <- 1 / defaultF
   if ("Loudspeaker Component IR" %in% names(jsonFile)) {
@@ -459,9 +483,9 @@ plotComponentIIR <- function(jsonFile, subtitle, transducerTable) {
 }
 
 plotComponentIRPSD <-
-  function(jsonFile,
-           transducerTable,
-           subtitle) {
+  function(jsonFile, sound_data) {
+    subtitle <- sound_data$subtitle$component
+    transducerTable <- sound_data$transducerTable
     if ("Loudspeaker Component IR" %in% names(jsonFile)) {
       t <- tibble(
         Freq = jsonFile$`Loudspeaker Component IR`$Freq,
@@ -522,10 +546,11 @@ plotComponentIRPSD <-
         labs(title = "Microphone Profile",
              x = "Frequency (Hz)",
              y = "Gain (dB)") +
-        add_transducerTable_loudspeaker(
+        add_transducerTable_component(
           transducerTable = transducerTable,
           position = c("left", "bottom"),
           title_text = "",
+          transducerType = "Microphone",
           subtitle = subtitle
         )
     }
@@ -534,7 +559,9 @@ plotComponentIRPSD <-
     return(list(plot = p, height = height))
   }
 
-plot_power_variations <- function(jsonFile,transducerTable, subtitle) {
+plot_power_variations <- function(jsonFile, sound_data) {
+  transducerTable <- sound_data$transducerTable
+  subtitle <- sound_data$subtitle$component
   transducer <-
     ifelse("Loudspeaker Component IR" %in% names(jsonFile),
            "Loudspeaker",
@@ -730,28 +757,23 @@ plot_power_variations <- function(jsonFile,transducerTable, subtitle) {
       x = "Time (s)"
     ) + 
     sound_theme_display
-  if ("Loudspeaker Component IR" %in% names(jsonFile)) {
-    p <- p + add_transducerTable_component(
-      transducerTable = transducerTable,
-      position = c("left", "bottom"),
-      title_text = "",
-      subtitle = subtitle$component
-    )
-  } else {
-    p <- p + add_transducerTable_loudspeaker(
-      transducerTable = transducerTable,
-      position = c("left", "bottom"),
-      title_text = "",
-      subtitle = subtitle$component
-    )
+  
+  p <- p + add_transducerTable_component(
+    transducerTable = transducerTable,
+    position = c("left", "bottom"),
+    title_text = "",
+    subtitle = subtitle,
+    transducerType = ifelse("Loudspeaker Component IR" %in% names(jsonFile),"Loudspeaker","Microphone")
+  )
     
-  }
   height = (maxY - minY) / 16 + 1
   return(list(plot = p, height = height))
 }
 
 
-plot_volume_power_variations <- function(jsonFile,transducerTable, subtitle) {
+plot_volume_power_variations <- function(jsonFile, sound_data) {
+  transducerTable <- sound_data$transducerTable
+  subtitle <- sound_data$subtitle$component
   transducer <-
     ifelse("Loudspeaker Component IR" %in% names(jsonFile),
            "Loudspeaker",
@@ -881,27 +903,20 @@ plot_volume_power_variations <- function(jsonFile,transducerTable, subtitle) {
       y = "Power (dB)",
       x = "Time (s)"
     )
-  if ("Loudspeaker Component IR" %in% names(jsonFile)) {
+  
     p <- p + add_transducerTable_component(
       transducerTable =transducerTable,
       position = c("left", "bottom"),
       title_text = "",
-      subtitle = subtitle$component
+      subtitle = subtitle,
+      transducerType = ifelse("Loudspeaker Component IR" %in% names(jsonFile),
+                              "Loudspeaker",
+                              "Microphone")
     )
-  } else {
-    p <- p + add_transducerTable_loudspeaker(
-      transducerTable = transducerTable,
-      position = c("left", "bottom"),
-      title_text = "",
-      subtitle = subtitle$component
-    )
-  }
+ 
   height = (maxY - minY) / 16 + 1
   return(list(plot = p, height = height))
 }
-
-
-
 
 get_recording_vs_frequency <- function(jsonFile) {
   record_freq_system <- rbind(
@@ -1389,11 +1404,12 @@ plot_record_freq_component <- function(sound_data) {
       )
   } else {
     p1 <-
-      p1 + add_transducerTable_loudspeaker(
+      p1 + add_transducerTable_component(
         transducerTable = sound_data[[7]],
         position = c("left", "bottom"),
         title_text = tt,
-        subtitle = sound_data$subtitle$component
+        subtitle = sound_data$subtitle$component,
+        transducerType = "Microphone"
       )
   }
   return(list(
@@ -1506,47 +1522,6 @@ getCumSumPowerPlot <- function(jsonFile) {
               height_system = height_system
               ))
 }
-
-
-SoundLevelModel <- function(inDb, dynamic_range_compression_model) {
-  R = dynamic_range_compression_model$R
-  `T` = dynamic_range_compression_model$`T`
-  W = dynamic_range_compression_model$W
-  backgroundDBSPL = dynamic_range_compression_model$backgroundDBSPL
-  gainDBSPL = dynamic_range_compression_model$gainDBSPL
-  # totalDbSpl = 10 * log10(10 ^ (backgroundDBSPL / 10) +
-  #                           10 ^ ((gainDBSPL + inDb) / 10))
-  # updated Jan 18th, 2024
-  compressorDb <- CompressorDb(inDb, `T`, R, W)
-  outDb <- compressorDb + gainDBSPL
-  return(outDb)
-  
-}
-
-CompressorDb <- function(inDb, `T`, R, W) {
-  outDb = 0
-  Q = 1/R
-  WFinal = ifelse(W >= 0, W, 0)
-  if (inDb >= `T` + WFinal / 2) {
-    outDb = `T` + Q* (inDb - `T`)
-  } else if (inDb >= (`T` - WFinal / 2)) {
-    outDb = inDb - (1 - Q) * (inDb - (T - WFinal / 2))^ 2 / (2 * WFinal)
-  } else {
-    outDb = inDb
-  }
-  return (outDb)
-}
-
-get_sound_model <-
-  function(volume_task,
-           dynamic_range_compression_model) {
-    minX = min(volume_task$`in (dB)`)
-    maxX = max(volume_task$`in (dB)`)
-    x = seq(minX, maxX, 0.1)
-    y = sapply(x, SoundLevelModel, dynamic_range_compression_model = dynamic_range_compression_model)
-    t <- tibble(x, y)
-    return(t)
-  }
 
 plot_sound_level <- function(sound_data) {
     # add <- plot here
@@ -1711,7 +1686,7 @@ plot_sound_level <- function(sound_data) {
     ))
   }
 
-get_ir_plots <- function(jsonFile) {
+get_ir_plots <- function(jsonFile, sound_data) {
   
   t <- tibble(IR = jsonFile$`Loudspeaker Component IR Time Domain`)
   defaultF <- jsonFile$sampleRate$loudspeaker / 1000
@@ -1750,7 +1725,13 @@ get_ir_plots <- function(jsonFile) {
         "6 ms of Loudspeaker Impulse Response",
         "6 ms of Microphone Impulse Response"
       )
-    )
+    ) +
+    add_transducerTable_component(
+      sound_data[[7]],
+      c("left", "bottom"),
+      subtitle = sound_data$subtitle$component,
+      transducerType = sound_data$inputParameters$transducerTypeF
+    ) + sound_theme_display
   
   p2 <- ggplot(IR_0to30, aes(x = time, y = IR)) +
     geom_line(size = 0.8) +
@@ -1769,7 +1750,13 @@ get_ir_plots <- function(jsonFile) {
         "50 ms of Loudspeaker Impulse Response",
         "50 ms of Microphone Impulse Response"
       )
-    )
+    ) +
+    add_transducerTable_component(
+      sound_data[[7]],
+      c("left", "bottom"),
+      subtitle = sound_data$subtitle$component,
+      transducerType = sound_data$inputParameters$transducerTypeF
+    ) + sound_theme_display
   
   tmp <- filter(IR_0to400, time >= minX, time <= maxX)
   
@@ -1795,7 +1782,14 @@ get_ir_plots <- function(jsonFile) {
         "Schroeder plot of loudspeaker impulse response",
         "Schroeder plot of microphone impulse response"
       )
-    )
+    ) +
+    add_transducerTable_component(
+      sound_data[[7]],
+      c("left", "bottom"),
+      subtitle = sound_data$subtitle$component,
+      transducerType = sound_data$inputParameters$transducerTypeF,
+      leftShift = 0.03
+    ) + sound_theme_display
   return(list(p1, p2, p3))
 }
 
@@ -2175,7 +2169,7 @@ add_transducerTable_system <- function(transducerTable,
     )
   )
 }
-## when component is loudspeaker
+
 add_transducerTable_component <- function(transducerTable,
                                           position,
                                           title_text = "",
@@ -2277,58 +2271,6 @@ add_transducerTable_component <- function(transducerTable,
   }
 }
 
-add_transducerTable_loudspeaker <- function(transducerTable,
-                                            position,
-                                            title_text = "",
-                                            subtitle = list(),
-                                            leftShift = 0.015,
-                                            baseSize = 12,
-                                            fs = 12) {
-  geom_table_costumized(
-    data = transducerTable,
-    aes(
-      npcx = position[1],
-      npcy = position[2],
-      label = list(transducerTable %>% head(nrow(transducerTable) - 1)),
-      text = transducerTable$`Loudspeaker`[nrow(transducerTable)]
-    ),
-    title_text = title_text,
-    titleFont = 1,
-    subtitle = subtitle,
-    leftShift = leftShift,
-    fs = fs,
-    shrinkPadding = 1,
-    table.theme = ttheme_default(
-      base_size = baseSize,
-      padding = unit(c(0.2, 0.3), "line"),
-      colhead = list(
-        fg_params = list(
-          hjust = 0,
-          x = 0.1,
-          fontface = matrix(
-            c(1, 2),
-            ncol = 2,
-            nrow = 1,
-            byrow = TRUE
-          )
-        ),
-        bg_params = list(fill = NULL,
-                         alpha = 0)
-      ),
-      core = list(
-        fg_params = list(
-          hjust = 0,
-          x = 0.1,
-          fontface = 1
-        ),
-        bg_params = list(fill = NULL,
-                         alpha = 0)
-      )
-    )
-  )
-}
-
-
 add_parameters_table <- function(parametersTable,
                                  position,
                                  title_text = "",
@@ -2372,16 +2314,6 @@ add_parameters_table <- function(parametersTable,
     )
   )
 }
-
-
-sound_theme_download <- theme(
-  legend.title = element_text(size = 20),
-  legend.text = element_text(size = 20),
-  axis.title = element_text(size = 20),
-  axis.text = element_text(size = 20),
-  plot.title = element_text(size = 20),
-  plot.subtitle = element_text(size = 20)
-)
 
 
 sound_theme_display <- theme(
