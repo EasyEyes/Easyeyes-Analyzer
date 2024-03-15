@@ -39,13 +39,11 @@ preprocessProfiles <- function(transducerType, t) {
 }
 plot_profiles_avg <- function(dt) {
   dt <- dt %>% filter(is.finite(gain), freq >= 20, freq <= 20000)
-  tmp <- dt %>% group_by(label) %>% summarize(gain1000 = approx(x = freq, y = gain, xout = 1000)$y)
-  t <- tmp %>% ungroup() %>% summarize(sd = format(round(sd(gain1000) ,1), nsmall = 1))
+  print(n_distinct(dt$label))
   if (n_distinct(dt$label) == 1) {
-    dt <- dt %>% group_by(freq) %>% summarize(avg = mean(gain))
     maxY <- ceiling(max(dt$gain) /10) * 10
     minY <- floor(min(dt$gain) /10) * 10
-    p <- ggplot() + geom_line(data = dt, aes(x = freq, y = avg), color = 'black') +
+    p <- ggplot() + geom_line(data = dt, aes(x = freq, y = gain), color = 'black') +
       guides(color = FALSE)
   } else {
     dt <- dt %>% group_by(freq) %>% summarize(avg = mean(gain), std = sd(gain)) %>% 
