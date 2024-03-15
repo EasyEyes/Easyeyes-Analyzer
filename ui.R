@@ -662,6 +662,20 @@ shinyUI(
             downloadButton("downloadShiftedProfilePlot", "Download")
           ))
         ),
+        conditionalPanel(
+          "input.totalData",
+          fixedRow(style = "margin-left:2px;",
+                   column(
+                     width = 6,
+                     align = "middle",
+                     plotOutput("profileAvgPlot", height = "100%", width = "100%")
+                   )),
+          fixedRow(style = "margin-left:2px;", 
+                   column(
+                     width = 6,
+                     align = "middle",
+                     downloadButton("downloadProfileAvgPlot", "Download")
+                   ))),
         
         
         # checkbox style selection panel
@@ -672,7 +686,12 @@ shinyUI(
         includeHTML("./www/firestore.html"),
         fixedRow(column(tableOutput("summaryStats"), width = 12, align = "center")),
         DT::dataTableOutput('profiles'),
-        column(width = 12, align = "center", downloadButton("downloadProfileTable", "download profile table")),
+        conditionalPanel(
+          "input.totalData",
+          column(width = 12, 
+                 align = "center", 
+                 downloadButton("downloadProfileTable", "download profile table"))
+          ),
         HTML('<table id="dataTable" class="display"></table>')
       )
     ),

@@ -2,15 +2,25 @@ preprocessProfiles <- function(transducerType, t) {
   dt <- tibble()
   if (transducerType == "Microphones" && ("linear" %in% names(t))) {
     for (i in 1:length(t$linear$Freq)) {
-      tmp <- tibble(
-        freq = t$linear$Freq[[i]],
-        gain = t$linear$Gain[[i]],
-        isDefault = t$isDefault[i],
-        label = ifelse(t$isDefault[i],
-                       paste0("default/", t$ID[i]),
-                       t$DateText[i])
-      ) %>%
-        filter(!is.na(label))
+      if (t$isDefault[i]) {
+        tmp <- tibble(
+          freq = seq(20,20000,5),
+          gain = approx(x = t$linear$Freq[[i]], y = t$linear$Gain[[i]], xout = seq(20,20000,5))$y,
+          isDefault = t$isDefault[i],
+          label = ifelse(t$isDefault[i],paste0("default/", t$ID[i]),t$DateText[i])
+          ) %>% 
+          filter(!is.na(label))
+      } else {
+        tmp <- tibble(
+          freq = t$linear$Freq[[i]],
+          gain = t$linear$Gain[[i]],
+          isDefault = t$isDefault[i],
+          label = ifelse(t$isDefault[i],paste0("default/", t$ID[i]),t$DateText[i])
+        ) %>% 
+          filter(!is.na(label))
+      }
+      
+      
       dt <- dt %>% rbind(tmp)
     }
   } else if ("ir" %in% names(t)) {
@@ -20,13 +30,58 @@ preprocessProfiles <- function(transducerType, t) {
         gain = t$ir$Gain[[i]],
         label = t$CalibrationDate[i]
       )
-      
       if (ncol(tmp) == 3) {
         dt <- dt %>% rbind(tmp)
       }
     }
   }
   return(dt)
+}
+plot_profiles_avg <- function(dt) {
+  dt <- dt %>% filter(is.finite(gain), freq >= 20, freq <= 20000)
+  tmp <- dt %>% group_by(label) %>% summarize(gain1000 = approx(x = freq, y = gain, xout = 1000)$y)
+  t <- tmp %>% ungroup() %>% summarize(sd = format(round(sd(gain1000) ,1), nsmall = 1))
+  if (n_distinct(dt$label) == 1) {
+    dt <- dt %>% group_by(freq) %>% summarize(avg = mean(gain))
+    maxY <- ceiling(max(dt$gain) /10) * 10
+    minY <- floor(min(dt$gain) /10) * 10
+    p <- ggplot() + geom_line(data = dt, aes(x = freq, y = avg), color = 'black') +
+      guides(color = FALSE)
+  } else {
+    dt <- dt %>% group_by(freq) %>% summarize(avg = mean(gain), std = sd(gain)) %>% 
+      mutate(upper = avg + std, lower = avg - std)
+    maxY <- ceiling(max(dt$upper) /10) * 10
+    minY <- floor(min(dt$lower) /10) * 10
+    p <- ggplot() + 
+      geom_line(data = dt, aes(x = freq, y = avg), color = 'black') +
+      geom_ribbon(data = dt, aes(x = freq, ymin = lower, ymax = upper, fill = 'pink'), alpha = 0.4) +
+      guides(fill = FALSE, color = FALSE)
+  }
+  p <- p +       
+    scale_x_log10(limits = c(20, 20000), 
+                  breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
+                  expand = c(0, 0)) +
+    scale_y_continuous(limits = c(minY ,maxY), breaks = seq(minY,maxY,10), expand = c(0,0)) +
+    theme_bw() +
+    theme(plot.margin = margin(
+      t = .3,
+      r = .4,
+      b = 0,
+      l = .4,
+      "inch"
+    )) + 
+    sound_theme_display +
+    labs(x = 'Frequency (Hz)',
+         y = 'Gain (dB)',
+         title = 'Average of profiles')
+  height = ceiling((maxY - minY) / 15) + 0.3
+  return (
+    list(
+      height = height,
+      plot = p
+    )
+  )
+    
 }
 
 plot_profiles <- function(dt, plotTitle) {
@@ -218,11 +273,14 @@ getProfilePlots <- function(transducerType, t, plotTitle) {
     )
   }
   profilePlots <- plot_profiles(dt, plotTitle)
+  profileAvgPlots <-  plot_profiles_avg(dt)
   return (
     list(
       height = profilePlots$height,
       plot = profilePlots$plot,
-      shiftedPlot = plot_shifted_profiles(dt,plotTitle)$plot
+      shiftedPlot = plot_shifted_profiles(dt,plotTitle)$plot,
+      avgPlot = profileAvgPlots$plot,
+      avgHeight = profileAvgPlots$height
     )
   )
 }
@@ -247,11 +305,14 @@ getFilteredProfilePlots <- function(transducerType, t, plotTitle, options) {
     )
   }
   profilePlots <- plot_profiles(dt, plotTitle)
+  profileAvgPlots <-  plot_profiles_avg(dt)
   return (
     list(
       height = profilePlots$height,
       plot = profilePlots$plot,
-      shiftedPlot = plot_shifted_profiles(dt,plotTitle)$plot
+      shiftedPlot = plot_shifted_profiles(dt,plotTitle)$plot,
+      avgPlot = profileAvgPlots$plot,
+      avgHeight = profileAvgPlots$height
     )
   )
 }

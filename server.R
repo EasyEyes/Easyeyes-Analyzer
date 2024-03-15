@@ -945,6 +945,7 @@ shinyServer(function(input, output, session) {
         }
       }
     )
+    
     output$shiftedProfilePlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
@@ -985,6 +986,59 @@ shinyServer(function(input, output, session) {
             file,
             plot = p$shiftedPlot,
             height = p$height,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileProfile == "svg",
+              svglite::svglite,
+              input$fileProfile
+            )
+          )
+        }
+      }
+    )
+    
+    output$profileAvgPlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot = p$avgPlot,
+        height = p$avgHeight,
+        width = 8,
+        unit = "in",
+        limitsize = FALSE
+      )
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = "profile plot")
+    }, deleteFile = TRUE)
+    
+    output$downloadProfileAvgPlot <- downloadHandler(
+      filename = paste0(
+        'average-of-profiles',
+        '.',
+        input$fileProfile
+      ),
+      content = function(file) {
+        if (input$fileTypeSound == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = p$avgPlot,
+            height = p$avgHeight,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = p$avgHeight* 300,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = p$avgPlot,
+            height = p$avgHeight,
             width = 8,
             unit = "in",
             limitsize = F,
@@ -1079,6 +1133,21 @@ shinyServer(function(input, output, session) {
         file = outfile,
         plot = profile_plot()$shiftedPlot,
         height = profile_plot()$height,
+        width = 8,
+        unit = "in",
+        limitsize = FALSE
+      )
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = "profile plot")
+    }, deleteFile = TRUE)
+    
+    output$profileAvgPlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot = profile_plot()$avgPlot,
+        height = profile_plot()$avgHeight,
         width = 8,
         unit = "in",
         limitsize = FALSE
@@ -1504,6 +1573,44 @@ shinyServer(function(input, output, session) {
             file,
             plot = profile_plot()$shiftedPlot,
             height = profile_plot()$height,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileProfile == "svg",
+              svglite::svglite,
+              input$fileProfile
+            )
+          )
+        }
+      }
+    )
+    
+    output$downloadProfileAvgPlot <- downloadHandler(
+      filename = paste0(
+        'average-of-profiles',
+        '.',
+        input$fileProfile
+      ),
+      content = function(file) {
+        if (input$fileTypeSound == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = profile_plot()$avgPlot,
+            height = profile_plot()$avgHeight,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = profile_plot()$avgHeight* 300,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = profile_plot()$avgPlot,
+            height = profile_plot()$avgHeight,
             width = 8,
             unit = "in",
             limitsize = F,
