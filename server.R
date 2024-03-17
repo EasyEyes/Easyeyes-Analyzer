@@ -1192,7 +1192,7 @@ shinyServer(function(input, output, session) {
                        autoWidth = FALSE,
                        paging = FALSE,
                        scrollX = TRUE,
-                       searching = FALSE,
+                       dom = 't',
                        language = list(info = 'Showing _TOTAL_ entries',
                                        infoFiltered =  "(filtered from _MAX_ entries)"),
                        columnDefs = list(
