@@ -99,7 +99,15 @@ generate_summary_table <- function(data_list){
                  targetTask, targetKind, thresholdParameter) %>% 
         dplyr::filter(block_condition != "" & conditionName != "") %>% 
         tail(1)
-      t <- cbind(t, info)
+      if (nrow(t) == nrow(info)) {
+        t <- cbind(t, info)
+        
+      } else {
+        print(t)
+        print(info)
+        t <- t %>% mutate(block='', block_condition='', conditionName='', 
+                          targetTask='', targetKind='', thresholdParameter='')
+      }
       t$ok <- emoji("white_check_mark")
       completes <- rbind(completes,t)
     }
@@ -107,22 +115,22 @@ generate_summary_table <- function(data_list){
   completes$warning <- ""
   
   summary_df <- rbind(noerror_fails,
-               completes,
-               error %>% 
-                 select(error, warning, ProlificParticipantID, participant, deviceType, 
-                        cores, deviceSystemFamily, browser, resolution,
-                        block, block_condition, conditionName, targetTask, targetKind, 
-                        thresholdParameter, ok, rows, cols),
-               warnings %>% 
-                 select(error, warning, ProlificParticipantID, participant, deviceType, 
-                        cores, deviceSystemFamily, browser, resolution,
-                        block, block_condition, conditionName, targetTask, targetKind, 
-                        thresholdParameter, ok, rows, cols)) %>% 
+                      completes,
+                      error %>% 
+                        select(error, warning, ProlificParticipantID, participant, deviceType, 
+                               cores, deviceSystemFamily, browser, resolution,
+                               block, block_condition, conditionName, targetTask, targetKind, 
+                               thresholdParameter, ok, rows, cols),
+                      warnings %>% 
+                        select(error, warning, ProlificParticipantID, participant, deviceType, 
+                               cores, deviceSystemFamily, browser, resolution,
+                               block, block_condition, conditionName, targetTask, targetKind, 
+                               thresholdParameter, ok, rows, cols)) %>% 
     mutate(ok = factor(ok, levels = c(emoji("x"), 
                                       emoji("construction"),
                                       emoji("large_orange_diamond"),
                                       emoji("white_check_mark")
-                                      ))) %>% 
+    ))) %>% 
     left_join(lateness_duration, by = "participant") %>% 
     left_join(trial, by = c("participant", 'block_condition')) %>% 
     rename("Prolific participant ID" = "ProlificParticipantID",
