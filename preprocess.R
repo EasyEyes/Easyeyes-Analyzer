@@ -41,15 +41,6 @@ read_files <- function(file){
       if (!('readingCorpus' %in% colnames(t))) {
         t$readingCorpus <- ""
       }
-      if (!('Loudspeaker survey' %in% colnames(t))) {
-        t$`Loudspeaker survey` <- ""
-      }
-      if (!('ComputerInfoFrom51Degrees' %in% colnames(t))) {
-        t$ComputerInfoFrom51Degrees <- ""
-      }
-      if (!('Microphone survey' %in% colnames(t))) {
-        t$`Microphone survey` <- ""
-      }
       if ('readingPageWords' %in% colnames(t)) {
         t$wordPerMin <- (as.numeric(t$readingPageWords) + as.numeric(t$readingLinesPerPage) - 1) / (as.numeric(t$readingPageDurationOnsetToOffsetSec) / 60)
       }
@@ -155,6 +146,15 @@ read_files <- function(file){
       if (!('_needsUnmet' %in% colnames(t))) {
         t$`_needsUnmet` <- ""
       }
+      if (!('Loudspeaker survey' %in% colnames(t))) {
+        t$`Loudspeaker survey` <- ""
+      }
+      if (!('ComputerInfoFrom51Degrees' %in% colnames(t))) {
+        t$ComputerInfoFrom51Degrees <- ""
+      }
+      if (!('Microphone survey' %in% colnames(t))) {
+        t$`Microphone survey` <- ""
+      }
       if (!('thresholdParameter' %in% colnames(t))) {
         t$thresholdParameter <- ""
       }
@@ -239,7 +239,8 @@ read_files <- function(file){
           t$cols <- ncol(t)
           t$rows <- ifelse(nrow(t) == 0, 0, nrow(t) + 1)
         }
-        
+        inf <- file.info(unzip(file_list[k], all_csv[u]))
+        t$kb <-inf$size
         if (!('ProlificParticipantID' %in% colnames(t))) {
           t$ProlificParticipantID <- ""
         }
@@ -363,6 +364,18 @@ read_files <- function(file){
         }
         if (!('psychojsWindowDimensions' %in% colnames(t))) {
           t$psychojsWindowDimensions <- "NA,NA"
+        }
+        if (!('_needsUnmet' %in% colnames(t))) {
+          t$`_needsUnmet` <- ""
+        }
+        if (!('Loudspeaker survey' %in% colnames(t))) {
+          t$`Loudspeaker survey` <- ""
+        }
+        if (!('ComputerInfoFrom51Degrees' %in% colnames(t))) {
+          t$ComputerInfoFrom51Degrees <- ""
+        }
+        if (!('Microphone survey' %in% colnames(t))) {
+          t$`Microphone survey` <- ""
         }
         t$age <- t$questionAndAnswerResponse[2]
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
