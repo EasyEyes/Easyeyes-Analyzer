@@ -26,27 +26,47 @@ get_lateness_and_duration <- function(all_files){
 }
 
 generate_summary_table <- function(data_list){
-  all_files <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% select(ProlificParticipantID, participant, deviceType, 
+  all_files <- tibble()
+ for (i in 1 : length(data_list)) {
+    t <- data_list[[i]] %>% select(ProlificParticipantID, participant, deviceType, 
                               cores, browser, deviceSystemFamily, deviceLanguage,
                               block, block_condition,conditionName, targetTask, targetKind, 
                               thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
-                              targetMeasuredDurationSec,date, targetDurationSec, rows, cols)
-    
+                              targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
+                              ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`) %>% 
+      distinct(ProlificParticipantID, participant, deviceType, 
+               cores, browser, deviceSystemFamily, deviceLanguage,
+               block, block_condition,conditionName, targetTask, targetKind, 
+               thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
+               targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
+               ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`) %>% 
+      arrange(`Loudspeaker survey`)
+    tmp <- t$`Loudspeaker survey`[1]
+    t <- t %>% mutate(`Loudspeaker survey` = ifelse(is.na(tmp), '',tmp))
+    t <- t %>% arrange(`_needsUnmet`)
+    tmp <- t$`_needsUnmet`[1]
+    t <- t %>% mutate(`_needsUnmet` = ifelse(is.na(tmp), '',tmp))
+    t <- t %>% arrange(`Microphone survey`)
+    tmp <- t$`Microphone survey`[1]
+    t <- t %>% mutate(`Microphone survey` = ifelse(is.na(tmp), '',tmp))
+    t <- t %>%   
+      distinct(ProlificParticipantID, participant, deviceType, 
+       cores, browser, deviceSystemFamily, deviceLanguage,
+       block, block_condition,conditionName, targetTask, targetKind, 
+       thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
+       targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
+       ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`)
+    all_files <- rbind(all_files,t)
   }
   trial <- all_files %>% group_by(participant, block_condition) %>% count()
   lateness_duration <- get_lateness_and_duration(all_files)
-  
-  max_trails <- as.numeric(all_files %>% count(participant) %>% summarize(max(n)))
-  
   
   #### errors ####
   error <- all_files %>% 
     dplyr::filter(error != "" & error != "Incomplete") %>%
     mutate(warning = "") %>% 
-    mutate(ok = emoji("x"))
-  
-  
+    mutate(ok = paste(emoji("x")))
+
   #### warnings ####
   warnings <- all_files %>% 
     dplyr::filter(warning != "") %>%
@@ -62,10 +82,21 @@ generate_summary_table <- function(data_list){
       if (!data_list[[i]]$participant[1] %in% error$participant) {
         t <- data_list[[i]] %>% 
           distinct(ProlificParticipantID,participant, deviceType,
-                   cores, deviceSystemFamily, browser, resolution, rows, cols) %>% 
+                   cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
+                   ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`) %>% 
           mutate(error = "Incomplete") %>% 
           select(error,ProlificParticipantID,participant, deviceType, 
-                 cores, deviceSystemFamily, browser, resolution, rows, cols)
+                 cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
+                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`) %>% 
+          arrange(`Loudspeaker survey`)
+        tmp <- t$`Loudspeaker survey`[1]
+        t <- t %>% mutate(`Loudspeaker survey` = ifelse(is.na(tmp), '',tmp))
+          t <- t %>% arrange(`_needsUnmet`)
+        tmp <- t$`_needsUnmet`[1]
+        t <- t %>% mutate(`_needsUnmet` = ifelse(is.na(tmp), '',tmp))
+        t <- t %>% arrange(`Microphone survey`)
+        tmp <- t$`Microphone survey`[1]
+        t <- t %>% mutate(`Microphone survey` = ifelse(is.na(tmp), '',tmp))
         info <- data_list[[i]] %>% 
           distinct(block, block_condition, conditionName, 
                    targetTask, targetKind, thresholdParameter) %>% 
@@ -86,6 +117,8 @@ generate_summary_table <- function(data_list){
       }
     }
   }
+  
+  
   noerror_fails$warning = ""
   completes = tibble()
   for (i in 1 : length(data_list)) {
@@ -93,7 +126,18 @@ generate_summary_table <- function(data_list){
         & !data_list[[i]]$participant[1] %in% noerror_fails$participant) {
       t <- data_list[[i]] %>% 
         distinct(ProlificParticipantID, participant, deviceType, error,
-                 cores, deviceSystemFamily, browser, resolution, rows, cols)
+                 cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
+                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`) %>% 
+        arrange(`Loudspeaker survey`)
+      t$`Loudspeaker survey` = t$`Loudspeaker survey`[1]
+      t <- t %>% arrange( `_needsUnmet`)
+      t$`_needsUnmet` = t$`_needsUnmet`[1]
+      t <- t %>% arrange(`Microphone survey`)
+      t$`Microphone survey` = t$`Microphone survey`[1]
+      t <- t %>%   
+        distinct(ProlificParticipantID, participant, deviceType, error,
+                 cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
+                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`)
       info <- data_list[[i]] %>% 
         distinct(block, block_condition, conditionName, 
                  targetTask, targetKind, thresholdParameter) %>% 
@@ -101,10 +145,7 @@ generate_summary_table <- function(data_list){
         tail(1)
       if (nrow(t) == nrow(info)) {
         t <- cbind(t, info)
-        
       } else {
-        print(t)
-        print(info)
         t <- t %>% mutate(block='', block_condition='', conditionName='', 
                           targetTask='', targetKind='', thresholdParameter='')
       }
@@ -113,20 +154,21 @@ generate_summary_table <- function(data_list){
     }
   }
   completes$warning <- ""
-  
   summary_df <- rbind(noerror_fails,
                       completes,
                       error %>% 
                         select(error, warning, ProlificParticipantID, participant, deviceType, 
                                cores, deviceSystemFamily, browser, resolution,
                                block, block_condition, conditionName, targetTask, targetKind, 
-                               thresholdParameter, ok, rows, cols),
+                               thresholdParameter, ok, rows, cols, kb, ComputerInfoFrom51Degrees,
+                               `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`),
                       warnings %>% 
                         select(error, warning, ProlificParticipantID, participant, deviceType, 
                                cores, deviceSystemFamily, browser, resolution,
                                block, block_condition, conditionName, targetTask, targetKind, 
-                               thresholdParameter, ok, rows, cols)) %>% 
-    mutate(ok = factor(ok, levels = c(emoji("x"), 
+                               thresholdParameter, ok, rows, cols, kb, ComputerInfoFrom51Degrees,
+                               `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`)) %>% 
+    mutate(ok = factor(ok, levels = c(paste(emoji("x")), 
                                       emoji("construction"),
                                       emoji("large_orange_diamond"),
                                       emoji("white_check_mark")
@@ -142,11 +184,16 @@ generate_summary_table <- function(data_list){
            "device type" = "deviceType",
            "block condition" = "block_condition",
            "system" = "deviceSystemFamily",
-           "trial" = "n") %>% 
-    select(`Prolific participant ID`, `Pavlovia session ID`, `device type`, system,
-           browser, resolution, cores, tardyMs, excessMs, date, rows, cols, ok, error, warning, 
-           `block condition`, trial, `condition name`, `target task`, `threshold parameter`,
-           `target kind`)
+           "trial" = "n",
+           'kB' = 'kb',
+           "unmetNeeds" = '_needsUnmet',
+           "computer51Deg" ="ComputerInfoFrom51Degrees",
+           "Loudspeaker" = "Loudspeaker survey",
+           "Microphone" = "Microphone survey") %>% 
+    distinct(`Prolific participant ID`, `Pavlovia session ID`, `device type`, system,
+           browser, resolution, computer51Deg, cores, tardyMs, excessMs, date, kB, rows, cols, 
+           ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
+           `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone)
   
   #### order block_condition by splitting and order block and condition order ####
   summary_df <- summary_df %>% 

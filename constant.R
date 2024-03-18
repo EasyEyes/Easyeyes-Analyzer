@@ -2,9 +2,9 @@
 
 #### dataTable callback function
 data_table_call_back = "
-    table.column(14).nodes().to$().css({cursor: 'pointer'});
+    table.column(17).nodes().to$().css({cursor: 'pointer'});
     var format1 = function(d) {
-      return '<p>' + d[14] + '</p>';
+      return '<p>' + d[17] + '</p>';
     };
     table.on('click', 'td.details-control1', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -15,9 +15,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(15).nodes().to$().css({cursor: 'pointer'});
+    table.column(18).nodes().to$().css({cursor: 'pointer'});
     var format2 = function(d) {
-      return '<p>' + d[15] + '</p>';
+      return '<p>' + d[18] + '</p>';
     };
     table.on('click', 'td.details-control2', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -25,6 +25,32 @@ data_table_call_back = "
         row.child.hide();
       } else {
         row.child(format2(row.data())).show();
+      }
+    });
+    
+    table.column(25).nodes().to$().css({cursor: 'pointer'});
+    var format6 = function(d) {
+      return '<p>' + d[25] + '</p>';
+    };
+    table.on('click', 'td.details-control3', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format6(row.data())).show();
+      }
+    });
+    
+    table.column(26).nodes().to$().css({cursor: 'pointer'});
+    var format5 = function(d) {
+      return '<p>' + d[26] + '</p>';
+    };
+    table.on('click', 'td.details-control4', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format5(row.data())).show();
       }
     });
 

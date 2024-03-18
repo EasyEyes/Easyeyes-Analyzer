@@ -1192,14 +1192,14 @@ shinyServer(function(input, output, session) {
                        autoWidth = FALSE,
                        paging = FALSE,
                        scrollX = TRUE,
-                       dom = 't',
+                       dom = 'tip',
                        language = list(info = 'Showing _TOTAL_ entries',
                                        infoFiltered =  "(filtered from _MAX_ entries)"),
                        columnDefs = list(
-                         list(visible = FALSE, targets = c(0, 22)),
-                         list(orderData = 22, targets = 17),
+                         list(visible = FALSE, targets = c(0, 27)),
+                         list(orderData = 27, targets = 20),
                          list(
-                           targets = c(14),
+                           targets = c(17),
                            width = '500px',
                            className = 'details-control1',
                            render = JS(
@@ -1210,9 +1210,31 @@ shinyServer(function(input, output, session) {
                            )
                          ),
                          list(
-                           targets = c(15),
+                           targets = c(18),
                            width = '250px',
                            className = 'details-control2',
+                           render = JS(
+                             "function(data, type, row, meta) {",
+                             "return type === 'display' && data.length > 20 ?",
+                             "data.substr(0, 20) + '...' : data;",
+                             "}"
+                           )
+                         ),
+                         list(
+                           targets = c(25),
+                           width = '250px',
+                           className = 'details-control3',
+                           render = JS(
+                             "function(data, type, row, meta) {",
+                             "return type === 'display' && data.length > 20 ?",
+                             "data.substr(0, 20) + '...' : data;",
+                             "}"
+                           )
+                         ),
+                         list(
+                           targets = c(26),
+                           width = '250px',
+                           className = 'details-control4',
                            render = JS(
                              "function(data, type, row, meta) {",
                              "return type === 'display' && data.length > 20 ?",
@@ -1247,10 +1269,10 @@ shinyServer(function(input, output, session) {
                          ),
                          list(
                            width = '50px',
-                           targets = c(3, 4, 7, 13, 17),
+                           targets = c(3, 4, 8, 15, 20),
                            className = 'dt-center'
                          ),
-                         list(width = '200px', targets = c(18))
+                         list(width = '200px', targets = c(21))
                        )
                      ),
                      callback = JS(data_table_call_back)

@@ -7,12 +7,15 @@ params:
   tardyMs: NA
   excessMs: NA
   date: NA
+  kB: NA
   rows: NA
   cols: NA
   system: NA
   browser: NA
   resolution: NA
+  computer51Deg: NA
   ok: NA
+  unmetNeeds: NA
   error: NA
   warning: NA 
   block condition: NA
@@ -20,6 +23,8 @@ params:
   condition name: NA
   target task: NA
   target kind: NA
+  Loudspeaker: NA
+  Microphone: NA
   threshold parameter: NA
   order: NA
   experiment: ""
@@ -70,14 +75,17 @@ dt <- tibble(
   `device type` = params$`device type`,
   system = params$system,
   browser = params$browser,
+  resolution = params$resolution,
+  computer51Deg = params$computer51Deg,
   cores = params$cores,
   tardyMs = params$tardyMs,
   excessMs = params$excessMs,
   date = params$date,
+  kB = params$kB,
   rows = params$rows,
   cols= params$cols,
-  resolution = params$resolution,
   ok = params$ok,
+  unmetNeeds = params$unmetNeeds,
   error = params$error,
   warning = params$warning,
   `block condition` = params$`block condition`,
@@ -86,6 +94,8 @@ dt <- tibble(
   `target task` = params$`target task`,
   `target kind` = params$`target kind`,
   `threshold parameter` = params$`threshold parameter`,
+   Loudspeaker = params$`Loudspeaker`, 
+   Microphone =  params$Microphone,
   `order` = params$`order`)
 participants <- unique(dt$`Pavlovia session ID`)
 prolific_id <- unique(dt$`Prolific participant ID`)
@@ -104,47 +114,92 @@ datatable(dt,
             autoWidth = FALSE,
             paging = FALSE,
             scrollX=TRUE,
-            searching = FALSE,
+            dom = 't',
             language = list(
               info = 'Showing _TOTAL_ entries',
               infoFiltered =  "(filtered from _MAX_ entries)"
             ),
             columnDefs = list(
-              list(visible = FALSE, targets = c(0,22)),
-              list(orderData=22, targets=17),
-              list(targets = c(14),
-                   width = '500px',
-                   className = 'details-control1',
-                   render = JS(
-                     "function(data, type, row, meta) {",
-                     "return type === 'display' && data.length > 20 ?",
-                     "data.substr(0, 20) + '...' : data;",
-                     "}")),
-              list(targets = c(15),
-                   width = '250px',
-                   className = 'details-control2',
-                   render = JS(
-                     "function(data, type, row, meta) {",
-                     "return type === 'display' && data.length > 20 ?",
-                     "data.substr(0, 20) + '...' : data;",
-                     "}")),
-              list(targets = c(1), render = JS(
-                "function(data, type, row, meta) {",
-                "return type === 'display' && data.length > 6 ?",
-                "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-                "}"), className = 'information-control1'),
-              list(targets = c(2), render = JS(
-                "function(data, type, row, meta) {",
-                "return type === 'display' && data.length > 6 ?",
-                "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-                "}"), className = 'information-control2'),
-              list(width = '250px', targets = c(5, 6), className = 'dt-center'),
-              list(width = '50px', targets = c(3,4,7,13,17), className = 'dt-center'),
-              list(width = '200px', targets = c(18))
-            )
-          ),
-          callback = JS(data_table_call_back
-          )) %>% 
+                         list(visible = FALSE, targets = c(0, 27)),
+                         list(orderData = 27, targets = 20),
+                         list(
+                           targets = c(17),
+                           width = '500px',
+                           className = 'details-control1',
+                           render = JS(
+                             "function(data, type, row, meta) {",
+                             "return type === 'display' && data.length > 20 ?",
+                             "data.substr(0, 20) + '...' : data;",
+                             "}"
+                           )
+                         ),
+                         list(
+                           targets = c(18),
+                           width = '250px',
+                           className = 'details-control2',
+                           render = JS(
+                             "function(data, type, row, meta) {",
+                             "return type === 'display' && data.length > 20 ?",
+                             "data.substr(0, 20) + '...' : data;",
+                             "}"
+                           )
+                         ),
+                         list(
+                           targets = c(25),
+                           width = '250px',
+                           className = 'details-control3',
+                           render = JS(
+                             "function(data, type, row, meta) {",
+                             "return type === 'display' && data.length > 20 ?",
+                             "data.substr(0, 20) + '...' : data;",
+                             "}"
+                           )
+                         ),
+                         list(
+                           targets = c(26),
+                           width = '250px',
+                           className = 'details-control4',
+                           render = JS(
+                             "function(data, type, row, meta) {",
+                             "return type === 'display' && data.length > 20 ?",
+                             "data.substr(0, 20) + '...' : data;",
+                             "}"
+                           )
+                         ),
+                         list(
+                           targets = c(1),
+                           render = JS(
+                             "function(data, type, row, meta) {",
+                             "return type === 'display' && data.length > 6 ?",
+                             "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                             "}"
+                           ),
+                           className = 'information-control1'
+                         ),
+                         list(
+                           targets = c(2),
+                           render = JS(
+                             "function(data, type, row, meta) {",
+                             "return type === 'display' && data.length > 6 ?",
+                             "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                             "}"
+                           ),
+                           className = 'information-control2'
+                         ),
+                         list(
+                           width = '250px',
+                           targets = c(5, 6),
+                           className = 'dt-center'
+                         ),
+                         list(
+                           width = '50px',
+                           targets = c(3, 4, 8, 15, 20),
+                           className = 'dt-center'
+                         ),
+                         list(width = '200px', targets = c(21))
+                       )
+                     ),
+                     callback = JS(data_table_call_back)) %>% 
   formatStyle(names(dt),color = 'black', lineHeight="10px") %>% 
   formatStyle(names(dt)[-1],
               'Pavlovia session ID', 
