@@ -2,9 +2,9 @@
 
 #### dataTable callback function
 data_table_call_back = "
-    table.column(17).nodes().to$().css({cursor: 'pointer'});
+    table.column(18).nodes().to$().css({cursor: 'pointer'});
     var format1 = function(d) {
-      return '<p>' + d[17] + '</p>';
+      return '<p>' + d[18] + '</p>';
     };
     table.on('click', 'td.details-control1', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -15,9 +15,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(18).nodes().to$().css({cursor: 'pointer'});
+    table.column(19).nodes().to$().css({cursor: 'pointer'});
     var format2 = function(d) {
-      return '<p>' + d[18] + '</p>';
+      return '<p>' + d[19] + '</p>';
     };
     table.on('click', 'td.details-control2', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -28,9 +28,9 @@ data_table_call_back = "
       }
     });
     
-    table.column(25).nodes().to$().css({cursor: 'pointer'});
+    table.column(26).nodes().to$().css({cursor: 'pointer'});
     var format6 = function(d) {
-      return '<p>' + d[25] + '</p>';
+      return '<p>' + d[26] + '</p>';
     };
     table.on('click', 'td.details-control3', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -41,9 +41,9 @@ data_table_call_back = "
       }
     });
     
-    table.column(26).nodes().to$().css({cursor: 'pointer'});
+    table.column(27).nodes().to$().css({cursor: 'pointer'});
     var format5 = function(d) {
-      return '<p>' + d[26] + '</p>';
+      return '<p>' + d[27] + '</p>';
     };
     table.on('click', 'td.details-control4', function() {
       var td = $(this), row = table.row(td.closest('tr'));

@@ -81,7 +81,7 @@ dt <- tibble(
   tardyMs = params$tardyMs,
   excessMs = params$excessMs,
   date = params$date,
-  kB = params$kB,
+  KB = params$KB,
   rows = params$rows,
   cols= params$cols,
   ok = params$ok,

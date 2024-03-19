@@ -1196,10 +1196,10 @@ shinyServer(function(input, output, session) {
                        language = list(info = 'Showing _TOTAL_ entries',
                                        infoFiltered =  "(filtered from _MAX_ entries)"),
                        columnDefs = list(
-                         list(visible = FALSE, targets = c(0, 27)),
-                         list(orderData = 27, targets = 20),
+                         list(visible = FALSE, targets = c(0, 28)),
+                         list(orderData = 28, targets = 21),
                          list(
-                           targets = c(17),
+                           targets = c(18),
                            width = '500px',
                            className = 'details-control1',
                            render = JS(
@@ -1210,7 +1210,7 @@ shinyServer(function(input, output, session) {
                            )
                          ),
                          list(
-                           targets = c(18),
+                           targets = c(19),
                            width = '250px',
                            className = 'details-control2',
                            render = JS(
@@ -1221,7 +1221,7 @@ shinyServer(function(input, output, session) {
                            )
                          ),
                          list(
-                           targets = c(25),
+                           targets = c(26),
                            width = '250px',
                            className = 'details-control3',
                            render = JS(
@@ -1232,7 +1232,7 @@ shinyServer(function(input, output, session) {
                            )
                          ),
                          list(
-                           targets = c(26),
+                           targets = c(27),
                            width = '250px',
                            className = 'details-control4',
                            render = JS(
@@ -1264,15 +1264,15 @@ shinyServer(function(input, output, session) {
                          ),
                          list(
                            width = '250px',
-                           targets = c(5, 6),
+                           targets = c(5, 7),
                            className = 'dt-center'
                          ),
                          list(
                            width = '50px',
-                           targets = c(3, 4, 8, 15, 20),
+                           targets = c(3, 4, 9, 16, 21),
                            className = 'dt-center'
                          ),
-                         list(width = '200px', targets = c(21))
+                         list(width = '200px', targets = c(22))
                        )
                      ),
                      callback = JS(data_table_call_back)

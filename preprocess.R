@@ -24,7 +24,7 @@ read_files <- function(file){
         t$cols <- ncol(t)
         t$rows <- ifelse(nrow(t) == 0, 0, nrow(t) + 1)
       }
-      t$kb <-inf$size
+      t$kb <-inf$size/1024
       
       if (!('ProlificParticipantID' %in% colnames(t))) {
         t$ProlificParticipantID <- ""
@@ -161,6 +161,15 @@ read_files <- function(file){
       if (!('psychojsWindowDimensions' %in% colnames(t))) {
         t$psychojsWindowDimensions <- "NA,NA"
       }
+      if (!('QRPreferNotToBool' %in% colnames(t))) {
+        t$QRPreferNotToBool <- NA
+      }
+      if (!('QRNoSmartphoneBool' %in% colnames(t))) {
+        t$QRNoSmartphoneBool <- NA
+      }
+      if (!('QRCantBool' %in% colnames(t))) {
+        t$QRCantBool <- NA
+      }
       t$age <- t$questionAndAnswerResponse[2]
       screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                             unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
@@ -240,7 +249,7 @@ read_files <- function(file){
           t$rows <- ifelse(nrow(t) == 0, 0, nrow(t) + 1)
         }
         inf <- file.info(unzip(file_list[k], all_csv[u]))
-        t$kb <-inf$size
+        t$kb <-inf$size/1024
         if (!('ProlificParticipantID' %in% colnames(t))) {
           t$ProlificParticipantID <- ""
         }
@@ -376,6 +385,15 @@ read_files <- function(file){
         }
         if (!('Microphone survey' %in% colnames(t))) {
           t$`Microphone survey` <- ""
+        }
+        if (!('QRPreferNotToBool' %in% colnames(t))) {
+          t$QRPreferNotToBool <- NA
+        }
+        if (!('QRNoSmartphoneBool' %in% colnames(t))) {
+          t$QRNoSmartphoneBool <- NA
+        }
+        if (!('QRCantBool' %in% colnames(t))) {
+          t$QRCantBool <- NA
         }
         t$age <- t$questionAndAnswerResponse[2]
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,

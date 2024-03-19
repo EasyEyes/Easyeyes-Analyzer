@@ -33,13 +33,15 @@ generate_summary_table <- function(data_list){
                               block, block_condition,conditionName, targetTask, targetKind, 
                               thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
                               targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
-                              ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`) %>% 
+                              ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,
+                              `Microphone survey`, QRPreferNotToBool, QRNoSmartphoneBool,QRCantBool) %>% 
       distinct(ProlificParticipantID, participant, deviceType, 
                cores, browser, deviceSystemFamily, deviceLanguage,
                block, block_condition,conditionName, targetTask, targetKind, 
                thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
                targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
-               ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`) %>% 
+               ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`, 
+               QRPreferNotToBool, QRNoSmartphoneBool,QRCantBool) %>% 
       arrange(`Loudspeaker survey`)
     tmp <- t$`Loudspeaker survey`[1]
     t <- t %>% mutate(`Loudspeaker survey` = ifelse(is.na(tmp), '',tmp))
@@ -49,13 +51,29 @@ generate_summary_table <- function(data_list){
     t <- t %>% arrange(`Microphone survey`)
     tmp <- t$`Microphone survey`[1]
     t <- t %>% mutate(`Microphone survey` = ifelse(is.na(tmp), '',tmp))
+    t <- t %>% arrange(QRPreferNotToBool)
+    tmp <- t$QRPreferNotToBool[1]
+    t <- t %>% mutate(QRPreferNotToBool = ifelse(is.na(tmp), NA,tmp))
+    t <- t %>% arrange(QRNoSmartphoneBool)
+    tmp <- t$QRNoSmartphoneBool[1]
+    t <- t %>% mutate(QRNoSmartphoneBool = ifelse(is.na(tmp), NA,tmp))
+    t <- t %>% arrange(QRCantBool)
+    tmp <- t$QRCantBool[1]
+    t <- t %>% mutate(QRCantBool = ifelse(is.na(tmp), NA,tmp))
     t <- t %>%   
+      mutate(QRConnect = case_when(
+        is.na(QRPreferNotToBool) & is.na(QRNoSmartphoneBool) & is.na(QRCantBool) ~ 'Columns do not exist',
+        QRPreferNotToBool==T ~ paste(emoji("heavy_multiplication_x"),'PreferNot'),
+        QRNoSmartphoneBool==T ~ paste(emoji("heavy_multiplication_x"),'NoPhone'),
+        QRCantBool==T ~ paste(emoji("heavy_multiplication_x"),'Cannot'),
+        .default = emoji('heavy_check_mark'))) %>% 
       distinct(ProlificParticipantID, participant, deviceType, 
        cores, browser, deviceSystemFamily, deviceLanguage,
        block, block_condition,conditionName, targetTask, targetKind, 
        thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
        targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
-       ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`)
+       ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,
+       `Microphone survey`, QRConnect)
     all_files <- rbind(all_files,t)
   }
   trial <- all_files %>% group_by(participant, block_condition) %>% count()
@@ -83,11 +101,13 @@ generate_summary_table <- function(data_list){
         t <- data_list[[i]] %>% 
           distinct(ProlificParticipantID,participant, deviceType,
                    cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
-                   ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`) %>% 
+                   ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
+                   QRPreferNotToBool, QRNoSmartphoneBool,QRCantBool) %>% 
           mutate(error = "Incomplete") %>% 
           select(error,ProlificParticipantID,participant, deviceType, 
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
-                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`) %>% 
+                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
+                 QRPreferNotToBool, QRNoSmartphoneBool,QRCantBool) %>% 
           arrange(`Loudspeaker survey`)
         tmp <- t$`Loudspeaker survey`[1]
         t <- t %>% mutate(`Loudspeaker survey` = ifelse(is.na(tmp), '',tmp))
@@ -97,6 +117,26 @@ generate_summary_table <- function(data_list){
         t <- t %>% arrange(`Microphone survey`)
         tmp <- t$`Microphone survey`[1]
         t <- t %>% mutate(`Microphone survey` = ifelse(is.na(tmp), '',tmp))
+        t <- t %>% arrange(QRPreferNotToBool)
+        tmp <- t$QRPreferNotToBool[1]
+        t$QRPreferNotToBool = ifelse(is.na(tmp), NA,tmp)
+        t <- t %>% arrange(QRNoSmartphoneBool)
+        tmp <- t$QRNoSmartphoneBool[1]
+        t$QRNoSmartphoneBool = ifelse(is.na(tmp), NA,tmp)
+        t <- t %>% arrange(QRCantBool)
+        tmp <- t$QRCantBool[1]
+        t$QRCantBool = ifelse(is.na(tmp), NA,tmp)
+        t <- t %>%   
+          mutate(QRConnect = case_when(
+            is.na(QRPreferNotToBool) & is.na(QRNoSmartphoneBool) & is.na(QRCantBool) ~ 'Columns do not exist',
+            QRPreferNotToBool==T ~ paste(emoji("heavy_multiplication_x"),'PreferNot'),
+            QRNoSmartphoneBool==T ~ paste(emoji("heavy_multiplication_x"),'NoPhone'),
+            QRCantBool==T ~ paste(emoji("heavy_multiplication_x"),'Cannot'),
+            .default = emoji('heavy_check_mark'))) %>% 
+          distinct(error,ProlificParticipantID,participant, deviceType, 
+                 cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
+                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
+                 QRConnect)
         info <- data_list[[i]] %>% 
           distinct(block, block_condition, conditionName, 
                    targetTask, targetKind, thresholdParameter) %>% 
@@ -127,17 +167,34 @@ generate_summary_table <- function(data_list){
       t <- data_list[[i]] %>% 
         distinct(ProlificParticipantID, participant, deviceType, error,
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
-                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`) %>% 
+                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
+                 QRPreferNotToBool, QRNoSmartphoneBool,QRCantBool) %>% 
         arrange(`Loudspeaker survey`)
       t$`Loudspeaker survey` = t$`Loudspeaker survey`[1]
       t <- t %>% arrange( `_needsUnmet`)
       t$`_needsUnmet` = t$`_needsUnmet`[1]
       t <- t %>% arrange(`Microphone survey`)
       t$`Microphone survey` = t$`Microphone survey`[1]
+      t <- t %>% arrange(QRPreferNotToBool)
+      tmp <- t$QRPreferNotToBool[1]
+      t <- t %>% mutate(QRPreferNotToBool = ifelse(is.na(tmp), NA,tmp))
+      t <- t %>% arrange(QRNoSmartphoneBool)
+      tmp <- t$QRNoSmartphoneBool[1]
+      t <- t %>% mutate(QRNoSmartphoneBool = ifelse(is.na(tmp), NA,tmp))
+      t <- t %>% arrange(QRCantBool)
+      tmp <- t$QRCantBool[1]
+      t <- t %>% mutate(QRCantBool = ifelse(is.na(tmp), NA,tmp))
       t <- t %>%   
+        mutate(QRConnect = case_when(
+          is.na(QRPreferNotToBool) & is.na(QRPreferNotToBool) & is.na(QRPreferNotToBool) ~ 'Columns do not exist',
+          QRPreferNotToBool==T ~ paste(emoji("heavy_multiplication_x"),'PreferNot'),
+          QRNoSmartphoneBool==T ~ paste(emoji("heavy_multiplication_x"),'NoPhone'),
+          QRCantBool==T ~ paste(emoji("heavy_multiplication_x"),'Cannot'),
+          .default = emoji('heavy_check_mark'))) %>%
         distinct(ProlificParticipantID, participant, deviceType, error,
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
-                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`)
+                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
+                 QRConnect)
       info <- data_list[[i]] %>% 
         distinct(block, block_condition, conditionName, 
                  targetTask, targetKind, thresholdParameter) %>% 
@@ -161,13 +218,13 @@ generate_summary_table <- function(data_list){
                                cores, deviceSystemFamily, browser, resolution,
                                block, block_condition, conditionName, targetTask, targetKind, 
                                thresholdParameter, ok, rows, cols, kb, ComputerInfoFrom51Degrees,
-                               `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`),
+                               `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,QRConnect),
                       warnings %>% 
                         select(error, warning, ProlificParticipantID, participant, deviceType, 
                                cores, deviceSystemFamily, browser, resolution,
                                block, block_condition, conditionName, targetTask, targetKind, 
                                thresholdParameter, ok, rows, cols, kb, ComputerInfoFrom51Degrees,
-                               `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`)) %>% 
+                               `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,QRConnect)) %>% 
     mutate(ok = factor(ok, levels = c(paste(emoji("x")), 
                                       emoji("construction"),
                                       emoji("large_orange_diamond"),
@@ -185,15 +242,15 @@ generate_summary_table <- function(data_list){
            "block condition" = "block_condition",
            "system" = "deviceSystemFamily",
            "trial" = "n",
-           'kB' = 'kb',
+           'KB' = 'kb',
            "unmetNeeds" = '_needsUnmet',
            "computer51Deg" ="ComputerInfoFrom51Degrees",
            "Loudspeaker" = "Loudspeaker survey",
            "Microphone" = "Microphone survey") %>% 
     distinct(`Prolific participant ID`, `Pavlovia session ID`, `device type`, system,
-           browser, resolution, computer51Deg, cores, tardyMs, excessMs, date, kB, rows, cols, 
+           browser, resolution, QRConnect, computer51Deg, cores, tardyMs, excessMs, date, KB, rows, cols, 
            ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
-           `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone)
+           `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, QRConnect)
   
   #### order block_condition by splitting and order block and condition order ####
   summary_df <- summary_df %>% 
