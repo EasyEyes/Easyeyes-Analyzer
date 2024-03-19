@@ -69,7 +69,7 @@ shinyUI(
           multiple = T
         )
       )),
-      fluidRow(
+      fixedRow(
         column(
           width = 2,
           align = "left",
@@ -80,7 +80,7 @@ shinyUI(
           align = "left",
           downloadButton("sessionCsv", "Download csv")
         ),
-        column(width = 1, textInput("search", label = NULL))
+        column(width = 1, div(HTML('<input type="text" id="search" style="height: 33px; margin-left: 100px;"/>')))
       ),
       textOutput("instruction"),
       shinycssloaders::withSpinner(DT::dataTableOutput('ex1'), type = 4)

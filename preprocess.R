@@ -24,7 +24,7 @@ read_files <- function(file){
         t$cols <- ncol(t)
         t$rows <- ifelse(nrow(t) == 0, 0, nrow(t) + 1)
       }
-      t$kb <-inf$size/1024
+      t$kb <-round(inf$size/1024)
       
       if (!('ProlificParticipantID' %in% colnames(t))) {
         t$ProlificParticipantID <- ""
@@ -249,7 +249,7 @@ read_files <- function(file){
           t$rows <- ifelse(nrow(t) == 0, 0, nrow(t) + 1)
         }
         inf <- file.info(unzip(file_list[k], all_csv[u]))
-        t$kb <-inf$size/1024
+        t$kb <-round(inf$size/1024)
         if (!('ProlificParticipantID' %in% colnames(t))) {
           t$ProlificParticipantID <- ""
         }
