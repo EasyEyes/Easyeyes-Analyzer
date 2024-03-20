@@ -2,6 +2,20 @@
 
 #### dataTable callback function
 data_table_call_back = "
+
+  table.column(8).nodes().to$().css({cursor: 'pointer'});
+    var format8 = function(d) {
+      return '<p>' + d[8] + '</p>';
+    };
+    table.on('click', 'td.details-control5', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format8(row.data())).show();
+      }
+    });
+    
     table.column(18).nodes().to$().css({cursor: 'pointer'});
     var format1 = function(d) {
       return '<p>' + d[18] + '</p>';

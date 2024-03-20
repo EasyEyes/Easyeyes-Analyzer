@@ -34,14 +34,14 @@ generate_summary_table <- function(data_list){
                               thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
                               targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
                               ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,
-                              `Microphone survey`, QRPreferNotToBool, QRNoSmartphoneBool,QRCantBool) %>% 
+                              `Microphone survey`, QRConnect) %>% 
       distinct(ProlificParticipantID, participant, deviceType, 
                cores, browser, deviceSystemFamily, deviceLanguage,
                block, block_condition,conditionName, targetTask, targetKind, 
                thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
                targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
                ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`, 
-               QRPreferNotToBool, QRNoSmartphoneBool,QRCantBool) %>% 
+               QRConnect) %>% 
       arrange(`Loudspeaker survey`)
     tmp <- t$`Loudspeaker survey`[1]
     t <- t %>% mutate(`Loudspeaker survey` = ifelse(is.na(tmp), '',tmp))
@@ -51,22 +51,13 @@ generate_summary_table <- function(data_list){
     t <- t %>% arrange(`Microphone survey`)
     tmp <- t$`Microphone survey`[1]
     t <- t %>% mutate(`Microphone survey` = ifelse(is.na(tmp), '',tmp))
-    t <- t %>% arrange(QRPreferNotToBool)
-    tmp <- t$QRPreferNotToBool[1]
-    t <- t %>% mutate(QRPreferNotToBool = ifelse(is.na(tmp), NA,tmp))
-    t <- t %>% arrange(QRNoSmartphoneBool)
-    tmp <- t$QRNoSmartphoneBool[1]
-    t <- t %>% mutate(QRNoSmartphoneBool = ifelse(is.na(tmp), NA,tmp))
-    t <- t %>% arrange(QRCantBool)
-    tmp <- t$QRCantBool[1]
-    t <- t %>% mutate(QRCantBool = ifelse(is.na(tmp), NA,tmp))
-    t <- t %>%   
-      mutate(QRConnect = case_when(
-        is.na(QRPreferNotToBool) & is.na(QRNoSmartphoneBool) & is.na(QRCantBool) ~ 'Columns do not exist',
-        QRPreferNotToBool==T ~ paste(emoji("heavy_multiplication_x"),'PreferNot'),
-        QRNoSmartphoneBool==T ~ paste(emoji("heavy_multiplication_x"),'NoPhone'),
-        QRCantBool==T ~ paste(emoji("heavy_multiplication_x"),'Cannot'),
-        .default = emoji('heavy_check_mark'))) %>% 
+    t <- t %>% arrange(`ComputerInfoFrom51Degrees`)
+    tmp <- t$`ComputerInfoFrom51Degrees`[1]
+    t <- t %>% mutate(`ComputerInfoFrom51Degrees` = ifelse(is.na(tmp), '',tmp))
+   
+    t <- t %>% arrange(desc(QRConnect))
+    tmp <- t$QRConnect[1]
+    t <- t %>% mutate(QRConnect = ifelse(is.na(tmp), '',tmp)) %>% 
       distinct(ProlificParticipantID, participant, deviceType, 
        cores, browser, deviceSystemFamily, deviceLanguage,
        block, block_condition,conditionName, targetTask, targetKind, 
@@ -102,12 +93,12 @@ generate_summary_table <- function(data_list){
           distinct(ProlificParticipantID,participant, deviceType,
                    cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                    ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
-                   QRPreferNotToBool, QRNoSmartphoneBool,QRCantBool) %>% 
+                   QRConnect) %>% 
           mutate(error = "Incomplete") %>% 
           select(error,ProlificParticipantID,participant, deviceType, 
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
-                 QRPreferNotToBool, QRNoSmartphoneBool,QRCantBool) %>% 
+                 QRConnect) %>% 
           arrange(`Loudspeaker survey`)
         tmp <- t$`Loudspeaker survey`[1]
         t <- t %>% mutate(`Loudspeaker survey` = ifelse(is.na(tmp), '',tmp))
@@ -117,22 +108,14 @@ generate_summary_table <- function(data_list){
         t <- t %>% arrange(`Microphone survey`)
         tmp <- t$`Microphone survey`[1]
         t <- t %>% mutate(`Microphone survey` = ifelse(is.na(tmp), '',tmp))
-        t <- t %>% arrange(QRPreferNotToBool)
-        tmp <- t$QRPreferNotToBool[1]
-        t$QRPreferNotToBool = ifelse(is.na(tmp), NA,tmp)
-        t <- t %>% arrange(QRNoSmartphoneBool)
-        tmp <- t$QRNoSmartphoneBool[1]
-        t$QRNoSmartphoneBool = ifelse(is.na(tmp), NA,tmp)
-        t <- t %>% arrange(QRCantBool)
-        tmp <- t$QRCantBool[1]
-        t$QRCantBool = ifelse(is.na(tmp), NA,tmp)
-        t <- t %>%   
-          mutate(QRConnect = case_when(
-            is.na(QRPreferNotToBool) & is.na(QRNoSmartphoneBool) & is.na(QRCantBool) ~ 'Columns do not exist',
-            QRPreferNotToBool==T ~ paste(emoji("heavy_multiplication_x"),'PreferNot'),
-            QRNoSmartphoneBool==T ~ paste(emoji("heavy_multiplication_x"),'NoPhone'),
-            QRCantBool==T ~ paste(emoji("heavy_multiplication_x"),'Cannot'),
-            .default = emoji('heavy_check_mark'))) %>% 
+        t <- t %>% arrange(desc(QRConnect))
+        tmp <- t$QRConnect[1]
+        t$QRConnect = ifelse(is.na(tmp), '',tmp)
+        t <- t %>% arrange(`ComputerInfoFrom51Degrees`)
+        tmp <- t$`ComputerInfoFrom51Degrees`[1]
+        t <- t %>% mutate(`ComputerInfoFrom51Degrees` = ifelse(is.na(tmp), '',tmp))
+       
+        t <- t %>% 
           distinct(error,ProlificParticipantID,participant, deviceType, 
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
@@ -168,29 +151,20 @@ generate_summary_table <- function(data_list){
         distinct(ProlificParticipantID, participant, deviceType, error,
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
-                 QRPreferNotToBool, QRNoSmartphoneBool,QRCantBool) %>% 
+                 QRConnect) %>% 
         arrange(`Loudspeaker survey`)
       t$`Loudspeaker survey` = t$`Loudspeaker survey`[1]
       t <- t %>% arrange( `_needsUnmet`)
       t$`_needsUnmet` = t$`_needsUnmet`[1]
       t <- t %>% arrange(`Microphone survey`)
       t$`Microphone survey` = t$`Microphone survey`[1]
-      t <- t %>% arrange(QRPreferNotToBool)
-      tmp <- t$QRPreferNotToBool[1]
-      t <- t %>% mutate(QRPreferNotToBool = ifelse(is.na(tmp), NA,tmp))
-      t <- t %>% arrange(QRNoSmartphoneBool)
-      tmp <- t$QRNoSmartphoneBool[1]
-      t <- t %>% mutate(QRNoSmartphoneBool = ifelse(is.na(tmp), NA,tmp))
-      t <- t %>% arrange(QRCantBool)
-      tmp <- t$QRCantBool[1]
-      t <- t %>% mutate(QRCantBool = ifelse(is.na(tmp), NA,tmp))
-      t <- t %>%   
-        mutate(QRConnect = case_when(
-          is.na(QRPreferNotToBool) & is.na(QRPreferNotToBool) & is.na(QRPreferNotToBool) ~ 'Columns do not exist',
-          QRPreferNotToBool==T ~ paste(emoji("heavy_multiplication_x"),'PreferNot'),
-          QRNoSmartphoneBool==T ~ paste(emoji("heavy_multiplication_x"),'NoPhone'),
-          QRCantBool==T ~ paste(emoji("heavy_multiplication_x"),'Cannot'),
-          .default = emoji('heavy_check_mark'))) %>%
+      t <- t %>% arrange(`ComputerInfoFrom51Degrees`)
+      tmp <- t$`ComputerInfoFrom51Degrees`[1]
+      t <- t %>% mutate(`ComputerInfoFrom51Degrees` = ifelse(is.na(tmp), '',tmp))
+      t <- t %>% arrange(desc(QRConnect))
+      tmp <- t$QRConnect[1]
+      t <- t %>% mutate(QRConnect = ifelse(is.na(tmp), '',tmp))
+      t <- t %>%
         distinct(ProlificParticipantID, participant, deviceType, error,
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
@@ -265,6 +239,9 @@ generate_summary_table <- function(data_list){
   summary_df <- summary_df %>%
     left_join(block_condition_order, by = c("block", "condition")) %>%
     select(-block, -condition)
-  summary_df[is.na(summary_df)] <- ""
+  summary_df$`Prolific participant ID` = as.character(summary_df$`Prolific participant ID`)
+  print(summary_df$QRConnect)
+  summary_df$trial = ifelse(is.na(summary_df$trial), 0,  summary_df$trial)
+    summary_df[is.na(summary_df)] = ''
   return(summary_df)
 }

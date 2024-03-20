@@ -1199,6 +1199,17 @@ shinyServer(function(input, output, session) {
                          list(visible = FALSE, targets = c(0, 28)),
                          list(orderData = 28, targets = 21),
                          list(
+                           targets = c(8),
+                           width = '500px',
+                           className = 'details-control5',
+                           render = JS(
+                             "function(data, type, row, meta) {",
+                             "return type === 'display' && data.length > 20 ?",
+                             "data.substr(0, 20) + '...' : data;",
+                             "}"
+                           )
+                         ),
+                         list(
                            targets = c(18),
                            width = '500px',
                            className = 'details-control1',
