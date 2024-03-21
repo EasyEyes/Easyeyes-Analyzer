@@ -1,6 +1,7 @@
 library(dplyr)
 library(stringr)
 read_files <- function(file){
+  if(is.null(file)) return(list())
   file_list <- file$data
   data_list <- list()
   summary_list <- list()

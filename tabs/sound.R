@@ -52,7 +52,7 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        withSpinner(plotOutput(
+        shinycssloaders::withSpinner(plotOutput(
           "IRtmpFour", width = "100%", height = "95%"
         ),
         type = 4)
@@ -60,7 +60,7 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        withSpinner(plotOutput(
+        shinycssloaders::withSpinner(plotOutput(
           "IRtmpFive", width = "100%", height = "95%"
         ),
         type = 4)
@@ -82,7 +82,7 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        withSpinner(
+        shinycssloaders::withSpinner(
           plotOutput("componentIIR0To10", height = "100%", width = "100%"),
           type = 4
         )
@@ -90,7 +90,7 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        withSpinner(
+        shinycssloaders::withSpinner(
           plotOutput("componentIIR0To50", height = "100%", width = "100%"),
           type = 4
         )
@@ -111,7 +111,7 @@ soundTab <- tabPanel(
     fixedRow(column(
       width = 6,
       align = "center",
-      withSpinner(
+      shinycssloaders::withSpinner(
         plotOutput("componentIIR0To400", height = "100%", width = "100%"),
         type = 4
       )
@@ -125,7 +125,7 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        withSpinner(
+        shinycssloaders::withSpinner(
           plotOutput("componentIRPSD", height = "100%", width = "100%"),
           type = 4
         )
@@ -133,7 +133,7 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        withSpinner(
+        shinycssloaders::withSpinner(
           plotOutput("componentIR0To6", height = "100%", width = "100%"),
           type = 4
         )
@@ -156,7 +156,7 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        withSpinner(
+        shinycssloaders::withSpinner(
           plotOutput("componentIR0To50", height = "100%", width = "100%"),
           type = 4
         )
@@ -164,7 +164,7 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        withSpinner(
+        shinycssloaders::withSpinner(
           plotOutput("componentIR0To400", height = "100%", width = "100%"),
           type = 4
         )
@@ -186,7 +186,7 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        withSpinner(
+        shinycssloaders::withSpinner(
           plotOutput("cumSumPowerPlotSystem", height = "100%", width = "100%"),
           type = 4
         )
@@ -194,7 +194,7 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        withSpinner(
+        shinycssloaders::withSpinner(
           plotOutput("cumSumPowerPlotComponent", height = "100%", width = "100%"),
           type = 4
         )
@@ -238,7 +238,7 @@ soundTab <- tabPanel(
   fixedRow(column(
     width = 12,
     align = "center",
-    withSpinner(
+    shinycssloaders::withSpinner(
       imageOutput("volume power variation", width = "100%", height = "100%"),
       type = 4
     )
@@ -251,7 +251,7 @@ soundTab <- tabPanel(
   fixedRow(column(
     width = 12,
     align = "center",
-    withSpinner(
+    shinycssloaders::withSpinner(
       imageOutput("power variation", width = "100%", height = "100%"),
       type = 4
     )
@@ -264,7 +264,7 @@ soundTab <- tabPanel(
   fixedRow(column(
     width = 12,
     align = "center",
-    withSpinner(imageOutput("record freq plot system", height = "100%"), type = 4)
+    shinycssloaders::withSpinner(imageOutput("record freq plot system", height = "100%"), type = 4)
   )),
   fixedRow(column(
     width = 12,
@@ -274,7 +274,7 @@ soundTab <- tabPanel(
   fixedRow(column(
     width = 12,
     align = "center",
-    withSpinner(imageOutput("record freq plot component", height = "100%"), type = 4)
+    shinycssloaders::withSpinner(imageOutput("record freq plot component", height = "100%"), type = 4)
   )),
   fixedRow(column(
     width = 12,

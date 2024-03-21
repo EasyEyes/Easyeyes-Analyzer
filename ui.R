@@ -18,7 +18,7 @@ shinyUI(
     plotsTab,
     soundTab,
     profileTab,
-    #     #### Bits ####
+   #### Bits ####
     tabPanel(
       'Bits',
       h3("All blocks"),

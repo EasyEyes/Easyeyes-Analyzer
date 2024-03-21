@@ -239,8 +239,5 @@ generate_summary_table <- function(data_list){
   summary_df <- summary_df %>%
     left_join(block_condition_order, by = c("block", "condition")) %>%
     select(-block, -condition)
-  summary_df$`Prolific participant ID` = as.character(summary_df$`Prolific participant ID`)
-  summary_df$trial = ifelse(is.na(summary_df$trial), 0,  summary_df$trial)
-    summary_df[is.na(summary_df)] = ''
   return(summary_df)
 }

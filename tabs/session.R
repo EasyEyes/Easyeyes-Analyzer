@@ -51,7 +51,7 @@ sessionTab <- tabPanel(
       NULL,
       accept = c(".csv"),
       buttonLabel = "Prolific csv file",
-      multiple = F
+      multiple = T
     )
   )),
   fixedRow(
@@ -65,7 +65,11 @@ sessionTab <- tabPanel(
       align = "left",
       downloadButton("sessionCsv", "Download csv")
     ),
-    column(width = 1, div(HTML('<input type="text" id="search" style="height: 33px; margin-left: 100px;"/>')))
+    column(width = 1, div(
+      HTML(
+        '<input type="text" id="search" style="height: 33px; margin-left: 100px;"/>'
+      )
+    ))
   ),
   textOutput("instruction"),
   shinycssloaders::withSpinner(DT::dataTableOutput('ex1'), type = 4)
