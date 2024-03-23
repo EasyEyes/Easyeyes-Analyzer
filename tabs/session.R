@@ -63,7 +63,7 @@ sessionTab <- tabPanel(
     column(
       width = 1,
       align = "left",
-      downloadButton("sessionCsv", "Download csv")
+      downloadButton("sessionCsv", "Download xlsx")
     ),
     column(width = 1, div(
       HTML(

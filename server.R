@@ -1172,12 +1172,6 @@ shinyServer(function(input, output, session) {
                           app_title$default)
                  })
                  set.seed(2023)
-                 participants <- reactive({
-                   unique(summary_table()$`Pavlovia session ID`)
-                 })
-                 prolific_id <- reactive({
-                   unique(summary_table()$`Prolific participant ID`)
-                 })
                  #### summary page ####
                  output$instruction <- renderText(instruction)
                  output$experiment <- renderText(experiment_names())
@@ -1188,130 +1182,12 @@ shinyServer(function(input, output, session) {
                    combinedTable <- combineProlific(NULL, summary_table())
                  }
                  
-                 
+                 participants <- 
+                   unique(combinedTable$`Pavlovia session ID`)
+                 prolific_id <-
+                   unique(combinedTable$`Prolific participant ID`)
                  output$ex1 <- DT::renderDataTable(
-                   dt <- datatable(
-                     combinedTable,
-                     class = list(stripe = FALSE),
-                     selection = 'none',
-                     filter = "top",
-                     escape = FALSE,
-                     width = "200%",
-                     options = list(
-                       autoWidth = FALSE,
-                       paging = FALSE,
-                       scrollX = TRUE,
-                       dom = 'tip',
-                       language = list(info = 'Showing _TOTAL_ entries',
-                                       infoFiltered =  "(filtered from _MAX_ entries)"),
-                       columnDefs = list(
-                         list(visible = FALSE, targets = c(0, 30)),
-                         list(orderData = 30, targets = 23),
-                         list(
-                           targets = c(10),
-                           width = '500px',
-                           className = 'details-control5',
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data && data.length > 20 ?",
-                             "data.substr(0, 20) + '...' : data;",
-                             "}"
-                           )
-                         ),
-                         list(
-                           targets = c(20),
-                           width = '500px',
-                           className = 'details-control1',
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data && data.length > 20 ?",
-                             "data.substr(0, 20) + '...' : data;",
-                             "}"
-                           )
-                         ),
-                         list(
-                           targets = c(21),
-                           width = '250px',
-                           className = 'details-control2',
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data && data.length > 20 ?",
-                             "data.substr(0, 20) + '...' : data;",
-                             "}"
-                           )
-                         ),
-                         list(
-                           targets = c(28),
-                           width = '250px',
-                           className = 'details-control3',
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data && data.length > 20 ?",
-                             "data.substr(0, 20) + '...' : data;",
-                             "}"
-                           )
-                         ),
-                         list(
-                           targets = c(29),
-                           width = '250px',
-                           className = 'details-control4',
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data && data.length > 20 ?",
-                             "data.substr(0, 20) + '...' : data;",
-                             "}"
-                           )
-                         ),
-                         list(
-                           targets = c(1),
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data && data.length > 6 ?",
-                             "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-                             "}"
-                           ),
-                           className = 'information-control1'
-                         ),
-                         list(
-                           targets = c(2),
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data && data.length > 6 ?",
-                             "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-                             "}"
-                           ),
-                           className = 'information-control2'
-                         ),
-                         list(
-                           width = '250px',
-                           targets = c(7, 9),
-                           className = 'dt-center'
-                         ),
-                         list(
-                           width = '50px',
-                           targets = c(5, 6, 11, 18, 23),
-                           className = 'dt-center'
-                         ),
-                         list(width = '200px', targets = c(24))
-                       )
-                     ),
-                     callback = JS(data_table_call_back)
-                   ) %>%
-                     formatStyle(names(combinedTable), lineHeight = "15px") %>%
-                     formatStyle(
-                       names(combinedTable)[-1],
-                       'Pavlovia session ID',
-                       backgroundColor = styleEqual(participants(), random_rgb(length(participants(
-                         
-                       ))))
-                     ) %>%
-                     formatStyle(
-                       names(combinedTable)[1],
-                       'Prolific participant ID',
-                       backgroundColor = styleEqual(prolific_id(), random_rgb(length(prolific_id(
-                         
-                       ))))
-                     )
+                   render_summary_datatable(combinedTable, participants, prolific_id)
                  )
                  #### stats page ####
                  output$ex2 <-
@@ -1460,139 +1336,13 @@ shinyServer(function(input, output, session) {
                app_title$default)
       })
       set.seed(2023)
-      participants <- reactive({
-        unique(summary_table()$`Pavlovia session ID`)
-      })
-      prolific_id <- reactive({
-        unique(summary_table()$`Prolific participant ID`)
-      })
-      #### summary page ####
       output$instruction <- renderText(instruction)
       output$experiment <- renderText(experiment_names())
       combinedTable <- combineProlific(prolificData, summary_table())
+      participants <- unique(combinedTable$`Pavlovia session ID`)
+      prolific_id <- unique(combinedTable$`Prolific participant ID`)
       output$ex1 <- DT::renderDataTable(
-        dt <- datatable(
-          combinedTable,
-          class = list(stripe = FALSE),
-          selection = 'none',
-          filter = "top",
-          escape = FALSE,
-          width = "200%",
-          options = list(
-            autoWidth = FALSE,
-            paging = FALSE,
-            scrollX = TRUE,
-            dom = 'tip',
-            language = list(info = 'Showing _TOTAL_ entries',
-                            infoFiltered =  "(filtered from _MAX_ entries)"),
-            columnDefs = list(
-              list(visible = FALSE, targets = c(0, 30)),
-              list(orderData = 30, targets = 23),
-              list(
-                targets = c(10),
-                width = '500px',
-                className = 'details-control5',
-                render = JS(
-                  "function(data, type, row, meta) {",
-                  "return type === 'display' && data && data.length > 20 ?",
-                  "data.substr(0, 20) + '...' : data;",
-                  "}"
-                )
-              ),
-              list(
-                targets = c(20),
-                width = '500px',
-                className = 'details-control1',
-                render = JS(
-                  "function(data, type, row, meta) {",
-                  "return type === 'display' && data && data.length > 20 ?",
-                  "data.substr(0, 20) + '...' : data;",
-                  "}"
-                )
-              ),
-              list(
-                targets = c(21),
-                width = '250px',
-                className = 'details-control2',
-                render = JS(
-                  "function(data, type, row, meta) {",
-                  "return type === 'display' && data && data.length > 20 ?",
-                  "data.substr(0, 20) + '...' : data;",
-                  "}"
-                )
-              ),
-              list(
-                targets = c(28),
-                width = '250px',
-                className = 'details-control3',
-                render = JS(
-                  "function(data, type, row, meta) {",
-                  "return type === 'display' && data && data.length > 20 ?",
-                  "data.substr(0, 20) + '...' : data;",
-                  "}"
-                )
-              ),
-              list(
-                targets = c(29),
-                width = '250px',
-                className = 'details-control4',
-                render = JS(
-                  "function(data, type, row, meta) {",
-                  "return type === 'display' && data && data.length > 20 ?",
-                  "data.substr(0, 20) + '...' : data;",
-                  "}"
-                )
-              ),
-              list(
-                targets = c(1),
-                render = JS(
-                  "function(data, type, row, meta) {",
-                  "return type === 'display' && data && data.length > 6 ?",
-                  "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-                  "}"
-                ),
-                className = 'information-control1'
-              ),
-              list(
-                targets = c(2),
-                render = JS(
-                  "function(data, type, row, meta) {",
-                  "return type === 'display' && data && data.length > 6 ?",
-                  "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-                  "}"
-                ),
-                className = 'information-control2'
-              ),
-              list(
-                width = '250px',
-                targets = c(7, 9),
-                className = 'dt-center'
-              ),
-              list(
-                width = '50px',
-                targets = c(5, 6, 11, 18, 23),
-                className = 'dt-center'
-              ),
-              list(width = '200px', targets = c(24))
-            )
-          ),
-          callback = JS(data_table_call_back)
-        ) %>%
-          formatStyle(names(combinedTable), lineHeight = "15px") %>%
-          formatStyle(
-            names(combinedTable)[-1],
-            'Pavlovia session ID',
-            backgroundColor = styleEqual(participants(), random_rgb(length(participants(
-              
-            ))))
-          ) %>%
-          formatStyle(
-            names(combinedTable)[1],
-            'Prolific participant ID',
-            backgroundColor = styleEqual(prolific_id(), random_rgb(length(prolific_id(
-              
-            ))))
-          )
+        render_summary_datatable(combinedTable, participants, prolific_id)
       )
     } else{
       output$ex1 <- DT::renderDataTable(prolificData)
@@ -1605,13 +1355,13 @@ shinyServer(function(input, output, session) {
   output$sessionCsv <- downloadHandler(
     filename = function() {
       ifelse(
-        app_title$default == "Easy",
-        "sessions.csv",
-        paste0(app_title$default, "-sessions.csv")
+        app_title$default == "EasyEyes Analysis",
+        "sessions.xlsx",
+        paste0(app_title$default, "-sessions.xlsx")
       )
     },
     content = function(filename) {
-      write.csv(summary_table() %>% select(-order), file = filename)
+      openxlsx::write.xlsx(summary_table() %>% select(-order), file = filename)
     }
   )
   

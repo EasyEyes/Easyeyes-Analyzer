@@ -1,4 +1,104 @@
 library(dplyr)
+library(DT)
+data_table_call_back = "
+
+  table.column(10).nodes().to$().css({cursor: 'pointer'});
+    var format8 = function(d) {
+      return '<p>' + d[10] + '</p>';
+    };
+    table.on('click', 'td.details-control5', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format8(row.data())).show();
+      }
+    });
+    
+    table.column(20).nodes().to$().css({cursor: 'pointer'});
+    var format1 = function(d) {
+      return '<p>' + d[20] + '</p>';
+    };
+    table.on('click', 'td.details-control1', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format1(row.data())).show();
+      }
+    });
+
+    table.column(21).nodes().to$().css({cursor: 'pointer'});
+    var format2 = function(d) {
+      return '<p>' + d[21] + '</p>';
+    };
+    table.on('click', 'td.details-control2', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format2(row.data())).show();
+      }
+    });
+    
+    table.column(28).nodes().to$().css({cursor: 'pointer'});
+    var format6 = function(d) {
+      return '<p>' + d[28] + '</p>';
+    };
+    table.on('click', 'td.details-control3', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format6(row.data())).show();
+      }
+    });
+    
+    table.column(29).nodes().to$().css({cursor: 'pointer'});
+    var format5 = function(d) {
+      return '<p>' + d[29] + '</p>';
+    };
+    table.on('click', 'td.details-control4', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format5(row.data())).show();
+      }
+    });
+
+    table.column(1).nodes().to$().css({cursor: 'pointer'});
+    var format3 = function(d) {
+      return '<p>' + d[1] + '</p> <p>' + d[2] + '</p>';
+    };
+    table.column(2).nodes().to$().css({cursor: 'pointer'});
+    var format4 = function(d) {
+      return '<p>' + d[1] + '</p> <p>' + d[2] + '</p>';
+    };
+    table.on('click', 'td.information-control1', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format3(row.data())).show();
+      }
+    });
+    table.on('click', 'td.information-control2', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format4(row.data())).show();
+      }
+    });
+    
+    $('div.has-feedback input[type=\"search\"]').attr('placeholder', '');
+    
+    $('#search').keyup(function(){
+      table.search($(this).val()).draw() ;
+})
+  "
+
 get_lateness_and_duration <- function(all_files){
   t <- all_files %>% 
     select(participant, date, targetMeasuredLatenessSec, targetMeasuredDurationSec, targetDurationSec) %>% 
@@ -241,3 +341,128 @@ generate_summary_table <- function(data_list){
     select(-block, -condition)
   return(summary_df)
 }
+
+render_summary_datatable <- function(dt, participants, prolific_id){
+  datatable(dt,
+            class = list(stripe = FALSE),
+            selection = 'none',
+            filter = "top",
+            escape = FALSE,
+            width = "200%",
+            options = list(
+              autoWidth = FALSE,
+              paging = FALSE,
+              scrollX=TRUE,
+              dom = 't',
+              language = list(
+                info = 'Showing _TOTAL_ entries',
+                infoFiltered =  "(filtered from _MAX_ entries)"
+              ),
+              columnDefs = list(
+                list(visible = FALSE, targets = c(0, 30)),
+                list(orderData = 30, targets = 23),
+                list(
+                  targets = c(10),
+                  width = '500px',
+                  className = 'details-control5',
+                  render = JS(
+                    "function(data, type, row, meta) {",
+                    "return type === 'display' && data && data.length > 20 ?",
+                    "data.substr(0, 20) + '...' : data;",
+                    "}"
+                  )
+                ),
+                list(
+                  targets = c(20),
+                  width = '500px',
+                  className = 'details-control1',
+                  render = JS(
+                    "function(data, type, row, meta) {",
+                    "return type === 'display' && data && data.length > 20 ?",
+                    "data.substr(0, 20) + '...' : data;",
+                    "}"
+                  )
+                ),
+                list(
+                  targets = c(21),
+                  width = '250px',
+                  className = 'details-control2',
+                  render = JS(
+                    "function(data, type, row, meta) {",
+                    "return type === 'display' && data && data.length > 20 ?",
+                    "data.substr(0, 20) + '...' : data;",
+                    "}"
+                  )
+                ),
+                list(
+                  targets = c(28),
+                  width = '250px',
+                  className = 'details-control3',
+                  render = JS(
+                    "function(data, type, row, meta) {",
+                    "return type === 'display' && data && data.length > 20 ?",
+                    "data.substr(0, 20) + '...' : data;",
+                    "}"
+                  )
+                ),
+                list(
+                  targets = c(29),
+                  width = '250px',
+                  className = 'details-control4',
+                  render = JS(
+                    "function(data, type, row, meta) {",
+                    "return type === 'display' && data && data.length > 20 ?",
+                    "data.substr(0, 20) + '...' : data;",
+                    "}"
+                  )
+                ),
+                list(
+                  targets = c(1),
+                  render = JS(
+                    "function(data, type, row, meta) {",
+                    "return type === 'display' && data && data.length > 6 ?",
+                    "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                    "}"
+                  ),
+                  className = 'information-control1'
+                ),
+                list(
+                  targets = c(2),
+                  render = JS(
+                    "function(data, type, row, meta) {",
+                    "return type === 'display' && data && data.length > 6 ?",
+                    "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                    "}"
+                  ),
+                  className = 'information-control2'
+                ),
+                list(
+                  width = '250px',
+                  targets = c(8, 9),
+                  className = 'dt-center'
+                ),
+                list(
+                  width = '50px',
+                  targets = c(5, 6, 11, 18, 23),
+                  className = 'dt-center'
+                ),
+                list(width = '200px', targets = c(24))
+              )
+            ),
+            callback = JS(data_table_call_back)) %>% 
+    formatStyle(names(dt),color = 'black', lineHeight="15px") %>% 
+    formatStyle(names(dt)[-1],
+                'Pavlovia session ID', 
+                backgroundColor = styleEqual(participants, random_rgb(length(participants)))) %>% 
+    formatStyle(names(dt)[1],
+                'Prolific participant ID', 
+                backgroundColor = styleEqual(prolific_id, random_rgb(length(prolific_id))))
+}
+
+
+
+
+
+
+
+

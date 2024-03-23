@@ -2,17 +2,20 @@
 params:
   Prolific participant ID: NA
   Pavlovia session ID: NA 
+  ProlificSessionID: NA
+  ProlificStatus: NA
   device type: NA 
   cores: NA
   tardyMs: NA
   excessMs: NA
   date: NA
-  kB: NA
+  KB: NA
   rows: NA
   cols: NA
   system: NA
   browser: NA
   resolution: NA
+  QRConnect: NA
   computer51Deg: NA
   ok: NA
   unmetNeeds: NA
@@ -33,7 +36,6 @@ output: html_document
 ---
 ```{r, echo = F, inlcude = FALSE, message=FALSE}
 library(ggplot2)
-source("./constant.R")
 ```
 
 ### `r format(Sys.time(), '%B %d, %Y')`
@@ -58,6 +60,7 @@ knitr::opts_chunk$set(echo = FALSE, inlcude = FALSE, warning=FALSE)
 library(DT)
 library(dplyr)
 source("./error report/random_rgb.R")
+source("./error report/summary_table.R")
 ```
 
 ```{css, include = TRUE}
@@ -72,10 +75,13 @@ top:0px;
 dt <- tibble(
   `Prolific participant ID` = params$`Prolific participant ID`,
   `Pavlovia session ID` = params$`Pavlovia session ID`,
+  ProlificSessionID =  params$ProlificSessionID,
+   ProlificStatus= params$ProlificStatus,
   `device type` = params$`device type`,
   system = params$system,
   browser = params$browser,
   resolution = params$resolution,
+  QRConnect = params$QRConnect,
   computer51Deg = params$computer51Deg,
   cores = params$cores,
   tardyMs = params$tardyMs,
@@ -104,109 +110,7 @@ prolific_id <- unique(dt$`Prolific participant ID`)
 
 ```{r, include = TRUE}
 set.seed(2023)
-datatable(dt,
-          class = list(stripe = FALSE),
-          selection = 'none',
-          filter = "top",
-          escape = FALSE,
-          width = "200%",
-          options = list(
-            autoWidth = FALSE,
-            paging = FALSE,
-            scrollX=TRUE,
-            dom = 't',
-            language = list(
-              info = 'Showing _TOTAL_ entries',
-              infoFiltered =  "(filtered from _MAX_ entries)"
-            ),
-            columnDefs = list(
-                         list(visible = FALSE, targets = c(0, 27)),
-                         list(orderData = 27, targets = 20),
-                         list(
-                           targets = c(17),
-                           width = '500px',
-                           className = 'details-control1',
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data.length > 20 ?",
-                             "data.substr(0, 20) + '...' : data;",
-                             "}"
-                           )
-                         ),
-                         list(
-                           targets = c(18),
-                           width = '250px',
-                           className = 'details-control2',
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data.length > 20 ?",
-                             "data.substr(0, 20) + '...' : data;",
-                             "}"
-                           )
-                         ),
-                         list(
-                           targets = c(25),
-                           width = '250px',
-                           className = 'details-control3',
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data.length > 20 ?",
-                             "data.substr(0, 20) + '...' : data;",
-                             "}"
-                           )
-                         ),
-                         list(
-                           targets = c(26),
-                           width = '250px',
-                           className = 'details-control4',
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data.length > 20 ?",
-                             "data.substr(0, 20) + '...' : data;",
-                             "}"
-                           )
-                         ),
-                         list(
-                           targets = c(1),
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data.length > 6 ?",
-                             "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-                             "}"
-                           ),
-                           className = 'information-control1'
-                         ),
-                         list(
-                           targets = c(2),
-                           render = JS(
-                             "function(data, type, row, meta) {",
-                             "return type === 'display' && data.length > 6 ?",
-                             "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-                             "}"
-                           ),
-                           className = 'information-control2'
-                         ),
-                         list(
-                           width = '250px',
-                           targets = c(5, 6),
-                           className = 'dt-center'
-                         ),
-                         list(
-                           width = '50px',
-                           targets = c(3, 4, 8, 15, 20),
-                           className = 'dt-center'
-                         ),
-                         list(width = '200px', targets = c(21))
-                       )
-                     ),
-                     callback = JS(data_table_call_back)) %>% 
-  formatStyle(names(dt),color = 'black', lineHeight="10px") %>% 
-  formatStyle(names(dt)[-1],
-              'Pavlovia session ID', 
-              backgroundColor = styleEqual(participants, random_rgb(length(participants)))) %>% 
-  formatStyle(names(dt)[1],
-              'Prolific participant ID', 
-              backgroundColor = styleEqual(prolific_id, random_rgb(length(prolific_id))))
+render_summary_datatable(dt, participants, prolific_id)
 ```
 
 
