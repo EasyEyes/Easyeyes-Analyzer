@@ -52,6 +52,7 @@ source("./plotting/profile_plot.R")
 source("./other/getBits.R")
 source("./other/sound_plots.R")
 source("./other/read_json.R")
+source("./other/csvSplitter.R")
 library(shiny)
 
 #### server code ####
@@ -2571,4 +2572,21 @@ shinyServer(function(input, output, session) {
       file.copy("notebooks/sound_calibration_analysis.ipynb", file)
     }
   )
+  
+  output$download_splitted <- downloadHandler(
+    filename = 'splitted.zip',
+    content = function(file){
+      temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+      dir.create(temp_directory)
+      splitted <- splitCSVfunction(input$fileDB$data)
+      for (i in 1:length(splitted)) {
+        fileName <- unique(splitted[[i]]$fileNames)
+        readr::write_csv(splitted[[i]] %>% select(-fileNames), file.path(temp_directory, paste0(fileName, '.csv')), na = '')
+      }
+      zip::zip(
+        zipfile = file,
+        files = dir(temp_directory),
+        root = temp_directory
+      )
+    })
 })

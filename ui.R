@@ -17,17 +17,6 @@ shinyUI(
     statTab,
     plotsTab,
     soundTab,
-    profileTab,
-   #### Bits ####
-    tabPanel(
-      'Bits',
-      h3("All blocks"),
-      textOutput('all participant I'),
-      # splitLayout(cellWidths = c("50%", "50%"),
-      #             tableOutput('all participant prob')
-      # ),
-      h3("Each block"),
-      tableOutput('each block I')
-    )
+    profileTab
   )
 )
