@@ -1,6 +1,6 @@
 library(dplyr)
 library(DT)
-source('./other/formSpree.R')
+
 data_table_call_back = "
 
   table.column(10).nodes().to$().css({cursor: 'pointer'});
@@ -128,9 +128,7 @@ get_lateness_and_duration <- function(all_files){
 
 generate_summary_table <- function(data_list){
   all_files <- tibble()
-  experiment <- c()
  for (i in 1 : length(data_list)) {
-    experiment <- c(experiment, unique(data_list[[i]]$experiment))
     t <- data_list[[i]] %>% select(ProlificParticipantID, participant, ProlificSessionID, deviceType, 
                               cores, browser, deviceSystemFamily, deviceLanguage,
                               block, block_condition,conditionName, targetTask, targetKind, 
@@ -170,7 +168,6 @@ generate_summary_table <- function(data_list){
        `Microphone survey`, QRConnect)
     all_files <- rbind(all_files,t)
  }
-  experiment <- unique(experiment)
   trial <- all_files %>% group_by(participant, block_condition) %>% count()
   lateness_duration <- get_lateness_and_duration(all_files)
   
@@ -342,11 +339,8 @@ generate_summary_table <- function(data_list){
     mutate(order = row_number())
   summary_df <- summary_df %>%
     left_join(block_condition_order, by = c("block", "condition")) %>%
-    select(-block, -condition)
-  for (ex in experiment) {
-    forSpree <- getFormSpree(ex) %>% filter(! `Pavlovia session ID` %in% unique(summary_df$`Pavlovia session ID`))
-  }
-  
+    select(-block, -condition) %>% 
+    filter(`Pavlovia session ID` != '')
   return(summary_df)
 }
 

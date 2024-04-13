@@ -1,10 +1,11 @@
-getFormSpree <- function(experiment){
-  url <- "https://formspree.io/api/0/forms/mqkrdveg/submissions"
+url <- "https://formspree.io/api/0/forms/mqkrdveg/submissions"
+getFormSpree <- function(){
   response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9"))
   if (httr::status_code(response)) {
     content <- httr::content(response, as = "text", encoding='UTF-8')
     t <- jsonlite::fromJSON(content)$submissions %>% 
-      filter(ExperimentName == experiment) %>% 
+      filter(prolificParticipantID != '',
+             prolificSession != '') %>% 
       rename('system' = 'OS',
              "device type" = "deviceType",
             'Pavlovia session ID' = 'pavloviaID',
@@ -35,7 +36,7 @@ getFormSpree <- function(experiment){
              Loudspeaker = NA,
              Microphone = NA,
              QRConnect = NA) %>% 
-      select(`Prolific participant ID`, `Pavlovia session ID`, `device type`, system,
+      select(`Prolific participant ID`, `Pavlovia session ID`, ProlificSessionID, `device type`, system,
                browser, resolution, QRConnect, computer51Deg, cores, tardyMs, excessMs, date, KB, rows, cols, 
                ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
                `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, QRConnect)
@@ -44,5 +45,16 @@ getFormSpree <- function(experiment){
     print(httr::status_code(response))
     return(tibble())
   }
+}
+
+monitorFormSpree <- function() {
+  response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9"))
+  if (httr::status_code(response)) {
+    content <- httr::content(response, as = "text", encoding='UTF-8')
+    t <- jsonlite::fromJSON(content)$submissions %>% 
+      select(pavloviaID, prolificParticipantID, prolificSession, ExperimentName, `_date`,OS, browser, browserVersion, deviceType)
+    return(t)
+  }
+  return(tibble())
 }
 

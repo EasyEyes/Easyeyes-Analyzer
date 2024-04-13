@@ -53,12 +53,27 @@ source("./other/getBits.R")
 source("./other/sound_plots.R")
 source("./other/read_json.R")
 source("./other/csvSplitter.R")
+source("./other/formSpree.R")
 library(shiny)
 
 #### server code ####
 
 shinyServer(function(input, output, session) {
   #### place holder ####
+  
+  output$formSpreeDashboard <- renderDataTable({
+    t <- monitorFormSpree()
+    datatable(t,
+              class = list(stripe = FALSE),
+              selection = 'none',
+              filter = "top",
+              options = list(
+                autoWidth = TRUE,
+                paging = FALSE,
+                dom = 't')
+    )
+  })
+  
   output$ex1 <- renderDataTable({
     datatable(tibble())
   })
@@ -1178,9 +1193,9 @@ shinyServer(function(input, output, session) {
                  output$experiment <- renderText(experiment_names())
                  if (!is.null(input$fileProlific)) {
                    prolificData <- read_prolific(input$fileProlific)
-                   combinedTable <- combineProlific(prolificData, summary_table())
+                   combinedTable <- combineProlific(prolificData, summary_table())[[1]]
                  } else{
-                   combinedTable <- combineProlific(NULL, summary_table())
+                   combinedTable <- combineProlific(NULL, summary_table())[[1]]
                  }
                  
                  participants <- 
@@ -1339,7 +1354,7 @@ shinyServer(function(input, output, session) {
       set.seed(2023)
       output$instruction <- renderText(instruction)
       output$experiment <- renderText(experiment_names())
-      combinedTable <- combineProlific(prolificData, summary_table())
+      combinedTable <- combineProlific(prolificData, summary_table())[[1]]
       participants <- unique(combinedTable$`Pavlovia session ID`)
       prolific_id <- unique(combinedTable$`Prolific participant ID`)
       output$ex1 <- DT::renderDataTable(

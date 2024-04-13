@@ -54,16 +54,6 @@ sessionTab <- tabPanel(
       multiple = T
     )
   )),
-  fixedRow(column(
-    width = 4,
-    fileInput(
-      "fileDB",
-      NULL,
-      accept = c(".csv"),
-      buttonLabel = "db csv file",
-      multiple = T
-    )
-  )),
   fixedRow(
     column(
       width = 2,
@@ -74,11 +64,6 @@ sessionTab <- tabPanel(
       width = 1,
       align = "left",
       downloadButton("sessionCsv", "Download xlsx")
-    ),
-    column(
-      width = 1,
-      align = "left",
-      downloadButton("download_splitted", "Download splitted csv")
     ),
     column(width = 1, div(
       HTML(
