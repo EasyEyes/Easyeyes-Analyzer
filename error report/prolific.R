@@ -13,15 +13,26 @@ read_prolific <- function(fileProlific) {
 combineProlific <- function(prolificData, summary_table){
   if (is.null(prolificData)) {
     t <- summary_table %>% mutate( ProlificStatus= ' ')
-    formspree <- tibble()
+    formSpree <- tibble()
   } else {
     formSpree <- getFormSpree() %>% filter(`ProlificSessionID` %in% unique(prolificData$ProlificSessionID),
                                             !`ProlificSessionID` %in% unique(summary_table$ProlificSessionID))
-    t <- prolificData %>% full_join(summary_table, by = c('Prolific participant ID', 'ProlificSessionID'))
+    tmp <- prolificData %>%
+      filter(ProlificSessionID %in% unique(summary_table$ProlificSessionID))
+    t <- summary_table %>% 
+      full_join(tmp, by = c('Prolific participant ID', 'ProlificSessionID'))
+    tmp <- prolificData %>%
+      filter(!ProlificSessionID %in% unique(summary_table$ProlificSessionID))
+    formSpree <- formSpree %>% 
+      full_join(tmp, by = c('Prolific participant ID', 'ProlificSessionID'))
+    print(names(formSpree))
+    print(names(t))
+    t <- rbind(t, formSpree)
+    
   }
   t <- t %>% distinct(`Prolific participant ID`, `Pavlovia session ID`, ProlificSessionID, ProlificStatus, `device type`, system,
                     browser, resolution, QRConnect, computer51Deg, cores, tardyMs, excessMs, date, KB, rows, cols, 
                     ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
                     `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, order)
-  return(list(t, formspree))
+  return(list(t, formSpree))
 }
