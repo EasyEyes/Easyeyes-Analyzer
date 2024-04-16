@@ -135,14 +135,14 @@ generate_summary_table <- function(data_list){
                               thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
                               targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
                               ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,
-                              `Microphone survey`, QRConnect) %>% 
+                              `Microphone survey`, QRConnect, questionAndAnswerResponse) %>% 
       distinct(ProlificParticipantID, participant, ProlificSessionID, deviceType, 
                cores, browser, deviceSystemFamily, deviceLanguage,
                block, block_condition,conditionName, targetTask, targetKind, 
                thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
                targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
                ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`, 
-               QRConnect) %>% 
+               QRConnect, questionAndAnswerResponse) %>% 
       arrange(`Loudspeaker survey`)
     tmp <- t$`Loudspeaker survey`[1]
     t <- t %>% mutate(`Loudspeaker survey` = ifelse(is.na(tmp), '',tmp))
@@ -158,14 +158,17 @@ generate_summary_table <- function(data_list){
    
     t <- t %>% arrange(desc(QRConnect))
     tmp <- t$QRConnect[1]
-    t <- t %>% mutate(QRConnect = ifelse(is.na(tmp), '',tmp)) %>% 
+    t <- t %>% mutate(QRConnect = ifelse(is.na(tmp), '',tmp)) 
+    t <- t %>% arrange((questionAndAnswerResponse))
+    tmp <- t$questionAndAnswerResponse[1]
+    t <- t %>% mutate(questionAndAnswerResponse = ifelse(is.na(tmp), '',tmp)) %>% 
       distinct(ProlificParticipantID, participant, ProlificSessionID, deviceType, 
        cores, browser, deviceSystemFamily, deviceLanguage,
        block, block_condition,conditionName, targetTask, targetKind, 
        thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
        targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
        ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,
-       `Microphone survey`, QRConnect)
+       `Microphone survey`, QRConnect, questionAndAnswerResponse)
     all_files <- rbind(all_files,t)
  }
   trial <- all_files %>% group_by(participant, block_condition) %>% count()
@@ -194,12 +197,12 @@ generate_summary_table <- function(data_list){
           distinct(ProlificParticipantID, participant, ProlificSessionID, deviceType,
                    cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                    ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
-                   QRConnect) %>% 
+                   QRConnect, questionAndAnswerResponse) %>% 
           mutate(error = "Incomplete") %>% 
           select(error,ProlificParticipantID, participant, ProlificSessionID, deviceType, 
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
-                 QRConnect) %>% 
+                 QRConnect, questionAndAnswerResponse) %>% 
           arrange(`Loudspeaker survey`)
         tmp <- t$`Loudspeaker survey`[1]
         t <- t %>% mutate(`Loudspeaker survey` = ifelse(is.na(tmp), '',tmp))
@@ -215,12 +218,14 @@ generate_summary_table <- function(data_list){
         t <- t %>% arrange(`ComputerInfoFrom51Degrees`)
         tmp <- t$`ComputerInfoFrom51Degrees`[1]
         t <- t %>% mutate(`ComputerInfoFrom51Degrees` = ifelse(is.na(tmp), '',tmp))
-       
+        t <- t %>% arrange((questionAndAnswerResponse))
+        tmp <- t$questionAndAnswerResponse[1]
+        t <- t %>% mutate(questionAndAnswerResponse = ifelse(is.na(tmp), '',tmp))
         t <- t %>% 
           distinct(error, ProlificParticipantID, participant, ProlificSessionID, deviceType, 
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
-                 QRConnect)
+                 QRConnect, questionAndAnswerResponse)
         info <- data_list[[i]] %>% 
           distinct(block, block_condition, conditionName, 
                    targetTask, targetKind, thresholdParameter) %>% 
@@ -252,7 +257,7 @@ generate_summary_table <- function(data_list){
         distinct(ProlificParticipantID, participant, ProlificSessionID, deviceType, error,
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
-                 QRConnect) %>% 
+                 QRConnect, questionAndAnswerResponse) %>% 
         arrange(`Loudspeaker survey`)
       t$`Loudspeaker survey` = t$`Loudspeaker survey`[1]
       t <- t %>% arrange( `_needsUnmet`)
@@ -265,11 +270,14 @@ generate_summary_table <- function(data_list){
       t <- t %>% arrange(desc(QRConnect))
       tmp <- t$QRConnect[1]
       t <- t %>% mutate(QRConnect = ifelse(is.na(tmp), '',tmp))
+      t <-t %>% arrange((questionAndAnswerResponse))
+      tmp <- t$questionAndAnswerResponse[1]
+      t <- t %>% mutate(questionAndAnswerResponse = ifelse(is.na(tmp), '',tmp))
       t <- t %>%
         distinct(ProlificParticipantID, participant, ProlificSessionID, deviceType, error,
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
-                 QRConnect)
+                 QRConnect, questionAndAnswerResponse)
       info <- data_list[[i]] %>% 
         distinct(block, block_condition, conditionName, 
                  targetTask, targetKind, thresholdParameter) %>% 
@@ -286,6 +294,7 @@ generate_summary_table <- function(data_list){
     }
   }
   completes$warning <- ""
+
   summary_df <- rbind(noerror_fails,
                       completes,
                       error %>% 
@@ -293,13 +302,13 @@ generate_summary_table <- function(data_list){
                                cores, deviceSystemFamily, browser, resolution,
                                block, block_condition, conditionName, targetTask, targetKind, 
                                thresholdParameter, ok, rows, cols, kb, ComputerInfoFrom51Degrees,
-                               `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,QRConnect),
+                               `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,QRConnect,questionAndAnswerResponse),
                       warnings %>% 
                         select(error, warning, ProlificParticipantID, participant, ProlificSessionID, deviceType, 
                                cores, deviceSystemFamily, browser, resolution,
                                block, block_condition, conditionName, targetTask, targetKind, 
                                thresholdParameter, ok, rows, cols, kb, ComputerInfoFrom51Degrees,
-                               `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,QRConnect)) %>% 
+                               `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,QRConnect, questionAndAnswerResponse)) %>% 
     mutate(ok = factor(ok, levels = c(paste(emoji("x")), 
                                       emoji("construction"),
                                       emoji("large_orange_diamond"),
@@ -321,12 +330,13 @@ generate_summary_table <- function(data_list){
            "unmetNeeds" = '_needsUnmet',
            "computer51Deg" ="ComputerInfoFrom51Degrees",
            "Loudspeaker" = "Loudspeaker survey",
-           "Microphone" = "Microphone survey") %>% 
+           "Microphone" = "Microphone survey",
+           'comment' = 'questionAndAnswerResponse') %>% 
     distinct(`Prolific participant ID`, `Pavlovia session ID`, ProlificSessionID, `device type`, system,
            browser, resolution, QRConnect, computer51Deg, cores, tardyMs, excessMs, date, KB, rows, cols, 
            ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
-           `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, QRConnect)
-  
+           `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, QRConnect, comment)
+  print(nrow(summary_df))
   #### order block_condition by splitting and order block and condition order ####
   summary_df <- summary_df %>% 
     mutate(block = as.numeric(unlist(lapply(summary_df$`block condition`, 
@@ -361,8 +371,8 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 infoFiltered =  "(filtered from _MAX_ entries)"
               ),
               columnDefs = list(
-                list(visible = FALSE, targets = c(0, 30)),
-                list(orderData = 30, targets = 23),
+                list(visible = FALSE, targets = c(0, 31)),
+                list(orderData = 31, targets = 23),
                 list(
                   targets = c(10),
                   width = '500px',

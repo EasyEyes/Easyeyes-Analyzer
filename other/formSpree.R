@@ -36,11 +36,12 @@ getFormSpree <- function(){
              Loudspeaker = NA,
              Microphone = NA,
              QRConnect = NA,
+             comment = NA,
              order = NA) %>% 
       select(`Prolific participant ID`, `Pavlovia session ID`, ProlificSessionID, `device type`, system,
                browser, resolution, QRConnect, computer51Deg, cores, tardyMs, excessMs, date, KB, rows, cols, 
                ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
-               `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, QRConnect, order)
+               `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, QRConnect, comment, order)
     return(t)
   } else {
     print(httr::status_code(response))
