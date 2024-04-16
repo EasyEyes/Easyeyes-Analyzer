@@ -3,11 +3,11 @@ library(DT)
 
 data_table_call_back = "
 
-  table.column(10).nodes().to$().css({cursor: 'pointer'});
+  table.column(9).nodes().to$().css({cursor: 'pointer'});
     var format8 = function(d) {
-      return '<p>' + d[10] + '</p>';
+      return '<p>' + d[9] + '</p>';
     };
-    table.on('click', 'td.details-control5', function() {
+    table.on('click', 'td.computer51Deg', function() {
       var td = $(this), row = table.row(td.closest('tr'));
       if (row.child.isShown()) {
         row.child.hide();
@@ -16,11 +16,11 @@ data_table_call_back = "
       }
     });
     
-    table.column(20).nodes().to$().css({cursor: 'pointer'});
+    table.column(22).nodes().to$().css({cursor: 'pointer'});
     var format1 = function(d) {
-      return '<p>' + d[20] + '</p>';
+      return '<p>' + d[22] + '</p>';
     };
-    table.on('click', 'td.details-control1', function() {
+    table.on('click', 'td.errorC-control', function() {
       var td = $(this), row = table.row(td.closest('tr'));
       if (row.child.isShown()) {
         row.child.hide();
@@ -29,11 +29,11 @@ data_table_call_back = "
       }
     });
 
-    table.column(21).nodes().to$().css({cursor: 'pointer'});
+    table.column(23).nodes().to$().css({cursor: 'pointer'});
     var format2 = function(d) {
-      return '<p>' + d[21] + '</p>';
+      return '<p>' + d[23] + '</p>';
     };
-    table.on('click', 'td.details-control2', function() {
+    table.on('click', 'td.warnC-control', function() {
       var td = $(this), row = table.row(td.closest('tr'));
       if (row.child.isShown()) {
         row.child.hide();
@@ -42,11 +42,11 @@ data_table_call_back = "
       }
     });
     
-    table.column(28).nodes().to$().css({cursor: 'pointer'});
+    table.column(30).nodes().to$().css({cursor: 'pointer'});
     var format6 = function(d) {
-      return '<p>' + d[28] + '</p>';
+      return '<p>' + d[30] + '</p>';
     };
-    table.on('click', 'td.details-control3', function() {
+    table.on('click', 'td.loudspeakerSurvey', function() {
       var td = $(this), row = table.row(td.closest('tr'));
       if (row.child.isShown()) {
         row.child.hide();
@@ -55,11 +55,11 @@ data_table_call_back = "
       }
     });
     
-    table.column(29).nodes().to$().css({cursor: 'pointer'});
+    table.column(31).nodes().to$().css({cursor: 'pointer'});
     var format5 = function(d) {
-      return '<p>' + d[29] + '</p>';
+      return '<p>' + d[31] + '</p>';
     };
-    table.on('click', 'td.details-control4', function() {
+    table.on('click', 'td.microphoneSurvey', function() {
       var td = $(this), row = table.row(td.closest('tr'));
       if (row.child.isShown()) {
         row.child.hide();
@@ -336,7 +336,7 @@ generate_summary_table <- function(data_list){
            browser, resolution, QRConnect, computer51Deg, cores, tardyMs, excessMs, date, KB, rows, cols, 
            ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
            `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, QRConnect, comment)
-  print(nrow(summary_df))
+
   #### order block_condition by splitting and order block and condition order ####
   summary_df <- summary_df %>% 
     mutate(block = as.numeric(unlist(lapply(summary_df$`block condition`, 
@@ -351,6 +351,7 @@ generate_summary_table <- function(data_list){
     left_join(block_condition_order, by = c("block", "condition")) %>%
     select(-block, -condition) %>% 
     filter(`Pavlovia session ID` != '')
+
   return(summary_df)
 }
 
@@ -360,9 +361,8 @@ render_summary_datatable <- function(dt, participants, prolific_id){
             selection = 'none',
             filter = "top",
             escape = FALSE,
-            width = "200%",
             options = list(
-              autoWidth = FALSE,
+              autoWidth = TRUE,
               paging = FALSE,
               scrollX=TRUE,
               dom = 't',
@@ -371,60 +371,60 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 infoFiltered =  "(filtered from _MAX_ entries)"
               ),
               columnDefs = list(
-                list(visible = FALSE, targets = c(0, 31)),
-                list(orderData = 31, targets = 23),
+                list(visible = FALSE, targets = c(0, 36)),
+                list(orderData = 36, targets = 23),
                 list(
-                  targets = c(10),
-                  width = '500px',
-                  className = 'details-control5',
+                  targets = c(9),
+                  width = '200px',
+                  className = 'computer51Deg',
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 20 ?",
-                    "data.substr(0, 20) + '...' : data;",
+                    "return type === 'display' && data && data.length > 30 ?",
+                    "data.substr(0, 30) + '...' : data;",
                     "}"
                   )
                 ),
                 list(
-                  targets = c(20),
-                  width = '500px',
-                  className = 'details-control1',
+                  targets = c(22),
+                  width = '200px',
+                  className = 'errorC-control',
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 20 ?",
-                    "data.substr(0, 20) + '...' : data;",
+                    "return type === 'display' && data && data.length > 30 ?",
+                    "data.substr(0, 30) + '...' : data;",
                     "}"
                   )
                 ),
                 list(
-                  targets = c(21),
+                  targets = c(23),
+                  width = '200px',
+                  className = 'warnC-control',
+                  render = JS(
+                    "function(data, type, row, meta) {",
+                    "return type === 'display' && data && data.length > 30 ?",
+                    "data.substr(0, 30) + '...' : data;",
+                    "}"
+                  )
+                ),
+                list(
+                  targets = c(30),
                   width = '250px',
-                  className = 'details-control2',
+                  className = 'loudspeakerSurvey',
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 20 ?",
-                    "data.substr(0, 20) + '...' : data;",
+                    "return type === 'display' && data && data.length > 30 ?",
+                    "data.substr(0, 30) + '...' : data;",
                     "}"
                   )
                 ),
                 list(
-                  targets = c(28),
+                  targets = c(31),
                   width = '250px',
-                  className = 'details-control3',
+                  className = 'microphoneSurvey',
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 20 ?",
-                    "data.substr(0, 20) + '...' : data;",
-                    "}"
-                  )
-                ),
-                list(
-                  targets = c(29),
-                  width = '250px',
-                  className = 'details-control4',
-                  render = JS(
-                    "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 20 ?",
-                    "data.substr(0, 20) + '...' : data;",
+                    "return type === 'display' && data && data.length > 30 ?",
+                    "data.substr(0, 30) + '...' : data;",
                     "}"
                   )
                 ),
@@ -449,16 +449,11 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   className = 'information-control2'
                 ),
                 list(
-                  width = '250px',
-                  targets = c(8, 9),
-                  className = 'dt-center'
-                ),
-                list(
                   width = '50px',
-                  targets = c(5, 6, 11, 18, 23),
+                  targets = c(7, 8, 13, 20, 25),
                   className = 'dt-center'
                 ),
-                list(width = '200px', targets = c(24))
+                list(width = '200px', targets = c(24,35))
               )
             ),
             callback = JS(data_table_call_back)) %>% 
