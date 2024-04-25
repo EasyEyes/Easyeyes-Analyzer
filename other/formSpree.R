@@ -12,8 +12,11 @@ getFormSpree <- function(){
             "Prolific participant ID" = "prolificParticipantID",
             'ProlificSessionID' = 'prolificSession') %>% 
       mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS'))) %>% 
-      mutate(date = format(date, "%b %d, %Y, %H:%M:%S")) %>% 
-      mutate(browser = ifelse(browser == "", "", paste0(browser,  " ", str_split(browserVersion, "[.]")[[1]][1])),
+      mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
+      func = function(x) {str_split(x,'[.]')[[1]][1]}
+      t$browserVersion <- unlist(lapply(t$browserVersion, FUN=func))
+      t <- t %>% 
+      mutate(browser = ifelse(browser == "", "", paste0(browser,  " ", browserVersion)),
              resolution = NA, 
              QRConnect = NA, 
              computer51Deg = NA,

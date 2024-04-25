@@ -61,6 +61,7 @@ data_table_call_back = "
     };
     table.on('click', 'td.microphoneSurvey', function() {
       var td = $(this), row = table.row(td.closest('tr'));
+      console.log(td);
       if (row.child.isShown()) {
         row.child.hide();
       } else {
@@ -349,8 +350,7 @@ generate_summary_table <- function(data_list){
     mutate(order = row_number())
   summary_df <- summary_df %>%
     left_join(block_condition_order, by = c("block", "condition")) %>%
-    select(-block, -condition) %>% 
-    filter(`Pavlovia session ID` != '')
+    select(-block, -condition)
 
   return(summary_df)
 }
@@ -365,7 +365,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
               autoWidth = TRUE,
               paging = FALSE,
               scrollX=TRUE,
-              dom = 't',
+              dom= 'lrtip',
               language = list(
                 info = 'Showing _TOTAL_ entries',
                 infoFiltered =  "(filtered from _MAX_ entries)"

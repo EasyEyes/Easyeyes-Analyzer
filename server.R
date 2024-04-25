@@ -54,6 +54,7 @@ source("./other/sound_plots.R")
 source("./other/read_json.R")
 source("./other/csvSplitter.R")
 source("./other/formSpree.R")
+
 library(shiny)
 
 #### server code ####
@@ -89,6 +90,10 @@ shinyServer(function(input, output, session) {
     return(t)
   })
   
+  prolific <- reactive({
+    t <- find_prolific_from_files(input$file)
+    return(t)
+  })
   data_list <- reactive({
     t <- files()[[1]]
     return(t)
@@ -1191,9 +1196,10 @@ shinyServer(function(input, output, session) {
                  #### summary page ####
                  output$instruction <- renderText(instruction)
                  output$experiment <- renderText(experiment_names())
-                 if (!is.null(input$fileProlific)) {
-                   prolificData <- read_prolific(input$fileProlific)
-                   combinedTable <- combineProlific(prolificData, summary_table())[[1]]
+                 if (!is.null(prolific())) {
+                   print(nrow(prolific()))
+                   print(nrow(summary_table()))
+                   combinedTable <- combineProlific(prolific(), summary_table())[[1]]
                  } else{
                    combinedTable <- combineProlific(NULL, summary_table())[[1]]
                  }
@@ -1343,7 +1349,7 @@ shinyServer(function(input, output, session) {
                )
   
   observeEvent(input$fileProlific,{
-    prolificData <- read_prolific(input$fileProlific)
+    prolificData <- read_prolific(input$fileProlific$data)
     if (!is.null(input$file)) {
       app_title$default <- experiment_names()
       output$app_title <- renderText({
@@ -1369,7 +1375,7 @@ shinyServer(function(input, output, session) {
         render_summary_datatable(combinedTable, participants, prolific_id)
       )
     }
-   
+
   })
   
   
