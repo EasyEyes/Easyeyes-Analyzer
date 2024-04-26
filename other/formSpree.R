@@ -10,7 +10,7 @@ getFormSpree <- function(){
              "device type" = "deviceType",
             'Pavlovia session ID' = 'pavloviaID',
             "Prolific participant ID" = "prolificParticipantID",
-            'ProlificSessionID' = 'prolificSession') %>% 
+            'prolificSessionID' = 'prolificSession') %>% 
       mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS'))) %>% 
       mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
       func = function(x) {str_split(x,'[.]')[[1]][1]}
@@ -41,7 +41,7 @@ getFormSpree <- function(){
              QRConnect = NA,
              comment = NA,
              order = NA) %>% 
-      select(`Prolific participant ID`, `Pavlovia session ID`, ProlificSessionID, `device type`, system,
+      select(`Prolific participant ID`, `Pavlovia session ID`, prolificSessionID, `device type`, system,
                browser, resolution, QRConnect, computer51Deg, cores, tardyMs, excessMs, date, KB, rows, cols, 
                ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
                `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, QRConnect, comment, order)
