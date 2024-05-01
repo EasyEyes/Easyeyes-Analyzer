@@ -172,6 +172,7 @@ generate_summary_table <- function(data_list){
        `Microphone survey`, QRConnect, questionAndAnswerResponse)
     all_files <- rbind(all_files,t)
  }
+  print('done all files')
   trial <- all_files %>% group_by(participant, block_condition) %>% count()
   lateness_duration <- get_lateness_and_duration(all_files)
   
@@ -180,13 +181,14 @@ generate_summary_table <- function(data_list){
     dplyr::filter(error != "" & error != "Incomplete") %>%
     mutate(warning = "") %>% 
     mutate(ok = paste(emoji("x")))
-
+  print('done error')
+  
   #### warnings ####
   warnings <- all_files %>% 
     dplyr::filter(warning != "") %>%
     mutate(error = "") %>% 
     mutate(ok = emoji("large_orange_diamond"))
-  
+  print('done warnings')
   
   #### incomplete files ####
   noerror_fails = tibble()
@@ -247,6 +249,8 @@ generate_summary_table <- function(data_list){
       }
     }
   }
+  
+  print('done noerror_fails')
   
   
   noerror_fails$warning = ""

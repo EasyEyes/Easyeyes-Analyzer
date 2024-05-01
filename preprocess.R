@@ -12,7 +12,7 @@ read_files <- function(file){
   for (i in 1 : n) {
     t <- tibble()
     if (grepl(".csv", file_list[i])){ 
-      try({t <- readr::read_csv(file_list[i], show_col_types = FALSE)}, silent = TRUE)
+      try({t <- readr::read_csv(file_list[i])}, silent = TRUE)
       if (!'Submission id' %in% names(t)){
         inf <- file.info(file_list[i])
         if (!('participant' %in% colnames(t))) {
@@ -229,6 +229,7 @@ read_files <- function(file){
       } else {
         next
       }
+      print('done processing csv')
       }
   }
   for (k in 1:n) {
@@ -462,6 +463,7 @@ read_files <- function(file){
           next
         }
       }
+      print('done processing zip')
     }
   }
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]

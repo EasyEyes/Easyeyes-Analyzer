@@ -1,7 +1,8 @@
 source('./other/formSpree.R')
 
 read_prolific <- function(fileProlific) {
-  t <- read.csv(fileProlific)
+  t <- tibble()
+  try(t <- read.csv(fileProlific))
   if ('Participant.id' %in% names(t) & 'Submission.id' %in% names(t)) {
     t <- t %>% select(`Participant.id`, `Submission.id`, Status, `Completion.code`,
                       `Time.taken`, Age, Sex, Nationality) %>% 
@@ -22,19 +23,21 @@ find_prolific_from_files <- function(file) {
   file_list <- file$data
   n = length(file$data)
   prolificDT <- tibble()
-  for (k in 1:n) {
+  for (k in 1:length(file_list)) {
+    print('inside find prolific')
     if (grepl(".zip", file_list[k])) {
-      print('inside find_prolific_from_files')
       file_names <- unzip(file_list[k], list = TRUE)$Name
       all_csv <- file_names[grepl(".csv", file_names)]
       all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
       prolificDT <- foreach(u=1:length(all_csv), .combine = 'rbind') %do% {
-        prolific <- read_prolific(unzip(file_list[], all_csv[u]))
+        prolific <- read_prolific(unzip(file_list[k], all_csv[u]))
       }
-      print(summary(prolificDT))
+
       return(prolificDT)
     }
+    print('done find prolific')
   }
+  return(prolificDT)
 }
 
 combineProlific <- function(prolificData, summary_table){
