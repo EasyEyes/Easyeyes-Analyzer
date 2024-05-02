@@ -169,7 +169,7 @@ read_files <- function(file){
           t$psychojsWindowDimensions <- "NA,NA"
         }
         if (!('QRConnect' %in% colnames(t))) {
-          t$QRConnect <- 'column missing'
+          t$QRConnect <- ''
         }
         t$age <- t$questionAndAnswerResponse[2]
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
@@ -399,7 +399,7 @@ read_files <- function(file){
             t$`Microphone survey` <- ""
           }
           if (!('QRConnect' %in% colnames(t))) {
-            t$QRConnect <- 'column missing'
+            t$QRConnect <- ''
           }
           
           t$age <- t$questionAndAnswerResponse[2]

@@ -38,7 +38,7 @@ getFormSpree <- function(){
              `target kind` = NA,
              Loudspeaker = NA,
              Microphone = NA,
-             QRConnect = NA,
+             QRConnect = '',
              comment = NA,
              order = NA) %>% 
       select(`Prolific participant ID`, `Pavlovia session ID`, prolificSessionID, `device type`, system,
