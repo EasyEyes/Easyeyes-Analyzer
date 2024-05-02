@@ -56,12 +56,21 @@ combineProlific <- function(prolificData, summary_table){
       filter(prolificSessionID %in% unique(summary_table$prolificSessionID))
     print
     t <- summary_table %>% 
+      group_by(prolificSessionID) %>% 
+      arrange(desc(date)) %>% 
+      slice(1) %>% 
       left_join(tmp, by = c('Prolific participant ID', 'prolificSessionID'))
-    tmp <- prolificData %>%
-      filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
-    formSpree <- formSpree %>% 
-    left_join(tmp, by = c('Prolific participant ID', 'prolificSessionID'))
-    t <- rbind(t, formSpree)
+    t2 <-  summary_table %>%
+      filter(!`Pavlovia session ID` %in% unique(t$`Pavlovia session ID`)) %>% 
+      left_join(tmp, by = c('Prolific participant ID', 'prolificSessionID')) %>% 
+      mutate(ProlificStatus= ' ',
+             `Prolific (min)` = NA,
+             `Completion code` = ' ')
+    tmp <- prolificData %>% 
+filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
+    formSpree <- tmp %>% 
+    full_join(formSpree, by = c('Prolific participant ID', 'prolificSessionID'))
+    t <- rbind(t, t2, formSpree)
     
   }
   t <- t %>% distinct(`Prolific participant ID`, `Pavlovia session ID`, prolificSessionID, `device type`, system,
