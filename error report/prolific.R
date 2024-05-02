@@ -63,9 +63,9 @@ combineProlific <- function(prolificData, summary_table){
     t2 <-  summary_table %>%
       filter(!`Pavlovia session ID` %in% unique(t$`Pavlovia session ID`)) %>% 
       left_join(tmp, by = c('Prolific participant ID', 'prolificSessionID')) %>% 
-      mutate(ProlificStatus= ' ',
+      mutate(ProlificStatus= 'TRIED AGAIN',
              `Prolific (min)` = NA,
-             `Completion code` = ' ')
+             `Completion code` = 'TRIED AGAIN')
     tmp <- prolificData %>% 
 filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
     formSpree <- tmp %>% 
