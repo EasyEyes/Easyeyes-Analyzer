@@ -5,7 +5,6 @@ random_rgb <- function(n){
   r <- sample(239:244, n, T)
   g <- sample(239:244, n, T)
   b <- sample(239:244, n, T)
-  
   t1 <- tibble(r,g,b,zero) %>% 
     mutate(rg = rgb(r,g,zero,maxColorValue = 255),
            rb = rgb(r,zero,b,maxColorValue = 255),
@@ -15,8 +14,14 @@ random_rgb <- function(n){
            g = rgb(zero,g,zero,maxColorValue = 255),
            b = rgb(zero,zero,b,maxColorValue = 255)) %>% 
     select(-zero) %>% 
-    pivot_longer(1:7, names_to = "color type", values_to = "rgb") %>% 
-    slice(1:floor(n/4))
+    pivot_longer(1:7, names_to = "color type", values_to = "rgb")
+  if (n < 7) {
+   t1 <- t1 %>% slice(1:n)
+   return(sample(t1$rgb,n))
+  } else {
+    t1 <- t1 %>% 
+      slice(1:floor(n/4))
+  }
 
   r <- sample(239:244, n, T)
   g <- sample(239:244, n, T)
@@ -67,5 +72,6 @@ random_rgb <- function(n){
     slice(1:(n-3*floor(n/4)))
   
   t <- rbind(t1,t2,t3,t4)
-  return(t$rgb)
+  
+  return(sample(t$rgb,n))
 }

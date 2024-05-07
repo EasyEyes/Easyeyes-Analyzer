@@ -360,6 +360,8 @@ generate_summary_table <- function(data_list){
 }
 
 render_summary_datatable <- function(dt, participants, prolific_id){
+  print(prolific_id)
+  print(random_rgb((length(prolific_id))))
   datatable(dt,
             class = list(stripe = FALSE),
             selection = 'none',
@@ -454,10 +456,17 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 ),
                 list(
                   width = '50px',
-                  targets = c(7, 8, 13, 20, 25),
+                  targets = c(7, 8, 20, 25),
                   className = 'dt-center'
                 ),
-                list(width = '200px', targets = c(24,35))
+                list(
+                  width = '20px',
+                  targets = c(10,14,15,16,24,25,32,33),
+                  className = 'dt-center'
+                ),
+                list(width = '100px', targets = c(13)),
+                list(width = '200px', targets = c(24)),
+                list(width = '600px', targets = c(35))
               )
             ),
             callback = JS(data_table_call_back)) %>% 
