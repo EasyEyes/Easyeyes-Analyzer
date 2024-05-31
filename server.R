@@ -1366,8 +1366,8 @@ shinyServer(function(input, output, session) {
       output$ex1 <- DT::renderDataTable(
         render_summary_datatable(combinedTable, participants, prolific_id)
       )
-    } else{
-      formSpree <- getFormSpree() %>% filter(`ProlificSessionID` %in% unique(prolificData$ProlificSessionID))
+    } else {
+      formSpree <- getFormSpree() %>% filter(`prolificSessionID` %in% unique(prolificData$prolificSessionID))
       combinedTable <- combineProlific(prolificData, formSpree)[[1]]
       participants <- unique(combinedTable$`Pavlovia session ID`)
       prolific_id <- unique(combinedTable$`Prolific participant ID`)

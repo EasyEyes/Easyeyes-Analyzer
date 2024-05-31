@@ -240,10 +240,12 @@ read_files <- function(file){
       m <- length(all_csv)
       for (u in 1 : m) {
         t <- tibble()
+        print(file_list[k])
+        print(all_csv[u])
         try({t <- readr::read_csv(unzip(file_list[k], all_csv[u]),show_col_types = FALSE)}, silent = TRUE)
         if (!'Submission id' %in% names(t)) {
           if (!('participant' %in% colnames(t))) {
-            fileName <- str_split(all_csv[u], "[/]")[[1]][2]
+            fileName <- all_csv[u]
             print(fileName)
             t <- tibble(participant = str_split(fileName, "[_]")[[1]][1],
                         ProlificParticipantID = str_split(fileName, "[_]")[[1]][2],
@@ -462,6 +464,7 @@ read_files <- function(file){
         } else {
           next
         }
+        print('done single file in zip')
       }
       print('done processing zip')
     }
@@ -469,6 +472,7 @@ read_files <- function(file){
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
+  print('done preprocess')
   return(list(data_list, 
               summary_list, 
               paste(unique(experiment), collapse = "-"),
