@@ -9,10 +9,17 @@ read_prolific <- function(fileProlific) {
       rename("prolificSessionID" = "Submission.id",
              "Prolific participant ID" = "Participant.id",
              "ProlificStatus" = "Status",
-             "Prolific (min)" = "Time.taken",
+             "prolificMin" = "Time.taken",
              "Completion code" = "Completion.code") %>% 
-      mutate(`Prolific (min)` = `Prolific (min)` / 60)
+      mutate(`prolificMin` =format(
+        round(
+          prolificMin/60,
+          1
+        ),
+        nsmall = 1
+      ))
     return(t)
+    print(t)
   } else {
     return(tibble())
   }
@@ -43,7 +50,7 @@ find_prolific_from_files <- function(file) {
 combineProlific <- function(prolificData, summary_table){
   if (is.null(prolificData) | nrow(prolificData) == 0) {
     t <- summary_table %>% mutate(ProlificStatus= ' ',
-                                  `Prolific (min)` = NA,
+                                  prolificMin = NaN,
                                   `Completion code` = NA,
                                   Age = NA,
                                   Sex = NA,
@@ -64,18 +71,19 @@ combineProlific <- function(prolificData, summary_table){
       filter(!`Pavlovia session ID` %in% unique(t$`Pavlovia session ID`)) %>% 
       left_join(tmp, by = c('Prolific participant ID', 'prolificSessionID')) %>% 
       mutate(ProlificStatus= 'TRIED AGAIN',
-             `Prolific (min)` = NA,
+             prolificMin = '',
              `Completion code` = 'TRIED AGAIN')
     tmp <- prolificData %>% 
-filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
+      filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
     formSpree <- tmp %>% 
     full_join(formSpree, by = c('Prolific participant ID', 'prolificSessionID'))
     t <- rbind(t, t2, formSpree)
     
   }
   t <- t %>% distinct(`Prolific participant ID`, `Pavlovia session ID`, prolificSessionID, `device type`, system,
-                    browser, resolution, QRConnect, computer51Deg, cores, tardyMs, excessMs, date, KB, rows, cols, 
-                    `Prolific (min)`, ProlificStatus, `Completion code`, ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
+                    browser, resolution, QRConnect, date, prolificMin, ProlificStatus, `Completion code`, ok, unmetNeeds, 
+                    error, warning, cores, tardyMs, excessMs, KB, rows, cols, computer51Deg,
+                    `block condition`, trial, `condition name`,
                     `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, Age, Sex, Nationality, comment, order)
   return(list(t, formSpree))
 }

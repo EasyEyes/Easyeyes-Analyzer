@@ -1,6 +1,5 @@
 library(tidyr)
 random_rgb <- function(n){
-  print(paste('number of color',n))
   zero <- rep(255,n)
   r <- sample(239:244, n, T)
   g <- sample(239:244, n, T)

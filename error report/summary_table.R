@@ -3,9 +3,9 @@ library(DT)
 
 data_table_call_back = "
 
-  table.column(9).nodes().to$().css({cursor: 'pointer'});
+  table.column(23).nodes().to$().css({cursor: 'pointer'});
     var format8 = function(d) {
-      return '<p>' + d[9] + '</p>';
+      return '<p>' + d[23] + '</p>';
     };
     table.on('click', 'td.computer51Deg', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -16,9 +16,9 @@ data_table_call_back = "
       }
     });
     
-    table.column(22).nodes().to$().css({cursor: 'pointer'});
+    table.column(15).nodes().to$().css({cursor: 'pointer'});
     var format1 = function(d) {
-      return '<p>' + d[22] + '</p>';
+      return '<p>' + d[15] + '</p>';
     };
     table.on('click', 'td.errorC-control', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -29,9 +29,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(23).nodes().to$().css({cursor: 'pointer'});
+    table.column(16).nodes().to$().css({cursor: 'pointer'});
     var format2 = function(d) {
-      return '<p>' + d[23] + '</p>';
+      return '<p>' + d[16] + '</p>';
     };
     table.on('click', 'td.warnC-control', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -112,11 +112,11 @@ get_lateness_and_duration <- function(all_files){
               targetMeasuredDurationSDSec = sd(targetMeasuredDurationSec - targetDurationSec, na.rm = TRUE) * 1000,
               .groups = "keep") %>% 
     mutate(tardyMs =
-             paste0(round(targetMeasuredLatenessMeanSec, 2), "±",
-                    round(targetMeasuredLatenessSDSec,2)),
+             paste0(round(targetMeasuredLatenessMeanSec), "±",
+                    round(targetMeasuredLatenessSDSec)),
            excessMs =
-             paste0(round(targetMeasuredDurationMeanSec,2), "±",
-                    round(targetMeasuredDurationSDSec,2))) %>% 
+             paste0(round(targetMeasuredDurationMeanSec), "±",
+                    round(targetMeasuredDurationSDSec))) %>% 
     select(-targetMeasuredLatenessMeanSec,
            -targetMeasuredLatenessSDSec,
            -targetMeasuredDurationMeanSec,
@@ -129,14 +129,14 @@ get_lateness_and_duration <- function(all_files){
 
 generate_summary_table <- function(data_list){
   all_files <- tibble()
- for (i in 1 : length(data_list)) {
+  for (i in 1 : length(data_list)) {
     t <- data_list[[i]] %>% select(ProlificParticipantID, participant, prolificSessionID, deviceType, 
-                              cores, browser, deviceSystemFamily, deviceLanguage,
-                              block, block_condition,conditionName, targetTask, targetKind, 
-                              thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
-                              targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
-                              ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,
-                              `Microphone survey`, QRConnect, questionAndAnswerResponse) %>% 
+                                   cores, browser, deviceSystemFamily, deviceLanguage,
+                                   block, block_condition,conditionName, targetTask, targetKind, 
+                                   thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
+                                   targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
+                                   ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,
+                                   `Microphone survey`, QRConnect, questionAndAnswerResponse) %>% 
       distinct(ProlificParticipantID, participant, prolificSessionID, deviceType, 
                cores, browser, deviceSystemFamily, deviceLanguage,
                block, block_condition,conditionName, targetTask, targetKind, 
@@ -156,7 +156,7 @@ generate_summary_table <- function(data_list){
     t <- t %>% arrange(`ComputerInfoFrom51Degrees`)
     tmp <- t$`ComputerInfoFrom51Degrees`[1]
     t <- t %>% mutate(`ComputerInfoFrom51Degrees` = ifelse(is.na(tmp), '',tmp))
-   
+    
     t <- t %>% arrange(desc(QRConnect))
     tmp <- t$QRConnect[1]
     t <- t %>% mutate(QRConnect = ifelse(is.na(tmp), '',tmp)) 
@@ -164,14 +164,14 @@ generate_summary_table <- function(data_list){
     tmp <- t$questionAndAnswerResponse[1]
     t <- t %>% mutate(questionAndAnswerResponse = ifelse(is.na(tmp), '',tmp)) %>% 
       distinct(ProlificParticipantID, participant, prolificSessionID, deviceType, 
-       cores, browser, deviceSystemFamily, deviceLanguage,
-       block, block_condition,conditionName, targetTask, targetKind, 
-       thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
-       targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
-       ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,
-       `Microphone survey`, QRConnect, questionAndAnswerResponse)
+               cores, browser, deviceSystemFamily, deviceLanguage,
+               block, block_condition,conditionName, targetTask, targetKind, 
+               thresholdParameter, resolution,error, warning, targetMeasuredLatenessSec,
+               targetMeasuredDurationSec,date, targetDurationSec, rows, cols, kb, 
+               ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,
+               `Microphone survey`, QRConnect, questionAndAnswerResponse)
     all_files <- rbind(all_files,t)
- }
+  }
   print('done all files')
   trial <- all_files %>% group_by(participant, block_condition) %>% count()
   lateness_duration <- get_lateness_and_duration(all_files)
@@ -209,7 +209,7 @@ generate_summary_table <- function(data_list){
           arrange(`Loudspeaker survey`)
         tmp <- t$`Loudspeaker survey`[1]
         t <- t %>% mutate(`Loudspeaker survey` = ifelse(is.na(tmp), '',tmp))
-          t <- t %>% arrange(`_needsUnmet`)
+        t <- t %>% arrange(`_needsUnmet`)
         tmp <- t$`_needsUnmet`[1]
         t <- t %>% mutate(`_needsUnmet` = ifelse(is.na(tmp), '',tmp))
         t <- t %>% arrange(`Microphone survey`)
@@ -226,9 +226,9 @@ generate_summary_table <- function(data_list){
         t <- t %>% mutate(questionAndAnswerResponse = ifelse(is.na(tmp), '',tmp))
         t <- t %>% 
           distinct(error, ProlificParticipantID, participant, prolificSessionID, deviceType, 
-                 cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
-                 ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
-                 QRConnect, questionAndAnswerResponse)
+                   cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
+                   ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
+                   QRConnect, questionAndAnswerResponse)
         info <- data_list[[i]] %>% 
           distinct(block, block_condition, conditionName, 
                    targetTask, targetKind, thresholdParameter) %>% 
@@ -299,7 +299,7 @@ generate_summary_table <- function(data_list){
     }
   }
   completes$warning <- ""
-
+  
   summary_df <- rbind(noerror_fails,
                       completes,
                       error %>% 
@@ -338,10 +338,10 @@ generate_summary_table <- function(data_list){
            "Microphone" = "Microphone survey",
            'comment' = 'questionAndAnswerResponse') %>% 
     distinct(`Prolific participant ID`, `Pavlovia session ID`, prolificSessionID, `device type`, system,
-           browser, resolution, QRConnect, computer51Deg, cores, tardyMs, excessMs, date, KB, rows, cols, 
-           ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
-           `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, QRConnect, comment)
-
+             browser, resolution, QRConnect, date, ok, unmetNeeds, error, warning, computer51Deg, cores, tardyMs,
+             excessMs, KB, rows, cols, `block condition`, trial, `condition name`,
+             `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, comment)
+  
   #### order block_condition by splitting and order block and condition order ####
   summary_df <- summary_df %>% 
     mutate(block = as.numeric(unlist(lapply(summary_df$`block condition`, 
@@ -355,13 +355,11 @@ generate_summary_table <- function(data_list){
   summary_df <- summary_df %>%
     left_join(block_condition_order, by = c("block", "condition")) %>%
     select(-block, -condition)
-
+  
   return(summary_df)
 }
 
 render_summary_datatable <- function(dt, participants, prolific_id){
-  print(prolific_id)
-  print(random_rgb((length(prolific_id))))
   datatable(dt,
             class = list(stripe = FALSE),
             selection = 'none',
@@ -380,18 +378,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 list(visible = FALSE, targets = c(0, 36)),
                 list(orderData = 36, targets = 23),
                 list(
-                  targets = c(9),
-                  width = '200px',
-                  className = 'computer51Deg',
-                  render = JS(
-                    "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 30 ?",
-                    "data.substr(0, 30) + '...' : data;",
-                    "}"
-                  )
-                ),
-                list(
-                  targets = c(22),
+                  targets = c(15),
                   width = '200px',
                   className = 'errorC-control',
                   render = JS(
@@ -402,9 +389,20 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   )
                 ),
                 list(
-                  targets = c(23),
+                  targets = c(16),
                   width = '200px',
                   className = 'warnC-control',
+                  render = JS(
+                    "function(data, type, row, meta) {",
+                    "return type === 'display' && data && data.length > 30 ?",
+                    "data.substr(0, 30) + '...' : data;",
+                    "}"
+                  )
+                ),
+                list(
+                  targets = c(23),
+                  width = '200px',
+                  className = 'computer51Deg',
                   render = JS(
                     "function(data, type, row, meta) {",
                     "return type === 'display' && data && data.length > 30 ?",
