@@ -15,6 +15,7 @@ getFormSpree <- function(){
       mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
       func = function(x) {str_split(x,'[.]')[[1]][1]}
       t$browserVersion <- unlist(lapply(t$browserVersion, FUN=func))
+      t$system = str_replace_all(t$system, "OS X","macOS")
       t <- t %>% 
       mutate(browser = ifelse(browser == "", "", paste0(browser,  " ", browserVersion)),
              resolution = '', 
@@ -59,6 +60,7 @@ monitorFormSpree <- function() {
     content <- httr::content(response, as = "text", encoding='UTF-8')
     t <- jsonlite::fromJSON(content)$submissions %>% 
       select(pavloviaID, prolificParticipantID, prolificSession, ExperimentName, `_date`,OS, browser, browserVersion, deviceType)
+    t$OS = stringr::str_replace_all(t$OS, "OS X","macOS")
     return(t)
   }
   return(tibble())
