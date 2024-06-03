@@ -17,7 +17,8 @@ read_prolific <- function(fileProlific) {
           1
         ),
         nsmall = 1
-      ))
+      ),
+      `Completion code` = as.character(`Completion code`))
     return(t)
     print(t)
   } else {

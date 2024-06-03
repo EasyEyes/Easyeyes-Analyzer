@@ -193,6 +193,7 @@ generate_summary_table <- function(data_list){
   #### incomplete files ####
   noerror_fails = tibble()
   for (i in 1 : length(data_list)) {
+
     if (tail(data_list[[i]]$experimentCompleteBool, 1) == 'FALSE' | 
         is.na(tail(data_list[[i]]$experimentCompleteBool, 1))) {
       if (!data_list[[i]]$participant[1] %in% error$participant) {
@@ -365,10 +366,12 @@ render_summary_datatable <- function(dt, participants, prolific_id){
             selection = 'none',
             filter = "top",
             escape = FALSE,
+            # extensions = 'FixedHeader',
             options = list(
               autoWidth = TRUE,
               paging = FALSE,
-              scrollX=TRUE,
+              scrollX = TRUE, 
+              # fixedHeader = TRUE,
               dom= 'lrtip',
               language = list(
                 info = 'Showing _TOTAL_ entries',
