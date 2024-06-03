@@ -356,6 +356,7 @@ generate_summary_table <- function(data_list){
   summary_df <- summary_df %>%
     left_join(block_condition_order, by = c("block", "condition")) %>%
     select(-block, -condition)
+  summary_df$`threshold parameter` = as.character(summary_df$`threshold parameter`)
   
   return(summary_df)
 }
