@@ -47,6 +47,7 @@ source("./plotting/crowding_sloan_vs_times.R")
 source("./plotting/reading_vs_font_size.R")
 source("./plotting/customized_inplot_table.R")
 source("./plotting/profile_plot.R")
+source("./plotting/simulatedRSVP.R")
 
 
 source("./other/getBits.R")
@@ -87,6 +88,12 @@ shinyServer(function(input, output, session) {
     showModal(modalDialog("Reading files", footer = NULL))
     t <- read_files(input$file)
     removeModal()
+    return(t)
+  })
+  
+  stairPlots <- reactive({
+    require(input$file)
+    t <- getStairsPlot(input$file)
     return(t)
   })
   
@@ -1222,6 +1229,18 @@ shinyServer(function(input, output, session) {
                    })
                  output$ex4 <-
                    renderTable(threshold_and_warnings()[[3]])
+                 #### stairPlots ####
+                 output$p1 <- renderPlot({
+
+                   stairPlots()[[1]] + plt_theme
+                 }, res = 96)
+                 output$p2 <- renderPlot({
+                   stairPlots()[[2]] + plt_theme
+                 }, res = 96)
+                 output$p3 <- renderPlot({
+                   stairPlots()[[3]] + plt_theme
+                 }, res = 96)
+                 
                  #### plots ####
                  output$readingVsXheightLog <- renderPlot({
                    p1 <- reading_vs_font_size()[[1]]
@@ -2237,7 +2256,55 @@ shinyServer(function(input, output, session) {
     
   })
   # download plots handlers
+  
   observeEvent(toListen(), {
+    output$downloadP1 <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('p1.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = stairPlots()[[1]][[1]] + downloadtheme / stairPlots()[[1]][[2]] + downloadtheme/ stairPlots()[[1]][[3]] + downloadtheme
+            ,
+          device = ifelse(input$fileType == "svg", svglite, input$fileType)
+        )
+      }
+    )
+    output$downloadP2 <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('p2.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot =stairPlots()[[2]] +
+            downloadtheme,
+          device = ifelse(input$fileType == "svg", svglite, input$fileType),
+          dpi = 200
+        )
+      }
+    )
+    output$downloadP3 <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('p3.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = stairPlots()[[3]] +
+            downloadtheme,
+          device = ifelse(input$fileType == "svg", svglite, input$fileType),
+          dpi = 200
+        )
+      }
+    )
     output$downloadReadingVsXheightLog <- downloadHandler(
       filename = paste(
         app_title$default,
@@ -2254,7 +2321,8 @@ shinyServer(function(input, output, session) {
                 "reading speed vs x height, log scale"),
               collapse = "\n"
             )),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
+          device = ifelse(input$fileType == "svg", svglite, input$fileType),
+          dpi = 200
         )
       }
     )

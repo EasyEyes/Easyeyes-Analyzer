@@ -12,6 +12,16 @@ plotsTab <- tabPanel(
     inline = TRUE,
     selected = "png"
   ),
+  #### stairPlots #####
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("p1", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("p2", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("p3", width = "100%"), type = 4)
+  ),
   #### font size ####
   splitLayout(
     cellWidths = c("50%", "50%"),

@@ -1,6 +1,8 @@
 library(dplyr)
 library(DT)
 
+# Each time update the summary table, the rmd report need to be updated accordingly.
+
 data_table_call_back = "
 
   table.column(23).nodes().to$().css({cursor: 'pointer'});

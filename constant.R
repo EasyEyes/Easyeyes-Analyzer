@@ -55,15 +55,15 @@ downloadtheme <- theme(legend.position = "right",
                        legend.justification = c(1,1),
                        legend.margin = margin(-0.4),
                        legend.key.size = unit(4.5, "mm"),
-                       legend.title = element_text(size=14),
+                       legend.title = element_text(size=20),
                        panel.grid.major = element_blank(), 
                        panel.grid.minor = element_blank(),
                        panel.background = element_blank(), 
-                       axis.title = element_text(size = 14),
-                       axis.text = element_text(size = 14),
+                       axis.title = element_text(size = 20),
+                       axis.text = element_text(size = 20),
                        axis.line = element_line(colour = "black"),
-                       plot.title = element_text(size=11),
-                       plot.subtitle = element_text(size=14))
+                       plot.title = element_text(size=20),
+                       plot.subtitle = element_text(size=20))
 
 
 ##### ggplot display theme #####
