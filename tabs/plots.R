@@ -20,7 +20,16 @@ plotsTab <- tabPanel(
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
+    downloadButton("downloadP1", "Download"),
+    downloadButton("downloadP2", "Download")
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
     shinycssloaders::withSpinner(plotOutput("p3", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadP3", "Download")
   ),
   #### font size ####
   splitLayout(

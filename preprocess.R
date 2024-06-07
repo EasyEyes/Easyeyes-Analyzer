@@ -17,8 +17,8 @@ read_files <- function(file){
         inf <- file.info(file_list[i])
         if (!('participant' %in% colnames(t))) {
           t <- tibble(participant = str_split(file$name[i], "[_]")[[1]][1],
-                      ProlificParticipantID = str_split(file$name[i], "[_]")[[1]][2],
-                      experiment = str_split(file$name[i], "[_]")[[1]][3])
+                      ProlificParticipantID = '',
+                      experiment = '')
           t$error <- "Incomplete"
           t$rows <- 0
           t$cols <- 0
@@ -248,8 +248,8 @@ read_files <- function(file){
             fileName <- all_csv[u]
             print(fileName)
             t <- tibble(participant = str_split(fileName, "[_]")[[1]][1],
-                        ProlificParticipantID = str_split(fileName, "[_]")[[1]][2],
-                        experiment = str_split(fileName, "[_]")[[1]][3])
+                        ProlificParticipantID = '',
+                        experiment = '')
             t$error <- "Incomplete"
             t$rows <- 0
             t$cols <- 0

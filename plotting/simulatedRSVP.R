@@ -2,7 +2,7 @@
 library(dplyr)
 library(stringr)
 library(ggplot2)
-library(patchwork)
+
 # ------------------------------------------------------------------------------
 #####                               Load Function                           ####
 # ------------------------------------------------------------------------------
@@ -19,16 +19,17 @@ is.contained=function(vec1,vec2){
 
 extractRSVPStaircases <- function(df){
   stairdf <- df %>%
-    filter(!is.na(staircaseName) & str_detect(conditionName, "rsvp")) %>%
+    filter(!is.na(staircaseName) & (str_detect(conditionName, "rsvp") | str_detect(conditionName, "RSVP"))) %>%
     select("participant", "ProlificParticipantID", "conditionName", 
            "staircaseName", "questMeanBeforeThisTrialResponse", "trialGivenToQuest", "rsvpReadingResponseCorrectBool", 
-           "levelProposedByQUEST", "rsvpReadingWordDurationSec", "simulationThreshold")#, "targetSpacingPx")
+           "levelProposedByQUEST", "rsvpReadingWordDurationSec", "simulationThreshold", "font")#, "targetSpacingPx")
 }
 
 extractRSVP <- function(df){
   rsvpdf <- df %>%
     filter(!is.na(questMeanAtEndOfTrialsLoop) & 
-             startsWith(conditionName, "rsvp")) %>%
+             (grepl('rsvp', conditionName, fixed = TRUE) | 
+             grepl('RSVP', conditionName, fixed = TRUE))) %>%
     select("participant","ProlificParticipantID","conditionName", 
            "questMeanAtEndOfTrialsLoop",
            "questSDAtEndOfTrialsLoop", "simulationThreshold") %>%
@@ -41,14 +42,14 @@ extractRSVP <- function(df){
   
 }
 
-# allData <- read.csv("simulatedData.csv")
-
 getStairsPlot <- function(file) {
   file_list <- file$data
   if (length(file_list) == 1 & grepl(".csv", file_list[1])) {
-    try({allData <- readr::read_csv(file_list[i])}, silent = TRUE)
+    print('read csv')
+    try({allData <- readr::read_csv(file_list[1])}, silent = TRUE)
   } else if (length(file_list) == 1 & grepl(".zip", file_list[1])) {
-    file_names <- unzip(file_list[k], list = TRUE)$Name
+    print('read zip')
+    file_names <- unzip(file_list[1], list = TRUE)$Name
     all_csv <- file_names[grepl(".csv", file_names)]
     all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
     if (length(all_csv) <= 2) {
@@ -80,15 +81,13 @@ getStairsPlot <- function(file) {
   rsvpdf$simulationThreshold <- unique(allData$simulationThreshold)[!is.na(unique(allData$simulationThreshold))]
   
   N = length(unique(allData$participant))
-  stairLength = 50
-  stairPP = 3
-  
+
   rsvpStair <- rsvpstairdf %>%
     filter(!is.na(questMeanBeforeThisTrialResponse)) %>%
-    mutate(font = str_remove(conditionName, "rsvp")) %>%
     select(-conditionName) %>%
     arrange(participant, font) %>%
-    mutate(trialN = rep(1:stairLength, N*stairPP)) %>%
+    group_by(staircaseName) %>% 
+    mutate(trialN = row_number()) %>%
     separate(rsvpReadingResponseCorrectBool, 
              into = c("w1", "w2", "w3"), sep = ",") %>%
     mutate(across(w1:w3, as.logical)) %>%
@@ -123,8 +122,8 @@ getStairsPlot <- function(file) {
     geom_point(aes(x = trialN, y = questMeanBeforeThisTrialResponse), size = 0.5)+
     geom_line(aes(x = trialN, y = questMeanBeforeThisTrialResponse))+
     facet_wrap(.~participant)+
-    theme_classic()+
     labs(title = "questMeanBeforeThisTrialResponse")+
+    theme_classic()+
     #geom_segment(aes(x = trialN, xend = trialN, y = as.numeric(!allCorrect) * -2, 
     #                 yend = as.numeric(!allCorrect) * 2), linewidth = 1, 
     #             color = "tomato", alpha = 0.3, linetype = "solid")+
@@ -145,12 +144,12 @@ getStairsPlot <- function(file) {
     facet_wrap(.~simulationThreshold)+
     theme(plot.title = element_text(hjust = 0.5))
   
-  g1 <- lpq / qmbtr / rsvpdur
+  g1 <- list(lpq, qmbtr,rsvpdur)
   
   
   g2 <- ggplot(rsvpstairdf, aes(x = rsvpReadingWordDurationSec, y = 10^(levelProposedByQUEST)))+
     geom_point()+
-    theme_classic(base_size = 12)+
+    theme_classic(base_size = 16)+
     coord_fixed(ratio = 1)+
     geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray")
   #scale_x_log10()+

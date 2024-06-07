@@ -20,6 +20,7 @@ library(lubridate)
 require(ggpp)
 library(svglite)
 library(magick)
+library(patchwork)
 # library(showtext)
 # library(systemfonts)
 # Enables automatic font loading for showtext
@@ -1232,7 +1233,7 @@ shinyServer(function(input, output, session) {
                  #### stairPlots ####
                  output$p1 <- renderPlot({
 
-                   stairPlots()[[1]] + plt_theme
+                   (stairPlots()[[1]][[1]] + plt_theme) / (stairPlots()[[1]][[2]] + plt_theme) / (stairPlots()[[1]][[3]] + plt_theme)
                  }, res = 96)
                  output$p2 <- renderPlot({
                    stairPlots()[[2]] + plt_theme
@@ -2267,7 +2268,7 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         ggsave(
           file,
-          plot = stairPlots()[[1]][[1]] + downloadtheme / stairPlots()[[1]][[2]] + downloadtheme/ stairPlots()[[1]][[3]] + downloadtheme
+          plot = (stairPlots()[[1]][[1]] + downloadtheme) / (stairPlots()[[1]][[2]] + downloadtheme) / (stairPlots()[[1]][[3]] + downloadtheme)
             ,
           device = ifelse(input$fileType == "svg", svglite, input$fileType)
         )
