@@ -6,6 +6,8 @@ crowding_by_side <- function(crowding) {
     left_join(crowding_R, by = c("participant","font")) %>% 
     rename("bouma_factor_Left" = "bouma_factor.x",
            "bouma_factor_Right" = "bouma_factor.y")
+  print('==========================  crowding_L_R ==========================')
+  print(crowding_L_R)
   return(crowding_L_R)
 }
 
@@ -44,8 +46,8 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
                                                      avg_bouma_factor_Right = mean(bouma_factor_Right))
   ggplot(t, aes(x = avg_bouma_factor_Left, y = avg_bouma_factor_Right, color = font)) + 
     geom_point(size = 2) +
-    scale_y_log10(limits = c(0.1,1)) +
-    scale_x_log10(limits = c(0.1,1)) + 
+    scale_y_log10(limits = c(0.1, ceiling(max(t$avg_bouma_factor_Left, t$avg_bouma_factor_Right)))) +
+    scale_x_log10(limits = c(0.1, ceiling(max(t$avg_bouma_factor_Left, t$avg_bouma_factor_Right)))) + 
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     stat_cor() +  
     coord_fixed(ratio = 1) + 

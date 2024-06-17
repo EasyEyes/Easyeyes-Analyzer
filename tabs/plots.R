@@ -12,6 +12,30 @@ plotsTab <- tabPanel(
     inline = TRUE,
     selected = "png"
   ),
+  #### crowding ####
+  h3("Crowding plots"),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("crowdingAvgPlot", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("crowdingScatterPlot", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadCrowdingAvgPlot", "Download"),
+    downloadButton("downloadCrowdingScatterPlot", "Download")
+  ),
+  #### rsvp crowding plots ####
+  h3("RSVP vs Crowding plots"),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("rsvpCrowdingPeripheralPlot", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("rsvpCrowdingFovealPlot", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadRsvpCrowdingPeripheralPlot", "Download"),
+    downloadButton("downloadRsvpCrowdingFovealPlot", "Download")
+  ),
   #### stairPlots #####
   splitLayout(
     cellWidths = c("50%", "50%"),
@@ -118,18 +142,7 @@ plotsTab <- tabPanel(
     downloadButton("downloadRetentionHistogram", "Download"),
     downloadButton("downloadReadingSpeedRetention", "Download")
   ),
-  #### crowding ####
-  h3("Crowding plots"),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("crowdingAvgPlot", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("crowdingScatterPlot", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadCrowdingAvgPlot", "Download"),
-    downloadButton("downloadCrowdingScatterPlot", "Download")
-  ),
+
   splitLayout(
     cellWidths = c("50%", "50%"),
     shinycssloaders::withSpinner(plotOutput("SloanVsTimesMeanPlot", width = "100%"), type = 4),

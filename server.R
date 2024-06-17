@@ -56,6 +56,7 @@ source("./other/sound_plots.R")
 source("./other/read_json.R")
 source("./other/csvSplitter.R")
 source("./other/formSpree.R")
+source('./other/crowdingrsvp.R')
 
 library(shiny)
 
@@ -136,6 +137,12 @@ shinyServer(function(input, output, session) {
   df_list <- reactive({
     return(generate_rsvp_reading_crowding_fluency(data_list(), summary_list()))
   })
+  
+  crowdingBySide <- reactive({
+    print('inside crowdingBySide')
+    crowding_by_side(df_list()$crowding)
+  })
+  
   reading_rsvp_crowding_df <- reactive({
     return(get_mean_median_df(df_list()))
   })
@@ -370,9 +377,9 @@ shinyServer(function(input, output, session) {
       ),
       parse = T)
   })
-  crowdingBySide <- reactive({
-    crowding_by_side(df_list()[[2]])
-  })
+  
+  
+  
   crowdingPlot <- reactive({
     crowding_scatter_plot(crowdingBySide())  +
       labs(title = paste(
@@ -381,6 +388,7 @@ shinyServer(function(input, output, session) {
         collapse = "\n"
       ))
   })
+  
   crowdingAvgPlot <- reactive({
     crowding_mean_scatter_plot(crowdingBySide())  +
       coord_fixed(ratio = 1) +
@@ -389,6 +397,11 @@ shinyServer(function(input, output, session) {
           "Crowding, left vs. right, by font"),
         collapse = "\n"
       ))
+  })
+  
+  #### rsvpCrowding reacitve ####
+  rsvpCrowding <- reactive({
+    plot_rsvp_crowding(df_list())
   })
   
   sloan_vs_times <- reactive({
@@ -1341,6 +1354,15 @@ shinyServer(function(input, output, session) {
                  
                  output$SloanVsTimesSDPlot <- renderPlot({
                    sloan_vs_times_sd() + plt_theme
+                 })
+                 
+                 #### rsvp vs crowding ####
+                 output$rsvpCrowdingPeripheralPlot <- renderPlot({
+                   rsvpCrowding()[[1]]
+                 })
+                 
+                 output$rsvpCrowdingFovealPlot <- renderPlot({
+                   rsvpCrowding()[[2]]
                  })
                  
                  #### test retest ####
@@ -2580,6 +2602,45 @@ shinyServer(function(input, output, session) {
         )
       }
     )
+    #### download rsvp crowding ####
+    
+    output$downloadRsvpCrowdingPeripheralPlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-peripheral-crowding.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = rsvpCrowding()[[1]] + downloadtheme,
+          width = 4,
+          height = 2.5,
+          units = 'in',
+          device = ifelse(input$fileType == "svg", svglite, input$fileType)
+        )
+      }
+    )
+    
+    output$downloadRsvpCrowdingFovealPlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-foveal-crowding.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = rsvpCrowding()[[2]] + downloadtheme,
+          width = 4,
+          height = 2.5,
+          units = 'in',
+          device = ifelse(input$fileType == "svg", svglite, input$fileType)
+        )
+      }
+    )
+    
+    #### download sloan vs times ####
     
     output$downloadSloanVsTimesSDPlot <- downloadHandler(
       filename = paste(

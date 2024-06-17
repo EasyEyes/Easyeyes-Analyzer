@@ -12,7 +12,7 @@ read_files <- function(file){
   for (i in 1 : n) {
     t <- tibble()
     if (grepl(".csv", file_list[i])){ 
-      try({t <- readr::read_csv(file_list[i])}, silent = TRUE)
+      try({t <- readr::read_csv(file_list[i],show_col_types = FALSE)}, silent = TRUE)
       if (!'Submission id' %in% names(t)){
         inf <- file.info(file_list[i])
         if (!('participant' %in% colnames(t))) {
@@ -201,14 +201,13 @@ read_files <- function(file){
         info <- t %>% 
           dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
           distinct(participant, block_condition, staircaseName, conditionName, 
-                   targetKind, font, experiment)
+                   targetKind, font, experiment, thresholdParameter)
         
         summaries <- t %>% 
           dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
           select(
             block_condition,
             staircaseName, 
-            thresholdParameter,
             questMeanAtEndOfTrialsLoop
           )
         if(n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
@@ -240,13 +239,10 @@ read_files <- function(file){
       m <- length(all_csv)
       for (u in 1 : m) {
         t <- tibble()
-        print(file_list[k])
-        print(all_csv[u])
         try({t <- readr::read_csv(unzip(file_list[k], all_csv[u]),show_col_types = FALSE)}, silent = TRUE)
         if (!'Submission id' %in% names(t)) {
           if (!('participant' %in% colnames(t))) {
             fileName <- all_csv[u]
-            print(fileName)
             t <- tibble(participant = str_split(fileName, "[_]")[[1]][1],
                         ProlificParticipantID = '',
                         experiment = '')
@@ -434,14 +430,13 @@ read_files <- function(file){
           info <- t %>% 
             dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
             distinct(participant, block_condition, staircaseName, conditionName, 
-                     targetKind, font, experiment)
+                     targetKind, font, experiment, thresholdParameter)
           
           summaries <- t %>% 
             dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
             select(
               block_condition,
               staircaseName, 
-              thresholdParameter,
               questMeanAtEndOfTrialsLoop
             )
           if(n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
@@ -464,7 +459,6 @@ read_files <- function(file){
         } else {
           next
         }
-        print('done single file in zip')
       }
       print('done processing zip')
     }

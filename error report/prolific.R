@@ -32,7 +32,6 @@ find_prolific_from_files <- function(file) {
   n = length(file$data)
   prolificDT <- tibble()
   for (k in 1:length(file_list)) {
-    print('inside find prolific')
     if (grepl(".zip", file_list[k])) {
       file_names <- unzip(file_list[k], list = TRUE)$Name
       all_csv <- file_names[grepl(".csv", file_names)]
@@ -43,8 +42,8 @@ find_prolific_from_files <- function(file) {
 
       return(prolificDT)
     }
-    print('done find prolific')
   }
+  print('done find prolific')
   return(prolificDT)
 }
 
