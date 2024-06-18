@@ -12,8 +12,17 @@ crowding_by_side <- function(crowding) {
 }
 
 crowding_scatter_plot <- function(crowding_L_R){
-  correlation <-  round(cor(crowding_L_R$bouma_factor_Left, crowding_L_R$bouma_factor_Right),2)
-  ratio <- round(mean(crowding_L_R$bouma_factor_Right) / mean(crowding_L_R$bouma_factor_Left),2)
+  summ <- group_by(crowding_L_R, font) %>% 
+    summarize(R = cor.test(bouma_factor_Left, bouma_factor_Right)$estimate,
+              ratio = round(mean(bouma_factor_Right) / mean(bouma_factor_Left),2),
+              N = n()) %>%
+    mutate(R = formatC(R, format = "fg", digits = 2),
+           ratio = formatC(ratio, format = "fg", digits = 2)) %>% 
+    mutate(label =  paste0("italic('R=')~", 
+                           R,
+                           "~italic(', right:left=')~", ratio),
+           N = paste0("italic('N=')~", N))
+  
   ggplot(crowding_L_R,aes(x = bouma_factor_Left, y = bouma_factor_Right)) + 
     geom_point(size = 1) + 
     facet_wrap(~font) + 
@@ -28,16 +37,16 @@ crowding_scatter_plot <- function(crowding_L_R){
     coord_fixed(ratio = 1) + 
     theme_bw() + 
     ggpp::geom_text_npc(
+      data = summ,
       aes(npcx = "left",
           npcy = "bottom",
-          label = paste0("italic('N=')~", dplyr::n_distinct(crowding_L_R$participant))), 
+          label = label), 
       parse = T) + 
     ggpp::geom_text_npc(
+      data = summ,
       aes(npcx = "left",
           npcy = "top",
-          label = paste0("italic('R=')~", 
-                         correlation,
-                        "~italic(', right:left=')~", ratio)), 
+          label = N),
       parse = T)
 }
 
