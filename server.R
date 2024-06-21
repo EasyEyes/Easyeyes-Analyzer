@@ -44,7 +44,6 @@ source("./plotting/histogram.R")
 source("./plotting/crowding_plot.R")
 source("./plotting/test_retest.R")
 source("./plotting/scatter_plots.R")
-source("./plotting/crowding_sloan_vs_times.R")
 source("./plotting/reading_vs_font_size.R")
 source("./plotting/customized_inplot_table.R")
 source("./plotting/profile_plot.R")
@@ -93,6 +92,15 @@ shinyServer(function(input, output, session) {
     return(t)
   })
   
+  pretestXLSX <- reactive({
+    require(input$pretestXLSX)
+    showModal(modalDialog("Reading pretest xlsx file", footer = NULL))
+    t <- get_pretest(input$pretestXLSX)
+    removeModal()
+    return(t)
+  })
+  
+  
   stairPlots <- reactive({
     require(input$file)
     t <- getStairsPlot(input$file)
@@ -128,14 +136,14 @@ shinyServer(function(input, output, session) {
   
   summary_table <- reactive({
     require(input$file)
-    generate_summary_table(data_list())
+    generate_summary_table(files()$data_list)
   })
   threshold_and_warnings <- reactive({
     require(input$file)
-    return(generate_threshold(data_list(), summary_list()))
+    return(generate_threshold(files()$data_list, summary_list()))
   })
   df_list <- reactive({
-    return(generate_rsvp_reading_crowding_fluency(data_list(), summary_list()))
+    return(generate_rsvp_reading_crowding_fluency(files()$data_list, summary_list()))
   })
   
   crowdingBySide <- reactive({
@@ -404,18 +412,18 @@ shinyServer(function(input, output, session) {
     plot_rsvp_crowding(df_list())
   })
   
-  sloan_vs_times <- reactive({
-    sloan_vs_times_plots(df_list()[[2]])
+  two_fonts_plots <- reactive({
+    get_two_fonts_plots(df_list()$crowding)
   })
   
   sloan_vs_times_means <- reactive({
-    sloan_vs_times()[[1]] +
+    two_fonts_plots()[[1]] +
       labs(title = experiment_names(),
            subtitle = "Crowding Sloan vs Times, mean")
   })
   
   sloan_vs_times_sd <- reactive({
-    sloan_vs_times()[[2]] +
+    two_fonts_plots()[[2]] +
       labs(title = experiment_names(),
            subtitle = "Crowding Sloan vs Times, sd")
   })
@@ -556,8 +564,186 @@ shinyServer(function(input, output, session) {
     get_prob_each_block(get_counts_each_block(allMeasures()))
   })
   
+  output$crowdingGradePlot <- renderPlot(
+    ggplot()
+  )
+  output$rsvpGradePlot <- renderPlot(
+    ggplot()
+  )
+  output$acuityGradePlot <- renderPlot(
+    ggplot()
+  )
   
-  
+  #### plot for children
+  observeEvent(input$pretestXLSX, {
+    plots <- plot_rsvp_crowding_acuity(df_list(), files()$df, pretestXLSX())
+    print('done plots')
+    output$fileUploaded <- reactive({
+      return(!is.null(pretestXLSX()))
+    })
+    outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
+    
+    
+    output$crowdingGradePlot <-renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot =  plots[[1]] + plt_theme,
+        device = svg,
+        width = 6,
+        height = 4
+      )
+      
+      list(src = outfile,
+           contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
+    output$rsvpGradePlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot =  plots[[2]] + plt_theme,
+        device = svg,
+        width = 6,
+        height = 4
+      )
+      
+      list(src = outfile,
+           contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
+    output$acuityGradePlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot =  plots[[3]] + plt_theme,
+        device = svg,
+        width = 6,
+        height = 4
+      )
+      list(src = outfile,
+           contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
+    output$downloadCrowdingGradePlot <- downloadHandler(
+      filename = paste0(
+        experiment_names(),
+        'crowding-vs-grade',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot =   plots[[1]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1200,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = plots[[1]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+
+    output$downloadRsvpGradePlot <- downloadHandler(
+      filename = paste0(
+        experiment_names(),
+        'rsvp-vs-grade',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = plots[[2]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1200,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = plots[[2]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+
+    output$downloadAcuityGradePlot <- downloadHandler(
+      filename = paste0(
+       experiment_names(),
+       'acuity-vs-grade',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = plots[[3]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1200,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = plots[[3]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileProfile
+            )
+          )
+        }
+      }
+    )
+    
+    
+  })
   
   #### IR and IIR json ####
   observeEvent(input$do, {
@@ -1349,11 +1535,17 @@ shinyServer(function(input, output, session) {
                  })
                  
                  output$SloanVsTimesMeanPlot <- renderPlot({
-                   sloan_vs_times_means() + plt_theme
+                   two_fonts_plots()[[1]] +
+                     labs(title = experiment_names(),
+                          subtitle = paste0("Crowding ", two_fonts_plots()$title, ", mean")) +
+                     plt_theme
                  })
                  
                  output$SloanVsTimesSDPlot <- renderPlot({
-                   sloan_vs_times_sd() + plt_theme
+                   two_fonts_plots()[[2]] +
+                     labs(title = experiment_names(),
+                          subtitle = paste0("Crowding ", two_fonts_plots()$title, ", sd")) +
+                     plt_theme
                  })
                  
                  #### rsvp vs crowding ####
@@ -2591,13 +2783,16 @@ shinyServer(function(input, output, session) {
     output$downloadSloanVsTimesMeanPlot <- downloadHandler(
       filename = paste(
         app_title$default,
-        paste0('sloan_vs_times_mean.', input$fileType),
+        paste0('2_fonts_mean.', input$fileType),
         sep = "-"
       ),
       content = function(file) {
         ggsave(
           file,
-          plot = sloan_vs_times_means() + downloadtheme,
+          plot = two_fonts_plots()[[1]] +
+            labs(title = experiment_names(),
+                 subtitle = paste0("Crowding ", two_fonts_plots()$title, ", mean")) +
+            plt_theme,
           device = ifelse(input$fileType == "svg", svglite, input$fileType)
         )
       }
@@ -2645,13 +2840,16 @@ shinyServer(function(input, output, session) {
     output$downloadSloanVsTimesSDPlot <- downloadHandler(
       filename = paste(
         app_title$default,
-        paste0('sloan_vs_times_sd.', input$fileType),
+        paste0('2_fonts_sd.', input$fileType),
         sep = "-"
       ),
       content = function(file) {
         ggsave(
           file,
-          plot = sloan_vs_times_sd() + downloadtheme,
+          plot = two_fonts_plots()[[2]] +
+            labs(title = experiment_names(),
+                 subtitle = paste0("Crowding ", two_fonts_plots()$title, ", sd")) +
+            downloadtheme,
           device = ifelse(input$fileType == "svg", svglite, input$fileType)
         )
       }

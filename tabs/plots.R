@@ -12,6 +12,37 @@ plotsTab <- tabPanel(
     inline = TRUE,
     selected = "png"
   ),
+  fixedRow(column(
+    width = 4,
+    fileInput(
+      "pretestXLSX",
+      NULL,
+      accept = c(".xlsx"),
+      buttonLabel = "Upload the pretest xlsx file",
+      multiple = F
+    )
+  )),
+  conditionalPanel(condition='output.fileUploaded',
+                   h3("Grade plots"),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(plotOutput("crowdingGradePlot", width = "100%"), type = 4),
+                     shinycssloaders::withSpinner(plotOutput("rsvpGradePlot", width = "100%"), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadCrowdingGradePlot", "Download"),
+                     downloadButton("downloadRsvpGradePlot", "Download")
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(plotOutput("acuityGradePlot", width = "100%"), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadAcuityGradePlot", "Download")
+                   ),),
+  
   #### crowding ####
   h3("Crowding plots"),
   splitLayout(

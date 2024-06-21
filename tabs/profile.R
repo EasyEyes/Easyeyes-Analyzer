@@ -63,7 +63,6 @@ profileTab <- tabPanel(
              )),
     conditionalPanel(
       "input.totalData",
-      
       fixedRow(style = "margin-left:2px;",
                column(
                  width = 12,

@@ -63,7 +63,8 @@ downloadtheme <- theme(legend.position = "right",
                        axis.text = element_text(size = 20),
                        axis.line = element_line(colour = "black"),
                        plot.title = element_text(size=20),
-                       plot.subtitle = element_text(size=20))
+                       plot.subtitle = element_text(size=20),
+                       strip.text = element_text(size = 20))
 
 
 ##### ggplot display theme #####
@@ -81,8 +82,9 @@ plt_theme <- theme(legend.position = "right",
                    axis.title = element_text(size = 14),
                    axis.text = element_text(size = 14),
                    axis.line = element_line(colour = "black"),
-                   plot.title = element_text(size=11),
-                   plot.subtitle = element_text(size=14))
+                   plot.title = element_text(size=14),
+                   plot.subtitle = element_text(size=14),
+                   strip.text = element_text(size = 14))
 
 # instruction <- "All rows belonging to the same Pavlovia session (a CSV results file) have the same pastel shade.  Each row is a session event: ending, error, or warning. The right side of each column’s heading has buttons to sort up and down, and below is a text box for selection."
 instruction <- "Each row is one Pavlovia session. All rows belonging to the same Prolific session have the same pastel shade. One Prolific session includes several Pavlovia sessions when the participant doesn’t finish and tries again."

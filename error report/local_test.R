@@ -8,17 +8,17 @@ require(ggsignif)
 require(DT)
 # store name of experiment in experiment object
 rm(list = ls())
-experiment = "Laterality"
+experiment = "RsvpAndCrowding"
 # locate the folder that you store experiments
-setwd("~/Downloads/")
+setwd("~/Downloads/untitled folder")
 # get the folder name for your experiment
 folders <- dir(pattern = glob2rx(paste0(experiment, "*")))
 folders <- folders[file.info(folders)$isdir]
 # set the experiment folder as working directory
-setwd(paste0("~/Downloads/", folders))
+setwd(paste0("~/Downloads/untitled folder/", folders))
 # get all the files end with .csv in the folder
-file_names <- list.files(pattern = "*.csv")
 # use the length() function n number of participants in the experiment
+file_names <- list.files(pattern = "*.csv")
 n = length(file_names)
 data_list = list()
 summary_list = list()
@@ -262,27 +262,23 @@ generate_threshold(data_list, summary_list)
 allData <- generate_rsvp_reading_crowding_fluency(data_list,summary_list)
 rsvp_speed <- allData$rsvp
 crowding <- allData$crowding
+acuity <- allData$acuity
 foveal <- crowding %>% filter(grepl('foveal', conditionName,ignore.case = T))
 peripheral <- crowding %>% filter(grepl('peripheral', conditionName,ignore.case = T))
 peripheral_rsvp <- peripheral %>%
   select(participant, log_crowding_distance_deg) %>%
   left_join(rsvp_speed)
 
-ggplot(data = peripheral_rsvp, aes(x = log_crowding_distance_deg, y = block_avg_log_WPM)) +
-  geom_point() +
-  theme_classic() +
-  labs(x = 'log crowding distance degree', y = 'log rsvp word/min')
 plot_rsvp_crowding(allData)
 foveal_rsvp <- foveal %>%
   select(participant, log_crowding_distance_deg) %>%
   left_join(rsvp_speed)
-ggplot(data = foveal_rsvp, aes(x = log_crowding_distance_deg, y = block_avg_log_WPM)) +
-  geom_point() + 
-  theme_classic() + 
-  labs(x = 'log crowding distance degree', y = 'log rsvp word/min')
-get_info(data_list)
-plot_rsvp_vs_x_height(rsvp_speed)[[1]]
-plot_rsvp_vs_x_height(rsvp_speed)[[2]]
+
+info <- get_info(data_list)
+
+# read pretest csv
+# pretest <- readxl::read_xlsx('~/Downloads/untitled folder/RsvpAndCrowding9.pretest.xlsx')
+
 
 
 

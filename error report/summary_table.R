@@ -475,11 +475,11 @@ render_summary_datatable <- function(dt, participants, prolific_id){
             ),
             callback = JS(data_table_call_back)) %>% 
     formatStyle(names(dt),color = 'black', lineHeight="15px") %>% 
-    # formatStyle(names(dt)[-1],
-    #             'Pavlovia session ID', 
-    #             backgroundColor = styleEqual(participants, random_rgb(length(participants)))) %>% 
-    formatStyle(names(dt),
-                'Prolific participant ID', 
+    formatStyle(names(dt)[-1],
+                'Pavlovia session ID',
+                backgroundColor = styleEqual(participants, random_rgb(length(participants)))) %>% 
+    formatStyle(names(dt)[1],
+                'Prolific participant ID',
                 backgroundColor = styleEqual(prolific_id, random_rgb(length(prolific_id))))
 }
 

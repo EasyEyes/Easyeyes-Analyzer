@@ -114,6 +114,14 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   } else {
     fluency = tibble()
   }
+  
+  
+  #### acuity  
+  acuity <- all_summary %>% 
+    filter(thresholdParameter == "targetSizeDeg",
+           targetKind == "letter",
+           !grepl("practice",conditionName, ignore.case = T))
+  
   print('================== reading  ====================')
   print(reading)
   print('================== crowding  ====================')
@@ -125,7 +133,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   return(list(reading = reading, 
               crowding = crowding,
               rsvp = rsvp_speed,
-              fluency = fluency))
+              fluency = fluency,
+              acuity = acuity))
 }
 
 generate_threshold <- function(data_list, summary_list){

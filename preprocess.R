@@ -463,13 +463,45 @@ read_files <- function(file){
       print('done processing zip')
     }
   }
+  df <- tibble()
+  for (i in 1:length(data_list)) {
+    if (!'ParticipantCode' %in% names(data_list[[i]])) {
+      data_list[[i]]$ParticipantCode = ''
+    }
+    if (!'participant' %in% names(data_list[[i]])) {
+      data_list[[i]]$participant = ''
+    }
+    if (!'Birthdate' %in% names(data_list[[i]])) {
+      data_list[[i]]$Birthdate = ''
+    }
+    unique_participantCode = unique(data_list[[i]]$ParticipantCode)
+    if (length(unique_participantCode) > 1) {
+      data_list[[i]]$ParticipantCode = unique(data_list[[i]]$ParticipantCode[!is.na(data_list[[i]]$ParticipantCode)])
+    } else {
+      data_list[[i]]$ParticipantCode = ''
+    }
+    
+    unique_Birthdate = unique(data_list[[i]]$Birthdate)
+    if (length(unique_Birthdate) > 1) {
+      data_list[[i]]$Birthdate = unique(data_list[[i]]$Birthdate[!is.na(data_list[[i]]$Birthdate)])
+    } else {
+      data_list[[i]]$Birthdate = ''
+    }
+    
+    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, Birthdate))
+    
+  }
+  print(df)
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
   print('done preprocess')
-  return(list(data_list, 
-              summary_list, 
-              paste(unique(experiment), collapse = "-"),
-              paste(unique(readingCorpus), collapse = "-")
+  
+  return(list(data_list = data_list, 
+              summary_list = summary_list, 
+              experiment = paste(unique(experiment), collapse = "-"),
+              readingCorpus = paste(unique(readingCorpus), collapse = "-"),
+              df = df
   ))
 }
+
