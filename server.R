@@ -625,6 +625,26 @@ shinyServer(function(input, output, session) {
            contenttype = 'svg')
     }, deleteFile = TRUE)
     
+    
+    output$corrMatrixPlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot =  plots[[4]] +
+          plt_theme +
+          theme(legend.position = 'none',
+                axis.text.x = element_text(size = 14,
+                                           angle = 30,
+                                           vjust = 1,
+                                           hjust=1)),
+        device = svg,
+        width = 8,
+        height = 8
+      )
+      list(src = outfile,
+           contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
     output$downloadCrowdingGradePlot <- downloadHandler(
       filename = paste0(
         experiment_names(),
@@ -742,6 +762,57 @@ shinyServer(function(input, output, session) {
       }
     )
     
+    
+    output$downloadCorrMatrixPlot <- downloadHandler(
+      filename = paste0(
+        experiment_names(),
+        'correlation-matrix',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = plots[[4]] + 
+              plt_theme +
+              theme(legend.position = 'none',
+                    axis.text.x = element_text(size = 14,
+                                               angle = 30,
+                                               vjust = 1,
+                                               hjust=1)),
+            height = 8,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1200,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = plots[[4]] +
+              plt_theme +
+              theme(legend.position = 'none',
+                    axis.text.x = element_text(size = 14,
+                                               angle = 30,
+                                               vjust = 1,
+                                               hjust=1)),
+            height = 8,
+            width = 8,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
     
   })
   

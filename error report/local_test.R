@@ -262,7 +262,39 @@ generate_threshold(data_list, summary_list)
 allData <- generate_rsvp_reading_crowding_fluency(data_list,summary_list)
 rsvp_speed <- allData$rsvp
 crowding <- allData$crowding
-acuity <- allData$acuity
+acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')
+
+# read pretest csv
+pretest <- readxl::read_xlsx('~/Downloads/untitled folder/RsvpAndCrowding9.pretest.xlsx')
+pretest <- pretest %>% rename('participant' = 'PavloviaSessionID')
+crowdingW <- crowding %>% mutate(type=ifelse(
+  grepl('foveal', conditionName, ignore.case = T),
+  'foveal',
+  'peripheral'
+)) %>% 
+  select(participant, log_crowding_distance_deg,type) %>% 
+  pivot_wider(names_from=type, values_from = log_crowding_distance_deg)
+crowdingW <- crowdingW %>% 
+  left_join(pretest, by = 'participant')
+
+crowdingW <- crowdingW %>% 
+  left_join(acuity %>% select(participant, log_acuity),by = 'participant') %>% 
+  left_join(rsvp_speed %>% select(participant, block_avg_log_WPM), by = 'participant')
+
+crowdingW <- crowdingW %>% select(participant, log_acuity, foveal, peripheral, block_avg_log_WPM, Grade, RAVEN_Perc,
+                    `RAVEN - tot`, `MT_Reading Time (sec.)`, `MT_Total Text Syll`, 
+                    `MT_sill/sec`, MT_Errors,`OMT_Corr.Score (Read-Err)`)
+crowdingW <- crowdingW %>% mutate_if(is.character, as.numeric) %>% select(-participant)
+t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
+t <- t %>% mutate(across(everything(), round, 3))
+corplot <- ggcorrplot(t,
+                      hc.order = TRUE,
+                      type = "lower",
+                      colors = c('white'),
+                      lab = TRUE)
+
+
+
 foveal <- crowding %>% filter(grepl('foveal', conditionName,ignore.case = T))
 peripheral <- crowding %>% filter(grepl('peripheral', conditionName,ignore.case = T))
 peripheral_rsvp <- peripheral %>%
@@ -276,8 +308,7 @@ foveal_rsvp <- foveal %>%
 
 info <- get_info(data_list)
 
-# read pretest csv
-# pretest <- readxl::read_xlsx('~/Downloads/untitled folder/RsvpAndCrowding9.pretest.xlsx')
+
 
 
 

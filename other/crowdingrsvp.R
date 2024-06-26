@@ -1,3 +1,4 @@
+library(ggcorrplot) 
 plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
   if (is.null(allData)) {
     return(list(
@@ -8,8 +9,39 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
   }
   rsvp_speed <- allData$rsvp
   crowding <- allData$crowding
-  acuity <- allData$acuity
-  t <- pretest %>% left_join(df, by = 'participant')
+  acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')
+  
+  crowdingW <- crowding %>% mutate(type=ifelse(
+    grepl('foveal', conditionName, ignore.case = T),
+    'foveal',
+    'peripheral'
+  )) %>% 
+    select(participant, log_crowding_distance_deg,type) %>% 
+    pivot_wider(names_from=type, values_from = log_crowding_distance_deg)
+  
+  crowdingW <- crowdingW %>% 
+    left_join(acuity %>% select(participant, log_acuity),by = 'participant') %>% 
+    left_join(rsvp_speed %>% select(participant, block_avg_log_WPM), by = 'participant')
+  
+  crowdingW <- crowdingW %>% 
+    left_join(df, by = 'participant') %>% 
+    left_join(pretest, by = 'participant') %>% 
+    select(log_acuity, foveal, peripheral, block_avg_log_WPM, Grade, RAVEN_Perc,
+           `RAVEN - tot`, `MT_Reading Time (sec.)`, `MT_Total Text Syll`, 
+           `MT_sill/sec`, MT_Errors,`OMT_Corr.Score (Read-Err)`) %>% 
+    rename('log rsvp' = 'block_avg_log_WPM')
+  crowdingW <- crowdingW %>% mutate_if(is.character, as.numeric)
+  
+  t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
+  t <- t %>% mutate(across(everything(), round, 3))
+
+  corplot <- ggcorrplot(t,
+             show.legend = FALSE,
+             type = "lower",
+             colors= c('white'),
+             lab = TRUE) + theme_bw()
+ 
+  # t <- pretest %>% left_join(df, by = 'participant')
     # rename('PartcipantCode in experiment csv' =  'PartcipantCode.x',
     #        'PartcipantCode in pretest xlsx' =  'PartcipantCode.x')
   # write.csv(t, '~/Downloads/pretestVsExperimentCSV.csv')
@@ -22,6 +54,8 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
   acuity <- acuity %>% 
     left_join(df, by = 'participant') %>% 
     left_join(pretest, by = 'participant')
+  
+  
 
   p1 = ggplot(data = crowding) +
     geom_point(aes(x = Grade, y = 10^(log_crowding_distance_deg))) +
@@ -37,7 +71,7 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
          y = 'rsvp reading speed (word/min)')
   
   p3 = ggplot(data = acuity) +
-    geom_point(aes(x = Grade, y = 10^(questMeanAtEndOfTrialsLoop))) +
+    geom_point(aes(x = Grade, y = 10^(log_acuity))) +
     theme_classic() +
     labs(title = 'Acuity vs Grade',
          y = 'acuity (deg)')
@@ -45,7 +79,8 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
   return(list(
     p1,
     p2,
-    p3
+    p3,
+    corplot
   ))
 }
 

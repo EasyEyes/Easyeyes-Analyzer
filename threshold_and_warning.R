@@ -31,8 +31,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
     mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg), 
            targetEccentricityYDeg = as.numeric(targetEccentricityYDeg)) %>% 
     mutate(bouma_factor = 10^(log_crowding_distance_deg)/sqrt(targetEccentricityXDeg^2+targetEccentricityYDeg^2))
-  print('==========================  crowding ==========================')
-  print(crowding)
+
   ########################### RSVP READING ############################
   
   rsvp_speed <- all_summary %>% 
@@ -121,14 +120,6 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
     filter(thresholdParameter == "targetSizeDeg",
            targetKind == "letter",
            !grepl("practice",conditionName, ignore.case = T))
-  
-  print('================== reading  ====================')
-  print(reading)
-  print('================== crowding  ====================')
-  print(crowding)
-  print('================== rsvp_speed  ====================')
-  print(rsvp_speed)
-
   
   return(list(reading = reading, 
               crowding = crowding,

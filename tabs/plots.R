@@ -41,7 +41,15 @@ plotsTab <- tabPanel(
                    splitLayout(
                      cellWidths = c("50%", "50%"),
                      downloadButton("downloadAcuityGradePlot", "Download")
-                   ),),
+                   ),
+                  fixedRow( 
+                    shinycssloaders::withSpinner(
+                      plotOutput("corrMatrixPlot", width = "100%", height = "100%"), type = 4)),
+                  splitLayout(
+                    cellWidths = c("50%", "50%"),
+                    downloadButton("downloadCorrMatrixPlot", "Download")
+                  )
+                   ),
   
   #### crowding ####
   h3("Crowding plots"),
