@@ -14,6 +14,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
            !is.na(targetEccentricityYDeg))
   crowding <- all_summary %>% 
     filter(thresholdParameter != "targetSizeDeg",
+           thresholdParameter != 'size',
            targetKind == "letter",
            !grepl("practice",conditionName, ignore.case = T)) %>% 
     select(participant,
@@ -117,7 +118,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   
   #### acuity  
   acuity <- all_summary %>% 
-    filter(thresholdParameter == "targetSizeDeg",
+    filter((thresholdParameter == "targetSizeDeg" | thresholdParameter == 'size'),
            targetKind == "letter",
            !grepl("practice",conditionName, ignore.case = T))
   
@@ -133,7 +134,8 @@ generate_threshold <- function(data_list, summary_list){
     summary_list[[i]]
   }
   crowding <- all_summary %>% 
-    filter(thresholdParameter != "targetSizeDeg", 
+    filter(thresholdParameter != "targetSizeDeg",
+           thresholdParameter != 'size',
            targetKind == "letter", 
            !grepl("practice",conditionName),
            !grepl("Practice",conditionName)) %>% 

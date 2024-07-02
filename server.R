@@ -1502,9 +1502,13 @@ shinyServer(function(input, output, session) {
                    renderTable(threshold_and_warnings()[[3]])
                  #### stairPlots ####
                  output$p1 <- renderPlot({
-
-                   (stairPlots()[[1]][[1]] + plt_theme) / (stairPlots()[[1]][[2]] + plt_theme) / (stairPlots()[[1]][[3]] + plt_theme)
+                   if (stairPlots()[[4]]) {
+                     (stairPlots()[[1]][[1]] + plt_theme) / (stairPlots()[[1]][[2]] + plt_theme) / (stairPlots()[[1]][[3]] + plt_theme)
+                   } else {
+                     ggplot() + plt_theme
+                   }
                  }, res = 96)
+                 
                  output$p2 <- renderPlot({
                    stairPlots()[[2]] + plt_theme
                  }, res = 96)
@@ -1598,35 +1602,98 @@ shinyServer(function(input, output, session) {
                  })
                  
                  #### crowding ####
-                 output$crowdingScatterPlot <- renderPlot({
-                   crowdingPlot()
-                 })
-                 output$crowdingAvgPlot <- renderPlot({
-                   crowdingAvgPlot() + plt_theme
-                 })
+                 output$crowdingScatterPlot <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot = crowdingPlot() + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
                  
-                 output$SloanVsTimesMeanPlot <- renderPlot({
-                   two_fonts_plots()[[1]] +
-                     labs(title = experiment_names(),
-                          subtitle = paste0("Crowding ", two_fonts_plots()$title, ", mean")) +
-                     plt_theme
-                 })
+                 output$crowdingAvgPlot <- 
+                   renderImage({
+                     outfile <- tempfile(fileext = '.svg')
+                     ggsave(
+                       file = outfile,
+                       plot =  crowdingAvgPlot() + plt_theme,
+                       device = svg,
+                       width = 6,
+                       height = 4
+                     )
+                     
+                     list(src = outfile,
+                          contenttype = 'svg')
+                   }, deleteFile = TRUE)
                  
-                 output$SloanVsTimesSDPlot <- renderPlot({
-                   two_fonts_plots()[[2]] +
-                     labs(title = experiment_names(),
-                          subtitle = paste0("Crowding ", two_fonts_plots()$title, ", sd")) +
-                     plt_theme
-                 })
+                 
+                 output$SloanVsTimesMeanPlot <- 
+                   renderImage({
+                     outfile <- tempfile(fileext = '.svg')
+                     ggsave(
+                       file = outfile,
+                       plot =  two_fonts_plots()[[1]] +
+                         labs(title = experiment_names(),
+                              subtitle = paste0("Crowding ", two_fonts_plots()$title, ", mean")) +
+                         plt_theme,
+                       device = svg,
+                       width = 7,
+                       height = 4
+                     )
+                     
+                     list(src = outfile,
+                          contenttype = 'svg')
+                   }, deleteFile = TRUE)
+                 
+                 output$SloanVsTimesSDPlot <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  two_fonts_plots()[[2]] +
+                       labs(title = experiment_names(),
+                            subtitle = paste0("Crowding ", two_fonts_plots()$title, ", sd")) +
+                       plt_theme,
+                     device = svg,
+                     width = 7,
+                     height = 4
+                   )
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
                  
                  #### rsvp vs crowding ####
-                 output$rsvpCrowdingPeripheralPlot <- renderPlot({
-                   rsvpCrowding()[[1]]
-                 })
+                 output$rsvpCrowdingPeripheralPlot <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot = rsvpCrowding()[[1]] + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
                  
-                 output$rsvpCrowdingFovealPlot <- renderPlot({
-                   rsvpCrowding()[[2]]
-                 })
+                 output$rsvpCrowdingFovealPlot <-renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot = rsvpCrowding()[[2]] + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
                  
                  #### test retest ####
                  output$readingTestRetest <- renderPlot({

@@ -37,6 +37,7 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
 
   corplot <- ggcorrplot(t,
              show.legend = FALSE,
+             show.diag = T,
              type = "lower",
              colors= c('white'),
              lab = TRUE) + theme_bw()
@@ -61,21 +62,27 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
     geom_point(aes(x = Grade, y = 10^(log_crowding_distance_deg))) +
     facet_wrap(font~.) + 
     theme_classic() +
+    scale_y_log10() + 
+    annotation_logticks(sides = 'l') + 
     labs(title = 'Crowding vs Grade',
          y = 'crowding (deg)')
   
   p2 = ggplot(data = rsvp_speed) +
     geom_point(aes(x = Grade, y = 10^(block_avg_log_WPM))) +
     theme_classic() + 
+    scale_y_log10() +
+    annotation_logticks(sides = 'l') + 
     labs(title = 'Rsvp vs Grade',
          y = 'rsvp reading speed (word/min)')
   
   p3 = ggplot(data = acuity) +
     geom_point(aes(x = Grade, y = 10^(log_acuity))) +
     theme_classic() +
+    scale_y_log10() +
+    annotation_logticks(sides = 'l') + 
     labs(title = 'Acuity vs Grade',
          y = 'acuity (deg)')
-  p3 = ggplot(data = acuity) +
+
   return(list(
     p1,
     p2,
@@ -89,6 +96,17 @@ plot_rsvp_crowding <- function(allData) {
   crowding <- allData$crowding
   foveal <- crowding %>% filter(grepl('foveal', conditionName,ignore.case = T))
   peripheral <- crowding %>% filter(grepl('peripheral', conditionName,ignore.case = T))
+  if (nrow(rsvp_speed) == 0) {
+    p1 <- ggplot() + 
+      labs(x = 'crowding distance degree',
+                        y = 'rsvp reading (word/min)',
+                        title='rsvp vs peripheral crowding')
+    p2 <- ggplot() + 
+      labs(x = 'crowding distance degree',
+           y = 'rsvp reading (word/min)',
+           title='rsvp vs foveal crowding')
+    return(list(p1,p2))
+  }
   peripheral_rsvp <- peripheral %>%
     select(participant, log_crowding_distance_deg) %>%
     left_join(rsvp_speed)
@@ -98,7 +116,9 @@ plot_rsvp_crowding <- function(allData) {
     theme_classic() +
     scale_y_log10() +
     scale_x_log10() + 
+    geom_smooth(method = 'lm', se = F) + 
     annotation_logticks() +
+    coord_fixed(ratio = 1) + 
     labs(x = 'crowding distance degree',
          y = 'rsvp reading (word/min)',
          title='rsvp vs peripheral crowding')
@@ -106,12 +126,15 @@ plot_rsvp_crowding <- function(allData) {
   foveal_rsvp <- foveal %>%
     select(participant, log_crowding_distance_deg) %>%
     left_join(rsvp_speed)
+  
   p2 <- ggplot(data = foveal_rsvp, aes(x = 10^(log_crowding_distance_deg), y = 10^(block_avg_log_WPM))) +
     geom_point() + 
     theme_classic() + 
     scale_y_log10() +
     scale_x_log10() + 
     annotation_logticks() + 
+    geom_smooth(method = 'lm', se = F) + 
+    coord_fixed(ratio = 1) + 
     labs(x = 'crowding distance degree', 
          y = 'rsvp reading (word/min)',
          title = 'rsvp vs foveal crowding')

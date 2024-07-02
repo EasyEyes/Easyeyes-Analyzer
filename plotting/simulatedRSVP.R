@@ -44,6 +44,7 @@ extractRSVP <- function(df){
 
 getStairsPlot <- function(file) {
   file_list <- file$data
+  shouldRender = T
   if (length(file_list) == 1 & grepl(".csv", file_list[1])) {
     print('read csv')
     try({allData <- readr::read_csv(file_list[1])}, silent = TRUE)
@@ -59,20 +60,23 @@ getStairsPlot <- function(file) {
       }
     }
   } else {
-    return(list(ggplot(), ggplot(),ggplot()))
+    shouldRender = F
+    return(list(ggplot(), ggplot(),ggplot(),F))
   }
   
   if (!is.contained(c("participant", "ProlificParticipantID", "conditionName", 
                       "staircaseName", "questMeanBeforeThisTrialResponse", "trialGivenToQuest", "rsvpReadingResponseCorrectBool", 
                       "levelProposedByQUEST", "rsvpReadingWordDurationSec", "simulationThreshold"),
                     names(allData))){
-    return(list(ggplot(), ggplot(),ggplot()))
+    shouldRender = F
+    return(list(ggplot(), ggplot(),ggplot(),F))
   }
   if (!is.contained(c("participant","ProlificParticipantID","conditionName", 
                       "questMeanAtEndOfTrialsLoop",
                       "questSDAtEndOfTrialsLoop", "simulationThreshold"),
                     names(allData))){
-    return(list(ggplot(), ggplot(),ggplot()))
+    shouldRender = F
+    return(list(ggplot(), ggplot(), ggplot(),F))
   }
   rsvpstairdf <- extractRSVPStaircases(allData)
   rsvpdf <- extractRSVP(allData)
@@ -144,7 +148,7 @@ getStairsPlot <- function(file) {
     facet_wrap(.~simulationThreshold)+
     theme(plot.title = element_text(hjust = 0.5))
   
-  g1 <- list(lpq, qmbtr,rsvpdur)
+  g1 <- list(lpq, qmbtr, rsvpdur)
   
   
   g2 <- ggplot(rsvpstairdf, aes(x = rsvpReadingWordDurationSec, y = 10^(levelProposedByQUEST)))+
@@ -162,6 +166,7 @@ getStairsPlot <- function(file) {
   return(list(
     g1,
     g2,
-    g3
+    g3,
+    shouldRender
   ))
 }

@@ -265,8 +265,8 @@ crowding <- allData$crowding
 acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')
 
 # read pretest csv
-pretest <- readxl::read_xlsx('~/Downloads/untitled folder/RsvpAndCrowding9.pretest.xlsx')
-pretest <- pretest %>% rename('participant' = 'PavloviaSessionID')
+# pretest <- readxl::read_xlsx('~/Downloads/untitled folder/RsvpAndCrowding9.pretest.xlsx')
+# pretest <- pretest %>% rename('participant' = 'PavloviaSessionID')
 crowdingW <- crowding %>% mutate(type=ifelse(
   grepl('foveal', conditionName, ignore.case = T),
   'foveal',

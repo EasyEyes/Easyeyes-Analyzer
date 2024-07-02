@@ -1,18 +1,38 @@
 crowding_by_side <- function(crowding) {
-  crowding$side <- ifelse(grepl("left", crowding$conditionName), "L", "R")
+
+  crowding <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
+    mutate(side = ifelse(targetEccentricityXDeg < 0, 'L', 'R'),
+           XDeg = abs(targetEccentricityXDeg))
+  print(crowding %>% select("participant","font", 'XDeg'))
+    
+  # crowding$side <- ifelse(grepl("left", crowding$conditionName), "L", "R")
   crowding_L <- crowding %>% filter(side == "L") %>% select(-conditionName, -side)
   crowding_R <- crowding %>% filter(side == "R") %>% select(-conditionName, -side)
+  
+  print(crowding_L)
+  print(crowding_R)
+  
   crowding_L_R <- crowding_L %>% 
-    left_join(crowding_R, by = c("participant","font")) %>% 
+    left_join(crowding_R, by = c("participant","font", 'XDeg')) %>% 
     rename("bouma_factor_Left" = "bouma_factor.x",
-           "bouma_factor_Right" = "bouma_factor.y")
+           "bouma_factor_Right" = "bouma_factor.y",
+           "log_crowding_distance_deg_Left" = "log_crowding_distance_deg.x",
+           "log_crowding_distance_deg_Right" = "log_crowding_distance_deg.y")
   print('==========================  crowding_L_R ==========================')
   print(crowding_L_R)
   return(crowding_L_R)
 }
 
 crowding_scatter_plot <- function(crowding_L_R){
-  print(crowding_L_R %>% filter(font == 'Sloan.woff2'))
+  if (n_distinct(crowding_L_R$font) < 1) {
+    return(ggplot())
+  }
+  if(n_distinct(crowding_L_R$font) == 1) {
+    if (is.na(unique(crowding_L_R$bouma_factor_Left)[1])) {
+      return(ggplot())
+    }
+  }
+  
   summ <- group_by(crowding_L_R, font) %>% 
     summarize(R = cor(log(bouma_factor_Left), log(bouma_factor_Right)),
               ratio = round(mean(bouma_factor_Right) / mean(bouma_factor_Left),2),
@@ -52,6 +72,11 @@ crowding_scatter_plot <- function(crowding_L_R){
 }
 
 crowding_mean_scatter_plot <- function(crowding_L_R){
+  if (n_distinct(crowding_L_R$font) < 1) {
+    return(ggplot() + 
+             xlab("Left Bouma factor") + 
+             ylab("Right Bouma factor") )
+  }
   t <- crowding_L_R %>% group_by(font) %>% summarize(avg_bouma_factor_Left = mean(bouma_factor_Left),
                                                      avg_bouma_factor_Right = mean(bouma_factor_Right))
   ggplot(t, aes(x = avg_bouma_factor_Left, y = avg_bouma_factor_Right, color = font)) + 
@@ -82,6 +107,9 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
 
 get_two_fonts_plots <- function(crowding) {
   # Calculate mean and standard deviation for each participant and font
+  if (n_distinct(crowding$font) < 1) {
+    return(ggplot())
+  }
   t <- crowding %>% 
     group_by(participant, font) %>% 
     summarize(

@@ -63,6 +63,16 @@ plotsTab <- tabPanel(
     downloadButton("downloadCrowdingAvgPlot", "Download"),
     downloadButton("downloadCrowdingScatterPlot", "Download")
   ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("SloanVsTimesMeanPlot", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("SloanVsTimesSDPlot", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadSloanVsTimesMeanPlot", "Download"),
+    downloadButton("downloadSloanVsTimesSDPlot", "Download")
+  ),
   #### rsvp crowding plots ####
   h3("RSVP vs Crowding plots"),
   splitLayout(
@@ -180,17 +190,6 @@ plotsTab <- tabPanel(
     cellWidths = c("50%", "50%"),
     downloadButton("downloadRetentionHistogram", "Download"),
     downloadButton("downloadReadingSpeedRetention", "Download")
-  ),
-
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("SloanVsTimesMeanPlot", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("SloanVsTimesSDPlot", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadSloanVsTimesMeanPlot", "Download"),
-    downloadButton("downloadSloanVsTimesSDPlot", "Download")
   ),
   h3("Test and Retest plots"),
   splitLayout(
