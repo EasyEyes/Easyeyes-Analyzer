@@ -5,6 +5,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
   }
+  
+  quest <- all_summary %>% select(questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop)
 
   eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     t <- data_list[[i]] %>%
@@ -150,12 +152,20 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
            !grepl("practice",conditionName, ignore.case = T)) %>% 
     left_join(age, by = "participant")
   
+  print(paste('nrow of quest:', nrow(quest)))
+  print(paste('nrow of reading:', nrow(reading)))
+  print(paste('nrow of crowding:', nrow(crowding)))
+  print(paste('nrow of rsvp_speed:', nrow(rsvp_speed)))
+  print(paste('nrow of acuity:', nrow(acuity)))
+  print(paste('nrow of repeatedLetters:', nrow(repeatedLetters)))
+  
   return(list(reading = reading, 
               crowding = crowding,
               rsvp = rsvp_speed,
               fluency = fluency,
               acuity = acuity,
-              repeatedLetters = repeatedLetters))
+              repeatedLetters = repeatedLetters,
+              quest = quest))
 }
 
 generate_threshold <- function(data_list, summary_list){

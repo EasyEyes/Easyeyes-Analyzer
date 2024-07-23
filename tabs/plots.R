@@ -1,3 +1,4 @@
+library(plotly)
 plotsTab <- tabPanel(
   'Plots',
   radioButtons(
@@ -50,7 +51,38 @@ plotsTab <- tabPanel(
                     downloadButton("downloadCorrMatrixPlot", "Download")
                   )
                    ),
-  
+  #### histogram ####
+  h3("Histograms"),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("acuityHistogram", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("fovealHistogram", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("peripheralHistogram", width = "100%"), type = 4)
+  ),
+  h3("Scatter Diagrams"),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("fovealAcuityDiag", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("fovealPeripheralDiag", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("questDiag", width = "100%"), type = 4)
+  ),
+  #### rsvp crowding plots ####
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralPlot"), type = 4),
+    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingFovealPlot"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadRsvpCrowdingPeripheralPlot", "Download"),
+    downloadButton("downloadRsvpCrowdingFovealPlot", "Download")
+  ),
   #### crowding ####
   h3("Crowding plots"),
   splitLayout(
@@ -72,18 +104,6 @@ plotsTab <- tabPanel(
     cellWidths = c("50%", "50%"),
     downloadButton("downloadSloanVsTimesMeanPlot", "Download"),
     downloadButton("downloadSloanVsTimesSDPlot", "Download")
-  ),
-  #### rsvp crowding plots ####
-  h3("RSVP vs Crowding plots"),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("rsvpCrowdingPeripheralPlot", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("rsvpCrowdingFovealPlot", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadRsvpCrowdingPeripheralPlot", "Download"),
-    downloadButton("downloadRsvpCrowdingFovealPlot", "Download")
   ),
   h3("Plots for British Children"),
   splitLayout(

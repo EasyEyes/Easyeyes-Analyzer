@@ -21,6 +21,7 @@ require(ggpp)
 library(svglite)
 library(magick)
 library(patchwork)
+library(plotly)
 # library(showtext)
 # library(systemfonts)
 # Enables automatic font loading for showtext
@@ -41,6 +42,7 @@ source("./error report/prolific.R")
 source("./plotting/mean_median_plot.R")
 source("./plotting/regression_plot.R")
 source("./plotting/histogram.R")
+source("./plotting/diagram.R")
 source("./plotting/crowding_plot.R")
 source("./plotting/test_retest.R")
 source("./plotting/scatter_plots.R")
@@ -410,9 +412,33 @@ shinyServer(function(input, output, session) {
   rsvpCrowding <- reactive({
     plot_rsvp_crowding(df_list())
   })
+  rsvpCrowdingPlotly <- reactive({
+    plot_rsvp_crowding_plotly(df_list(), files()$df)
+  })
   
   two_fonts_plots <- reactive({
     get_two_fonts_plots(df_list()$crowding)
+  })
+  
+  crowding_hist <- reactive({
+    get_crowding_hist(df_list()$crowding)
+  })
+  
+  
+  acuity_hist <- reactive({
+    get_acuity_hist(df_list()$acuity)
+  })
+  
+  foveal_peripheral_diag <- reactive({
+    get_foveal_peripheral_diag(df_list()$crowding)
+  })
+  
+  quest_diag <- reactive({
+    get_quest_diag(df_list()$quest)
+  })
+  
+  foveal_acuity_diag <- reactive({
+    get_foveal_acuity_diag(df_list()$crowding, df_list()$acuity)
   })
   
   regressionPlot <- reactive({
@@ -1588,6 +1614,89 @@ shinyServer(function(input, output, session) {
                    retention_histogram() + plt_theme
                  })
                  
+                 
+                 #### fluency ####
+                 output$acuityHistogram <- output$fovealHistogram <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  acuity_hist() + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 output$fovealHistogram <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  crowding_hist()$peripheral + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                   
+                 output$peripheralHistogram <-renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  crowding_hist()$foveal + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 
+                 #### scatterDiagrams ####
+                 
+                 output$fovealAcuityDiag<- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  foveal_acuity_diag() + plt_theme + coord_fixed(),
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 output$fovealPeripheralDiag<- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  foveal_peripheral_diag() + plt_theme + coord_fixed(),
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 output$questDiag<- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  quest_diag() + plt_theme + coord_fixed(),
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
                  #### crowding ####
                  output$crowdingScatterPlot <- renderImage({
                    outfile <- tempfile(fileext = '.svg')
@@ -1686,33 +1795,42 @@ shinyServer(function(input, output, session) {
                    }, deleteFile = TRUE)
                  
                  #### rsvp vs crowding ####
-                 output$rsvpCrowdingPeripheralPlot <- renderImage({
-                   outfile <- tempfile(fileext = '.svg')
-                   ggsave(
-                     file = outfile,
-                     plot = rsvpCrowding()[[1]] + plt_theme,
-                     device = svg,
-                     width = 6,
-                     height = 4
-                   )
-                   
-                   list(src = outfile,
-                        contenttype = 'svg')
-                 }, deleteFile = TRUE)
                  
-                 output$rsvpCrowdingFovealPlot <-renderImage({
-                   outfile <- tempfile(fileext = '.svg')
-                   ggsave(
-                     file = outfile,
-                     plot = rsvpCrowding()[[2]] + plt_theme,
-                     device = svg,
-                     width = 6,
-                     height = 4
-                   )
-                   
-                   list(src = outfile,
-                        contenttype = 'svg')
-                 }, deleteFile = TRUE)
+                 output$rsvpCrowdingPeripheralPlot <- renderPlotly({
+                   rsvpCrowdingPlotly()[[1]]
+                 })
+
+                 output$rsvpCrowdingFovealPlot <- renderPlotly({
+                   rsvpCrowdingPlotly()[[2]]
+                 })
+                 
+                 # output$rsvpCrowdingPeripheralPlot <- renderImage({
+                 #   outfile <- tempfile(fileext = '.svg')
+                 #   ggsave(
+                 #     file = outfile,
+                 #     plot = rsvpCrowding()[[1]] + plt_theme,
+                 #     device = svg,
+                 #     width = 6,
+                 #     height = 4
+                 #   )
+                 #   
+                 #   list(src = outfile,
+                 #        contenttype = 'svg')
+                 # }, deleteFile = TRUE)
+                 # 
+                 # output$rsvpCrowdingFovealPlot <-renderImage({
+                 #   outfile <- tempfile(fileext = '.svg')
+                 #   ggsave(
+                 #     file = outfile,
+                 #     plot = rsvpCrowding()[[2]] + plt_theme,
+                 #     device = svg,
+                 #     width = 6,
+                 #     height = 4
+                 #   )
+                 #   
+                 #   list(src = outfile,
+                 #        contenttype = 'svg')
+                 # }, deleteFile = TRUE)
                  
                  #### test retest ####
                  output$readingTestRetest <- renderPlot({

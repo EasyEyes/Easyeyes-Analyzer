@@ -93,6 +93,9 @@ read_files <- function(file){
         if (!('questMeanAtEndOfTrialsLoop' %in% colnames(t))) {
           t$questMeanAtEndOfTrialsLoop <- NA
         }
+        if (!('questSDAtEndOfTrialsLoop' %in% colnames(t))) {
+          t$questSDAtEndOfTrialsLoop <- NA
+        }
         if (!('screenHeightPx' %in% colnames(t))) {
           t$screenHeightPx <- NA
         }
@@ -213,7 +216,8 @@ read_files <- function(file){
           select(
             block_condition,
             staircaseName, 
-            questMeanAtEndOfTrialsLoop
+            questMeanAtEndOfTrialsLoop,
+            questSDAtEndOfTrialsLoop,
           )
         if(n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
           summaries <- summaries %>% 
@@ -324,6 +328,9 @@ read_files <- function(file){
           }
           if (!('questMeanAtEndOfTrialsLoop' %in% colnames(t))) {
             t$questMeanAtEndOfTrialsLoop <- NA
+          }
+          if (!('questSDAtEndOfTrialsLoop' %in% colnames(t))) {
+            t$questSDAtEndOfTrialsLoop <- NA
           }
           if (!('screenHeightPx' %in% colnames(t))) {
             t$screenHeightPx <- NA
@@ -447,7 +454,8 @@ read_files <- function(file){
             select(
               block_condition,
               staircaseName, 
-              questMeanAtEndOfTrialsLoop
+              questMeanAtEndOfTrialsLoop,
+              questSDAtEndOfTrialsLoop
             )
           if(n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
             summaries <- summaries %>% 

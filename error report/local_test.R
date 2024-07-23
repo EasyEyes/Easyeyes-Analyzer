@@ -108,6 +108,9 @@ for (i in 1 : n) {
       if (!('questMeanAtEndOfTrialsLoop' %in% colnames(t))) {
         t$questMeanAtEndOfTrialsLoop <- NA
       }
+      if (!('questSDAtEndOfTrialsLoop' %in% colnames(t))) {
+        t$questSDAtEndOfTrialsLoop <- NA
+      }
       if (!('screenHeightPx' %in% colnames(t))) {
         t$screenHeightPx <- NA
       }
@@ -229,7 +232,8 @@ for (i in 1 : n) {
         select(
           block_condition,
           staircaseName, 
-          questMeanAtEndOfTrialsLoop
+          questMeanAtEndOfTrialsLoop,
+          questSDAtEndOfTrialsLoop
         )
       if(n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
         summaries <- summaries %>% 
@@ -325,7 +329,7 @@ info <- get_info(data_list)
 
 
 
-
+plot_rsvp_crowding_plotly(allData)
 
 
 
