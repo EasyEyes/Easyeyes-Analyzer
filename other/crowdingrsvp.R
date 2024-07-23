@@ -183,11 +183,11 @@ plot_rsvp_crowding_plotly <- function(allData, df) {
       mutate(correlation = round(correlation, 2))
     
     slope <- data_rsvp %>% 
-      do(fit = lm(WPM ~ cdd, data = .)) %>% 
+      do(fit = lm(block_avg_log_WPM ~ log_crowding_distance_deg, data = .)) %>% 
       transmute(coef = map(fit, tidy)) %>% 
       unnest(coef) %>% 
       mutate(slope = round(estimate, 2)) %>% 
-      filter(term == 'cdd') %>% 
+      filter(term == 'log_crowding_distance_deg') %>% 
       select(-term)
     
     data_rsvp <- data_rsvp %>% 
