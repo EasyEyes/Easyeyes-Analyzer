@@ -3,15 +3,26 @@ library(dplyr)
 library(stringr)
 generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
-    summary_list[[i]]
+    summary_list[[i]] %>% mutate(order = i)
   }
 
   eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-    t <- data_list[[i]] %>% distinct(participant, conditionName, targetEccentricityXDeg, targetEccentricityYDeg)
+    t <- data_list[[i]] %>%
+      distinct(participant, conditionName, targetEccentricityXDeg, targetEccentricityYDeg) %>%
+      mutate(order = i)
   }
+  
   eccentricityDeg <- eccentricityDeg %>% 
     filter(!is.na(targetEccentricityXDeg),
            !is.na(targetEccentricityYDeg))
+  
+  age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+    data_list[[i]] %>% 
+      select(participant, age) %>% 
+      distinct()
+  }
+  age <- distinct(age)
+  ########################### CROWDING ############################
   crowding <- all_summary %>% 
     filter(thresholdParameter != "targetSizeDeg",
            thresholdParameter != 'size',
@@ -22,17 +33,19 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
            font,
-           experiment) %>%
+           experiment,
+           order) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
   
 
   
   crowding <- crowding %>% 
-    left_join(eccentricityDeg, by = c("participant", "conditionName")) %>% 
+    left_join(eccentricityDeg, by = c("participant", "conditionName", "order")) %>% 
     mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg), 
            targetEccentricityYDeg = as.numeric(targetEccentricityYDeg)) %>% 
-    mutate(bouma_factor = 10^(log_crowding_distance_deg)/sqrt(targetEccentricityXDeg^2+targetEccentricityYDeg^2))
-
+    mutate(bouma_factor = 10^(log_crowding_distance_deg)/sqrt(targetEccentricityXDeg^2+targetEccentricityYDeg^2)) %>% 
+    left_join(age, by = "participant")
+  
   ########################### RSVP READING ############################
   
   rsvp_speed <- all_summary %>% 
@@ -41,6 +54,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
     select(participant, block_condition,conditionName, questMeanAtEndOfTrialsLoop, font, targetKind, thresholdParameter) %>%
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
+  
   ################################ READING #######################################
   reading <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     data_list[[i]] %>% 
@@ -49,6 +63,24 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
       mutate(log_WPM = log10(wordPerMin)) %>% 
       filter(targetKind == "reading" & font !="")
   }
+  
+  ################################ REPEAT LETTER #######################################
+  repeatedLetters <- all_summary %>% 
+    filter(thresholdParameter != "targetSizeDeg",
+           thresholdParameter != 'size',
+           targetKind == "repeatedLetters",
+           !grepl("practice",conditionName, ignore.case = T)) %>% 
+    select(participant,
+           block_condition,
+           conditionName, 
+           questMeanAtEndOfTrialsLoop, 
+           font,
+           experiment,
+           order) %>%
+    dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop) %>% 
+    left_join(eccentricityDeg, by = c("participant", "conditionName", "order")) %>% 
+    left_join(age, by = "participant")
+    
   
   #### get viewing distance and font size####
   
@@ -59,12 +91,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
       distinct()
   }
   
-  age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% 
-      select(participant, age) %>% 
-      distinct()
-  }
-  
+
   rsvp_speed <- rsvp_speed %>% 
     left_join(viewingdistance, by = c("block_condition", "participant")) %>% 
     left_join(age, by = "participant")
@@ -120,13 +147,15 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   acuity <- all_summary %>% 
     filter((thresholdParameter == "targetSizeDeg" | thresholdParameter == 'size'),
            targetKind == "letter",
-           !grepl("practice",conditionName, ignore.case = T))
+           !grepl("practice",conditionName, ignore.case = T)) %>% 
+    left_join(age, by = "participant")
   
   return(list(reading = reading, 
               crowding = crowding,
               rsvp = rsvp_speed,
               fluency = fluency,
-              acuity = acuity))
+              acuity = acuity,
+              repeatedLetters = repeatedLetters))
 }
 
 generate_threshold <- function(data_list, summary_list){

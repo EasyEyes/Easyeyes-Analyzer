@@ -10,6 +10,9 @@ get_test_retest_reading <- function(reading){
     summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
     ungroup(participant, block_condition)
   conditionNames <- unique(reading_each$conditionName)
+  if (!n_distinct(conditionNames) == 2) {
+    return(ggplot() + theme_bw() + ggtitle('test retest reading plot'))
+  }
   reading_test_retest <- tibble()
   for (i in 1:length(conditionNames)){
     tmp <- reading_each %>% filter(conditionName == conditionNames[i]) %>% 
@@ -61,6 +64,9 @@ get_test_retest_crowding <- function(crowding){
   # prepare data
   conditionNames <- unique(crowding$conditionName)
   crowding_test_retest <- tibble()
+  if (!n_distinct(conditionNames) == 2) {
+    return(ggplot() + theme_bw() + ggtitle('test retest crowding plot'))
+  }
   for (i in 1:length(conditionNames)){
     tmp <- crowding %>% 
       filter(conditionName == conditionNames[i]) %>%
@@ -112,6 +118,9 @@ get_test_retest_crowding <- function(crowding){
 get_test_retest_rsvp <- function(rsvp_speed){
   rsvp_speed <- rsvp_speed %>% select(-log_duration_s_RSVP, -targetKind,-thresholdParameter)
   conditionNames <- unique(rsvp_speed$conditionName)
+  if (!n_distinct(conditionNames) == 2) {
+    return(ggplot() + theme_bw() + ggtitle('test retest rsvp reading plot'))
+  }
   rsvp_test_retest <- tibble()
   for (i in 1:length(conditionNames)){
     tmp <- rsvp_speed %>% filter(conditionName == conditionNames[i]) %>% 

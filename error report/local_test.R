@@ -186,7 +186,12 @@ for (i in 1 : n) {
       if (!('QRConnect' %in% colnames(t))) {
         t$QRConnect <- ''
       }
-      t$age <- t$questionAndAnswerResponse[2]
+      t$age <- NA
+      if (length(t$participant[1]) >=3 & is.na(as.numeric(str_sub(t$participant[1], -3, -1)))) {
+        if (!is.na(as.numeric(str_sub(t$participant[1], -2, -1)))){
+          t$age <- as.numeric(str_sub(t$participant[1], -2, -1))
+        }
+      }
       screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                             unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                             NA)

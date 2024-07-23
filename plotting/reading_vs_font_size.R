@@ -168,4 +168,3 @@ plot_60cm_speed_diff_vs_age <- function(rsvp_speed){
       parse = T)
 }
 
-

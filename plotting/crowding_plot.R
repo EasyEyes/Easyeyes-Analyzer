@@ -1,25 +1,18 @@
 crowding_by_side <- function(crowding) {
-
+  
   crowding <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
     mutate(side = ifelse(targetEccentricityXDeg < 0, 'L', 'R'),
            XDeg = abs(targetEccentricityXDeg))
-  print(crowding %>% select("participant","font", 'XDeg'))
-    
-  # crowding$side <- ifelse(grepl("left", crowding$conditionName), "L", "R")
+  
   crowding_L <- crowding %>% filter(side == "L") %>% select(-conditionName, -side)
   crowding_R <- crowding %>% filter(side == "R") %>% select(-conditionName, -side)
   
-  print(crowding_L)
-  print(crowding_R)
-  
   crowding_L_R <- crowding_L %>% 
-    left_join(crowding_R, by = c("participant","font", 'XDeg')) %>% 
+    left_join(crowding_R, by = c("participant","font", 'XDeg','order')) %>% 
     rename("bouma_factor_Left" = "bouma_factor.x",
            "bouma_factor_Right" = "bouma_factor.y",
            "log_crowding_distance_deg_Left" = "log_crowding_distance_deg.x",
            "log_crowding_distance_deg_Right" = "log_crowding_distance_deg.y")
-  print('==========================  crowding_L_R ==========================')
-  print(crowding_L_R)
   return(crowding_L_R)
 }
 
@@ -43,19 +36,23 @@ crowding_scatter_plot <- function(crowding_L_R){
                            R,
                            "~italic(', right:left=')~", ratio),
            N = paste0("italic('N=')~", N))
-  
+  minX <- min(crowding_L_R$bouma_factor_Left, crowding_L_R$bouma_factor_Right)
+  maxX <- max(crowding_L_R$bouma_factor_Left, crowding_L_R$bouma_factor_Right)
   ggplot(crowding_L_R,aes(x = bouma_factor_Left, y = bouma_factor_Right)) + 
     geom_point(size = 1) + 
     facet_wrap(~font) + 
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
-    scale_y_log10(breaks = c(0.1, 0.3, 1, 3)) +
-    scale_x_log10(breaks = c(0.1, 0.3, 1, 3)) + 
+    scale_y_log10(limits = c(minX, 
+                             maxX),
+                  breaks = c(0.1, 0.3, 1, 3)) +
+    scale_x_log10(limits = c(minX, 
+                             maxX),
+                  breaks = c(0.1, 0.3, 1, 3)) + 
     annotation_logticks(short = unit(0.1, "cm"),                                                
                         mid = unit(0.1, "cm"),
                         long = unit(0.3, "cm")) + 
     xlab("Left Bouma factor") + 
     ylab("Right Bouma factor") + 
-    coord_fixed(ratio = 1) + 
     theme_bw() + 
     ggpp::geom_text_npc(
       data = summ,
@@ -106,12 +103,14 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
 
 
 get_two_fonts_plots <- function(crowding) {
+  crowding <- crowding %>% 
+    filter(bouma_factor != Inf)
   # Calculate mean and standard deviation for each participant and font
   if (n_distinct(crowding$font) < 1) {
     return(ggplot())
   }
   t <- crowding %>% 
-    group_by(participant, font) %>% 
+    group_by(participant, font, order) %>% 
     summarize(
       MEAN = mean(log10(bouma_factor), na.rm = TRUE),
       SD = sd(log10(bouma_factor), na.rm = TRUE)
@@ -138,6 +137,8 @@ get_two_fonts_plots <- function(crowding) {
   for_plot_means <- t %>% pivot_wider(names_from = font, values_from = MEAN)
   font1_means <- for_plot_means %>% filter(!is.na(!!sym(font1))) %>% select(participant, !!sym(font1))
   font2_means <- for_plot_means %>% filter(!is.na(!!sym(font2))) %>% select(participant, !!sym(font2))
+  print(font1_means)
+  print(font2_means)
   for_plot <- font1_means %>% inner_join(font2_means, by = "participant")
   
   # Mean plot
@@ -183,5 +184,56 @@ get_two_fonts_plots <- function(crowding) {
   return(list(mean_plot = mean_plot, sd_plot = sd_plot, title = title))
 }
 
+get_crowding_vs_age <- function(crowding) {
+  t <- crowding %>% filter(!is.na(age))
+  if (nrow(t) == 0) {
+    return(ggplot() + theme_bw() + ggtitle('crowding vs age'))
+  } else {
+    p <-  ggplot(t, aes(x = age, y = log_crowding_distance_deg)) +
+      geom_point() +
+      theme_bw() +
+      labs(title = 'crowding vs age',
+           x = 'Age',
+           y = 'crowding distance (deg)')
+    return(p)
+  }
+}
 
+get_repeatedLetter_vs_age <- function(repeatedLetters) {
+  t <- repeatedLetters %>% filter(!is.na(age))
+  print(t)
+  print('repeated letter')
+  if (nrow(t) == 0) {
+    return(ggplot() + theme_bw() + ggtitle('repeatedLetters vs age'))
+  } else {
+    p <-  ggplot(t, aes(x = age, y = 10^(log_crowding_distance_deg))) +
+      scale_y_log10() + 
+      geom_point() +
+      theme_bw() +
+      labs(title = 'repeatedLetters vs age',
+           x = 'Age',
+           y = 'crowding distance (deg)')
+    return(p)
+  }
+}
 
+get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
+  t <- repeatedLetters %>%
+    rename('log_crowding_distance_deg' = 'repeatedLetters') %>% 
+    left_join(crowding, by = 'participant', 'order')
+  
+  print(t)
+  print('repeated letter')
+  if (nrow(t) == 0) {
+    return(ggplot() + theme_bw() + ggtitle('repeatedLetters vs age'))
+  } else {
+    p <-  ggplot(t, aes(x = age, y = 10^(log_crowding_distance_deg))) +
+      geom_point() +
+      scale_y_log10() + 
+      theme_bw() +
+      labs(title = 'repeatedLetters vs age',
+           x = 'Age',
+           y = 'crowding distance (deg)')
+    return(p)
+  }
+}

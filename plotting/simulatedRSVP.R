@@ -47,22 +47,24 @@ getStairsPlot <- function(file) {
   shouldRender = T
   if (length(file_list) == 1 & grepl(".csv", file_list[1])) {
     print('read csv')
-    try({allData <- readr::read_csv(file_list[1])}, silent = TRUE)
-  } else if (length(file_list) == 1 & grepl(".zip", file_list[1])) {
-    print('read zip')
-    file_names <- unzip(file_list[1], list = TRUE)$Name
-    all_csv <- file_names[grepl(".csv", file_names)]
-    all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
-    if (length(all_csv) <= 2) {
-      try({allData <- readr::read_csv(unzip(file_list[1], all_csv[1]),show_col_types = FALSE)}, silent = TRUE)
-      if ('Submission id' %in% names(allData)) {
-        try({allData <- readr::read_csv(unzip(file_list[1], all_csv[2]),show_col_types = FALSE)}, silent = TRUE)
-      }
-    }
-  } else {
+    try({allData <- readr::read_csv(file_list[1])}, silent = TRUE) 
+    } else {
     shouldRender = F
     return(list(ggplot(), ggplot(),ggplot(),F))
   }
+  # } else if (length(file_list) == 1 & grepl(".zip", file_list[1])) {
+  #   print('read zip')
+  #   file_names <- unzip(file_list[1], list = TRUE)$Name
+  #   all_csv <- file_names[grepl(".csv", file_names)]
+  #   all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
+  #   if (length(all_csv) <= 2) {
+  #     try({allData <- readr::read_csv(unzip(file_list[1], all_csv[1]),show_col_types = FALSE)}, silent = TRUE)
+  #     if ('Submission id' %in% names(allData)) {
+  #       try({allData <- readr::read_csv(unzip(file_list[1], all_csv[2]),show_col_types = FALSE)}, silent = TRUE)
+  #     }
+  #   }
+  # } 
+  
   
   if (!is.contained(c("participant", "ProlificParticipantID", "conditionName", 
                       "staircaseName", "questMeanBeforeThisTrialResponse", "trialGivenToQuest", "rsvpReadingResponseCorrectBool", 

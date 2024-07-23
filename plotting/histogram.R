@@ -16,3 +16,37 @@ get_reading_retention_histogram <- function(reading) {
     ylab("Count") +
     xlab("Reading retention (proportion correct)")
 }
+
+
+get_crowding_hist <- function(crowding) {
+  foveal <- crowding %>% filter(grepl('foveal', conditionName,ignore.case = T))
+  peripheral <- crowding %>% filter(grepl('peripheral', conditionName,ignore.case = T))
+  if (nrow(foveal) > 0) {
+    p1 <- ggplot(foveal) + 
+      geom_histogram(aes(x = 10^(log_crowding_distance_deg)),color="black", fill="white") +
+      labs(x = 'crowding distance (deg)',
+           title ='histogram of foveal crowding distance')
+  } else {
+    p1 <- ggplot()
+  }
+ if (nrow(peripheral) > 0) { p2 <- ggplot(peripheral) + 
+    geom_histogram(aes(x = 10^(log_crowding_distance_deg)),color="black", fill="white") +
+    labs(x = 'crowding distance (deg)',
+         title ='histogram of peripheral crowding distance')
+ } else {
+   p2 <- ggplot()
+ }
+  return(list(foveal=p1,peripheral=p2))
+}
+
+get_acuity_hist <- function(acuity) {
+  if (nrow(acuity) > 0) {
+    p <-  ggplot(acuity) + 
+      geom_histogram(aes(x = 10^(questMeanAtEndOfTrialsLoop)),color="black", fill="white") +
+      labs(x = 'acuity (deg)',
+           title ='histogram of acuity')
+    return(p)
+  } else{
+    return(ggplot())
+  }
+}

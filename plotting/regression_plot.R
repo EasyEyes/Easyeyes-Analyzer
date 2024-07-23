@@ -41,11 +41,16 @@ prepare_regression_data <- function(df_list){
     mutate(targetKind = "rsvpReading")
   
   t <- rbind(crowding_vs_rsvp_summary, reading_crowding)
-  corr <- t %>% group_by(targetKind) %>% 
-    summarize(correlation = round(cor(bouma_factor,avg_log_WPM, 
-                                      use = "pairwise.complete.obs",
-                                      method = "pearson"),2))
-  t <- t %>% left_join(corr, by = "targetKind")
+  if (nrow(t>1)) {
+    corr <- t %>% group_by(targetKind) %>% 
+      summarize(correlation = round(cor(bouma_factor,avg_log_WPM, 
+                                        use = "pairwise.complete.obs",
+                                        method = "pearson"),2))
+    t <- t %>% left_join(corr, by = "targetKind")
+  } else {
+    t$correlation = NA
+  }
+  
   return(list(t))
 }
 

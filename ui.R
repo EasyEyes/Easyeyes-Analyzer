@@ -11,6 +11,7 @@ source('./tabs/formSpreeDash.R')
 library(shiny)
 library(svglite)
 library(shinycssloaders)
+library(plotly)
 # Define UI for application that draws a histogram
 shinyUI(
   navbarPage(

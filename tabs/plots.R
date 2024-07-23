@@ -85,6 +85,12 @@ plotsTab <- tabPanel(
     downloadButton("downloadRsvpCrowdingPeripheralPlot", "Download"),
     downloadButton("downloadRsvpCrowdingFovealPlot", "Download")
   ),
+  h3("Plots for British Children"),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("crowdingAgePlot", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("repeatedLetterAgePlot", width = "100%"), type = 4)
+  ),
   #### stairPlots #####
   splitLayout(
     cellWidths = c("50%", "50%"),

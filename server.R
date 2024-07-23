@@ -147,7 +147,6 @@ shinyServer(function(input, output, session) {
   })
   
   crowdingBySide <- reactive({
-    print('inside crowdingBySide')
     crowding_by_side(df_list()$crowding)
   })
   
@@ -414,18 +413,6 @@ shinyServer(function(input, output, session) {
   
   two_fonts_plots <- reactive({
     get_two_fonts_plots(df_list()$crowding)
-  })
-  
-  sloan_vs_times_means <- reactive({
-    two_fonts_plots()[[1]] +
-      labs(title = experiment_names(),
-           subtitle = "Crowding Sloan vs Times, mean")
-  })
-  
-  sloan_vs_times_sd <- reactive({
-    two_fonts_plots()[[2]] +
-      labs(title = experiment_names(),
-           subtitle = "Crowding Sloan vs Times, sd")
   })
   
   regressionPlot <- reactive({
@@ -1606,7 +1593,7 @@ shinyServer(function(input, output, session) {
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
                      file = outfile,
-                     plot = crowdingPlot() + plt_theme,
+                     plot = crowdingPlot() + plt_theme + coord_fixed(),
                      device = svg,
                      width = 6,
                      height = 4
@@ -1665,6 +1652,38 @@ shinyServer(function(input, output, session) {
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
+                 
+                 output$crowdingAgePlot <- 
+                   renderImage({
+                     outfile <- tempfile(fileext = '.svg')
+                     ggsave(
+                       file = outfile,
+                       plot =  get_crowding_vs_age(df_list()$crowding) + 
+                         plt_theme,
+                       device = svg,
+                       width = 7,
+                       height = 4
+                     )
+                     
+                     list(src = outfile,
+                          contenttype = 'svg')
+                   }, deleteFile = TRUE)
+                 
+                 output$repeatedLetterAgePlot <- 
+                   renderImage({
+                     outfile <- tempfile(fileext = '.svg')
+                     ggsave(
+                       file = outfile,
+                       plot =  get_repeatedLetter_vs_age(df_list()$repeatedLetters) + 
+                         plt_theme,
+                       device = svg,
+                       width = 7,
+                       height = 4
+                     )
+                     
+                     list(src = outfile,
+                          contenttype = 'svg')
+                   }, deleteFile = TRUE)
                  
                  #### rsvp vs crowding ####
                  output$rsvpCrowdingPeripheralPlot <- renderImage({
@@ -2897,7 +2916,7 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         ggsave(
           file,
-          plot = crowdingPlot(),
+          plot = crowdingPlot() + coord_fixed(),
           device = ifelse(input$fileType == "svg", svglite, input$fileType)
         )
       }
