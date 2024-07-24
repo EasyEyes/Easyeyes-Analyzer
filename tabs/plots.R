@@ -60,7 +60,16 @@ plotsTab <- tabPanel(
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
+    downloadButton("downloadAcuityHistogram", "Download"),
+    downloadButton("downloadFovealHistogram", "Download")
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
     shinycssloaders::withSpinner(plotOutput("peripheralHistogram", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadPeripheralHistogram", "Download")
   ),
   h3("Scatter Diagrams"),
   splitLayout(
@@ -70,7 +79,16 @@ plotsTab <- tabPanel(
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
+    downloadButton("downloadFovealAcuityDiag", "Download"),
+    downloadButton("downloadFovealPeripheralDiag", "Download")
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
     shinycssloaders::withSpinner(plotOutput("questDiag", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadQuestDiag", "Download")
   ),
   #### rsvp crowding plots ####
   splitLayout(

@@ -1633,7 +1633,7 @@ shinyServer(function(input, output, session) {
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
                      file = outfile,
-                     plot =  crowding_hist()$peripheral + plt_theme,
+                     plot =  crowding_hist()$foveal + plt_theme,
                      device = svg,
                      width = 6,
                      height = 4
@@ -1646,7 +1646,7 @@ shinyServer(function(input, output, session) {
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
                      file = outfile,
-                     plot =  crowding_hist()$foveal + plt_theme,
+                     plot =  crowding_hist()$peripheral + plt_theme,
                      device = svg,
                      width = 6,
                      height = 4
@@ -3072,6 +3072,168 @@ shinyServer(function(input, output, session) {
         )
       }
     )
+    
+    
+    #### download histogram ####
+    output$downloadAcuityHistogram <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('acuity-histogram.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot =  acuity_hist() + plt_theme,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = acuity_hist() + plt_theme,
+            device = ifelse(input$fileType == "svg", svglite, input$fileType)
+          )
+        }
+      }
+    )
+      
+    
+    output$downloadFovealHistogram <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('foveal-crowding-histogram.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot =  crowding_hist()$foveal + plt_theme,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file,
+            plot =crowding_hist()$foveal + plt_theme,
+            device = ifelse(input$fileType == "svg", svglite, input$fileType)
+          )
+        }
+      }
+    )
+    
+    output$downloadPeripheralHistogram <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('peripheral-crowding-histogram.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot =  crowding_hist()$peripheral + plt_theme,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = crowding_hist()$peripheral + plt_theme,
+            device = ifelse(input$fileType == "svg", svglite, input$fileType)
+          )
+        }
+      }
+    )
+    
+    output$downloadFovealAcuityDiag <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('foveal-crowding-acuity-diagram.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot =  foveal_acuity_diag() + plt_theme + coord_fixed(),
+
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = foveal_acuity_diag() + plt_theme + coord_fixed(),
+
+            device = ifelse(input$fileType == "svg", svglite, input$fileType)
+          )
+        }
+      }
+    )
+    
+    output$downloadFovealPeripheralDiag <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('foveal-peripheral-crowding-diagram.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot =  foveal_peripheral_diag() + plt_theme + coord_fixed(),
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = foveal_peripheral_diag() + plt_theme + coord_fixed(),
+
+            device = ifelse(input$fileType == "svg", svglite, input$fileType)
+          )
+        }
+      }
+    )
+    
+    output$downloadQuestDiag <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('Quest-diagram.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot =  quest_diag() + plt_theme + coord_fixed(),
+
+            unit = "in",
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = quest_diag() + plt_theme + coord_fixed(),
+
+            unit = "in",
+            device = ifelse(input$fileType == "svg", svglite, input$fileType)
+          )
+        }
+      }
+    )
+    
+    
     #### download rsvp crowding ####
     
     output$downloadRsvpCrowdingPeripheralPlot <- downloadHandler(

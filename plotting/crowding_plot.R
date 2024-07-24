@@ -233,13 +233,12 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
 get_foveal_acuity_diag <- function(crowding, acuity) {
   foveal <- crowding %>% filter(grepl('foveal', conditionName,ignore.case = T))
   
-  t <- acuity %>%
-    rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>% 
-    left_join(foveal, by = 'participant', 'order')
-
-  if (nrow(t) == 0) {
+  if (nrow(foveal) == 0 | nrow(acuity) == 0) {
     return(ggplot() + theme_bw() + ggtitle('crowding vs acuity'))
   } else {
+    t <- acuity %>%
+      rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>% 
+      left_join(foveal, by = 'participant', 'order')
     p <-  ggplot(t, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity))) +
       geom_point() +
       scale_x_log10() + 
@@ -253,19 +252,24 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
            y = 'acuity (deg)')
     return(p)
   }
+  
+
+   
 }
 
 get_foveal_peripheral_diag <- function(crowding) {
+  
   foveal <- crowding %>% filter(grepl('foveal', conditionName,ignore.case = T))
   peripheral <- crowding %>% filter(grepl('peripheral', conditionName,ignore.case = T))
-  t <- foveal %>% 
-    rename('foveal' = 'log_crowding_distance_deg') %>% 
-    select(foveal, participant, order) %>% 
-    left_join(peripheral,by = 'participant', 'order') %>% 
-    rename('peripheral' = 'log_crowding_distance_deg')
-  if (nrow(t) == 0) {
+  if (nrow(foveal) == 0 | nrow(peripheral) == 0) {
     return(ggplot() + theme_bw() + ggtitle('foveal vs peripheral'))
   } else {
+    t <- foveal %>% 
+      rename('foveal' = 'log_crowding_distance_deg') %>% 
+      select(foveal, participant, order) %>% 
+      left_join(peripheral,by = 'participant', 'order') %>% 
+      rename('peripheral' = 'log_crowding_distance_deg')
+    
     p <-  ggplot(t, aes(x = 10^foveal, y = 10^(peripheral))) +
       geom_point() +
       scale_x_log10() + 
