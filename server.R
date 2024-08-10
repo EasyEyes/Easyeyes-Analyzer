@@ -55,7 +55,6 @@ source("./plotting/simulatedRSVP.R")
 source("./other/getBits.R")
 source("./other/sound_plots.R")
 source("./other/read_json.R")
-source("./other/csvSplitter.R")
 source("./other/formSpree.R")
 source('./other/crowdingrsvp.R')
 
@@ -91,16 +90,20 @@ shinyServer(function(input, output, session) {
     showModal(modalDialog("Reading files", footer = NULL))
     t <- read_files(input$file)
     removeModal()
+    showModal(modalDialog(
+      paste0('Analyzed ', 
+             length(t$data_list),
+             ' sessions and ', 
+             ifelse(nrow(t$pretest) > 0, 1, 0),
+             ' pretest file'),
+      footer = modalButton("Dismiss"),
+      size = c('xl'),
+      easyClose = FALSE,
+      fade = TRUE
+    ))
     return(t)
   })
   
-  pretestXLSX <- reactive({
-    require(input$pretestXLSX)
-    showModal(modalDialog("Reading pretest xlsx file", footer = NULL))
-    t <- get_pretest(input$pretestXLSX)
-    removeModal()
-    return(t)
-  })
   
   
   stairPlots <- reactive({
@@ -588,11 +591,11 @@ shinyServer(function(input, output, session) {
   )
   
   #### plot for children
-  observeEvent(input$pretestXLSX, {
-    plots <- plot_rsvp_crowding_acuity(df_list(), files()$df, pretestXLSX())
+  observeEvent(input$file, {
+    plots <- plot_rsvp_crowding_acuity(df_list(), files()$df, files()$pretest)
     print('done plots')
     output$fileUploaded <- reactive({
-      return(!is.null(pretestXLSX()))
+      return(nrow(files()$pretest>0))
     })
     outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
     
@@ -651,8 +654,8 @@ shinyServer(function(input, output, session) {
                                            vjust = 1,
                                            hjust=1)),
         device = svg,
-        width = 8,
-        height = 8
+        width = 10,
+        height = 10
       )
       list(src = outfile,
            contenttype = 'svg')

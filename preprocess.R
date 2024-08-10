@@ -1,5 +1,14 @@
 library(dplyr)
 library(stringr)
+library(readr)
+
+get_pretest <- function(pretestCSV){
+  file_list <- pretestCSV$data
+  t <- readxl::read_xlsx(file_list[1]) %>% 
+    rename('participant' = 'PavloviaSessionID')
+  return(t)
+}
+
 read_files <- function(file){
   if(is.null(file)) return(list())
   file_list <- file$data
@@ -9,6 +18,7 @@ read_files <- function(file){
   experiment <- rep(NA,n)
   readingCorpus <- c()
   j = 1
+  pretest <- tibble()
   for (i in 1 : n) {
     t <- tibble()
     if (grepl(".csv", file_list[i])){ 
@@ -245,6 +255,11 @@ read_files <- function(file){
       file_names <- unzip(file_list[k], list = TRUE)$Name
       all_csv <- file_names[grepl(".csv", file_names)]
       all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
+      all_xlsx <- file_names[grepl(".xlsx", file_names)]
+      if (length(all_xlsx) > 0) {
+        pretest <- readxl::read_xlsx(all_xlsx[1]) %>% 
+          rename('participant' = 'PavloviaSessionID')
+      }
       m <- length(all_csv)
       for (u in 1 : m) {
         t <- tibble()
@@ -481,6 +496,12 @@ read_files <- function(file){
       print('done processing zip')
     }
   }
+  for (i in 1 : n) {
+    if (grepl(".xlsx", file_list[i])) {
+      pretest <- readxl::read_xlsx(file_list[i]) %>% 
+        rename('participant' = 'PavloviaSessionID')
+    }
+  }
   df <- tibble()
   for (i in 1:length(data_list)) {
     if (!'ParticipantCode' %in% names(data_list[[i]])) {
@@ -519,7 +540,8 @@ read_files <- function(file){
               summary_list = summary_list, 
               experiment = paste(unique(experiment), collapse = "-"),
               readingCorpus = paste(unique(readingCorpus), collapse = "-"),
-              df = df
+              df = df,
+              pretest = pretest
   ))
 }
 

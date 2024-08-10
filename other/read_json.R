@@ -33,7 +33,7 @@ preprocessJSON <- function(jsonFile) {
   model <-
     get_sound_model(volume_task, dynamic_range_compression_model)
   DRCMforDisplay <- dynamic_range_compression_model %>%
-    select(`T`, W, `1/R`, gainDBSPL, backgroundDBSPL, RMSError) %>%
+    select(`T`, W, `1/R`, gainDBSPL, RMSError) %>%
     mutate_if(is.numeric, round, digits = 1) %>% 
     rename("gain" = "gainDBSPL") %>% 
     select(`T`, W, `1/R`, gain, RMSError)
@@ -318,7 +318,7 @@ SoundLevelModel <- function(inDb, dynamic_range_compression_model) {
   R = dynamic_range_compression_model$R
   `T` = dynamic_range_compression_model$`T`
   W = dynamic_range_compression_model$W
-  backgroundDBSPL = dynamic_range_compression_model$backgroundDBSPL
+  # backgroundDBSPL = dynamic_range_compression_model$backgroundDBSPL
   gainDBSPL = dynamic_range_compression_model$gainDBSPL
   # totalDbSpl = 10 * log10(10 ^ (backgroundDBSPL / 10) +
   #                           10 ^ ((gainDBSPL + inDb) / 10))

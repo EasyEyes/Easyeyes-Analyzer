@@ -332,7 +332,7 @@ get_profile_table <- function(json, transducerType) {
     gainDBSPL = json$gainDBSPL,
     speakerGain_dB = json$speakerGain_dB,
     micGain_dB = json$micGain_dB,
-    backgroundDBSPL = json$backgroundDBSPL,
+    # backgroundDBSPL = json$backgroundDBSPL,
     RMSError = json$RMSError,
     fs2 = json$fs2
   ) %>%
@@ -344,7 +344,7 @@ get_profile_table <- function(json, transducerType) {
       gainDBSPL = round(gainDBSPL, 1),
       speakerGain_dB = round(speakerGain_dB, 1),
       micGain_dB = round(micGain_dB, 1),
-      backgroundDBSPL = round(backgroundDBSPL, 1),
+      # backgroundDBSPL = round(backgroundDBSPL, 1),
       RMSError = round(RMSError, 1),
       fs2 = fs2
     ) %>% 
@@ -355,13 +355,13 @@ get_profile_table <- function(json, transducerType) {
 
 get_profile_summary <- function(df) {
   displayDf <- tibble()
-  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W, Q, gainDBSPL, speakerGain_dB, micGain_dB, backgroundDBSPL, RMSError, fs2) %>% 
+  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W, Q, gainDBSPL, speakerGain_dB, micGain_dB, RMSError, fs2) %>% 
     summarize(across(everything(), ~ mean(.x, na.rm = TRUE)))
   displayDf <- rbind(displayDf,t)
-  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W, Q, gainDBSPL, speakerGain_dB, micGain_dB, backgroundDBSPL, RMSError, fs2) %>% 
+  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W, Q, gainDBSPL, speakerGain_dB, micGain_dB, RMSError, fs2) %>% 
     summarize(across(everything(), ~ sd(.x, na.rm = TRUE)))
   displayDf <- rbind(displayDf,t)
-  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W, Q, gainDBSPL, speakerGain_dB, micGain_dB, backgroundDBSPL, RMSError, fs2)
+  t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W, Q, gainDBSPL, speakerGain_dB, micGain_dB, RMSError, fs2)
   t <- colSums(!is.na(t))
   displayDf <- rbind(displayDf,t)
   # colnames(displayDf) <- c("componentCorrectionSD", "maxAbsFilteredMLS", "T","W","Q","gainDBSPL", "speakerGain_dB", "micGain_dB", "backgroundDBSPL", "RMSError", "fs2")

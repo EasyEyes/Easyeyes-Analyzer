@@ -13,16 +13,6 @@ plotsTab <- tabPanel(
     inline = TRUE,
     selected = "png"
   ),
-  fixedRow(column(
-    width = 4,
-    fileInput(
-      "pretestXLSX",
-      NULL,
-      accept = c(".xlsx"),
-      buttonLabel = "Upload the pretest xlsx file",
-      multiple = F
-    )
-  )),
   conditionalPanel(condition='output.fileUploaded',
                    h3("Grade plots"),
                    splitLayout(

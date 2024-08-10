@@ -39,7 +39,7 @@ sessionTab <- tabPanel(
     fileInput(
       "file",
       NULL,
-      accept = c(".csv", ".zip"),
+      accept = c(".csv", ".zip", '.xlsx'),
       buttonLabel = "Select CSV files or ZIP file",
       multiple = T
     )

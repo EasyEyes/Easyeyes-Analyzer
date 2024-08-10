@@ -1,13 +1,26 @@
 library(ggcorrplot) 
 library(plotly)
 plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
-  if (is.null(allData)) {
+  print('inside plot_rsvp_crowding_acuity')
+  if (is.null(allData) | nrow(pretest) < 1) {
+  # if (T) {
     return(list(
+      ggplot(),
       ggplot(),
       ggplot(),
       ggplot()
     ))
   }
+
+  pretest_for_corr <- pretest
+  pretest_for_corr <- lapply(pretest_for_corr, as.numeric)
+  pretest_for_corr <- tibble(data.frame(pretest_for_corr))
+  colnames(pretest_for_corr) <- colnames(pretest)
+  
+  pretest_for_corr <- pretest_for_corr %>%   
+    select_if(~sum(!is.na(.)) > 0)
+  pretest_for_corr$participant <- pretest$participant
+  
   rsvp_speed <- allData$rsvp
   crowding <- allData$crowding
   acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')
@@ -24,16 +37,19 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
     left_join(acuity %>% select(participant, log_acuity),by = 'participant') %>% 
     left_join(rsvp_speed %>% select(participant, block_avg_log_WPM), by = 'participant')
   
+  #   RAVEN_Perc,
+  # `RAVEN - tot`, 
   crowdingW <- crowdingW %>% 
+    select(log_acuity, foveal, peripheral, block_avg_log_WPM, participant) %>% 
     left_join(df, by = 'participant') %>% 
-    left_join(pretest, by = 'participant') %>% 
-    select(log_acuity, foveal, peripheral, block_avg_log_WPM, Grade, RAVEN_Perc,
-           `RAVEN - tot`, `MT_Reading Time (sec.)`, `MT_Total Text Syll`, 
-           `MT_sill/sec`, MT_Errors,`OMT_Corr.Score (Read-Err)`) %>% 
-    rename('log rsvp' = 'block_avg_log_WPM')
-  crowdingW <- crowdingW %>% mutate_if(is.character, as.numeric)
+    left_join(pretest_for_corr, by = 'participant') %>% 
+    rename('log rsvp' = 'block_avg_log_WPM') %>% 
+    select_if(is.numeric)
+  c <- colnames(crowdingW)
   
+  crowdingW
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
+  colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))
 
   corplot <- ggcorrplot(t,
@@ -133,7 +149,7 @@ plot_rsvp_crowding <- function(allData) {
       coord_fixed(ratio = 1) +
       ggpp::geom_text_npc(
         aes(npcx = "left",
-            npcy = "bottom",
+            npcy = "top",
             label = label),
         parse = TRUE) +
       labs(x = 'crowding distance (deg)',
@@ -264,10 +280,4 @@ plot_rsvp_crowding_plotly <- function(allData, df) {
   return(list(p1, p2))
 }
 
-get_pretest <- function(pretestCSV){
-  file_list <- pretestCSV$data
-  t <- readxl::read_xlsx(file_list[1]) %>% 
-    rename('participant' = 'PavloviaSessionID')
-  return(t)
-}
 
