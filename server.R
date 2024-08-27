@@ -63,11 +63,11 @@ library(shiny)
 #### server code ####
 
 shinyServer(function(input, output, session) {
-  #### place holder ####
+  #### formSpree ####
+  formSpreeTable <- reactive(monitorFormSpree(input$listFontParameters))
   
   output$formSpreeDashboard <- renderDataTable({
-    t <- monitorFormSpree()
-    datatable(t,
+    datatable(formSpreeTable(),
               class = list(stripe = FALSE),
               selection = 'none',
               filter = "top",

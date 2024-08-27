@@ -54,13 +54,24 @@ getFormSpree <- function(){
   }
 }
 
-monitorFormSpree <- function() {
+monitorFormSpree <- function(listFontParameters) {
   response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9"))
   if (httr::status_code(response)) {
     content <- httr::content(response, as = "text", encoding='UTF-8')
     t <- jsonlite::fromJSON(content)$submissions %>% 
-      select(pavloviaID, prolificParticipantID, prolificSession, ExperimentName, `_date`,OS, browser, browserVersion, deviceType)
+      mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS'))) %>% 
+      mutate(date = format(date, "%b %d, %Y, %H:%M:%S")) %>% 
+      arrange(desc(`_date`)) %>% 
+      select(-`_date`) 
+    
+    t <- t %>% select(pavloviaID, prolificParticipantID, prolificSession, ExperimentName,
+             date, OS, browser, browserVersion, deviceType, font, fontPt, fontMaxPx,
+             fontRenderMaxPx, fontString, block, conditionName, trial, fontLatencySec)
     t$OS = stringr::str_replace_all(t$OS, "OS X","macOS")
+    if (listFontParameters) {
+      t <- t %>% select(date, font, fontPt, fontMaxPx, fontRenderMaxPx, fontString,
+                        block, conditionName, trial, fontLatencySec)
+    }
     return(t)
   }
   return(tibble())
