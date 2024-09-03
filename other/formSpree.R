@@ -61,16 +61,21 @@ monitorFormSpree <- function(listFontParameters) {
     t <- jsonlite::fromJSON(content)$submissions %>% 
       mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS'))) %>% 
       mutate(date = format(date, "%b %d, %Y, %H:%M:%S")) %>% 
+      mutate(pavloviaID = ifelse(is.na(pavloviaID), pavloviaId, pavloviaID)) %>% 
       arrange(desc(`_date`)) %>% 
       select(-`_date`) 
     
-    t <- t %>% select(pavloviaID, prolificParticipantID, prolificSession, ExperimentName,
+    t <- t %>%
+      mutate(hl = is.na(fontLatencySec)) %>% 
+      select(pavloviaID, prolificParticipantID, prolificSession, ExperimentName,
              date, OS, browser, browserVersion, deviceType, font, fontPt, fontMaxPx,
-             fontRenderMaxPx, fontString, block, conditionName, trial, fontLatencySec)
+             fontRenderMaxPx, fontString, block, conditionName, trial, fontLatencySec, hl)
+    
     t$OS = stringr::str_replace_all(t$OS, "OS X","macOS")
     if (listFontParameters) {
       t <- t %>% select(date, font, fontPt, fontMaxPx, fontRenderMaxPx, fontString,
-                        block, conditionName, trial, fontLatencySec)
+                        block, conditionName, trial, fontLatencySec, hl)
+        
     }
     return(t)
   }

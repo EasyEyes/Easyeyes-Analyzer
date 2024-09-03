@@ -74,8 +74,13 @@ shinyServer(function(input, output, session) {
               options = list(
                 autoWidth = TRUE,
                 paging = FALSE,
-                dom = 't')
-    )
+                dom = 't',
+                columnDefs = list(
+                  list(visible = FALSE, targets = c(0, ncol(formSpreeTable())))))
+    ) %>% 
+      formatStyle(names(formSpreeTable()),
+                  'hl',
+                  backgroundColor = styleEqual(c(T,F), c('yellow','white')))
   })
   
   output$ex1 <- renderDataTable({
