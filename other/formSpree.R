@@ -58,22 +58,34 @@ monitorFormSpree <- function(listFontParameters) {
   response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9"))
   if (httr::status_code(response)) {
     content <- httr::content(response, as = "text", encoding='UTF-8')
+    
+    initial <- jsonlite::fromJSON(content)$submissions %>% 
+      filter(!is.na(OS)) %>% 
+      select(pavloviaID, prolificParticipantID, prolificSession, ExperimentName,
+             OS, browser, browserVersion, deviceType)
+    
     t <- jsonlite::fromJSON(content)$submissions %>% 
-      mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS'))) %>% 
+      mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS')),
+             pavloviaID = ifelse(is.na(pavloviaID), pavloviaId, pavloviaID)) %>% 
+      group_by(pavloviaID) %>% 
+      slice(which.max(date)) %>% 
+      ungroup() %>% 
       mutate(date = format(date, "%b %d, %Y, %H:%M:%S")) %>% 
-      mutate(pavloviaID = ifelse(is.na(pavloviaID), pavloviaId, pavloviaID)) %>% 
       arrange(desc(`_date`)) %>% 
-      select(-`_date`) 
+      select(-`_date`)
     
     t <- t %>%
+      select(pavloviaID, date, font, fontPt, fontMaxPx,
+             fontRenderMaxPx, fontString, block, conditionName, trial, fontLatencySec) %>% 
+      left_join(initial, by = "pavloviaID") %>% 
       mutate(hl = is.na(fontLatencySec)) %>% 
       select(pavloviaID, prolificParticipantID, prolificSession, ExperimentName,
-             date, OS, browser, browserVersion, deviceType, font, fontPt, fontMaxPx,
-             fontRenderMaxPx, fontString, block, conditionName, trial, fontLatencySec, hl)
+             date, OS, browser, browserVersion, deviceType, font, fontPt, fontMaxPx, fontRenderMaxPx, fontString,
+             block, conditionName, trial, fontLatencySec, hl)
     
     t$OS = stringr::str_replace_all(t$OS, "OS X","macOS")
     if (listFontParameters) {
-      t <- t %>% select(date, font, fontPt, fontMaxPx, fontRenderMaxPx, fontString,
+      t <- t %>% select(pavloviaID, date, font, fontPt, fontMaxPx, fontRenderMaxPx, fontString,
                         block, conditionName, trial, fontLatencySec, hl)
         
     }

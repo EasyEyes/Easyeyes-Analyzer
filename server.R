@@ -68,13 +68,15 @@ shinyServer(function(input, output, session) {
   
   output$formSpreeDashboard <- renderDataTable({
     datatable(formSpreeTable(),
+              extensions = 'FixedHeader',
               class = list(stripe = FALSE),
               selection = 'none',
               filter = "top",
               options = list(
                 autoWidth = TRUE,
+                fixedHeader = TRUE,
                 paging = FALSE,
-                dom = 't',
+                dom = 'lt',
                 columnDefs = list(
                   list(visible = FALSE, targets = c(0, ncol(formSpreeTable())))))
     ) %>% 
