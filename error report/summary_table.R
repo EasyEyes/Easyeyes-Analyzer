@@ -105,8 +105,11 @@ data_table_call_back = "
 
 get_lateness_and_duration <- function(all_files){
   t <- all_files %>% 
+  
     select(participant, date, targetMeasuredLatenessSec, targetMeasuredDurationSec, targetDurationSec) %>% 
-    mutate(targetDurationSec = as.numeric(targetDurationSec)) %>% 
+    mutate(targetDurationSec = as.numeric(targetDurationSec),
+           targetMeasuredDurationSec = as.numeric(targetMeasuredDurationSec),
+           targetMeasuredLatenessSec = as.numeric(targetMeasuredLatenessSec)) %>% 
     group_by(participant, date) %>% 
     summarize(targetMeasuredLatenessMeanSec = mean(targetMeasuredLatenessSec, na.rm = TRUE) * 1000,
               targetMeasuredLatenessSDSec = sd(targetMeasuredLatenessSec, na.rm = TRUE) * 1000,

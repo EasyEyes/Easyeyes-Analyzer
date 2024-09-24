@@ -73,12 +73,12 @@ profileTab <- tabPanel(
     fixedRow(style = "margin-left:2px;",
              column(
                width = 6,
-               align = "middle",
+               align = "left",
                plotOutput("profilePlot", height = "100%", width = "100%")
              ),
              column(
                width = 6,
-               align = "middle",
+               align = "left",
                plotOutput("shiftedProfilePlot", height = "100%", width = "100%")
              )
     ),
@@ -87,12 +87,12 @@ profileTab <- tabPanel(
       fixedRow(style = "margin-left:2px;", 
                column(
                  width = 6,
-                 align = "middle",
+                 align = "left",
                  downloadButton("downloadProfilePlot", "Download")
                ),
                column(
                  width = 6,
-                 align = "middle",
+                 align = "left",
                  downloadButton("downloadShiftedProfilePlot", "Download")
                ))
     ),
@@ -101,14 +101,20 @@ profileTab <- tabPanel(
       fixedRow(style = "margin-left:2px;",
                column(
                  width = 6,
-                 align = "middle",
+                 align = "left",
                  plotOutput("profileAvgPlot", height = "100%", width = "100%")
                )),
       fixedRow(style = "margin-left:2px;", 
                column(
                  width = 6,
-                 align = "middle",
+                 align = "left",
                  downloadButton("downloadProfileAvgPlot", "Download")
+               )),
+      fixedRow(style = "margin-left:2px;",
+               column(
+                 width = 6,
+                 align = "left",
+                 tableOutput("profileAverge")
                ))),
     
     
@@ -118,13 +124,17 @@ profileTab <- tabPanel(
     # column(width = 8, div(id = "microphonePlots")),
     
     includeHTML("./www/firestore.html"),
-    fixedRow(column(tableOutput("summaryStats"), width = 12, align = "center")),
+    fixedRow(style = "margin-left:2px;",
+             column(tableOutput("summaryStats"), 
+                    width = 12, align = "left")),
     DT::dataTableOutput('profiles'),
     conditionalPanel(
       "input.totalData",
-      column(width = 12, 
-             align = "center", 
-             downloadButton("downloadProfileTable", "download profile table"))
+      fixedRow(style = "margin-left:2px;",
+               column(width = 12, 
+                      align = "left", 
+                      downloadButton("downloadProfileTable", "download profile table"))
+               )
     ),
     HTML('<table id="dataTable" class="display"></table>')
   )

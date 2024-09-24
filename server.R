@@ -1375,6 +1375,8 @@ shinyServer(function(input, output, session) {
       }
     )
     
+    output$profileAverge <- renderTable(p$tb)
+    
   })
   
   profile_plot <- reactive({
@@ -1392,7 +1394,7 @@ shinyServer(function(input, output, session) {
       if ("isDefault" %in% names(json)) {
         options <-
           ifelse(json$isDefault,
-                 paste0("default/", unlist(json$modelNumbers)),
+                 paste0("default/", unlist(json$modelNumbers), "/",json$createDates),
                  json$createDates)
       } else {
         options <- json$createDates
@@ -1479,6 +1481,8 @@ shinyServer(function(input, output, session) {
            contenttype = 'svg',
            alt = "profile plot")
     }, deleteFile = TRUE)
+    
+    output$profileAverge <- renderTable(profile_plot()$tb)
     
   })
   
