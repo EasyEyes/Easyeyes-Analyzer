@@ -76,12 +76,17 @@ plot_profiles_avg <- function(dt) {
          y = 'Gain (dB)',
          title = 'Average of profiles')
   height = ceiling((maxY - minY) / 15) + 0.3
-  print(dt)
+  tb <- dt %>%
+    filter(freq %in% c(50, 100, 300, 1000, 3000,6000)) %>%
+    mutate(`Freq (Hz)` = format(freq, nsmall=0),
+            `mean (dB)`= format(round(avg,1),nsmall=1),
+           `SD (dB)` = format(round(std,1),nsmall=1)) %>% 
+    select(`Freq (Hz)`,`mean (dB)`,`SD (dB)`)
   return (
     list(
       height = height,
       plot = p,
-      tb = dt %>% filter(freq %in% c(50, 100, 300, 1000, 3000,6000) )%>% select(freq, std)
+      tb = tb
     )
   )
     
