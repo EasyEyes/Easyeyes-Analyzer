@@ -2,13 +2,15 @@ library(dplyr)
 library(broom)
 library(purrr)
 library(ggpp)
+library(stringr)
 prepare_regression_data <- function(df_list){
-  reading <- df_list$reading
-  crowding <- df_list$crowding
-  rsvp_speed <- df_list$rsvp
-  crowding_vs_rsvp <- merge(crowding,rsvp_speed, by = c("participant", "font"))
+  reading <- df_list$reading %>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
+  crowding <- df_list$crowding%>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
+  rsvp_speed <- df_list$rsvp%>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
+  crowding_vs_rsvp <- merge(select(crowding, participant, log_crowding_distance_deg,bouma_factor),rsvp_speed, by = c("participant")) %>%
+    distinct()
   reading_each <- reading %>% 
-    group_by(font, participant, block_condition, thresholdParameter) %>%
+    group_by(participant, block_condition, thresholdParameter) %>%
     dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
     ungroup()
   
@@ -26,25 +28,26 @@ prepare_regression_data <- function(df_list){
   
   crowding_summary <- crowding %>% 
     group_by(participant, font) %>% 
-    summarize(bouma_factor = 10^(mean(log10(bouma_factor))),
-              crowding_distance = 10^(mean(log_crowding_distance_deg)))
+    summarize(crowding_distance = 10^(mean(log_crowding_distance_deg)))
   
   reading_crowding <- reading_valid %>% 
-    select(participant, font, avg_wordPerMin) %>% 
-    group_by(participant, font) %>% 
+    select(participant, avg_wordPerMin) %>% 
+    group_by(participant) %>% 
     summarize(avg_log_WPM = mean(log10(avg_wordPerMin))) %>% 
     ungroup() %>% 
-    left_join(crowding_summary, by = c("participant", "font")) %>% 
-    mutate(targetKind = "reading")
+    left_join(crowding_summary, by = c("participant")) %>% 
+    mutate(targetKind = "reading") %>% 
+    select(-font)
   crowding_vs_rsvp_summary <- crowding_vs_rsvp %>% 
-    group_by(participant, font) %>% 
-    summarize(bouma_factor = 10^(mean(log10(bouma_factor))), avg_log_WPM = mean(block_avg_log_WPM)) %>% 
+    group_by(participant) %>% 
+    summarize( avg_log_WPM = mean(block_avg_log_WPM),
+               crowding_distance = 10^mean(log_crowding_distance_deg)) %>% 
     mutate(targetKind = "rsvpReading")
   
   t <- rbind(crowding_vs_rsvp_summary, reading_crowding)
   if (nrow(t>1)) {
     corr <- t %>% group_by(targetKind) %>% 
-      summarize(correlation = round(cor(bouma_factor,avg_log_WPM, 
+      summarize(correlation = round(cor(log10(crowding_distance),avg_log_WPM, 
                                         use = "pairwise.complete.obs",
                                         method = "pearson"),2))
     t <- t %>% left_join(corr, by = "targetKind")
@@ -55,8 +58,34 @@ prepare_regression_data <- function(df_list){
   return(list(t))
 }
 
+prepare_regression_acuity <- function(df_list){
+  reading <- df_list$reading %>%
+    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1))) %>% 
+    group_by(participant, block_condition, targetKind) %>%
+    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
+    ungroup() %>% 
+    filter(avg_wordPerMin <= 1500) %>% 
+    mutate(log_WPM = log10(avg_wordPerMin)) %>% 
+    group_by(participant, targetKind) %>% 
+    summarize(avg_log_WPM = mean(log10(avg_wordPerMin)))
+    
+  
+    
+  acuity <- df_list$acuity %>%
+    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1))) %>% 
+    select(participant, questMeanAtEndOfTrialsLoop, conditionName)
+  
+  rsvp_speed <- df_list$rsvp %>% 
+    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1))) %>% 
+    group_by(participant,targetKind) %>% 
+    summarize( avg_log_WPM = mean(block_avg_log_WPM))
+  
+  dt <- rbind(reading,rsvp_speed) %>% 
+    left_join(acuity, by = 'participant')
+  return(dt)
+}
 
-regression_plot <- function(df_list){
+regression_reading_plot <- function(df_list){
   t <- prepare_regression_data(df_list)[[1]]
   t <- t %>% mutate(targetKind = paste0(targetKind, ", R = ", correlation))
   # plot for the regression
@@ -68,50 +97,43 @@ regression_plot <- function(df_list){
     coord_fixed(ratio = 1) + 
     labs(x="Crowding distance (deg)", y = "Reading (word/min)") +
     theme_bw() + 
+    theme(legend.position='top') + 
     annotation_logticks() +
     # annotate("text", x = 10^(max(t$bouma_factor)), 
     #          y = 10^(min(t$avg_log_WPM)), 
     #          label = paste("italic(n)==", n_distinct(t$participant)), 
     #          parse = TRUE) +
-    guides(color=guide_legend(title="targetKind and correlation"))
+    guides(color=guide_legend(title=""))
   return(p)
 }
 
-regression_and_mean_plot <- function(df_list, reading_rsvp_crowding_df){
-  t <- prepare_regression_data(df_list)[[1]]
-  corr <- prepare_regression_data(df_list)[[2]]
-  rsvp_vs_ordinary_vs_crowding <- reading_rsvp_crowding_df[[1]]
-  rsvp_vs_ordinary_vs_crowding <-  rsvp_vs_ordinary_vs_crowding %>% 
-    left_join(corr, by = "targetKind") %>% 
-    mutate(targetKind = paste0(targetKind, ", R =  ", correlation))
-  
-  # regression and font mean
-  p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, aes(x = mean_bouma_factor, 
-                                                       y = 10^(avg_log_SpeedWPM))) + 
-    geom_point(aes(shape = targetKind, color = font), size = 6) +
-    geom_smooth(aes(linetype = targetKind),
-                color = "black", method = "lm",formula = y ~ x, se=F,
-                fullrange=T) +
-    geom_errorbar(aes(ymin=10^(avg_log_SpeedWPM-se),
-                      ymax=10^(avg_log_SpeedWPM+se)), width=0) +
-    geom_errorbar(aes(xmin=(mean_bouma_factor-se_bouma_factor),
-                      xmax=(mean_bouma_factor+se_bouma_factor)), width=0) +
-    geom_point(data = t, aes(x = bouma_factor, y = 10^(avg_log_WPM), color = font),alpha = 0.5) +
-    geom_smooth(data = t, 
-                aes(x = bouma_factor, y = 10^(avg_log_WPM), color = font),
-                method = "lm",
-                formula = y ~ x, 
-                se=F,
-                fullrange=T) + 
-    scale_y_log10(limits = c(50, 2000)) +
+regression_acuity_plot <- function(df_list){
+  t <- prepare_regression_acuity(df_list)
+  if (nrow(t>1)) {
+    corr <- t %>% group_by(targetKind) %>% 
+      summarize(correlation = round(cor(questMeanAtEndOfTrialsLoop,avg_log_WPM, 
+                                        use = "pairwise.complete.obs",
+                                        method = "pearson"),2))
+    t <- t %>% left_join(corr, by = "targetKind")
+  } else {
+    t$correlation = NA
+  }
+  t <- t %>% mutate(targetKind = paste0(targetKind, ", R = ", correlation))
+  p <- ggplot(t,aes(x = 10^(questMeanAtEndOfTrialsLoop), y = 10^(avg_log_WPM), color = targetKind)) + 
+    geom_point() +
+    geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10() + 
-    scale_linetype_manual(values = c(2, 5)) +
-    coord_fixed(ratio = 1) +
-    labs(x="Bouma factor", y = "Reading speed (word/min)") +
+    scale_y_log10() +
+    coord_fixed(ratio = 1) + 
+    labs(x="Acuity (deg)", y = "Reading (word/min)") +
     theme_bw() + 
+    theme(legend.position='top') + 
     annotation_logticks() +
-    guides(color=guide_legend(title="font"))
-  return(p)
+    # annotate("text", x = 10^(max(t$bouma_factor)), 
+    #          y = 10^(min(t$avg_log_WPM)), 
+    #          label = paste("italic(n)==", n_distinct(t$participant)), 
+    #          parse = TRUE) +
+    guides(color=guide_legend(title=""))
 }
 
 regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
