@@ -6,16 +6,17 @@ require(stringr)
 require(gridExtra)
 require(ggsignif)
 require(DT)
+source('')
 # store name of experiment in experiment object
 rm(list = ls())
-experiment = "RsvpAndCrowding"
+experiment = "ReadingKirburton"
 # locate the folder that you store experiments
-setwd("~/Downloads/untitled folder")
+setwd("~/Downloads/untitled folder/KirkburtonData")
 # get the folder name for your experiment
 folders <- dir(pattern = glob2rx(paste0(experiment, "*")))
 folders <- folders[file.info(folders)$isdir]
 # set the experiment folder as working directory
-setwd(paste0("~/Downloads/untitled folder/", folders))
+setwd(paste0("~/Downloads/untitled folder/KirkburtonData/", folders))
 # get all the files end with .csv in the folder
 # use the length() function n number of participants in the experiment
 file_names <- list.files(pattern = "*.csv")
@@ -142,7 +143,7 @@ for (i in 1 : n) {
         t$hardwareConcurrency <- NA
       }
       if (!('experiment' %in% colnames(t))) {
-        t$experiment <- str_split(file$name[i], "[_]")[[1]][3]
+        t$experiment <- str_split(file_names[i], "[_]")[[1]][3]
       }
       if (!('experimentCompleteBool' %in% colnames(t))) {
         t$experimentCompleteBool <- FALSE
@@ -190,9 +191,11 @@ for (i in 1 : n) {
         t$QRConnect <- ''
       }
       t$age <- NA
-      if (length(t$participant[1]) >=3 & is.na(as.numeric(str_sub(t$participant[1], -3, -1)))) {
+      if (nchar(t$participant[1]) >=3 & is.na(as.numeric(str_sub(t$participant[1], -3, -1)))) {
         if (!is.na(as.numeric(str_sub(t$participant[1], -2, -1)))){
+          print('find age in participant id')
           t$age <- as.numeric(str_sub(t$participant[1], -2, -1))
+          t$britishID = tolower(str_sub(t$participant[1], 1, 4))
         }
       }
       screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
@@ -225,8 +228,7 @@ for (i in 1 : n) {
         dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
         distinct(participant, block_condition, staircaseName, conditionName, 
                  targetKind, font, experiment, thresholdParameter)
-      print(info)
-      
+
       summaries <- t %>% 
         dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
         select(
@@ -256,6 +258,38 @@ for (i in 1 : n) {
     print('done processing csv')
   }
 }
+df <- tibble()
+for (i in 1:length(data_list)) {
+  if (!'ParticipantCode' %in% names(data_list[[i]])) {
+    data_list[[i]]$ParticipantCode = ''
+  }
+  if (!'participant' %in% names(data_list[[i]])) {
+    data_list[[i]]$participant = ''
+  }
+  if (!'Birthdate' %in% names(data_list[[i]])) {
+    data_list[[i]]$Birthdate = ''
+  }
+  if (!'britishID' %in% names(data_list[[i]])) {
+    data_list[[i]]$britishID = ''
+  }
+  unique_participantCode = unique(data_list[[i]]$ParticipantCode)
+  if (length(unique_participantCode) > 1) {
+    data_list[[i]]$ParticipantCode = unique(data_list[[i]]$ParticipantCode[!is.na(data_list[[i]]$ParticipantCode)])
+  } else {
+    data_list[[i]]$ParticipantCode = ''
+  }
+  
+  unique_Birthdate = unique(data_list[[i]]$Birthdate)
+  if (length(unique_Birthdate) > 1) {
+    data_list[[i]]$Birthdate = unique(data_list[[i]]$Birthdate[!is.na(data_list[[i]]$Birthdate)])
+  } else {
+    data_list[[i]]$Birthdate = ''
+  }
+  
+  df <- rbind(df, data_list[[i]] %>% distinct(participant, britishID, ParticipantCode, Birthdate))
+  
+}
+print(df)
 
 
 generate_threshold(data_list, summary_list)
@@ -277,7 +311,7 @@ acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')
 # pretest <- readxl::read_xlsx('~/Downloads/untitled folder/RsvpAndCrowding9.pretest.xlsx')
 # pretest <- pretest %>% rename('participant' = 'PavloviaSessionID')
 crowdingW <- crowding %>% mutate(type=ifelse(
-  grepl('foveal', conditionName, ignore.case = T),
+  targetEccentricityXDeg == 0,
   'foveal',
   'peripheral'
 )) %>% 
@@ -329,7 +363,7 @@ info <- get_info(data_list)
 
 
 
-plot_rsvp_crowding_plotly(allData)
+plot_rsvp_crowding_plotly(allData,df)
 
 
 

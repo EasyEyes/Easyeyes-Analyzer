@@ -64,7 +64,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
              targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
       mutate(log_WPM = log10(wordPerMin)) %>% 
       filter(targetKind == "reading" & font !="")
-  }
+  } %>% 
+    left_join(age, by = "participant")
   
   ################################ REPEAT LETTER #######################################
   repeatedLetters <- all_summary %>% 

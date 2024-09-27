@@ -168,3 +168,69 @@ plot_60cm_speed_diff_vs_age <- function(rsvp_speed){
       parse = T)
 }
 
+
+## TODO
+plot_reading_age <- function(reading){
+  t <- reading %>% filter(!is.na(age))
+  if (nrow(t) == 0) {
+    return(ggplot() + theme_bw() + ggtitle('Reading vs age'))
+  } else {
+    p <-  ggplot(t, aes(x = age, y = 10^(log_WPM))) +
+      scale_y_log10() + 
+      geom_point() +
+      theme_bw() +
+      labs(title = 'Reading vs age',
+           x = 'Age',
+           y = 'reading (word per Min)')
+    return(p)
+  }
+}
+
+plot_rsvp_age <- function(rsvp){
+  t <- rsvp %>% filter(!is.na(age))
+  if (nrow(t) == 0) {
+    return(ggplot() + theme_bw() + ggtitle('Rsvp reading vs age'))
+  } else {
+    p <-  ggplot(t, aes(x = age, y = 10^(block_avg_log_WPM))) +
+      scale_y_log10() + 
+      geom_point() +
+      theme_bw() +
+      labs(title = 'Rsvp reading vs age',
+           x = 'Age',
+           y = 'reading (word per Min)')
+    return(p)
+  }
+}
+
+plot_reading_rsvp <- function(reading,rsvp){
+  reading <- reading %>%
+    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
+  rsvp <-rsvp %>% 
+    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1))) %>% 
+    group_by(participant,targetKind) %>% 
+    summarize( avg_log_WPM = mean(block_avg_log_WPM))
+  t <-  reading <- df_list$reading %>%
+    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1))) %>% 
+    group_by(participant, block_condition, targetKind) %>%
+    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
+    ungroup() %>% 
+    filter(avg_wordPerMin <= 1500) %>% 
+    mutate(log_WPM = log10(avg_wordPerMin)) %>% 
+    group_by(participant, targetKind) %>% 
+    summarize(avg_log_WPM = mean(log10(avg_wordPerMin))) %>% 
+    left_join(rsvp, by = 'participant')
+  
+  p <- ggplot(t,aes(x = 10^(avg_log_WPM.y), y = 10^(avg_log_WPM.x))) + 
+    geom_point() +
+    geom_smooth(method = "lm",formula = y ~ x, se=F) + 
+    scale_x_log10() + 
+    scale_y_log10() +
+    coord_fixed(ratio = 1) + 
+    labs(x="Rsvp reading (word/min)", y = "Reading (word/min)") +
+    theme_bw() + 
+    theme(legend.position='top') + 
+    annotation_logticks() +
+    guides(color=guide_legend(title=""))+
+    ggtitle('Reading vs rsvp reading')
+  return(p)
+}

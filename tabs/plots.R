@@ -119,6 +119,52 @@ plotsTab <- tabPanel(
     shinycssloaders::withSpinner(plotOutput("crowdingAgePlot", width = "100%"), type = 4),
     shinycssloaders::withSpinner(plotOutput("repeatedLetterAgePlot", width = "100%"), type = 4)
   ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadCrowdingAge", "Download"),
+    downloadButton("downloadRLAge", "Download")
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("rsvpReadingAgePlot", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("readingAgePlot", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadRsvpAge", "Download"),
+    downloadButton("downloadReadingAge", "Download")
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("acuityAgePlot", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("repeatedLetterCrowdingPlot", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadAcuityAge", "Download"),
+    downloadButton("downloadRLCrowding", "Download")
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("readingRSVP", width = "100%"), type = 4),
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadReadingRSVP", "Download")
+  ),
+  
+  #### regression ####
+  h3("Regression reading vs crowding"),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("regressionPlot", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("regressionAcuityPlot", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadRegressionPlot", "Download"),
+    downloadButton("downloadRegressionAcuityPlot", "Download")
+  ),
   #### stairPlots #####
   splitLayout(
     cellWidths = c("50%", "50%"),
@@ -178,31 +224,21 @@ plotsTab <- tabPanel(
     downloadButton("downloadMeanPlot", "Download"),
     downloadButton("downloadMedianPlot", "Download")
   ),
-  #### regression ####
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("regressionPlot", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("regressionAndMeanPlot", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadRegressionPlot", "Download"),
-    downloadButton("downloadRegressionAndMeanPlot", "Download")
-  ),
+
   #### regression fonts ####
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("regressionFontPlot", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(
-      plotOutput("regressionFontPlotWithLabel", width = "100%"),
-      type = 4
-    )
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadRegressionFontPlot", "Download"),
-    downloadButton("downloadRegressionFontPlotWithLabel", "Download")
-  ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   shinycssloaders::withSpinner(plotOutput("regressionFontPlot", width = "100%"), type = 4),
+  #   shinycssloaders::withSpinner(
+  #     plotOutput("regressionFontPlotWithLabel", width = "100%"),
+  #     type = 4
+  #   )
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   downloadButton("downloadRegressionFontPlot", "Download"),
+  #   downloadButton("downloadRegressionFontPlotWithLabel", "Download")
+  # ),
   ####fluency ####
   h3("Fluency plots"),
   splitLayout(

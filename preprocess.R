@@ -188,6 +188,7 @@ read_files <- function(file){
         if (nchar(t$participant[1]) >=3 & is.na(as.numeric(str_sub(t$participant[1], -3, -1)))) {
           if (!is.na(as.numeric(str_sub(t$participant[1], -2, -1)))){
             t$age <- as.numeric(str_sub(t$participant[1], -2, -1))
+            t$britishID = tolower(str_sub(t$participant[1], 1, 4))
           }
         }
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
@@ -430,7 +431,9 @@ read_files <- function(file){
           t$age <- NA
           if (nchar(t$participant[1]) >=3 & is.na(as.numeric(str_sub(t$participant[1], -3, -1)))) {
             if (!is.na(as.numeric(str_sub(t$participant[1], -2, -1)))){
+              print('find age in participant id')
               t$age <- as.numeric(str_sub(t$participant[1], -2, -1))
+              t$britishID = tolower(str_sub(t$participant[1], 1, 4))
             }
           }
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
@@ -505,6 +508,7 @@ read_files <- function(file){
   df <- tibble()
   for (i in 1:length(data_list)) {
     if (!'ParticipantCode' %in% names(data_list[[i]])) {
+      print('no ParticipantCode')
       data_list[[i]]$ParticipantCode = ''
     }
     if (!'participant' %in% names(data_list[[i]])) {
@@ -512,6 +516,9 @@ read_files <- function(file){
     }
     if (!'Birthdate' %in% names(data_list[[i]])) {
       data_list[[i]]$Birthdate = ''
+    }
+    if (!'britishID' %in% names(data_list[[i]])) {
+      data_list[[i]]$britishID = ''
     }
     unique_participantCode = unique(data_list[[i]]$ParticipantCode)
     if (length(unique_participantCode) > 1) {
@@ -527,7 +534,7 @@ read_files <- function(file){
       data_list[[i]]$Birthdate = ''
     }
     
-    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, Birthdate))
+    df <- rbind(df, data_list[[i]] %>% distinct(participant, britishID, ParticipantCode, Birthdate))
     
   }
   print(df)

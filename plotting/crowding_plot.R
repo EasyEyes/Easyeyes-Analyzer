@@ -213,7 +213,7 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
 
 get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
   t <- repeatedLetters %>%
-    rename('log_crowding_distance_deg' = 'repeatedLetters') %>% 
+    rename('repeatedLetters' = 'log_crowding_distance_deg') %>% 
     left_join(crowding, by = 'participant', 'order')
   
   if (nrow(t) == 0) {
@@ -222,10 +222,11 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
     p <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters))) +
       geom_point() +
       scale_y_log10() + 
+      scale_x_log10() + 
       theme_bw() +
       labs(title = 'crowding vs repeatedLetters',
-           x = 'repeatedLetters crowding distance (deg)',
-           y = 'crowding distance (deg)')
+           x = 'RepeatedLetters crowding distance (deg)',
+           y = 'Crowding distance (deg)')
     return(p)
   }
 }

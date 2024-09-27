@@ -3,9 +3,9 @@ library(broom)
 library(purrr)
 library(ggpp)
 prepare_regression_data <- function(df_list){
-  reading <- df_list[[1]]
-  crowding <- df_list[[2]]
-  rsvp_speed <- df_list[[3]]
+  reading <- df_list$reading
+  crowding <- df_list$crowding
+  rsvp_speed <- df_list$rsvp
   crowding_vs_rsvp <- merge(crowding,rsvp_speed, by = c("participant", "font"))
   reading_each <- reading %>% 
     group_by(font, participant, block_condition, thresholdParameter) %>%
@@ -26,7 +26,8 @@ prepare_regression_data <- function(df_list){
   
   crowding_summary <- crowding %>% 
     group_by(participant, font) %>% 
-    summarize(bouma_factor = 10^(mean(log10(bouma_factor))))
+    summarize(bouma_factor = 10^(mean(log10(bouma_factor))),
+              crowding_distance = 10^(mean(log_crowding_distance_deg)))
   
   reading_crowding <- reading_valid %>% 
     select(participant, font, avg_wordPerMin) %>% 
@@ -59,13 +60,13 @@ regression_plot <- function(df_list){
   t <- prepare_regression_data(df_list)[[1]]
   t <- t %>% mutate(targetKind = paste0(targetKind, ", R = ", correlation))
   # plot for the regression
-  p <- ggplot(t,aes(x = bouma_factor, y = 10^(avg_log_WPM), color = targetKind)) + 
+  p <- ggplot(t,aes(x = crowding_distance, y = 10^(avg_log_WPM), color = targetKind)) + 
     geom_point() +
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10() + 
     scale_y_log10() +
     coord_fixed(ratio = 1) + 
-    labs(x="Bouma factor", y = "Reading (word/min)") +
+    labs(x="Crowding distance (deg)", y = "Reading (word/min)") +
     theme_bw() + 
     annotation_logticks() +
     # annotate("text", x = 10^(max(t$bouma_factor)), 

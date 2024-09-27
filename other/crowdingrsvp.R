@@ -26,7 +26,7 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
   acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')
   
   crowdingW <- crowding %>% mutate(type=ifelse(
-    grepl('foveal', conditionName, ignore.case = T),
+    targetEccentricityXDeg == 0,
     'foveal',
     'peripheral'
   )) %>% 
@@ -111,7 +111,7 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
   ))
 }
 
-plot_rsvp_crowding <- function(allData) {
+plot_rsvp_crowding <- function(allData, df) {
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition) {
     data_rsvp <- data %>%
@@ -161,8 +161,8 @@ plot_rsvp_crowding <- function(allData) {
 
   # Extract and filter data
   crowding <- allData$crowding
-  foveal <- crowding %>% filter(grepl('foveal', conditionName, ignore.case = TRUE))
-  peripheral <- crowding %>% filter(grepl('peripheral', conditionName, ignore.case = TRUE))
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0,)
+  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
 
   if (nrow(allData$rsvp) == 0) {
     p1 <- ggplot() +
@@ -192,6 +192,22 @@ plot_rsvp_crowding_plotly <- function(allData, df) {
       left_join(allData$rsvp, by = "participant") %>% 
       mutate(WPM = 10^(block_avg_log_WPM),
              cdd = 10^(log_crowding_distance_deg))
+    if (is.na(sum(data_rsvp$log_duration_s_RSVP))) {
+      data_rsvp <- data %>%
+        select(participant, log_crowding_distance_deg) %>%
+        left_join(df %>% distinct(participant, britishID), by = "participant") %>% 
+        select(britishID,log_crowding_distance_deg) %>% 
+        left_join(allData$rsvp %>%  left_join(df %>% distinct(participant, britishID), by = "participant"), by = "britishID") %>% 
+        mutate(WPM = 10^(block_avg_log_WPM),
+               cdd = 10^(log_crowding_distance_deg),
+               participant = ifelse(age < 10, paste0(britishID,'0',age),  paste0(britishID,age))) %>% 
+        distinct(participant, WPM, cdd,block_avg_log_WPM,log_crowding_distance_deg) %>% 
+        filter(!is.na(participant))
+    }
+    print('inside plot_rsvp_crowding_plotly')
+    print(nrow(data_rsvp))
+
+    
     
     corr <- data_rsvp %>% 
       summarize(correlation = cor(block_avg_log_WPM, log_crowding_distance_deg, 
@@ -258,8 +274,8 @@ plot_rsvp_crowding_plotly <- function(allData, df) {
   
   # Extract and filter data
   crowding <- allData$crowding
-  foveal <- crowding %>% filter(grepl('foveal', conditionName, ignore.case = TRUE))
-  peripheral <- crowding %>% filter(grepl('peripheral', conditionName, ignore.case = TRUE))
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
+  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   
   if (nrow(allData$rsvp) == 0) {
     p1 <- plot_ly() %>% 

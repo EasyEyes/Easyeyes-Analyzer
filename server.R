@@ -46,11 +46,11 @@ source("./plotting/diagram.R")
 source("./plotting/crowding_plot.R")
 source("./plotting/test_retest.R")
 source("./plotting/scatter_plots.R")
-source("./plotting/reading_vs_font_size.R")
+source("./plotting/readingPlots.R")
 source("./plotting/customized_inplot_table.R")
 source("./plotting/profile_plot.R")
 source("./plotting/simulatedRSVP.R")
-
+source("./plotting/acuityPlot.R")
 
 source("./other/getBits.R")
 source("./other/sound_plots.R")
@@ -420,7 +420,7 @@ shinyServer(function(input, output, session) {
   
   #### rsvpCrowding reacitve ####
   rsvpCrowding <- reactive({
-    plot_rsvp_crowding(df_list())
+    plot_rsvp_crowding(df_list(), files()$df)
   })
   rsvpCrowdingPlotly <- reactive({
     plot_rsvp_crowding_plotly(df_list(), files()$df)
@@ -452,22 +452,20 @@ shinyServer(function(input, output, session) {
   })
   
   regressionPlot <- reactive({
-    regression_plot(df_list()) +
-      labs(title = experiment_names(),
-           subtitle = "Regression of reading vs crowding") +
+    regression_reading_plot(df_list()) +
+      labs(subtitle = "Regression of reading vs crowding") +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "bottom",
-        label = paste0("italic('N=')~", length(unique(
-          df_list()[[1]]$participant
-        )))
+        label = paste0("italic('N=')~", n_distinct(
+          df_list()$reading$participant
+        ))
       ),
       parse = T)
   })
-  regressionAndMeanPlot <- reactive({
-    regression_and_mean_plot_byfont(df_list(), reading_rsvp_crowding_df()) +
-      labs(title = experiment_names(),
-           subtitle = "Regression of reading vs crowding")
+  regressionAcuityPlot <- reactive({
+    regression_acuity_plot(df_list()) +
+      labs(subtitle = "Regression of reading vs acuity")
   })
   regressionFontPlot <- reactive({
     regression_font(df_list(), reading_rsvp_crowding_df()) +
@@ -1608,18 +1606,57 @@ shinyServer(function(input, output, session) {
                    medianPlot() + plt_theme
                  }, res = 96)
                  #### regression plots #####
-                 output$regressionPlot <- renderPlot({
-                   regressionPlot() + plt_theme
-                 })
-                 output$regressionFontPlot <- renderPlot({
-                   regressionFontPlot() + plt_theme
-                 })
-                 output$regressionFontPlotWithLabel <- renderPlot({
-                   regressionFontPlotWithLabel() + plt_theme
-                 })
-                 output$regressionAndMeanPlot <- renderPlot({
-                   regressionAndMeanPlot() + plt_theme
-                 })
+                
+                 output$regressionPlot <-  renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =   regressionPlot() + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 # output$regressionFontPlot <- renderPlot({
+                 #   regressionFontPlot() + plt_theme
+                 # })
+                 # 
+                 # output$regressionFontPlotWithLabel <- renderPlot({
+                 #   regressionFontPlotWithLabel() + plt_theme
+                 # })
+                 
+                 output$regressionAcuityPlot <-  renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot = regressionAcuityPlot() + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 output$readingRSVP <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp) + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
                  #### fluency ####
                  output$fluencyHistogram <- renderPlot({
                    fluency_histogram() + plt_theme
@@ -1798,6 +1835,72 @@ shinyServer(function(input, output, session) {
                      ggsave(
                        file = outfile,
                        plot =  get_repeatedLetter_vs_age(df_list()$repeatedLetters) + 
+                         plt_theme,
+                       device = svg,
+                       width = 7,
+                       height = 4
+                     )
+                     
+                     list(src = outfile,
+                          contenttype = 'svg')
+                   }, deleteFile = TRUE)
+                 
+                 output$readingAgePlot <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  plot_reading_age(df_list()$reading) + 
+                       plt_theme,
+                     device = svg,
+                     width = 7,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 
+                 output$rsvpReadingAgePlot <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  plot_rsvp_age(df_list()$rsvp) + 
+                       plt_theme,
+                     device = svg,
+                     width = 7,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 output$acuityAgePlot <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  get_acuity_vs_age(df_list()$acuity) + 
+                       plt_theme,
+                     device = svg,
+                     width = 7,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 
+                 
+                 
+                 output$repeatedLetterCrowdingPlot <- 
+                   renderImage({
+                     outfile <- tempfile(fileext = '.svg')
+                     ggsave(
+                       file = outfile,
+                       plot =  get_crowding_vs_repeatedLetter(df_list()$crowding, 
+                                                              df_list()$repeatedLetters) + 
                          plt_theme,
                        device = svg,
                        width = 7,
@@ -2962,7 +3065,7 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$downloadRegressionAndMeanPlot <- downloadHandler(
+    output$downloadRegressionAcuityPlot <- downloadHandler(
       filename = paste(
         app_title$default,
         paste0('regression.', input$fileType),
@@ -2971,7 +3074,7 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         ggsave(
           file,
-          plot = regressionAndMeanPlot() + downloadtheme + coord_fixed(ratio = 1),
+          plot = regressionAcuityPlot() + downloadtheme + coord_fixed(ratio = 1),
           device = ifelse(input$fileType == "svg", svglite, input$fileType),
           width = 8.1,
           height = 8.1,
@@ -3395,4 +3498,226 @@ shinyServer(function(input, output, session) {
         root = temp_directory
       )
     })
+  ###### british children ####
+  output$downloadCrowdingAge <- downloadHandler(
+    filename = paste(
+      app_title$default,
+      paste0('crowding-vs-age', input$fileType),
+      sep = "-"
+    ),
+    content = function(file) {
+      if (input$fileType == "png") {
+        ggsave(
+          "tmp.svg",
+          plot = get_crowding_vs_age(df_list()$crowding) + 
+            plt_theme,
+          width = 7,
+          height = 4,
+          device = svglite
+        )
+        rsvg::rsvg_png("tmp.svg", file,
+                       width = 1800, height = 1800)
+      } else {
+        ggsave(
+          file = outfile,
+          plot =  get_crowding_vs_age(df_list()$crowding) + 
+            plt_theme,
+          device = svg,
+          width = 7,
+          height = 4
+        )
+      }
+    }
+  )
+  
+  output$downloadRLAge <- downloadHandler(
+    filename = paste(
+      app_title$default,
+      paste0('repeated-letter-vs-age', input$fileType),
+      sep = "-"
+    ),
+    content = function(file) {
+      if (input$fileType == "png") {
+        ggsave(
+          "tmp.svg",
+          plot = get_repeatedLetter_vs_age(df_list()$repeatedLetters) + 
+            plt_theme,
+          width = 7,
+          height = 4,
+          device = svglite
+        )
+        rsvg::rsvg_png("tmp.svg", file,
+                       width = 1800, height = 1800)
+      } else {
+        ggsave(
+          file = outfile,
+          plot =  get_repeatedLetter_vs_age(df_list()$repeatedLetters) + 
+            plt_theme,
+          device = input$fileType,
+          width = 7,
+          height = 4
+        )
+      }
+    }
+  )
+  
+  output$downloadAcuityAge <- downloadHandler(
+    filename = paste(
+      app_title$default,
+      paste0('acuity-vs-age', input$fileType),
+      sep = "-"
+    ),
+    content = function(file) {
+      if (input$fileType == "png") {
+        ggsave(
+          "tmp.svg",
+          plot = get_acuity_vs_age(df_list()$crowding) + 
+            plt_theme,
+          width = 7,
+          height = 4,
+          device = svglite
+        )
+        rsvg::rsvg_png("tmp.svg", file,
+                       width = 1800, height = 1800)
+      } else {
+        ggsave(
+          file = outfile,
+          plot =  get_acuity_vs_age(df_list()$crowding) + 
+            plt_theme,
+          device = svg,
+          width = 7,
+          height = 4
+        )
+      }
+    }
+  )
+  
+  output$downloadReadingAge <- downloadHandler(
+    filename = paste(
+      app_title$default,
+      paste0('reading-vs-age', input$fileType),
+      sep = "-"
+    ),
+    content = function(file) {
+      if (input$fileType == "png") {
+        ggsave(
+          "tmp.svg",
+          plot = plot_reading_age(df_list()$reading) + 
+            plt_theme,
+          width = 7,
+          height = 4,
+          device = svglite
+        )
+        rsvg::rsvg_png("tmp.svg", file,
+                       width = 1800, height = 1800)
+      } else {
+        ggsave(
+          file = outfile,
+          plot =  plot_reading_age(df_list()$reading) + 
+            plt_theme,
+          device = svg,
+          width = 7,
+          height = 4
+        )
+      }
+    }
+  )
+  
+  output$downloadRsvpAge <- downloadHandler(
+    filename = paste(
+      app_title$default,
+      paste0('rsvp-vs-age', input$fileType),
+      sep = "-"
+    ),
+    content = function(file) {
+      if (input$fileType == "png") {
+        ggsave(
+          "tmp.svg",
+          plot = plot_rsvp_age(df_list()$rsvp) + 
+            plt_theme,
+          width = 7,
+          height = 4,
+          device = svglite
+        )
+        rsvg::rsvg_png("tmp.svg", file,
+                       width = 1800, height = 1800)
+      } else {
+        ggsave(
+          file = outfile,
+          plot =  plot_rsvp_age(df_list()$rsvp) + 
+            plt_theme,
+          device = svg,
+          width = 7,
+          height = 4
+        )
+      }
+    }
+  )
+  
+  
+  output$downloadRLCrowding <- downloadHandler(
+    filename = paste(
+      app_title$default,
+      paste0('crowding-vs-repeated-letters', input$fileType),
+      sep = "-"
+    ),
+    content = function(file) {
+      if (input$fileType == "png") {
+        ggsave(
+          "tmp.svg",
+          plot = get_crowding_vs_repeatedLetter(df_list()$crowding, 
+                                                df_list()$repeatedLetters) + 
+            plt_theme,
+          width = 7,
+          height = 4,
+          device = svglite
+        )
+        rsvg::rsvg_png("tmp.svg", file,
+                       width = 1800, height = 1800)
+      } else {
+        ggsave(
+          file = outfile,
+          plot = get_crowding_vs_repeatedLetter(df_list()$crowding, 
+                                                df_list()$repeatedLetters) + 
+            plt_theme,
+          device = input$fileType,
+          width = 7,
+          height = 4
+        )
+      }
+    }
+  )
+  
+  output$downloadReadingRSVP <- downloadHandler(
+    filename = paste(
+      app_title$default,
+      paste0('reading-vs-rsvp', input$fileType),
+      sep = "-"
+    ),
+    content = function(file) {
+      if (input$fileType == "png") {
+        ggsave(
+          "tmp.svg",
+          plot = plot_reading_rsvp(df_list()$reading,df_list()$rsvp) + 
+            plt_theme,
+          width = 7,
+          height = 4,
+          device = svglite
+        )
+        rsvg::rsvg_png("tmp.svg", file,
+                       width = 1800, height = 1800)
+      } else {
+        ggsave(
+          file = outfile,
+          plot =  plot_reading_rsvp(df_list()$reading,df_list()$rsvp) + 
+            plt_theme,
+          device = svg,
+          width = 7,
+          height = 4
+        )
+      }
+    }
+  )
+  
 })
+
