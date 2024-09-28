@@ -19,8 +19,8 @@ get_reading_retention_histogram <- function(reading) {
 
 
 get_crowding_hist <- function(crowding) {
-  foveal <- crowding %>% filter(grepl('foveal', conditionName,ignore.case = T))
-  peripheral <- crowding %>% filter(grepl('peripheral', conditionName,ignore.case = T))
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
+  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   if (nrow(foveal) > 0) {
     p1 <- ggplot(foveal) + 
       geom_histogram(aes(x = log_crowding_distance_deg),color="black", fill="white") +

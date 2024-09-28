@@ -260,8 +260,8 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
 
 get_foveal_peripheral_diag <- function(crowding) {
   
-  foveal <- crowding %>% filter(grepl('foveal', conditionName,ignore.case = T))
-  peripheral <- crowding %>% filter(grepl('peripheral', conditionName,ignore.case = T))
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
+  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   if (nrow(foveal) == 0 | nrow(peripheral) == 0) {
     return(ggplot() + theme_bw() + ggtitle('foveal vs peripheral'))
   } else {

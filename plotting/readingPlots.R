@@ -169,7 +169,7 @@ plot_60cm_speed_diff_vs_age <- function(rsvp_speed){
 }
 
 
-## TODO
+
 plot_reading_age <- function(reading){
   t <- reading %>% filter(!is.na(age))
   if (nrow(t) == 0) {

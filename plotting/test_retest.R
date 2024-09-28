@@ -61,6 +61,7 @@ get_test_retest_reading <- function(reading){
 #### crowding ####
 
 get_test_retest_crowding <- function(crowding){
+  #TODO fix condition fail to generate plot
   # prepare data
   conditionNames <- unique(crowding$conditionName)
   crowding_test_retest <- tibble()

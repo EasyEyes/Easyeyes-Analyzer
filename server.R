@@ -420,10 +420,18 @@ shinyServer(function(input, output, session) {
   
   #### rsvpCrowding reacitve ####
   rsvpCrowding <- reactive({
-    plot_rsvp_crowding(df_list(), files()$df)
+    plot_rsvp_crowding(df_list(), files()$df, files()$pretest)
   })
   rsvpCrowdingPlotly <- reactive({
-    plot_rsvp_crowding_plotly(df_list(), files()$df)
+    plot_rsvp_crowding_plotly(df_list(), files()$df, files()$pretest)
+  })
+  
+  rsvpAcuityPlotly <- reactive({
+    plot_acuity_rsvp_plotly(df_list()$acuity, df_list()$rsvp, files()$df, files()$pretest)
+  })
+  
+  rsvpAcuity <- reactive({
+    plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp, files()$df, files()$pretest)
   })
   
   two_fonts_plots <- reactive({
@@ -1913,12 +1921,27 @@ shinyServer(function(input, output, session) {
                  
                  #### rsvp vs crowding ####
                  
-                 output$rsvpCrowdingPeripheralPlot <- renderPlotly({
+                 output$rsvpCrowdingPeripheralAgePlot <- renderPlotly({
                    rsvpCrowdingPlotly()[[1]]
                  })
 
-                 output$rsvpCrowdingFovealPlot <- renderPlotly({
+                 output$rsvpCrowdingFovealAgePlot <- renderPlotly({
                    rsvpCrowdingPlotly()[[2]]
+                 })
+                 
+                 output$rsvpCrowdingPeripheralGradePlot <- renderPlotly({
+                   rsvpCrowdingPlotly()[[3]]
+                 })
+                 
+                 output$rsvpCrowdingFovealGradePlot <- renderPlotly({
+                   rsvpCrowdingPlotly()[[4]]
+                 })
+                 
+                 output$rsvpAcuityAgePlot <- renderPlotly({
+                   rsvpAcuityPlotly()[[1]]
+                 })
+                 output$rsvpAcuityGradePlot <- renderPlotly({
+                   rsvpAcuityPlotly()[[2]]
                  })
                  
                  # output$rsvpCrowdingPeripheralPlot <- renderImage({
@@ -3353,10 +3376,10 @@ shinyServer(function(input, output, session) {
     
     #### download rsvp crowding ####
     
-    output$downloadRsvpCrowdingPeripheralPlot <- downloadHandler(
+    output$downloadRsvpCrowdingPeripheralAgePlot <- downloadHandler(
       filename = paste(
         app_title$default,
-        paste0('rsvp-vs-peripheral-crowding.', input$fileType),
+        paste0('rsvp-vs-peripheral-crowding-by-age.', input$fileType),
         sep = "-"
       ),
       content = function(file) {
@@ -3371,16 +3394,88 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$downloadRsvpCrowdingFovealPlot <- downloadHandler(
+    output$downloadRsvpCrowdingFovealAgePlot <- downloadHandler(
       filename = paste(
         app_title$default,
-        paste0('rsvp-vs-foveal-crowding.', input$fileType),
+        paste0('rsvp-vs-foveal-crowding-by-age.', input$fileType),
         sep = "-"
       ),
       content = function(file) {
         ggsave(
           file,
           plot = rsvpCrowding()[[2]] + downloadtheme,
+          width = 4,
+          height = 2.5,
+          units = 'in',
+          device = ifelse(input$fileType == "svg", svglite, input$fileType)
+        )
+      }
+    )
+    
+    output$downloadRsvpCrowdingPeripheralGradePlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-peripheral-crowding-by-age.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = rsvpCrowding()[[13]] + downloadtheme,
+          width = 4,
+          height = 2.5,
+          units = 'in',
+          device = ifelse(input$fileType == "svg", svglite, input$fileType)
+        )
+      }
+    )
+    
+    output$downloadRsvpCrowdingFovealGradePlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-foveal-crowding-by-grade.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = rsvpCrowding()[[4]] + downloadtheme,
+          width = 4,
+          height = 2.5,
+          units = 'in',
+          device = ifelse(input$fileType == "svg", svglite, input$fileType)
+        )
+      }
+    )
+    
+    output$downloadRsvpAcuityAgePlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-acuity-by-age.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = rsvpAcuity()[[1]] + downloadtheme,
+          width = 4,
+          height = 2.5,
+          units = 'in',
+          device = ifelse(input$fileType == "svg", svglite, input$fileType)
+        )
+      }
+    )
+    
+    output$downloadRsvpAcuityGradePlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-acuity-by-grade.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = rsvpAcuity()[[1]] + downloadtheme,
           width = 4,
           height = 2.5,
           units = 'in',

@@ -1,5 +1,6 @@
 #### scatter plots ####
 reading_speed_vs_retention <- function(reading){
+  #TODO
   t <- reading %>% group_by(participant,
                        block_condition, 
                        conditionName,

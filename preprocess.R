@@ -260,6 +260,7 @@ read_files <- function(file){
       if (length(all_xlsx) > 0) {
         pretest <- readxl::read_xlsx(all_xlsx[1]) %>% 
           rename('participant' = 'PavloviaSessionID')
+        print(pretest)
       }
       m <- length(all_csv)
       for (u in 1 : m) {
@@ -504,6 +505,7 @@ read_files <- function(file){
       pretest <- readxl::read_xlsx(file_list[i]) %>% 
         rename('participant' = 'PavloviaSessionID')
     }
+    print(pretest)
   }
   df <- tibble()
   for (i in 1:length(data_list)) {
