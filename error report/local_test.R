@@ -9,14 +9,14 @@ require(DT)
 source('')
 # store name of experiment in experiment object
 rm(list = ls())
-experiment = "ReadingKirburton"
+experiment = "RsvpAndCrowdingFrenchNoTracking1.results (1)"
 # locate the folder that you store experiments
-setwd("~/Downloads/untitled folder/KirkburtonData")
+setwd("~/Downloads/")
 # get the folder name for your experiment
 folders <- dir(pattern = glob2rx(paste0(experiment, "*")))
 folders <- folders[file.info(folders)$isdir]
 # set the experiment folder as working directory
-setwd(paste0("~/Downloads/untitled folder/KirkburtonData/", folders))
+setwd(paste0("~/Downloads/", folders))
 # get all the files end with .csv in the folder
 # use the length() function n number of participants in the experiment
 file_names <- list.files(pattern = "*.csv")
@@ -302,7 +302,7 @@ generate_threshold(data_list, summary_list)
 
 
 ####### crowding rsvp #######
-allData <- generate_rsvp_reading_crowding_fluency(data_list,summary_list)
+df_list <- generate_rsvp_reading_crowding_fluency(data_list,summary_list)
 rsvp_speed <- allData$rsvp
 crowding <- allData$crowding
 acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')

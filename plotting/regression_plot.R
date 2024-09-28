@@ -97,13 +97,13 @@ regression_reading_plot <- function(df_list){
     coord_fixed(ratio = 1) + 
     labs(x="Crowding distance (deg)", y = "Reading (word/min)") +
     theme_bw() + 
-    theme(legend.position='top') + 
     annotation_logticks() +
     # annotate("text", x = 10^(max(t$bouma_factor)), 
     #          y = 10^(min(t$avg_log_WPM)), 
     #          label = paste("italic(n)==", n_distinct(t$participant)), 
     #          parse = TRUE) +
-    guides(color=guide_legend(title=""))
+    guides(color=guide_legend(title="")) + 
+    theme(legend.position='bottom')
   return(p)
 }
 
@@ -127,13 +127,13 @@ regression_acuity_plot <- function(df_list){
     coord_fixed(ratio = 1) + 
     labs(x="Acuity (deg)", y = "Reading (word/min)") +
     theme_bw() + 
-    theme(legend.position='top') + 
     annotation_logticks() +
     # annotate("text", x = 10^(max(t$bouma_factor)), 
     #          y = 10^(min(t$avg_log_WPM)), 
     #          label = paste("italic(n)==", n_distinct(t$participant)), 
     #          parse = TRUE) +
-    guides(color=guide_legend(title=""))
+    guides(color=guide_legend(title="")) +
+    theme(legend.position='bottom')
 }
 
 regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){

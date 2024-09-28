@@ -2,12 +2,6 @@ library(dplyr)
 library(stringr)
 library(readr)
 
-get_pretest <- function(pretestCSV){
-  file_list <- pretestCSV$data
-  t <- readxl::read_xlsx(file_list[1]) %>% 
-    rename('participant' = 'PavloviaSessionID')
-  return(t)
-}
 
 read_files <- function(file){
   if(is.null(file)) return(list())
@@ -257,11 +251,6 @@ read_files <- function(file){
       all_csv <- file_names[grepl(".csv", file_names)]
       all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
       all_xlsx <- file_names[grepl(".xlsx", file_names)]
-      if (length(all_xlsx) > 0) {
-        pretest <- readxl::read_xlsx(all_xlsx[1]) %>% 
-          rename('participant' = 'PavloviaSessionID')
-        print(pretest)
-      }
       m <- length(all_csv)
       for (u in 1 : m) {
         t <- tibble()
@@ -497,6 +486,15 @@ read_files <- function(file){
           next
         }
       }
+      if (length(all_xlsx) > 0) {
+        pretest <- readxl::read_xlsx(unzip(file_list[k], all_xlsx[1])) %>% 
+          rename('participant' = 'PavloviaSessionID')
+        for (i in 1:length(data_list)) {
+          data_list[[i]] <- data_list[[i]] %>%
+            left_join(pretest %>% select(participant, Age),by ='participant') %>% 
+            mutate(age = Age)
+        }
+      }
       print('done processing zip')
     }
   }
@@ -504,8 +502,12 @@ read_files <- function(file){
     if (grepl(".xlsx", file_list[i])) {
       pretest <- readxl::read_xlsx(file_list[i]) %>% 
         rename('participant' = 'PavloviaSessionID')
+      for (i in 1:length(data_list)) {
+        data_list[[i]] <- data_list[[i]] %>%
+          left_join(pretest %>% select(participant, Age),by ='participant') %>% 
+          mutate(age = Age)
+      }
     }
-    print(pretest)
   }
   df <- tibble()
   for (i in 1:length(data_list)) {

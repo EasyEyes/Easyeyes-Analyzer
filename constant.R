@@ -69,7 +69,7 @@ downloadtheme <- theme(legend.position = "right",
 
 ##### ggplot display theme #####
 
-plt_theme <- theme(legend.position = "right", 
+plt_theme <- theme(legend.position = "top", 
                    legend.box = "vertical", 
                    legend.justification = c(1,1),
                    legend.margin = margin(-0.4),

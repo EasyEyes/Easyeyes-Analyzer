@@ -23,25 +23,30 @@ plot_acuity_reading <- function(acuity,reading){
 
 plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
   create_plot <- function(data,colorFactor) {
+
     # Merge data and calculate WPM and acuity
     data_rsvp <- data %>%
       select(participant, questMeanAtEndOfTrialsLoop) %>%
       left_join(rsvp, by = "participant") %>%
       mutate(WPM = 10^(block_avg_log_WPM),
              acuity = 10^(questMeanAtEndOfTrialsLoop))
-    
+
     # Handle NA case for questMeanAtEndOfTrialsLoop
-    if (is.na(sum(data_rsvp$questMeanAtEndOfTrialsLoop))) {
+    if (is.na(sum(data_rsvp$log_duration_s_RSVP))) {
+      
+      if(length(rsvp$participant[1]) == 6){
+        rsvp <- rsvp %>%  mutate(participant = paste0(tolower(str_sub(participant,1,4)),str_sub(participant,5,6)))
+      }
       data_rsvp <- data %>%
         select(participant, questMeanAtEndOfTrialsLoop) %>%
         left_join(df %>% distinct(participant, britishID), by = "participant") %>%
         select(britishID, questMeanAtEndOfTrialsLoop) %>%
         left_join(rsvp %>% left_join(df %>% distinct(participant, britishID), by = "participant"), by = "britishID") %>%
         mutate(WPM = 10^(block_avg_log_WPM),
-               acuity = 10^(questMeanAtEndOfTrialsLoop),
-               participant = ifelse(age < 10, paste0(britishID, '0', age), paste0(britishID, age))) %>%
+               acuity = 10^(questMeanAtEndOfTrialsLoop)) %>%
         distinct(participant, WPM, acuity, block_avg_log_WPM, questMeanAtEndOfTrialsLoop,age) %>%
-        filter(!is.na(participant))
+        filter(!is.na(participant)) %>% 
+        mutate(Age = age)
     }
     
     # Calculate correlation and slope
@@ -67,6 +72,7 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
     } else {
       data_rsvp <- data_rsvp %>% mutate(ParticipantCode = participant)
     }
+    
     if (nrow(pretest) > 0) {
       if (colorFactor == 'Age') {
         pretest <- pretest %>% mutate(factorC = as.character(format(round(Age,1), nsmall = 1)),
@@ -83,6 +89,10 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
      pointshapes <-  c(4,19)
     } else {
       data_rsvp <- data_rsvp %>% mutate(factorC = 'black', `Skilled reader?` = 'TRUE', ParticipantCode = participant)
+      if ('Age' %in% names(data_rsvp) & colorFactor == 'Age') {
+        data_rsvp <- data_rsvp %>% 
+          mutate(factorC = as.character(Age))
+      }
       data_rsvp <- data_rsvp %>% 
         mutate(X = 10^(questMeanAtEndOfTrialsLoop),
                Y = 10^(block_avg_log_WPM))
@@ -134,18 +144,19 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
       annotation_logticks() +
       scale_shape_manual(values = pointshapes) + 
       theme(legend.position = ifelse(n_distinct(data_rsvp$`Skilled reader?`)==1, 'none','top')) + 
+      guides(color = guide_legend(title=paste0(colorFactor, ', Skilled reader?')),
+             shape = guide_legend(title='')) + 
       coord_fixed(ratio = 1) +
-      ggpp::geom_text_npc(
-        aes(npcx = "left",
-            npcy = "top",
+      geom_text(
+        aes(x = 0.08,
+            y = 450,
             label = paste0("R = ", 
                            corr$correlation,
-                           ", slope = ", slope$slope)),
-        parse = TRUE) +
+                           ",\n slope = ", slope$slope))) +
       labs(x = 'acuity (deg)',
            y = 'rsvp reading (word/min)',
-           title = paste('rsvp vs', 'acuity by', colorFactor))
-    pp <- ggplotly(p)
+           title = paste('rsvp vs', 'acuity by', tolower(colorFactor)))
+    pp <- ggplotly(p) 
     
     
     return(pp)
@@ -158,7 +169,7 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
   # foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   # peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)
   
-  if (nrow(rsvp) == 0) {
+  if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
     p1 <- plot_ly() %>% 
       layout(title = 'RSVP vs Acuity',
              xaxis = list(title = 'Acuity (deg)', type = 'log'),
@@ -174,6 +185,9 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
 plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
   create_plot <- function(data,colorFactor) {
     # Merge data and calculate WPM and acuity
+    if(length(rsvp$participant[1]) == 6){
+      rsvp <- rsvp %>%  mutate(participant = paste0(tolower(str_sub(participant,1,4)),str_sub(participant,5,6)))
+    }
     data_rsvp <- data %>%
       select(participant, questMeanAtEndOfTrialsLoop) %>%
       left_join(rsvp, by = "participant") %>%
@@ -262,9 +276,11 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
                            corr$correlation,
                            ", slope = ", slope$slope)),
         parse = TRUE) +
+      guides(color = guide_legend(title=paste0(colorFactor, ', Skilled reader?')),
+             shape = guide_legend(title='')) + 
       labs(x = 'acuity (deg)',
            y = 'rsvp reading (word/min)',
-           title = paste('rsvp vs', 'acuity by', colorFactor))
+           title = paste('rsvp vs', 'acuity by', lower(colorFactor)))
     
     return(p)
   }
@@ -274,7 +290,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
     rsvp <- rsvp %>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
   }
   
-  if (nrow(rsvp) == 0) {
+  if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
     p1 <- ggplot() +
       labs(x = 'acuity (deg)',
            y = 'rsvp reading (word/min)',
