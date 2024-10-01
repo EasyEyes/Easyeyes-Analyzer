@@ -77,13 +77,17 @@ combineProlific <- function(prolificData, summary_table){
       filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
     formSpree <- tmp %>% 
     full_join(formSpree, by = c('Prolific participant ID', 'prolificSessionID'))
-    t <- rbind(t, t2, formSpree)
+    t <- rbind(t, t2, formSpree) 
     
   }
-  t <- t %>% distinct(`Prolific participant ID`, `Pavlovia session ID`, prolificSessionID, `device type`, system,
-                    browser, resolution, QRConnect, date, prolificMin, ProlificStatus, `Completion code`, ok, unmetNeeds, 
-                    error, warning, cores, tardyMs, excessMs, KB, rows, cols, computer51Deg,
-                    `block condition`, trial, `condition name`,
-                    `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, Age, Sex, Nationality, comment, order)
+    t <- t %>%
+    rename('Prolific session ID' = 'prolificSessionID',
+           'Computer 51 deg' = 'computer51Deg') %>% 
+    distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
+             `device type`, system,browser, resolution, QRConnect, date, prolificMin,
+             ProlificStatus,`Completion code`, ok, unmetNeeds, error, warning, cores,
+             tardyMs, excessMs, KB, rows, cols,`block condition`, trial, `condition name`,
+             `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
+             Loudspeaker, Microphone, Age, Sex, Nationality, comment, order)
   return(list(t, formSpree))
 }

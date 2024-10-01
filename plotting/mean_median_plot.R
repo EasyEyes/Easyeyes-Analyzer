@@ -82,7 +82,7 @@ mean_plot <- function(reading_rsvp_crowding_df){
     #          label = paste("italic(n)==",N_text), 
     #          parse = TRUE) +
     coord_fixed(ratio = 1) + 
-    labs(x = "Bouma Factor", y = "Reading speed (word/min)")
+    labs(x = "Bouma Factor", y = "Reading speed (w/min)")
     # annotation_logticks(short = unit(0.1, "cm"),                                                                        mid = unit(0.1, "cm"),
     #                     long = unit(0.3, "cm"))
   return(p)
@@ -103,7 +103,7 @@ median_plot <- function(reading_rsvp_crowding_df){
     #          y = 10^(min(rsvp_vs_ordinary_vs_crowding$median_log_SpeedWPM - rsvp_vs_ordinary_vs_crowding$se)), 
     #          label = paste("italic(n)==",N_text), 
     #          parse = TRUE) +
-    labs(x = "Bouma Factor", y = "Reading speed (word/min)") + 
+    labs(x = "Bouma Factor", y = "Reading speed (w/min)") + 
     coord_fixed(ratio = 1)
     # annotation_logticks(short = unit(0.1, "cm"),                                                
     #                     mid = unit(0.1, "cm"),

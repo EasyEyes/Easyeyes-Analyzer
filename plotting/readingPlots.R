@@ -47,7 +47,7 @@ plot_rsvp_vs_x_height <- function(rsvp_speed){
     geom_errorbar(aes(ymin=60/(10^(m-se/2)),
                       ymax=60/(10^(m+se/2))), width=0) +
     xlab("x height (mm)") +
-    ylab("reading speed (word/min) ") +
+    ylab("Reading speed (w/min) ") +
     guides(color = guide_legend(title = "viewing distance (cm)")) + 
     ggpp::geom_text_npc(
       aes(npcx = "left",
@@ -65,7 +65,7 @@ plot_rsvp_vs_x_height <- function(rsvp_speed){
     geom_errorbar(aes(ymin=60/(10^(m-se/2)),
                       ymax=60/(10^(m+se/2))), width=0) +
     xlab("x height (mm)") +
-    ylab("reading speed (word/min) ") +
+    ylab("Reading speed (w/min)") +
     guides(color = guide_legend(title = "viewing distance (cm)")) + 
     ggpp::geom_text_npc(
       aes(npcx = "left",
@@ -106,8 +106,8 @@ get_60cm_scatter <- function(rsvp_speed) {
     annotation_logticks() +
     coord_fixed(ratio = 1) +
     theme_bw() + 
-    xlab("reading speed (word/min) 1.2 mm") +
-    ylab("reading speed (word/min) 1.4 mm") + 
+    xlab("reading speed (w/min) 1.2 mm") +
+    ylab("reading speed (w/min) 1.4 mm") + 
     ggpp::geom_text_npc(
       aes(npcx = "left",
           npcy = "bottom",
@@ -142,8 +142,8 @@ get_30cm_scatter <- function(rsvp_speed) {
     annotation_logticks() +
     coord_fixed(ratio = 1) +
     theme_bw() + 
-    xlab("reading speed (word/min) 1.2 mm") +
-    ylab("reading speed (word/min) 1.4 mm") + 
+    xlab("reading speed (w/min)1.2 mm") +
+    ylab("reading speed (w/min) 1.4 mm") + 
     ggpp::geom_text_npc(
       aes(npcx = "left",
           npcy = "bottom",
@@ -181,7 +181,7 @@ plot_reading_age <- function(reading){
       theme_bw() +
       labs(title = 'Reading vs age',
            x = 'Age',
-           y = 'reading (word per Min)')
+           y = 'Reading speed (w/min)')
     return(p)
   }
 }
@@ -197,7 +197,7 @@ plot_rsvp_age <- function(rsvp){
       theme_bw() +
       labs(title = 'Rsvp reading vs age',
            x = 'Age',
-           y = 'reading (word per Min)')
+           y = 'RSVP reading speed (w/min)')
     return(p)
   }
 }

@@ -1,10 +1,15 @@
 library(foreach)
 library(dplyr)
 library(stringr)
+getwd()
+basicExclude <-readxl::read_xlsx('Basic_Exclude.xlsx') %>%
+  filter(`Exclude?` == TRUE) %>% 
+  transmute(participant = paste0(tolower(str_sub(ID,1,4)),str_sub(ID,5,6)))
 generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
-  }
+  } %>% 
+    filter(!participant %in% basicExclude$participant)
   
   quest <- all_summary %>% select(questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop)
 

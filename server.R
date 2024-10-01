@@ -448,7 +448,7 @@ shinyServer(function(input, output, session) {
   })
   
   foveal_peripheral_diag <- reactive({
-    get_foveal_peripheral_diag(df_list()$crowding)
+    get_foveal_peripheral_diag(df_list()$crowding, files()$pretest)
   })
   
   quest_diag <- reactive({
@@ -456,7 +456,7 @@ shinyServer(function(input, output, session) {
   })
   
   foveal_acuity_diag <- reactive({
-    get_foveal_acuity_diag(df_list()$crowding, df_list()$acuity)
+    get_foveal_acuity_diag(df_list()$crowding, df_list()$acuity, files()$pretest)
   })
   
   regressionPlot <- reactive({
@@ -3080,12 +3080,31 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        ggsave(
-          file,
-          plot = regressionPlot() + downloadtheme + coord_fixed(ratio = 1),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = regressionPlot() + 
+              plt_theme +
+              coord_fixed(ratio = 1),
+            width = 7,
+            height = 5,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = outfile,
+            plot = regressionPlot() + 
+              plt_theme + 
+              coord_fixed(ratio = 1),
+            device = svg,
+            width = 7,
+            height = 5
+          )
+        }
       }
+
     )
     
     output$downloadRegressionAcuityPlot <- downloadHandler(
@@ -3095,45 +3114,60 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        ggsave(
-          file,
-          plot = regressionAcuityPlot() + downloadtheme + coord_fixed(ratio = 1),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType),
-          width = 8.1,
-          height = 8.1,
-          dpi = 1200
-        )
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = regressionAcuityPlot() + 
+              plt_theme +
+              coord_fixed(ratio = 1),
+            width = 7,
+            height = 5,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = outfile,
+            plot = regressionAcuityPlot() + 
+              plt_theme + 
+              coord_fixed(ratio = 1),
+            device = svg,
+            width = 7,
+            height = 5
+          )
+        }
       }
     )
-    output$downloadRegressionFontPlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('regression.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = regressionFontPlot() + downloadtheme + coord_fixed(ratio = 1),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
-      }
-    )
-    
-    output$downloadRegressionFontPlotWithLabel <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('regression.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = regressionFontPlotWithLabel() + downloadtheme + coord_fixed(ratio = 1),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
-      }
-    )
+    # output$downloadRegressionFontPlot <- downloadHandler(
+    #   filename = paste(
+    #     app_title$default,
+    #     paste0('regression.', input$fileType),
+    #     sep = "-"
+    #   ),
+    #   content = function(file) {
+    #     ggsave(
+    #       file,
+    #       plot = regressionFontPlot() + downloadtheme + coord_fixed(ratio = 1),
+    #       device = ifelse(input$fileType == "svg", svglite, input$fileType)
+    #     )
+    #   }
+    # )
+    # 
+    # output$downloadRegressionFontPlotWithLabel <- downloadHandler(
+    #   filename = paste(
+    #     app_title$default,
+    #     paste0('regression.', input$fileType),
+    #     sep = "-"
+    #   ),
+    #   content = function(file) {
+    #     ggsave(
+    #       file,
+    #       plot = regressionFontPlotWithLabel() + downloadtheme + coord_fixed(ratio = 1),
+    #       device = ifelse(input$fileType == "svg", svglite, input$fileType)
+    #     )
+    #   }
+    # )
     
     output$downloadFluencyHistogram <- downloadHandler(
       filename = paste(
@@ -3383,14 +3417,27 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        ggsave(
-          file,
-          plot = rsvpCrowding()[[1]] + downloadtheme,
-          width = 4,
-          height = 2.5,
-          units = 'in',
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = rsvpCrowding()[[1]] + 
+              plt_theme,
+            width = 7,
+            height = 5,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = outfile,
+            plot = rsvpCrowding()[[1]] + 
+              plt_theme,
+            device = svg,
+            width = 7,
+            height = 5
+          )
+        }
       }
     )
     
@@ -3401,14 +3448,27 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        ggsave(
-          file,
-          plot = rsvpCrowding()[[2]] + downloadtheme,
-          width = 4,
-          height = 2.5,
-          units = 'in',
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = rsvpCrowding()[[2]] + 
+              plt_theme,
+            width = 7,
+            height = 5,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = outfile,
+            plot = rsvpCrowding()[[2]] + 
+              plt_theme,
+            device = svg,
+            width = 7,
+            height = 5
+          )
+        }
       }
     )
     
@@ -3419,14 +3479,27 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        ggsave(
-          file,
-          plot = rsvpCrowding()[[13]] + downloadtheme,
-          width = 4,
-          height = 2.5,
-          units = 'in',
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = rsvpCrowding()[[3]] + 
+              plt_theme,
+            width = 7,
+            height = 5,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = outfile,
+            plot = rsvpCrowding()[[3]] + 
+              plt_theme,
+            device = svg,
+            width = 7,
+            height = 5
+          )
+        }
       }
     )
     
@@ -3437,14 +3510,27 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        ggsave(
-          file,
-          plot = rsvpCrowding()[[4]] + downloadtheme,
-          width = 4,
-          height = 2.5,
-          units = 'in',
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = rsvpCrowding()[[4]] + 
+              plt_theme,
+            width = 7,
+            height = 5,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = outfile,
+            plot = rsvpCrowding()[[4]] + 
+              plt_theme,
+            device = svg,
+            width = 7,
+            height = 5
+          )
+        }
       }
     )
     
@@ -3455,14 +3541,27 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        ggsave(
-          file,
-          plot = rsvpAcuity()[[1]] + downloadtheme,
-          width = 4,
-          height = 2.5,
-          units = 'in',
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = rsvpAcuity()[[1]] + 
+              plt_theme,
+            width = 7,
+            height = 5,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = outfile,
+            plot = rsvpAcuity()[[1]] + 
+              plt_theme,
+            device = svg,
+            width = 7,
+            height = 5
+          )
+        }
       }
     )
     
@@ -3473,14 +3572,27 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        ggsave(
-          file,
-          plot = rsvpAcuity()[[1]] + downloadtheme,
-          width = 4,
-          height = 2.5,
-          units = 'in',
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = rsvpAcuity()[[2]] + 
+              plt_theme,
+            width = 7,
+            height = 5,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = outfile,
+            plot = rsvpAcuity()[[2]] + 
+              plt_theme,
+            device = svg,
+            width = 7,
+            height = 5
+          )
+        }
       }
     )
     
@@ -3597,7 +3709,7 @@ shinyServer(function(input, output, session) {
   output$downloadCrowdingAge <- downloadHandler(
     filename = paste(
       app_title$default,
-      paste0('crowding-vs-age', input$fileType),
+      paste0('crowding-vs-age.', input$fileType),
       sep = "-"
     ),
     content = function(file) {
@@ -3628,7 +3740,7 @@ shinyServer(function(input, output, session) {
   output$downloadRLAge <- downloadHandler(
     filename = paste(
       app_title$default,
-      paste0('repeated-letter-vs-age', input$fileType),
+      paste0('repeated-letter-vs-age.', input$fileType),
       sep = "-"
     ),
     content = function(file) {
@@ -3659,7 +3771,7 @@ shinyServer(function(input, output, session) {
   output$downloadAcuityAge <- downloadHandler(
     filename = paste(
       app_title$default,
-      paste0('acuity-vs-age', input$fileType),
+      paste0('acuity-vs-age.', input$fileType),
       sep = "-"
     ),
     content = function(file) {
@@ -3690,7 +3802,7 @@ shinyServer(function(input, output, session) {
   output$downloadReadingAge <- downloadHandler(
     filename = paste(
       app_title$default,
-      paste0('reading-vs-age', input$fileType),
+      paste0('reading-vs-age.', input$fileType),
       sep = "-"
     ),
     content = function(file) {
@@ -3721,7 +3833,7 @@ shinyServer(function(input, output, session) {
   output$downloadRsvpAge <- downloadHandler(
     filename = paste(
       app_title$default,
-      paste0('rsvp-vs-age', input$fileType),
+      paste0('rsvp-vs-age.', input$fileType),
       sep = "-"
     ),
     content = function(file) {

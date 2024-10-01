@@ -134,7 +134,7 @@ plotsTab <- tabPanel(
     downloadButton("downloadSloanVsTimesMeanPlot", "Download"),
     downloadButton("downloadSloanVsTimesSDPlot", "Download")
   ),
-  h3("Plots for British Children"),
+  h3("Plots for Children"),
   splitLayout(
     cellWidths = c("50%", "50%"),
     shinycssloaders::withSpinner(plotOutput("crowdingAgePlot", width = "100%"), type = 4),

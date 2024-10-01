@@ -24,15 +24,15 @@ get_crowding_hist <- function(crowding) {
   if (nrow(foveal) > 0) {
     p1 <- ggplot(foveal) + 
       geom_histogram(aes(x = log_crowding_distance_deg),color="black", fill="white") +
-      labs(x = 'log crowding distance (deg)',
-           title ='histogram of foveal crowding distance')
+      labs(x = 'Log crowding distance (deg)',
+           title ='Histogram of foveal crowding distance')
   } else {
     p1 <- ggplot()
   }
  if (nrow(peripheral) > 0) { p2 <- ggplot(peripheral) + 
     geom_histogram(aes(x = log_crowding_distance_deg),color="black", fill="white") +
-    labs(x = 'log crowding distance (deg)',
-         title ='histogram of peripheral crowding distance')
+    labs(x = 'Log crowding distance (deg)',
+         title ='Histogram of peripheral crowding distance')
  } else {
    p2 <- ggplot()
  }
@@ -43,8 +43,8 @@ get_acuity_hist <- function(acuity) {
   if (nrow(acuity) > 0) {
     p <-  ggplot(acuity) + 
       geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color="black", fill="white") +
-      labs(x = 'log acuity (deg)',
-           title ='histogram of acuity')
+      labs(x = 'Log acuity (deg)',
+           title ='Histogram of acuity')
     return(p)
   } else{
     return(ggplot())

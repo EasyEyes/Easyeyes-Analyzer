@@ -5,9 +5,9 @@ library(DT)
 
 data_table_call_back = "
 
-  table.column(23).nodes().to$().css({cursor: 'pointer'});
+  table.column(29).nodes().to$().css({cursor: 'pointer'});
     var format8 = function(d) {
-      return '<p>' + d[23] + '</p>';
+      return '<p>' + d[29] + '</p>';
     };
     table.on('click', 'td.computer51Deg', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -73,11 +73,11 @@ data_table_call_back = "
 
     table.column(1).nodes().to$().css({cursor: 'pointer'});
     var format3 = function(d) {
-      return '<p>' + d[1] + '</p> <p>' + d[2] + '</p>';
+      return '<p>' + d[1] + '</p> <p>' + d[3] + '</p>';
     };
-    table.column(2).nodes().to$().css({cursor: 'pointer'});
+    table.column(3).nodes().to$().css({cursor: 'pointer'});
     var format4 = function(d) {
-      return '<p>' + d[1] + '</p> <p>' + d[2] + '</p>';
+      return '<p>' + d[1] + '</p> <p>' + d[3] + '</p>';
     };
     table.on('click', 'td.information-control1', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -409,7 +409,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   )
                 ),
                 list(
-                  targets = c(23),
+                  targets = c(29),
                   width = '200px',
                   className = 'computer51Deg',
                   render = JS(
@@ -452,7 +452,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   className = 'information-control1'
                 ),
                 list(
-                  targets = c(2),
+                  targets = c(3),
                   render = JS(
                     "function(data, type, row, meta) {",
                     "return type === 'display' && data && data.length > 6 ?",
@@ -463,16 +463,15 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 ),
                 list(
                   width = '50px',
-                  targets = c(7, 8, 20, 25),
+                  targets = c(7, 8, 20, 24),
                   className = 'dt-center'
                 ),
                 list(
                   width = '20px',
-                  targets = c(10,14,15,16,24,25,32,33),
+                  targets = c(10,14,15,16,24,28,32,33),
                   className = 'dt-center'
                 ),
                 list(width = '100px', targets = c(13)),
-                list(width = '200px', targets = c(24)),
                 list(width = '600px', targets = c(35))
               )
             ),

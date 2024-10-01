@@ -2,7 +2,7 @@
 params:
   Prolific participant ID: NA
   Pavlovia session ID: NA 
-  ProlificSessionID: NA
+  Prolific session ID: NA
   ProlificStatus: NA
   device type: NA 
   cores: NA
@@ -75,7 +75,7 @@ top:0px;
 dt <- tibble(
   `Prolific participant ID` = params$`Prolific participant ID`,
   `Pavlovia session ID` = params$`Pavlovia session ID`,
-  ProlificSessionID =  params$ProlificSessionID,
+  `Prolific session ID` =  params$`Prolific session ID`,
    ProlificStatus= params$ProlificStatus,
   `device type` = params$`device type`,
   system = params$system,

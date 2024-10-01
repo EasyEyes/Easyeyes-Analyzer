@@ -95,7 +95,7 @@ regression_reading_plot <- function(df_list){
     scale_x_log10() + 
     scale_y_log10() +
     coord_fixed(ratio = 1) + 
-    labs(x="Crowding distance (deg)", y = "Reading (word/min)") +
+    labs(x="Crowding distance (deg)", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
     # annotate("text", x = 10^(max(t$bouma_factor)), 
@@ -125,7 +125,7 @@ regression_acuity_plot <- function(df_list){
     scale_x_log10() + 
     scale_y_log10() +
     coord_fixed(ratio = 1) + 
-    labs(x="Acuity (deg)", y = "Reading (word/min)") +
+    labs(x="Acuity (deg)", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
     # annotate("text", x = 10^(max(t$bouma_factor)), 
@@ -199,7 +199,7 @@ regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
     scale_y_log10(limits = c(100, 2000)) +
     scale_x_log10() + 
     coord_fixed(ratio = 1) +
-    labs(x="Bouma factor", y = "Reading speed (word/min)") +
+    labs(x="Bouma factor", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
     guides(color = guide_legend(title="Font"),
@@ -262,7 +262,7 @@ regression_font <- function(df_list, reading_rsvp_crowding_df){
     scale_y_log10() +
     scale_x_log10(limits = c(0.1,1)) + 
     coord_fixed(ratio = 1) +
-    labs(x="Bouma factor", y = "Reading speed (word/min)") +
+    labs(x="Bouma factor", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
     guides(color = guide_legend(title="TargetKind"),
@@ -353,7 +353,7 @@ regression_font_with_label <- function(df_list, reading_rsvp_crowding_df){
     scale_y_log10() +
     scale_x_log10(limits = c(0.1,1)) + 
     coord_fixed(ratio = 1) +
-    labs(x="Bouma factor", y = "Reading speed (word/min)") +
+    labs(x="Bouma factor", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
     guides(color = guide_legend(title="TargetKind"),

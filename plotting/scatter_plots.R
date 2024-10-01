@@ -28,5 +28,5 @@ reading_speed_vs_retention <- function(reading){
           plot.title = element_text(size=16),
           plot.subtitle = element_text(size=16)) +
     xlab("Reading retention (proportion correct)") +
-    ylab("Reading (word/min)")
+    ylab("Reading speed (w/min)")
 }
