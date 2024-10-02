@@ -45,8 +45,8 @@ get_test_retest_reading <- function(reading){
           axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
           plot.title = element_text(size = 16),
           plot.subtitle = element_text(size = 16)) +
-    xlab("Retest reading (word/min)”") +
-    ylab("Retest reading (word/min)”") + 
+    xlab("Retest reading (w/min)”") +
+    ylab("Retest reading (w/min)”") + 
     annotate("text", x = 2800, 
              y = 100, 
              label = paste("italic(n)==",length(unique(reading_test_retest$participant))), 
@@ -154,8 +154,8 @@ get_test_retest_rsvp <- function(rsvp_speed){
           axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
           plot.title = element_text(size = 16),
           plot.subtitle = element_text(size = 16)) +
-    xlab("RSVP reading (word/min)") +
-    ylab("Retest RSVP reading (word/min)") + 
+    xlab("RSVP reading (w/min)") +
+    ylab("Retest RSVP reading (w/min)") + 
     ggtitle("RSVP Reading") + 
     annotate("text", x = 10^(max(rsvp_test_retest$test)*0.9), 
              y = 10^(min(rsvp_test_retest$retest)*0.9), 

@@ -224,7 +224,7 @@ plot_rsvp_crowding_plotly <- function(allData, df, pretest) {
       coord_fixed(ratio = 1) +
      geom_text(
         aes(x =30,
-            y = 450,
+            y = max(10^(data_rsvp$block_avg_log_WPM))*0.8,
             label = paste0("R = ", 
                            corr$correlation,
                            ",\n slope = ", slope$slope)))+

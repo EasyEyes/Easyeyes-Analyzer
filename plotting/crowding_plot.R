@@ -3,6 +3,7 @@ crowding_by_side <- function(crowding) {
   crowding <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
     mutate(side = ifelse(targetEccentricityXDeg < 0, 'L', 'R'),
            XDeg = abs(targetEccentricityXDeg))
+  print(crowding)
   
   crowding_L <- crowding %>% filter(side == "L") %>% select(-conditionName, -side)
   crowding_R <- crowding %>% filter(side == "R") %>% select(-conditionName, -side)
@@ -13,6 +14,7 @@ crowding_by_side <- function(crowding) {
            "bouma_factor_Right" = "bouma_factor.y",
            "log_crowding_distance_deg_Left" = "log_crowding_distance_deg.x",
            "log_crowding_distance_deg_Right" = "log_crowding_distance_deg.y")
+  print(crowding_L_R)
   return(crowding_L_R)
 }
 
@@ -188,7 +190,7 @@ get_crowding_vs_age <- function(crowding) {
   if (nrow(t) == 0) {
     return(ggplot() + theme_bw() + ggtitle('Crowding vs age'))
   } else {
-    p <-  ggplot(t, aes(x = age, y = log_crowding_distance_deg)) +
+    p <-  ggplot(t, aes(x = age, y = 10^(log_crowding_distance_deg))) +
       geom_point() +
       theme_bw() +
       labs(title = 'Crowding vs age',
@@ -228,8 +230,8 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
       scale_x_log10() + 
       theme_bw() +
       labs(title = 'crowding vs repeated-letter',
-           x = 'Repeated-letter crowding distance (deg)',
-           y = 'Crowding distance (deg)')
+           x = 'Crowding distance (deg)',
+           y = 'Repeated-letter crowding distance (deg)')
     return(p)
   }
 }

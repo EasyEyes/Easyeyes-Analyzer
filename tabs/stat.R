@@ -1,5 +1,6 @@
 statTab <- tabPanel(
   'Stats',
+  textOutput("filename"),
   fluidRow(
     column(
       width = 2,

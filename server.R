@@ -90,10 +90,17 @@ shinyServer(function(input, output, session) {
   })
   
   #### reactive objects ####
-  
+  output$filename <- renderText({
+    if (!is.null(input$file$datapath)) {
+      return(basename(input$file$name[1]))
+    } else {
+      return(NULL)
+    }
+  })
   
   files <- reactive({
     require(input$file)
+    print(names(input$file))
     showModal(modalDialog("Reading files", footer = NULL))
     t <- read_files(input$file)
     removeModal()
@@ -439,12 +446,12 @@ shinyServer(function(input, output, session) {
   })
   
   crowding_hist <- reactive({
-    get_crowding_hist(df_list()$crowding)
+    get_crowding_hist(df_list()$crowding, files()$pretest)
   })
   
   
   acuity_hist <- reactive({
-    get_acuity_hist(df_list()$acuity)
+    get_acuity_hist(df_list()$acuity, files()$pretest)
   })
   
   foveal_peripheral_diag <- reactive({
@@ -461,7 +468,7 @@ shinyServer(function(input, output, session) {
   
   regressionPlot <- reactive({
     regression_reading_plot(df_list()) +
-      labs(subtitle = "Regression of reading vs crowding") +
+      labs(subtitle = "Reading vs crowding") +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "bottom",
@@ -473,18 +480,18 @@ shinyServer(function(input, output, session) {
   })
   regressionAcuityPlot <- reactive({
     regression_acuity_plot(df_list()) +
-      labs(subtitle = "Regression of reading vs acuity")
+      labs(subtitle = "Reading vs acuity")
   })
   regressionFontPlot <- reactive({
     regression_font(df_list(), reading_rsvp_crowding_df()) +
       labs(title = experiment_names(),
-           subtitle = "Regression of reading vs crowding")
+           subtitle = "Reading vs crowding")
   })
   
   regressionFontPlotWithLabel <- reactive({
     regression_font_with_label(df_list(), reading_rsvp_crowding_df()) +
       labs(title = experiment_names(),
-           subtitle = "Regression of reading vs crowding")
+           subtitle = "Reading vs crowding")
   })
   
   fluency_histogram <- reactive({
@@ -3689,22 +3696,7 @@ shinyServer(function(input, output, session) {
     }
   )
   
-  output$download_splitted <- downloadHandler(
-    filename = 'splitted.zip',
-    content = function(file){
-      temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
-      dir.create(temp_directory)
-      splitted <- splitCSVfunction(input$fileDB$data)
-      for (i in 1:length(splitted)) {
-        fileName <- unique(splitted[[i]]$fileNames)
-        readr::write_csv(splitted[[i]] %>% select(-fileNames), file.path(temp_directory, paste0(fileName, '.csv')), na = '')
-      }
-      zip::zip(
-        zipfile = file,
-        files = dir(temp_directory),
-        root = temp_directory
-      )
-    })
+
   ###### british children ####
   output$downloadCrowdingAge <- downloadHandler(
     filename = paste(

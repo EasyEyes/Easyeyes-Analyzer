@@ -160,7 +160,7 @@ plot_60cm_speed_diff_vs_age <- function(rsvp_speed){
     geom_point() + 
     theme_bw() + 
     xlab("age") +
-    ylab("reading speed difference (word/min)") + 
+    ylab("Reading speed difference (w/min)") + 
     ggpp::geom_text_npc(
       aes(npcx = "left",
           npcy = "bottom",
@@ -188,6 +188,8 @@ plot_reading_age <- function(reading){
 
 plot_rsvp_age <- function(rsvp){
   t <- rsvp %>% filter(!is.na(age))
+  print('rsvp max')
+  print(max(10^(t$block_avg_log_WPM)))
   if (nrow(t) == 0) {
     return(ggplot() + theme_bw() + ggtitle('Rsvp reading vs age'))
   } else {
@@ -225,7 +227,7 @@ plot_reading_rsvp <- function(reading,rsvp){
     scale_x_log10() + 
     scale_y_log10() +
     coord_fixed(ratio = 1) + 
-    labs(x="Rsvp reading (word/min)", y = "Reading (word/min)") +
+    labs(x="Rsvp reading (w/min)", y = "Reading (w/min)") +
     theme_bw() + 
     theme(legend.position='top') + 
     annotation_logticks() +

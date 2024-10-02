@@ -11,7 +11,25 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   } %>% 
     filter(!participant %in% basicExclude$participant)
   
-  quest <- all_summary %>% select(questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop)
+  quest <- all_summary %>%
+    mutate(questType = case_when(
+      thresholdParameter != "targetSizeDeg" &
+      thresholdParameter != 'size' &
+      targetKind == "letter" &
+      !grepl("practice",conditionName, ignore.case = T) ~ 'Crowding',
+      targetKind == "rsvpReading" &
+      !grepl("practice",conditionName, ignore.case = T) ~ 'RSVP reading',
+      thresholdParameter != "targetSizeDeg" &
+      thresholdParameter != 'size' &
+      targetKind == "repeatedLetters" &
+      !grepl("practice",conditionName, ignore.case = T) ~ 'Repeated letters',
+      (thresholdParameter == "targetSizeDeg" | thresholdParameter == 'size') &
+      targetKind == "letter" &
+      !grepl("practice",conditionName, ignore.case = T) ~ 'Acuity',
+      grepl("practice",conditionName, ignore.case = T) ~ 'practice',
+      .default = 'unknown'
+    )) %>% 
+    select(questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType)
 
   eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     t <- data_list[[i]] %>%

@@ -4,6 +4,7 @@ get_quest_diag <- function(quest){
   } else {
     p <-  ggplot(quest, aes(x = questMeanAtEndOfTrialsLoop, y = questSDAtEndOfTrialsLoop)) +
       geom_point() +
+      facet_wrap(~questType) + 
       theme_bw() +
       labs(title = 'Quest means vs SD',
            x = 'Quest means',
