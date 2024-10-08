@@ -58,8 +58,15 @@ read_files <- function(file){
         if (!('viewingDistanceDesiredCm' %in% colnames(t))) {
           t$viewingDistanceDesiredCm <- NA
         }
+        if (!('readingLinesPerPage' %in% colnames(t))) {
+          t$readingLinesPerPage <- NA
+        }
+        if (!('readingPageDurationOnsetToOffsetSec' %in% colnames(t))) {
+          t$readingPageDurationOnsetToOffsetSec <- NA
+        }
         if (!('readingPageWords' %in% colnames(t))) {
           t$wordPerMin <- NA
+          t$readingPageWords <- NA
         }
         if (!('readingNumberOfQuestions' %in% colnames(t))) {
           t$readingNumberOfQuestions <- NA
@@ -296,8 +303,15 @@ read_files <- function(file){
           if (!('viewingDistanceDesiredCm' %in% colnames(t))) {
             t$viewingDistanceDesiredCm <- NA
           }
+          if (!('readingLinesPerPage' %in% colnames(t))) {
+            t$readingLinesPerPage <- NA
+          }
+          if (!('readingPageDurationOnsetToOffsetSec' %in% colnames(t))) {
+            t$readingPageDurationOnsetToOffsetSec <- NA
+          }
           if (!('readingPageWords' %in% colnames(t))) {
             t$wordPerMin <- NA
+            t$readingPageWords <- NA
           }
           if (!('readingNumberOfQuestions' %in% colnames(t))) {
             t$readingNumberOfQuestions <- NA
@@ -512,7 +526,6 @@ read_files <- function(file){
   df <- tibble()
   for (i in 1:length(data_list)) {
     if (!'ParticipantCode' %in% names(data_list[[i]])) {
-      print('no ParticipantCode')
       data_list[[i]]$ParticipantCode = ''
     }
     if (!'participant' %in% names(data_list[[i]])) {

@@ -3,7 +3,6 @@ crowding_by_side <- function(crowding) {
   crowding <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
     mutate(side = ifelse(targetEccentricityXDeg < 0, 'L', 'R'),
            XDeg = abs(targetEccentricityXDeg))
-  print(crowding)
   
   crowding_L <- crowding %>% filter(side == "L") %>% select(-conditionName, -side)
   crowding_R <- crowding %>% filter(side == "R") %>% select(-conditionName, -side)
@@ -14,7 +13,6 @@ crowding_by_side <- function(crowding) {
            "bouma_factor_Right" = "bouma_factor.y",
            "log_crowding_distance_deg_Left" = "log_crowding_distance_deg.x",
            "log_crowding_distance_deg_Right" = "log_crowding_distance_deg.y")
-  print(crowding_L_R)
   return(crowding_L_R)
 }
 
@@ -76,12 +74,10 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
              xlab("Left Bouma factor") + 
              ylab("Right Bouma factor") )
   }
-  print(crowding_L_R)
+
   t <- crowding_L_R %>% group_by(font) %>% summarize(avg_left_deg = mean(log_crowding_distance_deg_Left),
                                                      avg_right_deg = mean(log_crowding_distance_deg_Right))
   corrrelation <- ifelse(nrow(t) > 1, cor(t$avg_left_deg, t$avg_right_deg), NA)
-  
-  print(t)
 
   ggplot(t, aes(x = avg_left_deg, y = avg_right_deg, color = font)) + 
     geom_point(size = 2) +
@@ -216,40 +212,71 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
   }
 }
 
-get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
+get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters, pretest) {
   t <- repeatedLetters %>%
     rename('repeatedLetters' = 'log_crowding_distance_deg') %>% 
+    select(participant, order, repeatedLetters) %>% 
     left_join(crowding, by = 'participant', 'order')
   
   if (nrow(t) == 0) {
     return(ggplot() + theme_bw() + ggtitle('repeatedLetters vs age'))
   } else {
-    p <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters))) +
-      geom_point() +
-      scale_y_log10() + 
-      scale_x_log10() + 
-      theme_bw() +
-      labs(title = 'crowding vs repeated-letter',
-           x = 'Crowding distance (deg)',
-           y = 'Repeated-letter crowding distance (deg)')
+    if (nrow(pretest) > 0) {
+      t <- t %>% left_join(pretest, by = 'participant')
+      p <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters), color = Age)) +
+        geom_point() +
+        scale_y_log10() + 
+        scale_x_log10() + 
+        theme_bw() +
+        labs(title = 'Crowding vs repeated-letter',
+             x = 'Crowding distance (deg)',
+             y = 'Repeated-letter crowding distance (deg)')
+      return(p)
+    } else {
+      if (n_distinct(t$age) > 1) {
+        t$age <- as.character(t$age)
+        p <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters), color = age)) +
+          geom_point() +
+          scale_y_log10() + 
+          scale_x_log10() + 
+          theme_bw() +
+          labs(title = 'Crowding vs repeated-letter',
+               x = 'Crowding distance (deg)',
+               y = 'Repeated-letter crowding distance (deg)')
+      } else {
+        p <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters))) +
+          geom_point() +
+          scale_y_log10() + 
+          scale_x_log10() + 
+          theme_bw() +
+          labs(title = 'Crowding vs repeated-letter',
+               x = 'Crowding distance (deg)',
+               y = 'Repeated-letter crowding distance (deg)')
+      }
+     
+    }
+  
     return(p)
-  }
+  } 
 }
 
 get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
-  foveal <- crowding %>% filter(grepl('foveal', conditionName,ignore.case = T))
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   
   if (nrow(foveal) == 0 | nrow(acuity) == 0) {
     return(ggplot() + theme_bw() + ggtitle('crowding vs acuity'))
   } else {
     t <- acuity %>%
       rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>% 
-      left_join(foveal, by = 'participant', 'order')
+      filter(targetEccentricityXDeg == 0) %>% 
+      select(participant, log_acuity) %>% 
+      left_join(foveal, by = 'participant')
     if (nrow(pretest) > 0) {
       t <- t %>% left_join(pretest, by = 'participant')
       p <-  ggplot(t, aes(x = 10^log_crowding_distance_deg,
                           y = 10^(log_acuity),
-                          shape = `Skilled reader?`)) +
+                          shape = `Skilled reader?`,
+                          color = Age)) +
         geom_point() +
         scale_x_log10() + 
         scale_y_log10() + 
@@ -262,17 +289,33 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
              x = 'Crowding distance (deg)',
              y = 'Acuity (deg)')
     } else {
-      p <-  ggplot(t, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity))) +
-        geom_point() +
-        scale_x_log10() + 
-        scale_y_log10() + 
-        theme_bw() +
-        annotation_logticks(short = unit(0.1, "cm"),                                                
-                            mid = unit(0.1, "cm"),
-                            long = unit(0.3, "cm")) + 
-        labs(title = 'Foveal crowding vs acuity',
-             x = 'Crowding distance (deg)',
-             y = 'Acuity (deg)')
+      if (n_distinct(t$age) > 1) {
+        t <- t %>% mutate(age = as.character(age))
+        p <-  ggplot(t, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity), color = age)) +
+          geom_point() +
+          scale_x_log10() + 
+          scale_y_log10() + 
+          theme_bw() +
+          annotation_logticks(short = unit(0.1, "cm"),                                                
+                              mid = unit(0.1, "cm"),
+                              long = unit(0.3, "cm")) + 
+          labs(title = 'Foveal crowding vs acuity',
+               x = 'Crowding distance (deg)',
+               y = 'Acuity (deg)')
+      } else {
+        p <-  ggplot(t, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity))) +
+          geom_point() +
+          scale_x_log10() + 
+          scale_y_log10() + 
+          theme_bw() +
+          annotation_logticks(short = unit(0.1, "cm"),                                                
+                              mid = unit(0.1, "cm"),
+                              long = unit(0.3, "cm")) + 
+          labs(title = 'Foveal crowding vs acuity',
+               x = 'Crowding distance (deg)',
+               y = 'Acuity (deg)')
+      }
+     
     }
    
     return(p)
@@ -311,18 +354,36 @@ get_foveal_peripheral_diag <- function(crowding, pretest) {
              x = 'Foveal crowding distance (deg)',
              y = 'Peripheral crowding distance (deg)')
     } else {
-      p <-  ggplot(t, aes(x = 10^foveal, y = 10^(peripheral))) +
-        geom_point() +
-        scale_x_log10() + 
-        scale_y_log10() + 
-        theme_bw() +
-        annotation_logticks(short = unit(0.1, "cm"),                                                
-                            mid = unit(0.1, "cm"),
-                            long = unit(0.3, "cm")) + 
-        labs(title = 'Foveal vs peripheral',
-             x = 'Foveal crowding distance (deg)',
-             y = 'Peripheral crowding distance (deg)')
-    }
+      
+      if (n_distinct(t$age) > 1) {
+        t <- t %>% mutate(age = as.character(age))
+        p <-  ggplot(t, aes(x = 10^foveal, y = 10^(peripheral), color = age)) +
+          geom_point() +
+          scale_x_log10() + 
+          scale_y_log10() + 
+          theme_bw() +
+          annotation_logticks(short = unit(0.1, "cm"),                                                
+                              mid = unit(0.1, "cm"),
+                              long = unit(0.3, "cm")) + 
+          labs(title = 'Foveal vs peripheral',
+               x = 'Foveal crowding distance (deg)',
+               y = 'Peripheral crowding distance (deg)')
+         } else {
+           p <-  ggplot(t, aes(x = 10^foveal, y = 10^(peripheral))) +
+             geom_point() +
+             scale_x_log10() + 
+             scale_y_log10() + 
+             theme_bw() +
+             annotation_logticks(short = unit(0.1, "cm"),                                                
+                                 mid = unit(0.1, "cm"),
+                                 long = unit(0.3, "cm")) + 
+             labs(title = 'Foveal vs peripheral',
+                  x = 'Foveal crowding distance (deg)',
+                  y = 'Peripheral crowding distance (deg)')
+         }
+      }
+        
+      
     
     return(p)
   }

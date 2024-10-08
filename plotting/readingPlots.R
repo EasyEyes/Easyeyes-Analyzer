@@ -207,11 +207,11 @@ plot_rsvp_age <- function(rsvp){
 plot_reading_rsvp <- function(reading,rsvp){
 
   rsvp <-rsvp %>% 
-    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1))) %>% 
+    mutate(participant = tolower(participant)) %>% 
     group_by(participant,targetKind) %>% 
     summarize( avg_log_WPM = mean(block_avg_log_WPM))
   t <- reading %>%
-    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1))) %>% 
+    mutate(participant = tolower(participant)) %>% 
     group_by(participant, block_condition, targetKind) %>%
     dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
     ungroup() %>% 

@@ -4,9 +4,9 @@ library(purrr)
 library(ggpp)
 library(stringr)
 prepare_regression_data <- function(df_list){
-  reading <- df_list$reading %>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
-  crowding <- df_list$crowding%>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
-  rsvp_speed <- df_list$rsvp%>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
+  reading <- df_list$reading %>% mutate(participant = tolower(participant))
+  crowding <- df_list$crowding %>% mutate(participant = tolower(participant))
+  rsvp_speed <- df_list$rsvp %>% mutate(participant = tolower(participant))
   crowding_vs_rsvp <- merge(select(crowding, participant, log_crowding_distance_deg,bouma_factor),rsvp_speed, by = c("participant")) %>%
     distinct()
   reading_each <- reading %>% 
@@ -60,7 +60,7 @@ prepare_regression_data <- function(df_list){
 
 prepare_regression_acuity <- function(df_list){
   reading <- df_list$reading %>%
-    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1))) %>% 
+    mutate(participant = tolower(participant)) %>% 
     group_by(participant, block_condition, targetKind) %>%
     dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
     ungroup() %>% 
@@ -72,11 +72,11 @@ prepare_regression_acuity <- function(df_list){
   
     
   acuity <- df_list$acuity %>%
-    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1))) %>% 
+    mutate(participant = tolower(participant)) %>% 
     select(participant, questMeanAtEndOfTrialsLoop, conditionName)
   
   rsvp_speed <- df_list$rsvp %>% 
-    mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1))) %>% 
+    mutate(participant = tolower(participant)) %>% 
     group_by(participant,targetKind) %>% 
     summarize( avg_log_WPM = mean(block_avg_log_WPM))
   

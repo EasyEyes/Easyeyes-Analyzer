@@ -11,60 +11,11 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
       ggplot()
     ))
   }
-
-  pretest_for_corr <- pretest
-  pretest_for_corr <- lapply(pretest_for_corr, as.numeric)
-  pretest_for_corr <- tibble(data.frame(pretest_for_corr))
-  colnames(pretest_for_corr) <- colnames(pretest)
-  
-  pretest_for_corr <- pretest_for_corr %>%   
-    select_if(~sum(!is.na(.)) > 0)
-  pretest_for_corr$participant <- pretest$participant
   
   rsvp_speed <- allData$rsvp
   crowding <- allData$crowding
   acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')
-  
-  crowdingW <- crowding %>% mutate(type=ifelse(
-    targetEccentricityXDeg == 0,
-    'foveal',
-    'peripheral'
-  )) %>% 
-    select(participant, log_crowding_distance_deg,type) %>% 
-    pivot_wider(names_from=type, values_from = log_crowding_distance_deg)
-  
-  crowdingW <- crowdingW %>% 
-    left_join(acuity %>% select(participant, log_acuity),by = 'participant') %>% 
-    left_join(rsvp_speed %>% select(participant, block_avg_log_WPM), by = 'participant')
-  
-
-  crowdingW <- crowdingW %>% 
-    select(log_acuity, foveal, peripheral, block_avg_log_WPM, participant) %>% 
-    left_join(df, by = 'participant') %>% 
-    left_join(pretest_for_corr, by = 'participant') %>% 
-    rename('log rsvp' = 'block_avg_log_WPM') %>% 
-    select_if(is.numeric)
-  c <- colnames(crowdingW)
-  
-  crowdingW
-  t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
-  colnames(t) <- c
-  t <- t %>% mutate(across(everything(), round, 3))
-
-  corplot <- ggcorrplot(t,
-             show.legend = FALSE,
-             show.diag = T,
-             type = "lower",
-             colors= c('white'),
-             lab = T) + 
-    theme_bw() +
-    labs(x = '', y = '')
     
- 
-  # t <- pretest %>% left_join(df, by = 'participant')
-    # rename('PartcipantCode in experiment csv' =  'PartcipantCode.x',
-    #        'PartcipantCode in pretest xlsx' =  'PartcipantCode.x')
-  # write.csv(t, '~/Downloads/pretestVsExperimentCSV.csv')
   rsvp_speed <- rsvp_speed %>% 
     left_join(df, by = 'participant') %>% 
     left_join(pretest, by = 'participant') %>% 
@@ -121,8 +72,7 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
   return(list(
     p1,
     p2,
-    p3,
-    corplot
+    p3
   ))
 }
 
@@ -174,9 +124,6 @@ plot_rsvp_crowding_plotly <- function(allData, df, pretest) {
         data_rsvp <- data_rsvp %>% 
           mutate(factorC = Age)
       }
-      data_rsvp <- data_rsvp %>% 
-        mutate(X = 10^(log_crowding_distance_deg),
-               Y = 10^(block_avg_log_WPM))
       pointshapes <-  c(19)
     }
     
@@ -204,9 +151,14 @@ plot_rsvp_crowding_plotly <- function(allData, df, pretest) {
     data_rsvp <- data_rsvp %>%
       mutate(label = paste0("italic('R=')~",
                             corr$correlation,
-                            "~italic(', slope=')~", slope$slope))
+                            "~italic(', slope=')~", slope$slope)) %>% 
+      # group_by(factorC,label,`Skilled reader?`,ParticipantCode) %>% 
+      # summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg),
+      #           block_avg_log_WPM = mean(block_avg_log_WPM)) %>% 
+      mutate(X = 10^(log_crowding_distance_deg),
+             Y = 10^(block_avg_log_WPM))
     
-    p <- ggplot() +
+    p <- ggplot() + 
       geom_point(data = data_rsvp, 
                  aes(x = X,
                      y = Y,
@@ -349,7 +301,12 @@ plot_rsvp_crowding <- function(allData, df, pretest) {
     data_rsvp <- data_rsvp %>%
       mutate(label = paste0("italic('R=')~",
                             corr$correlation,
-                            "~italic(', slope=')~", slope$slope))
+                            "~italic(', slope=')~", slope$slope)) %>% 
+      # group_by(factorC,label,`Skilled reader?`,ParticipantCode) %>% 
+      # summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg),
+      #           block_avg_log_WPM = mean(block_avg_log_WPM)) %>% 
+      mutate(X = 10^(log_crowding_distance_deg),
+             Y = 10^(block_avg_log_WPM))
     
     p <- ggplot() +
       geom_point(data = data_rsvp, 
@@ -415,7 +372,76 @@ plot_rsvp_crowding <- function(allData, df, pretest) {
   return(list(p1, p2, p3,p4))
 }
 
-
+getCorrMatrix <- function(allData,df,pretest) {
+  if (nrow(pretest) > 0) {
+    pretest_for_corr <- pretest
+    pretest_for_corr <- lapply(pretest_for_corr, as.numeric)
+    pretest_for_corr <- tibble(data.frame(pretest_for_corr))
+    colnames(pretest_for_corr) <- colnames(pretest)
+    
+    pretest_for_corr <- pretest_for_corr %>%   
+      select_if(~sum(!is.na(.)) > 0)
+    pretest_for_corr$participant <- pretest$participant
+  }
+  
+  
+  rsvp_speed <- allData$rsvp
+  crowding <- allData$crowding
+  acuity <- allData$acuity %>%
+    rename('log_acuity'='questMeanAtEndOfTrialsLoop') %>% 
+    mutate(type=ifelse(
+      targetEccentricityXDeg == 0,
+      'foveal acuity',
+      'peripheral acuity'
+    )) %>% 
+    group_by(participant, type) %>% 
+    summarize(log_acuity = mean(log_acuity)) %>% 
+    pivot_wider(names_from=type, values_from = log_acuity)
+ 
+  
+  crowdingW <- crowding %>% mutate(type=ifelse(
+    targetEccentricityXDeg == 0,
+    'foveal crowding',
+    'peripheral crowding'
+  )) %>% 
+    group_by(participant,type) %>% 
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg)) %>% 
+    pivot_wider(names_from=type, values_from = log_crowding_distance_deg)
+  
+  crowdingW <- crowdingW %>% 
+    full_join(acuity, by = 'participant') %>% 
+    full_join(rsvp_speed %>% select(participant, block_avg_log_WPM) %>% mutate(participant = tolower(participant)), by = 'participant')
+  
+  
+  crowdingW <- crowdingW %>% 
+    full_join(df, by = 'participant')
+  
+  if (nrow(pretest) > 0) {
+    crowdingW <- crowdingW %>% 
+      full_join(pretest_for_corr, by = 'participant')
+  }
+  
+  crowdingW <- crowdingW %>% 
+    rename('log rsvp' = 'block_avg_log_WPM') %>% 
+    ungroup() %>% 
+    select_if(is.numeric) %>% 
+    select(where(~sum(is.na(.)) >0))
+  
+  print(summary(crowdingW))
+  
+  t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
+  colnames(t) <- c
+  t <- t %>% mutate(across(everything(), round, 3))
+  
+  corplot <- ggcorrplot(t,
+                        show.legend = FALSE,
+                        show.diag = T,
+                        type = "lower",
+                        colors= c('white'),
+                        lab = T) + 
+    theme_bw() +
+    labs(x = '', y = '')
+}
 # plot_rsvp_crowding <- function(allData, df, pretest) {
 #   # Helper function to compute correlation, slope, and plot
 #   create_plot <- function(data, condition, colorFactor) {

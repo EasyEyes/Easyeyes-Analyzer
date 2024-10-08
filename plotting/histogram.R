@@ -26,11 +26,11 @@ get_crowding_hist <- function(crowding, pretest) {
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   if (nrow(foveal) > 0) {
     if ('Skilled reader?' %in% names(foveal)) {
-      stats <- foveal %>% filter(`Skilled reader?` == TRUE)
+      stats1 <- foveal %>% filter(`Skilled reader?` == TRUE)
     } else {
-      stats <- foveal
+      stats1 <- foveal
     }
-    stats <- stats %>% 
+    stats1 <- stats1 %>% 
       summarize(mean = round(mean(log_crowding_distance_deg),2),
                 sd = round(sd(log_crowding_distance_deg),2))
     p1 <- ggplot(foveal) + 
@@ -40,8 +40,8 @@ get_crowding_hist <- function(crowding, pretest) {
       ggpp::geom_text_npc(
        aes( npcx = 'left',
             npcy = 'top',
-            label = paste0('mean=',stats$mean,', sd=', stats$sd))
-      )
+            label = paste0('mean=',stats1$mean,', sd=', stats1$sd))
+      ) + 
       labs(x = 'Log crowding distance (deg)',
            title ='Histogram of foveal crowding distance')
   } else {
@@ -49,11 +49,11 @@ get_crowding_hist <- function(crowding, pretest) {
   }
  if (nrow(peripheral) > 0) { 
    if ('Skilled reader?' %in% names(peripheral)) {
-     stats <- peripheral %>% filter(`Skilled reader?` == TRUE)
+     stats2 <- peripheral %>% filter(`Skilled reader?` == TRUE)
    } else {
-     stats <- peripheral
+     stats2 <- peripheral
    }
-   stats <- stats %>% 
+   stats2 <- stats2 %>% 
      summarize(mean = round(mean(log_crowding_distance_deg),2),
                sd = round(sd(log_crowding_distance_deg),2))
    p2 <- ggplot(peripheral) + 
@@ -63,8 +63,8 @@ get_crowding_hist <- function(crowding, pretest) {
    ggpp::geom_text_npc(
      aes( npcx = 'left',
           npcy = 'top',
-          label = paste0('mean=',stats$mean,', sd=', stats$sd))
-   )
+          label = paste0('mean=',stats2$mean,', sd=', stats2$sd))
+   ) + 
     labs(x = 'Log crowding distance (deg)',
          title ='Histogram of peripheral crowding distance')
  } else {
@@ -77,28 +77,66 @@ get_acuity_hist <- function(acuity, pretest) {
   if (nrow(pretest) > 0) {
     acuity <- acuity %>% left_join(pretest, by = 'participant')
   }
-  if (nrow(acuity) > 0) {
-    if ('Skilled reader?' %in% names(acuity)) {
-      stats <- acuity %>% filter(`Skilled reader?` == TRUE)
+  foveal <- acuity %>% 
+    filter(targetEccentricityXDeg == 0) %>%
+    distinct(participant, questMeanAtEndOfTrialsLoop)
+
+  peripheral <- acuity %>%
+    filter(targetEccentricityXDeg != 0) %>%
+    distinct(participant, questMeanAtEndOfTrialsLoop)
+  
+  if (nrow(foveal) > 0) {
+    if ('Skilled reader?' %in% names(foveal)) {
+      stats1 <- foveal %>% filter(`Skilled reader?` == TRUE)
     } else {
-      stats <- acuity
+      stats1 <- foveal
     }
-    stats <- stats %>% 
+    stats1 <- stats1 %>% 
       summarize(mean = round(mean(questMeanAtEndOfTrialsLoop),2),
                 sd = round(sd(questMeanAtEndOfTrialsLoop),2))
-    p <-  ggplot(acuity) + 
+    
+    p1 <-  ggplot(foveal) + 
       geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color="black", fill="black") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
         aes( npcx = 'left',
              npcy = 'top',
-             label = paste0('mean=',stats$mean,', sd=', stats$sd))
-      )+
+             label = paste0('mean=',stats1$mean,', sd=', stats1$sd))
+      ) +
       labs(x = 'Log acuity (deg)',
-           title ='Histogram of acuity')
-    return(p)
-  } else{
-    return(ggplot())
+           title ='Histogram of foveal acuity')
+  } else {
+    p1 <-  ggplot() +
+      labs(x = 'Log acuity (deg)',
+           title ='Histogram of foveal acuity')
   }
+  
+  if (nrow(peripheral) > 0) {
+    if ('Skilled reader?' %in% names(peripheral)) {
+      stats2 <- peripheral %>% filter(`Skilled reader?` == TRUE)
+    } else {
+      stats2 <- peripheral
+    }
+    stats2 <- stats2 %>% 
+      summarize(mean = round(mean(questMeanAtEndOfTrialsLoop),2),
+                sd = round(sd(questMeanAtEndOfTrialsLoop),2))
+    
+    p2 <-  ggplot(peripheral) + 
+      geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color="black", fill="black") +
+      scale_x_continuous(expand = c(0, 0)) + 
+      scale_y_continuous(expand = c(0, 0)) + 
+      ggpp::geom_text_npc(
+        aes( npcx = 'left',
+             npcy = 'top',
+             label = paste0('mean=',stats2$mean,', sd=', stats2$sd))
+      ) +
+      labs(x = 'Log acuity (deg)',
+           title ='Histogram of peripheral acuity')
+  } else {
+    p2 <-  ggplot() +
+      labs(x = 'Log acuity (deg)',
+           title ='Histogram of peripheral acuity')
+  }
+  return(list(p1,p2))
 }

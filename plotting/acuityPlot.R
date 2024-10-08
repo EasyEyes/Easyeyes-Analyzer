@@ -35,8 +35,8 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
     
     if (is.na(sum(data_rsvp$log_duration_s_RSVP))) {
       
-      if(length(rsvp$participant[1]) == 6){
-        rsvp <- rsvp %>%  mutate(participant = paste0(tolower(str_sub(participant,1,4)),str_sub(participant,5,6)))
+      if(length(rsvp$participant[1]) == 6 | length(rsvp$participant[1]) == 7){
+        rsvp <- rsvp %>% mutate(participant = tolower(participant))
       }
       data_rsvp <- data %>%
         select(participant, questMeanAtEndOfTrialsLoop) %>%
@@ -80,9 +80,7 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
         data_rsvp <- data_rsvp %>% 
           mutate(factorC = as.character(Age))
       }
-      data_rsvp <- data_rsvp %>% 
-        mutate(X = 10^(questMeanAtEndOfTrialsLoop),
-               Y = 10^(block_avg_log_WPM))
+      data_rsvp <- data_rsvp
       pointshapes <- 19
     }
     
@@ -104,6 +102,13 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
       filter(term == 'questMeanAtEndOfTrialsLoop') %>%
       select(estimate) %>%
       mutate(slope = round(estimate, 2))
+    
+    data_rsvp <- data_rsvp %>% 
+      # group_by(factorC,`Skilled reader?`,ParticipantCode) %>% 
+      # summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop),
+      #           block_avg_log_WPM = mean(block_avg_log_WPM)) %>% 
+      mutate(X = 10^(questMeanAtEndOfTrialsLoop),
+             Y = 10^(block_avg_log_WPM))
     
     # Create plotly plot
     # p <- plot_ly(data = data_rsvp) %>%
@@ -171,8 +176,8 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
   }
   
  if (length(acuity$participant[1]) == 6) {
-   acuity <- acuity %>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
-   rsvp <- rsvp %>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
+   acuity <- acuity %>% mutate(participant = tolower(participant))
+   rsvp <- rsvp %>%mutate(participant = tolower(participant))
  }
   # foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   # peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)
@@ -205,7 +210,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
     if (is.na(sum(data_rsvp$log_duration_s_RSVP))) {
       
       if(length(rsvp$participant[1]) == 6){
-        rsvp <- rsvp %>%  mutate(participant = paste0(tolower(str_sub(participant,1,4)),str_sub(participant,5,6)))
+        rsvp <- rsvp %>% mutate(participant = tolower(participant))
       }
       data_rsvp <- data %>%
         select(participant, questMeanAtEndOfTrialsLoop) %>%
@@ -245,9 +250,6 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
         data_rsvp <- data_rsvp %>% 
           mutate(factorC = as.character(Age))
       }
-      data_rsvp <- data_rsvp %>% 
-        mutate(X = 10^(questMeanAtEndOfTrialsLoop),
-               Y = 10^(block_avg_log_WPM))
       pointshapes <- 19
     }
     
@@ -270,6 +272,12 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
       select(estimate) %>%
       mutate(slope = round(estimate, 2))
     
+    data_rsvp <- data_rsvp %>% 
+      # group_by(factorC,`Skilled reader?`,ParticipantCode) %>% 
+      # summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop),
+      #           block_avg_log_WPM = mean(block_avg_log_WPM)) %>% 
+      mutate(X = 10^(questMeanAtEndOfTrialsLoop),
+             Y = 10^(block_avg_log_WPM))
     
     p <- ggplot() +
       geom_point(data = data_rsvp, 
@@ -307,8 +315,8 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
   }
   
   if (length(acuity$participant[1]) == 6) {
-    acuity <- acuity %>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
-    rsvp <- rsvp %>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
+    acuity <- acuity %>% mutate(participant = tolower(participant))
+    rsvp <- rsvp %>% mutate(participant = tolower(participant))
   }
   # foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   # peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)

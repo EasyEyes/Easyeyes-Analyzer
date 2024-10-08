@@ -2,14 +2,18 @@ library(foreach)
 library(dplyr)
 library(stringr)
 getwd()
-basicExclude <-readxl::read_xlsx('Basic_Exclude.xlsx') %>%
-  filter(`Exclude?` == TRUE) %>% 
-  transmute(participant = paste0(tolower(str_sub(ID,1,4)),str_sub(ID,5,6)))
+englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
+  mutate(participant = tolower(ID))
+
+basicExclude <-englishChild %>% 
+  filter(`Exclude?` == TRUE)
+
+
 generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
   } %>% 
-    filter(!participant %in% basicExclude$participant)
+    filter(!tolower(participant) %in% basicExclude$participant)
   
   quest <- all_summary %>%
     mutate(questType = case_when(
@@ -29,7 +33,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
       grepl("practice",conditionName, ignore.case = T) ~ 'practice',
       .default = 'unknown'
     )) %>% 
-    select(questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType)
+    select(participant, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType)
 
   eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     t <- data_list[[i]] %>%
@@ -47,6 +51,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
       distinct()
   }
   age <- distinct(age)
+  quest <- quest %>% left_join(age, by = 'participant')
   ########################### CROWDING ############################
   crowding <- all_summary %>% 
     filter(thresholdParameter != "targetSizeDeg",
@@ -82,13 +87,22 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   
   ################################ READING #######################################
   reading <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% 
+    t <- data_list[[i]] %>% 
+      filter(!is.na(wordPerMin)) %>% 
       select(block_condition, participant, conditionName, font, wordPerMin, 
              targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
+      group_by(participant, block_condition) %>%
+      mutate(trial = row_number()) %>% 
       mutate(log_WPM = log10(wordPerMin)) %>% 
-      filter(targetKind == "reading" & font !="")
+      filter(targetKind == "reading" & font !="") %>% 
+      ungroup()
+    
+    if (tolower(t$participant[1]) %in% englishChild$participant) {
+      t <- t %>% filter(trial >= 3)
+    }
   } %>% 
-    left_join(age, by = "participant")
+    left_join(age, by = "participant") %>% 
+    filter(!tolower(participant) %in% basicExclude$participant)
   
   ################################ REPEAT LETTER #######################################
   repeatedLetters <- all_summary %>% 
@@ -174,7 +188,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
     filter((thresholdParameter == "targetSizeDeg" | thresholdParameter == 'size'),
            targetKind == "letter",
            !grepl("practice",conditionName, ignore.case = T)) %>% 
-    left_join(age, by = "participant")
+    left_join(age, by = "participant") %>% 
+    left_join(eccentricityDeg, by = c("participant", "conditionName"))
   
   print(paste('nrow of quest:', nrow(quest)))
   print(paste('nrow of reading:', nrow(reading)))
@@ -195,7 +210,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
 generate_threshold <- function(data_list, summary_list){
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]]
-  }
+  } %>% 
+    filter(!participant %in% basicExclude$participant)
   crowding <- all_summary %>% 
     filter(thresholdParameter != "targetSizeDeg",
            thresholdParameter != 'size',
@@ -218,9 +234,15 @@ generate_threshold <- function(data_list, summary_list){
   
   ################################ READING #######################################
   reading <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% select(block_condition, participant, conditionName, font, wordPerMin, targetKind, thresholdParameter) %>% 
-      mutate(log_WPM = log10(wordPerMin)) %>% 
+    t <- data_list[[i]] %>% select(block_condition, participant, conditionName, font, wordPerMin, targetKind, thresholdParameter) %>% 
+      mutate(log_WPM = log10(wordPerMin),
+             participant = tolower(participant)) %>% 
+      group_by(participant) %>% 
+      mutate(trial = row_number()) %>% 
       filter(targetKind == "reading" & font !="")
+    if (t$participant[1] %in% englishChild$participant) {
+      t <- t %>% filter(trial>= 3)
+    }
   }
   
   reading_each <- reading %>% 

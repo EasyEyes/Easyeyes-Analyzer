@@ -32,34 +32,38 @@ plotsTab <- tabPanel(
                    splitLayout(
                      cellWidths = c("50%", "50%"),
                      downloadButton("downloadAcuityGradePlot", "Download")
+                   )
                    ),
-                  fixedRow( 
-                    shinycssloaders::withSpinner(
-                      plotOutput("corrMatrixPlot", width = "100%", height = "100%"), type = 4)),
-                  splitLayout(
-                    cellWidths = c("50%", "50%"),
-                    downloadButton("downloadCorrMatrixPlot", "Download")
-                  )
-                   ),
+  fixedRow( 
+    shinycssloaders::withSpinner(
+      plotOutput("corrMatrixPlot", width = "100%", height = "100%"), type = 4)),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadCorrMatrixPlot", "Download")
+  ),
   #### histogram ####
   h3("Histograms"),
   splitLayout(
     cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("acuityHistogram", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("fovealHistogram", width = "100%"), type = 4)
+    shinycssloaders::withSpinner(plotOutput("acuityFovealHistogram", width = "100%"), type = 4),
+    shinycssloaders::withSpinner(plotOutput("acuityPeripheralHistogram", width = "100%"), type = 4)
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
-    downloadButton("downloadAcuityHistogram", "Download"),
-    downloadButton("downloadFovealHistogram", "Download")
+    downloadButton("downloadAcuityFovealHistogram", "Download"),
+    downloadButton("downloadAcuityPeripheralHistogram", "Download")
+    
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("fovealHistogram", width = "100%"), type = 4),
     shinycssloaders::withSpinner(plotOutput("peripheralHistogram", width = "100%"), type = 4)
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
+    downloadButton("downloadFovealHistogram", "Download"),
     downloadButton("downloadPeripheralHistogram", "Download")
+    
   ),
   h3("Scatter Diagrams"),
   splitLayout(
@@ -187,64 +191,64 @@ plotsTab <- tabPanel(
     downloadButton("downloadRegressionAcuityPlot", "Download")
   ),
   #### stairPlots #####
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("p1", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("p2", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadP1", "Download"),
-    downloadButton("downloadP2", "Download")
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("p3", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadP3", "Download")
-  ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   shinycssloaders::withSpinner(plotOutput("p1", width = "100%"), type = 4),
+  #   shinycssloaders::withSpinner(plotOutput("p2", width = "100%"), type = 4)
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   downloadButton("downloadP1", "Download"),
+  #   downloadButton("downloadP2", "Download")
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   shinycssloaders::withSpinner(plotOutput("p3", width = "100%"), type = 4)
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   downloadButton("downloadP3", "Download")
+  # ),
   #### font size ####
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("readingVsXheightLog", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("readingVsXheightLinear", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadReadingVsXheightLog", "Download"),
-    downloadButton("downloadReadingVsXheightLinear", "Download")
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("reading60cm1.2mmVs1.4mm", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("reading30cm1.2mmVs1.4mm", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadReading60cm1.2mmVs1.4mm", "Download"),
-    downloadButton("downloadReading30cm1.2mmVs1.4mm", "Download")
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("reading60cmDiffVsAge", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadReading60cmDiffVsAge", "Download")
-  ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   shinycssloaders::withSpinner(plotOutput("readingVsXheightLog", width = "100%"), type = 4),
+  #   shinycssloaders::withSpinner(plotOutput("readingVsXheightLinear", width = "100%"), type = 4)
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   downloadButton("downloadReadingVsXheightLog", "Download"),
+  #   downloadButton("downloadReadingVsXheightLinear", "Download")
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   shinycssloaders::withSpinner(plotOutput("reading60cm1.2mmVs1.4mm", width = "100%"), type = 4),
+  #   shinycssloaders::withSpinner(plotOutput("reading30cm1.2mmVs1.4mm", width = "100%"), type = 4)
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   downloadButton("downloadReading60cm1.2mmVs1.4mm", "Download"),
+  #   downloadButton("downloadReading30cm1.2mmVs1.4mm", "Download")
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   shinycssloaders::withSpinner(plotOutput("reading60cmDiffVsAge", width = "100%"), type = 4)
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   downloadButton("downloadReading60cmDiffVsAge", "Download")
+  # ),
   #### mean - median ####
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("meanPlot", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("medianPlot", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadMeanPlot", "Download"),
-    downloadButton("downloadMedianPlot", "Download")
-  ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   shinycssloaders::withSpinner(plotOutput("meanPlot", width = "100%"), type = 4),
+  #   shinycssloaders::withSpinner(plotOutput("medianPlot", width = "100%"), type = 4)
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   downloadButton("downloadMeanPlot", "Download"),
+  #   downloadButton("downloadMedianPlot", "Download")
+  # ),
 
   #### regression fonts ####
   # splitLayout(
@@ -261,44 +265,44 @@ plotsTab <- tabPanel(
   #   downloadButton("downloadRegressionFontPlotWithLabel", "Download")
   # ),
   ####fluency ####
-  h3("Fluency plots"),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("fluencyHistogram", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadFluencyHistogram", "Download")
-  ),
+  # h3("Fluency plots"),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   shinycssloaders::withSpinner(plotOutput("fluencyHistogram", width = "100%"), type = 4)
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   downloadButton("downloadFluencyHistogram", "Download")
+  # ),
   #### retention ####
-  h3("Retention plots"),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("retentionHistogram", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("readingSpeedRetention", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadRetentionHistogram", "Download"),
-    downloadButton("downloadReadingSpeedRetention", "Download")
-  ),
-  h3("Test and Retest plots"),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("readingTestRetest", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("crowdingTestRetest", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadReadingTestRetest", "Download"),
-    downloadButton("downloadCrowdingTestRetest", "Download")
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("rsvpReadingTestRetest", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadRsvpReadingTestRetest", "Download")
-  )
+#   h3("Retention plots"),
+#   splitLayout(
+#     cellWidths = c("50%", "50%"),
+#     shinycssloaders::withSpinner(plotOutput("retentionHistogram", width = "100%"), type = 4),
+#     shinycssloaders::withSpinner(plotOutput("readingSpeedRetention", width = "100%"), type = 4)
+#   ),
+#   splitLayout(
+#     cellWidths = c("50%", "50%"),
+#     downloadButton("downloadRetentionHistogram", "Download"),
+#     downloadButton("downloadReadingSpeedRetention", "Download")
+#   ),
+#   h3("Test and Retest plots"),
+#   splitLayout(
+#     cellWidths = c("50%", "50%"),
+#     shinycssloaders::withSpinner(plotOutput("readingTestRetest", width = "100%"), type = 4),
+#     shinycssloaders::withSpinner(plotOutput("crowdingTestRetest", width = "100%"), type = 4)
+#   ),
+#   splitLayout(
+#     cellWidths = c("50%", "50%"),
+#     downloadButton("downloadReadingTestRetest", "Download"),
+#     downloadButton("downloadCrowdingTestRetest", "Download")
+#   ),
+#   splitLayout(
+#     cellWidths = c("50%", "50%"),
+#     shinycssloaders::withSpinner(plotOutput("rsvpReadingTestRetest", width = "100%"), type = 4)
+#   ),
+#   splitLayout(
+#     cellWidths = c("50%", "50%"),
+#     downloadButton("downloadRsvpReadingTestRetest", "Download")
+#   )
 )

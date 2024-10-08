@@ -82,8 +82,8 @@ plt_theme <- theme(legend.position = "top",
                    axis.title = element_text(size = 14),
                    axis.text = element_text(size = 14),
                    axis.line = element_line(colour = "black"),
-                   plot.title = element_text(size=14),
-                   plot.subtitle = element_text(size=14),
+                   plot.title = element_text(size=18),
+                   plot.subtitle = element_text(size=18),
                    strip.text = element_text(size = 14))
 
 # instruction <- "All rows belonging to the same Pavlovia session (a CSV results file) have the same pastel shade.  Each row is a session event: ending, error, or warning. The right side of each column’s heading has buttons to sort up and down, and below is a text box for selection."
