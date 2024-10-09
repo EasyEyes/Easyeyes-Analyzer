@@ -547,18 +547,21 @@ read_files <- function(file){
     unique_Birthdate = unique(data_list[[i]]$Birthdate)
     if (length(unique_Birthdate) > 1) {
       data_list[[i]]$Birthdate = unique(data_list[[i]]$Birthdate[!is.na(data_list[[i]]$Birthdate)])
+      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$Birthdate[1], orders = c('d.m.y')),today()) / years(1),2)
     } else {
       data_list[[i]]$Birthdate = ''
+      data_list[[i]]$age = NA
     }
     
     df <- rbind(df, data_list[[i]] %>% distinct(participant, britishID, ParticipantCode, Birthdate))
     
   }
-  print(df)
+
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
   print('done preprocess')
+  print(df)
   
   return(list(data_list = data_list, 
               summary_list = summary_list, 

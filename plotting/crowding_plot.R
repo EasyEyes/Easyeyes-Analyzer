@@ -266,57 +266,46 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
   if (nrow(foveal) == 0 | nrow(acuity) == 0) {
     return(ggplot() + theme_bw() + ggtitle('crowding vs acuity'))
   } else {
-    t <- acuity %>%
+    foveal_acuity <- acuity %>%
       rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>% 
       filter(targetEccentricityXDeg == 0) %>% 
       select(participant, log_acuity) %>% 
       left_join(foveal, by = 'participant')
+    
+    peripheral_acuity <- acuity %>%
+      rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>% 
+      filter(targetEccentricityXDeg != 0) %>% 
+      select(participant, log_acuity) %>% 
+      left_join(foveal, by = 'participant')
+    
+    
     if (nrow(pretest) > 0) {
-      t <- t %>% left_join(pretest, by = 'participant')
-      p <-  ggplot(t, aes(x = 10^log_crowding_distance_deg,
+      foveal_acuity <- foveal_acuity %>% left_join(pretest, by = 'participant')
+      p <-  ggplot(foveal_acuity, aes(x = 10^log_crowding_distance_deg,
                           y = 10^(log_acuity),
                           shape = `Skilled reader?`,
-                          color = Age)) +
-        geom_point() +
-        scale_x_log10() + 
-        scale_y_log10() + 
-        theme_bw() +
-        scale_shape_manual(values = c(17,19)) + 
-        annotation_logticks(short = unit(0.1, "cm"),                                                
-                            mid = unit(0.1, "cm"),
-                            long = unit(0.3, "cm")) + 
-        labs(title = 'Foveal crowding vs acuity',
-             x = 'Crowding distance (deg)',
-             y = 'Acuity (deg)')
+                          color = Age))
     } else {
-      if (n_distinct(t$age) > 1) {
-        t <- t %>% mutate(age = as.character(age))
-        p <-  ggplot(t, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity), color = age)) +
-          geom_point() +
-          scale_x_log10() + 
-          scale_y_log10() + 
-          theme_bw() +
-          annotation_logticks(short = unit(0.1, "cm"),                                                
-                              mid = unit(0.1, "cm"),
-                              long = unit(0.3, "cm")) + 
-          labs(title = 'Foveal crowding vs acuity',
-               x = 'Crowding distance (deg)',
-               y = 'Acuity (deg)')
+      if (n_distinct(foveal_acuity$age) > 1) {
+        foveal_acuity <- foveal_acuity %>% mutate(age = as.character(age))
+        p <-  ggplot(foveal_acuity, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity), color = age))
       } else {
-        p <-  ggplot(t, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity))) +
-          geom_point() +
-          scale_x_log10() + 
-          scale_y_log10() + 
-          theme_bw() +
-          annotation_logticks(short = unit(0.1, "cm"),                                                
-                              mid = unit(0.1, "cm"),
-                              long = unit(0.3, "cm")) + 
-          labs(title = 'Foveal crowding vs acuity',
-               x = 'Crowding distance (deg)',
-               y = 'Acuity (deg)')
+        p <-  ggplot(foveal_acuity, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity)))
       }
      
     }
+    p <- p + 
+      geom_point() +
+      scale_x_log10() + 
+      scale_y_log10() + 
+      theme_bw() +
+      scale_shape_manual(values = c(17,19)) + 
+      annotation_logticks(short = unit(0.1, "cm"),                                                
+                          mid = unit(0.1, "cm"),
+                          long = unit(0.3, "cm")) + 
+      labs(title = 'Foveal crowding vs foveal acuity',
+           x = 'Crowding distance (deg)',
+           y = 'Acuity (deg)')
    
     return(p)
   }

@@ -59,7 +59,24 @@ prepare_regression_data <- function(df_list){
 }
 
 prepare_regression_acuity <- function(df_list){
-  reading <- df_list$reading %>%
+  reading <- df_list$reading 
+  acuity <- df_list$acuity
+  rsvp_speed <- df_list$rsvp
+  if ((nrow(reading) == 0 & nrow(rsvp_speed) == 0) | nrow(acuity) == 0) {
+    return(tibble())
+  }
+  if (nrow(reading) != 0) {
+    reading <- reading %>%
+      mutate(participant = tolower(participant)) %>% 
+      group_by(participant, block_condition, targetKind) %>%
+      dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
+      ungroup() %>% 
+      filter(avg_wordPerMin <= 1500) %>% 
+      mutate(log_WPM = log10(avg_wordPerMin)) %>% 
+      group_by(participant, targetKind) %>% 
+      summarize(avg_log_WPM = mean(log10(avg_wordPerMin)))
+  }
+  reading <- reading %>%
     mutate(participant = tolower(participant)) %>% 
     group_by(participant, block_condition, targetKind) %>%
     dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
@@ -71,11 +88,11 @@ prepare_regression_acuity <- function(df_list){
     
   
     
-  acuity <- df_list$acuity %>%
+  acuity <- acuity %>%
     mutate(participant = tolower(participant)) %>% 
     select(participant, questMeanAtEndOfTrialsLoop, conditionName)
   
-  rsvp_speed <- df_list$rsvp %>% 
+  rsvp_speed <- rsvp_speed %>% 
     mutate(participant = tolower(participant)) %>% 
     group_by(participant,targetKind) %>% 
     summarize( avg_log_WPM = mean(block_avg_log_WPM))

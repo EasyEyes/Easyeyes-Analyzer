@@ -174,6 +174,9 @@ shinyServer(function(input, output, session) {
   })
   
   
+  corrMatrix <- reactive({
+    getCorrMatrix(df_list(), files()$df, files()$pretest)
+  })
   ##### SOUND CALIBRATION ####
   
   irPlots <- reactive({
@@ -1320,7 +1323,8 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$profileAverge <- renderTable(p$tb)
+    output$profileAverage <- renderTable(p$tb)
+    output$profileAverageTitle <- renderText(p$title)
     
   })
   
@@ -1427,8 +1431,9 @@ shinyServer(function(input, output, session) {
            alt = "profile plot")
     }, deleteFile = TRUE)
     
-    output$profileAverge <- renderTable(profile_plot()$tb)
+    output$profileAverage <- renderTable(profile_plot()$tb)
     
+    output$profileAverageTitle <- renderText(profile_plot()$title)
   })
   
   
@@ -1583,7 +1588,7 @@ shinyServer(function(input, output, session) {
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
                      file = outfile,
-                     plot =  getCorrMatrix(df_list(), files()$df, files()$pretest) +
+                     plot =  corrMatrix()$plot +
                        plt_theme +
                        theme(legend.position = 'none',
                              axis.text.x = element_text(size = 14,
@@ -1591,8 +1596,8 @@ shinyServer(function(input, output, session) {
                                                         vjust = 1,
                                                         hjust=1)),
                      device = svg,
-                     width = 10,
-                     height = 10
+                     width = corrMatrix()$width,
+                     height = corrMatrix()$height
                    )
                    list(src = outfile,
                         contenttype = 'svg')
@@ -1666,7 +1671,9 @@ shinyServer(function(input, output, session) {
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
                      file = outfile,
-                     plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp) + plt_theme,
+                     plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp) +
+                       plt_theme + 
+                       coord_fixed(ratio = 1),
                      device = svg,
                      width = 6,
                      height = 4
@@ -3098,34 +3105,34 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot = getCorrMatrix(df_list(), files()$df, files()$pretest) + 
+            plot = corrMatrix()$plot + 
               plt_theme +
               theme(legend.position = 'none',
                     axis.text.x = element_text(size = 14,
                                                angle = 30,
                                                vjust = 1,
                                                hjust=1)),
-            height = 8,
-            width = 8,
+            width = corrMatrix()$width,
+            height = corrMatrix()$height,
             unit = "in",
             limitsize = F,
             device = svglite
           )
           rsvg::rsvg_png("tmp.svg", file,
                          height = 1200,
-                         width = 1800)
+                         width = 1200)
         } else {
           ggsave(
             file,
-            plot = getCorrMatrix(df_list(), files()$df, files()$pretest) +
+            plot = corrMatrix()$plot +
               plt_theme +
               theme(legend.position = 'none',
                     axis.text.x = element_text(size = 14,
                                                angle = 30,
                                                vjust = 1,
                                                hjust=1)),
-            height = 8,
-            width = 8,
+            width = corrMatrix()$width,
+            height = corrMatrix()$height,
             unit = "in",
             limitsize = F,
             device = ifelse(
@@ -3490,7 +3497,7 @@ shinyServer(function(input, output, session) {
     output$downloadFovealAcuityDiag <- downloadHandler(
       filename = paste(
         app_title$default,
-        paste0('foveal-crowding-acuity-diagram.', input$fileType),
+        paste0('foveal-crowding-vs-foveal-acuity-diagram.', input$fileType),
         sep = "-"
       ),
       content = function(file) {
@@ -4055,7 +4062,8 @@ shinyServer(function(input, output, session) {
         ggsave(
           "tmp.svg",
           plot = plot_reading_rsvp(df_list()$reading,df_list()$rsvp) + 
-            plt_theme,
+            plt_theme + 
+            coord_fixed(ratio = 1),
           width = 7,
           height = 4,
           device = svglite
@@ -4066,7 +4074,8 @@ shinyServer(function(input, output, session) {
         ggsave(
           file = outfile,
           plot =  plot_reading_rsvp(df_list()$reading,df_list()$rsvp) + 
-            plt_theme,
+            plt_theme + 
+            coord_fixed(ratio = 1),
           device = svg,
           width = 7,
           height = 4

@@ -61,7 +61,6 @@ combineProlific <- function(prolificData, summary_table){
                                             !`prolificSessionID` %in% unique(summary_table$prolificSessionID))
     tmp <- prolificData %>%
       filter(prolificSessionID %in% unique(summary_table$prolificSessionID))
-    print
     t <- summary_table %>% 
       group_by(prolificSessionID) %>% 
       arrange(desc(date)) %>% 

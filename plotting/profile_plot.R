@@ -294,7 +294,8 @@ getProfilePlots <- function(transducerType, t, plotTitle) {
       shiftedPlot = plot_shifted_profiles(dt,plotTitle)$plot,
       avgPlot = profileAvgPlots$plot,
       avgHeight = profileAvgPlots$height,
-      tb = profileAvgPlots$tb
+      tb = profileAvgPlots$tb,
+      title = paste0('MLS (wideband) calibration, N=',n_distinct(dt$label))
     )
   )
 }
@@ -328,7 +329,8 @@ getFilteredProfilePlots <- function(transducerType, t, plotTitle, options) {
       shiftedPlot = plot_shifted_profiles(dt,plotTitle)$plot,
       avgPlot = profileAvgPlots$plot,
       avgHeight = profileAvgPlots$height,
-      tb = profileAvgPlots$tb
+      tb = profileAvgPlots$tb,
+      title = paste0('MLS (wideband) calibration, N=',n_distinct(dt$label))
     )
   )
 }

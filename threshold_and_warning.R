@@ -10,6 +10,7 @@ basicExclude <-englishChild %>%
 
 
 generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
+  print('inside threshold warning')
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
   } %>% 
@@ -50,7 +51,9 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
       select(participant, age) %>% 
       distinct()
   }
+  
   age <- distinct(age)
+  print('left join quest')
   quest <- quest %>% left_join(age, by = 'participant')
   ########################### CROWDING ############################
   crowding <- all_summary %>% 
@@ -68,7 +71,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
   
 
-  
+  print('left join crowding')
   crowding <- crowding %>% 
     left_join(eccentricityDeg, by = c("participant", "conditionName", "order")) %>% 
     mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg), 
@@ -84,7 +87,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
     select(participant, block_condition,conditionName, questMeanAtEndOfTrialsLoop, font, targetKind, thresholdParameter) %>%
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
-  
+  print('left join reading')
   ################################ READING #######################################
   reading <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     t <- data_list[[i]] %>% 
@@ -100,10 +103,27 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
     if (tolower(t$participant[1]) %in% englishChild$participant) {
       t <- t %>% filter(trial >= 3)
     }
-  } %>% 
-    left_join(age, by = "participant") %>% 
-    filter(!tolower(participant) %in% basicExclude$participant)
-  
+    if (nrow(t) == 0) {
+      t <- data_list[[i]] %>% distinct(participant)
+    }
+  }
+  print('nrow reading')
+  print(nrow(reading))
+  if (ncol(reading) > 1) {
+    print('inside if')
+    reading <- reading %>% 
+      left_join(age, by = "participant") %>% 
+      filter(!tolower(participant) %in% basicExclude$participant)
+  } else {
+    reading$readingNumberOfQuestions <- NA
+    reading$log_WPM <- NA
+    reading$age <- NA
+    reading$block_condition <- NA
+    reading$targetKind <- 'reading'
+    reading <- reading %>% filter(!is.na(log_WPM))
+  }
+ 
+  print('left join repeatedLetters')
   ################################ REPEAT LETTER #######################################
   repeatedLetters <- all_summary %>% 
     filter(thresholdParameter != "targetSizeDeg",
@@ -131,7 +151,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
       distinct()
   }
   
-
+  print('left join rsvp_speed')
   rsvp_speed <- rsvp_speed %>% 
     left_join(viewingdistance, by = c("block_condition", "participant")) %>% 
     left_join(age, by = "participant")

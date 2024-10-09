@@ -205,7 +205,12 @@ plot_rsvp_age <- function(rsvp){
 }
 
 plot_reading_rsvp <- function(reading,rsvp){
-
+  if (nrow(reading) == 0 | nrow(rsvp) == 0) return(
+    labs(x="Rsvp reading (w/min)", 
+         y = "Reading (w/min)",
+         title = 'Reading vs rsvp reading') +
+      theme_bw()
+  )
   rsvp <-rsvp %>% 
     mutate(participant = tolower(participant)) %>% 
     group_by(participant,targetKind) %>% 
@@ -226,12 +231,12 @@ plot_reading_rsvp <- function(reading,rsvp){
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10() + 
     scale_y_log10() +
-    coord_fixed(ratio = 1) + 
-    labs(x="Rsvp reading (w/min)", y = "Reading (w/min)") +
+    labs(x="Rsvp reading (w/min)", 
+         y = "Reading (w/min)",
+         title = 'Reading vs rsvp reading') +
     theme_bw() + 
     theme(legend.position='top') + 
     annotation_logticks() +
     guides(color=guide_legend(title=""))+
-    ggtitle('Reading vs rsvp reading')
   return(p)
 }

@@ -24,9 +24,13 @@ plot_acuity_reading <- function(acuity,reading){
 
 
 plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
-  create_plot <- function(data,colorFactor) {
-    
-    # Merge data and calculate WPM and acuity
+  
+  create_plot <- function(data,type, colorFactor) {
+    if (nrow(data) == 0) {
+      return(ggplot() + labs(x = 'Acuity (deg)',
+                             y = 'RSVP reading speed (w/min)',
+                             title = paste('RSVP vs', type, 'acuity by', tolower(colorFactor))))
+    }
     data_rsvp <- data %>%
       select(participant, questMeanAtEndOfTrialsLoop) %>%
       left_join(rsvp, by = "participant") %>%
@@ -55,10 +59,6 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
     } else {
       data_rsvp <- data_rsvp %>% mutate(ParticipantCode = participant)
     }
-    
-    
-    # Join with additional df if it has rows
-    
     
     if (nrow(pretest) > 0) {
       if (colorFactor == 'Age') {
@@ -110,36 +110,6 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
       mutate(X = 10^(questMeanAtEndOfTrialsLoop),
              Y = 10^(block_avg_log_WPM))
     
-    # Create plotly plot
-    # p <- plot_ly(data = data_rsvp) %>%
-    #   add_markers(x = ~10^(questMeanAtEndOfTrialsLoop), 
-    #               y = ~10^(block_avg_log_WPM), 
-    #               color = ~factorC,
-    #               symbol=~`Skilled reader?`,
-    #               symbols = c('x','circle'),
-    #               marker = list(size = 10),
-    #               hoverinfo = 'text',
-    #               text = ~paste0('X: ', round(10^(questMeanAtEndOfTrialsLoop), 2),
-    #                              '<br>Y: ', round(10^(block_avg_log_WPM), 2),
-    #                              '<br>ParticipantCode: ', ParticipantCode)) %>%
-    #   layout(title = paste('RSVP vs Acuity by ', colorFactor),
-    #          xaxis = list(title = 'Acuity (deg)', type = 'log', 
-    #                       tickvals = c(0.3, 1, 10, 100)),
-    #          yaxis = list(title = 'RSVP Reading (word/min)', type = 'log', 
-    #                       tickvals = c(1, 10, 100, 1000),
-    #                       scaleanchor = "x", 
-    #                       scaleratio = 1),
-    #          margin = list(l = 70, r = 30, b = 50, t = 50),
-    #          hovermode = 'closest',
-    #          hoverlabel = list(bgcolor = 'white', font = list(color = 'black'))) %>%
-    #   add_lines(x = ~10^(questMeanAtEndOfTrialsLoop), 
-    #             y = ~10^(est),
-    #             line = list(color = 'black', dash = 'solid'),
-    #             hoverinfo = 'none', 
-    #             showlegend = FALSE) %>% 
-    #   add_annotations(text = paste("<i>R =</i>", corr$correlation, "<br>Slope =", slope$slope),
-    #                   x = 0.05, y = 0.95, xref = 'paper', yref = 'paper',
-    #                   showarrow = FALSE, font = list(size = 12))
     p <- ggplot() +
       geom_point(data = data_rsvp, 
                  aes(x = X,
@@ -170,35 +140,31 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
                            ",\n slope = ", slope$slope))) +
       labs(x = 'Acuity (deg)',
            y = 'RSVP reading speed (w/min)',
-           title = paste('RSVP vs', 'acuity by', tolower(colorFactor)))
+           title = paste('RSVP vs', type, 'acuity by', tolower(colorFactor)))
     pp <- ggplotly(p)
     return(pp)
   }
-  
- if (length(acuity$participant[1]) == 6) {
-   acuity <- acuity %>% mutate(participant = tolower(participant))
-   rsvp <- rsvp %>%mutate(participant = tolower(participant))
- }
-  # foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
-  # peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)
+  acuity <- acuity %>% mutate(participant = tolower(participant))
+  rsvp <- rsvp %>%mutate(participant = tolower(participant))
+  foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
+  peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)
   
   if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
-    p1 <- plot_ly() %>% 
-      layout(title = 'RSVP vs Acuity',
-             xaxis = list(title = 'Acuity (deg)', type = 'log'),
-             yaxis = list(title = 'RSVP Reading speed (w/min)', type = 'log'))
-    return(list(p1,p1))
+    foveal <- tibble()
+    peripheral <- tibble()
   }
   
-  p1 <- create_plot(acuity,'Age')
-  p2 <- create_plot(acuity,'Grade')
-  return(list(p1,p2))
+  p1 <- create_plot(foveal,'foveal','Age')
+  p2 <- create_plot(foveal,'foveal','Grade')
+  p3 <- create_plot(peripheral,'peripheral','Age')
+  p4 <- create_plot(peripheral,'peripheral','Grade')
+  return(list(p1, p2, p3, p4))
 }
 
 
 
 plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
-  create_plot <- function(data,colorFactor) {
+  create_plot <- function(data,type,colorFactor) {
     
     # Merge data and calculate WPM and acuity
     data_rsvp <- data %>%
@@ -309,29 +275,29 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
               parse = T)
       labs(x = 'Acuity (deg)',
            y = 'RSVP reading speed (w/min)',
-           title = paste('RSVP vs', 'acuity by', tolower(colorFactor)))
+           title = paste('RSVP vs', type ,'acuity by', tolower(colorFactor)))
 
     return(p)
   }
   
-  if (length(acuity$participant[1]) == 6) {
-    acuity <- acuity %>% mutate(participant = tolower(participant))
-    rsvp <- rsvp %>% mutate(participant = tolower(participant))
-  }
-  # foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
-  # peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)
+  acuity <- acuity %>% mutate(participant = tolower(participant))
+  rsvp <- rsvp %>% mutate(participant = tolower(participant))
+  foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
+  peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)
   
   if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
     p1 <- plot_ly() %>% 
       layout(title = 'RSVP vs Acuity',
              xaxis = list(title = 'Acuity (deg)', type = 'log'),
              yaxis = list(title = 'RSVP Reading speed (w/min)', type = 'log'))
-    return(list(p1,p1))
+    return(list(p1,p1,p1,p1))
   }
   
-  p1 <- create_plot(acuity,'Age')
-  p2 <- create_plot(acuity,'Grade')
-  return(list(p1,p2))
+  p1 <- create_plot(foveal, 'foveal','Age')
+  p2 <- create_plot(foveal,'foveal','Grade')
+  p3 <- create_plot(peripheral,'peripheral','Age')
+  p3 <- create_plot(peripheral,'peripheral','Grade')
+  return(list(p1,p2,p3,p4))
 }
 
 # plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {

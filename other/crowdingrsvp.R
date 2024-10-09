@@ -86,18 +86,10 @@ plot_rsvp_crowding_plotly <- function(allData, df, pretest) {
     
     
     if (is.na(sum(data_rsvp$log_duration_s_RSVP))) {
-
-      if(length(data$participant[1]) == 6) {
-        rsvp <- allData$rsvp %>%  mutate(participant = paste0(tolower(str_sub(participant,1,4)),str_sub(participant,5,6)))
-      } else {
-        rsvp <- allData$rsvp
-      }
-
+      rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
       data_rsvp <- data %>%
         select(participant, log_crowding_distance_deg) %>%
-        left_join(df %>% distinct(participant, britishID), by = "participant") %>%
-        select(britishID, log_crowding_distance_deg) %>%
-        left_join(rsvp %>% left_join(df %>% distinct(participant, britishID), by = "participant"), by = "britishID") %>%
+        left_join(rsvp, by = "participant") %>%
         mutate(WPM = 10^(block_avg_log_WPM),
                acuity = 10^(log_crowding_distance_deg)) %>%
         distinct(participant, WPM, acuity, block_avg_log_WPM, log_crowding_distance_deg,age) %>%
@@ -186,7 +178,7 @@ plot_rsvp_crowding_plotly <- function(allData, df, pretest) {
              shape = guide_legend(title='')) + 
       labs(x = 'Crowding distance (deg)',
            y = 'RSVP reading (w/min)',
-           title = paste('RSVP vs', condition, 'crowding by', tolower(colorFactor)))
+           title = paste('RSVP vs', tolower(condition), 'crowding by', tolower(colorFactor)))
       
     pp <- ggplotly(p)
     
@@ -204,13 +196,13 @@ plot_rsvp_crowding_plotly <- function(allData, df, pretest) {
   
   if (nrow(allData$rsvp) == 0 | nrow(allData$crowding) == 0) {
     p1 <- plot_ly() %>% 
-      layout(title = 'RSVP vs Peripheral Crowding by Age',
-             xaxis = list(title = 'Crowding Distance (deg)', type = 'log'),
-             yaxis = list(title = 'RSVP Reading (w/min)', type = 'log'))
+      layout(title = 'RSVP vs peripheral Crowding by Age',
+             xaxis = list(title = 'Crowding distance (deg)', type = 'log'),
+             yaxis = list(title = 'RSVP reading speed (w/min)', type = 'log'))
     p2 <- plot_ly() %>% 
-      layout(title = 'RSVP vs Foveal Crowding by Age',
-             xaxis = list(title = 'Crowding Distance (deg)', type = 'log'),
-             yaxis = list(title = 'RSVP Reading (w/min)', type = 'log'))
+      layout(title = 'RSVP vs foveal crowding by Age',
+             xaxis = list(title = 'Crowding distance (deg)', type = 'log'),
+             yaxis = list(title = 'RSVP reading speed (w/min)', type = 'log'))
     return(list(p1, p2, p1, p2))
   }
   
@@ -233,18 +225,10 @@ plot_rsvp_crowding <- function(allData, df, pretest) {
     
     
     if (is.na(sum(data_rsvp$log_duration_s_RSVP))) {
-      print(data$participant[1])
-      if(length(data$participant[1]) == 6) {
-        rsvp <- allData$rsvp %>%  mutate(participant = paste0(tolower(str_sub(participant,1,4)),str_sub(participant,5,6)))
-      } else {
-        rsvp <- allData$rsvp
-      }
-      print(rsvp)
+      rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
       data_rsvp <- data %>%
         select(participant, log_crowding_distance_deg) %>%
-        left_join(df %>% distinct(participant, britishID), by = "participant") %>%
-        select(britishID, log_crowding_distance_deg) %>%
-        left_join(rsvp %>% left_join(df %>% distinct(participant, britishID), by = "participant"), by = "britishID") %>%
+        left_join(rsvp, by = "participant") %>%
         mutate(WPM = 10^(block_avg_log_WPM),
                acuity = 10^(log_crowding_distance_deg)) %>%
         distinct(participant, WPM, acuity, block_avg_log_WPM, log_crowding_distance_deg,age) %>%
@@ -335,8 +319,8 @@ plot_rsvp_crowding <- function(allData, df, pretest) {
       guides(color = guide_legend(title=paste0(colorFactor, ', Skilled reader?')),
              shape = guide_legend(title='')) + 
       labs(x = 'Crowding distance (deg)',
-           y = 'RSVP reading (w/min)',
-           title = paste('RSVP vs', condition, 'crowding by', tolower(colorFactor)))
+           y = 'RSVP reading speed (w/min)',
+           title = paste('RSVP vs', tolower(condition), 'crowding by', tolower(colorFactor)))
       
     
     return(p)
@@ -382,6 +366,8 @@ getCorrMatrix <- function(allData,df,pretest) {
     pretest_for_corr <- pretest_for_corr %>%   
       select_if(~sum(!is.na(.)) > 0)
     pretest_for_corr$participant <- pretest$participant
+    pretest_for_corr <- pretest_for_corr %>%
+      mutate(participant = tolower(participant))
   }
   
   
@@ -391,8 +377,8 @@ getCorrMatrix <- function(allData,df,pretest) {
     rename('log_acuity'='questMeanAtEndOfTrialsLoop') %>% 
     mutate(type=ifelse(
       targetEccentricityXDeg == 0,
-      'foveal acuity',
-      'peripheral acuity'
+      'log foveal acuity',
+      'log peripheral acuity'
     )) %>% 
     group_by(participant, type) %>% 
     summarize(log_acuity = mean(log_acuity)) %>% 
@@ -401,16 +387,23 @@ getCorrMatrix <- function(allData,df,pretest) {
   
   crowdingW <- crowding %>% mutate(type=ifelse(
     targetEccentricityXDeg == 0,
-    'foveal crowding',
-    'peripheral crowding'
+    'log foveal crowding',
+    'log peripheral crowding'
   )) %>% 
     group_by(participant,type) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg)) %>% 
     pivot_wider(names_from=type, values_from = log_crowding_distance_deg)
   
+  reading <- allData$reading %>%
+    mutate(participant = tolower(participant)) %>%
+    rename('log reading' = 'log_WPM' ) %>% 
+    select(participant, `log reading`)
+  
   crowdingW <- crowdingW %>% 
     full_join(acuity, by = 'participant') %>% 
-    full_join(rsvp_speed %>% select(participant, block_avg_log_WPM) %>% mutate(participant = tolower(participant)), by = 'participant')
+    mutate(participant = tolower(participant)) %>% 
+    full_join(rsvp_speed %>% select(participant, block_avg_log_WPM) %>% mutate(participant = tolower(participant)), by = 'participant') %>% 
+    full_join(reading, by = 'participant')
   
   
   crowdingW <- crowdingW %>% 
@@ -426,9 +419,10 @@ getCorrMatrix <- function(allData,df,pretest) {
     ungroup() %>% 
     select_if(is.numeric) %>% 
     select(where(~sum(is.na(.)) >0))
-  
+ 
+  c <- colnames(crowdingW)
   print(summary(crowdingW))
-  
+  print(crowdingW, n=56)
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
   colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))
@@ -441,6 +435,11 @@ getCorrMatrix <- function(allData,df,pretest) {
                         lab = T) + 
     theme_bw() +
     labs(x = '', y = '')
+  return(list(
+    plot = corplot,
+    width = 2.5 + ncol(t) * 0.38,
+    height = 2.5 + ncol(t) * 0.38
+  ))
 }
 # plot_rsvp_crowding <- function(allData, df, pretest) {
 #   # Helper function to compute correlation, slope, and plot
