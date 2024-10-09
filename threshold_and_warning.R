@@ -116,9 +116,11 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
       filter(!tolower(participant) %in% basicExclude$participant)
   } else {
     reading$readingNumberOfQuestions <- NA
+    reading$thresholdParameter <- ''
+    reading$wordPerMin <- NA
     reading$log_WPM <- NA
     reading$age <- NA
-    reading$block_condition <- NA
+    reading$block_condition <- ''
     reading$targetKind <- 'reading'
     reading <- reading %>% filter(!is.na(log_WPM))
   }
@@ -259,16 +261,24 @@ generate_threshold <- function(data_list, summary_list){
              participant = tolower(participant)) %>% 
       group_by(participant) %>% 
       mutate(trial = row_number()) %>% 
-      filter(targetKind == "reading" & font !="")
-    if (t$participant[1] %in% englishChild$participant) {
-      t <- t %>% filter(trial>= 3)
-    }
+      filter(targetKind == "reading" & font !="") %>% 
+      ungroup()
   }
+  
+  if (reading$participant[1] %in% englishChild$participant) {
+    reading <- reading %>% filter(trial>= 3) %>% 
+      mutate(font = as.character(font), 
+             participant = as.character(participant), 
+             block_condition = as.character(block_condition), 
+             thresholdParameter = as.character(thresholdParameter))
+  } 
+  
   
   reading_each <- reading %>% 
     group_by(font, participant, block_condition, thresholdParameter) %>%
     dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
     ungroup()
+  
   
   reading_exceed_1500 <- reading_each %>% 
     filter(avg_wordPerMin > 1500) %>% 
@@ -296,7 +306,7 @@ generate_threshold <- function(data_list, summary_list){
       pm = mean(questMeanAtEndOfTrialsLoop),
       sd = sd(questMeanAtEndOfTrialsLoop)) %>% 
     mutate(parameter = "threshold") %>% 
-    ungroup() 
+    ungroup()
   
   
   threshold_summary <- threshold_all %>% 

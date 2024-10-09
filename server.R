@@ -177,6 +177,16 @@ shinyServer(function(input, output, session) {
   corrMatrix <- reactive({
     getCorrMatrix(df_list(), files()$df, files()$pretest)
   })
+  
+  
+  #### condition to render ####
+  
+  output$isPeripheralAcuity <- reactive({
+    p <- df_list()$acuity %>% filter(targetEccentricityXDeg != 0)
+    return(nrow(p) > 0)
+  })
+  
+  
   ##### SOUND CALIBRATION ####
   
   irPlots <- reactive({
@@ -426,7 +436,7 @@ shinyServer(function(input, output, session) {
       ))
   })
   
-  #### rsvpCrowding reacitve ####
+  #### rsvpCrowding reactive ####
   rsvpCrowding <- reactive({
     plot_rsvp_crowding(df_list(), files()$df, files()$pretest)
   })
@@ -434,12 +444,20 @@ shinyServer(function(input, output, session) {
     plot_rsvp_crowding_plotly(df_list(), files()$df, files()$pretest)
   })
   
-  rsvpAcuityPlotly <- reactive({
-    plot_acuity_rsvp_plotly(df_list()$acuity, df_list()$rsvp, files()$df, files()$pretest)
+  rsvpAcuityFovealPlotly <- reactive({
+    plot_acuity_rsvp_plotly(df_list()$acuity, df_list()$rsvp, files()$df, files()$pretest, 'foveal')
   })
   
-  rsvpAcuity <- reactive({
-    plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp, files()$df, files()$pretest)
+  rsvpAcuityFoveal <- reactive({
+    plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp, files()$df, files()$pretest,'foveal')
+  })
+  
+  rsvpAcuityPeripheralPlotly <- reactive({
+    plot_acuity_rsvp_plotly(df_list()$acuity, df_list()$rsvp, files()$df, files()$pretest, 'peripheral')
+  })
+  
+  rsvpAcuityPeripheral <- reactive({
+    plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp, files()$df, files()$pretest,'peripheral')
   })
   
   two_fonts_plots <- reactive({
@@ -463,7 +481,7 @@ shinyServer(function(input, output, session) {
     get_quest_diag(df_list()$quest, files()$pretest)
   })
   
-  foveal_acuity_diag <- reactive({
+  foveal_crowding_vs_acuity_diag <- reactive({
     get_foveal_acuity_diag(df_list()$crowding, df_list()$acuity, files()$pretest)
   })
   
@@ -584,22 +602,8 @@ shinyServer(function(input, output, session) {
   #   plot_record_freq_subtracted_noise(sound_data())
   # })
   
+
   
-  
-  
-  ##### request from Francesca #####
-  
-  allMeasures <- reactive({
-    get_measures(data_list())
-  })
-  
-  prob_all <- reactive({
-    get_prob(get_counts_all(allMeasures())) %>% select(-participant)
-  })
-  
-  prob_each <- reactive({
-    get_prob_each_block(get_counts_each_block(allMeasures()))
-  })
   
   output$crowdingGradePlot <- renderPlot(
     ggplot()
@@ -1767,11 +1771,24 @@ shinyServer(function(input, output, session) {
                  
                  #### scatterDiagrams ####
                  
-                 output$fovealAcuityDiag<- renderImage({
+                 output$fovealCrowdingFovealAcuityDiag<- renderImage({
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
                      file = outfile,
-                     plot =  foveal_acuity_diag() + plt_theme + coord_fixed(),
+                     plot =  foveal_crowding_vs_acuity_diag()$foveal + plt_theme + coord_fixed(),
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 output$fovealCrowdingPeripheralAcuityDiag<- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  foveal_crowding_vs_acuity_diag()$peripheral + plt_theme + coord_fixed(),
                      device = svg,
                      width = 6,
                      height = 4
@@ -1988,13 +2005,25 @@ shinyServer(function(input, output, session) {
                    rsvpCrowdingPlotly()[[4]]
                  })
                  
-                 output$rsvpAcuityAgePlot <- renderPlotly({
-                   rsvpAcuityPlotly()[[1]]
+                 output$rsvpFovealAcuityAgePlot <- renderPlotly({
+                   rsvpAcuityFovealPlotly()[[1]]
                  })
                  
-                 output$rsvpAcuityGradePlot <- renderPlotly({
-                   rsvpAcuityPlotly()[[2]]
+                 output$rsvpFovealAcuityGradePlot <- renderPlotly({
+                   rsvpAcuityFovealPlotly()[[2]]
                  })
+                 
+                 
+                 output$rsvpPeripheralAcuityAgePlot <- renderPlotly({
+                   rsvpAcuityPeripheralPlotly()[[1]]
+                 })
+                 
+                 output$rsvpPeripheralAcuityGradePlot <- renderPlotly({
+                   rsvpAcuityPeripheralPlotly()[[2]]
+                 })
+                 
+                 
+                 
                  
                  # output$rsvpCrowdingPeripheralPlot <- renderImage({
                  #   outfile <- tempfile(fileext = '.svg')
@@ -3494,7 +3523,7 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$downloadFovealAcuityDiag <- downloadHandler(
+    output$downloadFovealCrowdingFovealAcuityDiag <- downloadHandler(
       filename = paste(
         app_title$default,
         paste0('foveal-crowding-vs-foveal-acuity-diagram.', input$fileType),
@@ -3504,7 +3533,7 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot =  foveal_acuity_diag() + plt_theme + coord_fixed(),
+            plot =  foveal_crowding_vs_acuity_diag()$foveal + plt_theme + coord_fixed(),
 
             device = svglite
           )
@@ -3513,8 +3542,35 @@ shinyServer(function(input, output, session) {
         } else {
           ggsave(
             file,
-            plot = foveal_acuity_diag() + plt_theme + coord_fixed(),
+            plot = foveal_crowding_vs_acuity_diag()$foveal + plt_theme + coord_fixed(),
 
+            device = ifelse(input$fileType == "svg", svglite, input$fileType)
+          )
+        }
+      }
+    )
+    
+    output$downloadFovealCrowdingPeripheralAcuityDiag <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('foveal-crowding-vs-peripheral-acuity-diagram.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot =  foveal_crowding_vs_acuity_diag()$peripheral + plt_theme + coord_fixed(),
+            
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = foveal_crowding_vs_acuity_diag()$peripheral + plt_theme + coord_fixed(),
+            
             device = ifelse(input$fileType == "svg", svglite, input$fileType)
           )
         }
@@ -3703,7 +3759,7 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$downloadRsvpAcuityAgePlot <- downloadHandler(
+    output$downloadRsvpFovealAcuityAgePlot <- downloadHandler(
       filename = paste(
         app_title$default,
         paste0('rsvp-vs-acuity-by-age.', input$fileType),
@@ -3713,7 +3769,7 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot = rsvpAcuity()[[1]] + 
+            plot = rsvpAcuityFoveal()[[1]] + 
               plt_theme,
             width = 7,
             height = 5,
@@ -3724,7 +3780,7 @@ shinyServer(function(input, output, session) {
         } else {
           ggsave(
             file = outfile,
-            plot = rsvpAcuity()[[1]] + 
+            plot = rsvpAcuityFoveal()[[1]] + 
               plt_theme,
             device = svg,
             width = 7,
@@ -3734,7 +3790,7 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$downloadRsvpAcuityGradePlot <- downloadHandler(
+    output$downloadRsvpFovealAcuityGradePlot <- downloadHandler(
       filename = paste(
         app_title$default,
         paste0('rsvp-vs-acuity-by-grade.', input$fileType),
@@ -3744,7 +3800,7 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot = rsvpAcuity()[[2]] + 
+            plot = rsvpAcuityFoveal()[[2]] + 
               plt_theme,
             width = 7,
             height = 5,
@@ -3755,7 +3811,7 @@ shinyServer(function(input, output, session) {
         } else {
           ggsave(
             file = outfile,
-            plot = rsvpAcuity()[[2]] + 
+            plot = rsvpAcuityFoveal()[[2]] + 
               plt_theme,
             device = svg,
             width = 7,
@@ -3763,6 +3819,72 @@ shinyServer(function(input, output, session) {
           )
         }
       }
+      
+      
+    )
+    
+    output$downloadRsvpPeripheralAcuityAgePlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-peripheral-acuity-by-age.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = rsvpAcuityPeripheral()[[1]] + 
+              plt_theme,
+            width = 7,
+            height = 5,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = outfile,
+            plot = rsvpAcuityPeripheral()[[1]] + 
+              plt_theme,
+            device = svg,
+            width = 7,
+            height = 5
+          )
+        }
+      }
+    )
+    
+    output$downloadRsvpPeripheralAcuityGradePlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-acuity-periphreal-by-grade.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = rsvpAcuityPeripheral()[[2]] + 
+              plt_theme,
+            width = 7,
+            height = 5,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = outfile,
+            plot = rsvpAcuityPeripheral()[[2]] + 
+              plt_theme,
+            device = svg,
+            width = 7,
+            height = 5
+          )
+        }
+      }
+      
+      
     )
     
     #### download sloan vs times ####

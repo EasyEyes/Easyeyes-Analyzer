@@ -503,11 +503,6 @@ read_files <- function(file){
       if (length(all_xlsx) > 0) {
         pretest <- readxl::read_xlsx(unzip(file_list[k], all_xlsx[1])) %>% 
           rename('participant' = 'PavloviaSessionID')
-        for (i in 1:length(data_list)) {
-          data_list[[i]] <- data_list[[i]] %>%
-            left_join(pretest %>% select(participant, Age),by ='participant') %>% 
-            mutate(age = Age)
-        }
       }
       print('done processing zip')
     }
@@ -516,11 +511,6 @@ read_files <- function(file){
     if (grepl(".xlsx", file_list[i])) {
       pretest <- readxl::read_xlsx(file_list[i]) %>% 
         rename('participant' = 'PavloviaSessionID')
-      for (i in 1:length(data_list)) {
-        data_list[[i]] <- data_list[[i]] %>%
-          left_join(pretest %>% select(participant, Age),by ='participant') %>% 
-          mutate(age = Age)
-      }
     }
   }
   df <- tibble()
@@ -550,9 +540,7 @@ read_files <- function(file){
       data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$Birthdate[1], orders = c('d.m.y')),today()) / years(1),2)
     } else {
       data_list[[i]]$Birthdate = ''
-      data_list[[i]]$age = NA
     }
-    
     df <- rbind(df, data_list[[i]] %>% distinct(participant, britishID, ParticipantCode, Birthdate))
     
   }

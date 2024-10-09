@@ -19,15 +19,15 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
   rsvp_speed <- rsvp_speed %>% 
     left_join(df, by = 'participant') %>% 
     left_join(pretest, by = 'participant') %>% 
-    mutate(Age = format(round(Age,1),nsmall=1))
+    mutate(Age = format(age,nsmall=2))
   crowding <- crowding %>% 
     left_join(df, by = 'participant') %>% 
     left_join(pretest, by = 'participant') %>% 
-    mutate(Age = format(round(Age,1),nsmall=1))
+    mutate(Age = format(age,nsmall=2))
   acuity <- acuity %>% 
     left_join(df, by = 'participant') %>% 
     left_join(pretest, by = 'participant') %>% 
-    mutate(Age = format(round(Age,1),nsmall=1))
+    mutate(Age = format(age,nsmall=2))
   
   
 
@@ -80,41 +80,37 @@ plot_rsvp_crowding_plotly <- function(allData, df, pretest) {
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition, colorFactor) {
 
+    rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
     data_rsvp <- data %>%
       select(participant, log_crowding_distance_deg) %>%
-      left_join(allData$rsvp, by = "participant")
-    
-    
-    if (is.na(sum(data_rsvp$log_duration_s_RSVP))) {
-      rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
-      data_rsvp <- data %>%
-        select(participant, log_crowding_distance_deg) %>%
-        left_join(rsvp, by = "participant") %>%
-        mutate(WPM = 10^(block_avg_log_WPM),
-               acuity = 10^(log_crowding_distance_deg)) %>%
-        distinct(participant, WPM, acuity, block_avg_log_WPM, log_crowding_distance_deg,age) %>%
-        filter(!is.na(participant)) %>% 
-        mutate(Age = as.character(age))
-    }
+      left_join(rsvp, by = "participant") %>% 
+      distinct(participant, block_avg_log_WPM, log_crowding_distance_deg,age) %>%
+      filter(!is.na(participant)) %>% 
+      mutate(age = format(age,nsmall=2))
     
     
     if (nrow(pretest) > 0) {
-      if (colorFactor =='Age') {
-        pretest <- pretest %>% mutate(factorC = as.character(format(round(Age,1), nsmall = 1)))
-      } else {
-        pretest <- pretest %>% mutate(factorC = as.character(Grade))
-      }
-      
+
+      pretest <- pretest %>% mutate(participant = tolower(participant))
+    
       data_rsvp <- data_rsvp %>% 
         left_join(pretest, by = 'participant') %>% 
         mutate(X = 10^(log_crowding_distance_deg),
                Y = 10^(block_avg_log_WPM))
       pointshapes <-  c(17,19)
+      
+      
+      if (colorFactor =='Age') {
+        data_rsvp <- data_rsvp %>% mutate(factorC = age)
+      } else {
+        data_rsvp <- data_rsvp %>% mutate(factorC = as.character(Grade))
+      }
+      
     } else {
       data_rsvp <- data_rsvp %>% mutate(factorC = 'black', `Skilled reader?` = 'TRUE', ParticipantCode = participant)
-      if ('Age' %in% names(data_rsvp) & colorFactor == 'Age') {
+      if ('age' %in% names(data_rsvp) & colorFactor == 'Age') {
         data_rsvp <- data_rsvp %>% 
-          mutate(factorC = Age)
+          mutate(factorC = age)
       }
       pointshapes <-  c(19)
     }
@@ -186,11 +182,7 @@ plot_rsvp_crowding_plotly <- function(allData, df, pretest) {
   }
   
   # Extract and filter data
-  if(length(allData$crowding$participant[1]) == 6) {
-    crowding <- allData$crowding %>%  mutate(participant = paste0(tolower(str_sub(participant,1,4)),str_sub(participant,5,6)))
-  } else {
-    crowding <- allData$crowding
-  }
+  crowding <- allData$crowding %>%  mutate(participant = tolower(participant))
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0,)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   
@@ -218,46 +210,37 @@ plot_rsvp_crowding_plotly <- function(allData, df, pretest) {
 plot_rsvp_crowding <- function(allData, df, pretest) {
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition, colorFactor) {
-    
+    rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
     data_rsvp <- data %>%
       select(participant, log_crowding_distance_deg) %>%
-      left_join(allData$rsvp, by = "participant")
-    
-    
-    if (is.na(sum(data_rsvp$log_duration_s_RSVP))) {
-      rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
-      data_rsvp <- data %>%
-        select(participant, log_crowding_distance_deg) %>%
-        left_join(rsvp, by = "participant") %>%
-        mutate(WPM = 10^(block_avg_log_WPM),
-               acuity = 10^(log_crowding_distance_deg)) %>%
-        distinct(participant, WPM, acuity, block_avg_log_WPM, log_crowding_distance_deg,age) %>%
-        filter(!is.na(participant)) %>% 
-        mutate(Age = as.character(age))
-    }
+      left_join(rsvp, by = "participant") %>% 
+      distinct(participant, block_avg_log_WPM, log_crowding_distance_deg,age) %>%
+      filter(!is.na(participant)) %>% 
+      mutate(age = format(age,nsmall=2))
     
     
     if (nrow(pretest) > 0) {
-      if (colorFactor =='Age') {
-        pretest <- pretest %>% mutate(factorC = as.character(format(round(Age,1), nsmall = 1)))
-      } else {
-        pretest <- pretest %>% mutate(factorC = as.character(Grade))
-      }
+      pretest <- pretest %>% mutate(participant = tolower(participant))
       
       data_rsvp <- data_rsvp %>% 
         left_join(pretest, by = 'participant') %>% 
         mutate(X = 10^(log_crowding_distance_deg),
                Y = 10^(block_avg_log_WPM))
       pointshapes <-  c(17,19)
+      
+      
+      if (colorFactor =='Age') {
+        data_rsvp <- data_rsvp %>% mutate(factorC = age)
+      } else {
+        data_rsvp <- data_rsvp %>% mutate(factorC = as.character(Grade))
+      }
+      
     } else {
       data_rsvp <- data_rsvp %>% mutate(factorC = 'black', `Skilled reader?` = 'TRUE', ParticipantCode = participant)
-      if ('Age' %in% names(data_rsvp) & colorFactor == 'Age') {
+      if ('age' %in% names(data_rsvp) & colorFactor == 'Age') {
         data_rsvp <- data_rsvp %>% 
-          mutate(factorC = Age)
+          mutate(factorC = age)
       }
-      data_rsvp <- data_rsvp %>% 
-        mutate(X = 10^(log_crowding_distance_deg),
-               Y = 10^(block_avg_log_WPM))
       pointshapes <-  c(19)
     }
     
@@ -292,7 +275,7 @@ plot_rsvp_crowding <- function(allData, df, pretest) {
       mutate(X = 10^(log_crowding_distance_deg),
              Y = 10^(block_avg_log_WPM))
     
-    p <- ggplot() +
+    p <- ggplot() + 
       geom_point(data = data_rsvp, 
                  aes(x = X,
                      y = Y,
@@ -308,30 +291,24 @@ plot_rsvp_crowding <- function(allData, df, pretest) {
       scale_shape_manual(values = pointshapes) + 
       annotation_logticks() +
       coord_fixed(ratio = 1) +
-      ggpp::geom_text_npc(
-        aes(npcx = "right",
-            npcy = "top",
-            label = paste0("italic('R=')~",corr$correlation,
-                           "~italic(', slope=')~", slope$slope)),
-        parse = T)
-      plt_theme + 
+      geom_text(
+        aes(x =30,
+            y = max(10^(data_rsvp$block_avg_log_WPM))*0.8,
+            label = paste0("R = ", 
+                           corr$correlation,
+                           ",\n slope = ", slope$slope)))+
+      plt_theme +
       theme(legend.position = ifelse(n_distinct(data_rsvp$factorC)==1, 'none','top')) + 
       guides(color = guide_legend(title=paste0(colorFactor, ', Skilled reader?')),
              shape = guide_legend(title='')) + 
       labs(x = 'Crowding distance (deg)',
-           y = 'RSVP reading speed (w/min)',
+           y = 'RSVP reading (w/min)',
            title = paste('RSVP vs', tolower(condition), 'crowding by', tolower(colorFactor)))
-      
     
     return(p)
   }
   
-  # Extract and filter data
-  if(length(allData$crowding$participant[1]) == 6) {
-    crowding <- allData$crowding %>%  mutate(participant = paste0(tolower(str_sub(participant,1,4)),str_sub(participant,5,6)))
-  } else {
-    crowding <- allData$crowding
-  }
+  crowding <- allData$crowding %>% mutate(participant = tolower(participant))
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0,)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   
@@ -421,8 +398,7 @@ getCorrMatrix <- function(allData,df,pretest) {
     select(where(~sum(is.na(.)) >0))
  
   c <- colnames(crowdingW)
-  print(summary(crowdingW))
-  print(crowdingW, n=56)
+
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
   colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))

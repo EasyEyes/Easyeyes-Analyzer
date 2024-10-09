@@ -205,13 +205,15 @@ plot_rsvp_age <- function(rsvp){
 }
 
 plot_reading_rsvp <- function(reading,rsvp){
-  if (nrow(reading) == 0 | nrow(rsvp) == 0) return(
-    labs(x="Rsvp reading (w/min)", 
-         y = "Reading (w/min)",
-         title = 'Reading vs rsvp reading') +
-      theme_bw()
-  )
-  rsvp <-rsvp %>% 
+  if (nrow(reading) == 0 | nrow(rsvp) == 0) {
+    return(
+      ggplot()+labs(x="Rsvp reading (w/min)", 
+                    y = "Reading (w/min)",
+                    title = 'Reading vs rsvp reading') +
+        theme_bw()
+    )
+  }
+  rsvp <- rsvp %>% 
     mutate(participant = tolower(participant)) %>% 
     group_by(participant,targetKind) %>% 
     summarize( avg_log_WPM = mean(block_avg_log_WPM))

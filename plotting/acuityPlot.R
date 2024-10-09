@@ -23,67 +23,52 @@ plot_acuity_reading <- function(acuity,reading){
 }
 
 
-plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
+plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest, type) {
   
-  create_plot <- function(data,type, colorFactor) {
-    if (nrow(data) == 0) {
-      return(ggplot() + labs(x = 'Acuity (deg)',
-                             y = 'RSVP reading speed (w/min)',
-                             title = paste('RSVP vs', type, 'acuity by', tolower(colorFactor))))
-    }
+  create_plot <- function(data,type,colorFactor) {
+    
+    # Merge data and calculate WPM and acuity
     data_rsvp <- data %>%
       select(participant, questMeanAtEndOfTrialsLoop) %>%
       left_join(rsvp, by = "participant") %>%
       mutate(WPM = 10^(block_avg_log_WPM),
              acuity = 10^(questMeanAtEndOfTrialsLoop))
     
-    if (is.na(sum(data_rsvp$log_duration_s_RSVP))) {
-      
-      if(length(rsvp$participant[1]) == 6 | length(rsvp$participant[1]) == 7){
-        rsvp <- rsvp %>% mutate(participant = tolower(participant))
-      }
-      data_rsvp <- data %>%
-        select(participant, questMeanAtEndOfTrialsLoop) %>%
-        left_join(df %>% distinct(participant, britishID), by = "participant") %>%
-        select(britishID, questMeanAtEndOfTrialsLoop) %>%
-        left_join(rsvp %>% left_join(df %>% distinct(participant, britishID), by = "participant"), by = "britishID") %>%
-        mutate(WPM = 10^(block_avg_log_WPM),
-               acuity = 10^(questMeanAtEndOfTrialsLoop)) %>%
-        distinct(participant, WPM, acuity, block_avg_log_WPM, questMeanAtEndOfTrialsLoop,age) %>%
-        filter(!is.na(participant)) %>% 
-        mutate(Age = age)
-    }
-    
-    if (nrow(df) > 0 & nrow(pretest == 0)) {
+    if (nrow(df) > 0) {
       data_rsvp <- data_rsvp %>% left_join(df, by = 'participant')
     } else {
       data_rsvp <- data_rsvp %>% mutate(ParticipantCode = participant)
     }
     
     if (nrow(pretest) > 0) {
-      if (colorFactor == 'Age') {
-        pretest <- pretest %>% mutate(factorC = as.character(format(round(Age,1), nsmall = 1)),
-                                      Grade = as.character(Grade))
-      } else {
-        pretest <- pretest %>% mutate(Age = as.character(format(round(Age,1), nsmall = 1)),
-                                      factorC = as.character(Grade))
-      } 
+      pretest <- pretest %>% mutate(participant = tolower(participant))
+      
       data_rsvp <- data_rsvp %>% 
         select(-ParticipantCode) %>% 
         left_join(pretest, by = 'participant') %>% 
         mutate(X = 10^(questMeanAtEndOfTrialsLoop),
                Y = 10^(block_avg_log_WPM))
+      if ('age' %in% names(data_rsvp) & n_distinct(data_rsvp$age) > 1) {
+        data_rsvp$Age = format(data_rsvp$age, nsmall=2)
+      }
+      
+      if (colorFactor == 'Age') {
+        data_rsvp <- data_rsvp %>% mutate(factorC =Age,
+                                          Grade = as.character(Grade))
+      } else {
+        data_rsvp <- data_rsvp %>% mutate(Age = Age,
+                                          factorC = as.character(Grade))
+      } 
+      
       pointshapes <-  c(17,19)
     } else {
       data_rsvp <- data_rsvp %>% mutate(factorC = 'black', `Skilled reader?` = 'TRUE', ParticipantCode = participant)
-      if ('Age' %in% names(data_rsvp) & colorFactor == 'Age') {
+      if ('age' %in% names(data_rsvp) & colorFactor == 'Age') {
         data_rsvp <- data_rsvp %>% 
-          mutate(factorC = as.character(Age))
+          mutate(factorC = format(age,nsmall=2))
       }
-      data_rsvp <- data_rsvp
       pointshapes <- 19
     }
-    
     if ('Skilled reader?' %in% names(data_rsvp)) {
       data_for_stat <- data_rsvp %>% filter(`Skilled reader?` == TRUE)
     } else {
@@ -127,20 +112,20 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
                   se = FALSE) +
       annotation_logticks() +
       scale_shape_manual(values = pointshapes) + 
-      plt_theme + 
+      plt_theme +
       theme(legend.position = ifelse(n_distinct(data_rsvp$factorC)==1, 'none','top')) + 
       guides(color = guide_legend(title=paste0(colorFactor, ', Skilled reader?')),
              shape = guide_legend(title='')) + 
       coord_fixed(ratio = 1) +
-      geom_text(
-        aes(x = 30,
-            y = max(10^(data_rsvp$block_avg_log_WPM))*0.8,
-            label = paste0("R = ", 
-                           corr$correlation,
-                           ",\n slope = ", slope$slope))) +
-      labs(x = 'Acuity (deg)',
-           y = 'RSVP reading speed (w/min)',
-           title = paste('RSVP vs', type, 'acuity by', tolower(colorFactor)))
+      ggpp::geom_text_npc(
+        aes(npcx = "right",
+            npcy = "top",
+            label = paste0("italic('R=')~",corr$correlation,
+                           "~italic(', slope=')~", slope$slope)),
+        parse = T) + 
+    labs(x = 'Acuity (deg)',
+         y = 'RSVP reading speed (w/min)',
+         title = paste('RSVP vs', type ,'acuity by', tolower(colorFactor)))
     pp <- ggplotly(p)
     return(pp)
   }
@@ -153,17 +138,25 @@ plot_acuity_rsvp_plotly <- function(acuity, rsvp, df, pretest) {
     foveal <- tibble()
     peripheral <- tibble()
   }
+  if (type == 'foveal') {
+    p1 <- create_plot(foveal,type,'Age')
+    p2 <- create_plot(foveal,type,'Grade')
+    return(list(p1, p2))
+  } else {
+    p3 <- create_plot(peripheral,'peripheral','Age')
+    p4 <- create_plot(peripheral,'peripheral','Grade')
+    return(list(
+      p3, p4
+    ))
+  }
   
-  p1 <- create_plot(foveal,'foveal','Age')
-  p2 <- create_plot(foveal,'foveal','Grade')
-  p3 <- create_plot(peripheral,'peripheral','Age')
-  p4 <- create_plot(peripheral,'peripheral','Grade')
-  return(list(p1, p2, p3, p4))
+ 
+ 
 }
 
 
 
-plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
+plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
   create_plot <- function(data,type,colorFactor) {
     
     # Merge data and calculate WPM and acuity
@@ -173,52 +166,41 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
       mutate(WPM = 10^(block_avg_log_WPM),
              acuity = 10^(questMeanAtEndOfTrialsLoop))
     
-    if (is.na(sum(data_rsvp$log_duration_s_RSVP))) {
-      
-      if(length(rsvp$participant[1]) == 6){
-        rsvp <- rsvp %>% mutate(participant = tolower(participant))
-      }
-      data_rsvp <- data %>%
-        select(participant, questMeanAtEndOfTrialsLoop) %>%
-        left_join(df %>% distinct(participant, britishID), by = "participant") %>%
-        select(britishID, questMeanAtEndOfTrialsLoop) %>%
-        left_join(rsvp %>% left_join(df %>% distinct(participant, britishID), by = "participant"), by = "britishID") %>%
-        mutate(WPM = 10^(block_avg_log_WPM),
-               acuity = 10^(questMeanAtEndOfTrialsLoop)) %>%
-        distinct(participant, WPM, acuity, block_avg_log_WPM, questMeanAtEndOfTrialsLoop,age) %>%
-        filter(!is.na(participant)) %>% 
-        mutate(Age = age)
-    }
-    
-    if (nrow(df) > 0 & nrow(pretest == 0)) {
+    if (nrow(df) > 0) {
       data_rsvp <- data_rsvp %>% left_join(df, by = 'participant')
     } else {
       data_rsvp <- data_rsvp %>% mutate(ParticipantCode = participant)
     }
     
     if (nrow(pretest) > 0) {
-      if (colorFactor == 'Age') {
-        pretest <- pretest %>% mutate(factorC = as.character(format(round(Age,1), nsmall = 1)),
-                                      Grade = as.character(Grade))
-      } else {
-        pretest <- pretest %>% mutate(Age = as.character(format(round(Age,1), nsmall = 1)),
-                                      factorC = as.character(Grade))
-      } 
+      pretest <- pretest %>% mutate(participant = tolower(participant))
+      
       data_rsvp <- data_rsvp %>% 
         select(-ParticipantCode) %>% 
         left_join(pretest, by = 'participant') %>% 
         mutate(X = 10^(questMeanAtEndOfTrialsLoop),
                Y = 10^(block_avg_log_WPM))
+      if ('age' %in% names(data_rsvp) & n_distinct(data_rsvp$age) > 1) {
+        data_rsvp$Age = format(data_rsvp$age, nsmall=2)
+      }
+      
+      if (colorFactor == 'Age') {
+        data_rsvp <- data_rsvp %>% mutate(factorC = Age,
+                                      Grade = as.character(Grade))
+      } else {
+        data_rsvp <- data_rsvp %>% mutate(Age = Age,
+                                      factorC = as.character(Grade))
+      } 
+       
       pointshapes <-  c(17,19)
     } else {
       data_rsvp <- data_rsvp %>% mutate(factorC = 'black', `Skilled reader?` = 'TRUE', ParticipantCode = participant)
-      if ('Age' %in% names(data_rsvp) & colorFactor == 'Age') {
+      if ('age' %in% names(data_rsvp) & colorFactor == 'Age') {
         data_rsvp <- data_rsvp %>% 
-          mutate(factorC = as.character(Age))
+          mutate(factorC = as.character(age))
       }
       pointshapes <- 19
     }
-    
     if ('Skilled reader?' %in% names(data_rsvp)) {
       data_for_stat <- data_rsvp %>% filter(`Skilled reader?` == TRUE)
     } else {
@@ -293,11 +275,17 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
     return(list(p1,p1,p1,p1))
   }
   
-  p1 <- create_plot(foveal, 'foveal','Age')
-  p2 <- create_plot(foveal,'foveal','Grade')
-  p3 <- create_plot(peripheral,'peripheral','Age')
-  p3 <- create_plot(peripheral,'peripheral','Grade')
-  return(list(p1,p2,p3,p4))
+  if (type == 'foveal') {
+    p1 <- create_plot(foveal,type,'Age')
+    p2 <- create_plot(foveal,type,'Grade')
+    return(list(p1, p2))
+  } else {
+    p3 <- create_plot(peripheral,'peripheral','Age')
+    p4 <- create_plot(peripheral,'peripheral','Grade')
+    return(list(
+      p3, p4
+    ))
+  }
 }
 
 # plot_acuity_rsvp <- function(acuity, rsvp, df, pretest) {
