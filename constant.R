@@ -68,22 +68,48 @@ downloadtheme <- theme(legend.position = "right",
 
 
 ##### ggplot display theme #####
+plt_theme_scatter <- theme(
+  legend.position = "top", 
+  legend.box = "vertical", 
+  legend.key.size = unit(4.5, "mm"),
+  legend.title = element_text(size=14),
+  legend.text = element_text(size=14),
+  legend.box.margin = margin(0,0,0,0,"cm"),
+  panel.grid.major = element_blank(), 
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(), 
+  axis.title = element_text(size = 14),
+  axis.text = element_text(size = 14),
+  axis.line = element_line(colour = "black"),
+  plot.title = element_text(size=18,
+                            hjust = 0),
+  plot.subtitle = element_text(size=18),
+  strip.text = element_text(size = 14))
 
 plt_theme <- theme(legend.position = "top", 
                    legend.box = "vertical", 
-                   legend.justification = c(1,1),
-                   legend.margin = margin(-0.4),
+                   legend.justification='left',
                    legend.key.size = unit(4.5, "mm"),
                    legend.title = element_text(size=14),
                    legend.text = element_text(size=14),
+                   legend.box.margin = margin(0,0,0,0,"cm"),
                    panel.grid.major = element_blank(), 
                    panel.grid.minor = element_blank(),
                    panel.background = element_blank(), 
                    axis.title = element_text(size = 14),
                    axis.text = element_text(size = 14),
                    axis.line = element_line(colour = "black"),
-                   plot.title = element_text(size=18),
-                   plot.subtitle = element_text(size=18),
+                   plot.title = element_text(size=18,
+                                             hjust = 0),
+                   plot.subtitle = element_text(size=18,
+                                                hjust = 0),
+                   plot.margin = margin(
+                     t = .5,
+                     r = .5,
+                     b = .5,
+                     l = 0,
+                     "cm"
+                   ),
                    strip.text = element_text(size = 14))
 
 # instruction <- "All rows belonging to the same Pavlovia session (a CSV results file) have the same pastel shade.  Each row is a session event: ending, error, or warning. The right side of each column’s heading has buttons to sort up and down, and below is a text box for selection."

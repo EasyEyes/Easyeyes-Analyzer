@@ -101,7 +101,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
       ungroup()
     
     if (tolower(t$participant[1]) %in% englishChild$participant) {
-      t <- t %>% filter(trial >= 3)
+      t <- t %>% filter(trial >= 2)
     }
     if (nrow(t) == 0) {
       t <- data_list[[i]] %>% distinct(participant)
@@ -266,7 +266,7 @@ generate_threshold <- function(data_list, summary_list){
   }
   
   if (reading$participant[1] %in% englishChild$participant) {
-    reading <- reading %>% filter(trial>= 3) %>% 
+    reading <- reading %>% filter(trial>= 2) %>% 
       mutate(font = as.character(font), 
              participant = as.character(participant), 
              block_condition = as.character(block_condition), 

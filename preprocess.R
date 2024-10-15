@@ -502,7 +502,8 @@ read_files <- function(file){
       }
       if (length(all_xlsx) > 0) {
         pretest <- readxl::read_xlsx(unzip(file_list[k], all_xlsx[1])) %>% 
-          rename('participant' = 'PavloviaSessionID')
+          rename('participant' = 'PavloviaSessionID') %>% 
+          select(where(~sum(is.na(.)) >0))
       }
       print('done processing zip')
     }
@@ -510,7 +511,8 @@ read_files <- function(file){
   for (i in 1 : n) {
     if (grepl(".xlsx", file_list[i])) {
       pretest <- readxl::read_xlsx(file_list[i]) %>% 
-        rename('participant' = 'PavloviaSessionID')
+        rename('participant' = 'PavloviaSessionID') %>% 
+        select(where(~sum(is.na(.)) >0))
     }
   }
   df <- tibble()

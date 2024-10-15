@@ -1,4 +1,5 @@
 library(plotly)
+
 plotsTab <- tabPanel(
   'Plots',
   radioButtons(
@@ -43,49 +44,9 @@ plotsTab <- tabPanel(
   ),
   #### histogram ####
   h3("Histograms"),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("acuityFovealHistogram", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("acuityPeripheralHistogram", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadAcuityFovealHistogram", "Download"),
-    downloadButton("downloadAcuityPeripheralHistogram", "Download")
-    
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("fovealHistogram", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("peripheralHistogram", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadFovealHistogram", "Download"),
-    downloadButton("downloadPeripheralHistogram", "Download")
-    
-  ),
+  uiOutput('histograms'),
   h3("Scatter Diagrams"),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("fovealCrowdingFovealAcuityDiag", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("fovealCrowdingPeripheralAcuityDiag", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadFovealCrowdingFovealAcuityDiag", "Download"),
-    downloadButton("downloadFovealCrowdingPeripheralAcuityDiag", "Download")
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("questDiag", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("fovealPeripheralDiag", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadQuestDiag", "Download"),
-    downloadButton("downloadFovealPeripheralDiag", "Download")
-  ),
+  uiOutput('scatters'),
   #### rsvp crowding plots ####
   splitLayout(
     cellWidths = c("50%", "50%"),
@@ -153,45 +114,7 @@ plotsTab <- tabPanel(
   #   downloadButton("downloadSloanVsTimesSDPlot", "Download")
   # ),
   h3("Plots for Children"),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("crowdingAgePlot", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("repeatedLetterAgePlot", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadCrowdingAge", "Download"),
-    downloadButton("downloadRLAge", "Download")
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("rsvpReadingAgePlot", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("readingAgePlot", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadRsvpAge", "Download"),
-    downloadButton("downloadReadingAge", "Download")
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("acuityAgePlot", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("repeatedLetterCrowdingPlot", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadAcuityAge", "Download"),
-    downloadButton("downloadRLCrowding", "Download")
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("readingRSVP", width = "100%"), type = 4),
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadReadingRSVP", "Download")
-  ),
-  
+  uiOutput('plots'),
   #### regression ####
   h3("Regression reading vs crowding"),
   splitLayout(
@@ -278,26 +201,14 @@ plotsTab <- tabPanel(
   #   downloadButton("downloadRegressionFontPlot", "Download"),
   #   downloadButton("downloadRegressionFontPlotWithLabel", "Download")
   # ),
-  ####fluency ####
-  # h3("Fluency plots"),
-  # splitLayout(
-  #   cellWidths = c("50%", "50%"),
-  #   shinycssloaders::withSpinner(plotOutput("fluencyHistogram", width = "100%"), type = 4)
-  # ),
-  # splitLayout(
-  #   cellWidths = c("50%", "50%"),
-  #   downloadButton("downloadFluencyHistogram", "Download")
-  # ),
   #### retention ####
 #   h3("Retention plots"),
 #   splitLayout(
 #     cellWidths = c("50%", "50%"),
-#     shinycssloaders::withSpinner(plotOutput("retentionHistogram", width = "100%"), type = 4),
 #     shinycssloaders::withSpinner(plotOutput("readingSpeedRetention", width = "100%"), type = 4)
 #   ),
 #   splitLayout(
 #     cellWidths = c("50%", "50%"),
-#     downloadButton("downloadRetentionHistogram", "Download"),
 #     downloadButton("downloadReadingSpeedRetention", "Download")
 #   ),
 #   h3("Test and Retest plots"),

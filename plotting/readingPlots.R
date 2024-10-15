@@ -173,7 +173,7 @@ plot_60cm_speed_diff_vs_age <- function(rsvp_speed){
 plot_reading_age <- function(reading){
   t <- reading %>% filter(!is.na(age))
   if (nrow(t) == 0) {
-    return(ggplot() + theme_bw() + ggtitle('Reading vs age'))
+   NULL
   } else {
     p <-  ggplot(t, aes(x = age, y = 10^(log_WPM))) +
       scale_y_log10() + 
@@ -188,10 +188,9 @@ plot_reading_age <- function(reading){
 
 plot_rsvp_age <- function(rsvp){
   t <- rsvp %>% filter(!is.na(age))
-  print('rsvp max')
-  print(max(10^(t$block_avg_log_WPM)))
+
   if (nrow(t) == 0) {
-    return(ggplot() + theme_bw() + ggtitle('Rsvp reading vs age'))
+   return(NULL)
   } else {
     p <-  ggplot(t, aes(x = age, y = 10^(block_avg_log_WPM))) +
       scale_y_log10() + 
@@ -206,12 +205,7 @@ plot_rsvp_age <- function(rsvp){
 
 plot_reading_rsvp <- function(reading,rsvp){
   if (nrow(reading) == 0 | nrow(rsvp) == 0) {
-    return(
-      ggplot()+labs(x="Rsvp reading (w/min)", 
-                    y = "Reading (w/min)",
-                    title = 'Reading vs rsvp reading') +
-        theme_bw()
-    )
+  return(NULL)
   }
   rsvp <- rsvp %>% 
     mutate(participant = tolower(participant)) %>% 
