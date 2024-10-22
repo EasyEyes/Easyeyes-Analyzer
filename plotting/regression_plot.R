@@ -65,17 +65,8 @@ prepare_regression_acuity <- function(df_list){
   if ((nrow(reading) == 0 & nrow(rsvp_speed) == 0) | nrow(acuity) == 0) {
     return(tibble())
   }
-  if (nrow(reading) != 0) {
-    reading <- reading %>%
-      mutate(participant = tolower(participant)) %>% 
-      group_by(participant, block_condition, targetKind) %>%
-      dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
-      ungroup() %>% 
-      filter(avg_wordPerMin <= 1500) %>% 
-      mutate(log_WPM = log10(avg_wordPerMin)) %>% 
-      group_by(participant, targetKind) %>% 
-      summarize(avg_log_WPM = mean(log10(avg_wordPerMin)))
-  }
+  
+  print(reading)
   reading <- reading %>%
     mutate(participant = tolower(participant)) %>% 
     group_by(participant, block_condition, targetKind) %>%
@@ -115,12 +106,13 @@ regression_reading_plot <- function(df_list){
     labs(x="Crowding distance (deg)", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
-    # annotate("text", x = 10^(max(t$bouma_factor)), 
-    #          y = 10^(min(t$avg_log_WPM)), 
-    #          label = paste("italic(n)==", n_distinct(t$participant)), 
-    #          parse = TRUE) +
-    guides(color=guide_legend(title="")) + 
-    theme(legend.position='bottom')
+    ggpp::geom_text_npc(aes(
+      npcx = "left",
+      npcy = "top",
+      label = paste0('N=', nrow(t))
+    )) + 
+    guides(color=guide_legend(nrow=2, byrow=TRUE,
+                              title = ''))
   return(p)
 }
 
@@ -145,12 +137,13 @@ regression_acuity_plot <- function(df_list){
     labs(x="Acuity (deg)", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
-    # annotate("text", x = 10^(max(t$bouma_factor)), 
-    #          y = 10^(min(t$avg_log_WPM)), 
-    #          label = paste("italic(n)==", n_distinct(t$participant)), 
-    #          parse = TRUE) +
-    guides(color=guide_legend(title="")) +
-    theme(legend.position='bottom')
+    ggpp::geom_text_npc(aes(
+      npcx = "left",
+      npcy = "top",
+      label = paste0('N=', nrow(t))
+    )) + 
+    guides(color=guide_legend(nrow=2, byrow=TRUE,
+                              title = ''))
 }
 
 regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
@@ -230,6 +223,7 @@ regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
       parse = T)
   return(p)
 }
+
 regression_font <- function(df_list, reading_rsvp_crowding_df){
   t <- prepare_regression_data(df_list)[[1]]
   rsvp_vs_ordinary_vs_crowding <- reading_rsvp_crowding_df[[1]]

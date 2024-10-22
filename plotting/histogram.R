@@ -7,7 +7,7 @@ get_fluency_histogram <- function(fluency){
   
   print('inside fluency')
   fluency$accuracy <- factor(fluency$accuracy, levels = c(0,0.2,0.4,0.6,0.8,1))
-  print(fluency)
+
   ggplot(data = fluency %>% count(accuracy, .drop = F), aes(x = accuracy, y = n)) +
     geom_bar(stat = "identity") + 
     labs(x = "fluency (proportion correct)",
@@ -36,14 +36,13 @@ get_crowding_hist <- function(crowding, pretest) {
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   if (nrow(foveal) > 0) {
     if ('Skilled reader?' %in% names(foveal)) {
-      stats1 <- foveal %>% filter(`Skilled reader?` == TRUE)
+      stats1 <- foveal %>% filter(`Skilled reader?` != FALSE)
     } else {
       stats1 <- foveal
     }
-    stats1 <- stats1 %>% 
-      summarize(mean = round(mean(log_crowding_distance_deg),2),
-                sd = round(sd(log_crowding_distance_deg),2),
-                N = n())
+    stats1 <- stats1 %>% summarize(mean = round(mean(log_crowding_distance_deg),2), 
+                                   sd = round(sd(log_crowding_distance_deg),2),
+                                   N = n())
     p1 <- ggplot(foveal) + 
       geom_histogram(aes(x = log_crowding_distance_deg),color="black", fill="black") +
       scale_x_continuous(expand = c(0, 0)) + 
@@ -60,7 +59,7 @@ get_crowding_hist <- function(crowding, pretest) {
   }
  if (nrow(peripheral) > 0) { 
    if ('Skilled reader?' %in% names(peripheral)) {
-     stats2 <- peripheral %>% filter(`Skilled reader?` == TRUE)
+     stats2 <- peripheral %>% filter(`Skilled reader?` != FALSE)
    } else {
      stats2 <- peripheral
    }
@@ -68,6 +67,7 @@ get_crowding_hist <- function(crowding, pretest) {
      summarize(mean = round(mean(log_crowding_distance_deg),2),
                sd = round(sd(log_crowding_distance_deg),2),
                N = n())
+
    p2 <- ggplot(peripheral) + 
     geom_histogram(aes(x = log_crowding_distance_deg),color="black", fill="black") +
    scale_x_continuous(expand = c(0, 0)) + 

@@ -2,7 +2,7 @@ library(plotly)
 
 plotsTab <- tabPanel(
   'Plots',
-  radioButtons(
+ radioButtons(
     "fileType",
     "Select download file type:",
     c(
@@ -14,6 +14,18 @@ plotsTab <- tabPanel(
     inline = TRUE,
     selected = "png"
   ),
+  radioButtons(
+    "filterInput",
+    "Select download file type:",
+    c(
+     'all' = 'all',
+     'slowest 25%' = 'slowest',
+     'fastest 75%' = 'fastest'
+    ),
+    inline = TRUE,
+    selected = "all"
+  ),
+  
   conditionalPanel(condition='output.fileUploaded',
                    h3("Grade plots"),
                    splitLayout(
@@ -44,14 +56,14 @@ plotsTab <- tabPanel(
   ),
   #### histogram ####
   h3("Histograms"),
-  uiOutput('histograms'),
+ shinycssloaders::withSpinner(uiOutput('histograms'),type=4),
   h3("Scatter Diagrams"),
-  uiOutput('scatters'),
+ shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
   #### rsvp crowding plots ####
   splitLayout(
     cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralAgePlot"), type = 4),
-    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingFovealAgePlot"), type = 4)
+    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralAgePlot", height = '600px'), type = 4),
+    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingFovealAgePlot", height = '600px'), type = 4)
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
@@ -60,8 +72,8 @@ plotsTab <- tabPanel(
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralGradePlot"), type = 4),
-    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingFovealGradePlot"), type = 4)
+    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralGradePlot", height = '600px'), type = 4),
+    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingFovealGradePlot", height = '600px'), type = 4)
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
@@ -71,8 +83,8 @@ plotsTab <- tabPanel(
   
   splitLayout(
     cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityAgePlot"), type = 4),
-    shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityGradePlot"), type = 4)
+    shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityAgePlot", height = '600px'), type = 4),
+    shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityGradePlot", height = '600px'), type = 4)
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
@@ -82,8 +94,8 @@ plotsTab <- tabPanel(
   conditionalPanel('output.isPeripheralAcuity',
                    splitLayout(
                      cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(plotlyOutput("rsvpPeripheralAcuityAgePlot"), type = 4),
-                     shinycssloaders::withSpinner(plotlyOutput("rsvpPeripheralAcuityGradePlot"), type = 4)
+                     shinycssloaders::withSpinner(plotlyOutput("rsvpPeripheralAcuityAgePlot", height = '600px'), type = 4),
+                     shinycssloaders::withSpinner(plotlyOutput("rsvpPeripheralAcuityGradePlot", height = '600px'), type = 4)
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),

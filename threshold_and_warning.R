@@ -9,12 +9,68 @@ basicExclude <-englishChild %>%
   filter(`Exclude?` == TRUE)
 
 
-generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
+generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, filterInput) {
   print('inside threshold warning')
+  reading <- tibble()
+  for (i in 1:length(data_list)) {
+    t <- data_list[[i]] %>% 
+      filter(!is.na(wordPerMin)) %>% 
+      select(block_condition, participant, conditionName, font, wordPerMin, 
+             targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
+      group_by(participant, block_condition) %>%
+      mutate(trial = row_number()) %>% 
+      mutate(log_WPM = log10(wordPerMin)) %>% 
+      filter(targetKind == "reading" & font !="") %>% 
+      ungroup()
+    
+    if (tolower(t$participant[1]) %in% englishChild$participant) {
+      t <- t %>% filter(trial >= 2)
+    }
+    reading <- rbind(reading, t)
+  }
+
+
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
   } %>% 
     filter(!tolower(participant) %in% basicExclude$participant)
+  
+  print('done all_summary')
+  threshold <- ifelse(nrow(reading) != 0, quantile(reading$wordPerMin, 0.25, na.rm = T), 0)
+  slowest = tibble()
+  print(paste0('threshold:', threshold))
+  
+  if (!is.na(threshold) & threshold != 0) {
+    slowest = reading %>% filter(wordPerMin <= threshold) %>% mutate(participant = tolower(participant)) %>% distinct(participant)
+    print(slowest)
+  }
+  print('done threshold')
+  print(paste('pretest:', nrow(pretest)))
+  if (nrow(pretest) > 0 & 'OMT_words read' %in% names(pretest)) {
+    pretest <- pretest %>% mutate(wordPerMin = as.numeric(`OMT_words read` )/ `Reading Time (sec.)` * 60)
+    threshold <- quantile(pretest$wordPerMin, 0.25, na.rm = T)
+    print(paste('threshold:', threshold))
+    slowest = pretest %>% filter(wordPerMin <= threshold)
+    print(slowest)
+    print('done pretest')
+  }
+  if (filterInput == 'slowest' & nrow(slowest) > 0) {
+    reading <- reading %>% filter(tolower(participant) %in% tolower(slowest$participant))
+    all_summary <- all_summary %>%  filter(tolower(participant) %in% tolower(slowest$participant))
+  } 
+  if (filterInput == 'fastest' & nrow(slowest) > 0) {
+    reading <- reading%>% filter(!tolower(participant) %in% tolower(slowest$participant))
+    all_summary <- all_summary%>% filter(!tolower(participant) %in% tolower(slowest$participant))
+  }
+  print('done slowest')
+  # if (filterInput == 'all') {
+  # } else if (filterInput == 'slowest') {
+  #   reading <- reading %>% filter(participant %in% slowest)
+  #   all_summary <- all_summary %>% filter(participant %in% slowest)
+  # } else {
+  #   reading <- reading %>% filter(!participant %in% slowest)
+  #   all_summary <- all_summary %>% filter(!participant %in% slowest)
+  # }
   
   quest <- all_summary %>%
     mutate(questType = case_when(
@@ -53,7 +109,6 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
   }
   
   age <- distinct(age)
-  print('left join quest')
   quest <- quest %>% left_join(age, by = 'participant')
   ########################### CROWDING ############################
   crowding <- all_summary %>% 
@@ -71,7 +126,6 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
   
 
-  print('left join crowding')
   crowding <- crowding %>% 
     left_join(eccentricityDeg, by = c("participant", "conditionName", "order")) %>% 
     mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg), 
@@ -89,40 +143,12 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list) {
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
   print('left join reading')
   ################################ READING #######################################
-  reading <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-    t <- data_list[[i]] %>% 
-      filter(!is.na(wordPerMin)) %>% 
-      select(block_condition, participant, conditionName, font, wordPerMin, 
-             targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
-      group_by(participant, block_condition) %>%
-      mutate(trial = row_number()) %>% 
-      mutate(log_WPM = log10(wordPerMin)) %>% 
-      filter(targetKind == "reading" & font !="") %>% 
-      ungroup()
-    
-    if (tolower(t$participant[1]) %in% englishChild$participant) {
-      t <- t %>% filter(trial >= 2)
-    }
-    if (nrow(t) == 0) {
-      t <- data_list[[i]] %>% distinct(participant)
-    }
-  }
-  print('nrow reading')
-  print(nrow(reading))
+  
   if (ncol(reading) > 1) {
     print('inside if')
     reading <- reading %>% 
       left_join(age, by = "participant") %>% 
       filter(!tolower(participant) %in% basicExclude$participant)
-  } else {
-    reading$readingNumberOfQuestions <- NA
-    reading$thresholdParameter <- ''
-    reading$wordPerMin <- NA
-    reading$log_WPM <- NA
-    reading$age <- NA
-    reading$block_condition <- ''
-    reading$targetKind <- 'reading'
-    reading <- reading %>% filter(!is.na(log_WPM))
   }
  
   print('left join repeatedLetters')

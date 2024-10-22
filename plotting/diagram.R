@@ -3,6 +3,9 @@ get_quest_diag <- function(quest, pretest){
   if (nrow(quest) == 0) {
     return(list(age = NULL, grade = NULL))
   } else {
+    quest <- quest %>% 
+      group_by(questType) %>% 
+      mutate(N = paste0('N=',n()))
     if (nrow(pretest) > 0) {
       quest <- quest %>% 
         mutate(participant = tolower(participant)) %>% 
@@ -20,6 +23,7 @@ get_quest_diag <- function(quest, pretest){
         geom_point() +
         facet_wrap(~questType) + 
         theme_bw() +
+        ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
         labs(title = 'Quest SD vs mean by grade',
              x = 'Quest means',
              y = 'Quest SD') +
@@ -37,6 +41,7 @@ get_quest_diag <- function(quest, pretest){
     }
     
    p <- p +
+     ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
      geom_point() +
      facet_wrap(~questType) + 
      theme_bw() +

@@ -1,15 +1,17 @@
-library(plotly)
+
 source('./constant.R')
 get_foveal_acuity_vs_age <- function(acuity) {
   t <- acuity %>% filter(!is.na(age),
-                         targetEccentricityXDeg == 0)
+                         targetEccentricityXDeg == 0) %>% 
+    mutate(N = paste0('N=',n()))
   if (nrow(t) == 0) {
     return(NULL)
   } else {
     p <-  ggplot(t, aes(x = age, y = questMeanAtEndOfTrialsLoop)) +
       geom_point() +
+      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
-      labs(title = 'Foveal cuity vs age',
+      labs(title = 'Foveal acuity vs age',
            x = 'Age',
            y = 'Acuity (deg)')
     return(p)
@@ -19,12 +21,14 @@ get_foveal_acuity_vs_age <- function(acuity) {
 
 get_peripheral_acuity_vs_age <- function(acuity) {
   t <- acuity %>% filter(!is.na(age),
-                         targetEccentricityXDeg != 0)
+                         targetEccentricityXDeg != 0) %>% 
+    mutate(N = paste0('N=',n()))
   if (nrow(t) == 0) {
     return(NULL)
   } else {
     p <-  ggplot(t, aes(x = age, y = questMeanAtEndOfTrialsLoop)) +
       geom_point() +
+      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
       labs(title = 'Peripheral acuity vs age',
            x = 'Age',
@@ -74,7 +78,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
                                       factorC = as.character(Grade))
       } 
        
-      pointshapes <-  c(17,19)
+      pointshapes <-  c(4,19)
     } else {
       data_rsvp <- data_rsvp %>% mutate(factorC = 'black', `Skilled reader?` = 'TRUE', ParticipantCode = participant)
       if ('age' %in% names(data_rsvp) & colorFactor == 'Age') {
@@ -85,7 +89,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
     }
     if ('Skilled reader?' %in% names(data_rsvp)) {
       data_for_stat <- data_rsvp %>%
-        filter(`Skilled reader?` == TRUE) %>%
+        filter(`Skilled reader?` != FALSE) %>%
         select(block_avg_log_WPM,questMeanAtEndOfTrialsLoop)
     } else {
       data_for_stat <- data_rsvp %>%
@@ -115,10 +119,8 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
              Y = 10^(block_avg_log_WPM))
     
     xMin <- 10^min(data_rsvp$questMeanAtEndOfTrialsLoop, na.rm = T)/3
-    xMax <- 10^max(data_rsvp$questMeanAtEndOfTrialsLoop, na.rm = T)*3
+    xMax <- 10^max(data_rsvp$questMeanAtEndOfTrialsLoop, na.rm = T)*4
     yMax <- max(10^(data_rsvp$block_avg_log_WPM), na.rm = T)
-    print(paste('xMin:',xMin, 'xMax:', xMax, 'yMax:', yMax))
-    
     p <- ggplot() +
       geom_point(data = data_rsvp, 
                  aes(x = X,
@@ -127,7 +129,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
                      shape = `Skilled reader?`, 
                      group = ParticipantCode)) + 
       theme_classic() +
-      scale_y_log10(breaks = c(1, 3, 10, 30, 100, 300, 1000)) +
+      scale_y_log10(breaks = c(3, 10, 30, 100, 300, 1000)) +
       scale_x_log10(breaks = c(0.003, 0.01, 0.03, 0.1, 0.3, 1, 10, 100),
                     limits = c(xMin,xMax)) +
       geom_smooth(data = data_for_stat, aes(x=10^(questMeanAtEndOfTrialsLoop), 
@@ -138,8 +140,8 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
       scale_shape_manual(values = pointshapes) + 
       plt_theme +
       theme(legend.position = ifelse(n_distinct(data_rsvp$factorC)==1, 'none','top')) + 
-      guides(color = guide_legend(title=paste0(colorFactor, ', Skilled reader?')),
-             shape = guide_legend(title='')) + 
+      guides(color = guide_legend(title=colorFactor),
+             shape = 'none') + 
       coord_fixed(ratio = 1) +
       geom_text(
         aes(x = xMax / 3,
@@ -166,10 +168,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
   peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)
   
   if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
-    p1 <- plot_ly() %>% 
-      layout(title = 'RSVP vs Acuity',
-             xaxis = list(title = 'Acuity (deg)', type = 'log'),
-             yaxis = list(title = 'RSVP Reading speed (w/min)', type = 'log'))
+    p1 <- NULL
     return(list(p1,p1,p1,p1))
   }
   

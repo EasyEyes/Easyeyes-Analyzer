@@ -166,7 +166,7 @@ shinyServer(function(input, output, session) {
   })
   
   df_list <- reactive({
-    return(generate_rsvp_reading_crowding_fluency(files()$data_list, summary_list()))
+    return(generate_rsvp_reading_crowding_fluency(files()$data_list, summary_list(), files()$pretest, input$filterInput))
   })
   
   crowdingBySide <- reactive({
@@ -179,20 +179,11 @@ shinyServer(function(input, output, session) {
   
   
   corrMatrix <- reactive({
-    getCorrMatrix(df_list(), files()$df, files()$pretest)
+    getCorrMatrix(df_list(), files()$pretest)
   })
   
   
-  #### condition to render ####
   
-  output$isPeripheralAcuity <- reactive({
-
-    p <- df_list()$acuity %>% filter(targetEccentricityXDeg != 0)
-    b = (nrow(p) > 0)
-    return(b)
-  })
-  # why outputOptions is necessary?
-  outputOptions(output, 'isPeripheralAcuity', suspendWhenHidden=FALSE)
   
   
   ##### SOUND CALIBRATION ####
@@ -479,15 +470,7 @@ shinyServer(function(input, output, session) {
   
   regressionPlot <- reactive({
     regression_reading_plot(df_list()) +
-      labs(subtitle = "Reading vs crowding") +
-      ggpp::geom_text_npc(aes(
-        npcx = "left",
-        npcy = "bottom",
-        label = paste0("italic('N=')~", n_distinct(
-          df_list()$reading$participant
-        ))
-      ),
-      parse = T)
+      labs(subtitle = "Reading vs crowding")
   })
   regressionAcuityPlot <- reactive({
     regression_acuity_plot(df_list()) +
@@ -560,6 +543,13 @@ shinyServer(function(input, output, session) {
   })
   
   agePlots <- reactive({
+    print('inside agePlots')
+    if (is.null(input$file)) {
+      return(list(
+        plotList = list(),
+        fileNames = list()
+      ))
+    }
     i = 1
     l <- list()
     fileNames <- list()
@@ -639,6 +629,13 @@ shinyServer(function(input, output, session) {
   })
   
   histograms <- reactive({
+    print('inside histograms')
+    if (is.null(input$file)) {
+      return(list(
+        plotList = list(),
+        fileNames = list()
+      ))
+    }
     i = 1
     l <- list()
     fileNames <- list()
@@ -671,19 +668,19 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
 
-    t <- get_fluency_histogram(df_list()$fluency)
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'english-fluency-histogram'
-      i = i + 1
-    }
-
-    t <- get_reading_retention_histogram(df_list()[[1]])
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'reading-retention-histogram'
-      i = i + 1
-    }
+    # t <- get_fluency_histogram(df_list()$fluency)
+    # if (!is.null(t)) {
+    #   l[[i]] = t
+    #   fileNames[[i]] = 'english-fluency-histogram'
+    #   i = i + 1
+    # }
+    # 
+    # t <- get_reading_retention_histogram(df_list()[[1]])
+    # if (!is.null(t)) {
+    #   l[[i]] = t
+    #   fileNames[[i]] = 'reading-retention-histogram'
+    #   i = i + 1
+    # }
 
     return(list(
       plotList = l,
@@ -694,6 +691,12 @@ shinyServer(function(input, output, session) {
   #### scatterDiagrams ####
   
   scatterDiagrams <- reactive({
+    if (is.null(input$file)) {
+      return(list(
+        plotList = list(),
+        fileNames = list()
+      ))
+    }
     i = 1
     l <- list()
     fileNames <- list()
@@ -761,423 +764,14 @@ shinyServer(function(input, output, session) {
   })
   
   
-  #### plot for children
-  observeEvent(input$file, {
-    
-    #### age plots
-    output$plots <- renderUI({
-      out <- list()
-      i = 1
-      while(i <= length(agePlots()$plotList)-1) {
-        out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
-                                            plotOutput(paste0("p", i), width = "100%", height = "100%"),
-                                            plotOutput(paste0("p", i+1), width = "100%", height = "100%"))
-        out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                    downloadButton(paste0("downloadP", i), 'Download'),
-                                    downloadButton(paste0("downloadP", i+1), 'Download'))
-        i = i + 2
-      }
-      if (i == length(agePlots()$plotList)){
-        out[[i]] <-splitLayout(cellWidths = c("50%", "50%"),
-                                          plotOutput(paste0("p", i), width = "100%", height = "100%"))
-        out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                    downloadButton(paste0("downloadP", i), 'Download'))
-      }
-      return(out)
-    })
-    for (j in 1:length(agePlots()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("p", ii)]] <- renderImage({
-          outfile <- tempfile(fileext = '.svg')
-          ggsave(
-            file = outfile,
-            plot = agePlots()$plotList[[ii]] + plt_theme,
-            device = svg,
-            width = 6,
-            height = 6
-          )
-          
-          list(src = outfile,
-               contenttype = 'svg')
-        }, deleteFile = TRUE)
-        
-        output[[paste0("downloadP", ii)]] <- downloadHandler(
-          filename = paste0(
-            experiment_names(),
-            agePlots()$fileNames[[ii]],
-            ii,
-            '.',
-            input$fileType
-          ),
-          content = function(file) {
-            if (input$fileType == "png") {
-              ggsave(
-                "tmp.svg",
-                plot = agePlots()$plotList[[ii]] + plt_theme,
-                height = 6,
-                width = 6,
-                unit = "in",
-                limitsize = F,
-                device = svglite
-              )
-              rsvg::rsvg_png("tmp.svg", file,
-                             height = 1800,
-                             width = 1800)
-            } else {
-              ggsave(
-                file,
-                plot = agePlots()$plotList[[ii]] + plt_theme,
-                height = 6,
-                width = 6,
-                unit = "in",
-                limitsize = F,
-                device = ifelse(
-                  input$fileType == "svg",
-                  svglite::svglite,
-                  input$fileType
-                )
-              )
-            }
-          }
-        )
-      })
-    }
-    
-    output$histograms <- renderUI({
-      out <- list()
-      i = 1
-      
-      while(i <= length(histograms()$plotList)-1) {
-        
-        out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
-                                 plotOutput(paste0("hist", i), width = "100%", height = "100%"),
-                                 plotOutput(paste0("hist", i+1), width = "100%", height = "100%"))
-        out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                    downloadButton(paste0("downloadHist", i), 'Download'),
-                                    downloadButton(paste0("downloadHist", i+1), 'Download'))
-        i = i + 2
-      }
-      if (i == length(histograms()$plotList)){
-        out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
-                               plotOutput(paste0("hist", i), , width = "100%", height = "100%"))
-        out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                    downloadButton(paste0("downloadHist", i), 'Download'))
-      }
-      return(out)
-    })
-    for (j in 1:length(histograms()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("hist", ii)]] <- renderImage({
-          outfile <- tempfile(fileext = '.svg')
-          ggsave(
-            file = outfile,
-            plot = histograms()$plotList[[ii]] + plt_theme,
-            device = svg,
-            width = 6,
-            height = 6
-          )
-          
-          list(src = outfile,
-               contenttype = 'svg')
-        }, deleteFile = TRUE)
-        
-        output[[paste0("downloadHist", ii)]] <- downloadHandler(
-          filename = paste0(
-            experiment_names(),
-            histograms()$fileNames[[ii]],
-            ii,
-            '.',
-            input$fileType
-          ),
-          content = function(file) {
-            if (input$fileType == "png") {
-              ggsave(
-                "tmp.svg",
-                plot = histograms()$plotList[[ii]] + plt_theme,
-                height = 6,
-                width = 6,
-                unit = "in",
-                limitsize = F,
-                device = svglite
-              )
-              rsvg::rsvg_png("tmp.svg", file,
-                             height = 1800,
-                             width = 1800)
-            } else {
-              ggsave(
-                file,
-                plot = histograms()$plotList[[ii]] + plt_theme,
-                height = 6,
-                width = 6,
-                unit = "in",
-                limitsize = F,
-                device = ifelse(
-                  input$fileType == "svg",
-                  svglite::svglite,
-                  input$fileType
-                )
-              )
-            }
-          }
-        )
-      })
-    }
-    
-    
-    output$scatters <- renderUI({
-      out <- list()
-      i = 1
-      while(i <= length(scatterDiagrams()$plotList)-1) {
-        out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
-                                 plotOutput(paste0("scatter", i), width = "100%", height = "100%"),
-                                 plotOutput(paste0("scatter", i+1), width = "100%", height = "100%"))
-        out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                    downloadButton(paste0("downloadScatter", i), 'Download'),
-                                    downloadButton(paste0("downloadScatter", i+1), 'Download'))
-        i = i + 2
-      }
-      if (i == length(scatterDiagrams()$plotList)){
-        out[[i]] <-splitLayout(cellWidths = c("50%", "50%"),
-                               plotOutput(paste0("scatter", i), width = "100%", height = "100%"))
-        out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                    downloadButton(paste0("downloadScatter", i), 'Download'))
-      }
-      return(out)
-    })
-    for (j in 1:length(scatterDiagrams()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("scatter", ii)]] <- renderImage({
-          outfile <- tempfile(fileext = '.svg')
-          ggsave(
-            file = outfile,
-            plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-            device = svg,
-            width = 6,
-            height = 6
-          )
-          
-          list(src = outfile,
-               contenttype = 'svg')
-        }, deleteFile = TRUE)
-        
-        output[[paste0("downloadScatter", ii)]] <- downloadHandler(
-          filename = paste0(
-            experiment_names(),
-            scatterDiagrams()$fileNames[[ii]],
-            ii,
-            '.',
-            input$fileType
-          ),
-          content = function(file) {
-            if (input$fileType == "png") {
-              ggsave(
-                "tmp.svg",
-                plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-                height = 6,
-                width = 6,
-                unit = "in",
-                limitsize = F,
-                device = svglite
-              )
-              rsvg::rsvg_png("tmp.svg", file,
-                             height = 1800,
-                             width = 1800)
-            } else {
-              ggsave(
-                file,
-                plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-                height = 6,
-                width = 6,
-                unit = "in",
-                limitsize = F,
-                device = ifelse(
-                  input$fileType == "svg",
-                  svglite::svglite,
-                  input$fileType
-                )
-              )
-            }
-          }
-        )
-      })
-    }
-    
-    
-    #### grade plots
-    plots <- plot_rsvp_crowding_acuity(df_list(), files()$df, files()$pretest)
-    print('done plots')
-    output$fileUploaded <- reactive({
-      return(nrow(files()$pretest>0))
-    })
-    outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
-    
-    
-    output$crowdingGradePlot <-renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot =  plots[[1]] + plt_theme,
-        device = svg,
-        width = 6,
-        height = 4
-      )
-      
-      list(src = outfile,
-           contenttype = 'svg')
-    }, deleteFile = TRUE)
-    
-    output$rsvpGradePlot <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot =  plots[[2]] + plt_theme,
-        device = svg,
-        width = 6,
-        height = 4
-      )
-      
-      list(src = outfile,
-           contenttype = 'svg')
-    }, deleteFile = TRUE)
-    
-    output$acuityGradePlot <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot =  plots[[3]] + plt_theme,
-        device = svg,
-        width = 6,
-        height = 4
-      )
-      list(src = outfile,
-           contenttype = 'svg')
-    }, deleteFile = TRUE)
-    
-    
-    output$downloadCrowdingGradePlot <- downloadHandler(
-      filename = paste0(
-        experiment_names(),
-        'crowding-vs-grade',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot =   plots[[1]] + plt_theme,
-            height = 4,
-            width = 6,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg", file,
-                         height = 1200,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = plots[[1]] + plt_theme,
-            height = 4,
-            width = 6,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
-          )
-        }
-      }
-    )
-
-    output$downloadRsvpGradePlot <- downloadHandler(
-      filename = paste0(
-        experiment_names(),
-        'rsvp-vs-grade',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = plots[[2]] + plt_theme,
-            height = 4,
-            width = 6,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg", file,
-                         height = 1200,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = plots[[2]] + plt_theme,
-            height = 4,
-            width = 6,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
-          )
-        }
-      }
-    )
-
-    output$downloadAcuityGradePlot <- downloadHandler(
-      filename = paste0(
-       experiment_names(),
-       'acuity-vs-grade',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = plots[[3]] + plt_theme,
-            height = 4,
-            width = 6,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg", file,
-                         height = 1200,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = plots[[3]] + plt_theme,
-            height = 4,
-            width = 6,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileProfile
-            )
-          )
-        }
-      }
-    )
-    
-    
-    
-    
+  gradePlots <- reactive({
+    plot_rsvp_crowding_acuity(df_list(), files()$df, files()$pretest)
   })
+  
+  output$isPeripheralAcuity <- reactive({
+    return(FALSE)
+  })
+  outputOptions(output, 'isPeripheralAcuity', suspendWhenHidden=FALSE)
   
   #### IR and IIR json ####
   observeEvent(input$do, {
@@ -1850,8 +1444,8 @@ shinyServer(function(input, output, session) {
                  } else{
                    combinedTable <- combineProlific(NULL, summary_table())[[1]]
                  }
-                 
-                 participants <- 
+
+                 participants <-
                    unique(combinedTable$`Pavlovia session ID`)
                  prolific_id <-
                    unique(combinedTable$`Prolific participant ID`)
@@ -1870,7 +1464,7 @@ shinyServer(function(input, output, session) {
                  output$ex4 <-
                    renderTable(threshold_and_warnings()[[3]])
                  #### stairPlots ####
-                   
+
                  # output$p1 <- renderImage({
                  #   if (stairPlots()[[4]]) {
                  #     p <- (stairPlots()[[1]][[1]] + plt_theme) / (stairPlots()[[1]][[2]] + plt_theme) / (stairPlots()[[1]][[3]] + plt_theme)
@@ -1886,7 +1480,7 @@ shinyServer(function(input, output, session) {
                  #     height = 4
                  #   )
                  # })
-                 # 
+                 #
                  # output$p2 <- renderImage({
                  #   outfile <- tempfile(fileext = '.svg')
                  #   ggsave(
@@ -1896,9 +1490,9 @@ shinyServer(function(input, output, session) {
                  #     width = 6,
                  #     height = 4
                  #   )
-                 #   
+                 #
                  # })
-                 # 
+                 #
                  # output$p3 <- renderImage({
                  #   outfile <- tempfile(fileext = '.svg')
                  #   ggsave(
@@ -1909,10 +1503,10 @@ shinyServer(function(input, output, session) {
                  #     height = 4
                  #   )
                  #  }, deleteFile = T)
-                 
+
                  #### plots ####
-                 
-                 
+
+
                  output$corrMatrixPlot <- renderImage({
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
@@ -1935,8 +1529,8 @@ shinyServer(function(input, output, session) {
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
-                 
-                 
+
+
                  output$meanPlot <- renderImage({
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
@@ -1949,7 +1543,7 @@ shinyServer(function(input, output, session) {
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
-                 
+
                  output$medianPlot <- renderImage({
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
@@ -1963,7 +1557,7 @@ shinyServer(function(input, output, session) {
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
                  #### regression plots #####
-                
+
                  output$regressionPlot <-  renderImage({
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
@@ -1973,11 +1567,11 @@ shinyServer(function(input, output, session) {
                      width = 6,
                      height = 4
                    )
-                   
+
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
-                 
+
                  output$regressionAcuityPlot <-  renderImage({
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
@@ -1987,27 +1581,27 @@ shinyServer(function(input, output, session) {
                      width = 6,
                      height = 4
                    )
-                   
+
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
-                 
+
                  output$readingRSVP <- renderImage({
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
                      file = outfile,
                      plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp) +
-                       plt_theme + 
+                       plt_theme +
                        coord_fixed(ratio = 1),
                      device = svg,
                      width = 6,
                      height = 4
                    )
-                   
+
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
-                 
+
                  #### crowding ####
                  output$crowdingScatterPlot <- renderImage({
                    outfile <- tempfile(fileext = '.svg')
@@ -2018,12 +1612,12 @@ shinyServer(function(input, output, session) {
                      width = 6,
                      height = 4
                    )
-                   
+
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
-                 
-                 output$crowdingAvgPlot <- 
+
+                 output$crowdingAvgPlot <-
                    renderImage({
                      outfile <- tempfile(fileext = '.svg')
                      ggsave(
@@ -2033,13 +1627,13 @@ shinyServer(function(input, output, session) {
                        width = 6,
                        height = 4
                      )
-                     
+
                      list(src = outfile,
                           contenttype = 'svg')
                    }, deleteFile = TRUE)
-                 
-                 
-                 output$SloanVsTimesMeanPlot <- 
+
+
+                 output$SloanVsTimesMeanPlot <-
                    renderImage({
                      outfile <- tempfile(fileext = '.svg')
                      ggsave(
@@ -2052,11 +1646,11 @@ shinyServer(function(input, output, session) {
                        width = 7,
                        height = 4
                      )
-                     
+
                      list(src = outfile,
                           contenttype = 'svg')
                    }, deleteFile = TRUE)
-                 
+
                  output$SloanVsTimesSDPlot <- renderImage({
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
@@ -2072,28 +1666,28 @@ shinyServer(function(input, output, session) {
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
-                
-                 
-                 output$repeatedLetterCrowdingPlot <- 
+
+
+                 output$repeatedLetterCrowdingPlot <-
                    renderImage({
                      outfile <- tempfile(fileext = '.svg')
                      ggsave(
                        file = outfile,
-                       plot =  get_crowding_vs_repeatedLetter(df_list()$crowding, 
+                       plot =  get_crowding_vs_repeatedLetter(df_list()$crowding,
                                                               df_list()$repeatedLetters,
-                                                              files()$pretest) + 
+                                                              files()$pretest) +
                          plt_theme,
                        device = svg,
                        width = 7,
                        height = 4
                      )
-                     
+
                      list(src = outfile,
                           contenttype = 'svg')
                    }, deleteFile = TRUE)
-                 
+
                  #### rsvp vs crowding ####
-                 
+
                  output$rsvpCrowdingPeripheralAgePlot <- renderPlotly({
                    rsvpCrowding()[[1]]
                  })
@@ -2101,35 +1695,325 @@ shinyServer(function(input, output, session) {
                  output$rsvpCrowdingFovealAgePlot <- renderPlotly({
                    rsvpCrowding()[[2]]
                  })
-                 
+
                  output$rsvpCrowdingPeripheralGradePlot <- renderPlotly({
                    rsvpCrowding()[[3]]
                  })
-                 
+
                  output$rsvpCrowdingFovealGradePlot <- renderPlotly({
                    rsvpCrowding()[[4]]
                  })
-                 
+
                  output$rsvpFovealAcuityAgePlot <- renderPlotly({
                    rsvpAcuityFoveal()[[1]]
                  })
-                 
+
                  output$rsvpFovealAcuityGradePlot <- renderPlotly({
                    rsvpAcuityFoveal()[[2]]
                  })
-                 
-                 
+
+
                  output$rsvpPeripheralAcuityAgePlot <- renderPlotly({
                    rsvpAcuityPeripheral()[[1]]
                  })
-                 
+
                  output$rsvpPeripheralAcuityGradePlot <- renderPlotly({
                    rsvpAcuityPeripheral()[[2]]
                  })
                  
+                 #### age plots ####
+                 output$plots <- renderUI({
+                   out <- list()
+                   i = 1
+                   while(i <= length(agePlots()$plotList)-1) {
+                     out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
+                                              shinycssloaders::withSpinner(plotOutput(paste0("p", i), width = "100%", height = "100%"), type = 4),
+                                              shinycssloaders::withSpinner(plotOutput(paste0("p", i+1), width = "100%", height = "100%"), type = 4))
+                     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                                 downloadButton(paste0("downloadP", i), 'Download'),
+                                                 downloadButton(paste0("downloadP", i+1), 'Download'))
+                     i = i + 2
+                   }
+                   if (i == length(agePlots()$plotList)){
+                     out[[i]] <-splitLayout(cellWidths = c("50%", "50%"),
+                                            shinycssloaders::withSpinner(plotOutput(paste0("p", i), width = "100%", height = "100%"),type = 4))
+                     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                                 downloadButton(paste0("downloadP", i), 'Download'))
+                   }
+                   return(out)
+                 })
+                 for (j in 1:length(agePlots()$plotList)) {
+                   local({
+                     ii <- j
+                     output[[paste0("p", ii)]] <- renderImage({
+                       outfile <- tempfile(fileext = '.svg')
+                       ggsave(
+                         file = outfile,
+                         plot = agePlots()$plotList[[ii]] + plt_theme,
+                         device = svg,
+                         width = 6,
+                         height = 6
+                       )
+                       
+                       list(src = outfile,
+                            contenttype = 'svg')
+                     }, deleteFile = TRUE)
+                     
+                     output[[paste0("downloadP", ii)]] <- downloadHandler(
+                       filename = paste0(
+                         experiment_names(),
+                         agePlots()$fileNames[[ii]],
+                         ii,
+                         '.',
+                         input$fileType
+                       ),
+                       content = function(file) {
+                         if (input$fileType == "png") {
+                           ggsave(
+                             "tmp.svg",
+                             plot = agePlots()$plotList[[ii]] + plt_theme,
+                             height = 6,
+                             width = 6,
+                             unit = "in",
+                             limitsize = F,
+                             device = svglite
+                           )
+                           rsvg::rsvg_png("tmp.svg", file,
+                                          height = 1800,
+                                          width = 1800)
+                         } else {
+                           ggsave(
+                             file,
+                             plot = agePlots()$plotList[[ii]] + plt_theme,
+                             height = 6,
+                             width = 6,
+                             unit = "in",
+                             limitsize = F,
+                             device = ifelse(
+                               input$fileType == "svg",
+                               svglite::svglite,
+                               input$fileType
+                             )
+                           )
+                         }
+                       }
+                     )
+                   })
+                 }
+                 
+                 output$histograms <- renderUI({
+                   out <- list()
+                   i = 1
+                   
+                   while(i <= length(histograms()$plotList)-1) {
+                     
+                     out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
+                                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "100%", height = "100%"), type = 4),
+                                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i+1), width = "100%", height = "100%"), type = 4))
+                     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                                 downloadButton(paste0("downloadHist", i), 'Download'),
+                                                 downloadButton(paste0("downloadHist", i+1), 'Download'))
+                     i = i + 2
+                   }
+                   if (i == length(histograms()$plotList)){
+                     out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                             shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "100%", height = "100%"), type = 4))
+                     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                                 downloadButton(paste0("downloadHist", i), 'Download'))
+                   }
+                   return(out)
+                 })
+                 for (j in 1:length(histograms()$plotList)) {
+                   local({
+                     ii <- j
+                     output[[paste0("hist", ii)]] <- renderImage({
+                       outfile <- tempfile(fileext = '.svg')
+                       ggsave(
+                         file = outfile,
+                         plot = histograms()$plotList[[ii]] + plt_theme,
+                         device = svg,
+                         width = 6,
+                         height = 6
+                       )
+                       
+                       list(src = outfile,
+                            contenttype = 'svg')
+                     }, deleteFile = TRUE)
+                     
+                     output[[paste0("downloadHist", ii)]] <- downloadHandler(
+                       filename = paste0(
+                         experiment_names(),
+                         histograms()$fileNames[[ii]],
+                         ii,
+                         '.',
+                         input$fileType
+                       ),
+                       content = function(file) {
+                         if (input$fileType == "png") {
+                           ggsave(
+                             "tmp.svg",
+                             plot = histograms()$plotList[[ii]] + plt_theme,
+                             height = 6,
+                             width = 6,
+                             unit = "in",
+                             limitsize = F,
+                             device = svglite
+                           )
+                           rsvg::rsvg_png("tmp.svg", file,
+                                          height = 1800,
+                                          width = 1800)
+                         } else {
+                           ggsave(
+                             file,
+                             plot = histograms()$plotList[[ii]] + plt_theme,
+                             height = 6,
+                             width = 6,
+                             unit = "in",
+                             limitsize = F,
+                             device = ifelse(
+                               input$fileType == "svg",
+                               svglite::svglite,
+                               input$fileType
+                             )
+                           )
+                         }
+                       }
+                     )
+                   })
+                 }
                  
                  
+                 output$scatters <- renderUI({
+                   out <- list()
+                   i = 1
+                   while(i <= length(scatterDiagrams()$plotList)-1) {
+                     out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
+                                              shinycssloaders::withSpinner(plotOutput(paste0("scatter", i), width = "100%", height = "100%"),type=4),
+                                              shinycssloaders::withSpinner(plotOutput(paste0("scatter", i+1), width = "100%", height = "100%"),type=4))
+                     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                                 downloadButton(paste0("downloadScatter", i), 'Download'),
+                                                 downloadButton(paste0("downloadScatter", i+1), 'Download'))
+                     i = i + 2
+                   }
+                   if (i == length(scatterDiagrams()$plotList)){
+                     out[[i]] <-splitLayout(cellWidths = c("50%", "50%"),
+                                            shinycssloaders::withSpinner(plotOutput(paste0("scatter", i), width = "100%", height = "100%"),type=4))
+                     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                                 downloadButton(paste0("downloadScatter", i), 'Download'))
+                   }
+                   return(out)
+                 })
+                 for (j in 1:length(scatterDiagrams()$plotList)) {
+                   local({
+                     ii <- j
+                     output[[paste0("scatter", ii)]] <- renderImage({
+                       outfile <- tempfile(fileext = '.svg')
+                       ggsave(
+                         file = outfile,
+                         plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+                         device = svg,
+                         width = 6,
+                         height = 6
+                       )
+                       
+                       list(src = outfile,
+                            contenttype = 'svg')
+                     }, deleteFile = TRUE)
+                     
+                     output[[paste0("downloadScatter", ii)]] <- downloadHandler(
+                       filename = paste0(
+                         experiment_names(),
+                         scatterDiagrams()$fileNames[[ii]],
+                         ii,
+                         '.',
+                         input$fileType
+                       ),
+                       content = function(file) {
+                         if (input$fileType == "png") {
+                           ggsave(
+                             "tmp.svg",
+                             plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+                             height = 6,
+                             width = 6,
+                             unit = "in",
+                             limitsize = F,
+                             device = svglite
+                           )
+                           rsvg::rsvg_png("tmp.svg", file,
+                                          height = 1800,
+                                          width = 1800)
+                         } else {
+                           ggsave(
+                             file,
+                             plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+                             height = 6,
+                             width = 6,
+                             unit = "in",
+                             limitsize = F,
+                             device = ifelse(
+                               input$fileType == "svg",
+                               svglite::svglite,
+                               input$fileType
+                             )
+                           )
+                         }
+                       }
+                     )
+                   })
+                 }
                  
+                 
+                 #### grade plots
+                 
+                 print('done plots')
+                 output$fileUploaded <- reactive({
+                   return(nrow(files()$pretest>0))
+                 })
+                 outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
+                 
+                 
+                 output$crowdingGradePlot <-renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot =  gradePlots()[[1]] + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 output$rsvpGradePlot <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot = gradePlots()[[2]] + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+                 
+                 output$acuityGradePlot <- renderImage({
+                   outfile <- tempfile(fileext = '.svg')
+                   ggsave(
+                     file = outfile,
+                     plot = gradePlots()[[3]] + plt_theme,
+                     device = svg,
+                     width = 6,
+                     height = 4
+                   )
+                   list(src = outfile,
+                        contenttype = 'svg')
+                 }, deleteFile = TRUE)
+
+
                  # output$rsvpCrowdingPeripheralPlot <- renderImage({
                  #   outfile <- tempfile(fileext = '.svg')
                  #   ggsave(
@@ -2139,11 +2023,11 @@ shinyServer(function(input, output, session) {
                  #     width = 6,
                  #     height = 4
                  #   )
-                 #   
+                 #
                  #   list(src = outfile,
                  #        contenttype = 'svg')
                  # }, deleteFile = TRUE)
-                 # 
+                 #
                  # output$rsvpCrowdingFovealPlot <-renderImage({
                  #   outfile <- tempfile(fileext = '.svg')
                  #   ggsave(
@@ -2153,11 +2037,11 @@ shinyServer(function(input, output, session) {
                  #     width = 6,
                  #     height = 4
                  #   )
-                 #   
+                 #
                  #   list(src = outfile,
                  #        contenttype = 'svg')
                  # }, deleteFile = TRUE)
-                 
+
                  #### test retest ####
                  output$readingTestRetest <- renderImage({
                    outfile <- tempfile(fileext = '.svg')
@@ -2172,9 +2056,9 @@ shinyServer(function(input, output, session) {
                      list(src = outfile,
                           contenttype = 'svg')
                    }, deleteFile = TRUE)
-                 
+
                  output$crowdingTestRetest <- renderImage({
-                   
+
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
                      file = outfile,
@@ -2183,13 +2067,13 @@ shinyServer(function(input, output, session) {
                      width = 6,
                      height = 4
                    )
-                   
+
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
-                
+
                  output$rsvpReadingTestRetest <- renderImage({
-                   
+
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
                      file = outfile,
@@ -2198,13 +2082,13 @@ shinyServer(function(input, output, session) {
                      width = 6,
                      height = 4
                    )
-                   
+
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
-                 
+
                  output$readingSpeedRetention <- renderImage({
-                   
+
                    outfile <- tempfile(fileext = '.svg')
                    ggsave(
                      file = outfile,
@@ -2213,11 +2097,11 @@ shinyServer(function(input, output, session) {
                      width = 6,
                      height = 4
                    )
-                   
+
                    list(src = outfile,
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
-                 
+
                }
                )
   
@@ -2253,6 +2137,7 @@ shinyServer(function(input, output, session) {
   
   
   #### download handlers ####
+ 
   output$sessionCsv <- downloadHandler(
     filename = function() {
       ifelse(
@@ -2338,9 +2223,11 @@ shinyServer(function(input, output, session) {
     }
   )
   #### update download handler ####
+  
   toListen <- reactive({
     list(input$file, input$fileType)
   })
+  
   
   
   toListenSound <- reactive({
@@ -3113,6 +3000,261 @@ shinyServer(function(input, output, session) {
   # download plots handlers
   
   observeEvent(toListen(), {
+    
+    ##### download handler for grade plots #####
+    
+    output$downloadCrowdingGradePlot <- downloadHandler(
+      filename = paste0(
+        experiment_names(),
+        'crowding-vs-grade',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = gradePlots()[[1]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1200,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = gradePlots()[[1]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+    
+    output$downloadRsvpGradePlot <- downloadHandler(
+      filename = paste0(
+        experiment_names(),
+        'rsvp-vs-grade',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = gradePlots()[[2]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1200,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = gradePlots()[[2]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+    
+    output$downloadAcuityGradePlot <- downloadHandler(
+      filename = paste0(
+        experiment_names(),
+        'acuity-vs-grade',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = gradePlots()[[3]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1200,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = gradePlots()[[3]] + plt_theme,
+            height = 4,
+            width = 6,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileProfile
+            )
+          )
+        }
+      }
+    )
+    
+    ##### renderUI download handlers #####
+    
+    for (j in 1:length(agePlots()$plotList)) {
+      local({
+        ii <- j
+        
+        output[[paste0("downloadP", ii)]] <- downloadHandler(
+          filename = paste0(
+            experiment_names(),
+            agePlots()$fileNames[[ii]],
+            '.',
+            input$fileType
+          ),
+          content = function(file) {
+            if (input$fileType == "png") {
+              ggsave(
+                "tmp.svg",
+                plot = agePlots()$plotList[[ii]] + plt_theme,
+                height = 6,
+                width = 6,
+                unit = "in",
+                limitsize = F,
+                device = svglite
+              )
+              rsvg::rsvg_png("tmp.svg", file,
+                             height = 1800,
+                             width = 1800)
+            } else {
+              ggsave(
+                file,
+                plot = agePlots()$plotList[[ii]] + plt_theme,
+                height = 6,
+                width = 6,
+                unit = "in",
+                limitsize = F,
+                device = ifelse(
+                  input$fileType == "svg",
+                  svglite::svglite,
+                  input$fileType
+                )
+              )
+            }
+          }
+        )
+      })
+    }
+    for (j in 1:length(histograms()$plotList)) {
+      local({
+        ii <- j
+
+        
+        output[[paste0("downloadHist", ii)]] <- downloadHandler(
+          filename = paste0(
+            experiment_names(),
+            histograms()$fileNames[[ii]],
+            '.',
+            input$fileType
+          ),
+          content = function(file) {
+            if (input$fileType == "png") {
+              ggsave(
+                "tmp.svg",
+                plot = histograms()$plotList[[ii]] + plt_theme,
+                height = 6,
+                width = 6,
+                unit = "in",
+                limitsize = F,
+                device = svglite
+              )
+              rsvg::rsvg_png("tmp.svg", file,
+                             height = 1800,
+                             width = 1800)
+            } else {
+              ggsave(
+                file,
+                plot = histograms()$plotList[[ii]] + plt_theme,
+                height = 6,
+                width = 6,
+                unit = "in",
+                limitsize = F,
+                device = ifelse(
+                  input$fileType == "svg",
+                  svglite::svglite,
+                  input$fileType
+                )
+              )
+            }
+          }
+        )
+      })
+    }
+    for (j in 1:length(scatterDiagrams()$plotList)) {
+      local({
+        ii <- j
+        
+        output[[paste0("downloadScatter", ii)]] <- downloadHandler(
+          filename = paste0(
+            experiment_names(),
+            scatterDiagrams()$fileNames[[ii]],
+            '.',
+            input$fileType
+          ),
+          content = function(file) {
+            if (input$fileType == "png") {
+              ggsave(
+                "tmp.svg",
+                plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+                height = 6,
+                width = 6,
+                unit = "in",
+                limitsize = F,
+                device = svglite
+              )
+              rsvg::rsvg_png("tmp.svg", file,
+                             height = 1800,
+                             width = 1800)
+            } else {
+              ggsave(
+                file,
+                plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+                height = 6,
+                width = 6,
+                unit = "in",
+                limitsize = F,
+                device = ifelse(
+                  input$fileType == "svg",
+                  svglite::svglite,
+                  input$fileType
+                )
+              )
+            }
+          }
+        )
+      })
+    }
     # output$downloadP1 <- downloadHandler(
     #   filename = paste(
     #     app_title$default,
@@ -3230,7 +3372,6 @@ shinyServer(function(input, output, session) {
     
     output$downloadCorrMatrixPlot <- downloadHandler(
       filename = paste0(
-        experiment_names(),
         'correlation-matrix',
         '.',
         input$fileType
@@ -3380,7 +3521,7 @@ shinyServer(function(input, output, session) {
                          width = 1800, height = 1800)
         } else {
           ggsave(
-            file = outfile,
+            file = file,
             plot = regressionPlot() + 
               plt_theme + 
               coord_fixed(ratio = 1),
@@ -3414,7 +3555,7 @@ shinyServer(function(input, output, session) {
                          width = 1800, height = 1800)
         } else {
           ggsave(
-            file = outfile,
+            file = file,
             plot = regressionAcuityPlot() + 
               plt_theme + 
               coord_fixed(ratio = 1),
@@ -3528,7 +3669,7 @@ shinyServer(function(input, output, session) {
                          width = 1800, height = 1800)
         } else {
           ggsave(
-            file = outfile,
+            file = file,
             plot = rsvpCrowding()[[1]] + 
               plt_theme,
             device = svg,
@@ -3559,7 +3700,7 @@ shinyServer(function(input, output, session) {
                          width = 1800, height = 1800)
         } else {
           ggsave(
-            file = outfile,
+            file = file,
             plot = rsvpCrowding()[[2]] + 
               plt_theme,
             device = svg,
@@ -3590,7 +3731,7 @@ shinyServer(function(input, output, session) {
                          width = 1800, height = 1800)
         } else {
           ggsave(
-            file = outfile,
+            file = file,
             plot = rsvpCrowding()[[3]] + 
               plt_theme,
             device = svg,
@@ -3621,7 +3762,7 @@ shinyServer(function(input, output, session) {
                          width = 1800, height = 1800)
         } else {
           ggsave(
-            file = outfile,
+            file = file,
             plot = rsvpCrowding()[[4]] + 
               plt_theme,
             device = svg,
@@ -3652,7 +3793,7 @@ shinyServer(function(input, output, session) {
                          width = 1800, height = 1800)
         } else {
           ggsave(
-            file = outfile,
+            file = file,
             plot = rsvpAcuityFoveal()[[1]] + 
               plt_theme,
             device = svg,
@@ -3683,7 +3824,7 @@ shinyServer(function(input, output, session) {
                          width = 1800, height = 1800)
         } else {
           ggsave(
-            file = outfile,
+            file = file,
             plot = rsvpAcuityFoveal()[[2]] + 
               plt_theme,
             device = svg,
@@ -3716,7 +3857,7 @@ shinyServer(function(input, output, session) {
                          width = 1800, height = 1800)
         } else {
           ggsave(
-            file = outfile,
+            file = file,
             plot = rsvpAcuityPeripheral()[[1]] + 
               plt_theme,
             device = svg,
@@ -3747,7 +3888,7 @@ shinyServer(function(input, output, session) {
                          width = 1800, height = 1800)
         } else {
           ggsave(
-            file = outfile,
+            file = file,
             plot = rsvpAcuityPeripheral()[[2]] + 
               plt_theme,
             device = svg,
@@ -3840,6 +3981,37 @@ shinyServer(function(input, output, session) {
       }
     )
     
+    
+    output$downloadRLAge <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('repeated-letter-vs-age.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = get_repeatedLetter_vs_age(df_list()$repeatedLetters) + 
+              plt_theme,
+            width = 7,
+            height = 4,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 1800, height = 1800)
+        } else {
+          ggsave(
+            file = file,
+            plot =  get_repeatedLetter_vs_age(df_list()$repeatedLetters) + 
+              plt_theme,
+            device = input$fileType,
+            width = 7,
+            height = 4
+          )
+        }
+      }
+    )
   })
   
   # download jupyter notebook handler
@@ -3854,38 +4026,6 @@ shinyServer(function(input, output, session) {
   )
   
 
-  ###### british children ####
-  
-  output$downloadRLAge <- downloadHandler(
-    filename = paste(
-      app_title$default,
-      paste0('repeated-letter-vs-age.', input$fileType),
-      sep = "-"
-    ),
-    content = function(file) {
-      if (input$fileType == "png") {
-        ggsave(
-          "tmp.svg",
-          plot = get_repeatedLetter_vs_age(df_list()$repeatedLetters) + 
-            plt_theme,
-          width = 7,
-          height = 4,
-          device = svglite
-        )
-        rsvg::rsvg_png("tmp.svg", file,
-                       width = 1800, height = 1800)
-      } else {
-        ggsave(
-          file = outfile,
-          plot =  get_repeatedLetter_vs_age(df_list()$repeatedLetters) + 
-            plt_theme,
-          device = input$fileType,
-          width = 7,
-          height = 4
-        )
-      }
-    }
-  )
   
 })
 

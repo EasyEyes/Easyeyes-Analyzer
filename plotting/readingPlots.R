@@ -171,13 +171,16 @@ plot_60cm_speed_diff_vs_age <- function(rsvp_speed){
 
 
 plot_reading_age <- function(reading){
-  t <- reading %>% filter(!is.na(age))
+  t <- reading %>% 
+    filter(!is.na(age)) %>% 
+    mutate(N=paste0('N=',n()))
   if (nrow(t) == 0) {
    NULL
   } else {
     p <-  ggplot(t, aes(x = age, y = 10^(log_WPM))) +
       scale_y_log10() + 
       geom_point() +
+      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
       labs(title = 'Reading vs age',
            x = 'Age',
@@ -187,16 +190,19 @@ plot_reading_age <- function(reading){
 }
 
 plot_rsvp_age <- function(rsvp){
-  t <- rsvp %>% filter(!is.na(age))
+  t <- rsvp %>% 
+    filter(!is.na(age)) %>% 
+    mutate(N=paste0('N=',n()))
 
   if (nrow(t) == 0) {
    return(NULL)
   } else {
     p <-  ggplot(t, aes(x = age, y = 10^(block_avg_log_WPM))) +
+      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       scale_y_log10() + 
       geom_point() +
       theme_bw() +
-      labs(title = 'Rsvp reading vs age',
+      labs(title = 'RSVP reading vs age',
            x = 'Age',
            y = 'RSVP reading speed (w/min)')
     return(p)
@@ -220,10 +226,13 @@ plot_reading_rsvp <- function(reading,rsvp){
     mutate(log_WPM = log10(avg_wordPerMin)) %>% 
     group_by(participant, targetKind) %>% 
     summarize(avg_log_WPM = mean(log10(avg_wordPerMin))) %>% 
-    left_join(rsvp, by = 'participant')
+    left_join(rsvp, by = 'participant') %>% 
+    ungroup() %>% 
+    mutate(N = paste0('N=',n()))
   
   p <- ggplot(t,aes(x = 10^(avg_log_WPM.y), y = 10^(avg_log_WPM.x))) + 
     geom_point() +
+    ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10() + 
     scale_y_log10() +

@@ -184,11 +184,13 @@ get_two_fonts_plots <- function(crowding) {
 
 get_foveal_crowding_vs_age <- function(crowding) {
   t <- crowding %>% filter(!is.na(age),
-                           targetEccentricityXDeg == 0)
+                           targetEccentricityXDeg == 0) %>% 
+    mutate(N = paste0('N=',n()))
   if (nrow(t) == 0) {
     return(NULL)
   } else {
     p <-  ggplot(t, aes(x = age, y = 10^(log_crowding_distance_deg))) +
+      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       geom_point() +
       theme_bw() +
       labs(title = 'Foveal crowding vs age',
@@ -200,12 +202,14 @@ get_foveal_crowding_vs_age <- function(crowding) {
 
 get_peripheral_crowding_vs_age <- function(crowding) {
   t <- crowding %>% filter(!is.na(age),
-                           targetEccentricityXDeg != 0)
+                           targetEccentricityXDeg != 0) %>% 
+    mutate(N = paste0('N=',n()))
   if (nrow(t) == 0) {
     return(NULL)
   } else {
     p <-  ggplot(t, aes(x = age, y = 10^(log_crowding_distance_deg))) +
       geom_point() +
+      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
       labs(title = 'Peripheral crowding vs age',
            x = 'Age',
@@ -215,13 +219,15 @@ get_peripheral_crowding_vs_age <- function(crowding) {
 }
 
 get_repeatedLetter_vs_age <- function(repeatedLetters) {
-  t <- repeatedLetters %>% filter(!is.na(age))
+  t <- repeatedLetters %>% filter(!is.na(age)) %>% 
+    mutate(N = paste0('N=',n()))
   if (nrow(t) == 0) {
     return(NULL)
   } else {
     p <-  ggplot(t, aes(x = age, y = 10^(log_crowding_distance_deg))) +
       scale_y_log10() + 
       geom_point() +
+      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
       labs(title = 'Repeated-letter crowding vs age',
            x = 'Age',
@@ -235,7 +241,8 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters, pretest) {
     rename('repeatedLetters' = 'log_crowding_distance_deg') %>% 
     select(participant, order, repeatedLetters) %>% 
     left_join(crowding, by = 'participant', 'order') %>% 
-    mutate(age = format(age, nsmall=2))
+    mutate(age = format(age, nsmall=2),
+           N = paste0('N=',n()))
   
   if (nrow(t) == 0) {
     return(list(age = NULL, grade = NULL))
@@ -245,6 +252,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters, pretest) {
         mutate(Grade = as.character(Grade))
       p <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters), color = age)) +
       p1 <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters), color = age)) +
+        ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
         geom_point() +
         scale_y_log10() + 
         scale_x_log10() + 
@@ -266,6 +274,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters, pretest) {
   
   } 
   p <- p + 
+    ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
     geom_point() +
     scale_y_log10() + 
     scale_x_log10() + 
@@ -290,7 +299,8 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
       filter(targetEccentricityXDeg == 0) %>% 
       select(participant, log_acuity) %>% 
       left_join(foveal, by = 'participant') %>% 
-      mutate(age = format(age,nsmall=2))
+      mutate(age = format(age,nsmall=2),
+             N = paste0('N=',n()))
     if (nrow(foveal_acuity) == 0 ) {
       p <- NULL
       p1 <- NULL
@@ -312,10 +322,11 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
                                         shape = `Skilled reader?`,
                                         color = Grade)) + 
           geom_point() +
+          ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
           scale_x_log10() + 
           scale_y_log10() + 
           theme_bw() +
-          scale_shape_manual(values = c(17,19)) + 
+          scale_shape_manual(values = c(4,19)) + 
           annotation_logticks(short = unit(0.1, "cm"),                                                
                               mid = unit(0.1, "cm"),
                               long = unit(0.3, "cm")) + 
@@ -341,11 +352,12 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
         
       }
       p <- p + 
+        ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
         geom_point() +
         scale_x_log10() + 
         scale_y_log10() + 
         theme_bw() +
-        scale_shape_manual(values = c(17,19)) + 
+        scale_shape_manual(values = c(4,19)) + 
         annotation_logticks(short = unit(0.1, "cm"),                                                
                             mid = unit(0.1, "cm"),
                             long = unit(0.3, "cm")) + 
@@ -356,7 +368,8 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
       rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>% 
       filter(targetEccentricityXDeg != 0) %>% 
       select(participant, log_acuity) %>% 
-      left_join(foveal, by = 'participant')
+      left_join(foveal, by = 'participant') %>% 
+      mutate(N = paste0('N=',n()))
     if (nrow(peripheral_acuity) == 0 ) {
       p2 <- NULL
       p3 <- NULL
@@ -372,10 +385,11 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
                                              shape = `Skilled reader?`,
                                              color = Grade)) + 
           geom_point() +
+          ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
           scale_x_log10() + 
           scale_y_log10() + 
           theme_bw() +
-          scale_shape_manual(values = c(17,19)) + 
+          scale_shape_manual(values = c(4,19)) + 
           annotation_logticks(short = unit(0.1, "cm"),                                                
                               mid = unit(0.1, "cm"),
                               long = unit(0.3, "cm")) + 
@@ -396,10 +410,11 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
       }
       p2 <- p2 + 
         geom_point() +
+        ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
         scale_x_log10() + 
         scale_y_log10() + 
         theme_bw() +
-        scale_shape_manual(values = c(17,19)) + 
+        scale_shape_manual(values = c(4,19)) + 
         annotation_logticks(short = unit(0.1, "cm"),                                                
                             mid = unit(0.1, "cm"),
                             long = unit(0.3, "cm")) + 
@@ -433,7 +448,8 @@ get_foveal_peripheral_diag <- function(crowding, pretest) {
       select(foveal, participant, order) %>% 
       left_join(peripheral,by = 'participant', 'order') %>% 
       rename('peripheral' = 'log_crowding_distance_deg') %>% 
-      mutate(age = format(age,nsmall=2))
+      mutate(age = format(age,nsmall=2),
+             N = paste0('N=',n()))
     if (nrow(pretest) > 0) {
       t <- t %>% left_join(pretest, by ='participant') %>% 
         mutate(Grade = as.character(Grade))
@@ -445,11 +461,12 @@ get_foveal_peripheral_diag <- function(crowding, pretest) {
                           x = 10^(peripheral),
                           shape = `Skilled reader?`,
                           color = Grade)) + 
+        ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
         geom_point() +
         scale_x_log10() + 
         scale_y_log10() + 
         theme_bw() +
-        scale_shape_manual(values = c(17,19)) + 
+        scale_shape_manual(values = c(4,19)) + 
         annotation_logticks(short = unit(0.1, "cm"),                                                
                             mid = unit(0.1, "cm"),
                             long = unit(0.3, "cm")) + 
@@ -468,11 +485,12 @@ get_foveal_peripheral_diag <- function(crowding, pretest) {
          }
       }
     p <- p + 
+      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       geom_point() +
       scale_x_log10() + 
       scale_y_log10() + 
       theme_bw() +
-      scale_shape_manual(values = c(17,19)) + 
+      scale_shape_manual(values = c(4,19)) + 
       annotation_logticks(short = unit(0.1, "cm"),                                                
                           mid = unit(0.1, "cm"),
                           long = unit(0.3, "cm")) + 

@@ -302,7 +302,7 @@ generate_threshold(data_list, summary_list)
 
 
 ####### crowding rsvp #######
-df_list <- generate_rsvp_reading_crowding_fluency(data_list,summary_list)
+df_list <- generate_rsvp_reading_crowding_fluency(data_list,summary_list,'all')
 rsvp_speed <- allData$rsvp
 crowding <- allData$crowding
 acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')

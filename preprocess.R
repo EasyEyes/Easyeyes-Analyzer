@@ -501,18 +501,32 @@ read_files <- function(file){
         }
       }
       if (length(all_xlsx) > 0) {
-        pretest <- readxl::read_xlsx(unzip(file_list[k], all_xlsx[1])) %>% 
-          rename('participant' = 'PavloviaSessionID') %>% 
-          select(where(~sum(is.na(.)) >0))
+        pretest <- readxl::read_xlsx(unzip(file_list[k], all_xlsx[1]))
+        if ('PavloviaSessionID' %in% names(pretest)) {
+          pretest <- pretest %>% 
+            rename('participant' = 'PavloviaSessionID') %>% 
+            select(where(~sum(!is.na(.)) >0)) %>% 
+            mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+        }
+        if (!'Skilled reader?' %in% names(pretest)) {
+          pretest$`Skilled reader?` = 'unknown'
+        }
       }
       print('done processing zip')
     }
   }
   for (i in 1 : n) {
     if (grepl(".xlsx", file_list[i])) {
-      pretest <- readxl::read_xlsx(file_list[i]) %>% 
-        rename('participant' = 'PavloviaSessionID') %>% 
-        select(where(~sum(is.na(.)) >0))
+      pretest <- readxl::read_xlsx(file_list[i])
+        if ('PavloviaSessionID' %in% names(pretest)) {
+          pretest <- pretest %>% 
+            rename('participant' = 'PavloviaSessionID') %>% 
+            select(where(~sum(!is.na(.)) >0)) %>% 
+            mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+        }
+      if (!'Skilled reader?' %in% names(pretest)) {
+        pretest$`Skilled reader?` = 'unknown'
+      }
     }
   }
   df <- tibble()
@@ -551,8 +565,6 @@ read_files <- function(file){
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
   print('done preprocess')
-  print(df)
-  
   return(list(data_list = data_list, 
               summary_list = summary_list, 
               experiment = paste(unique(experiment), collapse = "-"),

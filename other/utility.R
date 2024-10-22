@@ -1,4 +1,4 @@
-get_stats_label(data, needSlope, needCorr) {
+get_stats_label <- function(data, needSlope, needCorr) {
   N = nrow(data)
   corr = format(
     round(
