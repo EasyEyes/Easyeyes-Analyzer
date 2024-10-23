@@ -22,7 +22,7 @@ plotsTab <- tabPanel(
   ),
   radioButtons(
     "filterInput",
-    "Select download file type:",
+    "Select participants by reading speed:",
     c(
      'all' = 'all',
      'slowest 25%' = 'slowest',

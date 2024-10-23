@@ -150,3 +150,65 @@ get_acuity_hist <- function(acuity, pretest) {
   }
   return(list(p1,p2))
 }
+
+get_rsvp_hist <- function(rsvp, pretest) {
+  if (nrow(pretest) > 0) {
+    rsvp <- rsvp %>% left_join(pretest, by = 'participant')
+  }
+ 
+  if (nrow(rsvp) > 0) {
+    if ('Skilled reader?' %in% names(rsvp)) {
+      stats1 <- rsvp %>% filter(`Skilled reader?` != FALSE)
+    } else {
+      stats1 <- rsvp
+    }
+    stats1 <- stats1 %>% summarize(mean = round(mean(block_avg_log_WPM),2), 
+                                   sd = round(sd(block_avg_log_WPM),2),
+                                   N = n())
+    p1 <- ggplot(rsvp) + 
+      geom_histogram(aes(x = block_avg_log_WPM),color="black", fill="black") +
+      scale_x_continuous(expand = c(0, 0)) + 
+      scale_y_continuous(expand = c(0, 0)) + 
+      ggpp::geom_text_npc(
+        aes( npcx = 'left',
+             npcy = 'top',
+             label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
+      ) +
+      labs(x = 'Log RSVP reading speed (w/min)',
+           title ='Histogram of RSVP reading speed')
+  } else {
+    p1 <- NULL
+  }
+  return(p1)
+}
+
+get_repeatedLetter_hist <- function(repeated, pretest) {
+  if (nrow(pretest) > 0) {
+    repeated <- repeated %>% left_join(pretest, by = 'participant')
+  }
+
+  if (nrow(repeated) > 0) {
+    if ('Skilled reader?' %in% names(repeated)) {
+      stats1 <- repeated %>% filter(`Skilled reader?` != FALSE)
+    } else {
+      stats1 <- repeated
+    }
+    stats1 <- stats1 %>% summarize(mean = round(mean(log_crowding_distance_deg),2), 
+                                   sd = round(sd(log_crowding_distance_deg),2),
+                                   N = n())
+    p1 <- ggplot(repeated) + 
+      geom_histogram(aes(x = log_crowding_distance_deg),color="black", fill="black") +
+      scale_x_continuous(expand = c(0, 0)) + 
+      scale_y_continuous(expand = c(0, 0)) + 
+      ggpp::geom_text_npc(
+        aes( npcx = 'left',
+             npcy = 'top',
+             label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
+      ) +
+      labs(x = 'Repeated-letter crowding distance (deg)',
+           title ='Histogram of repeated-letter crowding')
+  } else {
+    p1 <- NULL
+  }
+  return(p1)
+}

@@ -454,9 +454,16 @@ shinyServer(function(input, output, session) {
     get_crowding_hist(df_list()$crowding, files()$pretest)
   })
   
-  
   acuity_hist <- reactive({
     get_acuity_hist(df_list()$acuity, files()$pretest)
+  })
+  
+  rsvp_hist <- reactive({
+    get_rsvp_hist(df_list()$rsvp, files()$pretest)
+  })
+  
+  repeated_letter_hist <- reactive({
+    get_repeatedLetter_hist(df_list()$repeatedLetters, files()$pretest)
   })
   
   foveal_peripheral_diag <- reactive({
@@ -639,35 +646,43 @@ shinyServer(function(input, output, session) {
     i = 1
     l <- list()
     fileNames <- list()
-    t <- acuity_hist()[[1]]
 
-    if (!is.null(t)) {
-      l[[i]] = t
+    if (!is.null(acuity_hist()[[1]])) {
+      l[[i]] =  acuity_hist()[[1]]
       fileNames[[i]] = 'foveal-acuity-histogram'
       i = i + 1
     }
 
-    t <- acuity_hist()[[2]]
-    if (!is.null(t)) {
-      l[[i]] = t
+    if (!is.null(acuity_hist()[[2]])) {
+      l[[i]] = acuity_hist()[[2]]
       fileNames[[i]] = 'peripheral-acuity-histogram'
       i = i + 1
     }
     
-    t <- crowding_hist()$foveal
-    if (!is.null(t)) {
-      l[[i]] = t
+
+    if (!is.null(crowding_hist()$foveal)) {
+      l[[i]] = crowding_hist()$foveal
       fileNames[[i]] = 'foveal-crowding-histogram'
       i = i + 1
     }
 
-    t <- crowding_hist()$peripheral
-    if (!is.null(t)) {
-      l[[i]] = t
+    if (!is.null(crowding_hist()$peripheral)) {
+      l[[i]] = crowding_hist()$peripheral
       fileNames[[i]] = 'peripheral-crowding-histogram'
       i = i + 1
     }
 
+    if (!is.null(rsvp_hist())) {
+      l[[i]] = rsvp_hist()
+      fileNames[[i]] = 'rsvp-reading-speed-histogram'
+      i = i + 1
+    }
+
+    if (!is.null(repeated_letter_hist())) {
+      l[[i]] = repeated_letter_hist()
+      fileNames[[i]] = 'repeated-letter-crowding-histogram'
+      i = i + 1
+    }
     # t <- get_fluency_histogram(df_list()$fluency)
     # if (!is.null(t)) {
     #   l[[i]] = t
