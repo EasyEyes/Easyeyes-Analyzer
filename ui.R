@@ -14,6 +14,7 @@ library(shinycssloaders)
 library(plotly)
 # Define UI for application that draws a histogram
 shinyUI(
+  
   navbarPage(
     title = textOutput("app_title"),
     sessionTab,

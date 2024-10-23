@@ -2,6 +2,12 @@ library(plotly)
 
 plotsTab <- tabPanel(
   'Plots',
+  tags$head(tags$style(type="text/css",
+                       "body.disconnected {
+    background-color: inherit;
+    opacity: 1;
+  }"
+  )),
  radioButtons(
     "fileType",
     "Select download file type:",
