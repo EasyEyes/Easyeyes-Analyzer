@@ -498,7 +498,7 @@ read_files <- function(file){
               select(-block_condition)
             summaries <- merge(info, summaries, by = ("staircaseName"))
           }
-          if (! t$participant == '') {
+          if (! t$participant[1] == '') {
             summary_list[[j]] <- summaries
             data_list[[j]] <- t
             t$experiment <- trimws(t$experiment[1])
