@@ -27,9 +27,9 @@ library(plotly)
 # showtext_auto(F)
 
 
-source('./load_fonts.R')
-source('./constant.R')
-source("./preprocess.R")
+source('load_fonts.R')
+source('constant.R')
+source("preprocess.R")
 
 source("threshold_and_warning.R")
 
@@ -55,8 +55,6 @@ source("./other/sound_plots.R")
 source("./other/read_json.R")
 source("./other/formSpree.R")
 source('./other/crowdingrsvp.R')
-
-library(shiny)
 
 #### server code ####
 
@@ -2112,36 +2110,6 @@ shinyServer(function(input, output, session) {
 
                }
                )
-  
-  observeEvent(input$fileProlific,{
-    prolificData <- read_prolific(input$fileProlific$data)
-    if (!is.null(input$file)) {
-      app_title$default <- experiment_names()
-      output$app_title <- renderText({
-        ifelse(app_title$default == "",
-               "EasyEyes Analysis",
-               app_title$default)
-      })
-      set.seed(2023)
-      output$instruction <- renderText(instruction)
-      output$experiment <- renderText(experiment_names())
-      combinedTable <- combineProlific(prolificData, summary_table())[[1]]
-      participants <- unique(combinedTable$`Pavlovia session ID`)
-      prolific_id <- unique(combinedTable$`Prolific participant ID`)
-      output$ex1 <- DT::renderDataTable(
-        render_summary_datatable(combinedTable, participants, prolific_id)
-      )
-    } else {
-      formSpree <- getFormSpree() %>% filter(`prolificSessionID` %in% unique(prolificData$prolificSessionID))
-      combinedTable <- combineProlific(prolificData, formSpree)[[1]]
-      participants <- unique(combinedTable$`Pavlovia session ID`)
-      prolific_id <- unique(combinedTable$`Prolific participant ID`)
-      output$ex1 <- DT::renderDataTable(
-        render_summary_datatable(combinedTable, participants, prolific_id)
-      )
-    }
-
-  })
   
   
   #### download handlers ####

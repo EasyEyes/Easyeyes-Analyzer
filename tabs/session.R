@@ -44,16 +44,6 @@ sessionTab <- tabPanel(
       multiple = T
     )
   )),
-  fixedRow(column(
-    width = 4,
-    fileInput(
-      "fileProlific",
-      NULL,
-      accept = c(".csv"),
-      buttonLabel = "Prolific csv file",
-      multiple = T
-    )
-  )),
   fixedRow(
     column(
       width = 2,
