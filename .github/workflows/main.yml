@@ -18,51 +18,17 @@ jobs:
       # Step 1: Check out the code from the repository
       - uses: actions/checkout@v2
       - uses: r-lib/actions/setup-r@v2-branch
-
-      # Step 2: Install the required Debian packages
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y librsvg2-dev 
-          sudo apt install cmake
-
-
-      # Step 3: Verify that pkg-config can find the libraries
-      - name: Verify pkg-config for librsvg
-        run: |
-          pkg-config --modversion librsvg-2.0
             
-      # Step 4: Install R packages
-      - name: Install shiny
+      # Step 2: Install R packages
+      - name: install everything and deploy
+        env:
+          RS_TOKEN: ${{ secrets.TOKEN }}
+          RS_SECRET: ${{ secrets.SECRET }}
         run: |
-          install.packages(c("shiny",
-          "renv",
-          "rsconnect",
-          "rsvg",
-          "shinycssloaders",
-          "tidyverse",
-          "svglite",
-          "plotly",
-          "ggcorrplot",
-          "DT",
-          "broom",
-          "ggpp",
-          "ggpubr",
-          "gridExtra",
-          "grid",
-          "foreach",
-          "shinyjs",
-          "lubridate",
-          "emojifont",
-          "showtext",
-          "patchwork",
-          "IRkernel"))
+          install.packages(c('renv','shiny', 'rsconnect'))
+          renv::restore()
+          rsconnect::setAccountInfo(name='easyeyes', token=Sys.getenv('RS_TOKEN'), secret=Sys.getenv('RS_SECRET'))
+          rsconnect::deployApp(appName = 'easyeyes_app')
         shell: Rscript {0}
           
-      # Step 5: Deploy to shinyapps.io
-      - name: Push to shiny.io
-        run: |
-          "rsconnect::setAccountInfo(name='easyeyes', token=${{secrets.TOKEN}}, secret=${{secrets.SECRET}})"
-          "rsconnect::deployApp(appName = 'easyeyes_app')" 
-        shell: Rscript {0}
     
