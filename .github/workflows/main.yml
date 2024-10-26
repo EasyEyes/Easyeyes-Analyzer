@@ -31,17 +31,8 @@ jobs:
       - name: Verify pkg-config for librsvg
         run: |
           pkg-config --modversion librsvg-2.0
-          
-      # Step 4: Cache R packages
-      - name: Cache R packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.R/library
-          key: ${{ runner.os }}-R-${{ hashFiles('**/renv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-R-
             
-      # Step 5: Install R packages
+      # Step 4: Install R packages
       - name: Install shiny
         run: |
           install.packages(c("shiny",
@@ -68,7 +59,7 @@ jobs:
           "IRkernel"))
         shell: Rscript {0}
           
-      # Step 6: Deploy to shinyapps.io
+      # Step 5: Deploy to shinyapps.io
       - name: Push to shiny.io
         run: |
           "rsconnect::setAccountInfo(name='easyeyes', token=${{secrets.TOKEN}}, secret=${{secrets.SECRET}})"
