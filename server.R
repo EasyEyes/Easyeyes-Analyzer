@@ -8,18 +8,16 @@
 #
 options(shiny.maxRequestSize = 200 * 1024 ^ 2)
 library(shiny)
-require(foreach)
-require(dplyr)
-require(readr)
-require(stringr)
-require(emojifont)
-require(DT)
+library(dplyr)
+library(readr)
+library(stringr)
+library(emojifont)
+library(DT)
 library(ggpubr)
 library(shinyjs)
 library(lubridate)
-require(ggpp)
+library(ggpp)
 library(svglite)
-library(magick)
 library(patchwork)
 library(plotly)
 # library(showtext)
@@ -92,7 +90,7 @@ shinyServer(function(input, output, session) {
   
   #### reactive objects ####
   output$filename <- renderText({
-    if (!is.null(input$file$datapath)) {
+    if (length(input$file$datapath) > 0) {
       return(basename(input$file$name[1]))
     } else {
       return(NULL)
@@ -100,7 +98,6 @@ shinyServer(function(input, output, session) {
   })
   
   files <- reactive({
-    print(names(input$file))
     if (!is.null(input$file)){
       showModal(modalDialog("Reading files", footer = NULL))
       t <- read_files(input$file)
@@ -156,12 +153,10 @@ shinyServer(function(input, output, session) {
   #### reactive dataframes ####
   
   summary_table <- reactive({
-    require(input$file)
     generate_summary_table(files()$data_list)
   })
   
   threshold_and_warnings <- reactive({
-    require(input$file)
     return(generate_threshold(files()$data_list, summary_list()))
   })
   
@@ -1453,8 +1448,6 @@ shinyServer(function(input, output, session) {
                  output$instruction <- renderText(instruction)
                  output$experiment <- renderText(experiment_names())
                  if (!is.null(prolific())) {
-                   print(nrow(prolific()))
-                   print(nrow(summary_table()))
                    combinedTable <- combineProlific(prolific(), summary_table())[[1]]
                  } else{
                    combinedTable <- combineProlific(NULL, summary_table())[[1]]

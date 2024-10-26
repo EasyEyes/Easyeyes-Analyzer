@@ -6,7 +6,7 @@ require(stringr)
 require(gridExtra)
 require(ggsignif)
 require(DT)
-source('')
+source('./threshold_and_warning.R')
 # store name of experiment in experiment object
 rm(list = ls())
 experiment = "RsvpAndCrowdingFrenchNoTracking1.results (1)"

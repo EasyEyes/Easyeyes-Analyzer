@@ -20,7 +20,6 @@ read_prolific <- function(fileProlific) {
       ),
       `Completion code` = as.character(`Completion code`))
     return(t)
-    print(t)
   } else {
     return(tibble())
   }

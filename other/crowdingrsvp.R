@@ -283,13 +283,7 @@ getCorrMatrix <- function(allData, pretest) {
     select(where(~sum(!is.na(.)) > 0))
  
   c <- colnames(crowdingW)
-  print(nrow(crowding))
-  print(nrow(rsvp_speed))
-  print(nrow(acuity))
-  print(nrow(reading))
-  print(nrow(crowdingW))
-  print(crowdingW)
-  print(summary(crowdingW))
+
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
   colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))
@@ -327,7 +321,6 @@ getCorrMatrix <- function(allData, pretest) {
 #       } else {
 #         rsvp <- allData$rsvp
 #       }
-#       print(rsvp)
 #       data_rsvp <- data %>%
 #         select(participant, log_crowding_distance_deg) %>%
 #         left_join(df %>% distinct(participant, britishID), by = "participant") %>%

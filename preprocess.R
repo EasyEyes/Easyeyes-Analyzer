@@ -15,6 +15,18 @@ read_files <- function(file){
   pretest <- tibble()
   for (i in 1 : n) {
     t <- tibble()
+    if (grepl(".xlsx", file_list[i])) {
+      pretest <- readxl::read_xlsx(file_list[i])
+      if ('PavloviaSessionID' %in% names(pretest)) {
+        pretest <- pretest %>% 
+          rename('participant' = 'PavloviaSessionID') %>% 
+          select(where(~sum(!is.na(.)) >0)) %>% 
+          mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+      }
+      if (!'Skilled reader?' %in% names(pretest)) {
+        pretest$`Skilled reader?` = 'unknown'
+      }
+    }
     if (grepl(".csv", file_list[i])){ 
       try({t <- readr::read_csv(file_list[i],show_col_types = FALSE)}, silent = TRUE)
       if (!'Submission id' %in% names(t)){
@@ -250,21 +262,19 @@ read_files <- function(file){
         next
       }
       print('done processing csv')
-      }
-  }
-  for (k in 1:n) {
-    if (grepl(".zip", file_list[k])) {
-      file_names <- unzip(file_list[k], list = TRUE)$Name
+    }
+    if (grepl(".zip", file_list[i])) {
+      file_names <- unzip(file_list[i], list = TRUE)$Name
       all_csv <- file_names[grepl(".csv", file_names)]
       all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
       all_xlsx <- file_names[grepl(".xlsx", file_names)]
       m <- length(all_csv)
-      for (u in 1 : m) {
+      for (k in 1 : m) {
         t <- tibble()
-        try({t <- readr::read_csv(unzip(file_list[k], all_csv[u]),show_col_types = FALSE)}, silent = TRUE)
+        try({t <- readr::read_csv(unzip(file_list[i], all_csv[k]),show_col_types = FALSE)}, silent = TRUE)
         if (!'Submission id' %in% names(t)) {
           if (!('participant' %in% colnames(t))) {
-            fileName <- all_csv[u]
+            fileName <- all_csv[k]
             t <- tibble(participant = str_split(fileName, "[_]")[[1]][1],
                         ProlificParticipantID = '',
                         experiment = '')
@@ -275,7 +285,7 @@ read_files <- function(file){
             t$cols <- ncol(t)
             t$rows <- ifelse(nrow(t) == 0, 0, nrow(t) + 1)
           }
-          inf <- file.info(unzip(file_list[k], all_csv[u]))
+          inf <- file.info(unzip(file_list[i], all_csv[k]))
           t$kb <-round(inf$size/1024)
           if (!('ProlificParticipantID' %in% colnames(t))) {
             t$ProlificParticipantID <- ""
@@ -383,7 +393,7 @@ read_files <- function(file){
             t$hardwareConcurrency <- NA
           }
           if (!('experiment' %in% colnames(t))) {
-            fileName <- str_split(all_csv[u], "[/]")[[1]][2]
+            fileName <- str_split(all_csv[k], "[/]")[[1]][2]
             t$experiment <- str_split(fileName, "[_]")[[1]][3]
           }
           if (!('experimentCompleteBool' %in% colnames(t))) {
@@ -496,12 +506,10 @@ read_files <- function(file){
             readingCorpus <- c(readingCorpus,unique(t$readingCorpus))
             j = j + 1
           }
-        } else {
-          next
         }
       }
       if (length(all_xlsx) > 0) {
-        pretest <- readxl::read_xlsx(unzip(file_list[k], all_xlsx[1]))
+        pretest <- readxl::read_xlsx(unzip(file_list[i], all_xlsx[1]))
         if ('PavloviaSessionID' %in% names(pretest)) {
           pretest <- pretest %>% 
             rename('participant' = 'PavloviaSessionID') %>% 
@@ -513,20 +521,6 @@ read_files <- function(file){
         }
       }
       print('done processing zip')
-    }
-  }
-  for (i in 1 : n) {
-    if (grepl(".xlsx", file_list[i])) {
-      pretest <- readxl::read_xlsx(file_list[i])
-        if ('PavloviaSessionID' %in% names(pretest)) {
-          pretest <- pretest %>% 
-            rename('participant' = 'PavloviaSessionID') %>% 
-            select(where(~sum(!is.na(.)) >0)) %>% 
-            mutate(Grade = ifelse(is.na(Grade), -1, Grade))
-        }
-      if (!'Skilled reader?' %in% names(pretest)) {
-        pretest$`Skilled reader?` = 'unknown'
-      }
     }
   }
   df <- tibble()

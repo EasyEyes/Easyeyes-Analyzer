@@ -374,6 +374,7 @@ get_profile_table <- function(json, transducerType) {
 }
 
 get_profile_summary <- function(df) {
+  print('inside get_profile_summary')
   displayDf <- tibble()
   t <- df %>% select(componentCorrectionSD, maxAbsFilteredMLS, `T`, W, Q, gainDBSPL, speakerGain_dB, micGain_dB, RMSError, fs2) %>% 
     summarize(across(everything(), ~ mean(.x, na.rm = TRUE)))

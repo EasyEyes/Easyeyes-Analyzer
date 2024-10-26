@@ -1,7 +1,7 @@
 library(foreach)
 library(dplyr)
 library(stringr)
-getwd()
+
 englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
   mutate(participant = tolower(ID))
 
@@ -145,7 +145,6 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   ################################ READING #######################################
   
   if (ncol(reading) > 1) {
-    print('inside if')
     reading <- reading %>% 
       left_join(age, by = "participant") %>% 
       filter(!tolower(participant) %in% basicExclude$participant)

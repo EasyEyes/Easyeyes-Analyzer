@@ -113,11 +113,11 @@ profileTab <- tabPanel(
       fixedRow(style = "margin-left:40px;",
                column(width = 6, align = 'left',
                       textOutput('profileAverageTitle'))),
-      fixedRow(style = "margin-left:2px;",
+      fixedRow(style = "margin-left:40px;",
                column(
                  width = 6,
                  align = "left",
-                 tableOutput("profileAverge")
+                 tableOutput("profileAverage")
                ))),
     
     

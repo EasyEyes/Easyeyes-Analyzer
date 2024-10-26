@@ -66,7 +66,6 @@ prepare_regression_acuity <- function(df_list){
     return(tibble())
   }
   
-  print(reading)
   reading <- reading %>%
     mutate(participant = tolower(participant)) %>% 
     group_by(participant, block_condition, targetKind) %>%
