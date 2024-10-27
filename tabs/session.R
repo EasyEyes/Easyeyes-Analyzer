@@ -27,6 +27,10 @@ sessionTab <- tabPanel(
              .control-label {
              font-size:16px;
              }
+             #fileStatusMessage {
+              margin-bottom: 10px;
+              font-weight: bold;
+            }
             "
       )
     )),
@@ -42,7 +46,8 @@ sessionTab <- tabPanel(
       accept = c(".csv", ".zip", '.xlsx'),
       buttonLabel = "Select CSV files or ZIP file",
       multiple = T
-    )
+    ),
+    textOutput("fileStatusMessage")
   )),
   fixedRow(
     column(

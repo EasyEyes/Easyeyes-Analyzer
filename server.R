@@ -96,23 +96,18 @@ shinyServer(function(input, output, session) {
   })
   
   files <- reactive({
-    if (!is.null(input$file)){
-      showModal(modalDialog("Reading files", footer = NULL))
-      t <- read_files(input$file)
-      removeModal()
-      showModal(modalDialog(
-        paste0('Analyzed ', 
-               length(t$data_list),
-               ' sessions and ', 
-               ifelse(nrow(t$pretest) > 0, 1, 0),
-               ' pretest file'),
-        footer = modalButton("Dismiss"),
-        size = c('xl'),
-        easyClose = FALSE,
-        fade = TRUE
-      ))
-    }
+    req(input$file)  
+    t <- read_files(input$file)  
     return(t)
+  })
+  
+  # text output to show the file upload status
+  output$fileStatusMessage <- renderText({
+    t <- files()  
+    paste0(
+      'Analyzed ', length(t$data_list), ' sessions and ',
+      ifelse(nrow(t$pretest) > 0, 1, 0), ' pretest file'
+    )
   })
   
   
