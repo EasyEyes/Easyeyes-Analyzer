@@ -28,7 +28,7 @@ jobs:
           install.packages(c('renv','shiny', 'rsconnect'))
           renv::restore()
           rsconnect::setAccountInfo(name='easyeyes', token=Sys.getenv('RS_TOKEN'), secret=Sys.getenv('RS_SECRET'))
-          rsconnect::deployApp(appName = 'easyeyes_app')
+          rsconnect::deployApp(appName = 'easyeyes_app', forceUpdate = TRUE)
         shell: Rscript {0}
           
     
