@@ -30,10 +30,40 @@ sessionTab <- tabPanel(
              #fileStatusMessage {
               margin-bottom: 10px;
               font-weight: bold;
+             }
+             .shiny-file-input-progress  {
+              display: none !important;
+             }
+            .custom-loading-message {
+                 color: black;
+                 font-size: 12px;
+                 margin-top: 10px;
+            }
+            #fileStatusMessage {
+                 margin-bottom: 10px;
+                 font-weight: bold;
             }
             "
-      )
-    )),
+      )),
+    
+      tags$script(HTML(
+        "
+        $(document).on('shiny:inputchanged', function(event) {
+          if (event.name === 'file') {
+            let fileInputContainer = $('#file').closest('.form-group');
+            fileInputContainer.find('.custom-loading-message').remove();
+            fileInputContainer.append('<div class=\"custom-loading-message\">Reading...</div>');
+          }
+        });
+        
+        $(document).on('shiny:idle', function() {
+          let fileInputContainer = $('#file').closest('.form-group');
+        fileInputContainer.find('.custom-loading-message').remove();
+        });
+  
+        "
+      ))
+    ),
   tags$head(
     tags$script(type = "text/javascript",
                 src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML")
