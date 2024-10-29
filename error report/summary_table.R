@@ -384,7 +384,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 infoFiltered =  "(filtered from _MAX_ entries)"
               ),
               columnDefs = list(
-                list(visible = FALSE, targets = c(0, 36)),
+                list(visible = FALSE, targets = c(0, 41)),
                 list(orderData = 36, targets = 23),
                 list(
                   targets = c(15),

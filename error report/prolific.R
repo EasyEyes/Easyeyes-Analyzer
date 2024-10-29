@@ -47,6 +47,7 @@ find_prolific_from_files <- function(file) {
 }
 
 combineProlific <- function(prolificData, summary_table){
+  
   if (is.null(prolificData) | nrow(prolificData) == 0) {
     t <- summary_table %>% mutate(ProlificStatus= ' ',
                                   prolificMin = NaN,
@@ -78,14 +79,16 @@ combineProlific <- function(prolificData, summary_table){
     t <- rbind(t, t2, formSpree) 
     
   }
+  fontParameters <- get_font_parameters_from_formSpree(summary_table$participant)
     t <- t %>%
     rename('Prolific session ID' = 'prolificSessionID',
            'Computer 51 deg' = 'computer51Deg') %>% 
+      left_join(fontParameters, by = 'Pavlovia session ID') %>% 
     distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
              `device type`, system,browser, resolution, QRConnect, date, prolificMin,
              ProlificStatus,`Completion code`, ok, unmetNeeds, error, warning, cores,
              tardyMs, excessMs, KB, rows, cols,`block condition`, trial, `condition name`,
              `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
-             Loudspeaker, Microphone, Age, Sex, Nationality, comment, order)
+             Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx, fontMaxPx, viewingDistanceCm, fontRenderMaxPx, order)
   return(list(t, formSpree))
 }
