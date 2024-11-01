@@ -1597,21 +1597,6 @@ shinyServer(function(input, output, session) {
                         contenttype = 'svg')
                  }, deleteFile = TRUE)
 
-                 output$readingRSVP <- renderImage({
-                   outfile <- tempfile(fileext = '.svg')
-                   ggsave(
-                     file = outfile,
-                     plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp) +
-                       plt_theme +
-                       coord_fixed(ratio = 1),
-                     device = svg,
-                     width = 6,
-                     height = 4
-                   )
-
-                   list(src = outfile,
-                        contenttype = 'svg')
-                 }, deleteFile = TRUE)
 
                  #### crowding ####
                  output$crowdingScatterPlot <- renderImage({

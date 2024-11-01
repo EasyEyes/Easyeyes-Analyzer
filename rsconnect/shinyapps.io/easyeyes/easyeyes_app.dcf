@@ -1,0 +1,13 @@
+name: easyeyes_app
+title: easyeyes_app
+username: easyeyes
+account: easyeyes
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 8620121
+bundleId: 9302116
+url: https://easyeyes.shinyapps.io/easyeyes_app/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .github/workflows/main.yml|.ipynb_checkpoints/constant-checkpoint.R|.ipynb_checkpoints/README-checkpoint.md|.ipynb_checkpoints/Untitled-checkpoint.ipynb|.RData|.Rprofile
