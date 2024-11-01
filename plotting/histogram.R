@@ -52,7 +52,7 @@ get_crowding_hist <- function(crowding, pretest) {
              npcy = 'top',
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
       ) +
-      labs(x = 'Log crowding distance (deg)',
+      labs(x = 'Log foveal crowding (deg)',
            title ='Histogram of foveal crowding distance')
   } else {
     p1 <- NULL
@@ -77,7 +77,7 @@ get_crowding_hist <- function(crowding, pretest) {
           npcy = 'top',
           label = paste0('mean=',stats2$mean,'\n sd=', stats2$sd, '\n N=', stats2$N))
    ) + 
-    labs(x = 'Log crowding distance (deg)',
+    labs(x = 'Log peripheral crowding (deg)',
          title ='Histogram of peripheral crowding distance')
  } else {
    p2 <- NULL
@@ -205,7 +205,7 @@ get_repeatedLetter_hist <- function(repeated, pretest) {
              npcy = 'top',
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
       ) +
-      labs(x = 'Repeated-letter crowding distance (deg)',
+      labs(x = 'Repeated-letter crowding (deg)',
            title ='Histogram of repeated-letter crowding')
   } else {
     p1 <- NULL

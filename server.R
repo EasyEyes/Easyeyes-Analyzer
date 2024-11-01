@@ -538,63 +538,70 @@ shinyServer(function(input, output, session) {
   })
   
   agePlots <- reactive({
-    print('inside agePlots')
     if (is.null(input$file)) {
       return(list(
         plotList = list(),
         fileNames = list()
       ))
     }
+    print('inside agePlots')
     i = 1
     l <- list()
     fileNames <- list()
     t <- get_foveal_crowding_vs_age(df_list()$crowding)
+    print(paste('agePlots', i))
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-age'
       i = i + 1
     }
     t <- get_peripheral_crowding_vs_age(df_list()$crowding)
+    print(paste('agePlots', i))
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-age'
       i = i + 1
     }
     t <- get_repeatedLetter_vs_age(df_list()$repeatedLetters)
+    print(paste('agePlots', i))
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'repeated-letter-vs-age'
       i = i + 1
     }
     t <- plot_reading_age(df_list()$reading)
+    print(paste('agePlots', i))
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'reading-vs-age'
       i = i + 1
     }
     t <- plot_rsvp_age(df_list()$rsvp)
+    print(paste('agePlots', i))
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'RSVP-vs-age'
       i = i + 1
     }
     t <- get_foveal_acuity_vs_age(df_list()$acuity)
+    print(paste('agePlots', i))
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-acuity-vs-age'
       i = i + 1
     }
-    
+
     t <- get_peripheral_acuity_vs_age(df_list()$acuity)
+    print(paste('agePlots', i))
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'peripheral-acuity-vs-age'
       i = i + 1
     }
-    
     t <- get_crowding_vs_repeatedLetter(df_list()$crowding, 
                                         df_list()$repeatedLetters,
                                         files()$pretest)$age
+    print(paste('agePlots', i))
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'crowding-vs-repeated-letters-age'
@@ -604,6 +611,7 @@ shinyServer(function(input, output, session) {
     t <- get_crowding_vs_repeatedLetter(df_list()$crowding, 
                                         df_list()$repeatedLetters,
                                         files()$pretest)$grade
+    print(paste('agePlots', i))
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'crowding-vs-repeated-letters-grade'
@@ -611,12 +619,13 @@ shinyServer(function(input, output, session) {
     }
     
    t <- plot_reading_rsvp(df_list()$reading, df_list()$rsvp)
+   print(paste('agePlots', i))
    if (!is.null(t)) {
      l[[i]] = t
      fileNames[[i]] = 'reading-vs-RSVP-reading'
      i = i + 1
    }
-    
+    print('done age plots')
     return(list(
       plotList = l,
       fileNames = fileNames
@@ -624,13 +633,13 @@ shinyServer(function(input, output, session) {
   })
   
   histograms <- reactive({
-    print('inside histograms')
     if (is.null(input$file)) {
       return(list(
         plotList = list(),
         fileNames = list()
       ))
     }
+    print('inside histograms')
     i = 1
     l <- list()
     fileNames <- list()
@@ -684,7 +693,7 @@ shinyServer(function(input, output, session) {
     #   fileNames[[i]] = 'reading-retention-histogram'
     #   i = i + 1
     # }
-
+    print('done histograms')
     return(list(
       plotList = l,
       fileNames = fileNames))
@@ -700,6 +709,7 @@ shinyServer(function(input, output, session) {
         fileNames = list()
       ))
     }
+    print('inside scatter plots')
     i = 1
     l <- list()
     fileNames <- list()

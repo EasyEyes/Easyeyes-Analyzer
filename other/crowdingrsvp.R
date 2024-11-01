@@ -21,56 +21,77 @@ plot_rsvp_crowding_acuity <- function(allData,df,pretest) {
     left_join(pretest, by = 'participant') %>% 
     mutate(Age = format(age,nsmall=2))
 
-  crowding <- crowding %>% 
+  foveal_crowding <- crowding %>% 
     left_join(df, by = 'participant') %>% 
     left_join(pretest, by = 'participant') %>% 
+    filter(targetEccentricityXDeg == 0) %>% 
     mutate(Age = format(age,nsmall=2))
+  
+  
+  peripheral_crowding <- crowding %>% 
+    left_join(df, by = 'participant') %>% 
+    left_join(pretest, by = 'participant') %>% 
+    filter(targetEccentricityXDeg == 0) %>% 
+    mutate(Age = format(age,nsmall=2))
+  
+  
   foveal_acuity <- acuity %>% 
     filter(targetEccentricityXDeg == 0) %>% 
     left_join(df, by = 'participant') %>% 
     left_join(pretest, by = 'participant') %>% 
     mutate(Age = format(age,nsmall=2))
 
-  p1 = ggplot(data = crowding) +
-    geom_point(aes(x = Grade, 
-                   y = 10^(log_crowding_distance_deg),
-                   shape = `Skilled reader?`,
-                   color = Age)) +
-    facet_wrap(font~.) + 
-    theme_classic() +
-    scale_y_log10() + 
-    annotation_logticks(sides = 'l') + 
-    guides(shape = 'none') +
-    scale_shape_manual(values = c(4,19)) + 
-    labs(title = 'Crowding vs Grade by font',
-         y = 'Crowding (deg)')
+  p1 = NULL
   
-  p2 = ggplot(data = rsvp_speed) +
-    geom_point(aes(x = Grade, 
-                   y = 10^(block_avg_log_WPM), 
-                   shape = `Skilled reader?`,
-                   color = Age,
-                   )) +
-    theme_classic() + 
-    scale_y_log10() +
-    annotation_logticks(sides = 'l') + 
-    scale_shape_manual(values = c(4,19)) + 
-    guides(shape = 'none') +
-    labs(title = 'RSVP vs Grade',
-         y = 'RSVP reading speed (w/min)')
+  if (nrow(foveal_crowding) > 0){
+    p1 = ggplot(data = foveal_crowding) +
+      geom_point(aes(x = Grade, 
+                     y = 10^(log_crowding_distance_deg),
+                     shape = `Skilled reader?`,
+                     color = Age)) +
+      facet_wrap(font~.) + 
+      theme_classic() +
+      scale_y_log10() + 
+      annotation_logticks(sides = 'l') + 
+      guides(shape = 'none') +
+      scale_shape_manual(values = c(4,19)) + 
+      labs(title = 'Foveal crowding vs Grade by font',
+           y = 'Foveal crowding (deg)')
+  }
   
-  p3 = ggplot(data = foveal_acuity) +
-    geom_point(aes(x = Grade, 
-                   y = 10^(log_acuity), 
-                   shape = `Skilled reader?`,
-                   color =  Age)) +
-    theme_classic() +
-    scale_y_log10() +
-    annotation_logticks(sides = 'l') + 
-    guides(shape = 'none') +
-    scale_shape_manual(values = c(4,19)) + 
-    labs(title = 'Foveal acuity vs Grade',
-         y = 'Acuity (deg)')
+  p2 = NULL
+  
+  if (nrow(rsvp_speed) > 0){
+      p2 = ggplot(data = rsvp_speed) +
+        geom_point(aes(x = Grade, 
+                       y = 10^(block_avg_log_WPM), 
+                       shape = `Skilled reader?`,
+                       color = Age,
+        )) +
+        theme_classic() + 
+        scale_y_log10() +
+        annotation_logticks(sides = 'l') + 
+        scale_shape_manual(values = c(4,19)) + 
+        guides(shape = 'none') +
+        labs(title = 'RSVP vs Grade',
+             y = 'RSVP reading speed (w/min)')
+  }
+  
+  p3 = NULL
+  if (nrow(foveal_acuity) > 0) {
+   p3 = ggplot(data = foveal_acuity) +
+     geom_point(aes(x = Grade, 
+                    y = 10^(log_acuity), 
+                    shape = `Skilled reader?`,
+                    color =  Age)) +
+     theme_classic() +
+     scale_y_log10() +
+     annotation_logticks(sides = 'l') + 
+     guides(shape = 'none') +
+     scale_shape_manual(values = c(4,19)) + 
+     labs(title = 'Foveal acuity vs Grade',
+          y = ' Foveal acuity (deg)')
+ }
 
   return(list(
     p1,
@@ -185,7 +206,7 @@ plot_rsvp_crowding <- function(allData, df, pretest) {
       theme(legend.position = ifelse(n_distinct(data_rsvp$factorC)==1, 'none','top')) + 
       guides(color = guide_legend(title=colorFactor),
              shape = 'none') + 
-      labs(x = 'Crowding distance (deg)',
+      labs(x = paste(condition,'crowding (deg)'),
            y = 'RSVP reading (w/min)',
            title = paste('RSVP vs', tolower(condition), 'crowding by', tolower(colorFactor)))
     
@@ -199,11 +220,11 @@ plot_rsvp_crowding <- function(allData, df, pretest) {
   if (nrow(allData$rsvp) == 0 | nrow(allData$crowding) == 0) {
     p1 <- plot_ly() %>% 
       layout(title = 'RSVP vs Peripheral Crowding by Age',
-             xaxis = list(title = 'Crowding Distance (deg)', type = 'log'),
+             xaxis = list(title = 'Peripheral crowding (deg)', type = 'log'),
              yaxis = list(title = 'RSVP Reading (w/min)', type = 'log'))
     p2 <- plot_ly() %>% 
       layout(title = 'RSVP vs Foveal Crowding by Age',
-             xaxis = list(title = 'Crowding Distance (deg)', type = 'log'),
+             xaxis = list(title = 'Foveal Crowding (deg)', type = 'log'),
              yaxis = list(title = 'RSVP Reading (w/min)', type = 'log'))
     return(list(p1, p2, p1, p2))
   }

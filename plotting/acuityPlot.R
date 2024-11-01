@@ -1,5 +1,5 @@
-
 source('./constant.R')
+
 get_foveal_acuity_vs_age <- function(acuity) {
   t <- acuity %>% filter(!is.na(age),
                          targetEccentricityXDeg == 0) %>% 
@@ -7,13 +7,14 @@ get_foveal_acuity_vs_age <- function(acuity) {
   if (nrow(t) == 0) {
     return(NULL)
   } else {
-    p <-  ggplot(t, aes(x = age, y = questMeanAtEndOfTrialsLoop)) +
+    p <-  ggplot(t, aes(x = age, y = 10^(questMeanAtEndOfTrialsLoop))) +
       geom_point() +
+      scale_y_log10() + 
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
       labs(title = 'Foveal acuity vs age',
            x = 'Age',
-           y = 'Acuity (deg)')
+           y = 'Foveal acuity (deg)')
     return(p)
   }
 }
@@ -26,13 +27,14 @@ get_peripheral_acuity_vs_age <- function(acuity) {
   if (nrow(t) == 0) {
     return(NULL)
   } else {
-    p <-  ggplot(t, aes(x = age, y = questMeanAtEndOfTrialsLoop)) +
+    p <-  ggplot(t, aes(x = age, y = 10^(questMeanAtEndOfTrialsLoop))) +
       geom_point() +
+      scale_y_log10() + 
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
       labs(title = 'Peripheral acuity vs age',
            x = 'Age',
-           y = 'Acuity (deg)')
+           y = 'Peripheral acuity (deg)')
     return(p)
   }
 }
@@ -155,7 +157,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
       #             label = paste0("italic('R=')~",corr$correlation,
       #                            "~italic(', slope=')~", slope$slope)),
       #         parse = T) +
-      labs(x = 'Acuity (deg)',
+      labs(x = paste(type, 'acuity (deg)'),
            y = 'RSVP reading speed (w/min)',
            title = paste('RSVP vs', type ,'acuity by', tolower(colorFactor)))
 

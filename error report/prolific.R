@@ -47,7 +47,7 @@ find_prolific_from_files <- function(file) {
 }
 
 combineProlific <- function(prolificData, summary_table){
-  
+  print('inside combineProlific')
   if (is.null(prolificData) | nrow(prolificData) == 0) {
     t <- summary_table %>% mutate(ProlificStatus= ' ',
                                   prolificMin = NaN,
@@ -90,5 +90,6 @@ combineProlific <- function(prolificData, summary_table){
              tardyMs, excessMs, KB, rows, cols,`block condition`, trial, `condition name`,
              `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
              Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx, fontMaxPx, viewingDistanceCm, fontRenderMaxPx, order)
+    print('done combine prolific')
   return(list(t, formSpree))
 }

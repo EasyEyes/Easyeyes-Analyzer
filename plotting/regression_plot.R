@@ -27,6 +27,7 @@ prepare_regression_data <- function(df_list){
     mutate(targetKind = "reading")
   
   crowding_summary <- crowding %>% 
+    filter(targetEccentricityXDeg == 0) %>% 
     group_by(participant, font) %>% 
     summarize(crowding_distance = 10^(mean(log_crowding_distance_deg)))
   
@@ -79,6 +80,7 @@ prepare_regression_acuity <- function(df_list){
   
     
   acuity <- acuity %>%
+    filter(targetEccentricityXDeg == 0) %>% 
     mutate(participant = tolower(participant)) %>% 
     select(participant, questMeanAtEndOfTrialsLoop, conditionName)
   
@@ -102,7 +104,7 @@ regression_reading_plot <- function(df_list){
     scale_x_log10() + 
     scale_y_log10() +
     coord_fixed(ratio = 1) + 
-    labs(x="Crowding distance (deg)", y = "Reading speed (w/min)") +
+    labs(x="Foveal crowding (deg)", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
     ggpp::geom_text_npc(aes(
@@ -133,7 +135,7 @@ regression_acuity_plot <- function(df_list){
     scale_x_log10() + 
     scale_y_log10() +
     coord_fixed(ratio = 1) + 
-    labs(x="Acuity (deg)", y = "Reading speed (w/min)") +
+    labs(x="Foveal acuity (deg)", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
     ggpp::geom_text_npc(aes(

@@ -192,10 +192,11 @@ get_foveal_crowding_vs_age <- function(crowding) {
     p <-  ggplot(t, aes(x = age, y = 10^(log_crowding_distance_deg))) +
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       geom_point() +
+      scale_y_log10() + 
       theme_bw() +
       labs(title = 'Foveal crowding vs age',
            x = 'Age',
-           y = 'Crowding distance (deg)')
+           y = 'Foveal crowding (deg)')
     return(p)
   }
 }
@@ -209,11 +210,12 @@ get_peripheral_crowding_vs_age <- function(crowding) {
   } else {
     p <-  ggplot(t, aes(x = age, y = 10^(log_crowding_distance_deg))) +
       geom_point() +
+      scale_y_log10() + 
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
       labs(title = 'Peripheral crowding vs age',
            x = 'Age',
-           y = 'Crowding distance (deg)')
+           y = 'Peripheral crowding (deg)')
     return(p)
   }
 }
@@ -231,42 +233,51 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
       theme_bw() +
       labs(title = 'Repeated-letter crowding vs age',
            x = 'Age',
-           y = 'Repeated-letter crowding distance (deg)')
+           y = 'Repeated-letter crowding (deg)')
     return(p)
   }
 }
 
 get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters, pretest) {
-  t <- repeatedLetters %>%
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
+  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
+  foveal_vs_repeatedLetters <- repeatedLetters %>%
     rename('repeatedLetters' = 'log_crowding_distance_deg') %>% 
-    select(participant, order, repeatedLetters) %>% 
-    left_join(crowding, by = 'participant', 'order') %>% 
+    select(participant, repeatedLetters) %>% 
+    left_join(foveal, by = 'participant') %>% 
     mutate(age = format(age, nsmall=2),
            N = paste0('N=',n()))
   
-  if (nrow(t) == 0) {
+  peripheral_vs_repeatedLetters <- repeatedLetters %>%
+    rename('repeatedLetters' = 'log_crowding_distance_deg') %>% 
+    select(participant, repeatedLetters) %>% 
+    left_join(peripheral, by = 'participant') %>% 
+    mutate(age = format(age, nsmall=2),
+           N = paste0('N=',n()))
+  if (nrow(foveal_vs_repeatedLetters) == 0) {
     return(list(age = NULL, grade = NULL))
   } else {
     if (nrow(pretest) > 0) {
-      t <- t %>% left_join(pretest, by = 'participant') %>% 
+      foveal_vs_repeatedLetters <- foveal_vs_repeatedLetters %>%
+        left_join(pretest, by = 'participant') %>% 
         mutate(Grade = as.character(Grade))
-      p <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters), color = age)) +
-      p1 <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters), color = age)) +
+      p <- ggplot(foveal_vs_repeatedLetters, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters), color = age))
+      p1 <- ggplot(foveal_vs_repeatedLetters, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters), color = Grade)) +
         ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
         geom_point() +
         scale_y_log10() + 
         scale_x_log10() + 
         theme_bw() +
-        labs(title = 'Repeated-letter vs crowding by grade',
-             x = 'Crowding distance (deg)',
-             y = 'Repeated-letter crowding distance (deg)')
+        labs(title = 'Repeated-letter vs foveal crowding by grade',
+             x = 'Foveal crowding (deg)',
+             y = 'Repeated-letter crowding (deg)')
     } else {
-      if (n_distinct(t$age) > 1) {
-        t <- t %>% mutate(age = format(age,nsmall=2))
-        p <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters), color = age))
+      if (n_distinct(foveal_vs_repeatedLetters$age) > 1) {
+        foveal_vs_repeatedLetters <- foveal_vs_repeatedLetters %>% mutate(age = format(age,nsmall=2))
+        p <-  ggplot(foveal_vs_repeatedLetters, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters), color = age))
         p1 <- NULL
       } else {
-        p <-  ggplot(t, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters)))
+        p <-  ggplot(foveal_vs_repeatedLetters, aes(x = 10^(log_crowding_distance_deg), y = 10^(repeatedLetters)))
         p1 <- NULL
       }
      
@@ -279,9 +290,9 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters, pretest) {
     scale_y_log10() + 
     scale_x_log10() + 
     theme_bw() +
-    labs(title = 'Repeated-letter vs crowding by age',
-         x = 'Crowding distance (deg)',
-         y = 'Repeated-letter crowding distance (deg)')
+    labs(title = 'Repeated-letter vs foveal crowding by age',
+         x = 'Foveal crowding (deg)',
+         y = 'Repeated-letter crowding (deg)')
   return(list(age = p, grade = p1))
 }
 
@@ -314,8 +325,8 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
                                         shape = `Skilled reader?`,
                                         color = age)) +
           labs(title = 'Foveal acuity vs foveal crowding by age',
-               x = 'Crowding distance (deg)',
-               y = 'Acuity (deg)')
+               x = 'Foveal rowding (deg)',
+               y = 'Foveal acuity (deg)')
         
         p1 <-  ggplot(foveal_acuity, aes(x = 10^log_crowding_distance_deg,
                                         y = 10^(log_acuity),
@@ -331,22 +342,22 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
                               mid = unit(0.1, "cm"),
                               long = unit(0.3, "cm")) + 
           labs(title = 'Foveal acuity vs foveal crowding by grade',
-               x = 'Crowding distance (deg)',
-               y = 'Acuity (deg)') + 
+               x = 'Foveal crowding (deg)',
+               y = 'Foveal acuity (deg)') + 
           coord_fixed()
       } else {
         if (n_distinct(foveal_acuity$age) > 1) {
           foveal_acuity <- foveal_acuity %>% mutate(age = format(age,nsmall=2))
           p <-  ggplot(foveal_acuity, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity), color = age)) +
           labs(title = 'Foveal acuity vs foveal crowding by age',
-               x = 'Crowding distance (deg)',
-               y = 'Acuity (deg)')
+               x = 'Foveal crowding (deg)',
+               y = 'Foveal acuity (deg)')
           p1 <- NULL
         } else {
           p <-  ggplot(foveal_acuity, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity))) +
             labs(title = 'Foveal acuity vs foveal crowding',
-                 x = 'Crowding distance (deg)',
-                 y = 'Acuity (deg)')
+                 x = 'Foveal crowding (deg)',
+                 y = 'Foveal acuity (deg)')
           p1 <- NULL
         }
         
@@ -394,8 +405,8 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
                               mid = unit(0.1, "cm"),
                               long = unit(0.3, "cm")) + 
           labs(title = 'Peripheral acuity vs foveal crowding by Grade',
-               x = 'Crowding distance (deg)',
-               y = 'Acuity (deg)') + 
+               x = 'Foveal crowding (deg)',
+               y = 'Peripheral acuity (deg)') + 
           coord_fixed()
       } else {
         if (n_distinct(peripheral_acuity$age) > 1) {
@@ -419,8 +430,8 @@ get_foveal_acuity_diag <- function(crowding, acuity, pretest) {
                             mid = unit(0.1, "cm"),
                             long = unit(0.3, "cm")) + 
         labs(title = 'Peripheral acuity vs foveal crowding',
-             x = 'Crowding distance (deg)',
-             y = 'Acuity (deg)') + 
+             x = 'Foveal crowding (deg)',
+             y = 'Peripheral acuity (deg)') + 
         coord_fixed()
     }
     
@@ -446,7 +457,7 @@ get_foveal_peripheral_diag <- function(crowding, pretest) {
     t <- foveal %>% 
       rename('foveal' = 'log_crowding_distance_deg') %>% 
       select(foveal, participant, order) %>% 
-      left_join(peripheral,by = 'participant', 'order') %>% 
+      left_join(peripheral, by = 'participant') %>% 
       rename('peripheral' = 'log_crowding_distance_deg') %>% 
       mutate(age = format(age,nsmall=2),
              N = paste0('N=',n()))
