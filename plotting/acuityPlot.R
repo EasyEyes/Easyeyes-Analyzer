@@ -1,5 +1,5 @@
-
 source('./constant.R')
+
 get_foveal_acuity_vs_age <- function(acuity) {
   t <- acuity %>% filter(!is.na(age),
                          targetEccentricityXDeg == 0) %>% 
@@ -7,13 +7,14 @@ get_foveal_acuity_vs_age <- function(acuity) {
   if (nrow(t) == 0) {
     return(NULL)
   } else {
-    p <-  ggplot(t, aes(x = age, y = questMeanAtEndOfTrialsLoop)) +
+    p <-  ggplot(t, aes(x = age, y = 10^(questMeanAtEndOfTrialsLoop))) +
       geom_point() +
+      scale_y_log10() + 
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
       labs(title = 'Foveal acuity vs age',
            x = 'Age',
-           y = 'Acuity (deg)')
+           y = 'Foveal acuity (deg)')
     return(p)
   }
 }
@@ -26,13 +27,14 @@ get_peripheral_acuity_vs_age <- function(acuity) {
   if (nrow(t) == 0) {
     return(NULL)
   } else {
-    p <-  ggplot(t, aes(x = age, y = questMeanAtEndOfTrialsLoop)) +
+    p <-  ggplot(t, aes(x = age, y = 10^(questMeanAtEndOfTrialsLoop))) +
       geom_point() +
+      scale_y_log10() + 
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
       labs(title = 'Peripheral acuity vs age',
            x = 'Age',
-           y = 'Acuity (deg)')
+           y = 'Peripheral acuity (deg)')
     return(p)
   }
 }
@@ -142,10 +144,23 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
       theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) + 
       guides(color = guide_legend(title = colorFactor), shape = 'none') + 
       coord_fixed(ratio = 1) +
-      geom_text(aes(x = xMax * 0.8, y = yMax * 0.8, 
-                    label = paste0("N = ", corr$N, "\n R = ", corr$correlation, "\n slope = ", slope$slope))) +
-      labs(x = 'Acuity (deg)', y = 'RSVP reading speed (w/min)', title = paste('RSVP vs', type, 'acuity by', tolower(colorFactor)))
-    
+      geom_text(
+        aes(x = xMax / 3,
+            y = yMax * 0.8,
+            label = paste0("N = ",corr$N,"\n R = ", 
+                           corr$correlation,
+                           "\n slope = ", slope$slope)))+
+      # ggpp::geom_text_npc(
+      #         aes(npcx = "right",
+      #             npcy = "top",
+      #             label = paste0("italic('R=')~",corr$correlation,
+      #                            "~italic(', slope=')~", slope$slope)),
+      #         parse = T) +
+      labs(x = paste(type, 'acuity (deg)'),
+           y = 'RSVP reading speed (w/min)',
+           title = paste('RSVP vs', type ,'acuity by', tolower(colorFactor)))
+
+
     return(p)
   }
   
