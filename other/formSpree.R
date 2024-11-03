@@ -98,10 +98,11 @@ get_font_parameters_from_formSpree <- function(participant) {
   response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9"))
   if (httr::status_code(response)) {
     content <- httr::content(response, as = "text", encoding='UTF-8')
-    
+    print(participant)
     t <- jsonlite::fromJSON(content)$submissions %>% 
       mutate(`Pavlovia session ID` = ifelse(is.na(pavloviaID), pavloviaId, pavloviaID)) %>% 
       filter(`Pavlovia session ID` %in% participant) %>% 
+      filter(!is.na(fixationXYPx)) %>% 
       select(`Pavlovia session ID`, fontSizePx, fixationXYPx, fontMaxPx, viewingDistanceCm, fontRenderMaxPx, timestamp) %>% 
       arrange(desc(timestamp)) %>% 
       group_by(`Pavlovia session ID`) %>% 
@@ -109,4 +110,5 @@ get_font_parameters_from_formSpree <- function(participant) {
       select(-timestamp)
     print(t)
   }
+  return(t)
 }

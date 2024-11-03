@@ -79,7 +79,7 @@ combineProlific <- function(prolificData, summary_table){
     t <- rbind(t, t2, formSpree) 
     
   }
-  fontParameters <- get_font_parameters_from_formSpree(summary_table$participant)
+  fontParameters <- get_font_parameters_from_formSpree(summary_table$`Pavlovia session ID`)
     t <- t %>%
     rename('Prolific session ID' = 'prolificSessionID',
            'Computer 51 deg' = 'computer51Deg') %>% 
