@@ -118,47 +118,34 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
       mutate(X = 10^(questMeanAtEndOfTrialsLoop),
              Y = 10^(block_avg_log_WPM))
     
-    xMin <- 10^min(data_rsvp$questMeanAtEndOfTrialsLoop, na.rm = T)/3
-    xMax <- 10^max(data_rsvp$questMeanAtEndOfTrialsLoop, na.rm = T)*4
-    yMax <- max(10^(data_rsvp$block_avg_log_WPM), na.rm = T)
-    p <- ggplot() +
+    xMin <- 10^min(data_rsvp$questMeanAtEndOfTrialsLoop, na.rm = TRUE)  
+    xMax <- 10^max(data_rsvp$questMeanAtEndOfTrialsLoop, na.rm = TRUE) 
+    yMin <- min(data_rsvp$Y, na.rm = TRUE) 
+    yMax <- max(data_rsvp$Y, na.rm = TRUE) 
+    
+    # Dynamic breaks for log scales
+    y_breaks <- scales::log_breaks()(c(yMin, yMax))
+    x_breaks <- scales::log_breaks()(c(xMin, xMax))
+    
+    # Plot
+    p <- ggplot() + 
       geom_point(data = data_rsvp, 
-                 aes(x = X,
-                     y = Y,
-                     color = factorC, 
-                     shape = `Skilled reader?`, 
-                     group = ParticipantCode)) + 
+                 aes(x = X, y = Y, color = factorC, shape = `Skilled reader?`, group = ParticipantCode)) + 
       theme_classic() +
-      scale_y_log10(breaks = c(3, 10, 30, 100, 300, 1000)) +
-      scale_x_log10(breaks = c(0.003, 0.01, 0.03, 0.1, 0.3, 1, 10, 100),
-                    limits = c(xMin,xMax)) +
-      geom_smooth(data = data_for_stat, aes(x=10^(questMeanAtEndOfTrialsLoop), 
-                                            y = 10^(block_avg_log_WPM)), 
-                  method = 'lm', 
-                  se = FALSE) +
+      scale_y_log10(breaks = y_breaks, limits = c(yMin, yMax), expand = c(0, 0)) +
+      scale_x_log10(breaks = x_breaks, limits = c(xMin, xMax),  expand = c(0, 0)) +
+      geom_smooth(data = data_for_stat, aes(x = 10^(questMeanAtEndOfTrialsLoop), y = 10^(block_avg_log_WPM)), 
+                  method = 'lm', se = FALSE) +
       annotation_logticks() +
-      scale_shape_manual(values = pointshapes) + 
+      scale_shape_manual(values = c(4, 19)) + 
       plt_theme +
-      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC)==1, 'none','top')) + 
-      guides(color = guide_legend(title=colorFactor),
-             shape = 'none') + 
+      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) + 
+      guides(color = guide_legend(title = colorFactor), shape = 'none') + 
       coord_fixed(ratio = 1) +
-      geom_text(
-        aes(x = xMax / 3,
-            y = yMax * 0.8,
-            label = paste0("N = ",corr$N,"\n R = ", 
-                           corr$correlation,
-                           "\n slope = ", slope$slope)))+
-      # ggpp::geom_text_npc(
-      #         aes(npcx = "right",
-      #             npcy = "top",
-      #             label = paste0("italic('R=')~",corr$correlation,
-      #                            "~italic(', slope=')~", slope$slope)),
-      #         parse = T) +
-      labs(x = 'Acuity (deg)',
-           y = 'RSVP reading speed (w/min)',
-           title = paste('RSVP vs', type ,'acuity by', tolower(colorFactor)))
-
+      geom_text(aes(x = xMax * 0.8, y = yMax * 0.8, 
+                    label = paste0("N = ", corr$N, "\n R = ", corr$correlation, "\n slope = ", slope$slope))) +
+      labs(x = 'Acuity (deg)', y = 'RSVP reading speed (w/min)', title = paste('RSVP vs', type, 'acuity by', tolower(colorFactor)))
+    
     return(p)
   }
   

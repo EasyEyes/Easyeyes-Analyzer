@@ -150,40 +150,42 @@ plot_rsvp_crowding <- function(allData, df, pretest) {
              Y = 10^(block_avg_log_WPM))
     
     
-    xMin <- 10^min(data_rsvp$log_crowding_distance_deg, na.rm = T)/3
-    xMax <- 10^max(data_rsvp$log_crowding_distance_deg, na.rm = T)*3
-    yMax <- max(10^(data_rsvp$block_avg_log_WPM), na.rm = T)
-    yMin <- min(10^(data_rsvp$block_avg_log_WPM), na.rm = T)
+    xMin <- 10^min(data_rsvp$log_crowding_distance_deg, na.rm = T) /1.5
+    xMax <- 10^max(data_rsvp$log_crowding_distance_deg, na.rm = T) * 1.5
+    yMin <- min(10^(data_rsvp$block_avg_log_WPM), na.rm = T) / 1.5
+    yMax <- max(10^(data_rsvp$block_avg_log_WPM), na.rm = T) * 1.5
+    
+    # Generate dynamic breaks for the y-axis
+    y_breaks <- scales::log_breaks()(c(yMin, yMax))
+    
     p <- ggplot() + 
       geom_point(data = data_rsvp, 
                  aes(x = X,
                      y = Y,
                      color = factorC, 
-                     shape =`Skilled reader?`, 
+                     shape = `Skilled reader?`, 
                      group = ParticipantCode)) +
       theme_classic() +
-      scale_y_log10(breaks = c(10, 30, 100, 300, 1000),
-                    limits=c(yMin * 0.8, yMax*2),
-                    expand=c(0,0)) +
+      scale_y_log10(breaks = y_breaks,  # Dynamic breaks based on data range
+                    limits = c(yMin, yMax), expand = c(0, 0)) +
       scale_x_log10(breaks = c(0.003, 0.01, 0.03, 0.1, 0.3, 1, 10, 100),
-                    limits = c(xMin,xMax),
-                    expand=c(0,0)) +
+                    limits = c(xMin, xMax), expand = c(0, 0)) +
       geom_smooth(data = data_for_stat,
                   aes(x = 10^(log_crowding_distance_deg),
                       y = 10^(block_avg_log_WPM)),
                   method = 'lm', se = FALSE) +
       scale_shape_manual(values = pointshapes) + 
       annotation_logticks() +
-      coord_fixed(ratio = 1) +
+      coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +  # Set exact limits
       geom_text(
-        aes(x = xMax / 3,
+        aes(x = xMax * 0.8,  # Adjust annotation if needed
             y = yMax * 0.8,
-            label = paste0("N = ",corr$N,"\n R = ", 
+            label = paste0("N = ", corr$N, "\n R = ", 
                            corr$correlation,
-                           "\n slope = ", slope$slope)))+
+                           "\n slope = ", slope$slope))) +
       plt_theme +
-      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC)==1, 'none','top')) + 
-      guides(color = guide_legend(title=colorFactor),
+      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) + 
+      guides(color = guide_legend(title = colorFactor),
              shape = 'none') + 
       labs(x = 'Crowding distance (deg)',
            y = 'RSVP reading (w/min)',

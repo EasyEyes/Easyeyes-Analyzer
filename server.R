@@ -548,6 +548,7 @@ shinyServer(function(input, output, session) {
     i = 1
     l <- list()
     fileNames <- list()
+    
     t <- get_foveal_crowding_vs_age(df_list()$crowding)
     if (!is.null(t)) {
       l[[i]] = t
@@ -3663,20 +3664,22 @@ shinyServer(function(input, output, session) {
             "tmp.svg",
             plot = rsvpCrowding()[[2]] + 
               plt_theme,
-            width = 7,
-            height = 5,
-            device = svglite
+            width = 8,
+            height = 6,
+            device = svglite,
+            limitsize = FALSE 
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
+                         width = 2400, height = 1800)
         } else {
           ggsave(
             file = file,
             plot = rsvpCrowding()[[2]] + 
               plt_theme,
             device = svg,
-            width = 7,
-            height = 5
+            width = 8,
+            height = 6,
+            dpi = 300
           )
         }
       }
@@ -3694,20 +3697,22 @@ shinyServer(function(input, output, session) {
             "tmp.svg",
             plot = rsvpCrowding()[[3]] + 
               plt_theme,
-            width = 7,
-            height = 5,
-            device = svglite
+            width = 8,
+            height = 6,
+            device = svglite,
+            limitsize = FALSE 
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
+                         width = 2400, height = 1800)
         } else {
           ggsave(
             file = file,
             plot = rsvpCrowding()[[3]] + 
               plt_theme,
             device = svg,
-            width = 7,
-            height = 5
+            width = 8,
+            height = 6,
+            dpi = 300
           )
         }
       }
@@ -3725,20 +3730,22 @@ shinyServer(function(input, output, session) {
             "tmp.svg",
             plot = rsvpCrowding()[[4]] + 
               plt_theme,
-            width = 7,
-            height = 5,
-            device = svglite
+            width = 8,
+            height = 6,
+            device = svglite,
+            limitsize = FALSE 
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
+                         width = 2400, height = 1800)
         } else {
           ggsave(
             file = file,
             plot = rsvpCrowding()[[4]] + 
               plt_theme,
             device = svg,
-            width = 7,
-            height = 5
+            width = 8,
+            height = 6,
+            dpi = 300
           )
         }
       }
@@ -3756,20 +3763,22 @@ shinyServer(function(input, output, session) {
             "tmp.svg",
             plot = rsvpAcuityFoveal()[[1]] + 
               plt_theme,
-            width = 7,
-            height = 5,
-            device = svglite
+            width = 8,
+            height = 6,
+            device = svglite,
+            limitsize = FALSE 
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
+                         width = 2400, height = 1800)
         } else {
           ggsave(
             file = file,
             plot = rsvpAcuityFoveal()[[1]] + 
               plt_theme,
             device = svg,
-            width = 7,
-            height = 5
+            width = 8,
+            height = 6,
+            dpi = 300
           )
         }
       }
@@ -3787,20 +3796,22 @@ shinyServer(function(input, output, session) {
             "tmp.svg",
             plot = rsvpAcuityFoveal()[[2]] + 
               plt_theme,
-            width = 7,
-            height = 5,
-            device = svglite
+            width = 8,
+            height = 6,
+            device = svglite,
+            limitsize = FALSE 
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
+                         width = 2400, height = 1800)
         } else {
           ggsave(
             file = file,
             plot = rsvpAcuityFoveal()[[2]] + 
               plt_theme,
             device = svg,
-            width = 7,
-            height = 5
+            width = 8,
+            height = 6,
+            dpi = 300
           )
         }
       }
@@ -3818,22 +3829,24 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot = rsvpAcuityPeripheral()[[1]] + 
+            plot = rsvpAcuityPeripheral()[[1]]+ 
               plt_theme,
-            width = 7,
-            height = 5,
-            device = svglite
+            width = 8,
+            height = 6,
+            device = svglite,
+            limitsize = FALSE 
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
+                         width = 2400, height = 1800)
         } else {
           ggsave(
             file = file,
             plot = rsvpAcuityPeripheral()[[1]] + 
               plt_theme,
             device = svg,
-            width = 7,
-            height = 5
+            width = 8,
+            height = 6,
+            dpi = 300
           )
         }
       }
@@ -3849,22 +3862,24 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot = rsvpAcuityPeripheral()[[2]] + 
+            plot = rsvpAcuityPeripheral()[[2]]+ 
               plt_theme,
-            width = 7,
-            height = 5,
-            device = svglite
+            width = 8,
+            height = 6,
+            device = svglite,
+            limitsize = FALSE 
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
+                         width = 2400, height = 1800)
         } else {
           ggsave(
             file = file,
             plot = rsvpAcuityPeripheral()[[2]] + 
               plt_theme,
             device = svg,
-            width = 7,
-            height = 5
+            width = 8,
+            height = 6,
+            dpi = 300
           )
         }
       }
