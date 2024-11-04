@@ -4,6 +4,13 @@ library(plotly)
 
 plotsTab <- tabPanel(
   'Plots',
+  tags$style(HTML("
+    .textpoint text {
+      text-anchor: start;    /* Left-align each text line */
+      white-space: pre;      /* Preserve whitespace */
+    }
+    /* Additional styles as needed for specific plot adjustments */
+  ")),
  radioButtons(
     "fileType",
     "Select download file type:",

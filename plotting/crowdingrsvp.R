@@ -175,12 +175,25 @@ plot_rsvp_crowding <- function(allData) {
                   method = 'lm', se = FALSE) +
       annotation_logticks() +
       coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +  # Set exact limits
-      geom_text(data = data_rsvp,
-        aes(x = xMax * 0.8,  # Adjust annotation if needed
-            y = yMax * 0.8,
-            label = paste0("N = ", corr$N, "\n R = ",
-                           corr$correlation,
-                           "\n slope = ", slope$slope))) +
+      
+      annotate(
+        "text",
+        x = xMin * 1.4,
+        y = yMin * 1.3,
+        label = paste0("N = ", corr$N, "\nR = ", corr$correlation, "\nslope = ", slope$slope),
+        hjust = 0,        # Left-align text
+        vjust = 0,        # Top-align for consistent stacking
+        size = 4,
+        color = "black"
+      ) +
+      
+      
+      #geom_text(data = data_rsvp,
+       # aes(x = xMax * 0.8,  # Adjust annotation if needed
+        #    y = yMax * 0.8,
+         #   label = paste0("N = ", corr$N, "\n R = ",
+          #                 corr$correlation,
+           #                "\n slope = ", slope$slope))) +
       plt_theme +
       theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) + 
       guides(color = guide_legend(title = colorFactor),

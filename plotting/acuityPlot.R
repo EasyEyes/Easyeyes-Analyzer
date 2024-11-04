@@ -169,18 +169,16 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) +
       guides(color = guide_legend(title = colorFactor), shape = 'none') +
       coord_fixed(ratio = 1) +
-      geom_text(aes(
-        x = xMax / 3,
-        y = yMax * 0.8,
-        label = paste0(
-          "N = ",
-          corr$N,
-          "\n R = ",
-          corr$correlation,
-          "\n slope = ",
-          slope$slope
-        )
-      )) +
+      annotate(
+        "text",
+        x = xMin,
+        y = yMin * 1.1,
+        label = paste0("N = ", corr$N, "\nR = ", corr$correlation, "\nslope = ", slope$slope),
+        hjust = 0,        # Left-align text
+        vjust = 0,        # Top-align for consistent stacking
+        size = 4,
+        color = "black"
+      ) +
       # ggpp::geom_text_npc(
       #         aes(npcx = "right",
       #             npcy = "top",
