@@ -1,52 +1,9 @@
 library(plotly)
 
-timer_js <- "
-  let startTime = new Date().getTime();
-  function updateTimer() {
-    let now = new Date().getTime();
-    let elapsed = now - startTime;
-    let seconds = Math.floor((elapsed / 1000) % 60);
-    let minutes = Math.floor((elapsed / (1000 * 60)) % 60);
-    let hours = Math.floor((elapsed / (1000 * 60 * 60)) % 24);
-  
-    document.getElementById('timer').innerHTML = 
-        (hours < 10 ? '0' + hours : hours) + ':' + 
-        (minutes < 10 ? '0' + minutes : minutes) + ':' + 
-        (seconds < 10 ? '0' + seconds : seconds);
-  
-    // Check every second
-    setTimeout(updateTimer, 1000);
-  }
-  document.addEventListener('DOMContentLoaded', (event) => {
-      updateTimer();
-  });
-"
+
 
 plotsTab <- tabPanel(
   'Plots',
-  tags$head(
-    tags$style(type="text/css",  "
-      #timer { 
-        position: absolute; 
-        top: 10px; 
-        right: 10px; 
-        margin-right: 10px;
-        font-size: 16px; 
-        font-weight: bold;
-        color: #FFFFFF; 
-        background-color: rgba(0, 0, 0, 0.7);
-        padding: 5px;
-        border-radius: 5px;
-        z-index: 9999;
-      }
-      body.disconnected {
-        background-color: inherit;
-        opacity: 1;
-      }
-    "),
-    tags$script(HTML(timer_js))
-    ),
-  div(id = "timer", "00:00:00"),
  radioButtons(
     "fileType",
     "Select download file type:",
