@@ -175,9 +175,15 @@ plot_reading_age <- function(reading){
     filter(!is.na(age)) %>% 
     mutate(N=paste0('N=',n()))
   if (nrow(t) == 0) {
-   NULL
+   return(NULL)
   } else {
-    p <-  ggplot(t, aes(x = age, y = 10^(log_WPM))) +
+    if (n_distinct(t$Grade) > 1) {
+      t$Grade = as.character(t$Grade)
+      p <-  ggplot(t, aes(x = age, y = 10^(log_WPM), color = Grade))
+    } else {
+      p <-  ggplot(t, aes(x = age, y = 10^(log_WPM)))
+    }
+    p <- p + 
       scale_y_log10() + 
       geom_point() +
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
@@ -185,6 +191,13 @@ plot_reading_age <- function(reading){
       labs(title = 'Reading vs age',
            x = 'Age',
            y = 'Reading speed (w/min)')
+    if (n_distinct(t$`Skilled reader?`) == 1) {
+      p <- p + geom_point()
+    } else {
+      p <- p + 
+        geom_point(aes(shape = `Skilled reader?`)) +
+        scale_shape_manual(values = c(4,19))
+    }
     return(p)
   }
 }
@@ -197,14 +210,26 @@ plot_rsvp_age <- function(rsvp){
   if (nrow(t) == 0) {
    return(NULL)
   } else {
-    p <-  ggplot(t, aes(x = age, y = 10^(block_avg_log_WPM))) +
+    if (n_distinct(t$Grade) > 1) {
+      t$Grade = as.character(t$Grade)
+      p <-  ggplot(t, aes(x = age, y = 10^(block_avg_log_WPM), color = Grade))
+    } else {
+      p <-  ggplot(t, aes(x = age, y = 10^(block_avg_log_WPM)))
+    }
+    p <- p +
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       scale_y_log10() + 
-      geom_point() +
       theme_bw() +
       labs(title = 'RSVP reading vs age',
            x = 'Age',
            y = 'RSVP reading speed (w/min)')
+    if (n_distinct(t$`Skilled reader?`) > 1) {
+      p <- p + 
+        geom_point(aes(shape = `Skilled reader?`)) + 
+        scale_shape_manual(values=c(4,19))
+    } else {
+      p <- p + geom_point()
+    }
     return(p)
   }
 }
@@ -215,8 +240,9 @@ plot_reading_rsvp <- function(reading,rsvp){
   }
   rsvp <- rsvp %>% 
     mutate(participant = tolower(participant)) %>% 
-    group_by(participant,targetKind) %>% 
-    summarize( avg_log_WPM = mean(block_avg_log_WPM))
+    group_by(participant,targetKind, age) %>% 
+    summarize(avg_log_WPM = mean(block_avg_log_WPM))
+  
   t <- reading %>%
     mutate(participant = tolower(participant)) %>% 
     group_by(participant, block_condition, targetKind) %>%
@@ -228,20 +254,21 @@ plot_reading_rsvp <- function(reading,rsvp){
     summarize(avg_log_WPM = mean(log10(avg_wordPerMin))) %>% 
     left_join(rsvp, by = 'participant') %>% 
     ungroup() %>% 
-    mutate(N = paste0('N=',n()))
+    mutate(N = paste0('N=',n()),
+           Age = format(round(age,2), nsmall = 2))
   
   p <- ggplot(t,aes(x = 10^(avg_log_WPM.y), y = 10^(avg_log_WPM.x))) + 
-    geom_point() +
+    geom_point(aes(color = Age)) +
     ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10() + 
     scale_y_log10() +
     labs(x="Rsvp reading (w/min)", 
          y = "Reading (w/min)",
-         title = 'Reading vs rsvp reading') +
+         title = 'Reading vs RSVP reading') +
     theme_bw() + 
     theme(legend.position='top') + 
     annotation_logticks() +
-    guides(color=guide_legend(title=""))+
+    guides(color=guide_legend(title=""))
   return(p)
 }

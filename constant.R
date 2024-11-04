@@ -104,11 +104,11 @@ plt_theme <- theme(legend.position = "top",
                    plot.subtitle = element_text(size=18,
                                                 hjust = 0),
                    plot.margin = margin(
-                     t = .5,
-                     r = .5,
-                     b = .5,
-                     l = 0,
-                     "cm"
+                     t = 0.1,
+                     r = 0.1,
+                     b = 0.1,
+                     l = 0.1,
+                     "inch"
                    ),
                    strip.text = element_text(size = 14))
 

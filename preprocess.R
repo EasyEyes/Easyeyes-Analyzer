@@ -26,6 +26,9 @@ read_files <- function(file){
       if (!'Skilled reader?' %in% names(pretest)) {
         pretest$`Skilled reader?` = 'unknown'
       }
+      if (!'ParticipantCode' %in% names(pretest)) {
+        pretest$ParticipantCode = pretest$participant
+      }
     }
     if (grepl(".csv", file_list[i])){ 
       try({t <- readr::read_csv(file_list[i],show_col_types = FALSE)}, silent = TRUE)
@@ -201,7 +204,6 @@ read_files <- function(file){
         if (nchar(t$participant[1]) >=3 & is.na(as.numeric(str_sub(t$participant[1], -3, -1)))) {
           if (!is.na(as.numeric(str_sub(t$participant[1], -2, -1)))){
             t$age <- as.numeric(str_sub(t$participant[1], -2, -1))
-            t$britishID = tolower(str_sub(t$participant[1], 1, 4))
           }
         }
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
@@ -447,7 +449,6 @@ read_files <- function(file){
             if (!is.na(as.numeric(str_sub(t$participant[1], -2, -1)))){
               print('find age in participant id')
               t$age <- as.numeric(str_sub(t$participant[1], -2, -1))
-              t$britishID = tolower(str_sub(t$participant[1], 1, 4))
             }
           }
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
@@ -519,6 +520,9 @@ read_files <- function(file){
         if (!'Skilled reader?' %in% names(pretest)) {
           pretest$`Skilled reader?` = 'unknown'
         }
+        if (!'ParticipantCode' %in% names(pretest)) {
+          pretest$ParticipantCode = pretest$participant
+        }
       }
       print('done processing zip')
     }
@@ -534,9 +538,6 @@ read_files <- function(file){
     if (!'Birthdate' %in% names(data_list[[i]])) {
       data_list[[i]]$Birthdate = ''
     }
-    if (!'britishID' %in% names(data_list[[i]])) {
-      data_list[[i]]$britishID = ''
-    }
     unique_participantCode = unique(data_list[[i]]$ParticipantCode)
     if (length(unique_participantCode) > 1) {
       data_list[[i]]$ParticipantCode = unique(data_list[[i]]$ParticipantCode[!is.na(data_list[[i]]$ParticipantCode)])
@@ -551,10 +552,9 @@ read_files <- function(file){
     } else {
       data_list[[i]]$Birthdate = ''
     }
-    df <- rbind(df, data_list[[i]] %>% distinct(participant, britishID, ParticipantCode, Birthdate))
+    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, Birthdate))
     
   }
-
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]

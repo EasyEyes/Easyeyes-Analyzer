@@ -49,12 +49,13 @@ source("./plotting/customized_inplot_table.R")
 source("./plotting/profile_plot.R")
 source("./plotting/simulatedRSVP.R")
 source("./plotting/acuityPlot.R")
+source('./plotting/crowdingrsvp.R')
 
 source("./other/getBits.R")
 source("./other/sound_plots.R")
 source("./other/read_json.R")
 source("./other/formSpree.R")
-source('./other/crowdingrsvp.R')
+
 
 #### server code ####
 
@@ -423,15 +424,15 @@ shinyServer(function(input, output, session) {
   
   #### rsvpCrowding reactive ####
   rsvpCrowding <- reactive({
-    plot_rsvp_crowding(df_list(), files()$df, files()$pretest)
+    plot_rsvp_crowding(df_list())
   })
   
   rsvpAcuityFoveal <- reactive({
-    plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp, files()$df, files()$pretest,'foveal')
+    plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp,'foveal')
   })
   
   rsvpAcuityPeripheral <- reactive({
-    plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp, files()$df, files()$pretest,'peripheral')
+    plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp,'peripheral')
   })
   
   two_fonts_plots <- reactive({
@@ -455,12 +456,12 @@ shinyServer(function(input, output, session) {
   })
   
   foveal_peripheral_diag <- reactive({
-    get_foveal_peripheral_diag(df_list()$crowding, files()$pretest)
+    get_foveal_peripheral_diag(df_list()$crowding)
   })
   
   
   foveal_crowding_vs_acuity_diag <- reactive({
-    get_foveal_acuity_diag(df_list()$crowding, df_list()$acuity, files()$pretest)
+    get_foveal_acuity_diag(df_list()$crowding, df_list()$acuity)
   })
   
   regressionPlot <- reactive({
@@ -550,42 +551,42 @@ shinyServer(function(input, output, session) {
     fileNames <- list()
     
     t <- get_foveal_crowding_vs_age(df_list()$crowding)
-    print(paste('agePlots', i))
+   
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-age'
       i = i + 1
     }
     t <- get_peripheral_crowding_vs_age(df_list()$crowding)
-    print(paste('agePlots', i))
+
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-age'
       i = i + 1
     }
     t <- get_repeatedLetter_vs_age(df_list()$repeatedLetters)
-    print(paste('agePlots', i))
+
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'repeated-letter-vs-age'
       i = i + 1
     }
     t <- plot_reading_age(df_list()$reading)
-    print(paste('agePlots', i))
+ 
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'reading-vs-age'
       i = i + 1
     }
     t <- plot_rsvp_age(df_list()$rsvp)
-    print(paste('agePlots', i))
+
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'RSVP-vs-age'
       i = i + 1
     }
     t <- get_foveal_acuity_vs_age(df_list()$acuity)
-    print(paste('agePlots', i))
+
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-acuity-vs-age'
@@ -593,16 +594,15 @@ shinyServer(function(input, output, session) {
     }
 
     t <- get_peripheral_acuity_vs_age(df_list()$acuity)
-    print(paste('agePlots', i))
+
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'peripheral-acuity-vs-age'
       i = i + 1
     }
     t <- get_crowding_vs_repeatedLetter(df_list()$crowding, 
-                                        df_list()$repeatedLetters,
-                                        files()$pretest)$age
-    print(paste('agePlots', i))
+                                        df_list()$repeatedLetters)$age
+
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'crowding-vs-repeated-letters-age'
@@ -610,9 +610,8 @@ shinyServer(function(input, output, session) {
     }
     
     t <- get_crowding_vs_repeatedLetter(df_list()$crowding, 
-                                        df_list()$repeatedLetters,
-                                        files()$pretest)$grade
-    print(paste('agePlots', i))
+                                        df_list()$repeatedLetters)$grade
+
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'crowding-vs-repeated-letters-grade'
@@ -620,7 +619,7 @@ shinyServer(function(input, output, session) {
     }
     
    t <- plot_reading_rsvp(df_list()$reading, df_list()$rsvp)
-   print(paste('agePlots', i))
+
    if (!is.null(t)) {
      l[[i]] = t
      fileNames[[i]] = 'reading-vs-RSVP-reading'
@@ -714,6 +713,7 @@ shinyServer(function(input, output, session) {
     i = 1
     l <- list()
     fileNames <- list()
+    print('inside get_foveal_acuity_diag')
     t <- foveal_crowding_vs_acuity_diag()$foveal$age
 
     if (!is.null(t)) {
@@ -758,14 +758,14 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    t <- get_quest_diag(df_list()$quest, files()$pretest)$age
+    t <- get_quest_diag(df_list()$quest)$age
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'quest-sd-vs-mean-age-diagram'
       i = i + 1
     }
     
-    t <- get_quest_diag(df_list()$quest, files()$pretest)$grade
+    t <- get_quest_diag(df_list()$quest)$grade
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
@@ -1671,8 +1671,7 @@ shinyServer(function(input, output, session) {
                      ggsave(
                        file = outfile,
                        plot =  get_crowding_vs_repeatedLetter(df_list()$crowding,
-                                                              df_list()$repeatedLetters,
-                                                              files()$pretest) +
+                                                              df_list()$repeatedLetters) +
                          plt_theme,
                        device = svg,
                        width = 7,
@@ -1821,8 +1820,10 @@ shinyServer(function(input, output, session) {
                    return(out)
                  })
                  for (j in 1:length(histograms()$plotList)) {
+                   print(paste('length of histograms', length(histograms()$plotList)))
                    local({
                      ii <- j
+                     print(ii)
                      output[[paste0("hist", ii)]] <- renderImage({
                        outfile <- tempfile(fileext = '.svg')
                        ggsave(

@@ -53,6 +53,7 @@ get_crowding_hist <- function(crowding, pretest) {
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
       ) +
       labs(x = 'Log foveal crowding (deg)',
+           y = 'Count',
            title ='Histogram of foveal crowding distance')
   } else {
     p1 <- NULL
@@ -78,6 +79,7 @@ get_crowding_hist <- function(crowding, pretest) {
           label = paste0('mean=',stats2$mean,'\n sd=', stats2$sd, '\n N=', stats2$N))
    ) + 
     labs(x = 'Log peripheral crowding (deg)',
+         y = 'Count',
          title ='Histogram of peripheral crowding distance')
  } else {
    p2 <- NULL
@@ -118,6 +120,7 @@ get_acuity_hist <- function(acuity, pretest) {
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
       ) +
       labs(x = 'Log acuity (deg)',
+           y = 'Count',
            title ='Histogram of foveal acuity')
   } else {
     p1 <-  NULL
@@ -144,6 +147,7 @@ get_acuity_hist <- function(acuity, pretest) {
              label = paste0('mean=',stats2$mean,'\n sd=', stats2$sd, '\n N=', stats2$N))
       ) +
       labs(x = 'Log acuity (deg)',
+           y = 'Count',
            title ='Histogram of peripheral acuity')
   } else {
     p2 <- NULL
@@ -175,6 +179,7 @@ get_rsvp_hist <- function(rsvp, pretest) {
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
       ) +
       labs(x = 'Log RSVP reading speed (w/min)',
+           y = 'Count',
            title ='Histogram of RSVP reading speed')
   } else {
     p1 <- NULL
@@ -189,10 +194,12 @@ get_repeatedLetter_hist <- function(repeated, pretest) {
 
   if (nrow(repeated) > 0) {
     if ('Skilled reader?' %in% names(repeated)) {
+      print(repeated)
       stats1 <- repeated %>% filter(`Skilled reader?` != FALSE)
     } else {
       stats1 <- repeated
     }
+    print(stats1)
     stats1 <- stats1 %>% summarize(mean = round(mean(log_crowding_distance_deg),2), 
                                    sd = round(sd(log_crowding_distance_deg),2),
                                    N = n())
@@ -205,7 +212,8 @@ get_repeatedLetter_hist <- function(repeated, pretest) {
              npcy = 'top',
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
       ) +
-      labs(x = 'Repeated-letter crowding (deg)',
+      labs(x = 'Log repeated-letter crowding (deg)',
+           y = 'Count',
            title ='Histogram of repeated-letter crowding')
   } else {
     p1 <- NULL

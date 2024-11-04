@@ -195,7 +195,6 @@ for (i in 1 : n) {
         if (!is.na(as.numeric(str_sub(t$participant[1], -2, -1)))){
           print('find age in participant id')
           t$age <- as.numeric(str_sub(t$participant[1], -2, -1))
-          t$britishID = tolower(str_sub(t$participant[1], 1, 4))
         }
       }
       screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
@@ -269,9 +268,7 @@ for (i in 1:length(data_list)) {
   if (!'Birthdate' %in% names(data_list[[i]])) {
     data_list[[i]]$Birthdate = ''
   }
-  if (!'britishID' %in% names(data_list[[i]])) {
-    data_list[[i]]$britishID = ''
-  }
+
   unique_participantCode = unique(data_list[[i]]$ParticipantCode)
   if (length(unique_participantCode) > 1) {
     data_list[[i]]$ParticipantCode = unique(data_list[[i]]$ParticipantCode[!is.na(data_list[[i]]$ParticipantCode)])
@@ -286,10 +283,9 @@ for (i in 1:length(data_list)) {
     data_list[[i]]$Birthdate = ''
   }
   
-  df <- rbind(df, data_list[[i]] %>% distinct(participant, britishID, ParticipantCode, Birthdate))
+  df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, Birthdate))
   
 }
-print(df)
 
 
 generate_threshold(data_list, summary_list)

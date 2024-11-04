@@ -11,6 +11,20 @@ basicExclude <-englishChild %>%
 
 generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, filterInput) {
   print('inside threshold warning')
+  # I think we should merge the reading data and threshold data with the Grade and Skilled reader column
+  # in pretest data here so that we don't need to merge it every time we want to use the pretest data.
+  if (nrow(pretest) > 0) {
+    pretest <- pretest %>%
+      mutate(lowerCaseParticipant = tolower(participant))
+    if (!'Grade' %in% names(pretest)) {
+      pretest$Grade = -1
+    }
+    if (!'Skilled reader?' %in% names(pretest)) {
+      pretest$`Skilled reader?` = 'unkown'
+    }
+  }
+  
+  
   reading <- tibble()
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>% 
@@ -28,12 +42,43 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     }
     reading <- rbind(reading, t)
   }
-
-
+  
+  if (nrow(pretest) > 0) {
+    reading <- reading %>% 
+      mutate(lowerCaseParticipant = tolower(participant)) %>% 
+      left_join(select(pretest, Grade, `Skilled reader?`, lowerCaseParticipant), by = 'lowerCaseParticipant') %>% 
+      select(-lowerCaseParticipant)
+    if (!'ParticipantCode' %in% names(reading)) {
+      reading$ParticipantCode = reading$participant
+    }
+  } else {
+    reading$ParticipantCode = reading$participant
+    reading$Grade = -1
+    reading$`Skilled reader?` = 'unkown'
+  }
+  
+  # combine all thresholds
+  
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
   } %>% 
     filter(!tolower(participant) %in% basicExclude$participant)
+  
+  if (nrow(pretest) > 0) {
+    all_summary <- all_summary %>% 
+      mutate(lowerCaseParticipant = tolower(participant)) %>% 
+      left_join(select(pretest, Grade, `Skilled reader?`, lowerCaseParticipant), by = 'lowerCaseParticipant') %>% 
+      select(-lowerCaseParticipant)
+    
+    if (!'ParticipantCode' %in% names(all_summary)) {
+      all_summary$ParticipantCode = all_summary$participant
+    }
+  } else {
+      all_summary$ParticipantCode = all_summary$participant
+      all_summary$Grade = -1
+      all_summary$`Skilled reader?` = 'unkown'
+    
+  }
   
   print('done all_summary')
   threshold <- ifelse(nrow(reading) != 0, quantile(reading$wordPerMin, 0.25, na.rm = T), 0)
@@ -41,19 +86,20 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   print(paste0('threshold:', threshold))
   
   if (!is.na(threshold) & threshold != 0) {
-    slowest = reading %>% filter(wordPerMin <= threshold) %>% mutate(participant = tolower(participant)) %>% distinct(participant)
-    print(slowest)
+    slowest = reading %>% filter(wordPerMin < threshold) %>% mutate(participant = tolower(participant)) %>% distinct(participant)
   }
+  
   print('done threshold')
   print(paste('pretest:', nrow(pretest)))
+  
   if (nrow(pretest) > 0 & 'OMT_words read' %in% names(pretest)) {
     pretest <- pretest %>% mutate(wordPerMin = as.numeric(`OMT_words read` )/ `Reading Time (sec.)` * 60)
     threshold <- quantile(pretest$wordPerMin, 0.25, na.rm = T)
     print(paste('threshold:', threshold))
-    slowest = pretest %>% filter(wordPerMin <= threshold)
-    print(slowest)
+    slowest = pretest %>% filter(wordPerMin < threshold)
     print('done pretest')
   }
+  
   if (filterInput == 'slowest' & nrow(slowest) > 0) {
     reading <- reading %>% filter(tolower(participant) %in% tolower(slowest$participant))
     all_summary <- all_summary %>%  filter(tolower(participant) %in% tolower(slowest$participant))
@@ -62,15 +108,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     reading <- reading%>% filter(!tolower(participant) %in% tolower(slowest$participant))
     all_summary <- all_summary%>% filter(!tolower(participant) %in% tolower(slowest$participant))
   }
-  print('done slowest')
-  # if (filterInput == 'all') {
-  # } else if (filterInput == 'slowest') {
-  #   reading <- reading %>% filter(participant %in% slowest)
-  #   all_summary <- all_summary %>% filter(participant %in% slowest)
-  # } else {
-  #   reading <- reading %>% filter(!participant %in% slowest)
-  #   all_summary <- all_summary %>% filter(!participant %in% slowest)
-  # }
+  print('done filter input')
+
   
   quest <- all_summary %>%
     mutate(questType = case_when(
@@ -90,7 +129,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       grepl("practice",conditionName, ignore.case = T) ~ 'practice',
       .default = 'unknown'
     )) %>% 
-    select(participant, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType)
+    select(participant, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode)
 
   eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     t <- data_list[[i]] %>%
@@ -122,10 +161,12 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
            questMeanAtEndOfTrialsLoop, 
            font,
            experiment,
+           Grade,
+           `Skilled reader?`,
+           ParticipantCode,
            order) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
   
-
   crowding <- crowding %>% 
     left_join(eccentricityDeg, by = c("participant", "conditionName", "order")) %>% 
     mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg), 
@@ -138,7 +179,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   rsvp_speed <- all_summary %>% 
     filter(targetKind == "rsvpReading",
            !grepl("practice",conditionName, ignore.case = T)) %>% 
-    select(participant, block_condition,conditionName, questMeanAtEndOfTrialsLoop, font, targetKind, thresholdParameter) %>%
+    select(participant, block_condition,conditionName, questMeanAtEndOfTrialsLoop, 
+           font, targetKind, thresholdParameter, Grade, `Skilled reader?`,ParticipantCode) %>%
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
   print('left join reading')
@@ -163,6 +205,9 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
            questMeanAtEndOfTrialsLoop, 
            font,
            experiment,
+           Grade,
+           `Skilled reader?`,
+           ParticipantCode,
            order) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop) %>% 
     left_join(eccentricityDeg, by = c("participant", "conditionName", "order")) %>% 

@@ -63,7 +63,7 @@ plotsTab <- tabPanel(
   #### histogram ####
   h3("Histograms"),
  shinycssloaders::withSpinner(uiOutput('histograms'),type=4),
-  h3("Scatter Diagrams"),
+  h3("Scatter diagrams"),
  shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
   #### rsvp crowding plots ####
   splitLayout(
@@ -134,7 +134,7 @@ plotsTab <- tabPanel(
   h3("Plots for Children"),
   uiOutput('plots'),
   #### regression ####
-  h3("Regression reading vs crowding"),
+  h3("Reading vs crowding"),
   splitLayout(
     cellWidths = c("50%", "50%"),
     shinycssloaders::withSpinner(plotOutput("regressionPlot", width = "100%"), type = 4),

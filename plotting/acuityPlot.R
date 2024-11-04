@@ -2,19 +2,44 @@ source('./constant.R')
 
 get_foveal_acuity_vs_age <- function(acuity) {
   t <- acuity %>% filter(!is.na(age),
-                         targetEccentricityXDeg == 0) %>% 
-    mutate(N = paste0('N=',n()))
+                         targetEccentricityXDeg == 0) %>%
+    mutate(N = paste0('N=', n()))
   if (nrow(t) == 0) {
     return(NULL)
   } else {
-    p <-  ggplot(t, aes(x = age, y = 10^(questMeanAtEndOfTrialsLoop))) +
-      geom_point() +
-      scale_y_log10() + 
-      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
+    if (n_distinct(t$Grade) > 1) {
+      t$Grade = as.character(t$Grade)
+      p <-
+        ggplot(t, aes(
+          x = age,
+          y = 10 ^ (questMeanAtEndOfTrialsLoop),
+          color = Grade
+        ))
+    } else {
+      p <- ggplot(t, aes(
+        x = age,
+        y = 10 ^ (questMeanAtEndOfTrialsLoop)
+      ))
+    }
+    p <- p +
+      scale_y_log10() +
+      ggpp::geom_text_npc(aes(
+        npcx = "left",
+        npcy = 'top',
+        label = N
+      )) +
       theme_bw() +
       labs(title = 'Foveal acuity vs age',
            x = 'Age',
            y = 'Foveal acuity (deg)')
+    if (n_distinct(t$`Skilled reader?`) == 1) {
+      p <- p + geom_point()
+    } else {
+      p <- p +
+        geom_point(aes(shape = `Skilled reader?`)) +
+        scale_shape_manual(values = c(4, 19))
+    }
+    
     return(p)
   }
 }
@@ -22,145 +47,173 @@ get_foveal_acuity_vs_age <- function(acuity) {
 
 get_peripheral_acuity_vs_age <- function(acuity) {
   t <- acuity %>% filter(!is.na(age),
-                         targetEccentricityXDeg != 0) %>% 
-    mutate(N = paste0('N=',n()))
+                         targetEccentricityXDeg != 0) %>%
+    mutate(N = paste0('N=', n()))
   if (nrow(t) == 0) {
     return(NULL)
   } else {
-    p <-  ggplot(t, aes(x = age, y = 10^(questMeanAtEndOfTrialsLoop))) +
+    if (n_distinct(t$Grade) > 1) {
+      t$Grade = as.character(t$Grade)
+      p <-
+        ggplot(t, aes(
+          x = age,
+          y = 10 ^ (questMeanAtEndOfTrialsLoop),
+          color = Grade
+        ))
+    } else {
+      p <- ggplot(t, aes(
+        x = age,
+        y = 10 ^ (questMeanAtEndOfTrialsLoop)
+      ))
+    }
+    p <- p +
       geom_point() +
-      scale_y_log10() + 
-      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
+      scale_y_log10() +
+      ggpp::geom_text_npc(aes(
+        npcx = "left",
+        npcy = 'top',
+        label = N
+      )) +
       theme_bw() +
       labs(title = 'Peripheral acuity vs age',
            x = 'Age',
            y = 'Peripheral acuity (deg)')
+    if (n_distinct(t$`Skilled reader?`) == 1) {
+      p <- p + geom_point()
+    } else {
+      p <- p +
+        geom_point(aes(shape = `Skilled reader?`)) +
+        scale_shape_manual(values = c(4, 19))
+    }
     return(p)
   }
 }
 
-plot_acuity_reading <- function(acuity,reading){
+plot_acuity_reading <- function(acuity, reading) {
   
 }
 
 
-plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
-  create_plot <- function(data,type,colorFactor) {
-    
+plot_acuity_rsvp <- function(acuity, rsvp, type) {
+  create_plot <- function(data, type, colorFactor) {
     # Merge data and calculate WPM and acuity
     data_rsvp <- data %>%
       select(participant, questMeanAtEndOfTrialsLoop) %>%
       left_join(rsvp, by = "participant") %>%
-      mutate(WPM = 10^(block_avg_log_WPM),
-             acuity = 10^(questMeanAtEndOfTrialsLoop))
+      mutate(
+        Y = 10 ^ (block_avg_log_WPM),
+        X = 10 ^ (questMeanAtEndOfTrialsLoop),
+        Age = format(age, nsmall = 2),
+        Grade = as.character(Grade)
+      )
     
-    if (nrow(df) > 0) {
-      data_rsvp <- data_rsvp %>% left_join(df, by = 'participant')
-    } else {
-      data_rsvp <- data_rsvp %>% mutate(ParticipantCode = participant)
-    }
+    pointshapes <-  c(4, 19)
     
-    if (nrow(pretest) > 0) {
-      pretest <- pretest %>% mutate(participant = tolower(participant))
-      
-      data_rsvp <- data_rsvp %>% 
-        select(-ParticipantCode) %>% 
-        left_join(pretest, by = 'participant') %>% 
-        mutate(X = 10^(questMeanAtEndOfTrialsLoop),
-               Y = 10^(block_avg_log_WPM))
-      if ('age' %in% names(data_rsvp) & n_distinct(data_rsvp$age) > 1) {
-        data_rsvp$Age = format(data_rsvp$age, nsmall=2)
-      }
-      
-      if (colorFactor == 'Age') {
-        data_rsvp <- data_rsvp %>% mutate(factorC = Age,
-                                      Grade = as.character(Grade))
-      } else {
-        data_rsvp <- data_rsvp %>% mutate(Age = Age,
-                                      factorC = as.character(Grade))
-      } 
-       
-      pointshapes <-  c(4,19)
-    } else {
-      data_rsvp <- data_rsvp %>% mutate(factorC = 'black', `Skilled reader?` = 'TRUE', ParticipantCode = participant)
-      if ('age' %in% names(data_rsvp) & colorFactor == 'Age') {
-        data_rsvp <- data_rsvp %>% 
-          mutate(factorC = as.character(age))
-      }
-      pointshapes <- 19
-    }
     if ('Skilled reader?' %in% names(data_rsvp)) {
       data_for_stat <- data_rsvp %>%
         filter(`Skilled reader?` != FALSE) %>%
-        select(block_avg_log_WPM,questMeanAtEndOfTrialsLoop)
+        select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, X, Y)
     } else {
       data_for_stat <- data_rsvp %>%
-        select(block_avg_log_WPM,questMeanAtEndOfTrialsLoop)
+        select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, X, Y)
     }
-    data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
+    
+    data_for_stat <- data_for_stat[complete.cases(data_for_stat), ]
+    
     # Calculate correlation and slope
     corr <- data_for_stat %>%
-      summarize(correlation = cor(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, method = "pearson"),
-                N = n()) %>%
+      summarize(
+        correlation = cor(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, method = "pearson"),
+        N = n()
+      ) %>%
       mutate(correlation = round(correlation, 2))
-
+    
     
     slope <- data_for_stat %>%
-      do(fit = lm(block_avg_log_WPM ~ questMeanAtEndOfTrialsLoop, data = .)) %>%
+      do(fit = lm(Y ~ X, data = .)) %>%
       transmute(coef = map(fit, tidy)) %>%
       unnest(coef) %>%
-      filter(term == 'questMeanAtEndOfTrialsLoop') %>%
+      filter(term == 'X') %>%
       select(estimate) %>%
       mutate(slope = round(estimate, 2))
     
-    data_rsvp <- data_rsvp %>% 
-      # group_by(factorC,`Skilled reader?`,ParticipantCode) %>% 
-      # summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop),
-      #           block_avg_log_WPM = mean(block_avg_log_WPM)) %>% 
-      mutate(X = 10^(questMeanAtEndOfTrialsLoop),
-             Y = 10^(block_avg_log_WPM))
-    
-    xMin <- 10^min(data_rsvp$questMeanAtEndOfTrialsLoop, na.rm = TRUE)  
-    xMax <- 10^max(data_rsvp$questMeanAtEndOfTrialsLoop, na.rm = TRUE) 
-    yMin <- min(data_rsvp$Y, na.rm = TRUE) 
-    yMax <- max(data_rsvp$Y, na.rm = TRUE) 
+    xMin <- min(data_rsvp$X, na.rm = TRUE)
+    xMax <- max(data_rsvp$X, na.rm = TRUE)
+    yMin <- min(data_rsvp$Y, na.rm = TRUE)
+    yMax <- max(data_rsvp$Y, na.rm = TRUE)
     
     # Dynamic breaks for log scales
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
     x_breaks <- scales::log_breaks()(c(xMin, xMax))
     
     # Plot
-    p <- ggplot() + 
-      geom_point(data = data_rsvp, 
-                 aes(x = X, y = Y, color = factorC, shape = `Skilled reader?`, group = ParticipantCode)) + 
+    p <- ggplot() +
       theme_classic() +
-      scale_y_log10(breaks = y_breaks, limits = c(yMin, yMax), expand = c(0, 0)) +
-      scale_x_log10(breaks = x_breaks, limits = c(xMin, xMax),  expand = c(0, 0)) +
-      geom_smooth(data = data_for_stat, aes(x = 10^(questMeanAtEndOfTrialsLoop), y = 10^(block_avg_log_WPM)), 
-                  method = 'lm', se = FALSE) +
+      scale_y_log10(
+        breaks = y_breaks,
+        limits = c(yMin, yMax),
+        expand = c(0, 0)
+      ) +
+      scale_x_log10(
+        breaks = x_breaks,
+        limits = c(xMin, xMax),
+        expand = c(0, 0)
+      ) +
+      geom_smooth(data = data_for_stat,
+                  aes(x = X, y = Y),
+                  method = 'lm',
+                  se = FALSE) +
       annotation_logticks() +
-      scale_shape_manual(values = c(4, 19)) + 
+      scale_shape_manual(values = c(4, 19)) +
       plt_theme +
-      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) + 
-      guides(color = guide_legend(title = colorFactor), shape = 'none') + 
+      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) +
+      guides(color = guide_legend(title = colorFactor), shape = 'none') +
       coord_fixed(ratio = 1) +
-      geom_text(
-        aes(x = xMax / 3,
-            y = yMax * 0.8,
-            label = paste0("N = ",corr$N,"\n R = ", 
-                           corr$correlation,
-                           "\n slope = ", slope$slope)))+
+      geom_text(aes(
+        x = xMax / 3,
+        y = yMax * 0.8,
+        label = paste0(
+          "N = ",
+          corr$N,
+          "\n R = ",
+          corr$correlation,
+          "\n slope = ",
+          slope$slope
+        )
+      )) +
       # ggpp::geom_text_npc(
       #         aes(npcx = "right",
       #             npcy = "top",
       #             label = paste0("italic('R=')~",corr$correlation,
       #                            "~italic(', slope=')~", slope$slope)),
       #         parse = T) +
-      labs(x = paste(type, 'acuity (deg)'),
-           y = 'RSVP reading speed (w/min)',
-           title = paste('RSVP vs', type ,'acuity by', tolower(colorFactor)))
-
-
+      labs(
+        x = paste(type, 'acuity (deg)'),
+        y = 'RSVP reading speed (w/min)',
+        title = paste('RSVP vs', type , 'acuity by', tolower(colorFactor))
+      )
+    if (n_distinct(data_rsvp$`Skilled reader?`) > 1) {
+      p <-  p + geom_point(
+        data = data_rsvp,
+        aes(
+          x = X,
+          y = Y,
+          color = .data[[colorFactor]],
+          shape = `Skilled reader?`,
+          group = ParticipantCode
+        )
+      ) +
+        scale_shape_manual(values = c(4, 19))
+    } else {
+      p <- p + geom_point(data = data_rsvp,
+                          aes(
+                            x = X,
+                            y = Y,
+                            color = .data[[colorFactor]],
+                            group = ParticipantCode
+                          ))
+    }
+    
     return(p)
   }
   
@@ -171,19 +224,17 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
   
   if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
     p1 <- NULL
-    return(list(p1,p1,p1,p1))
+    return(list(p1, p1, p1, p1))
   }
   
   if (type == 'foveal') {
-    p1 <- create_plot(foveal,type,'Age')
-    p2 <- create_plot(foveal,type,'Grade')
+    p1 <- create_plot(foveal, type, 'Age')
+    p2 <- create_plot(foveal, type, 'Grade')
     return(list(p1, p2))
   } else {
-    p3 <- create_plot(peripheral,'peripheral','Age')
-    p4 <- create_plot(peripheral,'peripheral','Grade')
-    return(list(
-      p3, p4
-    ))
+    p3 <- create_plot(peripheral, 'peripheral', 'Age')
+    p4 <- create_plot(peripheral, 'peripheral', 'Grade')
+    return(list(p3, p4))
   }
 }
 
@@ -198,7 +249,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
 #       left_join(rsvp, by = "participant") %>%
 #       mutate(WPM = 10^(block_avg_log_WPM),
 #              acuity = 10^(questMeanAtEndOfTrialsLoop))
-#     
+#
 #     # Handle NA case for questMeanAtEndOfTrialsLoop
 #     if (is.na(sum(data_rsvp$questMeanAtEndOfTrialsLoop))) {
 #       data_rsvp <- data %>%
@@ -212,12 +263,12 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
 #         distinct(participant, WPM, acuity, block_avg_log_WPM, questMeanAtEndOfTrialsLoop,age) %>%
 #         filter(!is.na(participant))
 #     }
-#     
+#
 #     # Calculate correlation and slope
 #     corr <- data_rsvp %>%
 #       summarize(correlation = cor(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, method = "pearson")) %>%
 #       mutate(correlation = round(correlation, 2))
-#     
+#
 #     slope <- data_rsvp %>%
 #       do(fit = lm(block_avg_log_WPM ~ questMeanAtEndOfTrialsLoop, data = .)) %>%
 #       transmute(coef = map(fit, tidy)) %>%
@@ -225,42 +276,42 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
 #       filter(term == 'questMeanAtEndOfTrialsLoop') %>%
 #       select(estimate) %>%
 #       mutate(slope = round(estimate, 2))
-#     
+#
 #     # Add regression predictions
 #     fit <- lm(block_avg_log_WPM ~ questMeanAtEndOfTrialsLoop, data = data_rsvp)
 #     data_rsvp$est <- predict(fit, newdata = data.frame(questMeanAtEndOfTrialsLoop = data_rsvp$questMeanAtEndOfTrialsLoop))
-#     
+#
 #     # Join with additional df if it has rows
 #     if (nrow(df) > 0 & nrow(pretest == 0)) {
 #       data_rsvp <- data_rsvp %>% left_join(df, by = 'participant')
 #     } else {
 #       data_rsvp <- data_rsvp %>% mutate(ParticipantCode = participant)
 #     }
-#     
+#
 #     if (nrow(pretest) > 0) {
 #       if (colorFactor == 'Age') {
 #         pretest <- pretest %>% mutate(factorC = as.character(format(round(Age,1), nsmall = 1)))
 #       } else {
 #         pretest <- pretest %>% mutate(factorC = as.character(Grade))
-#       } 
-#       
-#       data_rsvp <- data_rsvp %>% 
-#         select(-ParticipantCode) %>% 
-#         left_join(pretest, by = 'participant') %>% 
+#       }
+#
+#       data_rsvp <- data_rsvp %>%
+#         select(-ParticipantCode) %>%
+#         left_join(pretest, by = 'participant') %>%
 #         mutate(X = 10^(questMeanAtEndOfTrialsLoop),
 #                Y = 10^(block_avg_log_WPM))
 #       pointshapes <-  c(4,19)
 #     } else {
 #       data_rsvp <- data_rsvp %>% mutate(factorC = 'black', `Skilled reader?` = 'TRUE', ParticipantCode = participant)
-#       data_rsvp <- data_rsvp %>% 
+#       data_rsvp <- data_rsvp %>%
 #         mutate(X = 10^(questMeanAtEndOfTrialsLoop),
 #                Y = 10^(block_avg_log_WPM))
 #       pointshapes <- 19
 #     }
-#     
-#     
+#
+#
 #     # Create plotly plot
-#     p <- ggplot(data = data_rsvp, 
+#     p <- ggplot(data = data_rsvp,
 #                 aes(x = X,
 #                     y = Y
 #                 )) +
@@ -271,30 +322,30 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
 #                     limits = c(10^min(data_rsvp$questMeanAtEndOfTrialsLoop), 100)) +
 #       geom_smooth(method = 'lm', se = FALSE) +
 #       annotation_logticks() +
-#       scale_shape_manual(values = pointshapes) + 
-#       theme(legend.position = ifelse(n_distinct(data_rsvp$`Skilled reader?`)==1, 'none','top')) + 
+#       scale_shape_manual(values = pointshapes) +
+#       theme(legend.position = ifelse(n_distinct(data_rsvp$`Skilled reader?`)==1, 'none','top')) +
 #       coord_fixed(ratio = 1) +
 #       ggpp::geom_text_npc(
 #         aes(npcx = "left",
 #             npcy = "top",
-#             label = paste0("R = ", 
+#             label = paste0("R = ",
 #                            corr$correlation,
 #                            ", slope = ", slope$slope)),
 #         parse = TRUE) +
 #       guides(color = guide_legend(title=paste0(colorFactor, ', Skilled reader?')),
-#              shape = guide_legend(title='')) + 
+#              shape = guide_legend(title='')) +
 #       labs(x = 'acuity (deg)',
 #            y = 'rsvp reading (word/min)',
 #            title = paste('rsvp vs', 'acuity by', lower(colorFactor)))
-#     
+#
 #     return(p)
 #   }
-#   
+#
 #   if (length(acuity$participant[1]) == 6) {
 #     acuity <- acuity %>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
 #     rsvp <- rsvp %>% mutate(participant = paste0(tolower(str_sub(participant,1,4)), str_sub(participant,-2,-1)))
 #   }
-#   
+#
 #   if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
 #     p1 <- ggplot() +
 #       labs(x = 'acuity (deg)',
@@ -306,7 +357,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, df, pretest, type) {
 #            title = 'rsvp vs acuity by grade')
 #     return(list(p1,p1))
 #   }
-#   
+#
 #   p1 <- create_plot(acuity,'Age')
 #   p2 <- create_plot(acuity,'Grade')
 #   return(list(p1,p2))
