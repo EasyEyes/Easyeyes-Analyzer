@@ -283,14 +283,14 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
   foveal_vs_repeatedLetters <- repeatedLetters %>%
     rename('repeatedLetters' = 'log_crowding_distance_deg') %>% 
     select(participant, repeatedLetters) %>% 
-    left_join(foveal, by = 'participant') %>% 
+    inner_join(foveal, by = 'participant') %>% 
     mutate(age = format(age, nsmall=2),
            N = paste0('N=',n()))
   
   peripheral_vs_repeatedLetters <- repeatedLetters %>%
     rename('repeatedLetters' = 'log_crowding_distance_deg') %>% 
     select(participant, repeatedLetters) %>% 
-    left_join(peripheral, by = 'participant') %>% 
+    inner_join(peripheral, by = 'participant') %>% 
     mutate(age = format(age, nsmall=2),
            N = paste0('N=',n()))
   p <- NULL
@@ -369,7 +369,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
       rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>% 
       filter(targetEccentricityXDeg == 0) %>% 
       select(participant, log_acuity) %>% 
-      left_join(foveal, by = 'participant') %>% 
+      inner_join(foveal, by = 'participant') %>% 
       mutate(age = format(age,nsmall=2),
              N = paste0('N=',n()))
     
@@ -395,20 +395,32 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
      } 
      if (n_distinct(foveal_acuity$age) > 1) {
        foveal_acuity <- foveal_acuity %>% mutate(age = format(age,nsmall=2))
-       p <-  ggplot(foveal_acuity, aes(x = 10^log_crowding_distance_deg,
-                                       y = 10^(log_acuity),
+       p <-  ggplot(foveal_acuity, 
+                    aes(x = 10^log_crowding_distance_deg,
+                                       y = 10^log_acuity,
                                        color = age)) +
          labs(title = 'Foveal acuity vs foveal crowding by age',
               x = 'Foveal crowding (deg)',
               y = 'Foveal acuity (deg)')
        
      } else {
-       p <-  ggplot(foveal_acuity, aes(x = 10^log_crowding_distance_deg, y = 10^(log_acuity))) +
+       p <-  ggplot(foveal_acuity, 
+                    aes(x = 10^log_crowding_distance_deg, 
+                                       y = 10^log_acuity)) +
          labs(title = 'Foveal acuity vs foveal crowding',
               x = 'Foveal crowding (deg)',
               y = 'Foveal acuity (deg)')
        
      }
+     p <- p + 
+       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
+       scale_x_log10() + 
+       scale_y_log10() + 
+       theme_bw() +
+       annotation_logticks(short = unit(0.1, "cm"),                                                
+                           mid = unit(0.1, "cm"),
+                           long = unit(0.3, "cm")) + 
+       coord_fixed()
      
      if (n_distinct(foveal_acuity$`Skilled reader?`) == 1) {
        p <- p + geom_point()
@@ -422,16 +434,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
          scale_shape_manual(values = c(4,19))
      }
      
-     p <- p + 
-       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
-       scale_x_log10() + 
-       scale_y_log10() + 
-       theme_bw() +
-       scale_shape_manual(values = c(4,19)) + 
-       annotation_logticks(short = unit(0.1, "cm"),                                                
-                           mid = unit(0.1, "cm"),
-                           long = unit(0.3, "cm")) + 
-       coord_fixed()
+
    }
     
     
@@ -439,7 +442,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
       rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>% 
       filter(targetEccentricityXDeg != 0) %>% 
       select(participant, log_acuity) %>% 
-      left_join(foveal, by = 'participant') %>% 
+      inner_join(foveal, by = 'participant') %>% 
       mutate(age = format(age,nsmall=2),
              N = paste0('N=',n()))
     
@@ -456,7 +459,6 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
           scale_x_log10() + 
           scale_y_log10() + 
           theme_bw() +
-          scale_shape_manual(values = c(4,19)) + 
           annotation_logticks(short = unit(0.1, "cm"),                                                
                               mid = unit(0.1, "cm"),
                               long = unit(0.3, "cm")) + 
@@ -523,7 +525,7 @@ get_foveal_peripheral_diag <- function(crowding) {
     t <- foveal %>% 
       rename('foveal' = 'log_crowding_distance_deg') %>% 
       select(foveal, participant, order) %>% 
-      left_join(peripheral, by = 'participant') %>% 
+      inner_join(peripheral, by = 'participant') %>% 
       rename('peripheral' = 'log_crowding_distance_deg') %>% 
       mutate(age = format(age,nsmall=2),
              N = paste0('N=',n()))

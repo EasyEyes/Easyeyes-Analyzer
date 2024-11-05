@@ -39,8 +39,8 @@ plotsTab <- tabPanel(
                    h3("Grade plots"),
                    splitLayout(
                      cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(plotOutput("crowdingGradePlot", width = "100%"), type = 4),
-                     shinycssloaders::withSpinner(plotOutput("rsvpGradePlot", width = "100%"), type = 4)
+                     shinycssloaders::withSpinner(plotOutput("crowdingGradePlot", width = "100%", height = "100%"), type = 4),
+                     shinycssloaders::withSpinner(plotOutput("rsvpGradePlot", width = "100%", height = "100%"), type = 4)
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),
@@ -49,7 +49,7 @@ plotsTab <- tabPanel(
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(plotOutput("acuityGradePlot", width = "100%"), type = 4)
+                     shinycssloaders::withSpinner(plotOutput("acuityGradePlot", width = "100%", height = "100%"), type = 4)
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),

@@ -258,7 +258,6 @@ generate_summary_table <- function(data_list){
   
   print('done noerror_fails')
   
-  
   noerror_fails$warning = ""
   completes = tibble()
   for (i in 1 : length(data_list)) {
@@ -305,7 +304,7 @@ generate_summary_table <- function(data_list){
     }
   }
   completes$warning <- ""
-  
+  print('done completes')
   summary_df <- rbind(noerror_fails,
                       completes,
                       error %>% 
@@ -362,7 +361,7 @@ generate_summary_table <- function(data_list){
     left_join(block_condition_order, by = c("block", "condition")) %>%
     select(-block, -condition)
   summary_df$`threshold parameter` = as.character(summary_df$`threshold parameter`)
-  
+  print('done summary_df')
   return(summary_df)
 }
 

@@ -28,10 +28,8 @@ get_reading_retention_histogram <- function(reading) {
 }
 
 
-get_crowding_hist <- function(crowding, pretest) {
-  if (nrow(pretest) > 0) {
-    crowding <- crowding %>% left_join(pretest, by = 'participant')
-  }
+get_crowding_hist <- function(crowding) {
+
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   if (nrow(foveal) > 0) {
@@ -87,10 +85,8 @@ get_crowding_hist <- function(crowding, pretest) {
   return(list(foveal=p1,peripheral=p2))
 }
 
-get_acuity_hist <- function(acuity, pretest) {
-  if (nrow(pretest) > 0) {
-    acuity <- acuity %>% left_join(pretest, by = 'participant')
-  }
+get_acuity_hist <- function(acuity) {
+
   foveal <- acuity %>% 
     filter(targetEccentricityXDeg == 0) %>%
     distinct(participant, questMeanAtEndOfTrialsLoop)
@@ -155,11 +151,7 @@ get_acuity_hist <- function(acuity, pretest) {
   return(list(p1,p2))
 }
 
-get_rsvp_hist <- function(rsvp, pretest) {
-  if (nrow(pretest) > 0) {
-    rsvp <- rsvp %>% left_join(pretest, by = 'participant')
-  }
- 
+get_rsvp_hist <- function(rsvp) {
   if (nrow(rsvp) > 0) {
     if ('Skilled reader?' %in% names(rsvp)) {
       stats1 <- rsvp %>% filter(`Skilled reader?` != FALSE)
@@ -187,19 +179,14 @@ get_rsvp_hist <- function(rsvp, pretest) {
   return(p1)
 }
 
-get_repeatedLetter_hist <- function(repeated, pretest) {
-  if (nrow(pretest) > 0) {
-    repeated <- repeated %>% left_join(pretest, by = 'participant')
-  }
-
+get_repeatedLetter_hist <- function(repeated) {
   if (nrow(repeated) > 0) {
     if ('Skilled reader?' %in% names(repeated)) {
-      print(repeated)
       stats1 <- repeated %>% filter(`Skilled reader?` != FALSE)
     } else {
       stats1 <- repeated
     }
-    print(stats1)
+
     stats1 <- stats1 %>% summarize(mean = round(mean(log_crowding_distance_deg),2), 
                                    sd = round(sd(log_crowding_distance_deg),2),
                                    N = n())

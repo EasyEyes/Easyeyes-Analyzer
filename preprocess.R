@@ -22,12 +22,19 @@ read_files <- function(file){
           rename('participant' = 'PavloviaSessionID') %>% 
           select(where(~sum(!is.na(.)) >0)) %>% 
           mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+        if (!'Skilled reader?' %in% names(pretest)) {
+          pretest$`Skilled reader?` = 'unknown'
+        }
+        if (!'ParticipantCode' %in% names(pretest)) {
+          pretest$ParticipantCode = pretest$participant
+        }
       }
-      if (!'Skilled reader?' %in% names(pretest)) {
-        pretest$`Skilled reader?` = 'unknown'
-      }
-      if (!'ParticipantCode' %in% names(pretest)) {
-        pretest$ParticipantCode = pretest$participant
+
+      if ('ID' %in% names(pretest)) {
+        pretest <- pretest %>% 
+          rename('participant' = 'ID') %>% 
+          select(where(~sum(!is.na(.)) >0)) %>% 
+          mutate(Grade = ifelse(is.na(Grade), -1, Grade))
       }
     }
     if (grepl(".csv", file_list[i])){ 
@@ -199,12 +206,6 @@ read_files <- function(file){
         }
         if (!('QRConnect' %in% colnames(t))) {
           t$QRConnect <- ''
-        }
-        t$age <- NA
-        if (nchar(t$participant[1]) >=3 & is.na(as.numeric(str_sub(t$participant[1], -3, -1)))) {
-          if (!is.na(as.numeric(str_sub(t$participant[1], -2, -1)))){
-            t$age <- as.numeric(str_sub(t$participant[1], -2, -1))
-          }
         }
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                               unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
@@ -444,13 +445,6 @@ read_files <- function(file){
             t$QRConnect <- ''
           }
           
-          t$age <- NA
-          if (nchar(t$participant[1]) >=3 & is.na(as.numeric(str_sub(t$participant[1], -3, -1)))) {
-            if (!is.na(as.numeric(str_sub(t$participant[1], -2, -1)))){
-              print('find age in participant id')
-              t$age <- as.numeric(str_sub(t$participant[1], -2, -1))
-            }
-          }
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                                 unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                                 NA)
@@ -516,12 +510,18 @@ read_files <- function(file){
             rename('participant' = 'PavloviaSessionID') %>% 
             select(where(~sum(!is.na(.)) >0)) %>% 
             mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+          if (!'Skilled reader?' %in% names(pretest)) {
+            pretest$`Skilled reader?` = 'unknown'
+          }
+          if (!'ParticipantCode' %in% names(pretest)) {
+            pretest$ParticipantCode = pretest$participant
+          }
         }
-        if (!'Skilled reader?' %in% names(pretest)) {
-          pretest$`Skilled reader?` = 'unknown'
-        }
-        if (!'ParticipantCode' %in% names(pretest)) {
-          pretest$ParticipantCode = pretest$participant
+        if ('ID' %in% names(pretest)) {
+          pretest <- pretest %>% 
+            rename('participant' = 'ID') %>% 
+            select(where(~sum(!is.na(.)) >0)) %>% 
+            mutate(Grade = ifelse(is.na(Grade), -1, Grade))
         }
       }
       print('done processing zip')
@@ -551,10 +551,17 @@ read_files <- function(file){
       data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$Birthdate[1], orders = c('d.m.y')),today()) / years(1),2)
     } else {
       data_list[[i]]$Birthdate = ''
+      if (nrow(pretest) > 0 & tolower(data_list[[i]]$participant[1]) %in% tolower(pretest$participant) & 'Age' %in% names(pretest)) {
+        p = tolower(data_list[[i]]$participant[1])
+        data_list[[i]]$age = round(pretest[tolower(pretest$participant) == p,]$Age[1], 2)
+      } else {
+        data_list[[i]]$age = NA
+      }
     }
     df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, Birthdate))
     
   }
+
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]

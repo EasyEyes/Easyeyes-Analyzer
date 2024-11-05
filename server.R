@@ -440,19 +440,19 @@ shinyServer(function(input, output, session) {
   })
   
   crowding_hist <- reactive({
-    get_crowding_hist(df_list()$crowding, files()$pretest)
+    get_crowding_hist(df_list()$crowding)
   })
   
   acuity_hist <- reactive({
-    get_acuity_hist(df_list()$acuity, files()$pretest)
+    get_acuity_hist(df_list()$acuity)
   })
   
   rsvp_hist <- reactive({
-    get_rsvp_hist(df_list()$rsvp, files()$pretest)
+    get_rsvp_hist(df_list()$rsvp)
   })
   
   repeated_letter_hist <- reactive({
-    get_repeatedLetter_hist(df_list()$repeatedLetters, files()$pretest)
+    get_repeatedLetter_hist(df_list()$repeatedLetters)
   })
   
   foveal_peripheral_diag <- reactive({
@@ -779,7 +779,7 @@ shinyServer(function(input, output, session) {
   
   
   gradePlots <- reactive({
-    plot_rsvp_crowding_acuity(df_list(), files()$df, files()$pretest)
+    plot_rsvp_crowding_acuity(df_list())
   })
   
   output$isPeripheralAcuity <- reactive({
@@ -1746,9 +1746,9 @@ shinyServer(function(input, output, session) {
                        ggsave(
                          file = outfile,
                          plot = agePlots()$plotList[[ii]] + plt_theme,
-                         device = svg,
                          width = 6,
-                         height = 6
+                         unit = 'in',
+                         device = svglite
                        )
                        
                        list(src = outfile,
@@ -1768,10 +1768,9 @@ shinyServer(function(input, output, session) {
                            ggsave(
                              "tmp.svg",
                              plot = agePlots()$plotList[[ii]] + plt_theme,
-                             height = 6,
+                             limitsize = F,
                              width = 6,
                              unit = "in",
-                             limitsize = F,
                              device = svglite
                            )
                            rsvg::rsvg_png("tmp.svg", file,
@@ -1781,7 +1780,6 @@ shinyServer(function(input, output, session) {
                            ggsave(
                              file,
                              plot = agePlots()$plotList[[ii]] + plt_theme,
-                             height = 6,
                              width = 6,
                              unit = "in",
                              limitsize = F,
@@ -1820,18 +1818,18 @@ shinyServer(function(input, output, session) {
                    return(out)
                  })
                  for (j in 1:length(histograms()$plotList)) {
-                   print(paste('length of histograms', length(histograms()$plotList)))
+
                    local({
                      ii <- j
-                     print(ii)
+
                      output[[paste0("hist", ii)]] <- renderImage({
                        outfile <- tempfile(fileext = '.svg')
                        ggsave(
                          file = outfile,
                          plot = histograms()$plotList[[ii]] + plt_theme,
-                         device = svg,
+                         device = svglite,
                          width = 6,
-                         height = 6
+                         unit = 'in',
                        )
                        
                        list(src = outfile,
@@ -1851,9 +1849,8 @@ shinyServer(function(input, output, session) {
                            ggsave(
                              "tmp.svg",
                              plot = histograms()$plotList[[ii]] + plt_theme,
-                             height = 6,
-                             width = 6,
                              unit = "in",
+                             width = 6,
                              limitsize = F,
                              device = svglite
                            )
@@ -1864,8 +1861,6 @@ shinyServer(function(input, output, session) {
                            ggsave(
                              file,
                              plot = histograms()$plotList[[ii]] + plt_theme,
-                             height = 6,
-                             width = 6,
                              unit = "in",
                              limitsize = F,
                              device = ifelse(
@@ -1909,9 +1904,9 @@ shinyServer(function(input, output, session) {
                        ggsave(
                          file = outfile,
                          plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-                         device = svg,
                          width = 6,
-                         height = 6
+                         unit = 'in',
+                         device = svglite
                        )
                        
                        list(src = outfile,
@@ -1931,8 +1926,6 @@ shinyServer(function(input, output, session) {
                            ggsave(
                              "tmp.svg",
                              plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-                             height = 6,
-                             width = 6,
                              unit = "in",
                              limitsize = F,
                              device = svglite
@@ -1944,8 +1937,6 @@ shinyServer(function(input, output, session) {
                            ggsave(
                              file,
                              plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-                             height = 6,
-                             width = 6,
                              unit = "in",
                              limitsize = F,
                              device = ifelse(
@@ -1975,9 +1966,7 @@ shinyServer(function(input, output, session) {
                    ggsave(
                      file = outfile,
                      plot =  gradePlots()[[1]] + plt_theme,
-                     device = svg,
-                     width = 6,
-                     height = 4
+                     device = svglite
                    )
                    
                    list(src = outfile,
@@ -1989,9 +1978,7 @@ shinyServer(function(input, output, session) {
                    ggsave(
                      file = outfile,
                      plot = gradePlots()[[2]] + plt_theme,
-                     device = svg,
-                     width = 6,
-                     height = 4
+                     device = svglite
                    )
                    
                    list(src = outfile,
@@ -2003,9 +1990,7 @@ shinyServer(function(input, output, session) {
                    ggsave(
                      file = outfile,
                      plot = gradePlots()[[3]] + plt_theme,
-                     device = svg,
-                     width = 6,
-                     height = 4
+                     device = svglite
                    )
                    list(src = outfile,
                         contenttype = 'svg')
@@ -2983,21 +2968,17 @@ shinyServer(function(input, output, session) {
           ggsave(
             "tmp.svg",
             plot = gradePlots()[[1]] + plt_theme,
-            height = 4,
-            width = 6,
             unit = "in",
             limitsize = F,
             device = svglite
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         height = 1200,
+                         height = 1800,
                          width = 1800)
         } else {
           ggsave(
             file,
             plot = gradePlots()[[1]] + plt_theme,
-            height = 4,
-            width = 6,
             unit = "in",
             limitsize = F,
             device = ifelse(
@@ -3022,21 +3003,17 @@ shinyServer(function(input, output, session) {
           ggsave(
             "tmp.svg",
             plot = gradePlots()[[2]] + plt_theme,
-            height = 4,
-            width = 6,
             unit = "in",
             limitsize = F,
             device = svglite
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         height = 1200,
+                         height = 1800,
                          width = 1800)
         } else {
           ggsave(
             file,
             plot = gradePlots()[[2]] + plt_theme,
-            height = 4,
-            width = 6,
             unit = "in",
             limitsize = F,
             device = ifelse(
@@ -3061,21 +3038,17 @@ shinyServer(function(input, output, session) {
           ggsave(
             "tmp.svg",
             plot = gradePlots()[[3]] + plt_theme,
-            height = 4,
-            width = 6,
             unit = "in",
             limitsize = F,
             device = svglite
           )
           rsvg::rsvg_png("tmp.svg", file,
-                         height = 1200,
+                         height = 1800,
                          width = 1800)
         } else {
           ggsave(
             file,
             plot = gradePlots()[[3]] + plt_theme,
-            height = 4,
-            width = 6,
             unit = "in",
             limitsize = F,
             device = ifelse(
