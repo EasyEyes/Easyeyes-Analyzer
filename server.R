@@ -1447,6 +1447,7 @@ shinyServer(function(input, output, session) {
                           "EasyEyes Analysis",
                           app_title$default)
                  })
+                 session$sendCustomMessage("updateTitle", "Hello")
                  set.seed(2023)
                  #### summary page ####
                  output$instruction <- renderText(instruction)

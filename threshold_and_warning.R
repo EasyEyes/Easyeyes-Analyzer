@@ -88,6 +88,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   if (!is.na(threshold) & threshold != 0) {
     slowest = reading %>% filter(wordPerMin < threshold) %>% mutate(participant = tolower(participant)) %>% distinct(participant)
   }
+
   
   print('done threshold')
   print(paste('pretest:', nrow(pretest)))
