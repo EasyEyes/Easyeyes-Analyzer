@@ -1967,7 +1967,9 @@ shinyServer(function(input, output, session) {
                    ggsave(
                      file = outfile,
                      plot =  gradePlots()[[1]] + plt_theme,
-                     device = svglite
+                     width = 6,
+                     unit = 'in',
+                     device = svglite,
                    )
                    
                    list(src = outfile,
@@ -1979,6 +1981,8 @@ shinyServer(function(input, output, session) {
                    ggsave(
                      file = outfile,
                      plot = gradePlots()[[2]] + plt_theme,
+                     width = 6,
+                     unit = 'in',
                      device = svglite
                    )
                    
@@ -1991,6 +1995,8 @@ shinyServer(function(input, output, session) {
                    ggsave(
                      file = outfile,
                      plot = gradePlots()[[3]] + plt_theme,
+                     width = 6,
+                     unit = 'in',
                      device = svglite
                    )
                    list(src = outfile,

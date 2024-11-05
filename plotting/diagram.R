@@ -21,7 +21,7 @@ get_quest_diag <- function(quest){
         labs(title = 'Quest SD vs mean by grade',
              x = 'Quest mean',
              y = 'Quest SD') +
-        coord_fixed()
+        theme(aspect.ratio = 1)
     }
       if (n_distinct(quest$age) > 1) {
         quest <- quest %>% 
@@ -38,7 +38,7 @@ get_quest_diag <- function(quest){
      labs(title = 'Quest SD vs mean by age',
           x = 'Quest mean',
           y = 'Quest SD') +
-     coord_fixed()
+     theme(aspect.ratio = 1)
    
    if (n_distinct(quest$`Skilled reader?`) == 1) {
      p1 <- p1 + geom_point()

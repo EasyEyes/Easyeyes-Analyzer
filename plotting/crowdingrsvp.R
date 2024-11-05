@@ -133,16 +133,17 @@ plot_rsvp_crowding <- function(allData) {
                ParticipantCode) %>%
       filter(!is.na(participant)) %>% 
       mutate(Age = format(age,nsmall=2),
+             ageN = as.numeric(age),
              X = 10^(log_crowding_distance_deg),
              Y = 10^(block_avg_log_WPM),
              Grade = as.character(Grade))
       
     if (n_distinct(data_rsvp$`Skilled reader?`) > 1) {
       data_for_stat <- data_rsvp %>% filter(`Skilled reader?` != FALSE) %>% 
-        select(block_avg_log_WPM,log_crowding_distance_deg, X, Y)
+        select(block_avg_log_WPM,log_crowding_distance_deg, X, Y, ageN)
     } else {
       data_for_stat <- data_rsvp %>% 
-        select(block_avg_log_WPM,log_crowding_distance_deg, X, Y)
+        select(block_avg_log_WPM,log_crowding_distance_deg, X, Y, ageN)
     }
 
     data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
@@ -161,6 +162,11 @@ plot_rsvp_crowding <- function(allData) {
       filter(term == 'X') %>%
       select(-term)
     
+    corr_without_age <- ppcor::pcor(data_for_stat %>%
+                                      select(block_avg_log_WPM,
+                                             log_crowding_distance_deg,
+                                             ageN))$estimate[2,1] 
+    corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
     # data_rsvp <- data_rsvp %>%
     #   mutate(label = paste0("italic('R=')~",
     #                         corr$correlation,
@@ -190,8 +196,11 @@ plot_rsvp_crowding <- function(allData) {
       annotate(
         "text",
         x = xMin * 1.4,
-        y = yMin * 1.3,
-        label = paste0("N = ", corr$N, "\nR = ", corr$correlation, "\nslope = ", slope$slope),
+        y = yMin * 1.4,
+        label = paste0("N = ", corr$N,
+                       "\nR = ", corr$correlation,
+                       "\nR_factor_out_age = ", corr_without_age,
+                       "\nslope = ", slope$slope),
         hjust = 0,        # Left-align text
         vjust = 0,        # Top-align for consistent stacking
         size = 4,
@@ -259,9 +268,11 @@ plot_rsvp_crowding <- function(allData) {
 
 getCorrMatrix <- function(allData, pretest) {
   if (nrow(pretest) > 0) {
-    pretest_for_corr <- pretest %>% mutate(Grade = ifelse(Grade == 'R', -1, Grade))
+    pretest_for_corr <- pretest %>%
+      mutate(Grade = ifelse(Grade == 'R', -1, Grade)) %>% 
+      mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+    
     pretest_for_corr <- lapply(pretest_for_corr, as.numeric)
-    print(pretest_for_corr)
     pretest_for_corr <- tibble(data.frame(pretest_for_corr))
     colnames(pretest_for_corr) <- colnames(pretest)
     
@@ -328,7 +339,7 @@ getCorrMatrix <- function(allData, pretest) {
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
   colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))
-
+  print(t)
   corplot <- ggcorrplot(t,
                         show.legend = FALSE,
                         show.diag = T,

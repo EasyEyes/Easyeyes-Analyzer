@@ -1431,6 +1431,17 @@
       ],
       "Hash": "ceb5c2a59ba33d42d051285a3e8a5118"
     },
+    "ppcor": {
+      "Package": "ppcor",
+      "Version": "1.1",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "MASS",
+        "R"
+      ],
+      "Hash": "0b26c0c84f22515249dd7915f4214d32"
+    },
     "praise": {
       "Package": "praise",
       "Version": "1.0.0",
@@ -1841,6 +1852,16 @@
         "shiny"
       ],
       "Hash": "802e4786b353a4bb27116957558548d5"
+    },
+    "shinytitle": {
+      "Package": "shinytitle",
+      "Version": "0.1.0",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "shiny"
+      ],
+      "Hash": "12a2972d88910692c1a125d6e1e95d51"
     },
     "showtext": {
       "Package": "showtext",

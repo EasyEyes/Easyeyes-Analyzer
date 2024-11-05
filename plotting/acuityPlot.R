@@ -104,16 +104,17 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
         Y = 10 ^ (block_avg_log_WPM),
         X = 10 ^ (questMeanAtEndOfTrialsLoop),
         Age = format(age, nsmall = 2),
+        ageN = as.numeric(age),
         Grade = as.character(Grade)
       )
     
     if ('Skilled reader?' %in% names(data_rsvp)) {
       data_for_stat <- data_rsvp %>%
         filter(`Skilled reader?` != FALSE) %>%
-        select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, X, Y)
+        select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, X, Y,ageN)
     } else {
       data_for_stat <- data_rsvp %>%
-        select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, X, Y)
+        select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, X, Y.ageN)
     }
     
     data_for_stat <- data_for_stat[complete.cases(data_for_stat), ]
@@ -134,6 +135,12 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       filter(term == 'X') %>%
       select(estimate) %>%
       mutate(slope = round(estimate, 2))
+    
+    corr_without_age <- ppcor::pcor(data_for_stat %>%
+                                      select(block_avg_log_WPM,
+                                             questMeanAtEndOfTrialsLoop,
+                                             ageN))$estimate[2,1] 
+    corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
     
     xMin <- min(data_rsvp$X, na.rm = TRUE)
     xMax <- max(data_rsvp$X, na.rm = TRUE)
@@ -169,8 +176,11 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       annotate(
         "text",
         x = xMin,
-        y = yMin * 1.5,
-        label = paste0("N = ", corr$N, "\nR = ", corr$correlation, "\nslope = ", slope$slope),
+        y = yMin * 1.3,
+        label = paste0("N = ", corr$N,
+                       "\nR = ", corr$correlation,
+                       "\nR_factor_out_age = ", corr_without_age,
+                       "\nslope = ", slope$slope),
         hjust = 0,        # Left-align text
         vjust = 0,        # Top-align for consistent stacking
         size = 4,
