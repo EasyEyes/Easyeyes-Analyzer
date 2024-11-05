@@ -1,4 +1,7 @@
+library(scales)
 source('./constant.R')
+
+
 crowding_by_side <- function(crowding) {
   
   crowding <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
@@ -558,10 +561,12 @@ get_foveal_peripheral_diag <- function(crowding) {
                          x = 10^(peripheral)))
     }
     
+    minor_breaks_x <- unlist(lapply(1:10, function(i) 10^(i-1) * seq(1, 9, by = 1)))
+    minor_breaks_y <- unlist(lapply(1:10, function(i) 10^(i-1) * seq(1, 9, by = 1)))
     p <- p + 
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
-      scale_x_log10() + 
-      scale_y_log10() + 
+      scale_x_log10(minor_breaks = minor_breaks_x) + 
+      scale_y_log10(minor_breaks = minor_breaks_y) + 
       theme_bw() +
       annotation_logticks(short = unit(0.1, "cm"),                                                
                           mid = unit(0.1, "cm"),

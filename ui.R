@@ -9,6 +9,7 @@ source('./tabs/formSpreeDash.R')
 
 # packages
 library(shiny)
+library(shinytitle)
 library(svglite)
 library(shinycssloaders)
 library(plotly)
@@ -41,9 +42,10 @@ shinyUI(
   
   navbarPage(
     title = div(
-      textOutput("app_title"), 
+      textOutput("app_title"),
       div(id = "timer", "00:00:00")
     ),
+    use_shiny_title(),
     header = tags$head(
       tags$style(type = "text/css",  "
         #timer {
@@ -59,14 +61,33 @@ shinyUI(
           z-index: 9999;
         }
       "),
-      tags$script(HTML(timer_js))
+      tags$script(HTML(timer_js)),
+      tags$script(HTML("
+        // JavaScript function to update document title based on active tab
+        function updateTitleBasedOnTab(tabName) {
+          document.title = tabName + ' | EasyEyes Analysis';
+        }
+
+        // Set initial title to 'EasyEyes Analysis' with the default tab
+        document.addEventListener('DOMContentLoaded', function() {
+          updateTitleBasedOnTab('Session');  // Default tab name
+        });
+
+        // Update title whenever a tab is clicked
+        $(document).on('shown.bs.tab', 'a[data-toggle=\"tab\"]', function (e) {
+          var tabName = $(e.target).text();  // Get the active tab name
+          updateTitleBasedOnTab(tabName);
+        });
+      "))
     ),
+    
     # tabs
-    sessionTab,
-    statTab,
-    plotsTab,
-    soundTab,
-    profileTab,
-    formSpreeTab
+    tabPanel("Session", value = "Session", sessionTab),
+    tabPanel("Stats", value = "Stats", statTab),
+    tabPanel("Plots", value = "Plots", plotsTab),
+    tabPanel("Sound", value = "Sound", soundTab),
+    tabPanel("Profile", value = "Profile", profileTab),
+    tabPanel("FormSpree", value = "FormSpree", formSpreeTab)
+    
   )
 )

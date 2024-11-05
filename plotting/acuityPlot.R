@@ -137,8 +137,8 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
     
     xMin <- min(data_rsvp$X, na.rm = TRUE)
     xMax <- max(data_rsvp$X, na.rm = TRUE)
-    yMin <- min(data_rsvp$Y, na.rm = TRUE)
-    yMax <- max(data_rsvp$Y, na.rm = TRUE)
+    yMin <- min(data_rsvp$Y, na.rm = TRUE) / 1.2
+    yMax <- max(data_rsvp$Y, na.rm = TRUE) * 1.2
     
     # Dynamic breaks for log scales
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
@@ -169,7 +169,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       annotate(
         "text",
         x = xMin,
-        y = yMin * 1.1,
+        y = yMin * 1.5,
         label = paste0("N = ", corr$N, "\nR = ", corr$correlation, "\nslope = ", slope$slope),
         hjust = 0,        # Left-align text
         vjust = 0,        # Top-align for consistent stacking

@@ -96,6 +96,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   if (!is.na(threshold) & threshold != 0) {
     slowest = reading_avg %>% filter(avg <= threshold) %>% mutate(participant = tolower(participant)) %>% distinct(participant)
   }
+
   
   print('done calculate filter cut-off threshold')
   print(paste('pretest:', nrow(pretest)))
