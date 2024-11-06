@@ -313,7 +313,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         scale_y_log10() + 
         scale_x_log10() + 
         theme_bw() +
-        labs(title = 'Repeated-letter vs foveal crowding by grade',
+        labs(title = 'Repeated-letter vs foveal crowding colored by grade',
              x = 'Foveal crowding (deg)',
              y = 'Repeated-letter crowding (deg)')
     }
@@ -337,7 +337,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
     scale_y_log10() + 
     scale_x_log10() + 
     theme_bw() +
-    labs(title = 'Repeated-letter vs foveal crowding by age',
+    labs(title = 'Repeated-letter vs foveal crowding colored by age',
          x = 'Foveal crowding (deg)',
          y = 'Repeated-letter crowding (deg)')
   if (n_distinct(foveal_vs_repeatedLetters$`Skilled reader?`) == 1) {
@@ -391,7 +391,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
          annotation_logticks(short = unit(0.1, "cm"),                                                
                              mid = unit(0.1, "cm"),
                              long = unit(0.3, "cm")) + 
-         labs(title = 'Foveal acuity vs foveal crowding by grade',
+         labs(title = 'Foveal acuity vs foveal crowding colored by grade',
               x = 'Foveal crowding (deg)',
               y = 'Foveal acuity (deg)') + 
          coord_fixed()
@@ -402,7 +402,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
                     aes(x = 10^log_crowding_distance_deg,
                                        y = 10^log_acuity,
                                        color = age)) +
-         labs(title = 'Foveal acuity vs foveal crowding by age',
+         labs(title = 'Foveal acuity vs foveal crowding colored by age',
               x = 'Foveal crowding (deg)',
               y = 'Foveal acuity (deg)')
        
@@ -465,7 +465,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
           annotation_logticks(short = unit(0.1, "cm"),                                                
                               mid = unit(0.1, "cm"),
                               long = unit(0.3, "cm")) + 
-          labs(title = 'Peripheral acuity vs foveal crowding by Grade',
+          labs(title = 'Peripheral acuity vs foveal crowding colored by grade',
                x = 'Foveal crowding (deg)',
                y = 'Peripheral acuity (deg)') + 
           coord_fixed()
@@ -548,7 +548,7 @@ get_foveal_peripheral_diag <- function(crowding) {
                             long = unit(0.3, "cm")) + 
         labs(y = 'Foveal crowding (deg) ',
              x = 'Peripheral crowding (deg)',
-             title = 'Foveal vs peripheral crowding by grade') +
+             title = 'Foveal vs peripheral crowding colored by grade') +
         coord_fixed()
     } 
     
@@ -573,7 +573,7 @@ get_foveal_peripheral_diag <- function(crowding) {
                           long = unit(0.3, "cm")) + 
       labs(y = 'Foveal crowding (deg) ',
            x = 'Peripheral crowding (deg)',
-           title = 'Foveal vs peripheral crowding by age') +
+           title = 'Foveal vs peripheral crowding colored by age') +
       coord_fixed()
     
     if (n_distinct(t$`Skilled reader?`) == 1) {

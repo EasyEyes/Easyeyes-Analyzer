@@ -48,7 +48,7 @@ plot_rsvp_crowding_acuity <- function(allData) {
       scale_y_log10() + 
       annotation_logticks(sides = 'l') + 
       guides(shape = 'none') +
-      labs(title = 'Foveal crowding vs grade by font',
+      labs(title = 'Foveal crowding vs grade colored by font',
            y = 'Foveal crowding (deg)')
   }
   
@@ -64,7 +64,7 @@ plot_rsvp_crowding_acuity <- function(allData) {
       scale_y_log10() + 
       annotation_logticks(sides = 'l') + 
       guides(shape = 'none') +
-      labs(title = 'Foveal crowding vs grade by font',
+      labs(title = 'Foveal crowding vs grade colored by font',
            y = 'Foveal crowding (deg)')
   }
   
@@ -220,7 +220,7 @@ plot_rsvp_crowding <- function(allData) {
              shape = 'none') + 
       labs(x = paste(condition,'crowding (deg)'),
            y = 'RSVP reading (w/min)',
-           title = paste('RSVP vs', tolower(condition), 'crowding by', tolower(colorFactor)))
+           title = paste('RSVP vs', tolower(condition), 'crowding colored by', tolower(colorFactor)))
     
     if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
       p <- p + geom_point(data = data_rsvp, 
@@ -247,11 +247,11 @@ plot_rsvp_crowding <- function(allData) {
   
   if (nrow(allData$rsvp) == 0 | nrow(allData$crowding) == 0) {
     p1 <- plot_ly() %>% 
-      layout(title = 'RSVP vs Peripheral Crowding by Age',
+      layout(title = 'RSVP vs Peripheral Crowding colored by Age',
              xaxis = list(title = 'Peripheral crowding (deg)', type = 'log'),
              yaxis = list(title = 'RSVP Reading (w/min)', type = 'log'))
     p2 <- plot_ly() %>% 
-      layout(title = 'RSVP vs Foveal Crowding by Age',
+      layout(title = 'RSVP vs Foveal Crowding colored by Age',
              xaxis = list(title = 'Foveal Crowding (deg)', type = 'log'),
              yaxis = list(title = 'RSVP Reading (w/min)', type = 'log'))
     return(list(p1, p2, p1, p2))
