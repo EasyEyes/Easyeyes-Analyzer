@@ -349,7 +349,7 @@ getCorrMatrix <- function(allData, pretest) {
     theme_bw() +
     labs(x = '', 
          y = '',
-         title = ifelse(ncol(t) > 6, 'Big correlation table', 'Small correlation table')) + 
+         title = ifelse(ncol(t) > 10, 'Big correlation table', 'Small correlation table')) + 
     ggpp::geom_text_npc(aes(npcx = 'left', npcy = 'top', label = paste0('N=', nrow(crowdingW[complete.cases(crowdingW),]))))
   return(list(
     plot = corplot,
