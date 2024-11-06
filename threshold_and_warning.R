@@ -43,6 +43,25 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     }
     reading <- rbind(reading, t)
   }
+  # For italian data, reading OMT_words read as reading speed
+  
+  if (nrow(reading) == 0 & 'OMT_words read' %in% names(pretest)) {
+    reading <- pretest %>% 
+      select(participant, `OMT_words read`) %>% 
+      mutate(`OMT_words read` = as.numeric(`OMT_words read`)) %>% 
+      filter(!is.na(`OMT_words read`)) %>% 
+      mutate(block_condition = '',
+             conditionName = '',
+             font = '',
+             targetKind = 'reading',
+             thresholdParameter = '',
+             readingNumberOfQuestions = NA,
+             trial = 1,
+             log_WPM = log10(`OMT_words read`)) %>% 
+      rename(wordPerMin = `OMT_words read`)
+  }
+  
+  print(reading)
   
   if (nrow(pretest) > 0) {
     reading <- reading %>% 
@@ -102,7 +121,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   print(paste('pretest:', nrow(pretest)))
   
   if (nrow(pretest) > 0 & 'OMT_words read' %in% names(pretest)) {
-    pretest <- pretest %>% mutate(wordPerMin = as.numeric(`OMT_words read` )/ `Reading Time (sec.)` * 60)
+    pretest <- pretest %>% mutate(wordPerMin = as.numeric(`OMT_words read`))
     threshold <- quantile(pretest$wordPerMin, 0.25, na.rm = T)
     print(paste('threshold:', threshold))
     slowest = pretest %>% filter(wordPerMin <= threshold)
