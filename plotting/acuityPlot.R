@@ -193,9 +193,9 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       #                            "~italic(', slope=')~", slope$slope)),
       #         parse = T) +
       labs(
-        x = paste(type, 'acuity (deg)'),
+        x = paste0(toupper(substr(type, 1, 1)), substr(type, 2, nchar(type)), ' acuity (deg)'),
         y = 'RSVP reading speed (w/min)',
-        title = paste('RSVP vs', type , 'acuity by', tolower(colorFactor))
+        title = paste('RSVP vs', type, 'acuity by', tolower(colorFactor))
       )
     if (n_distinct(data_rsvp$`Skilled reader?`) > 1) {
       p <-  p + geom_point(
