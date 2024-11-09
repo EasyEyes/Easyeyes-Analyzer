@@ -313,7 +313,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         scale_y_log10() + 
         scale_x_log10() + 
         theme_bw() +
-        labs(title = 'Repeated-letter vs foveal crowding colored by grade',
+        labs(title = 'Repeated-letter crowding vs foveal crowding colored by grade',
              x = 'Foveal crowding (deg)',
              y = 'Repeated-letter crowding (deg)')
     }
@@ -337,7 +337,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
     scale_y_log10() + 
     scale_x_log10() + 
     theme_bw() +
-    labs(title = 'Repeated-letter vs foveal crowding colored by age',
+    labs(title = 'Repeated-letter crowding vs foveal crowding colored by age',
          x = 'Foveal crowding (deg)',
          y = 'Repeated-letter crowding (deg)')
   if (n_distinct(foveal_vs_repeatedLetters$`Skilled reader?`) == 1) {

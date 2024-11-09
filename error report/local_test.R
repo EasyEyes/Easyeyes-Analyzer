@@ -7,9 +7,11 @@ require(gridExtra)
 require(ggsignif)
 require(DT)
 source('./threshold_and_warning.R')
+source('./plotting/simulatedRSVP.R')
+source('./constant.R')
 # store name of experiment in experiment object
-rm(list = ls())
-experiment = "RsvpAndCrowdingFrenchNoTracking1.results (1)"
+
+experiment = "Data"
 # locate the folder that you store experiments
 setwd("~/Downloads/")
 # get the folder name for your experiment
@@ -22,6 +24,7 @@ setwd(paste0("~/Downloads/", folders))
 file_names <- list.files(pattern = "*.csv")
 n = length(file_names)
 data_list = list()
+stair_list <- list()
 summary_list = list()
 readingCorpus = c()
 j = 1
@@ -227,7 +230,10 @@ for (i in 1 : n) {
         dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
         distinct(participant, block_condition, staircaseName, conditionName, 
                  targetKind, font, experiment, thresholdParameter)
-
+      
+      stairdf <- extractCrowdingStaircases(t)
+      stair_list[[j]] <-  stairdf 
+      
       summaries <- t %>% 
         dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
         select(
@@ -287,13 +293,10 @@ for (i in 1:length(data_list)) {
   
 }
 
+stairAll <- do.call(rbind, stair_list)
+plotCrowdingStaircases(stairAll) + plt_theme
 
 generate_threshold(data_list, summary_list)
-# test summary table
-# summary_df <- generate_summary_table(data_list)
-# datatable(summary_df)
-
-
 
 
 

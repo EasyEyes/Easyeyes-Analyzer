@@ -34,6 +34,20 @@ plotsTab <- tabPanel(
     inline = TRUE,
     selected = "all"
   ),
+ conditionalPanel(condition = 'output.crowdingData',
+                  h3("Crowding stair plot"),
+                  fixedRow(
+                    style = "margin-left:2px;",
+                    selectInput(
+                      'participant',
+                      'PavloviaSessionID:',
+                      choices =  NULL,
+                      selected = NULL)
+                  )),
+                  fixedRow(
+                    shinycssloaders::withSpinner(plotOutput('stairPlot', width = '100%', height = '100%'), type = 4)
+                  ),
+ # shinycssloaders::withSpinner(uiOutput('stairPlots'),type=4),
   h3("Correlation Tables"),
    fixedRow( 
      shinycssloaders::withSpinner(
@@ -42,11 +56,8 @@ plotsTab <- tabPanel(
      cellWidths = c("50%", "50%"),
      downloadButton("downloadCorrMatrixPlot", "Download")
    ),
-  
-  
-  
   #### histogram ####
-  h3("Histograms"),
+ h3("Histograms"),
  shinycssloaders::withSpinner(uiOutput('histograms'),type=4),
  
  conditionalPanel(condition='output.fileUploaded',

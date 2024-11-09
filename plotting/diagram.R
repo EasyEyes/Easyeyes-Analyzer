@@ -1,6 +1,5 @@
 source('./constant.R')
 get_quest_diag <- function(quest){
-  print('inside get_quest_diag')
   if (nrow(quest) == 0) {
     return(list(age = NULL, grade = NULL))
   } else {
