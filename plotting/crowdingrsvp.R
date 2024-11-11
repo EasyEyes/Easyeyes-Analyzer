@@ -120,7 +120,6 @@ plot_rsvp_crowding_acuity <- function(allData) {
 plot_rsvp_crowding <- function(allData) {
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition, colorFactor) {
-    rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
     data_rsvp <- data %>%
       select(participant, log_crowding_distance_deg) %>%
       inner_join(rsvp, by = "participant") %>% 
@@ -137,7 +136,11 @@ plot_rsvp_crowding <- function(allData) {
              X = 10^(log_crowding_distance_deg),
              Y = 10^(block_avg_log_WPM),
              Grade = as.character(Grade))
-      
+
+    if (nrow(data_rsvp) == 0) {
+      return(NULL)
+    }
+    
     if (n_distinct(data_rsvp$`Skilled reader?`) > 1) {
       data_for_stat <- data_rsvp %>% filter(`Skilled reader?` != FALSE) %>% 
         select(block_avg_log_WPM,log_crowding_distance_deg, X, Y, ageN)
@@ -145,7 +148,10 @@ plot_rsvp_crowding <- function(allData) {
       data_for_stat <- data_rsvp %>% 
         select(block_avg_log_WPM,log_crowding_distance_deg, X, Y, ageN)
     }
-
+    if (sum(!is.na(data_for_stat$ageN)) == 0) {
+      data_for_stat <- data_for_stat %>% select(-ageN)
+    }
+      
     data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
     
     corr <- data_for_stat %>%
@@ -162,11 +168,15 @@ plot_rsvp_crowding <- function(allData) {
       filter(term == 'X') %>%
       select(-term)
     
-    corr_without_age <- ppcor::pcor(data_for_stat %>%
-                                      select(block_avg_log_WPM,
-                                             log_crowding_distance_deg,
-                                             ageN))$estimate[2,1] 
-    corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
+    if ('ageN' %in% names(data_for_stat)) {
+      corr_without_age <- ppcor::pcor(data_for_stat %>%
+                                        select(block_avg_log_WPM,
+                                               log_crowding_distance_deg,
+                                               ageN))$estimate[2,1] 
+      corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
+    } else {
+      corr_without_age <- NA
+    }
     # data_rsvp <- data_rsvp %>%
     #   mutate(label = paste0("italic('R=')~",
     #                         corr$correlation,
@@ -244,17 +254,10 @@ plot_rsvp_crowding <- function(allData) {
   crowding <- allData$crowding %>% mutate(participant = tolower(participant))
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0,)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
+  rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
   
   if (nrow(allData$rsvp) == 0 | nrow(allData$crowding) == 0) {
-    p1 <- plot_ly() %>% 
-      layout(title = 'RSVP vs Peripheral Crowding colored by Age',
-             xaxis = list(title = 'Peripheral crowding (deg)', type = 'log'),
-             yaxis = list(title = 'RSVP Reading (w/min)', type = 'log'))
-    p2 <- plot_ly() %>% 
-      layout(title = 'RSVP vs Foveal Crowding colored by Age',
-             xaxis = list(title = 'Foveal Crowding (deg)', type = 'log'),
-             yaxis = list(title = 'RSVP Reading (w/min)', type = 'log'))
-    return(list(p1, p2, p1, p2))
+    return(list(NULL, NULL, NULL, NULL))
   }
   
   # Create plots for peripheral and foveal data
@@ -339,7 +342,7 @@ getCorrMatrix <- function(allData, pretest) {
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
   colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))
-  print(t)
+
   corplot <- ggcorrplot(t,
                         show.legend = FALSE,
                         show.diag = T,

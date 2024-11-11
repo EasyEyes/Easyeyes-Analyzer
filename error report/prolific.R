@@ -79,17 +79,37 @@ combineProlific <- function(prolificData, summary_table){
     t <- rbind(t, t2, formSpree) 
     
   }
-  fontParameters <- get_font_parameters_from_formSpree(summary_table$`Pavlovia session ID`)
+  if (TRUE %in% summary_table$`_logFontBool`) {
+    fontParameters <- get_font_parameters_from_formSpree(summary_table$`Pavlovia session ID`)
     t <- t %>%
-    rename('Prolific session ID' = 'prolificSessionID',
-           'Computer 51 deg' = 'computer51Deg') %>% 
+      rename('Prolific session ID' = 'prolificSessionID',
+             'Computer 51 deg' = 'computer51Deg') %>% 
       left_join(fontParameters, by = 'Pavlovia session ID') %>% 
-    distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
-             `device type`, system,browser, resolution, QRConnect, date, prolificMin,
-             ProlificStatus,`Completion code`, ok, unmetNeeds, error, warning, cores,
-             tardyMs, excessMs, KB, rows, cols,`block condition`, trial, `condition name`,
-             `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
-             Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx, fontMaxPx, viewingDistanceCm, fontRenderMaxPx, order)
+      distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
+               `device type`, system,browser, resolution, QRConnect, date, prolificMin,
+               ProlificStatus,`Completion code`, ok, unmetNeeds, error, warning, cores,
+               tardyMs, excessMs, KB, rows, cols,`block condition`, trial, `condition name`,
+               `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
+               Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
+               fontMaxPx, viewingDistanceCm, fontRenderMaxPx, order)
+  } else {
+    t <- t %>%
+      rename('Prolific session ID' = 'prolificSessionID',
+             'Computer 51 deg' = 'computer51Deg') %>% 
+      mutate(fontSizePx = '',
+             fixationXYPx = '',
+             fontMaxPx = '',
+             viewingDistanceCm = '',
+             fontRenderMaxPx = '') %>% 
+      distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
+               `device type`, system,browser, resolution, QRConnect, date, prolificMin,
+               ProlificStatus,`Completion code`, ok, unmetNeeds, error, warning, cores,
+               tardyMs, excessMs, KB, rows, cols,`block condition`, trial, `condition name`,
+               `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
+               Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
+               fontMaxPx, viewingDistanceCm, fontRenderMaxPx, order)
+  } 
+
     print('done combine prolific')
   return(list(t, formSpree))
 }

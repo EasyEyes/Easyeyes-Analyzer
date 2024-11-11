@@ -151,28 +151,42 @@ get_acuity_hist <- function(acuity) {
   return(list(p1,p2))
 }
 
-get_rsvp_hist <- function(rsvp) {
-  if (nrow(rsvp) > 0) {
-    if ('Skilled reader?' %in% names(rsvp)) {
-      stats1 <- rsvp %>% filter(`Skilled reader?` != FALSE)
-    } else {
-      stats1 <- rsvp
+get_reading_hist <- function(reading) {
+  if (nrow(reading) > 0) {
+    
+    if (reading$targetKind[1] == 'rsvpReading') {
+      reading <- reading %>% mutate(log_WPM = block_avg_log_WPM)
     }
-    stats1 <- stats1 %>% summarize(mean = round(mean(block_avg_log_WPM),2), 
-                                   sd = round(sd(block_avg_log_WPM),2),
+    
+    if ('Skilled reader?' %in% names(reading)) {
+      stats1 <- reading %>% filter(`Skilled reader?` != FALSE)
+    } else {
+      stats1 <- reading
+    }
+    
+    stats1 <- stats1 %>% summarize(mean = round(mean(log_WPM),2), 
+                                   sd = round(sd(log_WPM),2),
                                    N = n())
-    p1 <- ggplot(rsvp) + 
-      geom_histogram(aes(x = block_avg_log_WPM),color="black", fill="black") +
+    p1 <- ggplot(reading) + 
+      geom_histogram(aes(x = log_WPM),color="black", fill="black") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
         aes( npcx = 'left',
              npcy = 'top',
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
-      ) +
-      labs(x = 'Log RSVP reading speed (w/min)',
-           y = 'Count',
-           title ='Histogram of RSVP reading speed')
+      ) 
+    if (reading$targetKind[1] == 'rsvpReading') {
+      p1 <- p1 + 
+        labs(x = 'Log RSVP reading speed (w/min)',
+             y = 'Count',
+             title ='Histogram of RSVP reading speed')
+    } else {
+      p1 <- p1 + 
+        labs(x = 'Log reading speed (w/min)',
+             y = 'Count',
+             title ='Histogram of reading speed')
+    }
   } else {
     p1 <- NULL
   }
