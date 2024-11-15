@@ -800,16 +800,16 @@ shinyServer(function(input, output, session) {
     return(nrow(files()$pretest>0))
   })
   
-  output$crowdingData <- reactive({
-    if ('crowding' %in% names(df_list())) {
-      return(nrow(df_list()$crowding>0))
+  output$questData <- reactive({
+    if ('quest' %in% names(df_list())) {
+      return(nrow(df_list()$quest>0))
     }
     return(FALSE)
   })
   
   outputOptions(output, 'isPeripheralAcuity', suspendWhenHidden=FALSE)
   outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
-  outputOptions(output, 'crowdingData', suspendWhenHidden=FALSE)
+  outputOptions(output, 'questData', suspendWhenHidden=FALSE)
   #### crowding stair plots
   crowdingStairPlot <- reactive({
     plotCrowdingStaircases(files()$stairs, input$participant)
@@ -828,6 +828,37 @@ shinyServer(function(input, output, session) {
          contenttype = 'svg')
   }, deleteFile = TRUE)
   
+  output$downloadStairPlot <- downloadHandler(
+  filename = paste0('stair-plot.',input$fileType),
+  content = function(file) {
+    if (input$fileType == "png") {
+      ggsave(
+        "tmp.svg",
+        plot = crowdingStairPlot() + plt_theme,
+        width = 6,
+        unit = "in",
+        limitsize = F,
+        device = svglite
+      )
+      rsvg::rsvg_png("tmp.svg", file,
+                     height = 1800,
+                     width = 1800, )
+    } else {
+      ggsave(
+        file,
+        plot = crowdingStairPlot() + plt_theme,
+        width = 6,
+        unit = "in",
+        limitsize = F,
+        device = ifelse(
+          input$fileType  == "svg",
+          svglite::svglite,
+          input$fileType 
+        )
+      )
+    }
+  }
+)
   
   
   #### IR and IIR json ####
@@ -1523,8 +1554,8 @@ shinyServer(function(input, output, session) {
                  
                  updateSelectInput(session,
                                    'participant',
-                                   choices = unique(df_list()$crowding$participant),
-                                   selected = unique(df_list()$crowding$participant)[[1]],
+                                   choices = unique(df_list()$quest$participant),
+                                   selected = unique(df_list()$quest$participant)[[1]],
                                    )
                  #### stairPlots ####
 
