@@ -3,6 +3,7 @@ source('./constant.R')
 source('./tabs/session.R')
 source('./tabs/stat.R')
 source('./tabs/plots.R')
+source('./tabs/staircases.R')
 source('./tabs/sound.R')
 source('./tabs/profile.R')
 source('./tabs/formSpreeDash.R')
@@ -85,9 +86,9 @@ shinyUI(
     tabPanel("Session", value = "Session", sessionTab),
     tabPanel("Stats", value = "Stats", statTab),
     tabPanel("Plots", value = "Plots", plotsTab),
+    tabPanel("Staircases", value = "Staircases", staircasesTab),
     tabPanel("Sound", value = "Sound", soundTab),
     tabPanel("Profile", value = "Profile", profileTab),
     tabPanel("FormSpree", value = "FormSpree", formSpreeTab)
-    
   )
 )

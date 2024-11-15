@@ -811,16 +811,18 @@ shinyServer(function(input, output, session) {
   outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
   outputOptions(output, 'questData', suspendWhenHidden=FALSE)
   #### crowding stair plots
-  crowdingStairPlot <- reactive({
-    plotCrowdingStaircases(files()$stairs, input$participant)
+  stairPlot <- reactive({
+    plotCrowdingStaircases(files()$stairs, input$thresholdParameter)
   })
 
   output$stairPlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot = crowdingStairPlot() + plt_theme,
+      plot = stairPlot()$plot + plt_theme,
       width = 8,
+      height = stairPlot()$height,
+      limitsize = F,
       unit = 'in',
       device = svglite
     )
@@ -834,20 +836,22 @@ shinyServer(function(input, output, session) {
     if (input$fileType == "png") {
       ggsave(
         "tmp.svg",
-        plot = crowdingStairPlot() + plt_theme,
-        width = 6,
+        plot = stairPlot()$plot + plt_theme,
+        width = 8,
+        height = tairPlot()$height,
         unit = "in",
         limitsize = F,
         device = svglite
       )
       rsvg::rsvg_png("tmp.svg", file,
-                     height = 1800,
+                     height = 225 * stairPlot()$height,
                      width = 1800, )
     } else {
       ggsave(
         file,
-        plot = crowdingStairPlot() + plt_theme,
-        width = 6,
+        plot = stairPlot()$plot + plt_theme,
+        width = 8,
+        height = tairPlot()$height,
         unit = "in",
         limitsize = F,
         device = ifelse(
@@ -1553,9 +1557,9 @@ shinyServer(function(input, output, session) {
                    renderTable(threshold_and_warnings()[[3]])
                  
                  updateSelectInput(session,
-                                   'participant',
-                                   choices = unique(df_list()$quest$participant),
-                                   selected = unique(df_list()$quest$participant)[[1]],
+                                   'thresholdParameter',
+                                   choices = unique(files()$stairs$thresholdParameter),
+                                   selected = unique(files()$stairs$thresholdParameter)[1],
                                    )
                  #### stairPlots ####
 
