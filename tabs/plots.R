@@ -34,7 +34,6 @@ plotsTab <- tabPanel(
     inline = TRUE,
     selected = "all"
   ),
-  h3("Correlation Tables"),
   fixedRow( 
     shinycssloaders::withSpinner(
       plotOutput("corrMatrixPlot", width = "100%", height = "100%"), type = 4)),

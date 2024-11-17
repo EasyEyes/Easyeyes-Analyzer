@@ -83,7 +83,7 @@ shinyUI(
     ),
     
     # tabs
-    tabPanel("Session", value = "Session", sessionTab),
+    tabPanel("Sessions", value = "Sessions", sessionTab),
     tabPanel("Stats", value = "Stats", statTab),
     tabPanel("Plots", value = "Plots", plotsTab),
     tabPanel("Staircases", value = "Staircases", staircasesTab),
