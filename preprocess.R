@@ -1,12 +1,13 @@
 library(dplyr)
 library(stringr)
 library(readr)
-
+source('./plotting/simulatedRSVP.R')
 
 read_files <- function(file){
   if(is.null(file)) return(list())
   file_list <- file$data
   data_list <- list()
+  stair_list <- list()
   summary_list <- list()
   n <- length(file_list)
   experiment <- rep(NA,n)
@@ -207,6 +208,10 @@ read_files <- function(file){
         if (!('QRConnect' %in% colnames(t))) {
           t$QRConnect <- ''
         }
+        if (!('_logFontBool' %in% colnames(t))) {
+          t$`_logFontBool` <- FALSE
+        }
+        
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                               unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                               NA)
@@ -244,7 +249,7 @@ read_files <- function(file){
             block_condition,
             staircaseName, 
             questMeanAtEndOfTrialsLoop,
-            questSDAtEndOfTrialsLoop,
+            questSDAtEndOfTrialsLoop
           )
         if(n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
           summaries <- summaries %>% 
@@ -255,8 +260,12 @@ read_files <- function(file){
             select(-block_condition)
           summaries <- merge(info, summaries, by = ("staircaseName"))
         }
+        # for stair plots
+        stairdf <- extractCrowdingStaircases(t, info)
+        
         summary_list[[j]] <- summaries
         data_list[[j]] <- t
+        stair_list[[j]] <-  stairdf 
         t$experiment <- trimws(t$experiment[1])
         experiment[j] <- trimws(t$experiment[1])
         j = j + 1
@@ -264,7 +273,6 @@ read_files <- function(file){
       } else {
         next
       }
-      print('done processing csv')
     }
     if (grepl(".zip", file_list[i])) {
       file_names <- unzip(file_list[i], list = TRUE)$Name
@@ -445,6 +453,10 @@ read_files <- function(file){
             t$QRConnect <- ''
           }
           
+          if (!('_logFontBool' %in% colnames(t))) {
+            t$`_logFontBool` <- FALSE
+          }
+          
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                                 unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                                 NA)
@@ -493,9 +505,14 @@ read_files <- function(file){
               select(-block_condition)
             summaries <- merge(info, summaries, by = ("staircaseName"))
           }
+          
+          # for stair plots
+          stairdf <- extractCrowdingStaircases(t, info)
+          
           if (! t$participant[1] == '') {
             summary_list[[j]] <- summaries
             data_list[[j]] <- t
+            stair_list[[j]] <- stairdf
             t$experiment <- trimws(t$experiment[1])
             experiment[j] <- trimws(t$experiment[1])
             readingCorpus <- c(readingCorpus,unique(t$readingCorpus))
@@ -565,13 +582,15 @@ read_files <- function(file){
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
+  stairs <- do.call(rbind, stair_list)
   print('done preprocess')
   return(list(data_list = data_list, 
               summary_list = summary_list, 
               experiment = paste(unique(experiment), collapse = "-"),
               readingCorpus = paste(unique(readingCorpus), collapse = "-"),
               df = df,
-              pretest = pretest
+              pretest = pretest,
+              stairs = stairs
   ))
 }
 

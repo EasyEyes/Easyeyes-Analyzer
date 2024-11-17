@@ -177,6 +177,13 @@ generate_summary_table <- function(data_list){
                `Microphone survey`, QRConnect, questionAndAnswerResponse)
     all_files <- rbind(all_files,t)
   }
+  
+  logFont <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+    data_list[[i]] %>% distinct(participant, `_logFontBool`) %>% 
+      filter(`_logFontBool` == TRUE) %>% 
+      rename('Pavlovia session ID' = 'participant')
+  }
+
   print('done all files')
   trial <- all_files %>% group_by(participant, block_condition) %>% count()
   lateness_duration <- get_lateness_and_duration(all_files)
@@ -255,14 +262,16 @@ generate_summary_table <- function(data_list){
       }
     }
   }
-  
+  noerror_fails_participant <- c()
+  if (nrow(noerror_fails) > 0) {
+    noerror_fails_participant <- noerror_fails$participant
+  }
   print('done noerror_fails')
-  
   noerror_fails$warning = ""
   completes = tibble()
   for (i in 1 : length(data_list)) {
     if (!data_list[[i]]$participant[1] %in% error$participant 
-        & !data_list[[i]]$participant[1] %in% noerror_fails$participant) {
+        & !data_list[[i]]$participant[1] %in% noerror_fails_participant) {
       t <- data_list[[i]] %>% 
         distinct(ProlificParticipantID, participant, prolificSessionID, deviceType, error,
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
@@ -359,8 +368,9 @@ generate_summary_table <- function(data_list){
     mutate(order = row_number())
   summary_df <- summary_df %>%
     left_join(block_condition_order, by = c("block", "condition")) %>%
-    select(-block, -condition)
-  summary_df$`threshold parameter` = as.character(summary_df$`threshold parameter`)
+    select(-block, -condition) %>% 
+    mutate(`threshold parameter` = as.character(`threshold parameter`)) %>% 
+    left_join(logFont, by = 'Pavlovia session ID')
   print('done summary_df')
   return(summary_df)
 }

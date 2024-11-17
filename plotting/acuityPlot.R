@@ -108,6 +108,9 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
         Grade = as.character(Grade)
       )
     
+    if (nrow(data_rsvp) == 0) {
+       return(NULL)
+    }
     if ('Skilled reader?' %in% names(data_rsvp)) {
       data_for_stat <- data_rsvp %>%
         filter(`Skilled reader?` != FALSE) %>%
@@ -228,8 +231,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
   peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)
   
   if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
-    p1 <- NULL
-    return(list(p1, p1, p1, p1))
+    return(list(NULL, NULL, NULL, NULL))
   }
   
   if (type == 'foveal') {

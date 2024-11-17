@@ -207,32 +207,57 @@ extractCrowdingStaircases <- function(df, info) {
       "levelProposedByQUEST"
     ) %>% 
     inner_join(info, by = 'staircaseName') %>% 
-    filter(thresholdParameter != "targetSizeDeg",
-           thresholdParameter != 'size',
-           targetKind == "letter",!grepl("practice", conditionName, ignore.case = T))
+    mutate(questType = case_when(
+      thresholdParameter != "targetSizeDeg" &
+        thresholdParameter != 'size' &
+        targetKind == "letter" &
+        !grepl("practice",conditionName, ignore.case = T) ~ 'Crowding',
+      targetKind == "rsvpReading" &
+        !grepl("practice",conditionName, ignore.case = T) ~ 'RSVP reading',
+      thresholdParameter != "targetSizeDeg" &
+        thresholdParameter != 'size' &
+        targetKind == "repeatedLetters" &
+        !grepl("practice",conditionName, ignore.case = T) ~ 'Repeated letters',
+      (thresholdParameter == "targetSizeDeg" | thresholdParameter == 'size') &
+        targetKind == "letter" &
+        !grepl("practice",conditionName, ignore.case = T) ~ 'Acuity',
+      grepl("practice",conditionName, ignore.case = T) ~ 'practice',
+      .default = 'unknown'
+    )) %>% 
+    filter(questType != 'practice')
   # "questMeanBeforeThisTrialResponse", "trialGivenToQuest", "targetMeasuredLatenessSec",
   # "targetMeasuredDurationSec", "targetDurationSec", "key_resp.corr", "level", "heightPx", "targetDurationSec", "markingOffsetBeforeTargetOnsetSecs")#, "targetSpacingPx")
 }
 
-plotCrowdingStaircases <- function(crowdingStaircases, pavloviaSessionID) {
+plotCrowdingStaircases <- function(crowdingStaircases, thresholdParameterSelected) {
     stairdf <- crowdingStaircases %>%
       drop_na(levelProposedByQUEST)
 
-    if (is.null(pavloviaSessionID) | nrow(stairdf) == 0) {
+    if (is.null(thresholdParameterSelected) | nrow(stairdf) == 0) {
       return(NULL)
     }
+    print(thresholdParameterSelected)
+    print(stairdf)
     
     t <- stairdf %>%
       # Order since trials were randomized
       arrange(participant, staircaseName) %>%
-      filter(participant == pavloviaSessionID) %>%
+      filter(thresholdParameter == thresholdParameterSelected) %>%
       group_by(staircaseName) %>%
       mutate(trial = row_number())
     
+    print(t)
+    height = n_distinct(t %>% select(participant,thresholdParameter, conditionName)) * 1.1 + 2
+
     p <- ggplot(t, aes(x = trial, y = levelProposedByQUEST)) +
       geom_point() +
       geom_line() +
       theme_classic() +
-      facet_grid(rows = vars(participant),
-                 cols = vars(conditionName))
+      # facet_grid(rows = vars(thresholdParameter),
+      #            cols = vars(conditionName))
+      facet_wrap(~conditionName + participant + thresholdParameter, ncol=2, scales = 'free')
+      # scale_x_continuous(limits=c(0, max(t$trial)+1)) + 
+      # scale_y_continuous(limits=c(-2,0))
+    return(list(plot = p,
+                height = height))
   }

@@ -11,6 +11,12 @@ basicExclude <-englishChild %>%
 
 generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, filterInput) {
   print('inside threshold warning')
+  if (is.null(data_list)) {
+    return(list())
+  }
+  if (length(data_list) == 0) {
+    return(list())
+  }
   # I think we should merge the reading data and threshold data with the Grade and Skilled reader column
   # in pretest data here so that we don't need to merge it every time we want to use the pretest data.
   if (nrow(pretest) > 0) {
@@ -61,8 +67,6 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       rename(wordPerMin = `OMT_words read`)
   }
   
-  print(reading)
-  
   if (nrow(pretest) > 0) {
     reading <- reading %>% 
       mutate(lowerCaseParticipant = tolower(participant)) %>% 
@@ -96,10 +100,10 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       all_summary$ParticipantCode = all_summary$participant
     }
   } else {
-      all_summary$ParticipantCode = all_summary$participant
-      all_summary$Grade = -1
-      all_summary$`Skilled reader?` = 'unkown'
-    
+      all_summary <- all_summary %>% 
+        mutate(ParticipantCode = participant,
+               Grade = -1,
+               `Skilled reader?` = 'unkown')
   }
   
   print('done combine threshlod')

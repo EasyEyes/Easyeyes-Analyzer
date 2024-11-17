@@ -447,9 +447,6 @@ shinyServer(function(input, output, session) {
     get_acuity_hist(df_list()$acuity)
   })
   
-  rsvp_hist <- reactive({
-    get_rsvp_hist(df_list()$rsvp)
-  })
   
   repeated_letter_hist <- reactive({
     get_repeatedLetter_hist(df_list()$repeatedLetters)
@@ -568,7 +565,7 @@ shinyServer(function(input, output, session) {
 
     if (!is.null(t)) {
       l[[i]] = t
-      fileNames[[i]] = 'repeated-letter-vs-age'
+      fileNames[[i]] = 'repeated-letter-crowding-vs-age'
       i = i + 1
     }
     t <- plot_reading_age(df_list()$reading)
@@ -605,7 +602,7 @@ shinyServer(function(input, output, session) {
 
     if (!is.null(t)) {
       l[[i]] = t
-      fileNames[[i]] = 'crowding-vs-repeated-letters-age'
+      fileNames[[i]] = 'crowding-vs-repeated-letters-crowding-age'
       i = i + 1
     }
     
@@ -614,7 +611,7 @@ shinyServer(function(input, output, session) {
 
     if (!is.null(t)) {
       l[[i]] = t
-      fileNames[[i]] = 'crowding-vs-repeated-letters-grade'
+      fileNames[[i]] = 'crowding-vs-repeated-letters-crowding-grade'
       i = i + 1
     }
     
@@ -668,10 +665,18 @@ shinyServer(function(input, output, session) {
       fileNames[[i]] = 'peripheral-crowding-histogram'
       i = i + 1
     }
-
-    if (!is.null(rsvp_hist())) {
-      l[[i]] = rsvp_hist()
+    
+    t <- get_reading_hist(df_list()$rsvp)
+    if (!is.null(t)) {
+      l[[i]] = t
       fileNames[[i]] = 'rsvp-reading-speed-histogram'
+      i = i + 1
+    }
+    
+    t <- get_reading_hist(df_list()$reading)
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'reading-speed-histogram'
       i = i + 1
     }
 
@@ -783,9 +788,82 @@ shinyServer(function(input, output, session) {
   })
   
   output$isPeripheralAcuity <- reactive({
+    if ('acuity' %in% names(df_list())) {
+      peripheral <- df_list()$acuity %>% filter(targetEccentricityXDeg != 0)
+      return(nrow(peripheral) > 0)
+    } else {
+      return(FALSE)
+    }
+  })
+  
+  output$fileUploaded <- reactive({
+    return(nrow(files()$pretest>0))
+  })
+  
+  output$questData <- reactive({
+    if ('quest' %in% names(df_list())) {
+      return(nrow(df_list()$quest>0))
+    }
     return(FALSE)
   })
+  
   outputOptions(output, 'isPeripheralAcuity', suspendWhenHidden=FALSE)
+  outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
+  outputOptions(output, 'questData', suspendWhenHidden=FALSE)
+  #### crowding stair plots
+  stairPlot <- reactive({
+    plotCrowdingStaircases(files()$stairs, input$thresholdParameter)
+  })
+
+  output$stairPlot <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot = stairPlot()$plot + plt_theme,
+      width = 8,
+      height = stairPlot()$height,
+      limitsize = F,
+      unit = 'in',
+      device = svglite
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+  
+  output$downloadStairPlot <- downloadHandler(
+  filename = paste0('stair-plot.',input$fileType),
+  content = function(file) {
+    if (input$fileType == "png") {
+      ggsave(
+        "tmp.svg",
+        plot = stairPlot()$plot + plt_theme,
+        width = 8,
+        height = tairPlot()$height,
+        unit = "in",
+        limitsize = F,
+        device = svglite
+      )
+      rsvg::rsvg_png("tmp.svg", file,
+                     height = 225 * stairPlot()$height,
+                     width = 1800, )
+    } else {
+      ggsave(
+        file,
+        plot = stairPlot()$plot + plt_theme,
+        width = 8,
+        height = tairPlot()$height,
+        unit = "in",
+        limitsize = F,
+        device = ifelse(
+          input$fileType  == "svg",
+          svglite::svglite,
+          input$fileType 
+        )
+      )
+    }
+  }
+)
+  
   
   #### IR and IIR json ####
   observeEvent(input$do, {
@@ -1437,6 +1515,7 @@ shinyServer(function(input, output, session) {
   })
   
   
+  
   #### Event Handler ####
 
   observeEvent(input$file,
@@ -1476,6 +1555,12 @@ shinyServer(function(input, output, session) {
                    })
                  output$ex4 <-
                    renderTable(threshold_and_warnings()[[3]])
+                 
+                 updateSelectInput(session,
+                                   'thresholdParameter',
+                                   choices = unique(files()$stairs$thresholdParameter),
+                                   selected = unique(files()$stairs$thresholdParameter)[1],
+                                   )
                  #### stairPlots ####
 
                  # output$p1 <- renderImage({
@@ -1951,16 +2036,7 @@ shinyServer(function(input, output, session) {
                      )
                    })
                  }
-                 
-                 
                  #### grade plots
-                 
-                 print('done plots')
-                 output$fileUploaded <- reactive({
-                   return(nrow(files()$pretest>0))
-                 })
-                 outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
-                 
                  
                  output$crowdingGradePlot <-renderImage({
                    outfile <- tempfile(fileext = '.svg')
@@ -2094,7 +2170,6 @@ shinyServer(function(input, output, session) {
 
                }
                )
-  
   
   #### download handlers ####
  
@@ -3943,37 +4018,6 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    
-    output$downloadRLAge <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('repeated-letter-vs-age.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = get_repeatedLetter_vs_age(df_list()$repeatedLetters) + 
-              plt_theme,
-            width = 7,
-            height = 4,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
-        } else {
-          ggsave(
-            file = file,
-            plot =  get_repeatedLetter_vs_age(df_list()$repeatedLetters) + 
-              plt_theme,
-            device = input$fileType,
-            width = 7,
-            height = 4
-          )
-        }
-      }
-    )
   })
   
   # download jupyter notebook handler
