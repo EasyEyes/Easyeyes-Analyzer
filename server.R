@@ -1888,8 +1888,8 @@ shinyServer(function(input, output, session) {
                    while(i <= length(histograms()$plotList)-1) {
                      
                      out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
-                                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "100%", height = "100%"), type = 4),
-                                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i+1), width = "100%", height = "100%"), type = 4))
+                                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "50%", height = "50%"), type = 4),
+                                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i+1), width = "50%", height = "50%"), type = 4))
                      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
                                                  downloadButton(paste0("downloadHist", i), 'Download'),
                                                  downloadButton(paste0("downloadHist", i+1), 'Download'))
@@ -1897,7 +1897,7 @@ shinyServer(function(input, output, session) {
                    }
                    if (i == length(histograms()$plotList)){
                      out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                             shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "100%", height = "100%"), type = 4))
+                                             shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "50%", height = "50%"), type = 4))
                      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
                                                  downloadButton(paste0("downloadHist", i), 'Download'))
                    }
@@ -1914,7 +1914,8 @@ shinyServer(function(input, output, session) {
                          file = outfile,
                          plot = histograms()$plotList[[ii]] + plt_theme,
                          device = svglite,
-                         width = 6,
+                         width = 5,
+                         height=5,
                          unit = 'in',
                        )
                        
