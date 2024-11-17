@@ -46,13 +46,18 @@ get_crowding_hist <- function(crowding) {
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
-        aes( npcx = 'left',
+        aes( npcx = 'right',
              npcy = 'top',
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
       ) +
       labs(x = 'Log foveal crowding (deg)',
            y = 'Count',
-           title ='Histogram of foveal crowding distance')
+           title ='Histogram of foveal crowding distance') + 
+      theme(
+        plot.title = element_text(size = rel(0.5)),  # Scale down title size
+        axis.title = element_text(size = rel(0.5)),  # Scale down axis title size
+        axis.text = element_text(size = rel(0.5))    # Scale down axis text size
+      )
   } else {
     p1 <- NULL
   }
@@ -72,7 +77,7 @@ get_crowding_hist <- function(crowding) {
    scale_x_continuous(expand = c(0, 0)) + 
    scale_y_continuous(expand = c(0, 0)) + 
    ggpp::geom_text_npc(
-     aes( npcx = 'left',
+     aes( npcx = 'right',
           npcy = 'top',
           label = paste0('mean=',stats2$mean,'\n sd=', stats2$sd, '\n N=', stats2$N))
    ) + 
@@ -111,7 +116,7 @@ get_acuity_hist <- function(acuity) {
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
-        aes( npcx = 'left',
+        aes( npcx = 'right',
              npcy = 'top',
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
       ) +
@@ -138,7 +143,7 @@ get_acuity_hist <- function(acuity) {
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
-        aes( npcx = 'left',
+        aes( npcx = 'right',
              npcy = 'top',
              label = paste0('mean=',stats2$mean,'\n sd=', stats2$sd, '\n N=', stats2$N))
       ) +
@@ -166,7 +171,7 @@ get_rsvp_hist <- function(rsvp) {
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
-        aes( npcx = 'left',
+        aes( npcx = 'right',
              npcy = 'top',
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
       ) +
@@ -195,7 +200,7 @@ get_repeatedLetter_hist <- function(repeated) {
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
-        aes( npcx = 'left',
+        aes( npcx = 'right',
              npcy = 'top',
              label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
       ) +
