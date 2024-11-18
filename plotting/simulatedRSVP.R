@@ -200,11 +200,17 @@ extractCrowdingStaircases <- function(df, info) {
   if (!'levelProposedByQUEST' %in% names(df)) {
     df$levelProposedByQUEST = NA
   }
+  
+  if (!'trialGivenToQuest' %in% names(df)) {
+    df$trialGivenToQuest = NA
+  }
+  
   stairdf <- df %>%
     filter(!is.na(staircaseName)) %>%
     select(
       "staircaseName",
-      "levelProposedByQUEST"
+      "levelProposedByQUEST",
+      "trialGivenToQuest"
     ) %>% 
     inner_join(info, by = 'staircaseName') %>% 
     mutate(questType = case_when(
@@ -225,39 +231,70 @@ extractCrowdingStaircases <- function(df, info) {
       .default = 'unknown'
     )) %>% 
     filter(questType != 'practice')
-  # "questMeanBeforeThisTrialResponse", "trialGivenToQuest", "targetMeasuredLatenessSec",
+  # "questMeanBeforeThisTrialResponse", "", "targetMeasuredLatenessSec",
   # "targetMeasuredDurationSec", "targetDurationSec", "key_resp.corr", "level", "heightPx", "targetDurationSec", "markingOffsetBeforeTargetOnsetSecs")#, "targetSpacingPx")
 }
 
-plotCrowdingStaircases <- function(crowdingStaircases, thresholdParameterSelected) {
-    stairdf <- crowdingStaircases %>%
+plotStaircases <- function(Staircases, thresholdParameterSelected) {
+    stairdf <- Staircases %>%
       drop_na(levelProposedByQUEST)
 
     if (is.null(thresholdParameterSelected) | nrow(stairdf) == 0) {
       return(NULL)
     }
-    print(thresholdParameterSelected)
-    print(stairdf)
     
     t <- stairdf %>%
       # Order since trials were randomized
       arrange(participant, staircaseName) %>%
       filter(thresholdParameter == thresholdParameterSelected) %>%
-      group_by(staircaseName) %>%
-      mutate(trial = row_number())
+      group_by(participant, staircaseName) %>%
+      mutate(trial = row_number(),
+             questTrials = paste0(sum(trialGivenToQuest,na.rm = T), ' questTrials'))
     
-    print(t)
-    height = n_distinct(t %>% select(participant,thresholdParameter, conditionName)) * 1.1 + 2
+    height = n_distinct(t %>% select(participant,thresholdParameter, conditionName)) * 1.3 + 2
 
     p <- ggplot(t, aes(x = trial, y = levelProposedByQUEST)) +
       geom_point() +
       geom_line() +
-      theme_classic() +
+      theme_minimal() +
       # facet_grid(rows = vars(thresholdParameter),
       #            cols = vars(conditionName))
-      facet_wrap(~conditionName + participant + thresholdParameter, ncol=2, scales = 'free')
-      # scale_x_continuous(limits=c(0, max(t$trial)+1)) + 
+      facet_wrap(~conditionName + participant + thresholdParameter + questTrials, ncol=2, scales = 'free') +
+      scale_x_continuous(breaks = scales::breaks_width(5)) +
+      theme(
+        axis.ticks = element_line(),
+        axis.ticks.length = unit(0.3, "line"),
+        strip.text.x = element_text(hjust = 1))
       # scale_y_continuous(limits=c(-2,0))
     return(list(plot = p,
                 height = height))
+}
+
+plotCrowdingStaircasesVsQuestTrials <- function(crowding, Staircases){
+  stairdf <- Staircases %>%
+    drop_na(levelProposedByQUEST)
+  
+  if (nrow(stairdf) == 0) {
+    return(NULL)
   }
+  crowdingQuest <- Staircases %>%
+    filter(questType == 'Crowding') %>% 
+    group_by(participant, staircaseName) %>%
+    mutate(questTrials = sum(trialGivenToQuest,na.rm = T),
+           block_condition = staircaseName) %>% 
+    distinct(participant, block_condition, questTrials)
+  print(crowdingQuest)
+  print(Staircases %>%
+          filter(questType == 'Crowding') %>% 
+          arrange(participant, staircaseName))
+  crowding <- crowding %>% 
+    left_join(crowdingQuest, by = c('participant', 'block_condition'))
+  print('crowding')
+  print(crowding)
+  ggplot(crowding, aes(x = questTrials, y = 10^(log_crowding_distance_deg))) + 
+    geom_point() + 
+    scale_y_log10(breaks = c(0.1,0.3,1,3,10)) + 
+    annotation_logticks() + 
+    scale_x_continuous()+ 
+    labs(y = 'Crowding distance (deg)')
+}

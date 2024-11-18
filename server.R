@@ -718,7 +718,15 @@ shinyServer(function(input, output, session) {
     i = 1
     l <- list()
     fileNames <- list()
-    print('inside get_foveal_acuity_diag')
+    
+    t <- plotCrowdingStaircasesVsQuestTrials(df_list()$crowding, files()$stairs) + plt_theme
+    
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'crowding-staircases-threshold-vs-questTirals'
+      i = i + 1
+    }
+    
     t <- foveal_crowding_vs_acuity_diag()$foveal$age
 
     if (!is.null(t)) {
@@ -812,7 +820,7 @@ shinyServer(function(input, output, session) {
   outputOptions(output, 'questData', suspendWhenHidden=FALSE)
   #### crowding stair plots
   stairPlot <- reactive({
-    plotCrowdingStaircases(files()$stairs, input$thresholdParameter)
+    plotStaircases(files()$stairs, input$thresholdParameter)
   })
 
   output$stairPlot <- renderImage({
