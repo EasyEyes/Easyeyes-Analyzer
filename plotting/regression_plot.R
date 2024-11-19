@@ -98,12 +98,18 @@ regression_reading_plot <- function(df_list){
   t <- prepare_regression_data(df_list)[[1]]
   t <- t %>% mutate(targetKind = paste0(targetKind, ", R = ", correlation))
   # plot for the regression
+  
+  
+  x_range <- log10(max(t$crowding_distance, na.rm = TRUE)) - log10(min(t$crowding_distance, na.rm = TRUE))
+  y_range <- log10(max(10^(t$avg_log_WPM), na.rm = TRUE)) - log10(min(10^(t$avg_log_WPM), na.rm = TRUE))
+  aspect_ratio <- y_range / x_range
+  
+  
   p <- ggplot(t,aes(x = crowding_distance, y = 10^(avg_log_WPM), color = targetKind)) + 
     geom_point() +
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10() + 
     scale_y_log10() +
-    coord_fixed(ratio = 1) + 
     labs(x="Foveal crowding (deg)", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
@@ -113,7 +119,11 @@ regression_reading_plot <- function(df_list){
       label = paste0('N=', nrow(t))
     )) + 
     guides(color=guide_legend(nrow=2, byrow=TRUE,
-                              title = ''))
+                              title = '')) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),# Rotate x-axis labels
+      plot.margin = margin(10, 10, 10, 10) 
+    ) 
   return(p)
 }
 
@@ -134,7 +144,6 @@ regression_acuity_plot <- function(df_list){
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10() + 
     scale_y_log10() +
-    coord_fixed(ratio = 1) + 
     labs(x="Foveal acuity (deg)", y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks() +
