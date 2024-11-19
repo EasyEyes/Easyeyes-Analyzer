@@ -4040,7 +4040,144 @@ shinyServer(function(input, output, session) {
     }
   )
   
-
+  ordinaryAcuityFoveal <- reactive({
+    plot_acuity_reading(df_list()$acuity, df_list()$reading, 'foveal')
+  })
+  
+  ordinaryAcuityPeripheral <- reactive({
+    plot_acuity_reading(df_list()$acuity, df_list()$reading, 'peripheral')
+  })
+  output$ordinaryFovealAcuityAgePlot <- renderPlotly({
+    ordinaryAcuityFoveal()[[1]]  # First plot (e.g., age-based)
+  })
+  
+  output$ordinaryFovealAcuityGradePlot <- renderPlotly({
+    ordinaryAcuityFoveal()[[2]]  # Second plot (e.g., grade-based)
+  })
+  
+  output$ordinaryPeripheralAcuityAgePlot <- renderPlotly({
+    ordinaryAcuityPeripheral()[[1]]  # First plot (e.g., age-based)
+  })
+  
+  output$ordinaryPeripheralAcuityGradePlot <- renderPlotly({
+    ordinaryAcuityPeripheral()[[2]]  # Second plot (e.g., grade-based)
+  })
+  output$downloadOrdinaryFovealAcuityAgePlot <- downloadHandler(
+    filename = function() {
+      paste("ordinary_foveal_acuity_age", input$fileType, sep = ".")
+    },
+    content = function(file) {
+      ggsave(
+        file,
+        plot = ordinaryAcuityFoveal()[[1]] + plt_theme,
+        width = 6,
+        unit = "in",
+        device = input$fileType
+      )
+    }
+  )
+  
+  output$downloadOrdinaryFovealAcuityGradePlot <- downloadHandler(
+    filename = function() {
+      paste("ordinary_foveal_acuity_grade", input$fileType, sep = ".")
+    },
+    content = function(file) {
+      ggsave(
+        file,
+        plot = ordinaryAcuityFoveal()[[2]] + plt_theme,
+        width = 6,
+        unit = "in",
+        device = input$fileType
+      )
+    }
+  )
+  
+  ordinaryCrowdingPlots <- reactive({
+    plot_reading_crowding(df_list())
+  })
+  
+  # Peripheral Crowding Plots
+  output$ordinaryPeripheralCrowdingAgePlot <- renderPlotly({
+    ordinaryCrowdingPlots()[[1]]  # Age-based peripheral crowding plot
+  })
+  
+  output$ordinaryPeripheralCrowdingGradePlot <- renderPlotly({
+    ordinaryCrowdingPlots()[[3]]  # Grade-based peripheral crowding plot
+  })
+  
+  # Foveal Crowding Plots
+  output$ordinaryFovealCrowdingAgePlot <- renderPlotly({
+    ordinaryCrowdingPlots()[[2]]  # Age-based foveal crowding plot
+  })
+  
+  output$ordinaryFovealCrowdingGradePlot <- renderPlotly({
+    ordinaryCrowdingPlots()[[4]]  # Grade-based foveal crowding plot
+  })
+  output$downloadOrdinaryPeripheralCrowdingAgePlot <- downloadHandler(
+    filename = function() {
+      paste("ordinary_peripheral_crowding_age", input$fileType, sep = ".")
+    },
+    content = function(file) {
+      ggsave(
+        file,
+        plot = ordinaryCrowdingPlots()[[1]] + plt_theme,
+        width = 6,
+        unit = "in",
+        device = input$fileType
+      )
+    }
+  )
+  
+  output$downloadOrdinaryPeripheralCrowdingGradePlot <- downloadHandler(
+    filename = function() {
+      paste("ordinary_peripheral_crowding_grade", input$fileType, sep = ".")
+    },
+    content = function(file) {
+      ggsave(
+        file,
+        plot = ordinaryCrowdingPlots()[[3]] + plt_theme,
+        width = 6,
+        unit = "in",
+        device = input$fileType
+      )
+    }
+  )
+  
+  output$downloadOrdinaryFovealCrowdingAgePlot <- downloadHandler(
+    filename = function() {
+      paste("ordinary_foveal_crowding_age", input$fileType, sep = ".")
+    },
+    content = function(file) {
+      ggsave(
+        file,
+        plot = ordinaryCrowdingPlots()[[2]] + plt_theme,
+        width = 6,
+        unit = "in",
+        device = input$fileType
+      )
+    }
+  )
+  
+  output$downloadOrdinaryFovealCrowdingGradePlot <- downloadHandler(
+    filename = function() {
+      paste("ordinary_foveal_crowding_grade", input$fileType, sep = ".")
+    },
+    content = function(file) {
+      ggsave(
+        file,
+        plot = ordinaryCrowdingPlots()[[4]] + plt_theme,
+        width = 6,
+        unit = "in",
+        device = input$fileType
+      )
+    }
+  )
+  
+  
   
 })
+
+
+
+
 

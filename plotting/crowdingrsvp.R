@@ -230,8 +230,11 @@ plot_rsvp_crowding <- function(allData) {
              shape = 'none') + 
       labs(x = paste(condition,'crowding (deg)'),
            y = 'RSVP reading (w/min)',
-           title = paste('RSVP vs', tolower(condition), 'crowding colored by', tolower(colorFactor)))
-    
+           title = paste('RSVP vs', tolower(condition), '\ncrowding colored by', tolower(colorFactor))) +
+    theme(
+      plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
+      plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
+    )
     if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
       p <- p + geom_point(data = data_rsvp, 
                           aes(x = X,
@@ -360,3 +363,159 @@ getCorrMatrix <- function(allData, pretest) {
     height = 2.5 + ncol(t) * 0.38
   ))
 }
+
+plot_reading_crowding <- function(allData) {
+  # Helper function to compute correlation, slope, and plot
+  create_plot <- function(data, condition, colorFactor) {
+    data_reading <- data %>%
+      select(participant, log_crowding_distance_deg) %>%
+      inner_join(reading, by = "participant") %>% 
+      distinct(participant, 
+               wordPerMin, 
+               log_crowding_distance_deg,
+               age,
+               Grade,
+               `Skilled reader?`,
+               ParticipantCode) %>%
+      filter(!is.na(participant)) %>% 
+      mutate(
+        Age = format(age, nsmall = 2),
+        ageN = as.numeric(age),
+        X = 10^(log_crowding_distance_deg),  # Crowding distance
+        Y = log10(wordPerMin),               # Reading speed
+        Grade = as.character(Grade)
+      )
+    
+    if (nrow(data_reading) == 0) {
+      return(NULL)
+    }
+    
+    if (n_distinct(data_reading$`Skilled reader?`) > 1) {
+      data_for_stat <- data_reading %>% filter(`Skilled reader?` != FALSE) %>% 
+        select(wordPerMin, log_crowding_distance_deg, X, Y, ageN)
+    } else {
+      data_for_stat <- data_reading %>% 
+        select(wordPerMin, log_crowding_distance_deg, X, Y, ageN)
+    }
+    if (sum(!is.na(data_for_stat$ageN)) == 0) {
+      data_for_stat <- data_for_stat %>% select(-ageN)
+    }
+    
+    data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
+    
+    corr <- data_for_stat %>%
+      summarize(correlation = cor(wordPerMin, log_crowding_distance_deg,
+                                  method = "pearson"),
+                N = n()) %>%
+      mutate(correlation = round(correlation, 2))
+    
+    slope <- data_for_stat %>%
+      do(fit = lm(Y ~ X, data = .)) %>%
+      transmute(coef = map(fit, tidy)) %>%
+      unnest(coef) %>%
+      mutate(slope = round(estimate, 2)) %>%
+      filter(term == 'X') %>%
+      select(-term)
+    
+    if ('ageN' %in% names(data_for_stat)) {
+      corr_without_age <- ppcor::pcor(data_for_stat %>%
+                                        select(wordPerMin,
+                                               log_crowding_distance_deg,
+                                               ageN))$estimate[2,1] 
+      corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
+    } else {
+      corr_without_age <- NA
+    }
+    
+    xMin <- min(data_reading$X, na.rm = TRUE) / 1.5
+    xMax <- max(data_reading$X, na.rm = TRUE) * 1.5
+    yMin <- min(data_reading$Y, na.rm = TRUE) / 1.5
+    yMax <- max(data_reading$Y, na.rm = TRUE) * 1.5
+    
+    # Generate dynamic breaks for the y-axis
+    y_breaks <- scales::log_breaks()(c(yMin, yMax))
+    p <- ggplot() + 
+      theme_classic() +
+      scale_y_log10(
+        breaks = y_breaks,  # Dynamic breaks based on data range
+        limits = c(yMin, yMax),
+        expand = c(0, 0)
+      ) +
+      scale_x_log10(
+        breaks = c(0.003, 0.01, 0.03, 0.1, 0.3, 1, 10, 100),
+        limits = c(xMin, xMax),
+        expand = c(0, 0)
+      ) +
+      geom_smooth(
+        data = data_for_stat,
+        aes(x = X, y = Y),
+        method = 'lm',
+        se = FALSE
+      ) +
+      annotation_logticks() +
+      coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +
+      
+      annotate(
+        "text",
+        x = xMin * 1.4,
+        y = yMin * 1.4,
+        label = paste0("N = ", corr$N,
+                       "\nR = ", corr$correlation,
+                       "\nR_factor_out_age = ", corr_without_age,
+                       "\nslope = ", slope$slope),
+        hjust = 0,
+        vjust = 0,
+        size = 4,
+        color = "black"
+      ) +
+      plt_theme +
+      theme(legend.position = ifelse(n_distinct(data_reading$factorC) == 1, 'none', 'top')) + 
+      guides(color = guide_legend(title = colorFactor),
+             shape = 'none') + 
+      labs(
+        x = paste(condition, 'crowding (deg)'),
+        y = 'Ordinary reading speed (w/min)',  # Updated label
+        title = paste('Ordinary Reading vs', tolower(condition), '\ncrowding colored by', tolower(colorFactor))
+      ) +
+    theme(
+        plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
+        plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
+      )
+    
+    if (n_distinct(data_reading$`Skilled reader?`) == 1) {
+      p <- p + geom_point(
+        data = data_reading, 
+        aes(x = X, y = Y, group = ParticipantCode, color = .data[[colorFactor]])
+      )
+    } else {
+      p <- p + geom_point(
+        data = data_reading, 
+        aes(
+          x = X, y = Y, group = ParticipantCode,
+          color = .data[[colorFactor]], shape = `Skilled reader?`
+        )
+      ) + 
+        scale_shape_manual(values = c(4, 19))
+    }
+    
+    return(p)
+  }
+  
+  crowding <- allData$crowding %>% mutate(participant = tolower(participant))
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
+  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
+  reading <- allData$reading %>% mutate(participant = tolower(participant))
+  
+  if (nrow(allData$reading) == 0 | nrow(allData$crowding) == 0) {
+    return(list(NULL, NULL, NULL, NULL))
+  }
+  
+  # Create plots for peripheral and foveal data
+  p1 <- create_plot(peripheral, "Peripheral", 'Age')
+  p2 <- create_plot(foveal, "Foveal", 'Age')
+  p3 <- create_plot(peripheral, "Peripheral", 'Grade')
+  p4 <- create_plot(foveal, "Foveal", 'Grade')
+  
+  return(list(p1, p2, p3, p4))
+}
+
