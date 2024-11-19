@@ -461,10 +461,6 @@ shinyServer(function(input, output, session) {
     get_foveal_acuity_diag(df_list()$crowding, df_list()$acuity)
   })
   
-  regressionPlot <- reactive({
-    regression_reading_plot(df_list()) +
-      labs(subtitle = "Reading vs crowding")
-  })
   regressionAcuityPlot <- reactive({
     regression_acuity_plot(df_list()) +
       labs(subtitle = "Reading vs acuity")
@@ -784,6 +780,19 @@ shinyServer(function(input, output, session) {
       fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
       i = i + 1
     }
+    
+    t <- regression_reading_plot(df_list())
+    if (!is.null(t$foveal)) {
+      l[[i]] = t$foveal
+      fileNames[[i]] = 'reading-rsvp-reading-vs-foveal-crowding'
+      i = i + 1
+    }
+    
+    if (!is.null(t$peripheral)) {
+      l[[i]] = t$peripheral
+      fileNames[[i]] = 'reading-rsvp-reading-vs-peripheral-crowding'
+      i = i + 1
+    }
     return(list(
       plotList = l,
       fileNames = fileNames
@@ -846,7 +855,7 @@ shinyServer(function(input, output, session) {
         "tmp.svg",
         plot = stairPlot()$plot + plt_theme,
         width = 8,
-        height = tairPlot()$height,
+        height = stairPlot()$height,
         unit = "in",
         limitsize = F,
         device = svglite
@@ -859,7 +868,7 @@ shinyServer(function(input, output, session) {
         file,
         plot = stairPlot()$plot + plt_theme,
         width = 8,
-        height = tairPlot()$height,
+        height = stairPlot()$height,
         unit = "in",
         limitsize = F,
         device = ifelse(
@@ -1664,19 +1673,6 @@ shinyServer(function(input, output, session) {
                  }, deleteFile = TRUE)
                  #### regression plots #####
 
-                 output$regressionPlot <-  renderImage({
-                   outfile <- tempfile(fileext = '.svg')
-                   ggsave(
-                     file = outfile,
-                     plot =   regressionPlot() + plt_theme,
-                     device = svg,
-                     width = 6,
-                     height = 4
-                   )
-
-                   list(src = outfile,
-                        contenttype = 'svg')
-                 }, deleteFile = TRUE)
 
                  output$regressionAcuityPlot <-  renderImage({
                    outfile <- tempfile(fileext = '.svg')
@@ -3530,40 +3526,6 @@ shinyServer(function(input, output, session) {
           device = ifelse(input$fileType == "svg", svglite, input$fileType)
         )
       }
-    )
-    
-    output$downloadRegressionPlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('regression.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = regressionPlot() + 
-              plt_theme +
-              coord_fixed(ratio = 1),
-            width = 7,
-            height = 5,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
-        } else {
-          ggsave(
-            file = file,
-            plot = regressionPlot() + 
-              plt_theme + 
-              coord_fixed(ratio = 1),
-            device = svg,
-            width = 7,
-            height = 5
-          )
-        }
-      }
-
     )
     
     output$downloadRegressionAcuityPlot <- downloadHandler(

@@ -283,18 +283,14 @@ plotCrowdingStaircasesVsQuestTrials <- function(crowding, Staircases){
     mutate(questTrials = sum(trialGivenToQuest,na.rm = T),
            block_condition = staircaseName) %>% 
     distinct(participant, block_condition, questTrials)
-  print(crowdingQuest)
-  print(Staircases %>%
-          filter(questType == 'Crowding') %>% 
-          arrange(participant, staircaseName))
+
   crowding <- crowding %>% 
     left_join(crowdingQuest, by = c('participant', 'block_condition'))
-  print('crowding')
-  print(crowding)
+
   ggplot(crowding, aes(x = questTrials, y = 10^(log_crowding_distance_deg))) + 
     geom_point() + 
     scale_y_log10(breaks = c(0.1,0.3,1,3,10)) + 
-    annotation_logticks() + 
+    annotation_logticks(sides = 'l') + 
     scale_x_continuous()+ 
     labs(y = 'Crowding distance (deg)')
 }
