@@ -7,8 +7,7 @@ prepare_regression_data <- function(df_list){
   reading <- df_list$reading %>% mutate(participant = tolower(participant))
   crowding <- df_list$crowding %>% mutate(participant = tolower(participant))
   rsvp_speed <- df_list$rsvp %>% mutate(participant = tolower(participant))
-  crowding_vs_rsvp <- merge(select(crowding, participant, log_crowding_distance_deg,bouma_factor),rsvp_speed, by = c("participant")) %>%
-    distinct()
+
   reading_each <- reading %>% 
     group_by(participant, block_condition, thresholdParameter) %>%
     dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
@@ -27,8 +26,8 @@ prepare_regression_data <- function(df_list){
     mutate(targetKind = "reading")
   
   crowding_summary <- crowding %>% 
-    filter(targetEccentricityXDeg == 0) %>% 
-    group_by(participant, font) %>% 
+    mutate(type = ifelse(targetEccentricityXDeg == 0,'Foveal', 'Peripheral')) %>% 
+    group_by(participant, type) %>% 
     summarize(crowding_distance = 10^(mean(log_crowding_distance_deg)))
   
   reading_crowding <- reading_valid %>% 
@@ -37,21 +36,24 @@ prepare_regression_data <- function(df_list){
     summarize(avg_log_WPM = mean(log10(avg_wordPerMin))) %>% 
     ungroup() %>% 
     left_join(crowding_summary, by = c("participant")) %>% 
-    mutate(targetKind = "reading") %>% 
-    select(-font)
-  crowding_vs_rsvp_summary <- crowding_vs_rsvp %>% 
+    mutate(targetKind = "reading")
+  
+  crowding_vs_rsvp <- rsvp_speed %>% 
     group_by(participant) %>% 
-    summarize( avg_log_WPM = mean(block_avg_log_WPM),
-               crowding_distance = 10^mean(log_crowding_distance_deg)) %>% 
+    summarize(avg_log_WPM = mean(block_avg_log_WPM)) %>% 
+    left_join(crowding_summary, by = "participant")
+    
+
+  crowding_vs_rsvp_summary <- crowding_vs_rsvp %>% 
     mutate(targetKind = "rsvpReading")
   
   t <- rbind(crowding_vs_rsvp_summary, reading_crowding)
   if (nrow(t>1)) {
-    corr <- t %>% group_by(targetKind) %>% 
+    corr <- t %>% group_by(targetKind, type) %>% 
       summarize(correlation = round(cor(log10(crowding_distance),avg_log_WPM, 
                                         use = "pairwise.complete.obs",
                                         method = "pearson"),2))
-    t <- t %>% left_join(corr, by = "targetKind")
+    t <- t %>% left_join(corr, by = c("targetKind", "type"))
   } else {
     t$correlation = NA
   }
@@ -96,35 +98,76 @@ prepare_regression_acuity <- function(df_list){
 
 regression_reading_plot <- function(df_list){
   t <- prepare_regression_data(df_list)[[1]]
-  t <- t %>% mutate(targetKind = paste0(targetKind, ", R = ", correlation))
   # plot for the regression
   
+  foveal <- t %>%
+    mutate(targetKind = paste0(targetKind, ", R = ", correlation)) %>%
+    filter(type == 'Foveal')
   
-  x_range <- log10(max(t$crowding_distance, na.rm = TRUE)) - log10(min(t$crowding_distance, na.rm = TRUE))
-  y_range <- log10(max(10^(t$avg_log_WPM), na.rm = TRUE)) - log10(min(10^(t$avg_log_WPM), na.rm = TRUE))
-  aspect_ratio <- y_range / x_range
+  peripheral <- t %>% 
+    mutate(targetKind = paste0(targetKind, ", R = ", correlation)) %>%
+    filter(type == 'Peripheral')
   
+  p1 <- NULL
+  p2 <- NULL
   
-  p <- ggplot(t,aes(x = crowding_distance, y = 10^(avg_log_WPM), color = targetKind)) + 
-    geom_point() +
-    geom_smooth(method = "lm",formula = y ~ x, se=F) + 
-    scale_x_log10() + 
-    scale_y_log10() +
-    labs(x="Foveal crowding (deg)", y = "Reading speed (w/min)") +
-    theme_bw() + 
-    annotation_logticks() +
-    ggpp::geom_text_npc(aes(
-      npcx = "left",
-      npcy = "top",
-      label = paste0('N=', nrow(t))
-    )) + 
-    guides(color=guide_legend(nrow=2, byrow=TRUE,
-                              title = '')) +
-    theme(
-      axis.text.x = element_text(angle = 45, hjust = 1),# Rotate x-axis labels
-      plot.margin = margin(10, 10, 10, 10) 
-    ) 
-  return(p)
+  if (nrow(foveal) > 0) {
+    x_range <- log10(max(foveal$crowding_distance, na.rm = TRUE)) - log10(min(foveal$crowding_distance, na.rm = TRUE))
+    y_range <- log10(max(10^(foveal$avg_log_WPM), na.rm = TRUE)) - log10(min(10^(foveal$avg_log_WPM), na.rm = TRUE))
+    aspect_ratio <- y_range / x_range
+    p1 <- ggplot(foveal,aes(x = crowding_distance, y = 10^(avg_log_WPM), color = targetKind)) + 
+      geom_point() +
+      geom_smooth(method = "lm",formula = y ~ x, se=F) + 
+      scale_x_log10() + 
+      scale_y_log10() +
+      coord_fixed(ratio = 1) + 
+      labs(x="Foveal crowding (deg)", 
+           y = "Reading speed (w/min)",
+           title = "Reading vs foveal crowding") +
+      theme_bw() + 
+      annotation_logticks() +
+      ggpp::geom_text_npc(aes(
+        npcx = "left",
+        npcy = "top",
+        label = paste0('N=', nrow(t))
+      )) + 
+      guides(color=guide_legend(nrow=2, byrow=TRUE,
+                                title = '')) + 
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),# Rotate x-axis labels
+        plot.margin = margin(10, 10, 10, 10) 
+      ) 
+  }
+  
+  if (nrow(peripheral) > 0) {
+    x_range <- log10(max(peripheral$crowding_distance, na.rm = TRUE)) - log10(min(peripheral$crowding_distance, na.rm = TRUE))
+    y_range <- log10(max(10^(peripheral$avg_log_WPM), na.rm = TRUE)) - log10(min(10^(peripheral$avg_log_WPM), na.rm = TRUE))
+    aspect_ratio <- y_range / x_range
+    p2 <- ggplot(peripheral, aes(x = crowding_distance, y = 10^(avg_log_WPM), color = targetKind)) + 
+      geom_point() +
+      geom_smooth(method = "lm",formula = y ~ x, se=F) + 
+      scale_x_log10() + 
+      scale_y_log10() +
+      coord_fixed(ratio = 1) + 
+      labs(x="Peripheral crowding (deg)", 
+           y = "Reading speed (w/min)",
+           title = "Reading vs peripheral crowding") +
+      theme_bw() + 
+      annotation_logticks() +
+      ggpp::geom_text_npc(aes(
+        npcx = "left",
+        npcy = "top",
+        label = paste0('N=', nrow(t))
+      )) + 
+      guides(color=guide_legend(nrow=2, byrow=TRUE,
+                                title = '')) +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),# Rotate x-axis labels
+        plot.margin = margin(10, 10, 10, 10) 
+      ) 
+  }
+  return(list(foveal = p1, peripheral = p2))
+
 }
 
 regression_acuity_plot <- function(df_list){

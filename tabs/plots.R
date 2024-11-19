@@ -69,6 +69,16 @@ plotsTab <- tabPanel(
   # 
   h3("Scatter diagrams"),
   shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
+  # TODO 
+  # add regressionAcuityPlot to Scatter diagrams
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    shinycssloaders::withSpinner(plotOutput("regressionAcuityPlot", width = "100%"), type = 4)
+  ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    downloadButton("downloadRegressionAcuityPlot", "Download")
+  ),
   #### rsvp crowding plots ####
   # splitLayout(
   #   cellWidths = c("50%", "50%"),
@@ -183,18 +193,7 @@ plotsTab <- tabPanel(
   # ),
   h3("Plots for Children"),
   uiOutput('plots'),
-  #### regression ####
-  h3("Reading vs crowding"),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("regressionPlot", width = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("regressionAcuityPlot", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadRegressionPlot", "Download"),
-    downloadButton("downloadRegressionAcuityPlot", "Download")
-  ),
+
   #### stairPlots #####
   # splitLayout(
   #   cellWidths = c("50%", "50%"),
