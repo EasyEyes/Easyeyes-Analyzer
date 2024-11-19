@@ -727,13 +727,13 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    t <- foveal_crowding_vs_acuity_diag()$foveal$age
-
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'foveal-crowding-vs-foveal-acuity-age-diagram'
-      i = i + 1
-    }
+    # t <- foveal_crowding_vs_acuity_diag()$foveal$age
+    # 
+    # if (!is.null(t)) {
+    #   l[[i]] = t
+    #   fileNames[[i]] = 'foveal-crowding-vs-foveal-acuity-age-diagram'
+    #   i = i + 1
+    # }
     
     t <- foveal_crowding_vs_acuity_diag()$foveal$grade
     
@@ -743,12 +743,12 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
 
-    t <-  foveal_crowding_vs_acuity_diag()$peripheral$age
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'foveal-crowding-vs-peripheral-acuity-age-diagram'
-      i = i + 1
-    }
+    # t <-  foveal_crowding_vs_acuity_diag()$peripheral$age
+    # if (!is.null(t)) {
+    #   l[[i]] = t
+    #   fileNames[[i]] = 'foveal-crowding-vs-peripheral-acuity-age-diagram'
+    #   i = i + 1
+    # }
     
     t <-  foveal_crowding_vs_acuity_diag()$peripheral$grade
     if (!is.null(t)) {
@@ -757,12 +757,12 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    t <- foveal_peripheral_diag()$age
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'foveal-crowding-vs-peripheral-crowding-age-diagram'
-      i = i + 1
-    }
+    # t <- foveal_peripheral_diag()$age
+    # if (!is.null(t)) {
+    #   l[[i]] = t
+    #   fileNames[[i]] = 'foveal-crowding-vs-peripheral-crowding-age-diagram'
+    #   i = i + 1
+    # }
     
     t <- foveal_peripheral_diag()$grade
     if (!is.null(t)) {
@@ -771,12 +771,12 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    t <- get_quest_diag(df_list()$quest)$age
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'quest-sd-vs-mean-age-diagram'
-      i = i + 1
-    }
+    # t <- get_quest_diag(df_list()$quest)$age
+    # if (!is.null(t)) {
+    #   l[[i]] = t
+    #   fileNames[[i]] = 'quest-sd-vs-mean-age-diagram'
+    #   i = i + 1
+    # }
     
     t <- get_quest_diag(df_list()$quest)$grade
     if (!is.null(t)) {
@@ -1778,7 +1778,7 @@ shinyServer(function(input, output, session) {
 
                  #### rsvp vs crowding ####
 
-                 output$rsvpCrowdingPeripheralAgePlot <- renderPlotly({
+                output$rsvpCrowdingPeripheralAgePlot <- renderPlotly({
                    rsvpCrowding()[[1]]
                  })
 

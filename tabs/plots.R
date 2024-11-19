@@ -45,41 +45,41 @@ plotsTab <- tabPanel(
   h3("Histograms"),
   shinycssloaders::withSpinner(uiOutput('histograms'),type=4),
   
-  conditionalPanel(condition='output.fileUploaded',
-                   h3("Grade plots"),
-                   splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(plotOutput("crowdingGradePlot", width = "100%", height = "100%"), type = 4),
-                     shinycssloaders::withSpinner(plotOutput("rsvpGradePlot", width = "100%", height = "100%"), type = 4)
-                   ),
-                   splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     downloadButton("downloadCrowdingGradePlot", "Download"),
-                     downloadButton("downloadRsvpGradePlot", "Download")
-                   ),
-                   splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(plotOutput("acuityGradePlot", width = "100%", height = "100%"), type = 4)
-                   ),
-                   splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     downloadButton("downloadAcuityGradePlot", "Download")
-                   )
-  ),
-  
+  # conditionalPanel(condition='output.fileUploaded',
+  #                  h3("Grade plots"),
+  #                  splitLayout(
+  #                    cellWidths = c("50%", "50%"),
+  #                    shinycssloaders::withSpinner(plotOutput("crowdingGradePlot", width = "100%", height = "100%"), type = 4),
+  #                    shinycssloaders::withSpinner(plotOutput("rsvpGradePlot", width = "100%", height = "100%"), type = 4)
+  #                  ),
+  #                  splitLayout(
+  #                    cellWidths = c("50%", "50%"),
+  #                    downloadButton("downloadCrowdingGradePlot", "Download"),
+  #                    downloadButton("downloadRsvpGradePlot", "Download")
+  #                  ),
+  #                  splitLayout(
+  #                    cellWidths = c("50%", "50%"),
+  #                    shinycssloaders::withSpinner(plotOutput("acuityGradePlot", width = "100%", height = "100%"), type = 4)
+  #                  ),
+  #                  splitLayout(
+  #                    cellWidths = c("50%", "50%"),
+  #                    downloadButton("downloadAcuityGradePlot", "Download")
+  #                  )
+  # ),
+  # 
   h3("Scatter diagrams"),
   shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
   #### rsvp crowding plots ####
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralAgePlot", height = '600px'), type = 4),
-    shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingFovealAgePlot", height = '600px'), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadRsvpCrowdingPeripheralAgePlot", "Download"),
-    downloadButton("downloadRsvpCrowdingFovealAgePlot", "Download")
-  ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralAgePlot", height = '600px'), type = 4),
+  #   shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingFovealAgePlot", height = '600px'), type = 4)
+  # ),
+  # splitLayout(
+  #   cellWidths = c("50%", "50%"),
+  #   downloadButton("downloadRsvpCrowdingPeripheralAgePlot", "Download"),
+  #   downloadButton("downloadRsvpCrowdingFovealAgePlot", "Download")
+  # ),
   splitLayout(
     cellWidths = c("50%", "50%"),
     shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralGradePlot", height = '600px'), type = 4),
@@ -93,23 +93,23 @@ plotsTab <- tabPanel(
   
   splitLayout(
     cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityAgePlot", height = '600px'), type = 4),
+    #shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityAgePlot", height = '600px'), type = 4),
     shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityGradePlot", height = '600px'), type = 4)
   ),
   splitLayout(
     cellWidths = c("50%", "50%"),
-    downloadButton("downloadRsvpFovealAcuityAgePlot", "Download"),
+    #downloadButton("downloadRsvpFovealAcuityAgePlot", "Download"),
     downloadButton("downloadRsvpFovealAcuityGradePlot", "Download")
   ),
   conditionalPanel('output.isPeripheralAcuity',
                    splitLayout(
                      cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(plotlyOutput("rsvpPeripheralAcuityAgePlot", height = '600px'), type = 4),
+                     #shinycssloaders::withSpinner(plotlyOutput("rsvpPeripheralAcuityAgePlot", height = '600px'), type = 4),
                      shinycssloaders::withSpinner(plotlyOutput("rsvpPeripheralAcuityGradePlot", height = '600px'), type = 4)
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),
-                     downloadButton("downloadRsvpPeripheralAcuityAgePlot", "Download"),
+                     #downloadButton("downloadRsvpPeripheralAcuityAgePlot", "Download"),
                      downloadButton("downloadRsvpPeripheralAcuityGradePlot", "Download")
                    )
   ),
