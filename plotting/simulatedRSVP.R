@@ -259,7 +259,8 @@ plotStaircases <- function(Staircases, thresholdParameterSelected) {
       theme_minimal() +
       # facet_grid(rows = vars(thresholdParameter),
       #            cols = vars(conditionName))
-      facet_wrap(~conditionName + participant + thresholdParameter + questTrials, ncol=2, scales = 'free') +
+      labs(x = 'trials', y  = thresholdParameterSelected) + 
+      facet_wrap(~conditionName + participant + thresholdParameter + questTrials, ncol=2, scales = 'free', axis.labels = 'all') +
       scale_x_continuous(breaks = scales::breaks_width(5)) +
       theme(
         axis.ticks = element_line(),

@@ -848,7 +848,7 @@ shinyServer(function(input, output, session) {
   }, deleteFile = TRUE)
   
   output$downloadStairPlot <- downloadHandler(
-  filename = paste0('stair-plot.',input$fileType),
+  filename = paste0(input$thresholdParameter, '-staircases.', input$fileType),
   content = function(file) {
     if (input$fileType == "png") {
       ggsave(

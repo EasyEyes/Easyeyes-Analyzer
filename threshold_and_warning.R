@@ -90,6 +90,11 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     filter(!tolower(participant) %in% basicExclude$participant)
   
   if (nrow(pretest) > 0) {
+    if ('Include' %in% names(pretest)) {
+      all_summary <- all_summary %>% left_join(pretest %>% select(participant, Include), by = 'participant') %>% 
+        filter(Include == 'yes')
+    }
+
     all_summary <- all_summary %>% 
       mutate(lowerCaseParticipant = tolower(participant)) %>% 
       left_join(select(pretest, Grade, `Skilled reader?`, lowerCaseParticipant), by = 'lowerCaseParticipant') %>% 
@@ -134,7 +139,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   
   if (filterInput == 'slowest' & nrow(slowest) > 0) {
     print('before filtering')
-    print(paste('unique pavloviaSessionID in reading', n_distinct(reading$participant)))
+    print(paste('unique pavloviaSessionID in  <- ', n_distinct(reading$participant)))
     print(paste('unique pavloviaSessionID in threshold', n_distinct(all_summary$participant)))
     print(paste('number of rows in reading', nrow(reading)))
     print(paste('number of rows all_summary', nrow(all_summary)))
@@ -232,6 +237,9 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     reading <- reading %>% 
       left_join(age, by = "participant") %>% 
       filter(!tolower(participant) %in% basicExclude$participant)
+    if ('Include' %in% names(pretest)) {
+      reading <- reading %>% filter(!participant %in% (pretest %>% filter(Include == 'no') %>% select(participant)))
+    }
   }
  
 
@@ -345,6 +353,7 @@ generate_threshold <- function(data_list, summary_list){
     summary_list[[i]]
   } %>% 
     filter(!participant %in% basicExclude$participant)
+ 
   crowding <- all_summary %>% 
     filter(thresholdParameter != "targetSizeDeg",
            thresholdParameter != 'size',
