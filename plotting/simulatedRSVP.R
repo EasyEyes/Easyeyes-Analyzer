@@ -274,27 +274,59 @@ plotStaircases <- function(Staircases, thresholdParameterSelected) {
                 height = height))
 }
 
-plotCrowdingStaircasesVsQuestTrials <- function(crowding, Staircases){
+plotCrowdingStaircasesVsQuestTrials <- function(crowding, Staircases) {
   stairdf <- Staircases %>%
     drop_na(levelProposedByQUEST)
   
   if (nrow(stairdf) == 0) {
     return(NULL)
   }
+  
+  # Extract quest trials for crowding
   crowdingQuest <- Staircases %>%
     filter(questType == 'Crowding') %>% 
     group_by(participant, staircaseName) %>%
-    mutate(questTrials = sum(trialGivenToQuest,na.rm = T),
-           block_condition = staircaseName) %>% 
+    mutate(
+      questTrials = sum(trialGivenToQuest, na.rm = TRUE),
+      block_condition = staircaseName
+    ) %>% 
     distinct(participant, block_condition, questTrials)
-
+  
+  # Join with crowding data
   crowding <- crowding %>% 
     left_join(crowdingQuest, by = c('participant', 'block_condition'))
-
-  ggplot(crowding, aes(x = questTrials, y = 10^(log_crowding_distance_deg))) + 
+  
+  # Separate into foveal and peripheral crowding
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
+  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
+  
+  # Generate foveal crowding plot
+  fovealPlot <- ggplot(foveal, aes(x = questTrials, y = 10^(log_crowding_distance_deg))) + 
     geom_point() + 
-    scale_y_log10(breaks = c(0.1,0.3,1,3,10)) + 
+    scale_y_log10(breaks = c(0.1, 0.3, 1, 3, 10)) + 
     annotation_logticks(sides = 'l') + 
-    scale_x_continuous()+ 
-    labs(y = 'Crowding distance (deg)')
+    scale_x_continuous() + 
+    labs(
+      x = 'Quest Trials',
+      y = 'Crowding distances (deg)',
+      title = 'Foveal Crowding'
+    ) + 
+    theme_classic()
+  
+  # Generate peripheral crowding plot
+  peripheralPlot <- ggplot(peripheral, aes(x = questTrials, y = 10^(log_crowding_distance_deg))) + 
+    geom_point() + 
+    scale_y_log10(breaks = c(0.1, 0.3, 1, 3, 10)) + 
+    annotation_logticks(sides = 'l') + 
+    scale_x_continuous() + 
+    labs(
+      x = 'Quest Trials',
+      y = 'Crowding distances (deg)',
+      title = 'Peripheral Crowding'
+    ) + 
+    theme_classic()
+  
+  # Return both plots as a list
+  return(list(fovealPlot = fovealPlot, peripheralPlot = peripheralPlot))
 }
+

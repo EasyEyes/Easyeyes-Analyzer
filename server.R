@@ -715,12 +715,20 @@ shinyServer(function(input, output, session) {
     l <- list()
     fileNames <- list()
     
-    t <- plotCrowdingStaircasesVsQuestTrials(df_list()$crowding, files()$stairs) + plt_theme
+    crowdingPlots <- plotCrowdingStaircasesVsQuestTrials(df_list()$crowding, files()$stairs)
     
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'crowding-staircases-threshold-vs-questTirals'
-      i = i + 1
+    # Add foveal plot to the list
+    if (!is.null(crowdingPlots$fovealPlot)) {
+      l[[i]] <- crowdingPlots$fovealPlot + plt_theme
+      fileNames[[i]] <- 'foveal-crowding-staircases-threshold-vs-questTrials'
+      i <- i + 1
+    }
+    
+    # Add peripheral plot to the list
+    if (!is.null(crowdingPlots$peripheralPlot)) {
+      l[[i]] <- crowdingPlots$peripheralPlot + plt_theme
+      fileNames[[i]] <- 'peripheral-crowding-staircases-threshold-vs-questTrials'
+      i <- i + 1
     }
     
     # t <- foveal_crowding_vs_acuity_diag()$foveal$age
