@@ -126,50 +126,39 @@ plotsTab <- tabPanel(
   #### crowding ####
   # Foveal Acuity Plots
   h3("Ordinary Reading Plots"),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    #shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralCrowdingAgePlot", height = '600px'), type = 4),
-    shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralCrowdingGradePlot", height = '600px'), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    #downloadButton("downloadOrdinaryPeripheralCrowdingAgePlot", "Download"),
-    downloadButton("downloadOrdinaryPeripheralCrowdingGradePlot", "Download")
-  ),
-  
-  # Foveal Crowding Plots
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    #shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealCrowdingAgePlot", height = '600px'), type = 4),
-    shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealCrowdingGradePlot", height = '600px'), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    #downloadButton("downloadOrdinaryFovealCrowdingAgePlot", "Download"),
-    downloadButton("downloadOrdinaryFovealCrowdingGradePlot", "Download")
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    #shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealAcuityAgePlot", height = '600px'), type = 4),
-    shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealAcuityGradePlot", height = '600px'), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    #downloadButton("downloadOrdinaryFovealAcuityAgePlot", "Download"),
-    downloadButton("downloadOrdinaryFovealAcuityGradePlot", "Download")
-  ),
-  
-  # Peripheral Acuity Plots
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    #shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralAcuityAgePlot", height = '600px'), type = 4),
-    shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralAcuityGradePlot", height = '600px'), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    #downloadButton("downloadOrdinaryPeripheralAcuityAgePlot", "Download"),
-    downloadButton("downloadOrdinaryPeripheralAcuityGradePlot", "Download")
-  ),
+  conditionalPanel('output.isReading',
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralCrowdingGradePlot", height = '600px'), type = 4),
+                     shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealCrowdingGradePlot", height = '600px'), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadOrdinaryPeripheralCrowdingGradePlot", "Download"),
+                     downloadButton("downloadOrdinaryFovealCrowdingGradePlot", "Download")
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     #shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealAcuityAgePlot", height = '600px'), type = 4),
+                     shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealAcuityGradePlot", height = '600px'), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     #downloadButton("downloadOrdinaryFovealAcuityAgePlot", "Download"),
+                     downloadButton("downloadOrdinaryFovealAcuityGradePlot", "Download")
+                   ),
+                   
+                   # Peripheral Acuity Plots
+                   conditionalPanel('output.isPeripheralAcuity', splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     #shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralAcuityAgePlot", height = '600px'), type = 4),
+                     shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralAcuityGradePlot", height = '600px'), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     #downloadButton("downloadOrdinaryPeripheralAcuityAgePlot", "Download"),
+                     downloadButton("downloadOrdinaryPeripheralAcuityGradePlot", "Download")
+                   ))),
   h3("Crowding plots"),
   # splitLayout(
   #   cellWidths = c("50%", "50%"),
@@ -193,7 +182,7 @@ plotsTab <- tabPanel(
   # ),
   h3("Plots for Children"),
   uiOutput('plots'),
-
+  
   #### stairPlots #####
   # splitLayout(
   #   cellWidths = c("50%", "50%"),

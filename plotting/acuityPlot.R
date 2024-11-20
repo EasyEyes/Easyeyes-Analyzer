@@ -266,9 +266,9 @@ plot_acuity_reading <- function(acuity, reading, type) {
     
     # Similar filtering and stats as RSVP
     data_for_stat <- data_reading %>%
-      filter(complete.cases(.)) %>%
-      select(wordPerMin, questMeanAtEndOfTrialsLoop, X, Y, ageN)
-    
+      select(wordPerMin, questMeanAtEndOfTrialsLoop, X, Y, ageN) %>% 
+      filter(complete.cases(.))
+     
     # Calculate correlation and slope
     corr <- data_for_stat %>%
       summarize(

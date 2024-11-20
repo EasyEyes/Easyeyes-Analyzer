@@ -821,6 +821,14 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  output$isReading <- reactive({
+    if ('reading' %in% names(df_list())) {
+      return(nrow(df_list()$reading) > 0)
+    } else {
+      return(FALSE)
+    }
+  })
+  
   output$fileUploaded <- reactive({
     return(nrow(files()$pretest>0))
   })
@@ -833,6 +841,7 @@ shinyServer(function(input, output, session) {
   })
   
   outputOptions(output, 'isPeripheralAcuity', suspendWhenHidden=FALSE)
+  outputOptions(output, 'isReading', suspendWhenHidden=FALSE)
   outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
   outputOptions(output, 'questData', suspendWhenHidden=FALSE)
   #### crowding stair plots
