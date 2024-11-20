@@ -264,7 +264,10 @@ plotStaircases <- function(Staircases, thresholdParameterSelected) {
       theme(
         axis.ticks = element_line(),
         axis.ticks.length = unit(0.3, "line"),
-        strip.text.x = element_text(hjust = 1))
+        strip.text.x = element_text(hjust = 1),
+        plot.background = element_rect(fill = "white", colour = 'white'),
+        strip.background =  element_rect(fill = "white", colour = 'white'),
+        panel.background = element_rect(fill = "white", colour = 'white'))
       # scale_y_continuous(limits=c(-2,0))
     return(list(plot = p,
                 height = height))
