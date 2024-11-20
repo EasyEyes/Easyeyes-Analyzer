@@ -593,14 +593,14 @@ shinyServer(function(input, output, session) {
       fileNames[[i]] = 'peripheral-acuity-vs-age'
       i = i + 1
     }
-    t <- get_crowding_vs_repeatedLetter(df_list()$crowding, 
-                                        df_list()$repeatedLetters)$age
-
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'crowding-vs-repeated-letters-crowding-age'
-      i = i + 1
-    }
+    # t <- get_crowding_vs_repeatedLetter(df_list()$crowding, 
+    #                                     df_list()$repeatedLetters)$age
+    # 
+    # if (!is.null(t)) {
+    #   l[[i]] = t
+    #   fileNames[[i]] = 'crowding-vs-repeated-letters-crowding-age'
+    #   i = i + 1
+    # }
     
     t <- get_crowding_vs_repeatedLetter(df_list()$crowding, 
                                         df_list()$repeatedLetters)$grade

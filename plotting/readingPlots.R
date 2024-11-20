@@ -240,7 +240,7 @@ plot_reading_rsvp <- function(reading,rsvp){
   }
   rsvp <- rsvp %>% 
     mutate(participant = tolower(participant)) %>% 
-    group_by(participant,targetKind, age) %>% 
+    group_by(participant,targetKind, Grade) %>% 
     summarize(avg_log_WPM = mean(block_avg_log_WPM))
   
   t <- reading %>%
@@ -255,20 +255,24 @@ plot_reading_rsvp <- function(reading,rsvp){
     left_join(rsvp, by = 'participant') %>% 
     ungroup() %>% 
     mutate(N = paste0('N=',n()),
-           Age = format(round(age,2), nsmall = 2))
+           Grade = as.character(Grade)
+    )
+  if (nrow(t) == 0) {
+    return(NULL)
+  }
   
   p <- ggplot(t,aes(x = 10^(avg_log_WPM.y), y = 10^(avg_log_WPM.x))) + 
-    geom_point(aes(color = Age)) +
+    geom_point(aes(color = Grade)) +
     ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10() + 
     scale_y_log10() +
     labs(x="Rsvp reading (w/min)", 
          y = "Reading (w/min)",
-         title = 'Reading vs RSVP reading') +
+         title = 'Reading vs RSVP reading\ncolored by grade') +
     theme_bw() + 
     theme(legend.position='top') + 
     annotation_logticks() +
-    guides(color=guide_legend(title=""))
+    guides(color=guide_legend(title="Grade"))
   return(p)
 }
