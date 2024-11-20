@@ -52,7 +52,7 @@ get_crowding_hist <- function(crowding) {
       ) +
       labs(x = 'Log foveal crowding (deg)',
            y = 'Count',
-           title ='Histogram of foveal crowding distance') + 
+           title ='Histogram of foveal\ncrowding distance') + 
       theme(
         plot.title = element_text(size = rel(0.5)),  # Scale down title size
         axis.title = element_text(size = rel(0.5)),  # Scale down axis title size
@@ -83,7 +83,7 @@ get_crowding_hist <- function(crowding) {
    ) + 
     labs(x = 'Log peripheral crowding (deg)',
          y = 'Count',
-         title ='Histogram of peripheral crowding distance')
+         title ='Histogram of peripheral\ncrowding distance')
  } else {
    p2 <- NULL
  }

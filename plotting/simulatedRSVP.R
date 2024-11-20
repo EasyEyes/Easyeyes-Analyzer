@@ -293,40 +293,56 @@ plotCrowdingStaircasesVsQuestTrials <- function(crowding, Staircases) {
     distinct(participant, block_condition, questTrials)
   
   # Join with crowding data
-  crowding <- crowding %>% 
+  crowding <- crowding %>%
     left_join(crowdingQuest, by = c('participant', 'block_condition'))
+  
+  # Ensure Grade is a factor
+  crowding <- crowding %>%
+    mutate(Grade = as.factor(Grade))  # Convert Grade to a factor
+  
+  # Dynamically create color mapping
+  unique_grades <- sort(unique(crowding$Grade))  # Get unique grades
+  grade_colors <- scales::hue_pal()(length(unique_grades))  # Generate dynamic colors
+  names(grade_colors) <- unique_grades  # Map colors to grades
   
   # Separate into foveal and peripheral crowding
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   
-  # Generate foveal crowding plot
-  fovealPlot <- ggplot(foveal, aes(x = questTrials, y = 10^(log_crowding_distance_deg))) + 
-    geom_point() + 
-    scale_y_log10(breaks = c(0.1, 0.3, 1, 3, 10)) + 
-    annotation_logticks(sides = 'l') + 
-    scale_x_continuous() + 
-    labs(
-      x = 'Quest Trials',
-      y = 'Crowding distances (deg)',
-      title = 'Foveal Crowding'
-    ) + 
-    theme_classic()
+  # Helper function to create plots
+  create_plot <- function(data, title) {
+    ggplot(data, aes(x = questTrials, y = 10^(log_crowding_distance_deg), color = Grade)) +
+      geom_point(size = 3) +  # Adjust point size
+      scale_y_log10(breaks = c(0.1, 0.3, 1, 3, 10)) +
+      scale_x_continuous() +
+      annotation_logticks(sides = 'l') +
+      scale_color_manual(values = grade_colors, na.translate = TRUE) +  # Use dynamic palette
+      labs(
+        x = 'QUEST Trials',
+        y = 'Crowding distances (deg)',
+        title = title,
+        color = "Grade"  # Legend title
+      ) +
+      theme_classic() +
+      theme(
+        plot.title = element_text(size = 16),  # Centered bold title
+        legend.position = "top",  # Legend at the top
+        legend.title = element_text(size = 12),  # Legend title size
+        legend.text = element_text(size = 10)  # Legend text size
+      )
+  }
   
-  # Generate peripheral crowding plot
-  peripheralPlot <- ggplot(peripheral, aes(x = questTrials, y = 10^(log_crowding_distance_deg))) + 
-    geom_point() + 
-    scale_y_log10(breaks = c(0.1, 0.3, 1, 3, 10)) + 
-    annotation_logticks(sides = 'l') + 
-    scale_x_continuous() + 
-    labs(
-      x = 'Quest Trials',
-      y = 'Crowding distances (deg)',
-      title = 'Peripheral Crowding'
-    ) + 
-    theme_classic()
+  # Generate foveal and peripheral plots
+  fovealPlot <- create_plot(foveal, 'Foveal Crowding\nColored by Grade')
+  peripheralPlot <- create_plot(peripheral, 'Peripheral Crowding\nColored by Grade')
   
   # Return both plots as a list
   return(list(fovealPlot = fovealPlot, peripheralPlot = peripheralPlot))
 }
+
+
+
+
+
+
 
