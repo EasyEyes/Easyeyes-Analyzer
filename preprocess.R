@@ -6,6 +6,7 @@ source('./plotting/simulatedRSVP.R')
 read_files <- function(file){
   if(is.null(file)) return(list())
   file_list <- file$data
+  file_list <- file_list[!grepl("^~", basename(file_list))]
   data_list <- list()
   stair_list <- list()
   summary_list <- list()
@@ -276,9 +277,12 @@ read_files <- function(file){
     }
     if (grepl(".zip", file_list[i])) {
       file_names <- unzip(file_list[i], list = TRUE)$Name
+      file_names <- file_names[!grepl("^~", basename(file_names))]
       all_csv <- file_names[grepl(".csv", file_names)]
       all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
       all_xlsx <- file_names[grepl(".xlsx", file_names)]
+      all_xlsx <- all_xlsx[!grepl("__MACOSX", all_xlsx)]
+      print(all_xlsx)
       m <- length(all_csv)
       for (k in 1 : m) {
         t <- tibble()
