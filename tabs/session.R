@@ -13,7 +13,6 @@ sessionTab <- tabPanel(
           margin-bottom: 10px;
         }
         .form-group .form-control {
-          width: 750px;
           margin-right: 0px;
           padding-right: 0px;
         }
@@ -95,7 +94,8 @@ sessionTab <- tabPanel(
       NULL,
       accept = c(".csv", ".zip", '.xlsx'),
       buttonLabel = "Select CSV files or ZIP file",
-      multiple = T
+      multiple = T,
+      width = '900px'
     ),
     textOutput("fileStatusMessage")
   )),
