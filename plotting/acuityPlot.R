@@ -114,11 +114,22 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
         select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, X, Y,ageN)
     } else {
       data_for_stat <- data_rsvp %>%
-        select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, X, Y.ageN)
+        select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, X, Y,ageN)
+    }
+    
+    if (n_distinct(data_for_stat$ageN) == 1) {
+      data_for_stat <- data_for_stat %>% select(-ageN)
+      corr_without_age <- NA
+    } else {
+      corr_without_age <- ppcor::pcor(data_for_stat %>%
+                                        select(block_avg_log_WPM,
+                                               questMeanAtEndOfTrialsLoop,
+                                               ageN))$estimate[2,1] 
+      corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
     }
     
     data_for_stat <- data_for_stat[complete.cases(data_for_stat), ]
-    
+
     # Calculate correlation and slope
     corr <- data_for_stat %>%
       summarize(
@@ -135,12 +146,6 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       filter(term == 'X') %>%
       select(estimate) %>%
       mutate(slope = round(estimate, 2))
-    
-    corr_without_age <- ppcor::pcor(data_for_stat %>%
-                                      select(block_avg_log_WPM,
-                                             questMeanAtEndOfTrialsLoop,
-                                             ageN))$estimate[2,1] 
-    corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
     
     xMin <- min(data_rsvp$X, na.rm = TRUE)
     xMax <- max(data_rsvp$X, na.rm = TRUE)
@@ -253,7 +258,8 @@ plot_acuity_reading <- function(acuity, reading, type) {
       select(participant, questMeanAtEndOfTrialsLoop) %>%
       inner_join(reading, by = "participant") %>%
       mutate(
-        Y = log10(wordPerMin),  # Convert wordPerMin to log scale
+        Y = wordPerMin, # this is linear scale
+        log_WPM = log10(log_WPM), # Convert wordPerMin to log scale
         X = 10^(questMeanAtEndOfTrialsLoop),
         Age = format(age, nsmall = 2),
         ageN = as.numeric(age),
@@ -266,13 +272,20 @@ plot_acuity_reading <- function(acuity, reading, type) {
     
     # Similar filtering and stats as RSVP
     data_for_stat <- data_reading %>%
-      select(wordPerMin, questMeanAtEndOfTrialsLoop, X, Y, ageN) %>% 
-      filter(complete.cases(.))
+      filter(`Skilled reader?` != FALSE) %>%
+      select(log_WPM, questMeanAtEndOfTrialsLoop, X, Y, ageN) 
+    
+    if (n_distinct(data_for_stat$ageN) > 1) {
+      data_for_stat <- data_for_stat %>% filter(complete.cases(.))
+    } else {
+      data_for_stat <- data_for_stat %>% select(-ageN)
+    }
+      
      
     # Calculate correlation and slope
     corr <- data_for_stat %>%
       summarize(
-        correlation = cor(wordPerMin, questMeanAtEndOfTrialsLoop, method = "pearson"),
+        correlation = cor(log_WPM,  questMeanAtEndOfTrialsLoop, method = "pearson"),
         N = n()
       ) %>%
       mutate(correlation = round(correlation, 2))
@@ -288,7 +301,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
     # Partial correlation excluding age
     if ('ageN' %in% names(data_for_stat)) {
       corr_without_age <- ppcor::pcor(data_for_stat %>%
-                                        select(wordPerMin, questMeanAtEndOfTrialsLoop, ageN))$estimate[2, 1]
+                                        select(log_WPM, questMeanAtEndOfTrialsLoop, ageN))$estimate[2, 1]
       corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
     } else {
       corr_without_age <- NA

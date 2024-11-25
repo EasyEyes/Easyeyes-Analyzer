@@ -2,14 +2,9 @@ library(foreach)
 library(dplyr)
 library(stringr)
 
-englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
-  mutate(participant = tolower(ID))
-
-basicExclude <-englishChild %>% 
-  filter(`Exclude?` == TRUE)
-
 
 generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, filterInput) {
+  
   print('inside threshold warning')
   if (is.null(data_list)) {
     return(list())
@@ -20,7 +15,6 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   # I think we should merge the reading data and threshold data with the Grade and Skilled reader column
   # in pretest data here so that we don't need to merge it every time we want to use the pretest data.
   if (nrow(pretest) > 0) {
-  
     if (!'Grade' %in% names(pretest)) {
       pretest$Grade = -1
     }
@@ -29,8 +23,69 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     }
     pretest <- pretest %>%
       mutate(lowerCaseParticipant = tolower(participant))
+    if ('Exclude?' %in% names(pretest)) {
+      basicExclude <- pretest %>% 
+        filter(tolower(`Exclude?`) == 'true')
+    } else {
+      basicExclude <- tibble(lowerCaseParticipant = '')
+    }
+    
+    if ('Exclude?' %in% names(pretest)) {
+      basicExclude <- pretest %>% 
+        filter(tolower(`Exclude?`) == 'true')
+    } else {
+      basicExclude <- tibble(lowerCaseParticipant = '')
+    }
+    
+    if ('Exclude-acuity' %in% names(pretest)) {
+      excludeAcuity <- pretest %>% 
+        filter(tolower(`Exclude-acuity`) == 'true')
+    } else {
+      excludeAcuity <- tibble(lowerCaseParticipant = '')
+    }
+    
+    if ('Exclude-crowding' %in% names(pretest)) {
+      excludeCrowding <- pretest %>% 
+        filter(tolower(`Exclude-crowding`) == 'true')
+    } else {
+      excludeCrowding <- tibble(lowerCaseParticipant = '')
+    }
+    
+    if ('Exclude-peripheral' %in% names(pretest)) {
+      excludePeripheral <- pretest %>% 
+        filter(tolower(`Exclude-peripheral`) == 'true')
+    } else {
+      excludePeripheral <- tibble(lowerCaseParticipant = '')
+    }
+    
+    if ('Exclude-repeated' %in% names(pretest)) {
+      excludeRepeated <- pretest %>% 
+        filter(tolower(`Exclude-repeated`) == 'true')
+    } else {
+      excludeRepeated <- tibble(lowerCaseParticipant = '')
+    }
+    
+    if ('Exclude-ordinary' %in% names(pretest)) {
+      excludeOrdinary <- pretest %>% 
+        filter(tolower(`Exclude-ordinary`) == 'true')
+    } else {
+      excludeOrdinary <- tibble(lowerCaseParticipant = '')
+    }
+  } else {
+    basicExclude <- tibble(lowerCaseParticipant = '')
   }
-
+ 
+  # URGENT. ENHANCE EXCLUSION 2. The English data set requires more selective exclusion, 
+  # e.g. skipping acuity and crowding, or skipping peripheral data. I added six new columns to Sarah’s pretest file.
+  # Exclude-acuity
+  # Exclude-crowding
+  # Exclude-peripheral
+  # Exclude-repeated
+  # Exclude-ordinary
+  # The column name consists of “Exclude-” followed by a keyword. 
+  # That means that we exclude all conditions that have the keyword in conditionName. 
+  # I’m attaching the pretest file. It assumes that step 1 has already been implemented, so an empty cell means FALSE.
+  
   
   reading <- tibble()
   for (i in 1:length(data_list)) {
@@ -71,6 +126,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     reading <- reading %>% 
       mutate(lowerCaseParticipant = tolower(participant)) %>% 
       left_join(select(pretest, Grade, `Skilled reader?`, lowerCaseParticipant), by = 'lowerCaseParticipant') %>% 
+      filter(!lowerCaseParticipant %in% excludeOrdinary$lowerCaseParticipant) %>% 
       select(-lowerCaseParticipant) %>% 
       mutate(`Skilled reader?` = ifelse(is.na(`Skilled reader?`), 'unkown', `Skilled reader?`))
     if (!'ParticipantCode' %in% names(reading)) {
@@ -87,7 +143,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
   } %>% 
-    filter(!tolower(participant) %in% basicExclude$participant)
+    filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
   
   if (nrow(pretest) > 0) {
     if ('Include' %in% names(pretest)) {
@@ -100,7 +156,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       left_join(select(pretest, Grade, `Skilled reader?`, lowerCaseParticipant), by = 'lowerCaseParticipant') %>% 
       select(-lowerCaseParticipant) %>% 
       mutate(`Skilled reader?` = ifelse(is.na(`Skilled reader?`), 'unkown', `Skilled reader?`))
-    print(n_distinct(all_summary$`Skilled reader?`))
+    
     if (!'ParticipantCode' %in% names(all_summary)) {
       all_summary$ParticipantCode = all_summary$participant
     }
@@ -157,13 +213,24 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   }
   print('done filter input')
 
+  eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+    t <- data_list[[i]] %>%
+      distinct(participant, block_condition, conditionName, targetEccentricityXDeg, targetEccentricityYDeg) %>%
+      mutate(order = i)
+  }
+
+  eccentricityDeg <- eccentricityDeg %>% 
+    filter(!is.na(targetEccentricityXDeg),
+           !is.na(targetEccentricityYDeg)) %>% 
+    mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg),
+           targetEccentricityYDeg = as.numeric(targetEccentricityYDeg))
   
-  quest <- all_summary %>%
+  all_summary <- all_summary %>%
     mutate(questType = case_when(
       thresholdParameter != "targetSizeDeg" &
       thresholdParameter != 'size' &
       targetKind == "letter" &
-      !grepl("practice",conditionName, ignore.case = T) ~ 'Crowding',
+      !grepl("practice",conditionName, ignore.case = T) ~ 'crowding',
       targetKind == "rsvpReading" &
       !grepl("practice",conditionName, ignore.case = T) ~ 'RSVP reading',
       thresholdParameter != "targetSizeDeg" &
@@ -172,21 +239,37 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       !grepl("practice",conditionName, ignore.case = T) ~ 'Repeated letters',
       (thresholdParameter == "targetSizeDeg" | thresholdParameter == 'size') &
       targetKind == "letter" &
-      !grepl("practice",conditionName, ignore.case = T) ~ 'Acuity',
+      !grepl("practice",conditionName, ignore.case = T) ~ 'acuity',
       grepl("practice",conditionName, ignore.case = T) ~ 'practice',
       .default = 'unknown'
     )) %>% 
-    select(participant, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode)
-
-  eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-    t <- data_list[[i]] %>%
-      distinct(participant, conditionName, targetEccentricityXDeg, targetEccentricityYDeg) %>%
-      mutate(order = i)
-  }
+    mutate(lowerCaseParticipant = tolower(participant))
   
-  eccentricityDeg <- eccentricityDeg %>% 
-    filter(!is.na(targetEccentricityXDeg),
-           !is.na(targetEccentricityYDeg))
+  if (nrow(pretest) > 0) {
+    all_summary <- all_summary %>%
+    filter((questType == 'crowding' & !lowerCaseParticipant %in% excludeCrowding$lowerCaseParticipant) |
+           (questType == 'acuity' & !lowerCaseParticipant %in% excludeAcuity$lowerCaseParticipant) | 
+           (questType == 'Repeated letters' & !lowerCaseParticipant %in% excludeRepeated$lowerCaseParticipant) | 
+             questType == 'practice' | 
+             questType == 'RSVP reading') %>% 
+      select(-lowerCaseParticipant)
+  }
+  quest <- all_summary %>% 
+    select(participant, block_condition, conditionName, font, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode, order) %>% 
+    left_join(eccentricityDeg, by = c('participant', 'block_condition', 'conditionName', 'order'))
+  
+  if (nrow(pretest) > 0) {
+    quest <- quest %>% 
+      filter((targetEccentricityXDeg == 0) | 
+               ( targetEccentricityXDeg != 0 & !tolower(participant) %in% excludePeripheral$lowerCaseParticipant))
+  }
+  quest <- quest %>% 
+    mutate(questType = case_when(
+      questType == 'crowding' | questType == 'acuity' & targetEccentricityXDeg == 0 ~ paste('Foveal', questType),
+      questType == 'crowding' | questType == 'acuity' & targetEccentricityXDeg != 0 ~ paste('Peripheral', questType),
+      .default = questType
+    )) %>% 
+    select(-targetEccentricityXDeg, targetEccentricityYDeg)
   
   age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     data_list[[i]] %>% 
@@ -197,29 +280,24 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   age <- distinct(age)
   quest <- quest %>% left_join(age, by = 'participant')
   ########################### CROWDING ############################
-  crowding <- all_summary %>% 
-    filter(thresholdParameter != "targetSizeDeg",
-           thresholdParameter != 'size',
-           targetKind == "letter",
-           !grepl("practice",conditionName, ignore.case = T)) %>% 
+  crowding <- quest %>% 
+    filter(questType == 'Foveal crowding' | 
+           questType == 'Peripheral crowding') %>% 
     select(participant,
            block_condition,
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
            font,
-           experiment,
            Grade,
            `Skilled reader?`,
+           age,
            ParticipantCode,
            order) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
   
   crowding <- crowding %>% 
-    left_join(eccentricityDeg, by = c("participant", "conditionName", "order")) %>% 
-    mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg), 
-           targetEccentricityYDeg = as.numeric(targetEccentricityYDeg)) %>% 
-    mutate(bouma_factor = 10^(log_crowding_distance_deg)/sqrt(targetEccentricityXDeg^2+targetEccentricityYDeg^2)) %>% 
-    left_join(age, by = "participant")
+    left_join(eccentricityDeg, by = c('participant', 'block_condition', 'conditionName', 'order')) %>% 
+    mutate(bouma_factor = 10^(log_crowding_distance_deg)/sqrt(targetEccentricityXDeg^2+targetEccentricityYDeg^2))
   
   ########################### RSVP READING ############################
   
@@ -230,13 +308,13 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
            font, targetKind, thresholdParameter, Grade, `Skilled reader?`,ParticipantCode) %>%
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
-
+  
   ################################ READING #######################################
   
   if (ncol(reading) > 1) {
     reading <- reading %>% 
       left_join(age, by = "participant") %>% 
-      filter(!tolower(participant) %in% basicExclude$participant)
+      filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
     if ('Include' %in% names(pretest)) {
       reading <- reading %>% filter(!participant %in% (pretest %>% filter(Include == 'no') %>% select(participant)))
     }
@@ -260,7 +338,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
            ParticipantCode,
            order) %>%
     dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop) %>% 
-    left_join(eccentricityDeg, by = c("participant", "conditionName", "order")) %>% 
+    left_join(eccentricityDeg, by = c("participant", "block_condition","conditionName", "order")) %>% 
     left_join(age, by = "participant")
     
   
@@ -325,12 +403,9 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   
   
   #### acuity  
-  acuity <- all_summary %>% 
-    filter((thresholdParameter == "targetSizeDeg" | thresholdParameter == 'size'),
-           targetKind == "letter",
-           !grepl("practice",conditionName, ignore.case = T)) %>% 
-    left_join(age, by = "participant") %>% 
-    left_join(eccentricityDeg, by = c("participant", "conditionName"))
+  acuity <- quest %>% 
+    filter(questType == 'Foveal acuity' | questType == 'Peripheral acuity') %>% 
+    left_join(eccentricityDeg, by = c("participant", "conditionName", "block_condition", "order"))
   
   print(paste('nrow of quest:', nrow(quest)))
   print(paste('nrow of reading:', nrow(reading)))
@@ -348,11 +423,31 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
               quest = quest))
 }
 
-generate_threshold <- function(data_list, summary_list){
+generate_threshold <- function(data_list, summary_list, pretest){
+  
+  if (nrow(pretest) > 0) {
+    if (!'Grade' %in% names(pretest)) {
+      pretest$Grade = -1
+    }
+    if (!'Skilled reader?' %in% names(pretest)) {
+      pretest$`Skilled reader?` = 'unkown'
+    }
+    pretest <- pretest %>%
+      mutate(lowerCaseParticipant = tolower(participant))
+    if ('Exclude?' %in% names(pretest)) {
+      basicExclude <-pretest %>% 
+        filter(`Exclude?` == TRUE)
+    } else {
+      basicExclude <- tibble(participant = '')
+    }
+  } else {
+    basicExclude <- tibble(participant = '')
+  }
+  
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]]
   } %>% 
-    filter(!participant %in% basicExclude$participant)
+    filter(!participant %in% basicExclude$lowerCaseParticipant)
  
   crowding <- all_summary %>% 
     filter(thresholdParameter != "targetSizeDeg",

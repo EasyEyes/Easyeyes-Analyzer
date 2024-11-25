@@ -1,5 +1,5 @@
 plot_rsvp_repeated_letter_crowding <- function(allData) {
-  print('inside plot_rsvp_repeated_letter_crowding')
+  print('inside plot_reading_repeated_letter_crowding')  
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition, colorFactor) {
     data_rsvp <- data %>%
@@ -104,7 +104,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
         plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
         plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
       )
-    print('after plot')
+
     if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
       p <- p + geom_point(data = data_rsvp, 
                           aes(x = X,
@@ -141,7 +141,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
 }
 
 plot_reading_repeated_letter_crowding <- function(allData) {
-  print('inside plot_rsvp_repeated_letter_crowding')
+  print('inside plot_reading_repeated_letter_crowding')
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition, colorFactor) {
     data_reading <- data %>%
@@ -247,7 +247,6 @@ plot_reading_repeated_letter_crowding <- function(allData) {
         plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
         plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
       )
-    print('after plot')
     if (n_distinct(data_reading$`Skilled reader?`) == 1) {
       p <- p + geom_point(data = data_reading, 
                           aes(x = X,

@@ -381,8 +381,9 @@ plot_reading_crowding <- function(allData) {
       mutate(
         Age = format(age, nsmall = 2),
         ageN = as.numeric(age),
+        log_WPM = log10(wordPerMin),
         X = 10^(log_crowding_distance_deg),  # Crowding distance
-        Y = log10(wordPerMin),               # Reading speed
+        Y = wordPerMin,               # this is linear scale
         Grade = as.character(Grade)
       )
     
@@ -392,10 +393,10 @@ plot_reading_crowding <- function(allData) {
     
     if (n_distinct(data_reading$`Skilled reader?`) > 1) {
       data_for_stat <- data_reading %>% filter(`Skilled reader?` != FALSE) %>% 
-        select(wordPerMin, log_crowding_distance_deg, X, Y, ageN)
+        select(log_WPM, log_crowding_distance_deg, X, Y, ageN)
     } else {
       data_for_stat <- data_reading %>% 
-        select(wordPerMin, log_crowding_distance_deg, X, Y, ageN)
+        select(log_WPM, log_crowding_distance_deg, X, Y, ageN)
     }
     if (sum(!is.na(data_for_stat$ageN)) == 0) {
       data_for_stat <- data_for_stat %>% select(-ageN)
@@ -404,7 +405,7 @@ plot_reading_crowding <- function(allData) {
     data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
     
     corr <- data_for_stat %>%
-      summarize(correlation = cor(wordPerMin, log_crowding_distance_deg,
+      summarize(correlation = cor(log_WPM, log_crowding_distance_deg,
                                   method = "pearson"),
                 N = n()) %>%
       mutate(correlation = round(correlation, 2))
@@ -419,7 +420,7 @@ plot_reading_crowding <- function(allData) {
     
     if ('ageN' %in% names(data_for_stat)) {
       corr_without_age <- ppcor::pcor(data_for_stat %>%
-                                        select(wordPerMin,
+                                        select(log_WPM,
                                                log_crowding_distance_deg,
                                                ageN))$estimate[2,1] 
       corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)

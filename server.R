@@ -152,7 +152,7 @@ shinyServer(function(input, output, session) {
   })
   
   threshold_and_warnings <- reactive({
-    return(generate_threshold(files()$data_list, summary_list()))
+    return(generate_threshold(files()$data_list, summary_list(), files()$pretest))
   })
   
   df_list <- reactive({
@@ -812,6 +812,7 @@ shinyServer(function(input, output, session) {
     
     repeatedLetter_rsvp <- plot_rsvp_repeated_letter_crowding(df_list())
     
+    print('plot_rsvp_repeated_letter_crowding')
     if (!is.null(repeatedLetter_rsvp[[1]])) {
       l[[i]] <- repeatedLetter_rsvp[[1]] + plt_theme
       fileNames[[i]] <- 'rsvp-foveal-repeated-letter-crowding-grade'
@@ -826,6 +827,7 @@ shinyServer(function(input, output, session) {
     
     t <- plot_rsvp_crowding(df_list())
     
+    print('plot_rsvp_crowding')
     if (!is.null(t[[3]])) {
       l[[i]] <- t[[3]] + plt_theme
       fileNames[[i]] <- 'rsvp-vs-peripheral-crowding-by-grade'
@@ -838,6 +840,7 @@ shinyServer(function(input, output, session) {
       i <- i + 1
     }
     
+    print('plot_acuity_rsvp')
     t <- plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp,'foveal')
     if (!is.null(t[[2]])) {
       l[[i]] <- t[[2]] + plt_theme
@@ -883,6 +886,7 @@ shinyServer(function(input, output, session) {
       i <- i + 1
     }
     
+    print('plot_acuity_reading')
     t <- plot_acuity_reading(df_list()$acuity, df_list()$reading, 'foveal')[[2]]
     
     if (!is.null(t)) {
@@ -899,6 +903,7 @@ shinyServer(function(input, output, session) {
       i <- i + 1
     }
     
+    print('plot_reading_crowding')
     t <- plot_reading_crowding(df_list())
     
     if (!is.null(t[[4]])) {
@@ -910,19 +915,6 @@ shinyServer(function(input, output, session) {
     if (!is.null(t[[3]])) {
       l[[i]] <- t[[3]] + plt_theme
       fileNames[[i]] <- 'reading-vs-peripheral-crowding-by-grade'
-      i <- i + 1
-    }
-    
-    t <- plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp,'foveal')
-    if (!is.null(t[[2]])) {
-      l[[i]] <- t[[2]] + plt_theme
-      fileNames[[i]] <- 'rsvp-vs-foveal-acuity-by-grade'
-      i <- i + 1
-    }
-    t <- plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp,'peripheral')
-    if (!is.null(t[[2]])) {
-      l[[i]] <- t[[2]] + plt_theme
-      fileNames[[i]] <- 'rsvp-vs-peripheral-acuity-by-grade'
       i <- i + 1
     }
     
@@ -2159,7 +2151,7 @@ shinyServer(function(input, output, session) {
                    return(out)
                  })
                  for (j in 1:length(rsvpPlotlyPlots()$plotList)) {
-                   print('insdie plotly loop')
+
                    local({
                      ii <- j
                      output[[paste0("rsvpPlotly", ii)]] <- renderPlotly({
