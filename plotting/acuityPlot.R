@@ -140,12 +140,19 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
     
     
     slope <- data_for_stat %>%
-      do(fit = lm(Y ~ X, data = .)) %>%
+      
+      mutate(
+        log_X = log10(X),
+        log_Y = log10(Y)
+      ) %>%
+      # Fit the regression model in log-log space
+      do(fit = lm(log_Y ~ log_X, data = .)) %>%
       transmute(coef = map(fit, tidy)) %>%
       unnest(coef) %>%
-      filter(term == 'X') %>%
-      select(estimate) %>%
-      mutate(slope = round(estimate, 2))
+      filter(term == "log_X") %>%  # Extract slope of log-log regression
+      mutate(slope = round(estimate, 2)) %>%  # Round the slope to two decimals
+      select(slope)
+    
     
     xMin <- min(data_rsvp$X, na.rm = TRUE)
     xMax <- max(data_rsvp$X, na.rm = TRUE)
@@ -291,12 +298,19 @@ plot_acuity_reading <- function(acuity, reading, type) {
       mutate(correlation = round(correlation, 2))
     
     slope <- data_for_stat %>%
-      do(fit = lm(Y ~ X, data = .)) %>%
+      
+      mutate(
+        log_X = log10(X),
+        log_Y = log10(Y)
+      ) %>%
+      # Fit the regression model in log-log space
+      do(fit = lm(log_Y ~ log_X, data = .)) %>%
       transmute(coef = map(fit, tidy)) %>%
       unnest(coef) %>%
-      filter(term == 'X') %>%
-      select(estimate) %>%
-      mutate(slope = round(estimate, 2))
+      filter(term == "log_X") %>%  # Extract slope of log-log regression
+      mutate(slope = round(estimate, 2)) %>%  # Round the slope to two decimals
+      select(slope)
+    
     
     # Partial correlation excluding age
     if ('ageN' %in% names(data_for_stat)) {

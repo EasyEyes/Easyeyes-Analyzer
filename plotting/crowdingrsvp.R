@@ -161,12 +161,19 @@ plot_rsvp_crowding <- function(allData) {
       mutate(correlation = round(correlation, 2))
     
     slope <- data_for_stat %>%
-      do(fit = lm(Y ~ X, data = .)) %>%
+      
+      mutate(
+        log_X = log10(X),
+        log_Y = log10(Y)
+      ) %>%
+      # Fit the regression model in log-log space
+      do(fit = lm(log_Y ~ log_X, data = .)) %>%
       transmute(coef = map(fit, tidy)) %>%
       unnest(coef) %>%
-      mutate(slope = round(estimate, 2)) %>%
-      filter(term == 'X') %>%
-      select(-term)
+      filter(term == "log_X") %>%  # Extract slope of log-log regression
+      mutate(slope = round(estimate, 2)) %>%  # Round the slope to two decimals
+      select(slope)
+    
     
     if ('ageN' %in% names(data_for_stat)) {
       corr_without_age <- ppcor::pcor(data_for_stat %>%
@@ -411,12 +418,18 @@ plot_reading_crowding <- function(allData) {
       mutate(correlation = round(correlation, 2))
     
     slope <- data_for_stat %>%
-      do(fit = lm(Y ~ X, data = .)) %>%
+
+      mutate(
+        log_X = log10(X),
+        log_Y = log10(Y)
+      ) %>%
+      # Fit the regression model in log-log space
+      do(fit = lm(log_Y ~ log_X, data = .)) %>%
       transmute(coef = map(fit, tidy)) %>%
       unnest(coef) %>%
-      mutate(slope = round(estimate, 2)) %>%
-      filter(term == 'X') %>%
-      select(-term)
+      filter(term == "log_X") %>%  # Extract slope of log-log regression
+      mutate(slope = round(estimate, 2)) %>%  # Round the slope to two decimals
+      select(slope)
     
     if ('ageN' %in% names(data_for_stat)) {
       corr_without_age <- ppcor::pcor(data_for_stat %>%
