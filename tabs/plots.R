@@ -34,6 +34,9 @@ plotsTab <- tabPanel(
     inline = TRUE,
     selected = "all"
   ),
+  # fixedRow(HTML('Show only spacingDeg thresholds with at least'), 
+  #          numericInput('NQuestTrials', NULL, value=1,min=1),
+  #          HTML('trials')),
   fixedRow( 
     shinycssloaders::withSpinner(
       plotOutput("corrMatrixPlot", width = "100%", height = "100%"), type = 4)),

@@ -2,6 +2,8 @@ library(foreach)
 library(dplyr)
 library(stringr)
 
+englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
+  mutate(participant = tolower(ID))
 
 generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, filterInput) {
   
@@ -480,7 +482,7 @@ generate_threshold <- function(data_list, summary_list, pretest){
       ungroup()
   }
   
-  if (reading$participant[1] %in% englishChild$participant) {
+  if (tolower(reading$participant[1]) %in% englishChild$participant) {
     reading <- reading %>% filter(trial>= 2) %>% 
       mutate(font = as.character(font), 
              participant = as.character(participant), 
