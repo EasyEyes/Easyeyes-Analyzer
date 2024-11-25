@@ -1660,7 +1660,31 @@ shinyServer(function(input, output, session) {
 
   observeEvent(input$file,
                {
-                 app_title$default <- experiment_names()
+                 if (!is.null(input$file)) {
+                   # Extract file names from the uploaded files
+                   names <- input$file$name
+                   
+                   # Filter out the names that end with "zip" in a case-insensitive manner
+                   zip_names <- names[grepl("\\.zip$", names, ignore.case = TRUE)]
+                   
+                   if (length(zip_names) > 0) {
+                     # If there are any ZIP files, use the name of the first ZIP file
+                     app_title$default <- tools::file_path_sans_ext(basename(zip_names[1]))
+                   } else {
+                     # If there are no ZIP files but there are CSV files, concatenate their names
+                     csv_names <- names[grepl("\\.csv$", names, ignore.case = TRUE)]
+                     if (length(csv_names) > 0) {
+                       concatenated_names <- tools::file_path_sans_ext(basename(csv_names[1]))
+                       app_title$default <- concatenated_names
+                     } else {
+                       # Fallback if no ZIP or CSV files are uploaded
+                       app_title$default <- "EasyEyes Analyze"
+                     }
+                   }
+                 } else {
+                   # Fallback title if no files are uploaded at all
+                   app_title$default <- "EasyEyes Analyze"
+                 }
                  output$app_title <- renderText({
                    ifelse(app_title$default == "",
                           "EasyEyes Analysis",
