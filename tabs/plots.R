@@ -35,9 +35,13 @@ plotsTab <- tabPanel(
     inline = TRUE,
     selected = "all"
   ),
-  # fixedRow(HTML('Show only spacingDeg thresholds with at least'), 
-  #          numericInput('NQuestTrials', NULL, value=1,min=1),
-  #          HTML('trials')),
+  fixedRow(
+    div(style = "display: flex; align-items: center; margin-left:12px;",
+        HTML('<div style="font-size: 16px; margin-right: 5px;">Show only spacingDeg thresholds with at least</div>'),
+        numericInput('NQuestTrials', NULL, value = 1, min = 1, width = '80px'),
+        HTML('<div style="font-size: 16px; margin-left: 5px;">trials.</div>')
+    )
+  ),
   fixedRow( 
     shinycssloaders::withSpinner(
       plotOutput("corrMatrixPlot", width = "100%", height = "100%"), type = 4)),
@@ -83,43 +87,73 @@ plotsTab <- tabPanel(
     cellWidths = c("50%", "50%"),
     downloadButton("downloadRegressionAcuityPlot", "Download")
   ),
-  h3("Crowding plots"),
-  shinycssloaders::withSpinner(uiOutput('rsvpPlotlys'),type=4),
+  conditionalPanel('output.isRsvp', 
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralGradePlot", height = '600px'), type = 4),
+                     shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingFovealGradePlot", height = '600px'), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadRsvpCrowdingPeripheralGradePlot", "Download"),
+                     downloadButton("downloadRsvpCrowdingFovealGradePlot", "Download")
+                   ),
+                   
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     #shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityAgePlot", height = '600px'), type = 4),
+                     shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityGradePlot", height = '600px'), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     #downloadButton("downloadRsvpFovealAcuityAgePlot", "Download"),
+                     downloadButton("downloadRsvpFovealAcuityGradePlot", "Download")
+                   ),
+                   
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     conditionalPanel('output.isRepeated', shinycssloaders::withSpinner(plotlyOutput("rsvpRepeatedGradePlot", height = '600px'), type = 4)),
+                     conditionalPanel('output.isPeripheralAcuity',shinycssloaders::withSpinner(plotlyOutput("rsvpPeripheralAcuityGradePlot", height = '600px'), type = 4))
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     conditionalPanel('output.isRepeated', downloadButton("downloadrsvpRepeatedGradePlot", "Download")),
+                     conditionalPanel('output.isPeripheralAcuity',downloadButton("downloadRsvpPeripheralAcuityGradePlot", "Download"))
+                   )),
+  
+  #### crowding ####
   h3("Ordinary Reading Plots"),
-  shinycssloaders::withSpinner(uiOutput('readingPlotlys'),type=4),
-  # conditionalPanel('output.isReading',
-  #                  splitLayout(
-  #                    cellWidths = c("50%", "50%"),
-  #                    shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralCrowdingGradePlot", height = '600px'), type = 4),
-  #                    shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealCrowdingGradePlot", height = '600px'), type = 4)
-  #                  ),
-  #                  splitLayout(
-  #                    cellWidths = c("50%", "50%"),
-  #                    downloadButton("downloadOrdinaryPeripheralCrowdingGradePlot", "Download"),
-  #                    downloadButton("downloadOrdinaryFovealCrowdingGradePlot", "Download")
-  #                  ),
-  #                  splitLayout(
-  #                    cellWidths = c("50%", "50%"),
-  #                    #shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealAcuityAgePlot", height = '600px'), type = 4),
-  #                    shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealAcuityGradePlot", height = '600px'), type = 4)
-  #                  ),
-  #                  splitLayout(
-  #                    cellWidths = c("50%", "50%"),
-  #                    #downloadButton("downloadOrdinaryFovealAcuityAgePlot", "Download"),
-  #                    downloadButton("downloadOrdinaryFovealAcuityGradePlot", "Download")
-  #                  ),
-  #                  
-  #                  # Peripheral Acuity Plots
-  #                  conditionalPanel('output.isPeripheralAcuity', splitLayout(
-  #                    cellWidths = c("50%", "50%"),
-  #                    #shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralAcuityAgePlot", height = '600px'), type = 4),
-  #                    shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralAcuityGradePlot", height = '600px'), type = 4)
-  #                  ),
-  #                  splitLayout(
-  #                    cellWidths = c("50%", "50%"),
-  #                    #downloadButton("downloadOrdinaryPeripheralAcuityAgePlot", "Download"),
-  #                    downloadButton("downloadOrdinaryPeripheralAcuityGradePlot", "Download")
-  #                  ))),
+  conditionalPanel('output.isReading',
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralCrowdingGradePlot", height = '600px'), type = 4),
+                     shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealCrowdingGradePlot", height = '600px'), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadOrdinaryPeripheralCrowdingGradePlot", "Download"),
+                     downloadButton("downloadOrdinaryFovealCrowdingGradePlot", "Download")
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealAcuityGradePlot", height = '600px'), type = 4),
+                     conditionalPanel('output.isPeripheralAcuity', shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralAcuityGradePlot", height = '600px'), type = 4))
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadOrdinaryFovealAcuityGradePlot", "Download"),
+                     conditionalPanel('output.isPeripheralAcuity', downloadButton("downloadOrdinaryPeripheralAcuityGradePlot", "Download"))
+                   ),
+                   
+                   # Peripheral Acuity Plots
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     conditionalPanel('output.isRepeated',shinycssloaders::withSpinner(plotlyOutput("readingRepeatedGradePlot", height = '600px'), type = 4))
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     conditionalPanel('output.isRepeated', downloadButton("downloadReadingRepeatedGradePlot", "Download"))
+                   )),
   # splitLayout(
   #   cellWidths = c("50%", "50%"),
   #   shinycssloaders::withSpinner(plotOutput("crowdingAvgPlot", width = "100%"), type = 4),

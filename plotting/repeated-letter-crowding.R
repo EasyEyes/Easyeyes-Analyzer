@@ -75,7 +75,8 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
     
     # Generate dynamic breaks for the y-axis
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
-    p <- ggplot() + 
+
+    p <- ggplot() +
       theme_classic() +
       scale_y_log10(breaks = y_breaks,  # Dynamic breaks based on data range
                     limits = c(yMin, yMax), expand = c(0, 0)) +
@@ -86,7 +87,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
                       y = Y),
                   method = 'lm', se = FALSE) +
       annotation_logticks() +
-      coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +  
+      coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +
       annotate(
         "text",
         x = xMin * 1.4,
@@ -101,33 +102,136 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
         color = "black"
       ) +
       plt_theme +
+      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) +
       guides(color = guide_legend(title = colorFactor),
-             shape = 'none') + 
+             shape = 'none') +
       labs(x = paste('repeated-letter crowding (deg)'),
            y = 'RSVP reading (w/min)',
-           title = paste('RSVP vs repeated-letter crowding\n colored by', tolower(colorFactor), '\n')) +
+           title = paste('RSVP vs repeated-letter crowding \n colored by', tolower(colorFactor))) +
       theme(
-        legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top'),
-        margin=margin(0,0,50,0),       #
-        size = 17  
+        plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
+        plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
       )
 
     if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
-      p <- p + geom_point(data = data_rsvp, 
+      p <- p + geom_point(data = data_rsvp,
                           aes(x = X,
                               y = Y,
                               group = ParticipantCode,
                               color = .data[[colorFactor]]))
     } else {
-      p <- p + geom_point(data = data_rsvp, 
+      p <- p + geom_point(data = data_rsvp,
                           aes(x = X,
                               y = Y,
                               group = ParticipantCode,
                               color = .data[[colorFactor]],
-                              shape = `Skilled reader?`)) + 
+                              shape = `Skilled reader?`)) +
         scale_shape_manual(values = c(4,19))
     }
     
+    minTickLocY = numeric()
+    for (i in 1:5){
+      bb = 1:10;
+      minTickLocY = c(minTickLocY, (bb*10^(i-2)))
+    }
+    
+    minTickLocX = numeric()
+    for (i in 1:4){
+      bb = 1:10;
+      minTickLocX = c(minTickLocX, (bb*10^(i-5)))
+    }
+    axseq <- c(0.1, 1, 10, 100, 1000)
+
+    fit <- lm(block_avg_log_WPM~log_crowding_distance_deg, data = data_rsvp)
+    data_rsvp$est <- predict(fit)
+
+  #   p <- plot_ly(data = data_rsvp,
+  #                x = ~X,
+  #                y = ~Y,
+  #                type = 'scatter',
+  #                mode = 'markers',
+  #                marker = list(size = 10)) %>%
+  #     add_lines(data = data_rsvp,
+  #               x = ~X,
+  #               y = ~10^est,
+  #               line = list(opacity = 0),
+  #               hoverinfo = 'none') %>%
+  #     add_lines(data = data_rsvp,
+  #               x = ~X,
+  #               y = ~10^est,
+  #               yaxis = 'y2',
+  #               xaxis = 'x2',
+  #               line = list(color = 'black', dash = 'solid'),
+  #               hoverinfo = 'none') %>%
+  #     layout(
+  #       yaxis = list(
+  #         title = 'RSVP deading (w/min)',
+  #         type = "log", tickvals = axseq,
+  #                    ticktext = as.character(axseq),
+  #                    zeroline=F, showline=T, ticks="outside",
+  #                    ticklen=16, showgrid=T),
+  #       yaxis2 = list(type="log", tickvals=minTickLocY,
+  #                     ticktext=rep("", length(minTickLocY)),
+  #                     zeroline=F, showline=F, ticks="outside",
+  #                     ticklen=8, showgrid=T),
+  #       xaxis = list(title = 'Crowding (deg)',
+  #                    type = "log", tickvals = axseq,
+  #                    ticktext = as.character(axseq),
+  #                    zeroline=F, showline=T, ticks="outside",
+  #                    ticklen=16, showgrid=T),
+  #       xaxis2 = list(type="log", tickvals=minTickLocX,
+  #                     ticktext=rep("", length(minTickLocX)),
+  #                     zeroline=F, showline=F, ticks="outside",
+  #                     ticklen=8, showgrid=T),
+  #       title = paste('RSVP vs repeated-letter crowding \n colored by', tolower(colorFactor)),
+  #       margin = list(t = 50, r = 10, b = 50, l = 10),
+  # 
+  #       # Annotation for Regression Statistics
+  #       annotations = list(
+  #         x = log10(xMin * 1.4),
+  #         y = log10(yMin * 1.4),
+  #         text = paste0("N = ", corr$N,
+  #                       "<br>R = ", corr$correlation,
+  #                       "<br>R_factor_out_age = ", corr_without_age,
+  #                       "<br>slope = ", slope$slope),
+  #         showarrow = FALSE,
+  #         xanchor = 'left',
+  #         yanchor = 'top',
+  #         font = list(size = 12, color = "black")
+  #       )
+  #     )
+  #   
+  #   if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
+  #     # Single group - only color used
+  #     p <- p %>%
+  #       add_trace(
+  #         data = data_rsvp,
+  #         x = ~X,
+  #         y = ~Y,
+  #         color = ~.data[[colorFactor]],
+  #         symbol = ~`Skilled reader?`,
+  #         symbols = c('x', 'circle'),  # Equivalent to ggplot's c(4, 19)
+  #         type = 'scatter',
+  #         mode="markers",
+  #         marker = list(size = 10)
+  #       )
+  #   } else {
+  #     # Multiple groups - color and shape used
+  #     p <- p %>%
+  #       add_trace(
+  #         data = data_rsvp,
+  #         x = ~X,
+  #         y = ~Y,
+  #         color = ~.data[[colorFactor]],
+  #         symbol = ~`Skilled reader?`,
+  #         symbols = c('x', 'circle'),  # Equivalent to ggplot's c(4, 19)
+  #         type = 'scatter',
+  #         mode="markers",
+  #         marker = list(size = 10)
+  #       )
+  #   }
+  #   
+  #   
     return(p)
   }
   
@@ -235,7 +339,6 @@ plot_reading_repeated_letter_crowding <- function(allData) {
                   aes(x = X,
                       y = Y),
                   method = 'lm', se = FALSE) +
-      annotation_logticks() +
       coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +  
       annotate(
         "text",
@@ -252,7 +355,9 @@ plot_reading_repeated_letter_crowding <- function(allData) {
       ) +
       plt_theme +
       guides(color = guide_legend(title = colorFactor),
-             shape = 'none') + 
+             shape = 'none',
+             x = guide_axis_logticks(prescale.base = 10),
+             y = guide_axis_logticks(prescale.base = 10)) + 
       labs(x = paste('repeated-letter crowding (deg)'),
            y = 'Reading (w/min)',
            title = paste('Reading vs repeated-letter crowding\n colored by', tolower(colorFactor), '\n' )) +

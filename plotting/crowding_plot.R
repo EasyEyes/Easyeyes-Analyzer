@@ -281,6 +281,9 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
 }
 
 get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
+  if (nrow(crowding) == 0 | nrow(repeatedLetters)) {
+    return(list(NULL, NULL))
+  }
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   foveal_vs_repeatedLetters <- repeatedLetters %>%

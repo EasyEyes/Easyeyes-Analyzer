@@ -8,7 +8,8 @@ soundTab <- tabPanel(
       NULL,
       accept = c(".json"),
       buttonLabel = "Upload json file",
-      multiple = F
+      multiple = F,
+      width = "1000px"
     )
   )),
   fixedRow(column(align = "left", width = 12, downloadButton("downloadNotebook", "Download jupyter notebook"))),

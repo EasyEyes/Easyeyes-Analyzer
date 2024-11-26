@@ -5,7 +5,7 @@ library(stringr)
 englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
   mutate(participant = tolower(ID))
 
-generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, filterInput) {
+generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, stairs, filterInput, minNQuestTrials) {
   
   print('inside threshold warning')
   if (is.null(data_list)) {
@@ -14,6 +14,17 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   if (length(data_list) == 0) {
     return(list())
   }
+  
+  NQuestTrials <- stairs %>%
+    # Order since trials were randomized
+    arrange(participant, staircaseName) %>%
+    group_by(participant, staircaseName) %>%
+    summarize(questTrials = sum(trialGivenToQuest,na.rm = T)) %>% 
+    filter(questTrials >= minNQuestTrials) %>% 
+    mutate(block_condition = staircaseName) %>% 
+    distinct(participant, block_condition)
+  print(NQuestTrials)
+  
   # I think we should merge the reading data and threshold data with the Grade and Skilled reader column
   # in pretest data here so that we don't need to merge it every time we want to use the pretest data.
   if (nrow(pretest) > 0) {
@@ -145,7 +156,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
   } %>% 
-    filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
+    filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
+    inner_join(NQuestTrials, by = c('participant', 'block_condition'))
   
   if (nrow(pretest) > 0) {
     if ('Include' %in% names(pretest)) {
