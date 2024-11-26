@@ -1154,6 +1154,10 @@ shinyServer(function(input, output, session) {
   output$rsvpFovealAcuityGradePlot <- renderPlotly({
     rsvpAcuityFoveal()[[2]]
   })
+  output$factorOutAgePlot <- renderPlotly({
+    factor_out_age_and_plot(df_list())
+  })
+  
   output$rsvpPeripheralAcuityGradePlot <- renderPlotly({
     rsvpAcuityPeripheral()[[2]]
   })
@@ -3707,6 +3711,36 @@ shinyServer(function(input, output, session) {
             width = 8,
             height = 6,
             dpi = 300
+          )
+        }
+      }
+    )
+    
+    output$downloadFactorOutAgePlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-crowding-factored-age.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = factor_out_age_and_plot(df_list()) + 
+              plt_theme,
+            width = 6,
+            device = svglite,
+            limitsize = FALSE 
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 2400, height = 1800)
+        } else {
+          ggsave(
+            file = file,
+            plot =factor_out_age_and_plot(df_list()) + 
+              plt_theme,
+            device = svg,
+            width = 6
           )
         }
       }

@@ -109,7 +109,6 @@ plotsTab <- tabPanel(
                      #downloadButton("downloadRsvpFovealAcuityAgePlot", "Download"),
                      downloadButton("downloadRsvpFovealAcuityGradePlot", "Download")
                    ),
-                   
                    splitLayout(
                      cellWidths = c("50%", "50%"),
                      conditionalPanel('output.isRepeated', shinycssloaders::withSpinner(plotlyOutput("rsvpRepeatedGradePlot", height = '600px'), type = 4)),
@@ -119,6 +118,13 @@ plotsTab <- tabPanel(
                      cellWidths = c("50%", "50%"),
                      conditionalPanel('output.isRepeated', downloadButton("downloadrsvpRepeatedGradePlot", "Download")),
                      conditionalPanel('output.isPeripheralAcuity',downloadButton("downloadRsvpPeripheralAcuityGradePlot", "Download"))
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),shinycssloaders::withSpinner(plotlyOutput("factorOutAgePlot", height = '600px'), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadFactorOutAgePlot", "Download")
                    )),
   
   #### crowding ####
