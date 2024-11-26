@@ -232,16 +232,18 @@ plot_rsvp_crowding <- function(allData) {
           #                 corr$correlation,
            #                "\n slope = ", slope$slope))) +
       plt_theme +
-      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) + 
       guides(color = guide_legend(title = colorFactor),
              shape = 'none') + 
       labs(x = paste(condition,'crowding (deg)'),
            y = 'RSVP reading (w/min)',
-           title = paste('RSVP vs', tolower(condition), '\ncrowding colored by', tolower(colorFactor))) +
-    theme(
-      plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
-      plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
-    )
+           title = paste('RSVP vs', tolower(condition), 'crowding\n colored by', tolower(colorFactor) , '\n')) +
+      theme(
+        plot.title = element_text(               # Center the title
+          margin=margin(0,0,50,0),       # Add a larger bottom margin
+          size = 17                      
+        ),
+        legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')
+      )
     if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
       p <- p + geom_point(data = data_rsvp, 
                           aes(x = X,
@@ -483,19 +485,21 @@ plot_reading_crowding <- function(allData) {
         color = "black"
       ) +
       plt_theme +
-      theme(legend.position = ifelse(n_distinct(data_reading$factorC) == 1, 'none', 'top')) + 
       guides(color = guide_legend(title = colorFactor),
              shape = 'none') + 
       labs(
         x = paste(condition, 'crowding (deg)'),
         y = 'Ordinary reading speed (w/min)',  # Updated label
-        title = paste('Ordinary Reading vs', tolower(condition), '\ncrowding colored by', tolower(colorFactor))
+        title = paste('Ordinary reading vs', tolower(condition), '\ncrowding colored by', tolower(colorFactor), '\n')
       ) +
-    theme(
-        plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
-        plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
+      theme(
+        legend.position = ifelse(n_distinct(data_reading$factorC) == 1, 'none', 'top'),
+        plot.title = element_text(               # Center the title
+          margin=margin(0,0,50,0),       # Add a larger bottom margin
+          size = 17                      
+        ),
       )
-    
+      
     if (n_distinct(data_reading$`Skilled reader?`) == 1) {
       p <- p + geom_point(
         data = data_reading, 
@@ -532,4 +536,80 @@ plot_reading_crowding <- function(allData) {
   
   return(list(p1, p2, p3, p4))
 }
+
+
+
+factor_out_age_and_plot <- function(allData) {
+  # Helper function to compute residuals after factoring out age
+  compute_residuals <- function(data, x_var, y_var, age_var) {
+    regression_y <- lm(paste0(y_var, " ~ ", age_var), data = data)
+    residuals_y <- residuals(regression_y)
+    t <- tibble(y_var = data[y_var],
+                prediction= predict(regression_y, se.fit = TRUE)$fit,
+                residuals = residuals_y,
+    ) %>% mutate(diff = y_var - prediction)
+    print(t)
+    regression_x <- lm(paste0(x_var, " ~ ", age_var), data = data)
+    residuals_x <- residuals(regression_x)
+    return(data.frame(
+      residual_y = residuals_y,
+      residual_x = residuals_x
+    ))
+  }
+  
+  # Data preparation: Merge crowding and RSVP datasets
+  crowding <- allData$crowding %>% mutate(participant = tolower(participant))
+  rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
+  
+  data <- crowding %>%
+    filter(targetEccentricityXDeg != 0) %>%  # Filter for peripheral data
+    select(participant, log_crowding_distance_deg) %>%
+    inner_join(rsvp, by = "participant") %>%
+    distinct(participant, log_crowding_distance_deg, block_avg_log_WPM, age) %>%
+    filter(!is.na(log_crowding_distance_deg), !is.na(block_avg_log_WPM), !is.na(age)) %>%
+    mutate(
+      log_crowding = log_crowding_distance_deg,
+      log_rsvp = block_avg_log_WPM
+    )
+  
+  # Ensure there is data to process
+  if (nrow(data) == 0) {
+    return(NULL)
+  }
+  
+  # Compute residuals after factoring out age
+  residuals <- compute_residuals(data, "log_crowding", "log_rsvp", "age")
+  data <- data %>%
+    mutate(
+      residual_log_crowding = residuals$residual_x,
+      residual_log_rsvp = residuals$residual_y
+    )
+  
+  # Compute correlation and slope
+  correlation <- cor(data$residual_log_crowding, data$residual_log_rsvp, method = "pearson")
+  N <- nrow(data)
+  slope <- lm(residual_log_rsvp ~ residual_log_crowding, data = data)$coefficients[2]
+  
+  # Create the plot with log scale
+  plot <- ggplot(data, aes(x = 10^residual_log_crowding, y = 10^residual_log_rsvp)) +
+    geom_point(color = "blue", alpha = 0.6) +
+    geom_smooth(method = "lm", se = FALSE, color = "red") +
+    scale_x_log10() +  # Apply log10 scale to x-axis
+    scale_y_log10() +  # Apply log10 scale to y-axis
+    theme_classic() +
+    labs(
+      title = "Residual RSVP vs residual peripheral crowding",
+      x = "Residual crowding (deg)",
+      y = "RSVP reading (w/min)",
+      caption = paste0("N = ", N, ", R = ", round(correlation, 2), ", Slope = ", round(slope, 2))
+    ) +
+    theme(plot.caption = element_text(hjust = 0.5, size = 12, face = "italic"))
+  
+  return(plot)
+}
+
+
+
+
+
 

@@ -182,7 +182,6 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
                   se = FALSE) +
       annotation_logticks() +
       plt_theme +
-      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) +
       guides(color = guide_legend(title = colorFactor), shape = 'none') +
       coord_fixed(ratio = 1) +
       annotate(
@@ -207,11 +206,14 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       labs(
         x = paste0(toupper(substr(type, 1, 1)), substr(type, 2, nchar(type)), ' acuity (deg)'),
         y = 'RSVP reading speed (w/min)',
-        title = paste('RSVP vs', type, '\nacuity colored by', tolower(colorFactor))
+        title = paste('RSVP vs', type, 'acuity\ncolored by', tolower(colorFactor), '\n')
       ) +
       theme(
-        plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
-        plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
+         plot.title = element_text(            
+          margin=margin(0,0,50,0),       
+          size = 17                      
+        ),
+        legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')
       )
     if (n_distinct(data_rsvp$`Skilled reader?`) > 1) {
       p <-  p + geom_point(
@@ -358,11 +360,13 @@ plot_acuity_reading <- function(acuity, reading, type) {
       labs(
         x = paste0(toupper(substr(type, 1, 1)), substr(type, 2, nchar(type)), ' acuity (deg)'),
         y = 'Ordinary reading speed (w/min)',  # Updated for ordinary reading
-        title = paste('Ordinary Reading vs', type, '\nacuity colored by', tolower(colorFactor))
+        title = paste('Ordinary reading vs', type, 'acuity\ncolored by', tolower(colorFactor), '\n')
       ) + 
       theme(
-        plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
-        plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
+        plot.title = element_text(              
+          margin=margin(0,50,50,0),       
+          size = 17                      
+        ),
       )
     
     if (n_distinct(data_reading$`Skilled reader?`) > 1) {

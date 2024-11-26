@@ -61,6 +61,9 @@ shinyUI(
           border-radius: 5px;
           z-index: 9999;
         }
+        .g-gtitle {
+          margin: 500px !important; 
+        }
       "),
       tags$script(HTML(timer_js)),
       tags$script(HTML("

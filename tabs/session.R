@@ -95,7 +95,7 @@ sessionTab <- tabPanel(
       accept = c(".csv", ".zip", '.xlsx'),
       buttonLabel = "Select CSV files or ZIP file",
       multiple = T,
-      width = '900px'
+      width = '1000px'
     ),
     textOutput("fileStatusMessage")
   )),

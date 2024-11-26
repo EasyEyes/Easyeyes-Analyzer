@@ -333,8 +333,8 @@ plotCrowdingStaircasesVsQuestTrials <- function(crowding, Staircases) {
   }
   
   # Generate foveal and peripheral plots
-  fovealPlot <- create_plot(foveal, 'Foveal Crowding\nColored by Grade')
-  peripheralPlot <- create_plot(peripheral, 'Peripheral Crowding\nColored by Grade')
+  fovealPlot <- create_plot(foveal, 'Foveal crowding\ncolored by grade')
+  peripheralPlot <- create_plot(peripheral, 'Peripheral crowding\ncolored by grade')
   
   # Return both plots as a list
   return(list(fovealPlot = fovealPlot, peripheralPlot = peripheralPlot))

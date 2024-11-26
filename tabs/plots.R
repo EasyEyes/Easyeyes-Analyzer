@@ -9,6 +9,7 @@ plotsTab <- tabPanel(
       text-anchor: start;    /* Left-align each text line */
       white-space: pre;      /* Preserve whitespace */
     }
+    
     /* Additional styles as needed for specific plot adjustments */
   ")),
   radioButtons(

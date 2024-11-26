@@ -101,15 +101,15 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
         color = "black"
       ) +
       plt_theme +
-      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) + 
       guides(color = guide_legend(title = colorFactor),
              shape = 'none') + 
       labs(x = paste('repeated-letter crowding (deg)'),
            y = 'RSVP reading (w/min)',
-           title = paste('RSVP vs repeated-letter crowding \n colored by', tolower(colorFactor))) +
+           title = paste('RSVP vs repeated-letter crowding\n colored by', tolower(colorFactor), '\n')) +
       theme(
-        plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
-        plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
+        legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top'),
+        margin=margin(0,0,50,0),       #
+        size = 17  
       )
 
     if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
@@ -251,15 +251,15 @@ plot_reading_repeated_letter_crowding <- function(allData) {
         color = "black"
       ) +
       plt_theme +
-      theme(legend.position = ifelse(n_distinct(data_reading$factorC) == 1, 'none', 'top')) + 
       guides(color = guide_legend(title = colorFactor),
              shape = 'none') + 
       labs(x = paste('repeated-letter crowding (deg)'),
            y = 'Reading (w/min)',
-           title = paste('Reading vs repeated-letter crowding \n colored by', tolower(colorFactor))) +
+           title = paste('Reading vs repeated-letter crowding\n colored by', tolower(colorFactor), '\n' )) +
       theme(
-        plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
-        plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
+        legend.position = ifelse(n_distinct(data_reading$factorC) == 1, 'none', 'top'),
+        margin=margin(0,0,50,0),       #
+        size = 17  
       )
     if (n_distinct(data_reading$`Skilled reader?`) == 1) {
       p <- p + geom_point(data = data_reading, 
