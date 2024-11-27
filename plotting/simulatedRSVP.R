@@ -318,7 +318,7 @@ plotCrowdingStaircasesVsQuestTrials <- function(crowding, Staircases) {
       annotation_logticks(sides = 'l') +
       scale_color_manual(values = grade_colors, na.translate = TRUE) +  # Use dynamic palette
       labs(
-        x = 'QUEST Trials',
+        x = 'QUEST trials',
         y = 'Crowding distances (deg)',
         title = title,
         color = "Grade"  # Legend title

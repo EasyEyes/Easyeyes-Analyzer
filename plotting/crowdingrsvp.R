@@ -119,6 +119,238 @@ plot_rsvp_crowding_acuity <- function(allData) {
 
 plot_rsvp_crowding <- function(allData) {
   # Helper function to compute correlation, slope, and plot
+  # factor_out_age_and_plot <- function(allData) {
+  #   # Helper function to compute residuals after factoring out age
+  #   compute_residuals <- function(data, x_var, y_var, age_var) {
+  #     regression_y <- lm(paste0(y_var, " ~ ", age_var), data = data)
+  #     residuals_y <- residuals(regression_y)
+  #     t <- tibble(y_var = data[y_var],
+  #                 prediction= predict(regression_y, se.fit = TRUE)$fit,
+  #                 residuals = residuals_y,
+  #     ) %>% mutate(diff = y_var - prediction)
+  #     print(t)
+  #     regression_x <- lm(paste0(x_var, " ~ ", age_var), data = data)
+  #     residuals_x <- residuals(regression_x)
+  #     return(data.frame(
+  #       residual_y = residuals_y,
+  #       residual_x = residuals_x
+  #     ))
+  #   }
+  #   
+  #   # Data preparation: Merge crowding and RSVP datasets
+  #   crowding <- allData$crowding %>% mutate(participant = tolower(participant))
+  #   rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
+  #   
+  #   data <- crowding %>%
+  #     filter(targetEccentricityXDeg != 0) %>%  # Filter for peripheral data
+  #     select(participant, log_crowding_distance_deg) %>%
+  #     inner_join(rsvp, by = "participant") %>%
+  #     distinct(participant, log_crowding_distance_deg, block_avg_log_WPM, age) %>%
+  #     filter(!is.na(log_crowding_distance_deg), !is.na(block_avg_log_WPM), !is.na(age)) %>%
+  #     mutate(
+  #       log_crowding = log_crowding_distance_deg,
+  #       log_rsvp = block_avg_log_WPM
+  #     )
+  #   
+  #   # Ensure there is data to process
+  #   if (nrow(data) == 0) {
+  #     return(NULL)
+  #   }
+  #   
+  #   # Compute residuals after factoring out age
+  #   residuals <- compute_residuals(data, "log_crowding", "log_rsvp", "age")
+  #   data <- data %>%
+  #     mutate(
+  #       residual_log_crowding = residuals$residual_x,
+  #       residual_log_rsvp = residuals$residual_y,
+  #       X = 10^residuals$residual_x,
+  #       Y = 10^residuals$residual_y
+  #     )
+  #   
+  #   # Compute correlation and slope
+  #   correlation <- cor(data$residual_log_crowding, data$residual_log_rsvp, method = "pearson")
+  #   N <- nrow(data)
+  #   slope <- lm(residual_log_rsvp ~ residual_log_crowding, data = data)$coefficients[2]
+  #   
+  #   # Create the plot with log scale
+  #   xMin <- min(data$X, na.rm = TRUE) / 1.5
+  #   xMax <- max(data$X, na.rm = TRUE) * 1.5
+  #   yMin <- min(data$Y, na.rm = TRUE) / 1.5
+  #   yMax <- max(data$Y, na.rm = TRUE) * 1.5
+  #   y_breaks <- scales::log_breaks()(c(yMin, yMax))
+  #   
+  #   plot <- ggplot(data, aes(x = X, y = Y)) +
+  #     theme_classic() +
+  #     scale_x_log10(
+  #       breaks = scales::log_breaks(),
+  #       limits = c(xMin, xMax),
+  #       expand = c(0, 0)
+  #     ) +
+  #     scale_y_log10(
+  #       breaks = y_breaks,
+  #       limits = c(yMin, yMax),
+  #       expand = c(0, 0)
+  #     ) +
+  #     geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add regression line
+  #     geom_point(color = "red") +  # Adjust point size and color
+  #     annotation_logticks() +
+  #     annotate(
+  #       "text",
+  #       x = xMin * 1.4,
+  #       y = yMin * 1.4,
+  #       label = paste0(
+  #         "N = ", N,
+  #         "\nR = ", round(correlation, 2),
+  #         "\nslope = ", round(slope, 2)
+  #       ),
+  #       hjust = 0,
+  #       vjust = 0,
+  #       size = 4,
+  #       color = "black"
+  #     ) +
+  #     labs(
+  #       title = "Residual RSVP vs residual peripheral crowding\nafter factoring out age",
+  #       x = paste("Residual crowding (deg)"),
+  #       y = paste("Residual RSVP reading (w/min)")
+  #     ) +
+  #     theme(
+  #       plot.title = element_text(margin = margin(0, 0, 20, 0), size = 17),
+  #       legend.position = "none"
+  #     )
+  #   
+  #   
+  #   return(plot)
+  # }
+  factor_out_age_and_plot <- function(allData) {
+    # Helper function to compute residuals after factoring out age
+    compute_residuals <- function(data, x_var, y_var, age_var) {
+      regression_y <- lm(paste0(y_var, " ~ ", age_var), data = data)
+      residuals_y <- residuals(regression_y)
+      t <- tibble(y_var = data[[y_var]],
+                  prediction= predict(regression_y, se.fit = TRUE)$fit,
+                  residuals = residuals_y,
+      ) %>% mutate(diff = y_var - prediction)
+      print(t)
+      regression_x <- lm(paste0(x_var, " ~ ", age_var), data = data)
+      residuals_x <- residuals(regression_x)
+      return(data.frame(
+        residual_y = residuals_y,
+        residual_x = residuals_x
+      ))
+    }
+    
+    # Data preparation: Merge crowding and RSVP datasets
+    crowding <- allData$crowding %>% mutate(participant = tolower(participant))
+    rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
+    
+    data <- crowding %>%
+      filter(targetEccentricityXDeg != 0) %>%  # Filter for peripheral data
+      select(participant, log_crowding_distance_deg) %>%
+      inner_join(rsvp, by = "participant") %>%
+      distinct(participant, log_crowding_distance_deg, block_avg_log_WPM, age,
+               Grade, `Skilled reader?`, ParticipantCode) %>%
+      filter(!is.na(log_crowding_distance_deg), !is.na(block_avg_log_WPM), !is.na(age)) %>%
+      mutate(
+        log_crowding = log_crowding_distance_deg,
+        log_rsvp = block_avg_log_WPM,
+        Age = format(age, nsmall=2),
+        ageN = as.numeric(age),
+        Grade = as.character(Grade)
+      )
+    
+    # Ensure there is data to process
+    if (nrow(data) == 0) {
+      return(NULL)
+    }
+    
+    # Compute residuals after factoring out age
+    residuals <- compute_residuals(data, "log_crowding", "log_rsvp", "age")
+    data <- data %>%
+      mutate(
+        residual_log_crowding = residuals$residual_x,
+        residual_log_rsvp = residuals$residual_y,
+        X = 10^residuals$residual_x,
+        Y = 10^residuals$residual_y
+      )
+    
+    # Compute correlation and slope
+    correlation <- cor(data$residual_log_crowding, data$residual_log_rsvp, method = "pearson")
+    N <- nrow(data)
+    slope <- lm(residual_log_rsvp ~ residual_log_crowding, data = data)$coefficients[2]
+    
+    # Create the plot with log scale
+    xMin <- min(data$X, na.rm = TRUE) / 1.5
+    xMax <- max(data$X, na.rm = TRUE) * 1.5
+    yMin <- min(data$Y, na.rm = TRUE) / 1.5
+    yMax <- max(data$Y, na.rm = TRUE) * 1.5
+    y_breaks <- scales::log_breaks()(c(yMin, yMax))
+    
+    colorFactor <- 'Grade'  # Set the color factor to 'Grade'
+    
+    plot <- ggplot() + 
+      theme_classic() +
+      scale_x_log10(
+        breaks = scales::log_breaks(),
+        limits = c(xMin, xMax),
+        expand = c(0, 0)
+      ) +
+      scale_y_log10(
+        breaks = y_breaks,
+        limits = c(yMin, yMax),
+        expand = c(0, 0)
+      ) +
+      geom_smooth(data = data,
+                  aes(x = X, y = Y),
+                  method = 'lm', se = FALSE) +
+      annotation_logticks() +
+      coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +  # Set exact limits
+      
+      annotate(
+        "text",
+        x = xMin * 1.4,
+        y = yMin * 1.4,
+        label = paste0("N = ", N,
+                       "\nR = ", round(correlation, 2),
+                       "\nslope = ", round(slope, 2)),
+        hjust = 0,
+        vjust = 0,
+        size = 4,
+        color = "black"
+      ) +
+      labs(
+        x = "Residual crowding (deg)",
+        y = "Residual RSVP reading (w/min)",
+        title = "Residual RSVP vs residual peripheral crowding\n colored by grade\n"
+      ) +
+      theme(
+        plot.title = element_text(margin = margin(0, 0, 50, 0), size = 17),
+        legend.position = ifelse(n_distinct(data$Grade) == 1, 'none', 'top')
+      ) +
+      guides(color = guide_legend(title = 'Grade'),
+             shape = 'none') +
+      plt_theme  # Ensure plt_theme is included
+    
+    # Add points to the plot
+    if (n_distinct(data$`Skilled reader?`) == 1) {
+      plot <- plot + geom_point(data = data, 
+                                aes(x = X,
+                                    y = Y,
+                                    group = ParticipantCode,
+                                    color = .data[[colorFactor]]))
+    } else {
+      plot <- plot + geom_point(data = data, 
+                                aes(x = X,
+                                    y = Y,
+                                    group = ParticipantCode,
+                                    color = .data[[colorFactor]],
+                                    shape = `Skilled reader?`)) + 
+        scale_shape_manual(values = c(4,19))
+    }
+    
+    return(plot)
+  }
+  
+  
   create_plot <- function(data, condition, colorFactor) {
     data_rsvp <- data %>%
       select(participant, log_crowding_distance_deg) %>%
@@ -276,9 +508,10 @@ plot_rsvp_crowding <- function(allData) {
   p1 <- create_plot(peripheral, "Peripheral",'Age')
   p2 <- create_plot(foveal, "Foveal",'Age')
   p3 <- create_plot(peripheral, "Peripheral",'Grade')
-  p4 <- create_plot(foveal, "Foveal",'Grade')
+  p4 <- factor_out_age_and_plot(allData)
+  p5 <- create_plot(foveal, "Foveal",'Grade')
   
-  return(list(p1, p2, p3,p4))
+  return(list(p1, p2, p3,p4, p5))
 }
 
 getCorrMatrix <- function(allData, pretest) {
@@ -556,11 +789,11 @@ factor_out_age_and_plot <- function(allData) {
       residual_x = residuals_x
     ))
   }
-  
+
   # Data preparation: Merge crowding and RSVP datasets
   crowding <- allData$crowding %>% mutate(participant = tolower(participant))
   rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
-  
+
   data <- crowding %>%
     filter(targetEccentricityXDeg != 0) %>%  # Filter for peripheral data
     select(participant, log_crowding_distance_deg) %>%
@@ -571,40 +804,74 @@ factor_out_age_and_plot <- function(allData) {
       log_crowding = log_crowding_distance_deg,
       log_rsvp = block_avg_log_WPM
     )
-  
+
   # Ensure there is data to process
   if (nrow(data) == 0) {
     return(NULL)
   }
-  
+
   # Compute residuals after factoring out age
   residuals <- compute_residuals(data, "log_crowding", "log_rsvp", "age")
   data <- data %>%
     mutate(
       residual_log_crowding = residuals$residual_x,
-      residual_log_rsvp = residuals$residual_y
+      residual_log_rsvp = residuals$residual_y,
+      X = 10^residuals$residual_x,
+      Y = 10^residuals$residual_y
     )
-  
+
   # Compute correlation and slope
   correlation <- cor(data$residual_log_crowding, data$residual_log_rsvp, method = "pearson")
   N <- nrow(data)
   slope <- lm(residual_log_rsvp ~ residual_log_crowding, data = data)$coefficients[2]
-  
+
   # Create the plot with log scale
-  plot <- ggplot(data, aes(x = 10^residual_log_crowding, y = 10^residual_log_rsvp)) +
-    geom_point(color = "blue", alpha = 0.6) +
-    geom_smooth(method = "lm", se = FALSE, color = "red") +
-    scale_x_log10() +  # Apply log10 scale to x-axis
-    scale_y_log10() +  # Apply log10 scale to y-axis
-    theme_classic() +
-    labs(
-      title = "Residual RSVP vs residual peripheral crowding",
-      x = "Residual crowding (deg)",
-      y = "RSVP reading (w/min)",
-      caption = paste0("N = ", N, ", R = ", round(correlation, 2), ", Slope = ", round(slope, 2))
-    ) +
-    theme(plot.caption = element_text(hjust = 0.5, size = 12, face = "italic"))
-  
+    xMin <- min(data$X, na.rm = TRUE) / 1.5
+    xMax <- max(data$X, na.rm = TRUE) * 1.5
+    yMin <- min(data$Y, na.rm = TRUE) / 1.5
+    yMax <- max(data$Y, na.rm = TRUE) * 1.5
+    y_breaks <- scales::log_breaks()(c(yMin, yMax))
+
+    plot <- ggplot(data, aes(x = X, y = Y)) +
+      theme_classic() +
+      scale_x_log10(
+        breaks = scales::log_breaks(),
+        limits = c(xMin, xMax),
+        expand = c(0, 0)
+      ) +
+      scale_y_log10(
+        breaks = y_breaks,
+        limits = c(yMin, yMax),
+        expand = c(0, 0)
+      ) +
+      geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add regression line
+      geom_point(color = "red") +  # Adjust point size and color
+      annotation_logticks() +
+      annotate(
+        "text",
+        x = xMin * 1.4,
+        y = yMin * 1.4,
+        label = paste0(
+          "N = ", N,
+          "\nR = ", round(correlation, 2),
+          "\nslope = ", round(slope, 2)
+        ),
+        hjust = 0,
+        vjust = 0,
+        size = 4,
+        color = "black"
+      ) +
+      labs(
+        title = "Residual RSVP vs residual peripheral crowding\nafter factoring out age",
+        x = "Residual crowding (deg)",
+        y = "Residual RSVP reading (w/min)"
+      ) +
+      theme(
+        plot.title = element_text(hjust = 0.5, margin = margin(0, 0, 20, 0), size = 17),
+        legend.position = "none"
+      )
+
+
   return(plot)
 }
 

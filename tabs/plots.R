@@ -119,16 +119,17 @@ plotsTab <- tabPanel(
                      conditionalPanel('output.isRepeated', downloadButton("downloadrsvpRepeatedGradePlot", "Download")),
                      conditionalPanel('output.isPeripheralAcuity',downloadButton("downloadRsvpPeripheralAcuityGradePlot", "Download"))
                    ),
-                   splitLayout(
-                     cellWidths = c("50%", "50%"),shinycssloaders::withSpinner(plotlyOutput("factorOutAgePlot", height = '600px'), type = 4)
+                   # splitLayout(
+                   #   cellWidths = c("50%", "50%"),shinycssloaders::withSpinner(plotlyOutput("factorOutAgePlot", height = '600px'), type = 4)
+                   # ),
+                   # splitLayout(
+                   #   cellWidths = c("50%", "50%"),
+                   #   downloadButton("downloadFactorOutAgePlot", "Download")
+                   # )
                    ),
-                   splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     downloadButton("downloadFactorOutAgePlot", "Download")
-                   )),
   
   #### crowding ####
-  h3("Ordinary Reading Plots"),
+  h3("Ordinary reading plots"),
   conditionalPanel('output.isReading',
                    splitLayout(
                      cellWidths = c("50%", "50%"),
@@ -180,7 +181,7 @@ plotsTab <- tabPanel(
   #   downloadButton("downloadSloanVsTimesMeanPlot", "Download"),
   #   downloadButton("downloadSloanVsTimesSDPlot", "Download")
   # ),
-  h3("Plots for Children"),
+  h3("Plots for children"),
   uiOutput('plots'),
   
   #### stairPlots #####

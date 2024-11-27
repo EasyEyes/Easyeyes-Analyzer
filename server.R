@@ -871,6 +871,7 @@ shinyServer(function(input, output, session) {
       fileNames[[i]] <- 'rsvp-vs-peripheral-acuity-by-grade'
       i <- i + 1
     }
+    
     print('factor_out_age_and_plot')
     factored_age_plot <- factor_out_age_and_plot(df_list())
     if (!is.null(factored_age_plot)) {

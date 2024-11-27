@@ -358,7 +358,7 @@ plot_reading_repeated_letter_crowding <- function(allData) {
              shape = 'none',
              x = guide_axis_logticks(prescale.base = 10),
              y = guide_axis_logticks(prescale.base = 10)) + 
-      labs(x = paste('repeated-letter crowding (deg)'),
+      labs(x = paste('Repeated-letter crowding (deg)'),
            y = 'Reading (w/min)',
            title = paste('Reading vs repeated-letter crowding\n colored by', tolower(colorFactor), '\n' )) +
       theme(
