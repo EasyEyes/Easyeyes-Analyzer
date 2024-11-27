@@ -186,7 +186,7 @@ plot_reading_age <- function(reading){
       geom_point() +
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
-      labs(title = 'Reading vs age',
+      labs(title = 'Reading vs age\ncolored by grade',
            x = 'Age',
            y = 'Reading speed (w/min)')
     if (n_distinct(t$`Skilled reader?`) == 1) {
@@ -218,7 +218,7 @@ plot_rsvp_age <- function(rsvp){
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       scale_y_log10() + 
       theme_bw() +
-      labs(title = 'RSVP reading vs age',
+      labs(title = 'RSVP reading vs age\ncolored by grade',
            x = 'Age',
            y = 'RSVP reading speed (w/min)')
     if (n_distinct(t$`Skilled reader?`) > 1) {

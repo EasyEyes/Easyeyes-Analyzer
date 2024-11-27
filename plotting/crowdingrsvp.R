@@ -320,7 +320,7 @@ plot_rsvp_crowding <- function(allData) {
       labs(
         x = "Residual crowding (deg)",
         y = "Residual RSVP reading (w/min)",
-        title = "Residual RSVP vs residual peripheral crowding\n colored by grade\n"
+        title = "Residual RSVP vs residual peripheral crowding\ncolored by grade"
       ) +
       theme(
         plot.title = element_text(margin = margin(0, 0, 50, 0), size = 17),
@@ -468,7 +468,7 @@ plot_rsvp_crowding <- function(allData) {
              shape = 'none') + 
       labs(x = paste(condition,'crowding (deg)'),
            y = 'RSVP reading (w/min)',
-           title = paste('RSVP vs', tolower(condition), 'crowding\n colored by', tolower(colorFactor) , '\n')) +
+           title = paste('RSVP vs', tolower(condition), 'crowding\ncolored by', tolower(colorFactor))) +
       theme(
         plot.title = element_text(               # Center the title
           margin=margin(0,0,50,0),       # Add a larger bottom margin
@@ -511,6 +511,7 @@ plot_rsvp_crowding <- function(allData) {
   p4 <- factor_out_age_and_plot(allData)
   p5 <- create_plot(foveal, "Foveal",'Grade')
   
+
   return(list(p1, p2, p3,p4, p5))
 }
 
@@ -723,7 +724,7 @@ plot_reading_crowding <- function(allData) {
       labs(
         x = paste(condition, 'crowding (deg)'),
         y = 'Ordinary reading speed (w/min)',  # Updated label
-        title = paste('Ordinary reading vs', tolower(condition), '\ncrowding colored by', tolower(colorFactor), '\n')
+        title = paste('Ordinary reading vs', tolower(condition), 'crowding\ncolored by', tolower(colorFactor))
       ) +
       theme(
         legend.position = ifelse(n_distinct(data_reading$factorC) == 1, 'none', 'top'),

@@ -203,7 +203,7 @@ get_foveal_crowding_vs_age <- function(crowding) {
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       scale_y_log10() + 
       theme_bw() +
-      labs(title = 'Foveal crowding vs age',
+      labs(title = 'Foveal crowding vs age\ncolored by grade',
            x = 'Age',
            y = 'Foveal crowding (deg)')
     if (n_distinct(t$`Skilled reader?`) == 1) {
@@ -235,7 +235,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
       scale_y_log10() + 
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
-      labs(title = 'Peripheral crowding vs age',
+      labs(title = 'Peripheral crowding vs age\n colored by grade',
            x = 'Age',
            y = 'Peripheral crowding (deg)')
     if (n_distinct(t$`Skilled reader?`) == 1) {
@@ -265,7 +265,7 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
       scale_y_log10() + 
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
-      labs(title = 'Repeated-letter crowding vs age',
+      labs(title = 'Repeated-letter crowding vs age\ncolored by color',
            x = 'Age',
            y = 'Repeated-letter crowding (deg)')
     

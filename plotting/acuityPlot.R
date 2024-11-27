@@ -29,7 +29,7 @@ get_foveal_acuity_vs_age <- function(acuity) {
         label = N
       )) +
       theme_bw() +
-      labs(title = 'Foveal acuity vs age',
+      labs(title = 'Foveal acuity vs age\ncolored by grade',
            x = 'Age',
            y = 'Foveal acuity (deg)')
     if (n_distinct(t$`Skilled reader?`) == 1) {
@@ -75,7 +75,7 @@ get_peripheral_acuity_vs_age <- function(acuity) {
         label = N
       )) +
       theme_bw() +
-      labs(title = 'Peripheral acuity vs age',
+      labs(title = 'Peripheral acuity vs age\ncolored by age',
            x = 'Age',
            y = 'Peripheral acuity (deg)')
     if (n_distinct(t$`Skilled reader?`) == 1) {

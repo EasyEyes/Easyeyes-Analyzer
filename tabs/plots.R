@@ -91,22 +91,25 @@ plotsTab <- tabPanel(
                    splitLayout(
                      cellWidths = c("50%", "50%"),
                      shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralGradePlot", height = '600px'), type = 4),
-                     shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingFovealGradePlot", height = '600px'), type = 4)
+                     shinycssloaders::withSpinner(plotlyOutput("rsvpResidualCrowding", height = '600px'), type = 4)
+                     
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),
                      downloadButton("downloadRsvpCrowdingPeripheralGradePlot", "Download"),
-                     downloadButton("downloadRsvpCrowdingFovealGradePlot", "Download")
+                     downloadButton("downloadRsvpResidualCrowding", "Download")
                    ),
                    
                    splitLayout(
                      cellWidths = c("50%", "50%"),
                      #shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityAgePlot", height = '600px'), type = 4),
+                     shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingFovealGradePlot", height = '600px'), type = 4),
                      shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityGradePlot", height = '600px'), type = 4)
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),
                      #downloadButton("downloadRsvpFovealAcuityAgePlot", "Download"),
+                     downloadButton("downloadRsvpCrowdingFovealGradePlot", "Download"),
                      downloadButton("downloadRsvpFovealAcuityGradePlot", "Download")
                    ),
                    splitLayout(

@@ -1143,15 +1143,16 @@ shinyServer(function(input, output, session) {
   output$rsvpCrowdingPeripheralAgePlot <- renderPlotly({
     rsvpCrowding()[[1]]
   })
-  output$rsvpCrowdingFovealAgePlot <- renderPlotly({
-    rsvpCrowding()[[2]]
-  })
   output$rsvpCrowdingPeripheralGradePlot <- renderPlotly({
     rsvpCrowding()[[3]]
   })
-  output$rsvpCrowdingFovealGradePlot <- renderPlotly({
+  output$rsvpResidualCrowding <- renderPlotly({
     rsvpCrowding()[[4]]
   })
+  output$rsvpCrowdingFovealGradePlot <- renderPlotly({
+    rsvpCrowding()[[5]]
+  })
+  
   output$rsvpFovealAcuityGradePlot <- renderPlotly({
     rsvpAcuityFoveal()[[2]]
   })
@@ -3650,11 +3651,10 @@ shinyServer(function(input, output, session) {
         }
       }
     )
-    
-    output$downloadRsvpCrowdingFovealGradePlot <- downloadHandler(
+    output$downloadRsvpResidualCrowding <- downloadHandler(
       filename = paste(
         app_title$default,
-        paste0('rsvp-vs-foveal-crowding-by-grade.', input$fileType),
+        paste0('residual-rsvp-vs-residual-peripheral-crowding-by-grade.', input$fileType),
         sep = "-"
       ),
       content = function(file) {
@@ -3674,6 +3674,39 @@ shinyServer(function(input, output, session) {
           ggsave(
             file = file,
             plot = rsvpCrowding()[[4]] + 
+              plt_theme,
+            device = svg,
+            width = 8,
+            height = 6,
+            dpi = 300
+          )
+        }
+      }
+    )
+    
+    output$downloadRsvpCrowdingFovealGradePlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-foveal-crowding-by-grade.', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = rsvpCrowding()[[5]] + 
+              plt_theme,
+            width = 8,
+            height = 6,
+            device = svglite,
+            limitsize = FALSE 
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         width = 2400, height = 1800)
+        } else {
+          ggsave(
+            file = file,
+            plot = rsvpCrowding()[[5]] + 
               plt_theme,
             device = svg,
             width = 8,
