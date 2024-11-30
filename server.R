@@ -406,12 +406,7 @@ shinyServer(function(input, output, session) {
   })
   
   crowdingPlot <- reactive({
-    crowding_scatter_plot(crowdingBySide())  +
-      labs(title = paste(
-        c(experiment_names(),
-          "Crowding, left vs. right, by observer"),
-        collapse = "\n"
-      ))
+    crowding_scatter_plot(crowdingBySide())
   })
   
   crowdingAvgPlot <- reactive({
@@ -783,6 +778,15 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
+    
+    t <- crowdingPlot()
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = '[eripheral_crowding_left_vs_right'
+      i = i + 1
+    }
+    
+    
     # t <- get_quest_diag(df_list()$quest)$age
     # if (!is.null(t)) {
     #   l[[i]] = t
@@ -1075,19 +1079,6 @@ shinyServer(function(input, output, session) {
   
   
   #### crowding ####
-  output$crowdingScatterPlot <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    ggsave(
-      file = outfile,
-      plot = crowdingPlot() + plt_theme + coord_fixed(),
-      device = svg,
-      width = 6,
-      height = 4
-    )
-    
-    list(src = outfile,
-         contenttype = 'svg')
-  }, deleteFile = TRUE)
   
   output$crowdingAvgPlot <-
     renderImage({
@@ -4401,20 +4392,6 @@ shinyServer(function(input, output, session) {
     #     )
     #   }
     # )
-   output$downloadCrowdingScatterPlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('crowding_left_vs_right.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = crowdingPlot() + coord_fixed(),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
-      }
-    )
     
     output$downloadCrowdingAvgPlot <- downloadHandler(
       filename = paste(

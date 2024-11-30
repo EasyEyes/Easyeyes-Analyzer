@@ -23,8 +23,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | questTrials >= minNQuestTrials) %>% 
     mutate(block_condition = staircaseName) %>% 
     distinct(participant, block_condition)
-  
-  print(NQuestTrials)
+
   # I think we should merge the reading data and threshold data with the Grade and Skilled reader column
   # in pretest data here so that we don't need to merge it every time we want to use the pretest data.
   if (nrow(pretest) > 0) {

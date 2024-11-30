@@ -337,6 +337,8 @@ plot_acuity_reading <- function(acuity, reading, type) {
     yMin <- min(data_reading$Y, na.rm = TRUE) / 1.5
     yMax <- max(data_reading$Y, na.rm = TRUE) * 1.5
     
+    print(paste('xMin:',xMin,'xMax:',xMax,'yMin:',yMin,'yMax:',yMax))
+    
     p <- ggplot() +
       theme_classic() +
       scale_y_log10() +
