@@ -102,20 +102,20 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   reading <- tibble()
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>% 
-      filter(!is.na(wordPerMin)) %>% 
-      select(block_condition, participant, conditionName, font, wordPerMin, 
+      select(block_condition, participant, conditionName, font, readingPageWords, readingPageDurationOnsetToOffsetSec,
              targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
       group_by(participant, block_condition) %>%
       mutate(trial = row_number()) %>% 
+      ungroup() %>% 
+      mutate(wordPerMin = ifelse(trial < 3 & tolower(participant) %in% englishChild$participant,
+             9.5 / as.numeric(readingPageDurationOnsetToOffsetSec) * 60, 
+             as.numeric(readingPageWords)/ as.numeric(readingPageDurationOnsetToOffsetSec) * 60)) %>% 
       mutate(log_WPM = log10(wordPerMin)) %>% 
-      filter(targetKind == "reading" & font !="") %>% 
-      ungroup()
+      filter(targetKind == "reading" & font !="")
     
-    if (tolower(t$participant[1]) %in% englishChild$participant) {
-      t <- t %>% filter(trial >= 2)
-    }
     reading <- rbind(reading, t)
   }
+  print(reading)
   # For italian data, reading OMT_words read as reading speed
   
   if (nrow(reading) == 0 & 'OMT_words read' %in% names(pretest)) {
@@ -483,16 +483,24 @@ generate_threshold <- function(data_list, summary_list, pretest){
   
   
   ################################ READING #######################################
-  reading <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
-    t <- data_list[[i]] %>% select(block_condition, participant, conditionName, font, wordPerMin, targetKind, thresholdParameter) %>% 
-      mutate(log_WPM = log10(wordPerMin),
-             participant = tolower(participant)) %>% 
-      group_by(participant) %>% 
+  reading <- tibble()
+  for (i in 1:length(data_list)) {
+    t <- data_list[[i]] %>% 
+      select(block_condition, participant, conditionName, font, readingPageWords, readingPageDurationOnsetToOffsetSec,
+             targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
+      group_by(participant, block_condition) %>%
       mutate(trial = row_number()) %>% 
-      filter(targetKind == "reading" & font !="") %>% 
-      ungroup()
+      ungroup() %>% 
+      mutate(wordPerMin = 
+               ifelse(trial < 3 & tolower(participant) %in%englishChild$participant,
+             9.5 / as.numeric(readingPageDurationOnsetToOffsetSec) * 60, 
+             as.numeric(readingPageWords)/ as.numeric(readingPageDurationOnsetToOffsetSec) * 60)) %>% 
+  mutate(log_WPM = log10(wordPerMin)) %>% 
+  filter(targetKind == "reading" & font !="") %>% 
+  ungroup()
+
+reading <- rbind(reading, t)
   }
-  
   if (tolower(reading$participant[1]) %in% englishChild$participant) {
     reading <- reading %>% filter(trial>= 2) %>% 
       mutate(font = as.character(font), 

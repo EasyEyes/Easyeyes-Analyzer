@@ -76,8 +76,8 @@ read_files <- function(file){
         if (!('readingCorpus' %in% colnames(t))) {
           t$readingCorpus <- ""
         }
-        if ('readingPageWords' %in% colnames(t)) {
-          t$wordPerMin <- (as.numeric(t$readingPageWords) + as.numeric(t$readingLinesPerPage) - 1) / (as.numeric(t$readingPageDurationOnsetToOffsetSec) / 60)
+        if (!'readingPageWords' %in% colnames(t)) {
+          t$readingPageWords <- NA
         }
         if (!('viewingDistanceDesiredCm' %in% colnames(t))) {
           t$viewingDistanceDesiredCm <- NA
@@ -89,7 +89,6 @@ read_files <- function(file){
           t$readingPageDurationOnsetToOffsetSec <- NA
         }
         if (!('readingPageWords' %in% colnames(t))) {
-          t$wordPerMin <- NA
           t$readingPageWords <- NA
         }
         if (!('readingNumberOfQuestions' %in% colnames(t))) {
@@ -322,8 +321,8 @@ read_files <- function(file){
           if (!('readingCorpus' %in% colnames(t))) {
             t$readingCorpus <- ""
           }
-          if ('readingPageWords' %in% colnames(t)) {
-            t$wordPerMin <- (as.numeric(t$readingPageWords) + as.numeric(t$readingLinesPerPage) - 1) / (as.numeric(t$readingPageDurationOnsetToOffsetSec) / 60)
+          if (!'readingPageWords' %in% colnames(t)) {
+            readingPageWords <- NA
           }
           if (!('viewingDistanceDesiredCm' %in% colnames(t))) {
             t$viewingDistanceDesiredCm <- NA
@@ -333,10 +332,6 @@ read_files <- function(file){
           }
           if (!('readingPageDurationOnsetToOffsetSec' %in% colnames(t))) {
             t$readingPageDurationOnsetToOffsetSec <- NA
-          }
-          if (!('readingPageWords' %in% colnames(t))) {
-            t$wordPerMin <- NA
-            t$readingPageWords <- NA
           }
           if (!('readingNumberOfQuestions' %in% colnames(t))) {
             t$readingNumberOfQuestions <- NA

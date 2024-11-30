@@ -44,11 +44,11 @@ crowding_scatter_plot <- function(crowding_L_R){
                          'spacingDeg left: Mean= ', mean_left, ', SD= ', sd_left, '\n',
                          'spacingDeg right: Mean= ', mean_right, ', SD= ', sd_right))
 
-  minX <- min(crowding_L_R$log_crowding_distance_deg_Left) * 0.8
-  maxX <- max(crowding_L_R$log_crowding_distance_deg_Left) * 1.2
-  minY <- min(crowding_L_R$log_crowding_distance_deg_Right) * 0.8
-  maxY <- max(crowding_L_R$log_crowding_distance_deg_Right) * 1.2
-  p <- ggplot(crowding_L_R,aes(x = 10^(log_crowding_distance_deg_Left), y = 10^(log_crowding_distance_deg_Right))) + 
+  minY <- min(crowding_L_R$log_crowding_distance_deg_Left) * 0.8
+  maxY <- max(crowding_L_R$log_crowding_distance_deg_Left) * 1.2
+  minX <- min(crowding_L_R$log_crowding_distance_deg_Right) * 0.8
+  maxX <- max(crowding_L_R$log_crowding_distance_deg_Right) * 1.2
+  p <- ggplot(crowding_L_R,aes(y = 10^(log_crowding_distance_deg_Left), x = 10^(log_crowding_distance_deg_Right))) + 
     geom_point(size = 1) + 
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_y_log10(limits = c(10^(minY), 
@@ -66,8 +66,8 @@ crowding_scatter_plot <- function(crowding_L_R){
       aes(npcx = "left",
           npcy = "top",
           label = label)) + 
-  labs(x = "Left",
-       t = "Right",
+  labs(x = "Right crowding distance (deg)",
+       y = "Left crowding distance (deg)",
        title = "Peripheral crowding Left vs Right"
   )
   return(p)

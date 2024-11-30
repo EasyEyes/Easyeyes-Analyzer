@@ -274,7 +274,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
         ageN = as.numeric(age),
         Grade = as.character(Grade)
       )
-    
+
     if (nrow(data_reading) == 0) {
       return(NULL)
     }
