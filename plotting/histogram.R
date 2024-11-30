@@ -31,7 +31,11 @@ get_reading_retention_histogram <- function(reading) {
 get_crowding_hist <- function(crowding) {
 
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
-  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
+  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
+    group_by(participant, `Skilled reader?`) %>% 
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = T)) %>% 
+    ungroup()
+  print(peripheral)
   if (nrow(foveal) > 0) {
     if ('Skilled reader?' %in% names(foveal)) {
       stats1 <- foveal %>% filter(`Skilled reader?` != FALSE)
@@ -94,15 +98,18 @@ get_acuity_hist <- function(acuity) {
 
   foveal <- acuity %>% 
     filter(targetEccentricityXDeg == 0) %>%
-    distinct(participant, questMeanAtEndOfTrialsLoop)
+    distinct(participant, `Skilled reader?`, questMeanAtEndOfTrialsLoop)
 
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    distinct(participant, questMeanAtEndOfTrialsLoop)
+    group_by(participant, `Skilled reader?`) %>% 
+    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop)) %>% 
+    ungroup()
+  
   
   if (nrow(foveal) > 0) {
     if ('Skilled reader?' %in% names(foveal)) {
-      stats1 <- foveal %>% filter(`Skilled reader?` == TRUE)
+      stats1 <- foveal %>% filter(`Skilled reader?` != FALSE)
     } else {
       stats1 <- foveal
     }

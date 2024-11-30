@@ -45,7 +45,7 @@ crowding_scatter_plot <- function(crowding_L_R){
                          'spacingDeg right: Mean= ', mean_right, ', SD= ', sd_right))
 
   minY <- min(crowding_L_R$log_crowding_distance_deg_Left) * 0.8
-  maxY <- max(crowding_L_R$log_crowding_distance_deg_Left) * 1.2
+  maxY <- max(crowding_L_R$log_crowding_distance_deg_Left) * 1.5
   minX <- min(crowding_L_R$log_crowding_distance_deg_Right) * 0.8
   maxX <- max(crowding_L_R$log_crowding_distance_deg_Right) * 1.2
   p <- ggplot(crowding_L_R,aes(y = 10^(log_crowding_distance_deg_Left), x = 10^(log_crowding_distance_deg_Right))) + 
@@ -221,6 +221,9 @@ get_foveal_crowding_vs_age <- function(crowding) {
 get_peripheral_crowding_vs_age <- function(crowding) {
   t <- crowding %>% filter(!is.na(age),
                            targetEccentricityXDeg != 0) %>% 
+    group_by(participant,age,Grade,`Skilled reader?`) %>% 
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg,na.rm = T)) %>% 
+    ungroup() %>% 
     mutate(N = paste0('N=',n()))
   print('inside get_peripheral_crowding_vs_age')
   if (nrow(t) == 0) {
@@ -286,7 +289,10 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
     return(list(NULL, NULL))
   }
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
-  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
+  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
+    group_by(participant,age,Grade,`Skilled reader?`) %>% 
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg,na.rm = T)) %>% 
+    ungroup()
   foveal_vs_repeatedLetters <- repeatedLetters %>%
     rename('repeatedLetters' = 'log_crowding_distance_deg') %>% 
     select(participant, repeatedLetters) %>% 
@@ -448,6 +454,8 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
     peripheral_acuity <- acuity %>%
       rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>% 
       filter(targetEccentricityXDeg != 0) %>% 
+      group_by(participant) %>% 
+      summarize(log_acuity = mean(log_acuity, na.rm = T)) %>% 
       select(participant, log_acuity) %>% 
       inner_join(foveal, by = 'participant') %>% 
       mutate(age = format(age,nsmall=2),
@@ -523,7 +531,12 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
 get_foveal_peripheral_diag <- function(crowding) {
   
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
-  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
+  peripheral <- crowding %>%
+    filter(targetEccentricityXDeg != 0) %>% 
+    group_by(participant,age,Grade,`Skilled reader?`) %>% 
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg,na.rm = T)) %>% 
+    ungroup()
+  
   if (nrow(foveal) == 0 | nrow(peripheral) == 0) {
     return(list(age = NULL, grade = NULL))
   } else {

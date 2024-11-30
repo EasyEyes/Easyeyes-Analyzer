@@ -44,10 +44,12 @@ get_foveal_acuity_vs_age <- function(acuity) {
   }
 }
 
-
 get_peripheral_acuity_vs_age <- function(acuity) {
   t <- acuity %>% filter(!is.na(age),
                          targetEccentricityXDeg != 0) %>%
+    group_by(participant, age, Grade,`Skilled reader?`) %>% 
+    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop,na.rm = T)) %>% 
+    ungroup() %>% 
     mutate(N = paste0('N=', n()))
   if (nrow(t) == 0) {
     return(NULL)
@@ -75,7 +77,7 @@ get_peripheral_acuity_vs_age <- function(acuity) {
         label = N
       )) +
       theme_bw() +
-      labs(title = 'Peripheral acuity vs age\ncolored by age',
+      labs(title = 'Peripheral acuity vs age\ncolored by Grade',
            x = 'Age',
            y = 'Peripheral acuity (deg)')
     if (n_distinct(t$`Skilled reader?`) == 1) {
@@ -88,8 +90,6 @@ get_peripheral_acuity_vs_age <- function(acuity) {
     return(p)
   }
 }
-
-
 
 plot_acuity_rsvp <- function(acuity, rsvp, type) {
   create_plot <- function(data, type, colorFactor) {
@@ -187,7 +187,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       annotate(
         "text",
         x = xMin,
-        y = yMin * 1.3,
+        y = yMin * 1.6,
         label = paste0("N = ", corr$N,
                        "\nR = ", corr$correlation,
                        "\nR_factor_out_age = ", corr_without_age,
@@ -213,7 +213,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
           margin=margin(0,0,50,0),       
           size = 17                      
         ),
-        legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')
+        legend.position = ifelse(n_distinct(data_rsvp[[colorFactor]]) == 1, 'none', 'top')
       )
     if (n_distinct(data_rsvp$`Skilled reader?`) > 1) {
       p <-  p + geom_point(
@@ -243,7 +243,11 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
   acuity <- acuity %>% mutate(participant = tolower(participant))
   rsvp <- rsvp %>% mutate(participant = tolower(participant))
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
-  peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)
+  peripheral <- acuity %>%
+    filter(targetEccentricityXDeg != 0) %>% 
+    group_by(participant) %>% 
+    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop,na.rm = T)) %>% 
+    ungroup()
   
   if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
     return(list(NULL, NULL, NULL, NULL))
@@ -352,7 +356,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
       annotate(
         "text",
         x = xMin * 1.5,
-        y = yMin * 1.5,
+        y = yMin * 1.8,
         label = annotation_text,
         hjust = 0, # Left-align text
         vjust = 0, # Top-align text
@@ -400,7 +404,11 @@ plot_acuity_reading <- function(acuity, reading, type) {
   reading <- reading %>% mutate(participant = tolower(participant))
   
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
-  peripheral <- acuity %>% filter(targetEccentricityXDeg != 0)
+  peripheral <- acuity %>%
+    filter(targetEccentricityXDeg != 0) %>% 
+    group_by(participant) %>% 
+    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop,na.rm = T)) %>% 
+    ungroup()
   
   if (nrow(reading) == 0 | nrow(acuity) == 0) {
     return(list(NULL, NULL, NULL, NULL))

@@ -24,6 +24,7 @@ plotsTab <- tabPanel(
     inline = TRUE,
     selected = "png"
   ),
+  downloadButton("downloadAll", "Download All"),
   radioButtons(
     "filterInput",
     "Select participants by reading speed:",
@@ -77,16 +78,6 @@ plotsTab <- tabPanel(
   # 
   h3("Scatter diagrams"),
   shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
-  # TODO 
-  # add regressionAcuityPlot to Scatter diagrams
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("regressionAcuityPlot", width = "100%"), type = 4)
-  ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadRegressionAcuityPlot", "Download")
-  ),
   conditionalPanel('output.isRsvp', 
                    splitLayout(
                      cellWidths = c("50%", "50%"),

@@ -272,17 +272,21 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     left_join(eccentricityDeg, by = c('participant', 'block_condition', 'conditionName', 'order'))
   
   if (nrow(pretest) > 0) {
+    print(quest %>% filter(questType == 'crowding') %>% distinct(questType, targetEccentricityXDeg))
     quest <- quest %>% 
       filter((targetEccentricityXDeg == 0) | 
                ( targetEccentricityXDeg != 0 & !tolower(participant) %in% excludePeripheral$lowerCaseParticipant))
   }
+  print('after filter')
+  print(quest %>% filter(questType == 'crowding') %>% distinct(questType, targetEccentricityXDeg))
   quest <- quest %>% 
     mutate(questType = case_when(
-      questType == 'crowding' | questType == 'acuity' & targetEccentricityXDeg == 0 ~ paste('Foveal', questType),
-      questType == 'crowding' | questType == 'acuity' & targetEccentricityXDeg != 0 ~ paste('Peripheral', questType),
+      (questType == 'crowding' | questType == 'acuity') & targetEccentricityXDeg == 0 ~ paste('Foveal', questType),
+      (questType == 'crowding' | questType == 'acuity') & targetEccentricityXDeg != 0 ~ paste('Peripheral', questType),
       .default = questType
     )) %>% 
-    select(-targetEccentricityXDeg, targetEccentricityYDeg)
+    select(-targetEccentricityXDeg, -targetEccentricityYDeg)
+  print(quest %>% distinct(questType))
   
   age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     data_list[[i]] %>% 

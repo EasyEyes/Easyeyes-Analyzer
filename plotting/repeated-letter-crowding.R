@@ -91,7 +91,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
       annotate(
         "text",
         x = xMin * 1.4,
-        y = yMin * 1.4,
+        y = yMin * 1.6,
         label = paste0("N = ", corr$N,
                        "\nR = ", corr$correlation,
                        "\nR_factor_out_age = ", corr_without_age,
@@ -102,7 +102,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
         color = "black"
       ) +
       plt_theme +
-      theme(legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')) +
+      theme(legend.position = ifelse(n_distinct(data_rsvp[[colorFactor]]) == 1, 'none', 'top')) +
       guides(color = guide_legend(title = colorFactor),
              shape = 'none') +
       labs(x = paste('repeated-letter crowding (deg)'),
@@ -362,7 +362,7 @@ plot_reading_repeated_letter_crowding <- function(allData) {
            y = 'Reading (w/min)',
            title = paste('Reading vs repeated-letter crowding\ncolored by', tolower(colorFactor), '\n' )) +
       theme(
-        legend.position = ifelse(n_distinct(data_reading$factorC) == 1, 'none', 'top'),
+        legend.position = ifelse(n_distinct(data_reading[[colorFactor]]) == 1, 'none', 'top'),
         margin=margin(0,0,50,0),       #
         size = 17  
       )

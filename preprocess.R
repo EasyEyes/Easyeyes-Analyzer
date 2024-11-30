@@ -76,9 +76,6 @@ read_files <- function(file){
         if (!('readingCorpus' %in% colnames(t))) {
           t$readingCorpus <- ""
         }
-        if (!'readingPageWords' %in% colnames(t)) {
-          t$readingPageWords <- NA
-        }
         if (!('viewingDistanceDesiredCm' %in% colnames(t))) {
           t$viewingDistanceDesiredCm <- NA
         }
@@ -281,7 +278,6 @@ read_files <- function(file){
       all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
       all_xlsx <- file_names[grepl(".xlsx", file_names)]
       all_xlsx <- all_xlsx[!grepl("__MACOSX", all_xlsx)]
-      print(all_xlsx)
       m <- length(all_csv)
       for (k in 1 : m) {
         t <- tibble()
@@ -322,7 +318,7 @@ read_files <- function(file){
             t$readingCorpus <- ""
           }
           if (!'readingPageWords' %in% colnames(t)) {
-            readingPageWords <- NA
+            t$readingPageWords <- NA
           }
           if (!('viewingDistanceDesiredCm' %in% colnames(t))) {
             t$viewingDistanceDesiredCm <- NA

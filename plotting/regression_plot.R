@@ -179,7 +179,7 @@ regression_acuity_plot <- function(df_list){
                                         method = "pearson"),2))
     t <- t %>% left_join(corr, by = "targetKind")
   } else {
-    t$correlation = NA
+    return(NULL)
   }
   t <- t %>% mutate(targetKind = paste0(targetKind, ", R = ", correlation))
   p <- ggplot(t,aes(x = 10^(questMeanAtEndOfTrialsLoop), y = 10^(avg_log_WPM), color = targetKind)) + 
@@ -187,8 +187,11 @@ regression_acuity_plot <- function(df_list){
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10() + 
     scale_y_log10() +
-    labs(x="Foveal acuity (deg)", y = "Reading speed (w/min)") +
+    labs(x="Foveal acuity (deg)",
+         y = "Reading speed (w/min)",
+         title = 'Ordinary and RSVP reading vs foveal acuity') +
     theme_bw() + 
+    coord_fixed() + 
     annotation_logticks() +
     ggpp::geom_text_npc(aes(
       npcx = "left",
@@ -197,6 +200,7 @@ regression_acuity_plot <- function(df_list){
     )) + 
     guides(color=guide_legend(nrow=2, byrow=TRUE,
                               title = ''))
+  return(p)
 }
 
 regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){

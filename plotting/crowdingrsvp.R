@@ -26,7 +26,7 @@ plot_rsvp_crowding_acuity <- function(allData) {
            Grade = as.character(Grade))
   
   peripheral_crowding <- crowding %>% 
-    filter(targetEccentricityXDeg == 0) %>% 
+    filter(targetEccentricityXDeg != 0) %>% 
     mutate(Age = format(age,nsmall=2),
            Grade = as.character(Grade))
   
@@ -244,7 +244,10 @@ plot_rsvp_crowding <- function(allData) {
     rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
     
     data <- crowding %>%
-      filter(targetEccentricityXDeg != 0) %>%  # Filter for peripheral data
+      filter(targetEccentricityXDeg != 0) %>%  
+      group_by(participant) %>%
+      summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T)) %>% 
+      ungroup() %>% 
       select(participant, log_crowding_distance_deg) %>%
       inner_join(rsvp, by = "participant") %>%
       distinct(participant, log_crowding_distance_deg, block_avg_log_WPM, age,
@@ -445,7 +448,7 @@ plot_rsvp_crowding <- function(allData) {
       annotate(
         "text",
         x = xMin * 1.4,
-        y = yMin * 1.4,
+        y = yMin * 1.6,
         label = paste0("N = ", corr$N,
                        "\nR = ", corr$correlation,
                        "\nR_factor_out_age = ", corr_without_age,
@@ -474,7 +477,7 @@ plot_rsvp_crowding <- function(allData) {
           margin=margin(0,0,50,0),       # Add a larger bottom margin
           size = 17                      
         ),
-        legend.position = ifelse(n_distinct(data_rsvp$factorC) == 1, 'none', 'top')
+        legend.position = ifelse(n_distinct(data_rsvp[[colorFactor]]) == 1, 'none', 'top')
       )
     if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
       p <- p + geom_point(data = data_rsvp, 
@@ -496,8 +499,11 @@ plot_rsvp_crowding <- function(allData) {
   }
   
   crowding <- allData$crowding %>% mutate(participant = tolower(participant))
-  foveal <- crowding %>% filter(targetEccentricityXDeg == 0,)
-  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
+  peripheral <- crowding %>% 
+    filter(targetEccentricityXDeg != 0) %>% 
+    group_by(participant) %>%
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T))
   rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
   
   if (nrow(allData$rsvp) == 0 | nrow(allData$crowding) == 0) {
@@ -549,7 +555,7 @@ getCorrMatrix <- function(allData, pretest) {
     pivot_wider(names_from=type, values_from = log_acuity)
  
   
-  crowdingW <- crowding %>% mutate(type=ifelse(
+  crowding <- crowding %>% mutate(type=ifelse(
     targetEccentricityXDeg == 0,
     'log foveal crowding',
     'log peripheral crowding'
@@ -566,11 +572,11 @@ getCorrMatrix <- function(allData, pretest) {
     rename('log reading' = 'log_WPM' ) %>% 
     select(participant, `log reading`)
   
-  crowdingW <- crowdingW %>% 
-    full_join(acuity, by = 'participant') %>% 
+  crowdingW <- crowding %>% 
+    inner_join(acuity, by = 'participant') %>% 
     mutate(participant = tolower(participant)) %>% 
-    full_join(rsvp_speed %>% select(participant, block_avg_log_WPM) %>% mutate(participant = tolower(participant)), by = 'participant') %>% 
-    full_join(reading, by = 'participant')
+    inner_join(rsvp_speed %>% select(participant, block_avg_log_WPM) %>% mutate(participant = tolower(participant)), by = 'participant') %>% 
+    inner_join(reading, by = 'participant')
   
   if (nrow(pretest) > 0) {
     crowdingW <- crowdingW %>% 
@@ -588,7 +594,11 @@ getCorrMatrix <- function(allData, pretest) {
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
   colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))
-
+  print(paste('nrow of reading:', nrow(reading)))
+  print(paste('nrow of crowding:', nrow(crowding)))
+  print(paste('nrow of rsvp_speed:', nrow(rsvp_speed)))
+  print(paste('nrow of acuity:', nrow(acuity)))
+  
   corplot <- ggcorrplot(t,
                         show.legend = FALSE,
                         show.diag = T,
@@ -704,7 +714,6 @@ plot_reading_crowding <- function(allData) {
       ) +
       annotation_logticks() +
       coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +
-      
       annotate(
         "text",
         x = xMin * 1.4,
@@ -727,7 +736,7 @@ plot_reading_crowding <- function(allData) {
         title = paste('Ordinary reading vs', tolower(condition), 'crowding\ncolored by', tolower(colorFactor))
       ) +
       theme(
-        legend.position = ifelse(n_distinct(data_reading$factorC) == 1, 'none', 'top'),
+        legend.position = ifelse(n_distinct(data_reading[[colorFactor]]) == 1, 'none', 'top'),
         plot.title = element_text(               # Center the title
           margin=margin(0,0,50,0),       # Add a larger bottom margin
           size = 17                      
@@ -755,7 +764,10 @@ plot_reading_crowding <- function(allData) {
   
   crowding <- allData$crowding %>% mutate(participant = tolower(participant))
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
-  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
+  peripheral <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
+    group_by(participant, age, Grade,`Skilled reader?`) %>%
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T)) %>% 
+    ungroup()
   reading <- allData$reading %>% mutate(participant = tolower(participant))
   
   if (nrow(allData$reading) == 0 | nrow(allData$crowding) == 0) {
@@ -770,8 +782,6 @@ plot_reading_crowding <- function(allData) {
   
   return(list(p1, p2, p3, p4))
 }
-
-
 
 factor_out_age_and_plot <- function(allData) {
   # Helper function to compute residuals after factoring out age

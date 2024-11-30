@@ -463,10 +463,6 @@ shinyServer(function(input, output, session) {
     get_foveal_acuity_diag(df_list()$crowding, df_list()$acuity)
   })
   
-  regressionAcuityPlot <- reactive({
-    regression_acuity_plot(df_list()) +
-      labs(subtitle = "Reading vs acuity")
-  })
   regressionFontPlot <- reactive({
     regression_font(df_list(), reading_rsvp_crowding_df()) +
       labs(title = experiment_names(),
@@ -813,6 +809,14 @@ shinyServer(function(input, output, session) {
       fileNames[[i]] = 'reading-rsvp-reading-vs-peripheral-crowding'
       i = i + 1
     }
+    
+    t <- regression_acuity_plot(df_list())
+    
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'ordinary-reading-rsvp-reading-vs-acuity'
+      i = i + 1
+    }
     return(list(
       plotList = l,
       fileNames = fileNames
@@ -1011,7 +1015,7 @@ shinyServer(function(input, output, session) {
   
   
   #### plots ####
-  
+
   output$corrMatrixPlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
     ggsave(
@@ -1060,24 +1064,7 @@ shinyServer(function(input, output, session) {
     list(src = outfile,
          contenttype = 'svg')
   }, deleteFile = TRUE)
-  #### regression plots #####
-  
-  
-  output$regressionAcuityPlot <-  renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    ggsave(
-      file = outfile,
-      plot = regressionAcuityPlot() + plt_theme,
-      device = svg,
-      width = 6,
-      height = 4
-    )
-    
-    list(src = outfile,
-         contenttype = 'svg')
-  }, deleteFile = TRUE)
-  
-  
+
   #### crowding ####
   
   output$crowdingAvgPlot <-
@@ -1152,7 +1139,7 @@ shinyServer(function(input, output, session) {
   })
   
   output$rsvpPeripheralAcuityGradePlot <- renderPlotly({
-    rsvpAcuityPeripheral()[[2]]
+    ggplotly(rsvpAcuityPeripheral()[[2]]) %>% layout()
   })
   output$rsvpRepeatedGradePlot <- renderPlotly({
     rsvp_repeated_letter_crowding()[[2]]
@@ -1284,7 +1271,6 @@ shinyServer(function(input, output, session) {
     return(out)
   })
   
-  
   output$histograms <- renderUI({
     out <- list()
     i = 1
@@ -1366,8 +1352,6 @@ shinyServer(function(input, output, session) {
     return(out)
   })
   
-  
-  
   output$scatters <- renderUI({
     out <- list()
     i = 1
@@ -1421,7 +1405,6 @@ shinyServer(function(input, output, session) {
                 device = svglite
               )
               rsvg::rsvg_png("tmp.svg", file,
-                             height = 1800,
                              width = 1800)
             } else {
               ggsave(
@@ -2389,7 +2372,7 @@ shinyServer(function(input, output, session) {
   
   
   #### Event Handler ####
-
+  
   observeEvent(input$file,
                {
                  if (!is.null(input$file)) {
@@ -2504,6 +2487,103 @@ shinyServer(function(input, output, session) {
   
   #### download handlers ####
  
+  
+  output$downloadAll = downloadHandler(
+    filename = 'plots.zip',
+    content = function( file){
+      
+      # Set temporary working directory
+      owd <- setwd(tempdir())
+      on.exit(setwd(owd))
+      fileNames = c()
+      ggsave(
+        paste0("correlation-matrix.", input$fileType),
+        plot =  corrMatrix()$plot +
+          plt_theme +
+          theme(legend.position = 'none',
+                axis.text.x = element_text(size = 14,
+                                           angle = 30,
+                                           vjust = 1,
+                                           hjust=1),
+                plot.title = element_text(size=18,
+                                          hjust = 1),
+                plot.subtitle = element_text(size=18,
+                                             hjust = 1)),
+        width = corrMatrix()$width,
+        height = corrMatrix()$height,
+        unit = "in",
+        limitsize = F,
+        device = input$fileType
+      )
+      fileNames = c( paste0("correlation-matrix.", input$fileType))
+      if (length(histograms()$plotList) > 0) {
+        for (i in 1:length(histograms()$plotList)) {
+          print(i)
+          plotFileName =  paste0(histograms()$fileNames[[i]], '.',input$fileType)
+          ggsave(filename = plotFileName, 
+                 plot = histograms()$plotList[[i]] + plt_theme,
+                 width = 6,
+                 unit = 'in',
+                 device = input$fileType)
+          fileNames = c(fileNames, plotFileName)
+        }
+        print('done histograms')
+      }
+      if (length(scatterDiagrams()$plotList) > 0) {
+        for (i in 1:length(scatterDiagrams()$plotList)) {
+          plotFileName =  paste0(scatterDiagrams()$fileNames[[i]], '.',input$fileType)
+          ggsave(filename = plotFileName, 
+                 plot = scatterDiagrams()$plotList[[i]] + plt_theme,
+                 width = 6,
+                 unit = 'in',
+                 device = input$fileType)
+          fileNames = c(fileNames, plotFileName)
+        }
+        print('done scatterDiagrams')
+      }
+      if (length(agePlots()$plotList) > 0) {
+       for (i in 1:length(agePlots()$plotList)) {
+         plotFileName =  paste0(agePlots()$fileNames[[i]], '.',input$fileType)
+         ggsave(filename = plotFileName, 
+                plot = agePlots()$plotList[[i]] + plt_theme,
+                width = 6,
+                unit = 'in',
+                device = input$fileType)
+         fileNames = c(fileNames, plotFileName)
+       }
+       print('done agePlots')
+     }
+      if (length(rsvpPlotlyPlots()$plotList) > 0) {
+        for (i in 1:length(rsvpPlotlyPlots()$plotList)) {
+          plotFileName =  paste0(rsvpPlotlyPlots()$fileNames[[i]], '.',input$fileType)
+          ggsave(filename = plotFileName, 
+                 plot = rsvpPlotlyPlots()$plotList[[i]] + plt_theme,
+                 width = 6,
+                 unit = 'in',
+                 device = input$fileType)
+          fileNames = c(fileNames, plotFileName)
+        }
+        print('done rsvpPlotlyPlots')
+      }
+     
+      if (length(readingPlotlyPlots()$plotList) > 0) {
+        for (i in 1:length(readingPlotlyPlots()$plotList)) {
+          plotFileName =  paste0(readingPlotlyPlots()$fileNames[[i]], '.',input$fileType)
+          ggsave(filename = plotFileName, 
+                 plot = readingPlotlyPlots()$plotList[[i]] + plt_theme,
+                 width = 6,
+                 unit = 'in',
+                 device = input$fileType)
+          fileNames = c(fileNames, plotFileName)
+        }
+      }
+      print('done readingPlotlyPlots')
+      print(fileNames)
+      # Zip them up
+      zip(file, fileNames)
+    }
+  )
+  
   output$sessionCsv <- downloadHandler(
     filename = function() {
       ifelse(
@@ -4331,38 +4411,6 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$downloadRegressionAcuityPlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('regression.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = regressionAcuityPlot() + 
-              plt_theme +
-              coord_fixed(ratio = 1),
-            width = 7,
-            height = 5,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg", file,
-                         width = 1800, height = 1800)
-        } else {
-          ggsave(
-            file = file,
-            plot = regressionAcuityPlot() + 
-              plt_theme + 
-              coord_fixed(ratio = 1),
-            device = svg,
-            width = 7,
-            height = 5
-          )
-        }
-      }
-    )
     # output$downloadRegressionFontPlot <- downloadHandler(
     #   filename = paste(
     #     app_title$default,

@@ -34,7 +34,7 @@ get_quest_diag <- function(quest){
      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
      facet_wrap(~questType) + 
      theme_bw() +
-     labs(title = 'Quest SD vs mean by age\ncolored by grade',
+     labs(title = 'Quest SD vs mean by age\ncolored by age',
           x = 'Quest mean',
           y = 'Quest SD') +
      theme(aspect.ratio = 1)
