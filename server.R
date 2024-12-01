@@ -680,6 +680,9 @@ shinyServer(function(input, output, session) {
       fileNames[[i]] = 'repeated-letter-crowding-histogram'
       i = i + 1
     }
+    
+    
+    
     # t <- get_fluency_histogram(df_list()$fluency)
     # if (!is.null(t)) {
     #   l[[i]] = t
@@ -699,6 +702,22 @@ shinyServer(function(input, output, session) {
       fileNames = fileNames))
     
 })
+  
+  ## stacked histograms ## 
+  stackedPlots <- reactive({
+    if (is.null(df_list())) {
+      return(NULL)
+    }
+    
+    # Generate the stacked plots
+    stacked <- generate_histograms_by_grade(df_list())
+    
+    # Return the RSVP and crowding plots
+    return(list(
+      rsvp_plot = stacked$rsvp_plot,
+      crowding_plot = stacked$crowding_plot
+    ))
+  })
   
   #### scatterDiagrams ####
   
@@ -778,7 +797,7 @@ shinyServer(function(input, output, session) {
     t <- crowdingPlot()
     if (!is.null(t)) {
       l[[i]] = t
-      fileNames[[i]] = '[eripheral_crowding_left_vs_right'
+      fileNames[[i]] = 'peripheral_crowding_left_vs_right'
       i = i + 1
     }
     
@@ -1271,44 +1290,140 @@ shinyServer(function(input, output, session) {
     return(out)
   })
   
+  # output$histograms <- renderUI({
+  #   out <- list()
+  #   i = 1
+  #   
+  #   while(i <= length(histograms()$plotList)-1) {
+  #     
+  #     out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
+  #                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "50%", height = "50%"), type = 4),
+  #                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i+1), width = "50%", height = "50%"), type = 4))
+  #     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+  #                                 downloadButton(paste0("downloadHist", i), 'Download'),
+  #                                 downloadButton(paste0("downloadHist", i+1), 'Download'))
+  #     i = i + 2
+  #   }
+  #   if (i == length(histograms()$plotList)){
+  #     out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
+  #                             shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "50%", height = "50%"), type = 4))
+  #     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+  #                                 downloadButton(paste0("downloadHist", i), 'Download'))
+  #   }
+  #   for (j in 1:length(histograms()$plotList)) {
+  #     
+  #     local({
+  #       ii <- j
+  #       
+  #       output[[paste0("hist", ii)]] <- renderImage({
+  #         outfile <- tempfile(fileext = '.svg')
+  #         ggsave(
+  #           file = outfile,
+  #           plot = histograms()$plotList[[ii]] + plt_theme,
+  #           device = svglite,
+  #           width = 5,
+  #           height=5,
+  #           unit = 'in',
+  #         )
+  #         
+  #         list(src = outfile,
+  #              contenttype = 'svg')
+  #       }, deleteFile = TRUE)
+  #       
+  #       output[[paste0("downloadHist", ii)]] <- downloadHandler(
+  #         filename = paste0(
+  #           experiment_names(),
+  #           histograms()$fileNames[[ii]],
+  #           ii,
+  #           '.',
+  #           input$fileType
+  #         ),
+  #         content = function(file) {
+  #           if (input$fileType == "png") {
+  #             ggsave(
+  #               "tmp.svg",
+  #               plot = histograms()$plotList[[ii]] + plt_theme,
+  #               unit = "in",
+  #               width = 6,
+  #               limitsize = F,
+  #               device = svglite
+  #             )
+  #             rsvg::rsvg_png("tmp.svg", file,
+  #                            height = 1800,
+  #                            width = 1800)
+  #           } else {
+  #             ggsave(
+  #               file,
+  #               plot = histograms()$plotList[[ii]] + plt_theme,
+  #               unit = "in",
+  #               limitsize = F,
+  #               device = ifelse(
+  #                 input$fileType == "svg",
+  #                 svglite::svglite,
+  #                 input$fileType
+  #               )
+  #             )
+  #           }
+  #         }
+  #       )
+  #     })
+  #   }
+  #   return(out)
+  # })
   output$histograms <- renderUI({
     out <- list()
-    i = 1
+    i <- 1
     
-    while(i <= length(histograms()$plotList)-1) {
-      
-      out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
-                               shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "50%", height = "50%"), type = 4),
-                               shinycssloaders::withSpinner(plotOutput(paste0("hist", i+1), width = "50%", height = "50%"), type = 4))
-      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+    while (i <= length(histograms()$plotList) - 3) {
+      # Create a row with 4 histograms
+      out[[i]] <- splitLayout(cellWidths = c("25%", "25%", "25%", "25%"),
+                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "100%", height = "100%"), type = 4),
+                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i + 1), width = "100%", height = "100%"), type = 4),
+                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i + 2), width = "100%", height = "100%"), type = 4),
+                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i + 3), width = "100%", height = "100%"), type = 4))
+      # Create a row with 4 download buttons
+      out[[i + 1]] <- splitLayout(cellWidths = c("25%", "25%", "25%", "25%"),
                                   downloadButton(paste0("downloadHist", i), 'Download'),
-                                  downloadButton(paste0("downloadHist", i+1), 'Download'))
-      i = i + 2
+                                  downloadButton(paste0("downloadHist", i + 1), 'Download'),
+                                  downloadButton(paste0("downloadHist", i + 2), 'Download'),
+                                  downloadButton(paste0("downloadHist", i + 3), 'Download'))
+      i <- i + 4
     }
-    if (i == length(histograms()$plotList)){
-      out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
-                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "50%", height = "50%"), type = 4))
-      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                  downloadButton(paste0("downloadHist", i), 'Download'))
-    }
-    for (j in 1:length(histograms()$plotList)) {
+    
+    # Handle any remaining histograms (fewer than 4)
+    remaining <- length(histograms()$plotList) - i + 1
+    if (remaining > 0) {
+      plotOutputs <- lapply(1:remaining, function(j) {
+        shinycssloaders::withSpinner(plotOutput(paste0("hist", i + j - 1), width = "100%", height = "100%"), type = 4)
+      })
+      downloadButtons <- lapply(1:remaining, function(j) {
+        downloadButton(paste0("downloadHist", i + j - 1), 'Download')
+      })
       
+      # Fill remaining cells with empty space
+      emptyCells <- 4 - remaining
+      plotOutputs <- c(plotOutputs, rep("", emptyCells))
+      downloadButtons <- c(downloadButtons, rep("", emptyCells))
+      
+      out[[length(out) + 1]] <- do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), plotOutputs))
+      out[[length(out) + 1]] <- do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), downloadButtons))
+    }
+    
+    # Render histograms and download handlers
+    for (j in seq_along(histograms()$plotList)) {
       local({
         ii <- j
-        
         output[[paste0("hist", ii)]] <- renderImage({
           outfile <- tempfile(fileext = '.svg')
           ggsave(
             file = outfile,
             plot = histograms()$plotList[[ii]] + plt_theme,
             device = svglite,
-            width = 5,
-            height=5,
-            unit = 'in',
+            width = 3.5,  # Reduced width
+            height = 3.5,  # Reduced height
+            unit = 'in'
           )
-          
-          list(src = outfile,
-               contenttype = 'svg')
+          list(src = outfile, contenttype = 'svg')
         }, deleteFile = TRUE)
         
         output[[paste0("downloadHist", ii)]] <- downloadHandler(
@@ -1325,32 +1440,108 @@ shinyServer(function(input, output, session) {
                 "tmp.svg",
                 plot = histograms()$plotList[[ii]] + plt_theme,
                 unit = "in",
-                width = 6,
+                width = 3.5,  # Adjusted width for PNG export
                 limitsize = F,
                 device = svglite
               )
-              rsvg::rsvg_png("tmp.svg", file,
-                             height = 1800,
-                             width = 1800)
+              rsvg::rsvg_png("tmp.svg", file, height = 900, width = 900)  # Reduced resolution
             } else {
               ggsave(
                 file,
                 plot = histograms()$plotList[[ii]] + plt_theme,
                 unit = "in",
                 limitsize = F,
-                device = ifelse(
-                  input$fileType == "svg",
-                  svglite::svglite,
-                  input$fileType
-                )
+                device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType)
               )
             }
           }
         )
       })
     }
+    
     return(out)
   })
+  
+  
+  
+  output$stackedHistogram <- renderUI({
+    # Access the stacked plots
+    plots <- stackedPlots()
+    
+    # Handle case when plots are not available
+    if (is.null(plots)) {
+      return(h3("No stacked histograms available to display. Please upload a file."))
+    }
+    
+    # Create the layout for stacked histograms
+    fluidRow(
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(
+          plotOutput("rsvpGradeStacked", height = "700px"),
+          type = 4
+        ),
+        downloadButton("downloadRsvpStacked", "Download")
+      ),
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(
+          plotOutput("crowdingGradeStacked", height = "700px"),
+          type = 4
+        ),
+        downloadButton("downloadCrowdingStacked", "Download")
+      )
+    )
+  })
+  
+  # Render RSVP Grade Stacked Plot
+  output$rsvpGradeStacked <- renderPlot({
+    plots <- stackedPlots()
+    plots$rsvp_plot  # Render the RSVP stacked plot
+  })
+  
+  # Render Crowding Grade Stacked Plot
+  output$crowdingGradeStacked <- renderPlot({
+    plots <- stackedPlots()
+    plots$crowding_plot  # Render the crowding stacked plot
+  })
+  
+  # Download Handler for RSVP Stacked Plot
+  output$downloadRsvpStacked <- downloadHandler(
+    filename = function() {
+      paste0("histogram-of-rsvp-reading-stacked-by-grade", ".png")
+    },
+    content = function(file) {
+      plots <- stackedPlots()
+      ggsave(
+        file,
+        plot = plots$rsvp_plot,
+        device = "png",
+        width = 8,
+        height = 10,
+        dpi = 300
+      )
+    }
+  )
+  
+  # Download Handler for Crowding Stacked Plot
+  output$downloadCrowdingStacked <- downloadHandler(
+    filename = function() {
+      paste0("histogram-of-crowding-distance-by-grade", ".png")
+    },
+    content = function(file) {
+      plots <- stackedPlots()
+      ggsave(
+        file,
+        plot = plots$crowding_plot,
+        device = "png",
+        width = 8,
+        height = 10,
+        dpi = 300
+      )
+    }
+  )
+  
   
   output$scatters <- renderUI({
     out <- list()

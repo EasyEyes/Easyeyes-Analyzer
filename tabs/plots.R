@@ -53,6 +53,7 @@ plotsTab <- tabPanel(
   #### histogram ####
   h3("Histograms"),
   shinycssloaders::withSpinner(uiOutput('histograms'),type=4),
+  shinycssloaders::withSpinner(uiOutput('stackedHistogram'), type = 4),
   
   # conditionalPanel(condition='output.fileUploaded',
   #                  h3("Grade plots"),
