@@ -3,16 +3,16 @@ source('./constant.R')
 
 
 crowding_by_side <- function(crowding) {
-  
+  print('insdie crowding_by_side')
   crowding <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
     mutate(side = ifelse(targetEccentricityXDeg < 0, 'L', 'R'),
            XDeg = abs(targetEccentricityXDeg))
   
   crowding_L <- crowding %>% filter(side == "L") %>% select(-conditionName, -side)
   crowding_R <- crowding %>% filter(side == "R") %>% select(-conditionName, -side)
-  
+
   crowding_L_R <- crowding_L %>% 
-    left_join(crowding_R, by = c("participant","font", 'XDeg','order')) %>% 
+    full_join(crowding_R, by = c("participant","font", 'XDeg','order', 'block')) %>% 
     rename("bouma_factor_Left" = "bouma_factor.x",
            "bouma_factor_Right" = "bouma_factor.y",
            "log_crowding_distance_deg_Left" = "log_crowding_distance_deg.x",
@@ -29,47 +29,63 @@ crowding_scatter_plot <- function(crowding_L_R){
       return(NULL)
     }
   }
-  
-  summ <- group_by(crowding_L_R, font) %>% 
-    mutate(log_delta = log_crowding_distance_deg_Left - log_crowding_distance_deg_Right) %>% 
+  print('inside crowding_scatter_plot')
+  N_left = crowding_L_R %>% filter(!is.na(log_crowding_distance_deg_Left)) %>% count()
+  N_right= crowding_L_R %>% filter(!is.na(log_crowding_distance_deg_Right)) %>% count()
+  N_both = crowding_L_R %>% filter(!is.na(log_crowding_distance_deg_Right),!is.na(log_crowding_distance_deg_Left)) %>% count()
+  summ <- group_by(crowding_L_R) %>% 
+    mutate(log_delta = log_crowding_distance_deg_Left - log_crowding_distance_deg_Right,
+           log_mean = (log_crowding_distance_deg_Left+log_crowding_distance_deg_Right)/2) %>% 
     summarize(mean_log_delta = round(mean(log_delta),2),
               sd_log_delta = round(sd(log_delta),2),
               mean_left = round(mean(log_crowding_distance_deg_Left),2),
               sd_left = round(sd(log_crowding_distance_deg_Left),2),
               mean_right = round(mean(log_crowding_distance_deg_Right),2),
               sd_right = round(sd(log_crowding_distance_deg_Right),2),
-              N = n()) %>% 
-    mutate(label =paste0('N= ', N, '\n', 
-                         'logDelta: Mean= ', mean_log_delta, ', SD= ', sd_log_delta, '\n',
-                         'spacingDeg left: Mean= ', mean_left, ', SD= ', sd_left, '\n',
-                         'spacingDeg right: Mean= ', mean_right, ', SD= ', sd_right))
+              mean_avg = round(mean(log_mean),2),
+              sd_avg = round(sd(log_mean),2)) %>% 
+    mutate(sdTestRetest = round(sd_log_delta / sqrt(2), 2),
+           sdIndividual = round(sqrt(sd_avg^2 - 0.5*(sdTestRetest^2)),2)) %>% 
+    mutate(label =paste0('N= ', N_both, '\n', 
+                         'log(spacingDeg left): n=', format(N_left,nsmall=2),', meanLeft= ', format(mean_left,nsmall=2), ', sdLeft= ', format(sd_left,nsmall=2), '\n',
+                         'log(spacingDeg right): n=', format(N_right,nsmall=2),', meanRight= ', format(mean_right,nsmall=2), ', sdRight= ', format(sd_right,nsmall=2), '\n',
+                         'log(spacingDeg left)-log(spacingDeg right): n=',format(N_both,nsmall=2), '\n',
+                         'meanDiff=', format(mean_log_delta,nsmall=2), ', sdDiff= ', format(sd_log_delta,nsmall=2), '\n',
+                         '[log(spacingDeg left)+log(spacingDeg right)]/2: n=', format(N_both,nsmall=2), '\n',
+                         'meanAvg=', format(mean_avg,nsmall=2), ', sdAvg=', format(sd_avg,nsmall=2), '\n',
+                         'sdTestRetest=', format(sdTestRetest,nsmall=2), '\n',
+                         'sdIndividual=', format(sdIndividual,nsmall=2)
+                         ))
 
-  minY <- min(crowding_L_R$log_crowding_distance_deg_Left) * 0.8
-  maxY <- max(crowding_L_R$log_crowding_distance_deg_Left) * 1.5
-  minX <- min(crowding_L_R$log_crowding_distance_deg_Right) * 0.8
-  maxX <- max(crowding_L_R$log_crowding_distance_deg_Right) * 1.2
+  minXY <- min(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right) * 0.8
+  maxXY <- max(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right) * 1.2
   p <- ggplot(crowding_L_R,aes(y = 10^(log_crowding_distance_deg_Left), x = 10^(log_crowding_distance_deg_Right))) + 
     geom_point(size = 1) + 
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
-    scale_y_log10(limits = c(10^(minY), 
-                             10^(maxY)),
-                  breaks = c(0.1, 0.3, 1)) +
-    scale_x_log10(limits = c(10^(minX), 
-                             10^(maxX)),
-                  breaks = c(0.1, 0.3, 1)) + 
+    scale_y_log10(limits = c(10^(minXY), 
+                             10^(maxXY)),
+                  breaks = c(0.1, 0.3, 1),
+                  expand=c(0,0)) +
+    scale_x_log10(limits = c(10^(minXY), 
+                             10^(maxXY)),
+                  breaks = c(0.1, 0.3, 1),
+                  expand=c(0,0)) + 
     annotation_logticks(short = unit(0.1, "cm"),                                                
                         mid = unit(0.1, "cm"),
                         long = unit(0.3, "cm")) + 
+    coord_fixed() + 
     theme_bw() + 
-    ggpp::geom_text_npc(
-      data = summ,
-      aes(npcx = "left",
-          npcy = "top",
-          label = label)) + 
+    # ggpp::geom_text_npc(
+    #   data = summ,
+    #   aes(npcx = "left",
+    #       npcy = "top",
+    #       label = label)) + 
   labs(x = "Right crowding distance (deg)",
        y = "Left crowding distance (deg)",
-       title = "Peripheral crowding Left vs Right"
-  )
+       title = "Left vs right peripheral crowding",
+       caption = summ$label
+  ) + 
+    theme(plot.caption = element_text(hjust = 0, size = 12))
   return(p)
 }
 
@@ -221,7 +237,7 @@ get_foveal_crowding_vs_age <- function(crowding) {
 get_peripheral_crowding_vs_age <- function(crowding) {
   t <- crowding %>% filter(!is.na(age),
                            targetEccentricityXDeg != 0) %>% 
-    group_by(participant,age,Grade,`Skilled reader?`) %>% 
+    group_by(participant,age,Grade,`Skilled reader?`, block) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg,na.rm = T)) %>% 
     ungroup() %>% 
     mutate(N = paste0('N=',n()))
@@ -290,7 +306,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
   }
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
-    group_by(participant,age,Grade,`Skilled reader?`) %>% 
+    group_by(participant,age,Grade,`Skilled reader?`, block) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg,na.rm = T)) %>% 
     ungroup()
   foveal_vs_repeatedLetters <- repeatedLetters %>%
@@ -446,8 +462,6 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
           geom_point(aes(shape = `Skilled reader?`)) +
           scale_shape_manual(values = c(4,19))
       }
-      
-      
     }
     
     
@@ -478,6 +492,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
                               mid = unit(0.1, "cm"),
                               long = unit(0.3, "cm")) + 
           labs(title = 'Peripheral acuity vs foveal crowding\ncolored by grade',
+               subtitle = "Geometric average of left \nand right thresholds",
                x = 'Foveal crowding (deg)',
                y = 'Peripheral acuity (deg)') + 
           coord_fixed()
@@ -533,7 +548,7 @@ get_foveal_peripheral_diag <- function(crowding) {
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>%
     filter(targetEccentricityXDeg != 0) %>% 
-    group_by(participant,age,Grade,`Skilled reader?`) %>% 
+    group_by(participant,age,Grade,`Skilled reader?`, block) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg,na.rm = T)) %>% 
     ungroup()
   

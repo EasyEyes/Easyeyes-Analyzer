@@ -226,11 +226,11 @@ plot_rsvp_crowding <- function(allData) {
     compute_residuals <- function(data, x_var, y_var, age_var) {
       regression_y <- lm(paste0(y_var, " ~ ", age_var), data = data)
       residuals_y <- residuals(regression_y)
-      t <- tibble(y_var = data[[y_var]],
-                  prediction= predict(regression_y, se.fit = TRUE)$fit,
-                  residuals = residuals_y,
-      ) %>% mutate(diff = y_var - prediction)
-      print(t)
+      # t <- tibble(y_var = data[[y_var]],
+      #             prediction= predict(regression_y, se.fit = TRUE)$fit,
+      #             residuals = residuals_y,
+      # ) %>% mutate(diff = y_var - prediction)
+      # print(t)
       regression_x <- lm(paste0(x_var, " ~ ", age_var), data = data)
       residuals_x <- residuals(regression_x)
       return(data.frame(
@@ -765,7 +765,7 @@ plot_reading_crowding <- function(allData) {
   crowding <- allData$crowding %>% mutate(participant = tolower(participant))
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
-    group_by(participant, age, Grade,`Skilled reader?`) %>%
+    group_by(participant, age, Grade,`Skilled reader?`, block) %>%
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T)) %>% 
     ungroup()
   reading <- allData$reading %>% mutate(participant = tolower(participant))
@@ -775,9 +775,9 @@ plot_reading_crowding <- function(allData) {
   }
   
   # Create plots for peripheral and foveal data
-  p1 <- create_plot(peripheral, "Peripheral", 'Age')
+  p1 <- create_plot(peripheral, "Peripheral", 'Age') + labs(subtitle = "Geometric average of left and right thresholds")
   p2 <- create_plot(foveal, "Foveal", 'Age')
-  p3 <- create_plot(peripheral, "Peripheral", 'Grade')
+  p3 <- create_plot(peripheral, "Peripheral", 'Grade') + labs(subtitle = "Geometric average of left and right thresholds")
   p4 <- create_plot(foveal, "Foveal", 'Grade')
   
   return(list(p1, p2, p3, p4))
@@ -807,7 +807,8 @@ factor_out_age_and_plot <- function(allData) {
 
   data <- crowding %>%
     filter(targetEccentricityXDeg != 0) %>%  # Filter for peripheral data
-    select(participant, log_crowding_distance_deg) %>%
+    group_by(participant, block) %>% 
+    summarize(log_crowding_distance_deg = log_crowding_distance_deg) %>%
     inner_join(rsvp, by = "participant") %>%
     distinct(participant, log_crowding_distance_deg, block_avg_log_WPM, age) %>%
     filter(!is.na(log_crowding_distance_deg), !is.na(block_avg_log_WPM), !is.na(age)) %>%
@@ -874,6 +875,7 @@ factor_out_age_and_plot <- function(allData) {
       ) +
       labs(
         title = "Residual RSVP vs residual peripheral crowding\nafter factoring out age",
+        subtitle = "Geometric average of left and right thresholds",
         x = "Residual crowding (deg)",
         y = "Residual RSVP reading (w/min)"
       ) +
