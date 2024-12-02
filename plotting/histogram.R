@@ -33,7 +33,7 @@ get_crowding_hist <- function(crowding) {
 
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
-    group_by(participant, `Skilled reader?`) %>% 
+    group_by(participant, `Skilled reader?`, block) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = T)) %>% 
     ungroup()
   print(peripheral)
@@ -57,7 +57,8 @@ get_crowding_hist <- function(crowding) {
       ) +
       labs(x = 'Log foveal crowding (deg)',
            y = 'Count',
-           title ='Histogram of foveal\ncrowding') + 
+           title ='Histogram of foveal\ncrowding',
+           subtitle = "Geometric average of left \nand right thresholds") + 
       theme(
         plot.title = element_text(size = rel(0.5)),  # Scale down title size
         axis.title = element_text(size = rel(0.5)),  # Scale down axis title size
@@ -103,7 +104,7 @@ get_acuity_hist <- function(acuity) {
 
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, `Skilled reader?`) %>% 
+    group_by(participant, `Skilled reader?`, block) %>% 
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop)) %>% 
     ungroup()
   
@@ -137,7 +138,7 @@ get_acuity_hist <- function(acuity) {
   
   if (nrow(peripheral) > 0) {
     if ('Skilled reader?' %in% names(peripheral)) {
-      stats2 <- peripheral %>% filter(`Skilled reader?` == TRUE)
+      stats2 <- peripheral %>% filter(`Skilled reader?` != FALSE)
     } else {
       stats2 <- peripheral
     }
@@ -157,7 +158,8 @@ get_acuity_hist <- function(acuity) {
       ) +
       labs(x = 'Log acuity (deg)',
            y = 'Count',
-           title ='Histogram of peripheral\nacuity')
+           title ='Histogram of peripheral\nacuity',
+           subtitle = "Geometric average of left \nand right thresholds")
   } else {
     p2 <- NULL
   }

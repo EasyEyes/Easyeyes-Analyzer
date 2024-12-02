@@ -237,7 +237,7 @@ read_files <- function(file){
         
         info <- t %>% 
           dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
-          distinct(participant, block_condition, staircaseName, conditionName, 
+          distinct(participant, block, block_condition, staircaseName, conditionName, 
                    targetKind, font, experiment, thresholdParameter)
         
         summaries <- t %>% 
@@ -480,7 +480,7 @@ read_files <- function(file){
           
           info <- t %>% 
             dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
-            distinct(participant, block_condition, staircaseName, conditionName, 
+            distinct(participant, block, block_condition, staircaseName, conditionName, 
                      targetKind, font, experiment, thresholdParameter)
           
           summaries <- t %>% 

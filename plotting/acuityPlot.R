@@ -47,7 +47,7 @@ get_foveal_acuity_vs_age <- function(acuity) {
 get_peripheral_acuity_vs_age <- function(acuity) {
   t <- acuity %>% filter(!is.na(age),
                          targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade,`Skilled reader?`) %>% 
+    group_by(participant, age, Grade,`Skilled reader?`, block) %>% 
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop,na.rm = T)) %>% 
     ungroup() %>% 
     mutate(N = paste0('N=', n()))
@@ -78,6 +78,7 @@ get_peripheral_acuity_vs_age <- function(acuity) {
       )) +
       theme_bw() +
       labs(title = 'Peripheral acuity vs age\ncolored by Grade',
+           subtitle = "Geometric average of left \nand right thresholds",
            x = 'Age',
            y = 'Peripheral acuity (deg)')
     if (n_distinct(t$`Skilled reader?`) == 1) {
@@ -245,7 +246,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>% 
-    group_by(participant) %>% 
+    group_by(participant, block) %>% 
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop,na.rm = T)) %>% 
     ungroup()
   
@@ -406,7 +407,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>% 
-    group_by(participant) %>% 
+    group_by(participant, block) %>% 
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop,na.rm = T)) %>% 
     ungroup()
   

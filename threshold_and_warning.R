@@ -115,7 +115,6 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     
     reading <- rbind(reading, t)
   }
-  print(reading)
   # For italian data, reading OMT_words read as reading speed
   
   if (nrow(reading) == 0 & 'OMT_words read' %in% names(pretest)) {
@@ -268,17 +267,15 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       select(-lowerCaseParticipant)
   }
   quest <- all_summary %>% 
-    select(participant, block_condition, conditionName, font, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode, order) %>% 
+    select(participant, block, block_condition, conditionName, font, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode, order) %>% 
     left_join(eccentricityDeg, by = c('participant', 'block_condition', 'conditionName', 'order'))
   
   if (nrow(pretest) > 0) {
-    print(quest %>% filter(questType == 'crowding') %>% distinct(questType, targetEccentricityXDeg))
     quest <- quest %>% 
       filter((targetEccentricityXDeg == 0) | 
                ( targetEccentricityXDeg != 0 & !tolower(participant) %in% excludePeripheral$lowerCaseParticipant))
   }
-  print('after filter')
-  print(quest %>% filter(questType == 'crowding') %>% distinct(questType, targetEccentricityXDeg))
+  
   quest <- quest %>% 
     mutate(questType = case_when(
       (questType == 'crowding' | questType == 'acuity') & targetEccentricityXDeg == 0 ~ paste('Foveal', questType),
@@ -286,7 +283,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       .default = questType
     )) %>% 
     select(-targetEccentricityXDeg, -targetEccentricityYDeg)
-  print(quest %>% distinct(questType))
+
   
   age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     data_list[[i]] %>% 
@@ -301,6 +298,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     filter(questType == 'Foveal crowding' | 
            questType == 'Peripheral crowding') %>% 
     select(participant,
+           block,
            block_condition,
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
