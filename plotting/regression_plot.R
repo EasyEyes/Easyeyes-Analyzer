@@ -189,7 +189,7 @@ regression_acuity_plot <- function(df_list){
     scale_y_log10() +
     labs(x="Foveal acuity (deg)",
          y = "Reading speed (w/min)",
-         title = 'Ordinary and RSVP reading vs foveal acuity') +
+         title = 'Ordinary and RSVP reading vs\nfoveal acuity') +
     theme_bw() + 
     coord_fixed() + 
     annotation_logticks() +
