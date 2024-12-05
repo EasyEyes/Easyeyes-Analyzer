@@ -625,16 +625,31 @@ get_foveal_peripheral_diag <- function(crowding) {
   }
 }
 
-plot_crowding_vs_grade <- function(allData){
-  crowding <- allData$crowding
-  ggplot(data = crowding, aes(x = Grade, 
+plot_crowding_vs_age <- function(allData){
+  crowding <- allData$crowding %>% mutate(ageN = as.numeric(age))
+  stats <- crowding %>% 
+    do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
+    transmute(coef = map(fit, tidy)) %>%
+    unnest(coef) %>%
+    filter(term == "ageN") %>%  
+    mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
+    select(slope)
+  corr <- format(round(cor(crowding$ageN,crowding$log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)
+  ggplot(data = crowding, aes(x = ageN, 
                               y = 10^(log_crowding_distance_deg),
                               color = questType)) + 
     annotation_logticks(sides = 'l') + 
+    geom_smooth(method = 'lm', se=F) +
     geom_point()+ 
+    ggpp::geom_text_npc(
+      size = 8,
+      aes(npcx = "left",
+          npcy = "bottom",
+          label = paste0('slope=', stats$slope, ', R=', corr))) +
     scale_y_log10() + 
-    labs(x = 'Grade',
+    guides(color=guide_legend(title = '')) + 
+    labs(x = 'Age',
          y = 'Log crowding distance (deg)',
-         'Foveal and peripheral\ncrowding vs grade')
+         'Foveal and peripheral\ncrowding vs age')
 }
 

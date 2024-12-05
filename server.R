@@ -1759,11 +1759,11 @@ shinyServer(function(input, output, session) {
   
   #### grade plots
   
-  output$crowdingGradePlot <-renderImage({
+  output$crowdingAgePlot <-renderImage({
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot =  plot_crowding_vs_grade(df_list()) + plt_theme,
+      plot =  plot_crowding_vs_age(df_list()) + plt_theme,
       width = 6,
       unit = 'in',
       device = svglite,
@@ -1787,11 +1787,11 @@ shinyServer(function(input, output, session) {
   #        contenttype = 'svg')
   # }, deleteFile = TRUE)
   # 
-  output$acuityGradePlot <- renderImage({
+  output$acuityAgePlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot =plot_acuity_vs_grade(df_list()) + plt_theme,
+      plot =plot_acuity_vs_age(df_list()) + plt_theme,
       width = 6,
       unit = 'in',
       device = svglite
@@ -3644,17 +3644,17 @@ shinyServer(function(input, output, session) {
     
     ##### download handler for grade plots #####
     
-    output$downloadCrowdingGradePlot <- downloadHandler(
+    output$downloadCrowdingAgePlot <- downloadHandler(
       filename = paste0(
         experiment_names(),
-        'crowding-vs-grade',
+        'crowding-vs-age',
         '.',
         input$fileType
       ),
       content = function(file) {
         ggsave(
           file,
-          plot = plot_crowding_vs_grade(df_list()) + plt_theme,
+          plot = plot_crowding_vs_age(df_list()) + plt_theme,
           unit = "in",
           limitsize = F,
           device = ifelse(
@@ -3701,17 +3701,17 @@ shinyServer(function(input, output, session) {
     #   }
     # )
     
-    output$downloadAcuityGradePlot <- downloadHandler(
+    output$downloadAcuityAgePlot <- downloadHandler(
       filename = paste0(
         experiment_names(),
-        'acuity-vs-grade',
+        'acuity-vs-age',
         '.',
         input$fileType
       ),
       content = function(file) {
         ggsave(
           file,
-          plot = plot_acuity_vs_grade(df_list()) + plt_theme,
+          plot = plot_acuity_vs_age(df_list()) + plt_theme,
           unit = "in",
           limitsize = F,
           device = ifelse(

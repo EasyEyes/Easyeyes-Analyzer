@@ -426,16 +426,31 @@ plot_acuity_reading <- function(acuity, reading, type) {
   }
 }
 
-plot_acuity_vs_grade <- function(allData){
-  acuity <- allData$acuity
-  ggplot(data = acuity, aes(x = Grade, 
+plot_acuity_vs_age <- function(allData){
+  acuity <- allData$acuity %>% mutate(ageN = as.numeric(age))
+  stats <- acuity %>% 
+    do(fit = lm(questMeanAtEndOfTrialsLoop ~ ageN, data = .)) %>%
+    transmute(coef = map(fit, tidy)) %>%
+    unnest(coef) %>%
+    filter(term == "ageN") %>%  
+    mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
+    select(slope)
+  corr <- format(round(cor(acuity$ageN,acuity$questMeanAtEndOfTrialsLoop,use = "complete.obs"),2),nsmall=2)
+  ggplot(data = acuity, aes(x = ageN, 
                               y = 10^(questMeanAtEndOfTrialsLoop),
                               color = questType
   )) + 
     annotation_logticks(sides = 'l') + 
     geom_point()+ 
+    geom_smooth(method = 'lm', se=F) +
+    ggpp::geom_text_npc(
+      size = 5,
+      aes(npcx = "left",
+          npcy = "bottom",
+          label = paste0('slope=', stats$slope, ', R=', corr))) +
     scale_y_log10() + 
-    labs(x = 'Grade',
+    guides(color=guide_legend(title = '')) + 
+    labs(x = 'Age',
          y = 'Log acuity (deg)',
-         'Foveal and peripheral\ncrowding vs grade')
+         'Foveal and peripheral\nacuity vs age')
 }
