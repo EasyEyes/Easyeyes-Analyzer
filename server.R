@@ -1473,12 +1473,15 @@ shinyServer(function(input, output, session) {
       return(h3("No stacked histograms available to display. Please upload a file."))
     }
     
+    # Add custom CSS for responsive design
+   
+    
     # Create the layout for stacked histograms
     fluidRow(
       column(
         width = 6,
         shinycssloaders::withSpinner(
-          plotOutput("rsvpGradeStacked", height = "700px"),
+          plotOutput("rsvpGradeStacked", height = 1000), # ID will be targeted via CSS
           type = 4
         ),
         downloadButton("downloadRsvpStacked", "Download")
@@ -1486,13 +1489,15 @@ shinyServer(function(input, output, session) {
       column(
         width = 6,
         shinycssloaders::withSpinner(
-          plotOutput("crowdingGradeStacked", height = "700px"),
+          plotOutput("crowdingGradeStacked", height = 1000), # ID will be targeted via CSS
           type = 4
         ),
         downloadButton("downloadCrowdingStacked", "Download")
       )
     )
   })
+  
+  
   
   # Render RSVP Grade Stacked Plot
   output$rsvpGradeStacked <- renderPlot({

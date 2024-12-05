@@ -11,16 +11,17 @@ get_quest_diag <- function(quest){
     if (n_distinct(quest$Grade) > 1) {
       quest <- quest %>% 
         mutate(Grade = as.character(Grade))
-      p1 <- ggplot(quest, aes(x = questMeanAtEndOfTrialsLoop, 
-                                    y = questSDAtEndOfTrialsLoop, 
+     
+      p1 <- ggplot(quest, aes(x = questSDAtEndOfTrialsLoop, 
+                                    y =  questMeanAtEndOfTrialsLoop, 
                                     color = Grade)) + 
         facet_wrap(~questType) + 
         theme_bw() +
         ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
         labs(title = 'Quest SD vs mean colored by grade',
-             x = 'Quest mean',
-             y = 'Quest SD') +
-        theme(aspect.ratio = 1)
+             x = 'Quest SD',
+             y = 'Quest mean') +
+        theme(aspect.ratio = 1, panel.spacing = unit(1, "lines"))
     }
       if (n_distinct(quest$age) > 1) {
         quest <- quest %>% 

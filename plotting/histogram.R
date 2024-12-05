@@ -308,16 +308,10 @@ generate_histograms_by_grade <- function(data) {
           x = max(x_range_crowding), y = Inf,
           label = paste0("N=", stats$N, "\nMean=", stats$mean, "\nSD=", stats$sd),
           hjust = 1.05, vjust = 1,
-          size = 5,
+          size = 4,
           color = "black"
         ) +
-        theme_minimal() +
-        theme(
-          plot.title = element_text(size = 25),
-          axis.title.y = element_text(size = 18),
-          axis.text = element_text(size = 17),
-          plot.margin = margin(t = 5, r = 5, b = 5, l = 5)
-        )
+        plt_theme
       crowding_plots[[as.character(grade)]] <- crowding_plot
     }
   }
@@ -325,15 +319,13 @@ generate_histograms_by_grade <- function(data) {
   # Update the last crowding plot to include the x-axis label
   crowding_plots[[length(crowding_plots)]] <- crowding_plots[[length(crowding_plots)]] +
     xlab("Log crowding (deg)") +
-    theme(
-      axis.title.x = element_text(size = 27)  # Increase the size of the x-axis label for the bottom plot
-    )
+   plt_theme
   
   # Combine all crowding plots vertically
-  combined_crowding_plot <- wrap_plots(crowding_plots, ncol = 1, heights = rep(5, length(crowding_plots))) +
+  combined_crowding_plot <- wrap_plots(crowding_plots, ncol = 1, heights = rep(10, length(crowding_plots))) +
     plot_annotation(
       title = "Histogram of crowding\nstacked by grade",
-      theme = theme(plot.title = element_text(size = 35))
+      theme = plt_theme
     )
   
   # Process RSVP data by Grade
@@ -362,16 +354,10 @@ generate_histograms_by_grade <- function(data) {
           x = max(x_range_rsvp), y = Inf,
           label = paste0("N=", stats$N, "\nMean=", stats$mean, "\nSD=", stats$sd),
           hjust = 1.05, vjust = 1,
-          size = 5.5,
+          size = 4,
           color = "black"
         ) +
-        theme_minimal() +
-        theme(
-          plot.title = element_text(size = 25),
-          axis.title.y = element_text(size = 18),
-          axis.text = element_text(size = 17),
-          plot.margin = margin(t = 5, r = 5, b = 5, l = 5)
-        )
+        plt_theme
       rsvp_plots[[as.character(grade)]] <- rsvp_plot
     }
   }
@@ -379,15 +365,12 @@ generate_histograms_by_grade <- function(data) {
   # Update the last RSVP plot to include the x-axis label
   rsvp_plots[[length(rsvp_plots)]] <- rsvp_plots[[length(rsvp_plots)]] +
     xlab("Log RSVP reading speed (w/min)") +
-    theme(
-      axis.title.x = element_text(size = 27)  # Increase the size of the x-axis label for the bottom plot
-    )
-  
+    plt_theme
   # Combine all RSVP plots vertically
-  combined_rsvp_plot <- wrap_plots(rsvp_plots, ncol = 1, heights = rep(5, length(rsvp_plots))) +
+  combined_rsvp_plot <- wrap_plots(rsvp_plots, ncol = 1, heights = rep(10, length(rsvp_plots))) +
     plot_annotation(
       title = "Histogram of RSVP reading speed\nstacked by grade",
-      theme = theme(plot.title = element_text(size = 35))
+      theme = plt_theme
     )
   
   # Return combined plots
