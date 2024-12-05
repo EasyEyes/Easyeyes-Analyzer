@@ -536,6 +536,8 @@ getCorrMatrix <- function(allData, pretest) {
     pretest_for_corr$participant <- pretest$participant
     pretest_for_corr <- pretest_for_corr %>%
       mutate(participant = tolower(participant))
+  } else {
+    pretest_for_corr <- tibble()
   }
   
   
@@ -573,16 +575,17 @@ getCorrMatrix <- function(allData, pretest) {
     select(participant, `log reading`)
   
   crowdingW <- crowding %>% 
-    inner_join(acuity, by = 'participant') %>% 
+    full_join(acuity, by = 'participant') %>% 
     mutate(participant = tolower(participant)) %>% 
-    inner_join(rsvp_speed %>% select(participant, block_avg_log_WPM) %>% mutate(participant = tolower(participant)), by = 'participant') %>% 
-    inner_join(reading, by = 'participant')
+    full_join(rsvp_speed %>% select(participant, block_avg_log_WPM) %>% mutate(participant = tolower(participant)), by = 'participant') %>% 
+    full_join(reading, by = 'participant')
   
   if (nrow(pretest) > 0) {
     crowdingW <- crowdingW %>% 
       full_join(pretest_for_corr, by = 'participant')
   }
   
+  print(crowdingW)
   crowdingW <- crowdingW %>% 
     rename('log rsvp' = 'block_avg_log_WPM') %>% 
     ungroup() %>% 

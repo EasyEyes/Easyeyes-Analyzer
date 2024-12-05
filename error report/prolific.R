@@ -43,12 +43,14 @@ find_prolific_from_files <- function(file) {
     }
   }
   print('done find prolific')
+  print(prolificDT)
   return(prolificDT)
 }
 
 combineProlific <- function(prolificData, summary_table){
   print('inside combineProlific')
-  if (is.null(prolificData) | nrow(prolificData) == 0) {
+  if (T) {
+  # if (is.null(prolificData) | nrow(prolificData) == 0) {
     t <- summary_table %>% mutate(ProlificStatus= ' ',
                                   prolificMin = NaN,
                                   `Completion code` = NA,
