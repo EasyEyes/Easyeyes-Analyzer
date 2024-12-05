@@ -1759,20 +1759,20 @@ shinyServer(function(input, output, session) {
   
   #### grade plots
   
-  # output$crowdingGradePlot <-renderImage({
-  #   outfile <- tempfile(fileext = '.svg')
-  #   ggsave(
-  #     file = outfile,
-  #     plot =  gradePlots()[[1]] + plt_theme,
-  #     width = 6,
-  #     unit = 'in',
-  #     device = svglite,
-  #   )
-  #   
-  #   list(src = outfile,
-  #        contenttype = 'svg')
-  # }, deleteFile = TRUE)
-  # 
+  output$crowdingGradePlot <-renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =  plot_crowding_vs_grade(df_list()) + plt_theme,
+      width = 6,
+      unit = 'in',
+      device = svglite,
+    )
+
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+
   # output$rsvpGradePlot <- renderImage({
   #   outfile <- tempfile(fileext = '.svg')
   #   ggsave(
@@ -1787,18 +1787,18 @@ shinyServer(function(input, output, session) {
   #        contenttype = 'svg')
   # }, deleteFile = TRUE)
   # 
-  # output$acuityGradePlot <- renderImage({
-  #   outfile <- tempfile(fileext = '.svg')
-  #   ggsave(
-  #     file = outfile,
-  #     plot = gradePlots()[[3]] + plt_theme,
-  #     width = 6,
-  #     unit = 'in',
-  #     device = svglite
-  #   )
-  #   list(src = outfile,
-  #        contenttype = 'svg')
-  # }, deleteFile = TRUE)
+  output$acuityGradePlot <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =plot_acuity_vs_grade(df_list()) + plt_theme,
+      width = 6,
+      unit = 'in',
+      device = svglite
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
   
   #### test retest ####
   output$readingTestRetest <- renderImage({
@@ -3644,40 +3644,27 @@ shinyServer(function(input, output, session) {
     
     ##### download handler for grade plots #####
     
-    # output$downloadCrowdingGradePlot <- downloadHandler(
-    #   filename = paste0(
-    #     experiment_names(),
-    #     'crowding-vs-grade',
-    #     '.',
-    #     input$fileType
-    #   ),
-    #   content = function(file) {
-    #     if (input$fileType == "png") {
-    #       ggsave(
-    #         "tmp.svg",
-    #         plot = gradePlots()[[1]] + plt_theme,
-    #         unit = "in",
-    #         limitsize = F,
-    #         device = svglite
-    #       )
-    #       rsvg::rsvg_png("tmp.svg", file,
-    #                      height = 1800,
-    #                      width = 1800)
-    #     } else {
-    #       ggsave(
-    #         file,
-    #         plot = gradePlots()[[1]] + plt_theme,
-    #         unit = "in",
-    #         limitsize = F,
-    #         device = ifelse(
-    #           input$fileType == "svg",
-    #           svglite::svglite,
-    #           input$fileType
-    #         )
-    #       )
-    #     }
-    #   }
-    # )
+    output$downloadCrowdingGradePlot <- downloadHandler(
+      filename = paste0(
+        experiment_names(),
+        'crowding-vs-grade',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = plot_crowding_vs_grade(df_list()) + plt_theme,
+          unit = "in",
+          limitsize = F,
+          device = ifelse(
+            input$fileType == "svg",
+            svglite::svglite,
+            input$fileType
+          )
+        )
+      }
+    )
     
     # output$downloadRsvpGradePlot <- downloadHandler(
     #   filename = paste0(
@@ -3714,40 +3701,27 @@ shinyServer(function(input, output, session) {
     #   }
     # )
     
-    # output$downloadAcuityGradePlot <- downloadHandler(
-    #   filename = paste0(
-    #     experiment_names(),
-    #     'acuity-vs-grade',
-    #     '.',
-    #     input$fileType
-    #   ),
-    #   content = function(file) {
-    #     if (input$fileType == "png") {
-    #       ggsave(
-    #         "tmp.svg",
-    #         plot = gradePlots()[[3]] + plt_theme,
-    #         unit = "in",
-    #         limitsize = F,
-    #         device = svglite
-    #       )
-    #       rsvg::rsvg_png("tmp.svg", file,
-    #                      height = 1800,
-    #                      width = 1800)
-    #     } else {
-    #       ggsave(
-    #         file,
-    #         plot = gradePlots()[[3]] + plt_theme,
-    #         unit = "in",
-    #         limitsize = F,
-    #         device = ifelse(
-    #           input$fileType == "svg",
-    #           svglite::svglite,
-    #           input$fileProfile
-    #         )
-    #       )
-    #     }
-    #   }
-    # )
+    output$downloadAcuityGradePlot <- downloadHandler(
+      filename = paste0(
+        experiment_names(),
+        'acuity-vs-grade',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = plot_acuity_vs_grade(df_list()) + plt_theme,
+          unit = "in",
+          limitsize = F,
+          device = ifelse(
+            input$fileType == "svg",
+            svglite::svglite,
+            input$fileProfile
+          )
+        )
+      }
+    )
     
     ##### renderUI download handlers #####
     

@@ -625,5 +625,16 @@ get_foveal_peripheral_diag <- function(crowding) {
   }
 }
 
-
+plot_crowding_vs_grade <- function(allData){
+  crowding <- allData$crowding
+  ggplot(data = crowding, aes(x = Grade, 
+                              y = 10^(log_crowding_distance_deg),
+                              color = questType)) + 
+    annotation_logticks(sides = 'l') + 
+    geom_point()+ 
+    scale_y_log10() + 
+    labs(x = 'Grade',
+         y = 'Log crowding distance (deg)',
+         'Foveal and peripheral\ncrowding vs grade')
+}
 

@@ -426,4 +426,16 @@ plot_acuity_reading <- function(acuity, reading, type) {
   }
 }
 
-
+plot_acuity_vs_grade <- function(allData){
+  acuity <- allData$acuity
+  ggplot(data = acuity, aes(x = Grade, 
+                              y = 10^(questMeanAtEndOfTrialsLoop),
+                              color = questType
+  )) + 
+    annotation_logticks(sides = 'l') + 
+    geom_point()+ 
+    scale_y_log10() + 
+    labs(x = 'Grade',
+         y = 'Log acuity (deg)',
+         'Foveal and peripheral\ncrowding vs grade')
+}

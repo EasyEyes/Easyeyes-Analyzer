@@ -300,6 +300,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     select(participant,
            block,
            block_condition,
+           questType,
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
            font,
