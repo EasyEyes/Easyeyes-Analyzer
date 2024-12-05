@@ -6,13 +6,12 @@
 #
 #    http://shiny.rstudio.com/
 #
-options(shiny.maxRequestSize = 200 * 1024 ^ 2)
+options(shiny.maxRequestSize = 500 * 1024 ^ 2)
 library(shiny)
 library(dplyr)
 library(readr)
 library(stringr)
 library(emojifont)
-library(DT)
 library(ggpubr)
 library(shinyjs)
 library(lubridate)
