@@ -53,24 +53,55 @@ plotsTab <- tabPanel(
   #### histogram ####
   h3("Histograms"),
   shinycssloaders::withSpinner(uiOutput('histograms'),type=4),
-  shinycssloaders::withSpinner(uiOutput('stackedHistogram'), type = 4),
-  
-  conditionalPanel(condition='output.fileUploaded',
-                   h3("Grade plots"),
-                   splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(plotOutput("crowdingAgePlot", width = "100%", height = "100%"), type = 4),
-                     shinycssloaders::withSpinner(plotOutput("acuityAgePlot", width = "100%", height = "100%"), type = 4)
-                   ),
-                   splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     downloadButton("downloadCrowdingAgePlot", "Download"),
-                     downloadButton("downloadAcuityAgePlot", "Download")
-                   )
+  fluidRow(
+    splitLayout(
+      cellWidths = c("50%", "50%"),
+      shinycssloaders::withSpinner(plotOutput("stackedRsvpPlot", height = "100%"), type = 4),
+      shinycssloaders::withSpinner(plotOutput("stackedCrowdingPlot", height = "100%"), type = 4)
+    ),
+    splitLayout(
+      cellWidths = c("50%", "50%"),
+      downloadButton("downloadStackedRsvpPlot", "Download"),
+      downloadButton("downloadStackedCrowdingPlot", "Download")
+    ),
+    splitLayout(
+      cellWidths = c("50%", "50%"),
+      shinycssloaders::withSpinner(plotOutput("stackedFovealAcuityPlot", height = "100%"), type = 4),
+      shinycssloaders::withSpinner(plotOutput("stackedFovealCrowdingPlot", height = "100%"), type = 4)
+    ),
+    splitLayout(
+      cellWidths = c("50%", "50%"),
+      downloadButton("downloadStackedFovealAcuityPlot", "Download"),
+      downloadButton("downloadStackedFovealCrowdingPlot", "Download")
+    ),
+    splitLayout(
+      cellWidths = c("50%", "50%"),
+      shinycssloaders::withSpinner(plotOutput("stackedFovealRepeatedPlot", height = "100%"), type = 4),
+      shinycssloaders::withSpinner(plotOutput("stackedPeripheralAcuityPlot", height = "100%"), type = 4)
+    ),
+    splitLayout(
+      cellWidths = c("50%", "50%"),
+      downloadButton("downloadStackedFovealRepeatedPlot", "Download"),
+      downloadButton("downloadStackedPeripheralAcuityPlot", "Download")
+    )
   ),
+  
 
   h3("Scatter diagrams"),
   shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
+  fluidRow(
+    splitLayout(
+      cellWidths = c("50%", "50%"),  # Divide the row into two halves
+      tagList(
+        shinycssloaders::withSpinner(
+          plotOutput("readingVsRsvpPlot", height = "100%", width = "100%"),  # Adjusted size
+          type = 4
+        ),
+        downloadButton("downloadReadingVsRsvpPlot", "Download")
+      ),
+      NULL  # Empty second column
+    )
+  ),
   conditionalPanel('output.isRsvp', 
                    splitLayout(
                      cellWidths = c("50%", "50%"),
@@ -168,8 +199,20 @@ plotsTab <- tabPanel(
   #   downloadButton("downloadSloanVsTimesMeanPlot", "Download"),
   #   downloadButton("downloadSloanVsTimesSDPlot", "Download")
   # ),
-  h3("Plots for children"),
+  h3("Age plots"),
   uiOutput('plots'),
+  conditionalPanel(condition='output.fileUploaded',
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(plotOutput("crowdingAgePlot", width = "100%", height = "100%"), type = 4),
+                     shinycssloaders::withSpinner(plotOutput("acuityAgePlot", width = "100%", height = "100%"), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadCrowdingAgePlot", "Download"),
+                     downloadButton("downloadAcuityAgePlot", "Download")
+                   )
+  ),
   
   #### stairPlots #####
   # splitLayout(

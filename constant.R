@@ -112,6 +112,40 @@ plt_theme <- theme(legend.position = "top",
                    ),
                    strip.text = element_text(size = 14))
 
+stacked_theme <- function() {
+  scaling_factor <- 0.5  # Further reduce size for smaller aesthetics
+  
+  theme(
+    legend.position = "top", 
+    legend.box = "vertical", 
+    legend.justification = 'left',
+    legend.key.size = unit(4.5 * scaling_factor, "mm"),  # Reduced size
+    legend.title = element_text(size = 14 * scaling_factor),  # Reduced size
+    legend.text = element_text(size = 14 * scaling_factor),  # Reduced size
+    legend.box.margin = margin(0, 0, 0, 0, "cm"),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(), 
+    axis.title = element_text(size = 14 * scaling_factor),  # Reduced size
+    axis.text = element_text(size = 14 * scaling_factor),  # Reduced size
+    axis.line = element_line(colour = "black", size=0.2), 
+    plot.title = element_text(size = 18 * scaling_factor, hjust = 0),  # Reduced size
+    plot.subtitle = element_text(size = 18 * scaling_factor, hjust = 0),  # Reduced size
+    plot.margin = margin(
+      t = 0.1,  # Reduced size
+      r = 0.1,  # Reduced size
+      b = 0.1,  # Reduced size
+      l = 0.1,  # Reduced size
+      "inch"
+    ),
+    strip.text = element_text(size = 14 * scaling_factor)  # Reduced size
+  )
+}
+
+
+
+
+
 # instruction <- "All rows belonging to the same Pavlovia session (a CSV results file) have the same pastel shade.  Each row is a session event: ending, error, or warning. The right side of each column’s heading has buttons to sort up and down, and below is a text box for selection."
 instruction <- "Each row is one Pavlovia session. All rows belonging to the same Prolific session have the same pastel shade. One Prolific session includes several Pavlovia sessions when the participant doesn’t finish and tries again."
 

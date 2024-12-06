@@ -284,18 +284,17 @@ generate_histograms_by_grade <- function(data) {
             x = global_max, y = Inf,
             label = paste0("mean=", stats$mean, "\nsd=", stats$sd,  "\nN=", stats$N),
             hjust = 1.05, vjust = 1,
-            size = 7,
-            color = "black"
-          ) +
-          theme(
-            panel.grid.major = element_blank(),  # Remove major grid lines
-            panel.grid.minor = element_blank(),  # Remove minor grid lines
-            panel.background = element_blank(),  # Remove background
-            axis.title = element_text(size = 28),  # Axis titles size
-            axis.text = element_text(size = 28),   # Axis text size
-            axis.line = element_line(colour = "black", size = 0.5),  # Black axis lines
-            plot.title = element_text(size = 25, hjust = 0),  # Title size and alignment
-          )
+            size = 4,
+          )  + plt_theme
+          # theme(
+          #   panel.grid.major = element_blank(),  # Remove major grid lines
+          #   panel.grid.minor = element_blank(),  # Remove minor grid lines
+          #   panel.background = element_blank(),  # Remove background
+          #   axis.title = element_text(size = 28),  # Axis titles size
+          #   axis.text = element_text(size = 28),   # Axis text size
+          #   axis.line = element_line(colour = "black", size = 0.5),  # Black axis lines
+          #   plot.title = element_text(size = 25, hjust = 0),  # Title size and alignment
+          # )
         
         plots[[as.character(grade)]] <- plot
       }
@@ -307,12 +306,13 @@ generate_histograms_by_grade <- function(data) {
     }
     
     # Combine all plots vertically
-    combined_plot <- wrap_plots(plots, ncol = 1, heights = rep(2, length(plots))) +
+    combined_plot <- wrap_plots(plots, ncol = 1, heights = rep(1, length(plots))) +
       plot_annotation(
         title = paste("Histogram of", title_prefix, "\nstacked by grade"),
-        theme = theme(
-          plot.title = element_text(size = 36)  # Consistent title size
-        )
+        theme = plt_theme
+        # theme = theme(
+        #   plot.title = element_text(size = 36)  # Consistent title size
+        # )
       )
     
     return(combined_plot)

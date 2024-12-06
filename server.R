@@ -609,13 +609,7 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-   t <- plot_reading_rsvp(df_list()$reading, df_list()$rsvp)
-
-   if (!is.null(t)) {
-     l[[i]] = t
-     fileNames[[i]] = 'reading-vs-RSVP-reading'
-     i = i + 1
-   }
+   
    
     print('done age plots')
     return(list(
@@ -702,6 +696,67 @@ shinyServer(function(input, output, session) {
       fileNames = fileNames))
     
 })
+  
+  
+  readingVsRsvpPlot <- reactive({
+    req(df_list()$reading, df_list()$rsvp)  # Ensure required data is not NULL
+    print("Generating Reading vs RSVP plot...")
+    plot_reading_rsvp(df_list()$reading, df_list()$rsvp)
+  })
+  
+  
+  
+  observeEvent(readingVsRsvpPlot(), {
+    # Render Image Output
+    output$readingVsRsvpPlot <- renderImage({
+      req(readingVsRsvpPlot())  # Ensure reactive dependency is not NULL
+      
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot = readingVsRsvpPlot() + plt_theme,
+        width = 6,
+        height = 6,
+        unit = 'in',
+        device = svglite
+      )
+      
+      list(src = outfile,  contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
+    # Download Handler
+    output$downloadReadingVsRsvpPlot <- downloadHandler(
+      filename = function() { paste0("reading-vs-rsvp.", input$fileType) },
+      content = function(file) {
+        if (input$fileType == "png") {
+          tmp_svg <- tempfile(fileext = ".svg")
+          ggsave(
+            file = tmp_svg,
+            plot = readingVsRsvpPlot() + plt_theme,
+            width = 6,
+            unit = 'in',
+            device = svglite
+          )
+          rsvg::rsvg_png(tmp_svg, file, height = 1800, width = 1800)
+        } else {
+          ggsave(
+            file = file,
+            plot = readingVsRsvpPlot() + plt_theme,
+            width = 6,
+            unit = 'in',
+            limitsize = FALSE,
+            device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType)
+          )
+        }
+      }
+    )
+  })
+  
+  
+  
+  
+  
+  
   
   ## stacked histograms ## 
   stackedPlots <- reactive({
@@ -1468,119 +1523,154 @@ shinyServer(function(input, output, session) {
   
   
   
-  # Responsive and consistent UI rendering
-  output$stackedHistogram <- renderUI({
-    # Access the stacked plots
-    plots <- stackedPlots()
-    
-    # Handle case when plots are not available
-    if (is.null(plots)) {
-      return(h3("No stacked histograms available to display. Please upload a file."))
-    }
-    
-    # Create responsive layout for stacked histograms
-    fluidRow(
-      column(
+  
+  createDownloadHandlerWithFormat <- function(plot, base_filename) {
+    downloadHandler(
+      filename = function() { paste0(base_filename, ".", input$fileType) },
+      content = function(file) {
+        if (input$fileType == "png") {
+          # Save as SVG first and convert to PNG
+          tmp_svg <- tempfile(fileext = ".svg")
+          ggsave(
+            filename = tmp_svg,
+            plot = plot + plt_theme,
+            unit = "in",
+            width = 6,  # Adjusted width for PNG export
+            height = 12, # Adjusted height for PNG export
+            device = svglite
+          )
+          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)  # High-resolution PNG
+        } else {
+          # Save as SVG or other formats directly
+          ggsave(
+            filename = file,
+            plot = plot + plt_theme,
+            unit = "in",
+            width = 6,  # Adjusted width for export
+            height = 12, # Adjusted height for export
+            limitsize = FALSE,
+            device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType)
+          )
+        }
+      }
+    )
+  }
+  
+  observeEvent(stackedPlots(), {
+    # Render plots
+    output$stackedRsvpPlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        filename = outfile,
+        plot = stackedPlots()$rsvp_plot,
         width = 6,
-        shinycssloaders::withSpinner(plotOutput("rsvpGradeStacked", height = "1000px"), type = 4),
-        downloadButton("downloadRsvpStacked", "Download")
-      ),
-      column(
-        width = 6,
-        shinycssloaders::withSpinner(plotOutput("crowdingGradeStacked", height = "1000px"), type = 4),
-        downloadButton("downloadCrowdingStacked", "Download")
-      ),
-      column(
-        width = 6,
-        shinycssloaders::withSpinner(plotOutput("fovealAcuityStacked", height = "1000px"), type = 4),
-        downloadButton("downloadFovealAcuityStacked", "Download")
-      ),
-      column(
-        width = 6,
-        shinycssloaders::withSpinner(plotOutput("fovealCrowdingStacked", height = "1000px"), type = 4),
-        downloadButton("downloadFovealCrowdingStacked", "Download")
-      ),
-      column(
-        width = 6,
-        shinycssloaders::withSpinner(plotOutput("fovealRepeatedStacked", height = "1000px"), type = 4),
-        downloadButton("downloadFovealRepeatedStacked", "Download")
-      ),
-      column(
-        width = 6,
-        shinycssloaders::withSpinner(plotOutput("peripheralAcuityStacked", height = "1000px"), type = 4),
-        downloadButton("downloadPeripheralAcuityStacked", "Download")
+        height = 12,
+        unit = "in",
+        device = svglite
       )
+      list(src = outfile, contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
+    output$downloadStackedRsvpPlot <- createDownloadHandlerWithFormat(
+      plot = stackedPlots()$rsvp_plot,
+      base_filename = "stacked_rsvp"
+    )
+    
+    output$stackedCrowdingPlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        filename = outfile,
+        plot = stackedPlots()$crowding_plot,
+        width = 6,
+        height = 12,
+        unit = "in",
+        device = svglite
+      )
+      list(src = outfile, contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
+    output$downloadStackedCrowdingPlot <- createDownloadHandlerWithFormat(
+      plot = stackedPlots()$crowding_plot,
+      base_filename = "stacked_crowding"
+    )
+    
+    output$stackedFovealAcuityPlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        filename = outfile,
+        plot = stackedPlots()$foveal_acuity_plot,
+        width = 6,
+        height = 12,
+        unit = "in",
+        device = svglite
+      )
+      list(src = outfile, contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
+    output$downloadStackedFovealAcuityPlot <- createDownloadHandlerWithFormat(
+      plot = stackedPlots()$foveal_acuity_plot,
+      base_filename = "stacked_foveal_acuity"
+    )
+    
+    output$stackedFovealCrowdingPlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        filename = outfile,
+        plot = stackedPlots()$foveal_crowding_plot,
+        width = 6,
+        height =12,
+        unit = "in",
+        device = svglite
+      )
+      list(src = outfile, contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
+    output$downloadStackedFovealCrowdingPlot <- createDownloadHandlerWithFormat(
+      plot = stackedPlots()$foveal_crowding_plot,
+      base_filename = "stacked_foveal_crowding"
+    )
+    
+    output$stackedFovealRepeatedPlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        filename = outfile,
+        plot = stackedPlots()$foveal_repeated_plot,
+        width = 6,
+        height = 12,
+        unit = "in",
+        device = svglite
+      )
+      list(src = outfile, contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
+    output$downloadStackedFovealRepeatedPlot <- createDownloadHandlerWithFormat(
+      plot = stackedPlots()$foveal_repeated_plot,
+      base_filename = "stacked_foveal_repeated"
+    )
+    
+    output$stackedPeripheralAcuityPlot <- renderImage({
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        filename = outfile,
+        plot = stackedPlots()$peripheral_acuity_plot,
+        width = 6,
+        height = 12,
+        unit = "in",
+        device = svglite
+      )
+      list(src = outfile, contenttype = 'svg')
+    }, deleteFile = TRUE)
+    
+    output$downloadStackedPeripheralAcuityPlot <- createDownloadHandlerWithFormat(
+      plot = stackedPlots()$peripheral_acuity_plot,
+      base_filename = "stacked_peripheral_acuity"
     )
   })
   
-  # Render Plots with consistent font size and resolution
-  output$rsvpGradeStacked <- renderPlot({
-    stackedPlots()$rsvp_plot 
-  })  # Higher DPI for consistent rendering
   
-  output$crowdingGradeStacked <- renderPlot({
-    stackedPlots()$crowding_plot 
-  })
   
-  output$fovealAcuityStacked <- renderPlot({
-    stackedPlots()$foveal_acuity_plot 
-  })
   
-  output$fovealCrowdingStacked <- renderPlot({
-    stackedPlots()$foveal_crowding_plot 
-  })
-  
-  output$fovealRepeatedStacked <- renderPlot({
-    stackedPlots()$foveal_repeated_plot 
-  })
-  
-  output$peripheralAcuityStacked <- renderPlot({
-    stackedPlots()$peripheral_acuity_plot 
-  })
-  
-  # Download Handlers with resolution consistency
-  output$downloadRsvpStacked <- downloadHandler(
-    filename = function() { "rsvp_reading_stacked_histogram.png" },
-    content = function(file) {
-      ggsave(file, plot = stackedPlots()$rsvp_plot, dpi = 300, width = 8, height = 6)
-    }
-  )
-  
-  output$downloadCrowdingStacked <- downloadHandler(
-    filename = function() { "crowding_stacked_histogram.png" },
-    content = function(file) {
-      ggsave(file, plot = stackedPlots()$crowding_plot, dpi = 300, width = 8, height = 6)
-    }
-  )
-  
-  output$downloadFovealAcuityStacked <- downloadHandler(
-    filename = function() { "foveal_acuity_stacked_histogram.png" },
-    content = function(file) {
-      ggsave(file, plot = stackedPlots()$foveal_acuity_plot, dpi = 300, width = 8, height = 6)
-    }
-  )
-  
-  output$downloadFovealCrowdingStacked <- downloadHandler(
-    filename = function() { "foveal_crowding_stacked_histogram.png" },
-    content = function(file) {
-      ggsave(file, plot = stackedPlots()$foveal_crowding_plot, dpi = 300, width = 8, height = 6)
-    }
-  )
-  
-  output$downloadFovealRepeatedStacked <- downloadHandler(
-    filename = function() { "foveal_repeated_stacked_histogram.png" },
-    content = function(file) {
-      ggsave(file, plot = stackedPlots()$foveal_repeated_plot, dpi = 300, width = 8, height = 6)
-    }
-  )
-  
-  output$downloadPeripheralAcuityStacked <- downloadHandler(
-    filename = function() { "peripheral_acuity_stacked_histogram.png" },
-    content = function(file) {
-      ggsave(file, plot = stackedPlots()$peripheral_acuity_plot, dpi = 300, width = 8, height = 6)
-    }
-  )
-  
+ 
   
   
   output$scatters <- renderUI({
