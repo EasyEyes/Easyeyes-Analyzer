@@ -428,14 +428,37 @@ plot_acuity_reading <- function(acuity, reading, type) {
 
 plot_acuity_vs_age <- function(allData){
   acuity <- allData$acuity %>% mutate(ageN = as.numeric(age))
-  stats <- acuity %>% 
+  if (nrow(acuity) == 0) {
+    return(NULL)
+  }
+  
+  foveal <- acuity %>% filter(questType == 'Foveal acuity')
+  peripheral <- acuity %>% filter(questType == "Peripheral acuity")
+  if (nrow(foveal) > 0) {
+  foveal_stats <- foveal %>% 
     do(fit = lm(questMeanAtEndOfTrialsLoop ~ ageN, data = .)) %>%
     transmute(coef = map(fit, tidy)) %>%
     unnest(coef) %>%
     filter(term == "ageN") %>%  
     mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
     select(slope)
-  corr <- format(round(cor(acuity$ageN,acuity$questMeanAtEndOfTrialsLoop,use = "complete.obs"),2),nsmall=2)
+  } else{
+    foveal_stats <- NA
+  }
+  if (nrow(peripheral) > 0) {
+    peripheral_stats <- peripheral %>% 
+      do(fit = lm(questMeanAtEndOfTrialsLoop ~ ageN, data = .)) %>%
+      transmute(coef = map(fit, tidy)) %>%
+      unnest(coef) %>%
+      filter(term == "ageN") %>%  
+      mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
+      select(slope)
+  } else{
+    peripheral_stats <- NA
+  }
+  
+  foveal_corr <- format(round(cor(foveal$ageN,foveal$questMeanAtEndOfTrialsLoop,use = "complete.obs"),2),nsmall=2)
+  peripheral_corr <- format(round(cor(peripheral$ageN,peripheral$questMeanAtEndOfTrialsLoop,use = "complete.obs"),2),nsmall=2)
   ggplot(data = acuity, aes(x = ageN, 
                               y = 10^(questMeanAtEndOfTrialsLoop),
                               color = questType
@@ -444,13 +467,14 @@ plot_acuity_vs_age <- function(allData){
     geom_point()+ 
     geom_smooth(method = 'lm', se=F) +
     ggpp::geom_text_npc(
-      size = 5,
+      size = 12/.pt,
       aes(npcx = "left",
           npcy = "bottom",
-          label = paste0('slope=', stats$slope, ', R=', corr))) +
+          label = paste0('Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr, "\n",
+                         'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr))) +
     scale_y_log10() + 
     guides(color=guide_legend(title = '')) + 
     labs(x = 'Age',
          y = 'Log acuity (deg)',
-         'Foveal and peripheral\nacuity vs age')
+         title = 'Foveal and peripheral\nacuity vs age')
 }

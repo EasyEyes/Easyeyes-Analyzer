@@ -627,14 +627,39 @@ get_foveal_peripheral_diag <- function(crowding) {
 
 plot_crowding_vs_age <- function(allData){
   crowding <- allData$crowding %>% mutate(ageN = as.numeric(age))
-  stats <- crowding %>% 
+  if (nrow(crowding) == 0) {
+    return(NULL)
+  } 
+  foveal <- crowding %>% 
+    filter(questType == 'Foveal crowding')
+  peripheral <- crowding %>% 
+    filter(questType == 'Peripheral crowding')
+  
+  foveal_stats <- foveal %>% 
     do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
     transmute(coef = map(fit, tidy)) %>%
     unnest(coef) %>%
     filter(term == "ageN") %>%  
     mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
     select(slope)
-  corr <- format(round(cor(crowding$ageN,crowding$log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)
+  
+  foveal_corr <- crowding %>% 
+    filter(questType == 'Foveal crowding') %>% 
+    summarize(cor = format(round(cor(ageN,log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)) %>% 
+    select(cor)
+  if (nrow(peripheral) > 0) {
+    peripheral_stats <- peripheral %>% 
+      do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
+      transmute(coef = map(fit, tidy)) %>%
+      unnest(coef) %>%
+      filter(term == "ageN") %>%  
+      mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
+      select(slope)
+    peripheral_corr <- peripheral %>% 
+      summarize(cor = format(round(cor(ageN,log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)) %>% 
+      select(cor)
+  }
+ 
   ggplot(data = crowding, aes(x = ageN, 
                               y = 10^(log_crowding_distance_deg),
                               color = questType)) + 
@@ -642,14 +667,15 @@ plot_crowding_vs_age <- function(allData){
     geom_smooth(method = 'lm', se=F) +
     geom_point()+ 
     ggpp::geom_text_npc(
-      size = 8,
+      size = 12/.pt,
       aes(npcx = "left",
           npcy = "bottom",
-          label = paste0('slope=', stats$slope, ', R=', corr))) +
+          label = paste0('Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr, '\n',
+                         'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr))) +
     scale_y_log10() + 
     guides(color=guide_legend(title = '')) + 
     labs(x = 'Age',
          y = 'Log crowding distance (deg)',
-         'Foveal and peripheral\ncrowding vs age')
+         title = 'Foveal and peripheral\ncrowding vs age')
 }
 
