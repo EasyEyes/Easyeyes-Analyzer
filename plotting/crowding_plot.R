@@ -568,8 +568,8 @@ get_foveal_peripheral_diag <- function(crowding) {
       t <- t %>% 
         mutate(Grade = as.character(Grade))
       
-      p1 <- ggplot(t, aes(y = 10^foveal, 
-                          x = 10^(peripheral),
+      p1 <- ggplot(t, aes(y = 10^peripheral, 
+                          x = 10^foveal,
                           color = Grade)) + 
         ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
         scale_x_log10() + 
@@ -578,9 +578,9 @@ get_foveal_peripheral_diag <- function(crowding) {
         annotation_logticks(short = unit(0.1, "cm"),                                                
                             mid = unit(0.1, "cm"),
                             long = unit(0.3, "cm")) + 
-        labs(y = 'Foveal crowding (deg) ',
-             x = 'Peripheral crowding (deg)',
-             title = 'Foveal vs peripheral crowding\ncolored by grade') +
+        labs(y = 'Peripheral crowding (deg) ',
+             x = 'Foveal crowding (deg)',
+             title = 'Peripheral crowding vs foveal \ncrowding colored by grade') +
         coord_fixed()
     } 
     

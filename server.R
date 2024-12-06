@@ -763,13 +763,6 @@ shinyServer(function(input, output, session) {
       fileNames[[i]] = 'foveal-crowding-vs-foveal-acuity-grade-diagram'
       i = i + 1
     }
-
-    # t <-  foveal_crowding_vs_acuity_diag()$peripheral$age
-    # if (!is.null(t)) {
-    #   l[[i]] = t
-    #   fileNames[[i]] = 'foveal-crowding-vs-peripheral-acuity-age-diagram'
-    #   i = i + 1
-    # }
     
     t <-  foveal_crowding_vs_acuity_diag()$peripheral$grade
     if (!is.null(t)) {
@@ -778,12 +771,12 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    # t <- foveal_peripheral_diag()$age
-    # if (!is.null(t)) {
-    #   l[[i]] = t
-    #   fileNames[[i]] = 'foveal-crowding-vs-peripheral-crowding-age-diagram'
-    #   i = i + 1
-    # }
+    t <- get_acuity_foveal_peripheral_diag(df_list()$acuity)
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'foveal-acuity-vs-peripheral-acuity-grade-diagram'
+      i = i + 1
+    }
     
     t <- foveal_peripheral_diag()$grade
     if (!is.null(t)) {
@@ -792,6 +785,12 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
+    t <- peripheral_plot(df_list())
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'
+      i = i + 1
+    }
     
     t <- crowdingPlot()
     if (!is.null(t)) {
