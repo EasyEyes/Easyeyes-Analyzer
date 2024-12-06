@@ -3,6 +3,8 @@ get_quest_diag <- function(quest){
   if (nrow(quest) == 0) {
     return(list(age = NULL, grade = NULL))
   } else {
+    print("Quest Tibble")
+    print(quest)
     quest <- quest %>% 
       group_by(questType) %>% 
       mutate(N = paste0('N=',n()))

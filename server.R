@@ -19,6 +19,7 @@ library(ggpp)
 library(svglite)
 library(patchwork)
 library(plotly)
+library(grid)
 # library(showtext)
 # library(systemfonts)
 # Enables automatic font loading for showtext
@@ -711,12 +712,17 @@ shinyServer(function(input, output, session) {
     # Generate the stacked plots
     stacked <- generate_histograms_by_grade(df_list())
     
-    # Return the RSVP and crowding plots
+    # Return all plots, including the new ones
     return(list(
-      rsvp_plot = stacked$rsvp_plot,
-      crowding_plot = stacked$crowding_plot
+      rsvp_plot = stacked$rsvp_reading_plot,
+      crowding_plot = stacked$peripheral_crowding_plot,
+      foveal_acuity_plot = stacked$foveal_acuity_plot,
+      foveal_crowding_plot = stacked$foveal_crowding_plot,
+      foveal_repeated_plot = stacked$foveal_repeated_plot,
+      peripheral_acuity_plot = stacked$peripheral_acuity_plot
     ))
   })
+  
   
   #### scatterDiagrams ####
   
@@ -1462,6 +1468,7 @@ shinyServer(function(input, output, session) {
   
   
   
+  # Responsive and consistent UI rendering
   output$stackedHistogram <- renderUI({
     # Access the stacked plots
     plots <- stackedPlots()
@@ -1471,79 +1478,109 @@ shinyServer(function(input, output, session) {
       return(h3("No stacked histograms available to display. Please upload a file."))
     }
     
-    # Add custom CSS for responsive design
-   
-    
-    # Create the layout for stacked histograms
+    # Create responsive layout for stacked histograms
     fluidRow(
       column(
         width = 6,
-        shinycssloaders::withSpinner(
-          plotOutput("rsvpGradeStacked", height = 1000), # ID will be targeted via CSS
-          type = 4
-        ),
+        shinycssloaders::withSpinner(plotOutput("rsvpGradeStacked", height = "1000px"), type = 4),
         downloadButton("downloadRsvpStacked", "Download")
       ),
       column(
         width = 6,
-        shinycssloaders::withSpinner(
-          plotOutput("crowdingGradeStacked", height = 1000), # ID will be targeted via CSS
-          type = 4
-        ),
+        shinycssloaders::withSpinner(plotOutput("crowdingGradeStacked", height = "1000px"), type = 4),
         downloadButton("downloadCrowdingStacked", "Download")
+      ),
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(plotOutput("fovealAcuityStacked", height = "1000px"), type = 4),
+        downloadButton("downloadFovealAcuityStacked", "Download")
+      ),
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(plotOutput("fovealCrowdingStacked", height = "1000px"), type = 4),
+        downloadButton("downloadFovealCrowdingStacked", "Download")
+      ),
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(plotOutput("fovealRepeatedStacked", height = "1000px"), type = 4),
+        downloadButton("downloadFovealRepeatedStacked", "Download")
+      ),
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(plotOutput("peripheralAcuityStacked", height = "1000px"), type = 4),
+        downloadButton("downloadPeripheralAcuityStacked", "Download")
       )
     )
   })
   
-  
-  
-  # Render RSVP Grade Stacked Plot
+  # Render Plots with consistent font size and resolution
   output$rsvpGradeStacked <- renderPlot({
-    plots <- stackedPlots()
-    plots$rsvp_plot  # Render the RSVP stacked plot
-  })
+    stackedPlots()$rsvp_plot 
+  })  # Higher DPI for consistent rendering
   
-  # Render Crowding Grade Stacked Plot
   output$crowdingGradeStacked <- renderPlot({
-    plots <- stackedPlots()
-    plots$crowding_plot  # Render the crowding stacked plot
+    stackedPlots()$crowding_plot 
   })
   
-  # Download Handler for RSVP Stacked Plot
+  output$fovealAcuityStacked <- renderPlot({
+    stackedPlots()$foveal_acuity_plot 
+  })
+  
+  output$fovealCrowdingStacked <- renderPlot({
+    stackedPlots()$foveal_crowding_plot 
+  })
+  
+  output$fovealRepeatedStacked <- renderPlot({
+    stackedPlots()$foveal_repeated_plot 
+  })
+  
+  output$peripheralAcuityStacked <- renderPlot({
+    stackedPlots()$peripheral_acuity_plot 
+  })
+  
+  # Download Handlers with resolution consistency
   output$downloadRsvpStacked <- downloadHandler(
-    filename = function() {
-      paste0("histogram-of-rsvp-reading-stacked-by-grade", ".png")
-    },
+    filename = function() { "rsvp_reading_stacked_histogram.png" },
     content = function(file) {
-      plots <- stackedPlots()
-      ggsave(
-        file,
-        plot = plots$rsvp_plot,
-        device = "png",
-        width = 8,
-        height = 10,
-        dpi = 300
-      )
+      ggsave(file, plot = stackedPlots()$rsvp_plot, dpi = 300, width = 8, height = 6)
     }
   )
   
-  # Download Handler for Crowding Stacked Plot
   output$downloadCrowdingStacked <- downloadHandler(
-    filename = function() {
-      paste0("histogram-of-crowding-distance-by-grade", ".png")
-    },
+    filename = function() { "crowding_stacked_histogram.png" },
     content = function(file) {
-      plots <- stackedPlots()
-      ggsave(
-        file,
-        plot = plots$crowding_plot,
-        device = "png",
-        width = 8,
-        height = 10,
-        dpi = 300
-      )
+      ggsave(file, plot = stackedPlots()$crowding_plot, dpi = 300, width = 8, height = 6)
     }
   )
+  
+  output$downloadFovealAcuityStacked <- downloadHandler(
+    filename = function() { "foveal_acuity_stacked_histogram.png" },
+    content = function(file) {
+      ggsave(file, plot = stackedPlots()$foveal_acuity_plot, dpi = 300, width = 8, height = 6)
+    }
+  )
+  
+  output$downloadFovealCrowdingStacked <- downloadHandler(
+    filename = function() { "foveal_crowding_stacked_histogram.png" },
+    content = function(file) {
+      ggsave(file, plot = stackedPlots()$foveal_crowding_plot, dpi = 300, width = 8, height = 6)
+    }
+  )
+  
+  output$downloadFovealRepeatedStacked <- downloadHandler(
+    filename = function() { "foveal_repeated_stacked_histogram.png" },
+    content = function(file) {
+      ggsave(file, plot = stackedPlots()$foveal_repeated_plot, dpi = 300, width = 8, height = 6)
+    }
+  )
+  
+  output$downloadPeripheralAcuityStacked <- downloadHandler(
+    filename = function() { "peripheral_acuity_stacked_histogram.png" },
+    content = function(file) {
+      ggsave(file, plot = stackedPlots()$peripheral_acuity_plot, dpi = 300, width = 8, height = 6)
+    }
+  )
+  
   
   
   output$scatters <- renderUI({

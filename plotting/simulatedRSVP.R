@@ -21,6 +21,8 @@ is.contained = function(vec1, vec2) {
 }
 
 extractRSVPStaircases <- function(df) {
+  print("Df in simualted RSVP")
+  print(df)
   stairdf <- df %>%
     filter(!is.na(staircaseName) &
              (
