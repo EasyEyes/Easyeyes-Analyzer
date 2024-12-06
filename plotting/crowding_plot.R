@@ -255,7 +255,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
       scale_y_log10() + 
       ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
       theme_bw() +
-      labs(title = 'Peripheral crowding vs age\n colored by grade',
+      labs(title = 'Peripheral crowding vs age\ncolored by grade',
            x = 'Age',
            y = 'Peripheral crowding (deg)')
     if (n_distinct(t$`Skilled reader?`) == 1) {
