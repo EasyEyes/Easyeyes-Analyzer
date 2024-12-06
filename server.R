@@ -6,13 +6,12 @@
 #
 #    http://shiny.rstudio.com/
 #
-options(shiny.maxRequestSize = 200 * 1024 ^ 2)
+options(shiny.maxRequestSize = 500 * 1024 ^ 2)
 library(shiny)
 library(dplyr)
 library(readr)
 library(stringr)
 library(emojifont)
-library(DT)
 library(ggpubr)
 library(shinyjs)
 library(lubridate)
@@ -20,6 +19,7 @@ library(ggpp)
 library(svglite)
 library(patchwork)
 library(plotly)
+library(grid)
 # library(showtext)
 # library(systemfonts)
 # Enables automatic font loading for showtext
@@ -712,12 +712,17 @@ shinyServer(function(input, output, session) {
     # Generate the stacked plots
     stacked <- generate_histograms_by_grade(df_list())
     
-    # Return the RSVP and crowding plots
+    # Return all plots, including the new ones
     return(list(
-      rsvp_plot = stacked$rsvp_plot,
-      crowding_plot = stacked$crowding_plot
+      rsvp_plot = stacked$rsvp_reading_plot,
+      crowding_plot = stacked$peripheral_crowding_plot,
+      foveal_acuity_plot = stacked$foveal_acuity_plot,
+      foveal_crowding_plot = stacked$foveal_crowding_plot,
+      foveal_repeated_plot = stacked$foveal_repeated_plot,
+      peripheral_acuity_plot = stacked$peripheral_acuity_plot
     ))
   })
+  
   
   #### scatterDiagrams ####
   
@@ -764,13 +769,6 @@ shinyServer(function(input, output, session) {
       fileNames[[i]] = 'foveal-crowding-vs-foveal-acuity-grade-diagram'
       i = i + 1
     }
-
-    # t <-  foveal_crowding_vs_acuity_diag()$peripheral$age
-    # if (!is.null(t)) {
-    #   l[[i]] = t
-    #   fileNames[[i]] = 'foveal-crowding-vs-peripheral-acuity-age-diagram'
-    #   i = i + 1
-    # }
     
     t <-  foveal_crowding_vs_acuity_diag()$peripheral$grade
     if (!is.null(t)) {
@@ -779,12 +777,12 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    # t <- foveal_peripheral_diag()$age
-    # if (!is.null(t)) {
-    #   l[[i]] = t
-    #   fileNames[[i]] = 'foveal-crowding-vs-peripheral-crowding-age-diagram'
-    #   i = i + 1
-    # }
+    t <- get_acuity_foveal_peripheral_diag(df_list()$acuity)
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'foveal-acuity-vs-peripheral-acuity-grade-diagram'
+      i = i + 1
+    }
     
     t <- foveal_peripheral_diag()$grade
     if (!is.null(t)) {
@@ -793,6 +791,12 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
+    t <- peripheral_plot(df_list())
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'
+      i = i + 1
+    }
     
     t <- crowdingPlot()
     if (!is.null(t)) {
@@ -1464,6 +1468,7 @@ shinyServer(function(input, output, session) {
   
   
   
+  # Responsive and consistent UI rendering
   output$stackedHistogram <- renderUI({
     # Access the stacked plots
     plots <- stackedPlots()
@@ -1473,74 +1478,109 @@ shinyServer(function(input, output, session) {
       return(h3("No stacked histograms available to display. Please upload a file."))
     }
     
-    # Create the layout for stacked histograms
+    # Create responsive layout for stacked histograms
     fluidRow(
       column(
         width = 6,
-        shinycssloaders::withSpinner(
-          plotOutput("rsvpGradeStacked", height = "700px"),
-          type = 4
-        ),
+        shinycssloaders::withSpinner(plotOutput("rsvpGradeStacked", height = "1000px"), type = 4),
         downloadButton("downloadRsvpStacked", "Download")
       ),
       column(
         width = 6,
-        shinycssloaders::withSpinner(
-          plotOutput("crowdingGradeStacked", height = "700px"),
-          type = 4
-        ),
+        shinycssloaders::withSpinner(plotOutput("crowdingGradeStacked", height = "1000px"), type = 4),
         downloadButton("downloadCrowdingStacked", "Download")
+      ),
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(plotOutput("fovealAcuityStacked", height = "1000px"), type = 4),
+        downloadButton("downloadFovealAcuityStacked", "Download")
+      ),
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(plotOutput("fovealCrowdingStacked", height = "1000px"), type = 4),
+        downloadButton("downloadFovealCrowdingStacked", "Download")
+      ),
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(plotOutput("fovealRepeatedStacked", height = "1000px"), type = 4),
+        downloadButton("downloadFovealRepeatedStacked", "Download")
+      ),
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(plotOutput("peripheralAcuityStacked", height = "1000px"), type = 4),
+        downloadButton("downloadPeripheralAcuityStacked", "Download")
       )
     )
   })
   
-  # Render RSVP Grade Stacked Plot
+  # Render Plots with consistent font size and resolution
   output$rsvpGradeStacked <- renderPlot({
-    plots <- stackedPlots()
-    plots$rsvp_plot  # Render the RSVP stacked plot
-  })
+    stackedPlots()$rsvp_plot 
+  })  # Higher DPI for consistent rendering
   
-  # Render Crowding Grade Stacked Plot
   output$crowdingGradeStacked <- renderPlot({
-    plots <- stackedPlots()
-    plots$crowding_plot  # Render the crowding stacked plot
+    stackedPlots()$crowding_plot 
   })
   
-  # Download Handler for RSVP Stacked Plot
+  output$fovealAcuityStacked <- renderPlot({
+    stackedPlots()$foveal_acuity_plot 
+  })
+  
+  output$fovealCrowdingStacked <- renderPlot({
+    stackedPlots()$foveal_crowding_plot 
+  })
+  
+  output$fovealRepeatedStacked <- renderPlot({
+    stackedPlots()$foveal_repeated_plot 
+  })
+  
+  output$peripheralAcuityStacked <- renderPlot({
+    stackedPlots()$peripheral_acuity_plot 
+  })
+  
+  # Download Handlers with resolution consistency
   output$downloadRsvpStacked <- downloadHandler(
-    filename = function() {
-      paste0("histogram-of-rsvp-reading-stacked-by-grade", ".png")
-    },
+    filename = function() { "rsvp_reading_stacked_histogram.png" },
     content = function(file) {
-      plots <- stackedPlots()
-      ggsave(
-        file,
-        plot = plots$rsvp_plot,
-        device = "png",
-        width = 8,
-        height = 10,
-        dpi = 300
-      )
+      ggsave(file, plot = stackedPlots()$rsvp_plot, dpi = 300, width = 8, height = 6)
     }
   )
   
-  # Download Handler for Crowding Stacked Plot
   output$downloadCrowdingStacked <- downloadHandler(
-    filename = function() {
-      paste0("histogram-of-crowding-distance-by-grade", ".png")
-    },
+    filename = function() { "crowding_stacked_histogram.png" },
     content = function(file) {
-      plots <- stackedPlots()
-      ggsave(
-        file,
-        plot = plots$crowding_plot,
-        device = "png",
-        width = 8,
-        height = 10,
-        dpi = 300
-      )
+      ggsave(file, plot = stackedPlots()$crowding_plot, dpi = 300, width = 8, height = 6)
     }
   )
+  
+  output$downloadFovealAcuityStacked <- downloadHandler(
+    filename = function() { "foveal_acuity_stacked_histogram.png" },
+    content = function(file) {
+      ggsave(file, plot = stackedPlots()$foveal_acuity_plot, dpi = 300, width = 8, height = 6)
+    }
+  )
+  
+  output$downloadFovealCrowdingStacked <- downloadHandler(
+    filename = function() { "foveal_crowding_stacked_histogram.png" },
+    content = function(file) {
+      ggsave(file, plot = stackedPlots()$foveal_crowding_plot, dpi = 300, width = 8, height = 6)
+    }
+  )
+  
+  output$downloadFovealRepeatedStacked <- downloadHandler(
+    filename = function() { "foveal_repeated_stacked_histogram.png" },
+    content = function(file) {
+      ggsave(file, plot = stackedPlots()$foveal_repeated_plot, dpi = 300, width = 8, height = 6)
+    }
+  )
+  
+  output$downloadPeripheralAcuityStacked <- downloadHandler(
+    filename = function() { "peripheral_acuity_stacked_histogram.png" },
+    content = function(file) {
+      ggsave(file, plot = stackedPlots()$peripheral_acuity_plot, dpi = 300, width = 8, height = 6)
+    }
+  )
+  
   
   
   output$scatters <- renderUI({
@@ -1755,20 +1795,20 @@ shinyServer(function(input, output, session) {
   
   #### grade plots
   
-  # output$crowdingGradePlot <-renderImage({
-  #   outfile <- tempfile(fileext = '.svg')
-  #   ggsave(
-  #     file = outfile,
-  #     plot =  gradePlots()[[1]] + plt_theme,
-  #     width = 6,
-  #     unit = 'in',
-  #     device = svglite,
-  #   )
-  #   
-  #   list(src = outfile,
-  #        contenttype = 'svg')
-  # }, deleteFile = TRUE)
-  # 
+  output$crowdingAgePlot <-renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =  plot_crowding_vs_age(df_list()) + plt_theme,
+      width = 6,
+      unit = 'in',
+      device = svglite,
+    )
+
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+
   # output$rsvpGradePlot <- renderImage({
   #   outfile <- tempfile(fileext = '.svg')
   #   ggsave(
@@ -1783,18 +1823,18 @@ shinyServer(function(input, output, session) {
   #        contenttype = 'svg')
   # }, deleteFile = TRUE)
   # 
-  # output$acuityGradePlot <- renderImage({
-  #   outfile <- tempfile(fileext = '.svg')
-  #   ggsave(
-  #     file = outfile,
-  #     plot = gradePlots()[[3]] + plt_theme,
-  #     width = 6,
-  #     unit = 'in',
-  #     device = svglite
-  #   )
-  #   list(src = outfile,
-  #        contenttype = 'svg')
-  # }, deleteFile = TRUE)
+  output$acuityAgePlot <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =plot_acuity_vs_age(df_list()) + plt_theme,
+      width = 6,
+      unit = 'in',
+      device = svglite
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
   
   #### test retest ####
   output$readingTestRetest <- renderImage({
@@ -3640,40 +3680,27 @@ shinyServer(function(input, output, session) {
     
     ##### download handler for grade plots #####
     
-    # output$downloadCrowdingGradePlot <- downloadHandler(
-    #   filename = paste0(
-    #     experiment_names(),
-    #     'crowding-vs-grade',
-    #     '.',
-    #     input$fileType
-    #   ),
-    #   content = function(file) {
-    #     if (input$fileType == "png") {
-    #       ggsave(
-    #         "tmp.svg",
-    #         plot = gradePlots()[[1]] + plt_theme,
-    #         unit = "in",
-    #         limitsize = F,
-    #         device = svglite
-    #       )
-    #       rsvg::rsvg_png("tmp.svg", file,
-    #                      height = 1800,
-    #                      width = 1800)
-    #     } else {
-    #       ggsave(
-    #         file,
-    #         plot = gradePlots()[[1]] + plt_theme,
-    #         unit = "in",
-    #         limitsize = F,
-    #         device = ifelse(
-    #           input$fileType == "svg",
-    #           svglite::svglite,
-    #           input$fileType
-    #         )
-    #       )
-    #     }
-    #   }
-    # )
+    output$downloadCrowdingAgePlot <- downloadHandler(
+      filename = paste0(
+        experiment_names(),
+        'crowding-vs-age',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = plot_crowding_vs_age(df_list()) + plt_theme,
+          unit = "in",
+          limitsize = F,
+          device = ifelse(
+            input$fileType == "svg",
+            svglite::svglite,
+            input$fileType
+          )
+        )
+      }
+    )
     
     # output$downloadRsvpGradePlot <- downloadHandler(
     #   filename = paste0(
@@ -3710,40 +3737,27 @@ shinyServer(function(input, output, session) {
     #   }
     # )
     
-    # output$downloadAcuityGradePlot <- downloadHandler(
-    #   filename = paste0(
-    #     experiment_names(),
-    #     'acuity-vs-grade',
-    #     '.',
-    #     input$fileType
-    #   ),
-    #   content = function(file) {
-    #     if (input$fileType == "png") {
-    #       ggsave(
-    #         "tmp.svg",
-    #         plot = gradePlots()[[3]] + plt_theme,
-    #         unit = "in",
-    #         limitsize = F,
-    #         device = svglite
-    #       )
-    #       rsvg::rsvg_png("tmp.svg", file,
-    #                      height = 1800,
-    #                      width = 1800)
-    #     } else {
-    #       ggsave(
-    #         file,
-    #         plot = gradePlots()[[3]] + plt_theme,
-    #         unit = "in",
-    #         limitsize = F,
-    #         device = ifelse(
-    #           input$fileType == "svg",
-    #           svglite::svglite,
-    #           input$fileProfile
-    #         )
-    #       )
-    #     }
-    #   }
-    # )
+    output$downloadAcuityAgePlot <- downloadHandler(
+      filename = paste0(
+        experiment_names(),
+        'acuity-vs-age',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        ggsave(
+          file,
+          plot = plot_acuity_vs_age(df_list()) + plt_theme,
+          unit = "in",
+          limitsize = F,
+          device = ifelse(
+            input$fileType == "svg",
+            svglite::svglite,
+            input$fileProfile
+          )
+        )
+      }
+    )
     
     ##### renderUI download handlers #####
     

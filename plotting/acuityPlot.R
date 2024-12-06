@@ -426,4 +426,128 @@ plot_acuity_reading <- function(acuity, reading, type) {
   }
 }
 
+plot_acuity_vs_age <- function(allData){
+  acuity <- allData$acuity %>% mutate(ageN = as.numeric(age))
+  if (nrow(acuity) == 0) {
+    return(NULL)
+  }
+  
+  foveal <- acuity %>% filter(questType == 'Foveal acuity')
+  peripheral <- acuity %>% filter(questType == "Peripheral acuity")
+  if (nrow(foveal) > 0) {
+  foveal_stats <- foveal %>% 
+    do(fit = lm(questMeanAtEndOfTrialsLoop ~ ageN, data = .)) %>%
+    transmute(coef = map(fit, tidy)) %>%
+    unnest(coef) %>%
+    filter(term == "ageN") %>%  
+    mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
+    select(slope)
+  } else{
+    foveal_stats <- NA
+  }
+  if (nrow(peripheral) > 0) {
+    peripheral_stats <- peripheral %>% 
+      do(fit = lm(questMeanAtEndOfTrialsLoop ~ ageN, data = .)) %>%
+      transmute(coef = map(fit, tidy)) %>%
+      unnest(coef) %>%
+      filter(term == "ageN") %>%  
+      mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
+      select(slope)
+  } else{
+    peripheral_stats <- NA
+  }
+  
+  foveal_corr <- format(round(cor(foveal$ageN,foveal$questMeanAtEndOfTrialsLoop,use = "complete.obs"),2),nsmall=2)
+  peripheral_corr <- format(round(cor(peripheral$ageN,peripheral$questMeanAtEndOfTrialsLoop,use = "complete.obs"),2),nsmall=2)
+  ggplot(data = acuity, aes(x = ageN, 
+                              y = 10^(questMeanAtEndOfTrialsLoop),
+                              color = questType
+  )) + 
+    annotation_logticks(sides = 'l') + 
+    geom_point()+ 
+    geom_smooth(method = 'lm', se=F) +
+    ggpp::geom_text_npc(
+      size = 12/.pt,
+      aes(npcx = "left",
+          npcy = "bottom",
+          label = paste0('Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr, "\n",
+                         'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr))) +
+    scale_y_log10() + 
+    guides(color=guide_legend(title = '')) + 
+    labs(x = 'Age',
+         y = 'Log acuity (deg)',
+         title = 'Foveal and peripheral\nacuity vs age')
+}
 
+get_acuity_foveal_peripheral_diag <- function(acuity) {
+  
+  foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
+  peripheral <- acuity %>%
+    filter(targetEccentricityXDeg != 0) %>% 
+    group_by(participant,age,Grade,`Skilled reader?`, block) %>% 
+    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop,na.rm = T)) %>% 
+    ungroup()
+  
+  if (nrow(foveal) == 0 | nrow(peripheral) == 0) {
+    return(list(age = NULL, grade = NULL))
+  } else {
+    p1 <- NULL
+    t <- foveal %>% 
+      rename('foveal' = 'questMeanAtEndOfTrialsLoop') %>% 
+      select(foveal, participant, order) %>% 
+      inner_join(peripheral, by = 'participant') %>% 
+      rename('peripheral' = 'questMeanAtEndOfTrialsLoop') %>% 
+      mutate(age = format(age,nsmall=2),
+             N = paste0('N=',n()))
+    if (n_distinct(t$Grade) > 1) {
+      t <- t %>% 
+        mutate(Grade = as.character(Grade))
+      
+      p1 <- ggplot(t, aes(y = 10^peripheral, 
+                          x = 10^foveal,
+                          color = Grade)) + 
+        ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
+        scale_x_log10() + 
+        scale_y_log10() + 
+        theme_bw() +
+        annotation_logticks(short = unit(0.1, "cm"),                                                
+                            mid = unit(0.1, "cm"),
+                            long = unit(0.3, "cm")) + 
+        labs(y = 'Peripheral acuity (deg) ',
+             x = 'Foveal acuity (deg)',
+             title = 'Peripheral acuity vs foveal \nacuity colored by grade') +
+        coord_fixed()
+    } 
+    
+    if (n_distinct(t$`Skilled reader?`) == 1) {
+      p1 <- p1 + geom_point()
+    } else {
+      p1 <- p1 + 
+        geom_point(aes(shape = `Skilled reader?`)) +
+        scale_shape_manual(values = c(4,19))
+    }
+    return(p1)
+  }
+}
+
+peripheral_plot <- function(allData){
+  crowding <- allData$crowding %>% filter(targetEccentricityXDeg != 0)
+  acuity <- allData$acuity %>% filter(targetEccentricityXDeg != 0)
+  if (nrow(crowding) == 0 | nrow(acuity) == 0) {
+    return(NULL)
+  }
+  t <- crowding %>% 
+    select(participant, log_crowding_distance_deg) %>% 
+    left_join(acuity, by = "participant") %>% 
+    mutate(Grade = as.character(Grade))
+  ggplot(data=t,aes(x=10^(log_crowding_distance_deg),
+                    y =10^questMeanAtEndOfTrialsLoop,
+                    color = Grade)) +
+    geom_point() +
+    scale_x_log10(expand=c(0,0)) +
+    scale_y_log10(expand=c(0,0)) +
+    coord_fixed() +
+    labs(x='Peripheral crowding distance (deg)',
+         y='Peripheral acuity (deg)',
+         title = 'Peripheral acuity vs peripheral \ncrowding colored by grade')
+}

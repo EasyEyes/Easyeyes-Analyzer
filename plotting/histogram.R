@@ -1,5 +1,8 @@
 library(patchwork)
 
+
+
+
 get_fluency_histogram <- function(fluency){
   
   if(nrow(fluency) == 0) {
@@ -240,159 +243,135 @@ get_repeatedLetter_hist <- function(repeated) {
 
 
 generate_histograms_by_grade <- function(data) {
-  
+
   crowding <- data$crowding
+  acuity <- data$acuity
+  repeated <- data$repeated
   rsvp <- data$rsvp
   
-  # Ensure the required columns exist in the datasets
-  required_columns_crowding <- c("log_crowding_distance_deg", "Grade", "targetEccentricityXDeg")
-  required_columns_rsvp <- c("block_avg_log_WPM", "Grade")
-  
-  if (!all(required_columns_crowding %in% names(crowding))) {
-    stop(paste(
-      "Crowding data is missing required columns:",
-      paste(setdiff(required_columns_crowding, names(crowding)), collapse = ", ")
-    ))
+  # Helper function to create stacked histograms
+  create_stacked_histogram <- function(subset_data, variable, grade_order, x_label, title_prefix) {
+    plots <- list()
+    
+    # Calculate global x-axis range for all grades
+    global_min <- floor(min(subset_data[[variable]], na.rm = TRUE))
+    global_max <- ceiling(max(subset_data[[variable]], na.rm = TRUE))
+    x_range <- seq(global_min, global_max, length.out = 50) 
+    
+    for (grade in grade_order) {
+      grade_subset <- subset_data %>% filter(Grade == grade)
+      if (nrow(grade_subset) > 0) {
+        stats <- grade_subset %>%
+          summarize(
+            mean = round(mean(!!sym(variable), na.rm = TRUE), 2),
+            sd = round(sd(!!sym(variable), na.rm = TRUE), 2),
+            N = n()
+          )
+        
+         # Use global min/max
+        
+        plot <- ggplot(grade_subset, aes_string(x = variable)) +
+          geom_histogram(breaks = x_range, color = "black", fill = "black") +
+          labs(
+            x = NULL,  # Remove x-axis label for individual plots
+            y = "Count",
+            title = paste("Grade", grade)
+          ) +
+          scale_x_continuous(limits = c(global_min, global_max), expand = c(0, 0)) +  # Global x limits
+          scale_y_continuous(expand = c(0, 0)) +
+          annotate(
+            "text",
+            x = global_max, y = Inf,
+            label = paste0("mean=", stats$mean, "\nsd=", stats$sd,  "\nN=", stats$N),
+            hjust = 1.05, vjust = 1,
+            size = 7,
+            color = "black"
+          ) +
+          theme(
+            panel.grid.major = element_blank(),  # Remove major grid lines
+            panel.grid.minor = element_blank(),  # Remove minor grid lines
+            panel.background = element_blank(),  # Remove background
+            axis.title = element_text(size = 28),  # Axis titles size
+            axis.text = element_text(size = 28),   # Axis text size
+            axis.line = element_line(colour = "black", size = 0.5),  # Black axis lines
+            plot.title = element_text(size = 25, hjust = 0),  # Title size and alignment
+          )
+        
+        plots[[as.character(grade)]] <- plot
+      }
+    }
+    
+    # Add x-axis label to the last plot
+    if (length(plots) > 0) {
+      plots[[length(plots)]] <- plots[[length(plots)]] + xlab(x_label)
+    }
+    
+    # Combine all plots vertically
+    combined_plot <- wrap_plots(plots, ncol = 1, heights = rep(2, length(plots))) +
+      plot_annotation(
+        title = paste("Histogram of", title_prefix, "\nstacked by grade"),
+        theme = theme(
+          plot.title = element_text(size = 36)  # Consistent title size
+        )
+      )
+    
+    return(combined_plot)
   }
   
-  if (!all(required_columns_rsvp %in% names(rsvp))) {
-    stop(paste(
-      "RSVP data is missing required columns:",
-      paste(setdiff(required_columns_rsvp, names(rsvp)), collapse = ", ")
-    ))
-  }
   
-  # Process grades: Put "Grade R" at the beginning and others in ascending order
-  unique_grades <- unique(c(crowding$Grade, rsvp$Grade))
+  
+  # Grade order
+  unique_grades <- unique(c(crowding$Grade, acuity$Grade, repeated$Grade, rsvp$Grade))
   grade_order <- c(sort(setdiff(unique_grades, "R"), decreasing = TRUE), "R")
   
-  # Combine x-axis values for consistency
-  x_values_crowding <- unique(crowding$log_crowding_distance_deg)
-  x_values_rsvp <- unique(rsvp$block_avg_log_WPM)
-  
-  x_range_crowding <- seq(
-    floor(min(x_values_crowding, na.rm = TRUE)) - 0.5,
-    ceiling(max(x_values_crowding, na.rm = TRUE)) + 0.5,
-    length.out = 50
+  # Generate stacked histograms for each variable
+  rsvp_reading_plot <- create_stacked_histogram(
+    rsvp, "block_avg_log_WPM", grade_order, 
+    "Log RSVP reading speed (w/min)", "RSVP reading"
   )
   
-  x_range_rsvp <- seq(
-    floor(min(x_values_rsvp, na.rm = TRUE)) - 0.5,
-    ceiling(max(x_values_rsvp, na.rm = TRUE)) + 0.5,
-    length.out = 50
+  peripheral_crowding <- crowding %>% filter(targetEccentricityXDeg != 0)
+  peripheral_crowding_plot <- create_stacked_histogram(
+    peripheral_crowding, "log_crowding_distance_deg", grade_order, 
+    "Log peripheral crowding (deg)", "peripheral crowding"
   )
   
-  # Process crowding data by Grade
-  crowding_plots <- list()
-  for (grade in grade_order) {
-    crowding_subset <- crowding %>% filter(Grade == grade)
-    if (nrow(crowding_subset) > 0) {
-      stats <- crowding_subset %>%
-        summarize(
-          mean = round(mean(log_crowding_distance_deg, na.rm = TRUE), 2),
-          sd = round(sd(log_crowding_distance_deg, na.rm = TRUE), 2),
-          N = n()
-        )
-      
-      crowding_plot <- ggplot(crowding_subset, aes(x = log_crowding_distance_deg)) +
-        geom_histogram(breaks = x_range_crowding, color = "black", fill = "black") +
-        labs(
-          x = NULL,  # Remove x-axis label for individual plots
-          y = "Count",
-          title = paste("Grade", grade)
-        ) +
-        scale_x_continuous(limits = range(x_range_crowding), expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0)) +
-        annotate(
-          "text",
-          x = max(x_range_crowding), y = Inf,
-          label = paste0("N=", stats$N, "\nMean=", stats$mean, "\nSD=", stats$sd),
-          hjust = 1.05, vjust = 1,
-          size = 5,
-          color = "black"
-        ) +
-        theme_minimal() +
-        theme(
-          plot.title = element_text(size = 25),
-          axis.title.y = element_text(size = 18),
-          axis.text = element_text(size = 17),
-          plot.margin = margin(t = 5, r = 5, b = 5, l = 5)
-        )
-      crowding_plots[[as.character(grade)]] <- crowding_plot
-    }
-  }
+  foveal_acuity <- acuity %>% filter(targetEccentricityXDeg == 0)
+  foveal_acuity_plot <- create_stacked_histogram(
+    foveal_acuity, "questMeanAtEndOfTrialsLoop", grade_order, 
+    "Log acuity (deg)", "foveal acuity"
+  )
   
-  # Update the last crowding plot to include the x-axis label
-  crowding_plots[[length(crowding_plots)]] <- crowding_plots[[length(crowding_plots)]] +
-    xlab("Log crowding (deg)") +
-    theme(
-      axis.title.x = element_text(size = 27)  # Increase the size of the x-axis label for the bottom plot
-    )
+  foveal_crowding <- crowding %>% filter(targetEccentricityXDeg == 0)
+  foveal_crowding_plot <- create_stacked_histogram(
+    foveal_crowding, "log_crowding_distance_deg", grade_order, 
+    "Log foveal crowding (deg)", "foveal crowding"
+  )
   
-  # Combine all crowding plots vertically
-  combined_crowding_plot <- wrap_plots(crowding_plots, ncol = 1, heights = rep(5, length(crowding_plots))) +
-    plot_annotation(
-      title = "Histogram of crowding\nstacked by grade",
-      theme = theme(plot.title = element_text(size = 35))
-    )
+  foveal_repeated <- repeated %>% filter(targetEccentricityXDeg == 0)
+  foveal_repeated_plot <- create_stacked_histogram(
+    foveal_repeated, "log_crowding_distance_deg", grade_order, 
+    "Log repeated-letter crowding (deg)", "foveal repeated-letter crowding"
+  )
   
-  # Process RSVP data by Grade
-  rsvp_plots <- list()
-  for (grade in grade_order) {
-    rsvp_subset <- rsvp %>% filter(Grade == grade)
-    if (nrow(rsvp_subset) > 0) {
-      stats <- rsvp_subset %>%
-        summarize(
-          mean = round(mean(block_avg_log_WPM, na.rm = TRUE), 2),
-          sd = round(sd(block_avg_log_WPM, na.rm = TRUE), 2),
-          N = n()
-        )
-      
-      rsvp_plot <- ggplot(rsvp_subset, aes(x = block_avg_log_WPM)) +
-        geom_histogram(breaks = x_range_rsvp, color = "black", fill = "black") +
-        labs(
-          x = NULL,  # Remove x-axis label for individual plots
-          y = "Count",
-          title = paste("Grade", grade)
-        ) +
-        scale_x_continuous(limits = range(x_range_rsvp), expand = c(0, 0)) +
-        scale_y_continuous(expand = c(0, 0)) +
-        annotate(
-          "text",
-          x = max(x_range_rsvp), y = Inf,
-          label = paste0("N=", stats$N, "\nMean=", stats$mean, "\nSD=", stats$sd),
-          hjust = 1.05, vjust = 1,
-          size = 5.5,
-          color = "black"
-        ) +
-        theme_minimal() +
-        theme(
-          plot.title = element_text(size = 25),
-          axis.title.y = element_text(size = 18),
-          axis.text = element_text(size = 17),
-          plot.margin = margin(t = 5, r = 5, b = 5, l = 5)
-        )
-      rsvp_plots[[as.character(grade)]] <- rsvp_plot
-    }
-  }
+  peripheral_acuity <- acuity %>% filter(targetEccentricityXDeg != 0)
+  peripheral_acuity_plot <- create_stacked_histogram(
+    peripheral_acuity, "questMeanAtEndOfTrialsLoop", grade_order, 
+    "Log acuity (deg)", "peripheral acuity"
+  )
   
-  # Update the last RSVP plot to include the x-axis label
-  rsvp_plots[[length(rsvp_plots)]] <- rsvp_plots[[length(rsvp_plots)]] +
-    xlab("Log RSVP reading speed (w/min)") +
-    theme(
-      axis.title.x = element_text(size = 27)  # Increase the size of the x-axis label for the bottom plot
-    )
-  
-  # Combine all RSVP plots vertically
-  combined_rsvp_plot <- wrap_plots(rsvp_plots, ncol = 1, heights = rep(5, length(rsvp_plots))) +
-    plot_annotation(
-      title = "Histogram of RSVP reading speed\nstacked by grade",
-      theme = theme(plot.title = element_text(size = 35))
-    )
-  
-  # Return combined plots
-  return(list(crowding_plot = combined_crowding_plot, rsvp_plot = combined_rsvp_plot))
+  # Return all stacked plots
+  return(list(
+    rsvp_reading_plot = rsvp_reading_plot,
+    peripheral_crowding_plot = peripheral_crowding_plot,
+    foveal_acuity_plot = foveal_acuity_plot,
+    foveal_crowding_plot = foveal_crowding_plot,
+    foveal_repeated_plot = foveal_repeated_plot,
+    peripheral_acuity_plot = peripheral_acuity_plot
+  ))
 }
+
+
 
 
 

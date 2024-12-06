@@ -55,28 +55,20 @@ plotsTab <- tabPanel(
   shinycssloaders::withSpinner(uiOutput('histograms'),type=4),
   shinycssloaders::withSpinner(uiOutput('stackedHistogram'), type = 4),
   
-  # conditionalPanel(condition='output.fileUploaded',
-  #                  h3("Grade plots"),
-  #                  splitLayout(
-  #                    cellWidths = c("50%", "50%"),
-  #                    shinycssloaders::withSpinner(plotOutput("crowdingGradePlot", width = "100%", height = "100%"), type = 4),
-  #                    shinycssloaders::withSpinner(plotOutput("rsvpGradePlot", width = "100%", height = "100%"), type = 4)
-  #                  ),
-  #                  splitLayout(
-  #                    cellWidths = c("50%", "50%"),
-  #                    downloadButton("downloadCrowdingGradePlot", "Download"),
-  #                    downloadButton("downloadRsvpGradePlot", "Download")
-  #                  ),
-  #                  splitLayout(
-  #                    cellWidths = c("50%", "50%"),
-  #                    shinycssloaders::withSpinner(plotOutput("acuityGradePlot", width = "100%", height = "100%"), type = 4)
-  #                  ),
-  #                  splitLayout(
-  #                    cellWidths = c("50%", "50%"),
-  #                    downloadButton("downloadAcuityGradePlot", "Download")
-  #                  )
-  # ),
-  # 
+  conditionalPanel(condition='output.fileUploaded',
+                   h3("Grade plots"),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(plotOutput("crowdingAgePlot", width = "100%", height = "100%"), type = 4),
+                     shinycssloaders::withSpinner(plotOutput("acuityAgePlot", width = "100%", height = "100%"), type = 4)
+                   ),
+                   splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadCrowdingAgePlot", "Download"),
+                     downloadButton("downloadAcuityAgePlot", "Download")
+                   )
+  ),
+
   h3("Scatter diagrams"),
   shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
   conditionalPanel('output.isRsvp', 
