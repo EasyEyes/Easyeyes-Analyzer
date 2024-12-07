@@ -875,6 +875,13 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
+   t <- get_quest_sd_vs_trials(df_list()$quest)
+    if (!is.null(t)) {
+      l[[i]] <- t
+      fileNames[[i]] <- 'quest-sd-vs-quest-trials'
+      i <- i + 1
+    }
+    
     t <- regression_reading_plot(df_list())
     if (!is.null(t$foveal)) {
       l[[i]] = t$foveal
@@ -1533,10 +1540,24 @@ shinyServer(function(input, output, session) {
           tmp_svg <- tempfile(fileext = ".svg")
           ggsave(
             filename = tmp_svg,
-            plot = plot + plt_theme,
+            plot = plot + plt_theme + 
+              theme(
+              axis.text.x = if (i < length(grade_order)) element_blank() else element_text(),
+              axis.ticks.x = if (i < length(grade_order)) element_blank() else element_line(),
+              plot.title = element_text(size = 14, margin = margin(b = 1)), # Smaller title with reduced bottom margin
+              plot.margin = margin(t = 2, r = 5, b = 2, l = 5) # Reduced overall plot margin
+            ) + theme(
+              legend.position = "top",
+              legend.key.size = unit(2, "mm"),
+              legend.title = element_text(size = 8),
+              legend.text = element_text(size = 8),
+              axis.text = element_text(size = 11),
+              plot.title = element_text(size = 12, margin = margin(b = 2)),
+              plot.margin = margin(5, 5, 5, 5, "pt")
+            ),
             unit = "in",
             width = 6,  # Adjusted width for PNG export
-            height = 12, # Adjusted height for PNG export
+            height = 8, # Adjusted height for PNG export
             device = svglite
           )
           rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)  # High-resolution PNG
@@ -1547,7 +1568,7 @@ shinyServer(function(input, output, session) {
             plot = plot + plt_theme,
             unit = "in",
             width = 6,  # Adjusted width for export
-            height = 12, # Adjusted height for export
+            height = 8, # Adjusted height for export
             limitsize = FALSE,
             device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType)
           )
@@ -1564,7 +1585,7 @@ shinyServer(function(input, output, session) {
         filename = outfile,
         plot = stackedPlots()$rsvp_plot,
         width = 6,
-        height = 12,
+        height = 8,
         unit = "in",
         device = svglite
       )
@@ -1573,7 +1594,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadStackedRsvpPlot <- createDownloadHandlerWithFormat(
       plot = stackedPlots()$rsvp_plot,
-      base_filename = "stacked_rsvp"
+      base_filename = "histogram-of-rsvp-reading-stacked-by-grade"
     )
     
     output$stackedCrowdingPlot <- renderImage({
@@ -1582,7 +1603,7 @@ shinyServer(function(input, output, session) {
         filename = outfile,
         plot = stackedPlots()$crowding_plot,
         width = 6,
-        height = 12,
+        height = 8,
         unit = "in",
         device = svglite
       )
@@ -1591,7 +1612,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadStackedCrowdingPlot <- createDownloadHandlerWithFormat(
       plot = stackedPlots()$crowding_plot,
-      base_filename = "stacked_crowding"
+      base_filename = "histogram-of-peripheral-crowding-stacked-by-grade"
     )
     
     output$stackedFovealAcuityPlot <- renderImage({
@@ -1600,7 +1621,7 @@ shinyServer(function(input, output, session) {
         filename = outfile,
         plot = stackedPlots()$foveal_acuity_plot,
         width = 6,
-        height = 12,
+        height = 8,
         unit = "in",
         device = svglite
       )
@@ -1609,7 +1630,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadStackedFovealAcuityPlot <- createDownloadHandlerWithFormat(
       plot = stackedPlots()$foveal_acuity_plot,
-      base_filename = "stacked_foveal_acuity"
+      base_filename = "histogram-of-foveal-acuity-stacked-by-grade"
     )
     
     output$stackedFovealCrowdingPlot <- renderImage({
@@ -1618,7 +1639,7 @@ shinyServer(function(input, output, session) {
         filename = outfile,
         plot = stackedPlots()$foveal_crowding_plot,
         width = 6,
-        height =12,
+        height =8,
         unit = "in",
         device = svglite
       )
@@ -1627,7 +1648,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadStackedFovealCrowdingPlot <- createDownloadHandlerWithFormat(
       plot = stackedPlots()$foveal_crowding_plot,
-      base_filename = "stacked_foveal_crowding"
+      base_filename = "histogram-of-foveal-crowding-stacked-by-grade"
     )
     
     output$stackedFovealRepeatedPlot <- renderImage({
@@ -1636,7 +1657,7 @@ shinyServer(function(input, output, session) {
         filename = outfile,
         plot = stackedPlots()$foveal_repeated_plot,
         width = 6,
-        height = 12,
+        height = 8,
         unit = "in",
         device = svglite
       )
@@ -1645,7 +1666,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadStackedFovealRepeatedPlot <- createDownloadHandlerWithFormat(
       plot = stackedPlots()$foveal_repeated_plot,
-      base_filename = "stacked_foveal_repeated"
+      base_filename = "histogram-of-foveal-repeated-letter-crowding-stacked-by-grade"
     )
     
     output$stackedPeripheralAcuityPlot <- renderImage({
@@ -1654,7 +1675,7 @@ shinyServer(function(input, output, session) {
         filename = outfile,
         plot = stackedPlots()$peripheral_acuity_plot,
         width = 6,
-        height = 12,
+        height = 8,
         unit = "in",
         device = svglite
       )
@@ -1663,7 +1684,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadStackedPeripheralAcuityPlot <- createDownloadHandlerWithFormat(
       plot = stackedPlots()$peripheral_acuity_plot,
-      base_filename = "stacked_peripheral_acuity"
+      base_filename = "histogram-of-peripheral-acuity-stacked-by-grade"
     )
   })
   

@@ -258,7 +258,8 @@ generate_histograms_by_grade <- function(data) {
     global_max <- ceiling(max(subset_data[[variable]], na.rm = TRUE))
     x_range <- seq(global_min, global_max, length.out = 50) 
     
-    for (grade in grade_order) {
+    for (i in seq_along(grade_order)) {
+      grade <- grade_order[i]
       grade_subset <- subset_data %>% filter(Grade == grade)
       if (nrow(grade_subset) > 0) {
         stats <- grade_subset %>%
@@ -268,33 +269,41 @@ generate_histograms_by_grade <- function(data) {
             N = n()
           )
         
-         # Use global min/max
-        
         plot <- ggplot(grade_subset, aes_string(x = variable)) +
           geom_histogram(breaks = x_range, color = "black", fill = "black") +
           labs(
-            x = NULL,  # Remove x-axis label for individual plots
+            x = NULL,  # No x-axis label for individual plots
             y = "Count",
             title = paste("Grade", grade)
           ) +
-          scale_x_continuous(limits = c(global_min, global_max), expand = c(0, 0)) +  # Global x limits
+          scale_x_continuous(
+            limits = c(global_min, global_max), 
+            expand = c(0, 0)
+          ) +
           scale_y_continuous(expand = c(0, 0)) +
           annotate(
             "text",
             x = global_max, y = Inf,
             label = paste0("mean=", stats$mean, "\nsd=", stats$sd,  "\nN=", stats$N),
             hjust = 1.05, vjust = 1,
-            size = 4,
-          )  + plt_theme
-          # theme(
-          #   panel.grid.major = element_blank(),  # Remove major grid lines
-          #   panel.grid.minor = element_blank(),  # Remove minor grid lines
-          #   panel.background = element_blank(),  # Remove background
-          #   axis.title = element_text(size = 28),  # Axis titles size
-          #   axis.text = element_text(size = 28),   # Axis text size
-          #   axis.line = element_line(colour = "black", size = 0.5),  # Black axis lines
-          #   plot.title = element_text(size = 25, hjust = 0),  # Title size and alignment
-          # )
+            size = 4
+          ) +
+          plt_theme +
+          # Remove x-axis tick marks and labels for all but the bottom plot
+          theme(
+            axis.text.x = if (i < length(grade_order)) element_blank() else element_text(),
+            axis.ticks.x = if (i < length(grade_order)) element_blank() else element_line(),
+            plot.title = element_text(size = 14, margin = margin(b = 1)), # Smaller title with reduced bottom margin
+            plot.margin = margin(t = 2, r = 5, b = 2, l = 5) # Reduced overall plot margin
+          ) + theme(
+            legend.position = "top",
+            legend.key.size = unit(2, "mm"),
+            legend.title = element_text(size = 8),
+            legend.text = element_text(size = 8),
+            axis.text = element_text(size = 11),
+            plot.title = element_text(size = 12, margin = margin(b = 2)),
+            plot.margin = margin(5, 5, 5, 5, "pt")
+          )
         
         plots[[as.character(grade)]] <- plot
       }
@@ -302,21 +311,22 @@ generate_histograms_by_grade <- function(data) {
     
     # Add x-axis label to the last plot
     if (length(plots) > 0) {
-      plots[[length(plots)]] <- plots[[length(plots)]] + xlab(x_label)
+      plots[[length(plots)]] <- plots[[length(plots)]] + 
+        xlab(x_label) +  # Add the x-axis label
+        theme(axis.title.x = element_text(vjust = -0.5))  # Adjust the position of the x-axis label
     }
     
     # Combine all plots vertically
-    combined_plot <- wrap_plots(plots, ncol = 1, heights = rep(1, length(plots))) +
+    combined_plot <- wrap_plots(plots, ncol = 1, heights = rep(0.5, length(plots))) +
       plot_annotation(
         title = paste("Histogram of", title_prefix, "\nstacked by grade"),
         theme = plt_theme
-        # theme = theme(
-        #   plot.title = element_text(size = 36)  # Consistent title size
-        # )
       )
     
     return(combined_plot)
   }
+  
+  
   
   
   
