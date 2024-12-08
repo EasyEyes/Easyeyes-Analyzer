@@ -251,6 +251,9 @@ generate_histograms_by_grade <- function(data) {
   
   # Helper function to create stacked histograms
   create_stacked_histogram <- function(subset_data, variable, grade_order, x_label, title_prefix) {
+    print(nrow(subset_data))
+    print(subset_data[[variable]])
+    if (nrow(subset_data) == 0) {return(NULL)}
     plots <- list()
     
     # Calculate global x-axis range for all grades
@@ -326,10 +329,6 @@ generate_histograms_by_grade <- function(data) {
     return(combined_plot)
   }
   
-  
-  
-  
-  
   # Grade order
   unique_grades <- unique(c(crowding$Grade, acuity$Grade, repeated$Grade, rsvp$Grade))
   grade_order <- c(sort(setdiff(unique_grades, "R"), decreasing = TRUE), "R")
@@ -369,6 +368,8 @@ generate_histograms_by_grade <- function(data) {
     peripheral_acuity, "questMeanAtEndOfTrialsLoop", grade_order, 
     "Log acuity (deg)", "peripheral acuity"
   )
+  
+  print('done all stacked plots')
   
   # Return all stacked plots
   return(list(

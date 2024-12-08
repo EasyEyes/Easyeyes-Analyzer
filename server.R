@@ -1913,7 +1913,7 @@ shinyServer(function(input, output, session) {
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot =  plot_crowding_vs_age(df_list()) + plt_theme,
+      plot =  plot_crowding_vs_age(df_list()$crowding) + plt_theme,
       width = 6,
       unit = 'in',
       device = svglite,
@@ -3801,19 +3801,33 @@ shinyServer(function(input, output, session) {
         '.',
         input$fileType
       ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = plot_crowding_vs_age(df_list()) + plt_theme,
-          unit = "in",
-          limitsize = F,
-          device = ifelse(
-            input$fileType == "svg",
-            svglite::svglite,
-            input$fileType
-          )
-        )
-      }
+        content = function(file) {
+          if (input$fileType == "png") {
+            ggsave(
+              "tmp.svg",
+              plot = plot_crowding_vs_age(df_list()$crowding ) + plt_theme,
+              unit = "in",
+              limitsize = F,
+              device = svglite
+            )
+            rsvg::rsvg_png("tmp.svg", file,
+                           height = 1800,
+                           width = 1800)
+          } else {
+            ggsave(
+              file,
+              plot =plot_crowding_vs_age(df_list()$crowding) + plt_theme,
+              unit = "in",
+              limitsize = F,
+              device = ifelse(
+                input$fileType == "svg",
+                svglite::svglite,
+                input$fileType
+              )
+            )
+          }
+        }
+      
     )
     
     # output$downloadRsvpGradePlot <- downloadHandler(

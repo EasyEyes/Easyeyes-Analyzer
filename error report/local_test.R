@@ -11,7 +11,7 @@ source('./plotting/simulatedRSVP.R')
 source('./constant.R')
 # store name of experiment in experiment object
 
-experiment = "Data"
+experiment = "KirkburtonData_with_pretest"
 # locate the folder that you store experiments
 setwd("~/Downloads/")
 # get the folder name for your experiment
@@ -67,14 +67,17 @@ for (i in 1 : n) {
       if (!('readingCorpus' %in% colnames(t))) {
         t$readingCorpus <- ""
       }
-      if ('readingPageWords' %in% colnames(t)) {
-        t$wordPerMin <- (as.numeric(t$readingPageWords) + as.numeric(t$readingLinesPerPage) - 1) / (as.numeric(t$readingPageDurationOnsetToOffsetSec) / 60)
+      if (!('readingPageDurationOnsetToOffsetSec' %in% colnames(t))) {
+        t$readingPageDurationOnsetToOffsetSec <- NA
+      }
+      if (!('readingPageWords' %in% colnames(t))) {
+        t$readingPageWords <- NA
+      }
+      if (!('readingNumberOfQuestions' %in% colnames(t))) {
+        t$readingNumberOfQuestions <- NA
       }
       if (!('viewingDistanceDesiredCm' %in% colnames(t))) {
         t$viewingDistanceDesiredCm <- NA
-      }
-      if (!('readingPageWords' %in% colnames(t))) {
-        t$wordPerMin <- NA
       }
       if (!('readingNumberOfQuestions' %in% colnames(t))) {
         t$readingNumberOfQuestions <- NA
@@ -228,11 +231,8 @@ for (i in 1 : n) {
       
       info <- t %>% 
         dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
-        distinct(participant, block_condition, staircaseName, conditionName, 
+        distinct(participant, block, block_condition, staircaseName, conditionName, 
                  targetKind, font, experiment, thresholdParameter)
-      
-      stairdf <- extractCrowdingStaircases(t)
-      stair_list[[j]] <-  stairdf 
       
       summaries <- t %>% 
         dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
@@ -251,12 +251,19 @@ for (i in 1 : n) {
           select(-block_condition)
         summaries <- merge(info, summaries, by = ("staircaseName"))
       }
-      summary_list[[j]] <- summaries
-      data_list[[j]] <- t
-      t$experiment <- trimws(t$experiment[1])
-      experiment[j] <- trimws(t$experiment[1])
-      j = j + 1
-      readingCorpus <- c(readingCorpus,unique(t$readingCorpus))
+      
+      # for stair plots
+      stairdf <- extractCrowdingStaircases(t, info)
+      
+      if (! t$participant[1] == '') {
+        summary_list[[j]] <- summaries
+        data_list[[j]] <- t
+        stair_list[[j]] <- stairdf
+        t$experiment <- trimws(t$experiment[1])
+        experiment[j] <- trimws(t$experiment[1])
+        readingCorpus <- c(readingCorpus,unique(t$readingCorpus))
+        j = j + 1
+      }
     } else {
       next
     }
@@ -293,7 +300,7 @@ for (i in 1:length(data_list)) {
   
 }
 
-stairAll <- do.call(rbind, stair_list)
+stairs <- do.call(rbind, stair_list)
 plotCrowdingStaircases(stairAll) + plt_theme
 
 generate_threshold(data_list, summary_list)
@@ -301,14 +308,14 @@ generate_threshold(data_list, summary_list)
 
 
 ####### crowding rsvp #######
-df_list <- generate_rsvp_reading_crowding_fluency(data_list,summary_list,'all')
+df_list <- generate_rsvp_reading_crowding_fluency(data_list,summary_list, pretest, stairs,'all', 10)
 rsvp_speed <- allData$rsvp
 crowding <- allData$crowding
 acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')
 
 # read pretest csv
-# pretest <- readxl::read_xlsx('~/Downloads/untitled folder/RsvpAndCrowding9.pretest.xlsx')
-# pretest <- pretest %>% rename('participant' = 'PavloviaSessionID')
+pretest <- readxl::read_xlsx('pretest.xlsx')
+pretest <- pretest %>% rename('participant' = 'ID')
 crowdingW <- crowding %>% mutate(type=ifelse(
   targetEccentricityXDeg == 0,
   'foveal',

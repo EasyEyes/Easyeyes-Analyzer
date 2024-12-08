@@ -701,18 +701,22 @@ get_foveal_peripheral_diag <- function(crowding) {
   }
 }
 
+plot_crowding_vs_age <- function(crowding){
+  
+  crowding <- crowding %>% mutate(ageN = as.numeric(age))
 
-
-plot_crowding_vs_age <- function(allData){
-  crowding <- allData$crowding %>% mutate(ageN = as.numeric(age))
   if (nrow(crowding) == 0) {
     return(NULL)
   } 
+  
   foveal <- crowding %>% 
     filter(questType == 'Foveal crowding')
+  # Only right visual field
+  write.csv('crowding')
   peripheral <- crowding %>% 
-    filter(questType == 'Peripheral crowding')
+    filter(targetEccentricityXDeg > 0)
   
+  # calculate slope foveal data
   foveal_stats <- foveal %>% 
     do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
     transmute(coef = map(fit, tidy)) %>%
@@ -721,10 +725,12 @@ plot_crowding_vs_age <- function(allData){
     mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
     select(slope)
   
-  foveal_corr <- crowding %>% 
-    filter(questType == 'Foveal crowding') %>% 
+  # calculate correlation foveal data
+  foveal_corr <- foveal %>% 
     summarize(cor = format(round(cor(ageN,log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)) %>% 
     select(cor)
+  
+  # calculate slope peripheral data
   if (nrow(peripheral) > 0) {
     peripheral_stats <- peripheral %>% 
       do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
@@ -733,6 +739,7 @@ plot_crowding_vs_age <- function(allData){
       filter(term == "ageN") %>%  
       mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
       select(slope)
+    # calculate correlation peripheral data
     peripheral_corr <- peripheral %>% 
       summarize(cor = format(round(cor(ageN,log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)) %>% 
       select(cor)

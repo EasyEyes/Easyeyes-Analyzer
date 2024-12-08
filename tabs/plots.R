@@ -56,12 +56,12 @@ plotsTab <- tabPanel(
   fluidRow(
     splitLayout(
       cellWidths = c("50%", "50%"),
-      shinycssloaders::withSpinner(plotOutput("stackedRsvpPlot", height = "100%"), type = 4),
+      conditionalPanel('output.isRsvp', shinycssloaders::withSpinner(plotOutput("stackedRsvpPlot", height = "100%"), type = 4)),
       shinycssloaders::withSpinner(plotOutput("stackedCrowdingPlot", height = "100%"), type = 4)
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      downloadButton("downloadStackedRsvpPlot", "Download"),
+      conditionalPanel('output.isRsvp', downloadButton("downloadStackedRsvpPlot", "Download")),
       downloadButton("downloadStackedCrowdingPlot", "Download")
     ),
     splitLayout(
@@ -76,13 +76,13 @@ plotsTab <- tabPanel(
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      shinycssloaders::withSpinner(plotOutput("stackedFovealRepeatedPlot", height = "100%"), type = 4),
-      shinycssloaders::withSpinner(plotOutput("stackedPeripheralAcuityPlot", height = "100%"), type = 4)
+      conditionalPanel('output.isRepeated',shinycssloaders::withSpinner(plotOutput("stackedFovealRepeatedPlot", height = "100%"), type = 4)),
+      conditionalPanel('output.isPeripheralAcuity',shinycssloaders::withSpinner(plotOutput("stackedPeripheralAcuityPlot", height = "100%"), type = 4))
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      downloadButton("downloadStackedFovealRepeatedPlot", "Download"),
-      downloadButton("downloadStackedPeripheralAcuityPlot", "Download")
+      conditionalPanel('output.isRepeated', downloadButton("downloadStackedFovealRepeatedPlot", "Download")),
+      conditionalPanel('output.isPeripheralAcuity',downloadButton("downloadStackedPeripheralAcuityPlot", "Download"))
     )
   ),
   
