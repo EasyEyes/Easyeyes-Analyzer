@@ -65,6 +65,12 @@ downloadtheme <- theme(legend.position = "right",
                        plot.title = element_text(size=20),
                        plot.subtitle = element_text(size=20),
                        strip.text = element_text(size = 20))
+color_scale <- function(n) {
+  scale_color_manual(
+    values = grDevices::colorRampPalette(c("gray", "black"))(n),
+    guide = guide_legend(title = "Grade")
+  )
+}
 
 
 ##### ggplot display theme #####

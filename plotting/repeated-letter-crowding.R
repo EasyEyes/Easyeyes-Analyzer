@@ -1,10 +1,10 @@
 plot_rsvp_repeated_letter_crowding <- function(allData) {
   print('inside plot_reading_repeated_letter_crowding')  
-  # Helper function to compute correlation, slope, and plot
+  
   create_plot <- function(data, condition, colorFactor) {
     data_rsvp <- data %>%
       select(participant, log_crowding_distance_deg) %>%
-      inner_join(rsvp, by = "participant") %>% 
+      inner_join(rsvp, by = "participant") %>%
       distinct(participant, 
                block_avg_log_WPM, 
                log_crowding_distance_deg,
@@ -12,24 +12,25 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
                Grade,
                `Skilled reader?`,
                ParticipantCode) %>%
-      filter(!is.na(participant)) %>% 
-      mutate(Age = format(age,nsmall=2),
-             ageN = as.numeric(age),
-             X = 10^(log_crowding_distance_deg),
-             Y = 10^(block_avg_log_WPM),
-             Grade = as.character(Grade))
+      filter(!is.na(participant)) %>%
+      mutate(
+        Age = format(age, nsmall = 2),
+        ageN = as.numeric(age),
+        X = 10^(log_crowding_distance_deg),
+        Y = 10^(block_avg_log_WPM),
+        Grade = as.character(Grade)
+      )
     
     if (nrow(data_rsvp) == 0) {
       return(NULL)
     }
     
-    
     if (n_distinct(data_rsvp$`Skilled reader?`) > 1) {
-      data_for_stat <- data_rsvp %>% filter(`Skilled reader?` != FALSE) %>% 
-        select(block_avg_log_WPM,log_crowding_distance_deg, X, Y, ageN)
+      data_for_stat <- data_rsvp %>% filter(`Skilled reader?` != FALSE) %>%
+        select(block_avg_log_WPM, log_crowding_distance_deg, X, Y, ageN)
     } else {
-      data_for_stat <- data_rsvp %>% 
-        select(block_avg_log_WPM,log_crowding_distance_deg, X, Y, ageN)
+      data_for_stat <- data_rsvp %>%
+        select(block_avg_log_WPM, log_crowding_distance_deg, X, Y, ageN)
     }
     if (sum(!is.na(data_for_stat$ageN)) == 0) {
       data_for_stat <- data_for_stat %>% select(-ageN)
@@ -38,205 +39,117 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
     data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
     
     corr <- data_for_stat %>%
-      summarize(correlation = cor(block_avg_log_WPM, log_crowding_distance_deg,
-                                  method = "pearson"),
-                N = n()) %>%
+      summarize(
+        correlation = cor(block_avg_log_WPM, log_crowding_distance_deg, method = "pearson"),
+        N = n()
+      ) %>%
       mutate(correlation = round(correlation, 2))
     
     slope <- data_for_stat %>%
-      
       mutate(
         log_X = log10(X),
         log_Y = log10(Y)
       ) %>%
-      # Fit the regression model in log-log space
       do(fit = lm(log_Y ~ log_X, data = .)) %>%
       transmute(coef = map(fit, tidy)) %>%
       unnest(coef) %>%
-      filter(term == "log_X") %>%  # Extract slope of log-log regression
-      mutate(slope = round(estimate, 2)) %>%  # Round the slope to two decimals
+      filter(term == "log_X") %>%
+      mutate(slope = round(estimate, 2)) %>%
       select(slope)
-    
     
     if ('ageN' %in% names(data_for_stat)) {
       corr_without_age <- ppcor::pcor(data_for_stat %>%
-                                        select(block_avg_log_WPM,
-                                               log_crowding_distance_deg,
-                                               ageN))$estimate[2,1] 
+                                        select(block_avg_log_WPM, log_crowding_distance_deg, ageN))$estimate[2, 1]
       corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
     } else {
       corr_without_age <- NA
     }
     
-    xMin <- min(data_rsvp$X, na.rm = T) /1.5
+    xMin <- min(data_rsvp$X, na.rm = T) / 1.5
     xMax <- max(data_rsvp$X, na.rm = T) * 1.5
     yMin <- min(data_rsvp$Y, na.rm = T) / 1.5
     yMax <- max(data_rsvp$Y, na.rm = T) * 1.5
     
-    # Generate dynamic breaks for the y-axis
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
-
+    
+    unique_colors <- n_distinct(data_rsvp[[colorFactor]])
     p <- ggplot() +
       theme_classic() +
-      scale_y_log10(breaks = y_breaks,  # Dynamic breaks based on data range
-                    limits = c(yMin, yMax), expand = c(0, 0)) +
-      scale_x_log10(breaks = c(0.003, 0.01, 0.03, 0.1, 0.3, 1, 10, 100),
-                    limits = c(xMin, xMax), expand = c(0, 0)) +
+      scale_y_log10(
+        breaks = y_breaks,
+        limits = c(yMin, yMax),
+        expand = c(0, 0)
+      ) +
+      scale_x_log10(
+        breaks = c(0.003, 0.01, 0.03, 0.1, 0.3, 1, 10, 100),
+        limits = c(xMin, xMax),
+        expand = c(0, 0)
+      ) +
       geom_smooth(data = data_for_stat,
-                  aes(x = X,
-                      y = Y),
-                  method = 'lm', se = FALSE) +
+                  aes(x = X, y = Y),
+                  method = 'lm',
+                  se = FALSE,
+                  color = "black") +  # Black regression line
       annotation_logticks() +
       coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +
       annotate(
         "text",
         x = xMin * 1.4,
         y = yMin * 1.6,
-        label = paste0("N = ", corr$N,
-                       "\nR = ", corr$correlation,
-                       "\nR_factor_out_age = ", corr_without_age,
-                       "\nslope = ", slope$slope),
-        hjust = 0,        # Left-align text
-        vjust = 0,        # Top-align for consistent stacking
+        label = paste0(
+          "N = ", corr$N,
+          "\nR = ", corr$correlation,
+          "\nR_factor_out_age = ", corr_without_age,
+          "\nslope = ", slope$slope
+        ),
+        hjust = 0,
+        vjust = 0,
         size = 4,
         color = "black"
       ) +
       plt_theme +
-      theme(legend.position = ifelse(n_distinct(data_rsvp[[colorFactor]]) == 1, 'none', 'top')) +
-      guides(color = guide_legend(title = colorFactor),
-             shape = 'none') +
-      labs(x = paste('repeated-letter crowding (deg)'),
-           y = 'RSVP reading (w/min)',
-           title = paste('RSVP vs repeated-letter crowding\ncolored by', tolower(colorFactor))) +
+      color_scale(n = unique_colors) +  # Apply dynamic color scale
+      theme(legend.position = ifelse(unique_colors == 1, 'none', 'top')) +
+      guides(color = guide_legend(title = colorFactor), shape = 'none') +
+      labs(
+        x = paste('Repeated-letter crowding (deg)'),
+        y = 'RSVP reading (w/min)',
+        title = paste('RSVP vs repeated-letter crowding\ncolored by', tolower(colorFactor))
+      ) +
       theme(
-        plot.title = element_text(margin = margin(b = 10), size = 17), # Increased font size
-        plot.margin = margin(t = 10, r = 10, b = 20, l = 10) # Extra margin for aestheticsCenter and add bottom margin
+        plot.title = element_text(margin = margin(b = 10), size = 17),
+        plot.margin = margin(t = 10, r = 10, b = 20, l = 10)
       )
-
+    
     if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
-      p <- p + geom_point(data = data_rsvp,
-                          aes(x = X,
-                              y = Y,
-                              group = ParticipantCode,
-                              color = .data[[colorFactor]]))
+      p <- p + geom_point(
+        data = data_rsvp,
+        aes(
+          x = X,
+          y = Y,
+          group = ParticipantCode,
+          color = .data[[colorFactor]]
+        )
+      )
     } else {
-      p <- p + geom_point(data = data_rsvp,
-                          aes(x = X,
-                              y = Y,
-                              group = ParticipantCode,
-                              color = .data[[colorFactor]],
-                              shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4,19))
+      p <- p + geom_point(
+        data = data_rsvp,
+        aes(
+          x = X,
+          y = Y,
+          group = ParticipantCode,
+          color = .data[[colorFactor]],
+          shape = `Skilled reader?`
+        )
+      ) +
+        scale_shape_manual(values = c(4, 19))
     }
     
-    minTickLocY = numeric()
-    for (i in 1:5){
-      bb = 1:10;
-      minTickLocY = c(minTickLocY, (bb*10^(i-2)))
-    }
-    
-    minTickLocX = numeric()
-    for (i in 1:4){
-      bb = 1:10;
-      minTickLocX = c(minTickLocX, (bb*10^(i-5)))
-    }
-    axseq <- c(0.1, 1, 10, 100, 1000)
-
-    fit <- lm(block_avg_log_WPM~log_crowding_distance_deg, data = data_rsvp)
-    data_rsvp$est <- predict(fit)
-
-  #   p <- plot_ly(data = data_rsvp,
-  #                x = ~X,
-  #                y = ~Y,
-  #                type = 'scatter',
-  #                mode = 'markers',
-  #                marker = list(size = 10)) %>%
-  #     add_lines(data = data_rsvp,
-  #               x = ~X,
-  #               y = ~10^est,
-  #               line = list(opacity = 0),
-  #               hoverinfo = 'none') %>%
-  #     add_lines(data = data_rsvp,
-  #               x = ~X,
-  #               y = ~10^est,
-  #               yaxis = 'y2',
-  #               xaxis = 'x2',
-  #               line = list(color = 'black', dash = 'solid'),
-  #               hoverinfo = 'none') %>%
-  #     layout(
-  #       yaxis = list(
-  #         title = 'RSVP deading (w/min)',
-  #         type = "log", tickvals = axseq,
-  #                    ticktext = as.character(axseq),
-  #                    zeroline=F, showline=T, ticks="outside",
-  #                    ticklen=16, showgrid=T),
-  #       yaxis2 = list(type="log", tickvals=minTickLocY,
-  #                     ticktext=rep("", length(minTickLocY)),
-  #                     zeroline=F, showline=F, ticks="outside",
-  #                     ticklen=8, showgrid=T),
-  #       xaxis = list(title = 'Crowding (deg)',
-  #                    type = "log", tickvals = axseq,
-  #                    ticktext = as.character(axseq),
-  #                    zeroline=F, showline=T, ticks="outside",
-  #                    ticklen=16, showgrid=T),
-  #       xaxis2 = list(type="log", tickvals=minTickLocX,
-  #                     ticktext=rep("", length(minTickLocX)),
-  #                     zeroline=F, showline=F, ticks="outside",
-  #                     ticklen=8, showgrid=T),
-  #       title = paste('RSVP vs repeated-letter crowding \n colored by', tolower(colorFactor)),
-  #       margin = list(t = 50, r = 10, b = 50, l = 10),
-  # 
-  #       # Annotation for Regression Statistics
-  #       annotations = list(
-  #         x = log10(xMin * 1.4),
-  #         y = log10(yMin * 1.4),
-  #         text = paste0("N = ", corr$N,
-  #                       "<br>R = ", corr$correlation,
-  #                       "<br>R_factor_out_age = ", corr_without_age,
-  #                       "<br>slope = ", slope$slope),
-  #         showarrow = FALSE,
-  #         xanchor = 'left',
-  #         yanchor = 'top',
-  #         font = list(size = 12, color = "black")
-  #       )
-  #     )
-  #   
-  #   if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
-  #     # Single group - only color used
-  #     p <- p %>%
-  #       add_trace(
-  #         data = data_rsvp,
-  #         x = ~X,
-  #         y = ~Y,
-  #         color = ~.data[[colorFactor]],
-  #         symbol = ~`Skilled reader?`,
-  #         symbols = c('x', 'circle'),  # Equivalent to ggplot's c(4, 19)
-  #         type = 'scatter',
-  #         mode="markers",
-  #         marker = list(size = 10)
-  #       )
-  #   } else {
-  #     # Multiple groups - color and shape used
-  #     p <- p %>%
-  #       add_trace(
-  #         data = data_rsvp,
-  #         x = ~X,
-  #         y = ~Y,
-  #         color = ~.data[[colorFactor]],
-  #         symbol = ~`Skilled reader?`,
-  #         symbols = c('x', 'circle'),  # Equivalent to ggplot's c(4, 19)
-  #         type = 'scatter',
-  #         mode="markers",
-  #         marker = list(size = 10)
-  #       )
-  #   }
-  #   
-  #   
     return(p)
   }
   
   crowding <- allData$repeatedLetters %>% mutate(participant = tolower(participant))
-  foveal <- crowding %>% filter(targetEccentricityXDeg == 0,)
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
   
@@ -244,47 +157,47 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
     return(list(NULL, NULL))
   }
   
-  # Create plots for peripheral and foveal data
-  p3 <- create_plot(peripheral, "Peripheral",'Grade')
-  p4 <- create_plot(foveal, "Foveal",'Grade')
+  p3 <- create_plot(peripheral, "Peripheral", 'Grade')
+  p4 <- create_plot(foveal, "Foveal", 'Grade')
   
   return(list(peripheral = p3, foveal = p4))
 }
 
+
 plot_reading_repeated_letter_crowding <- function(allData) {
   print('inside plot_reading_repeated_letter_crowding')
-  # Helper function to compute correlation, slope, and plot
+  
   create_plot <- function(data, condition, colorFactor) {
     data_reading <- data %>%
       select(participant, log_crowding_distance_deg) %>%
-      inner_join(reading, by = "participant") %>% 
-      distinct(participant, 
-               wordPerMin, 
-               log_crowding_distance_deg,
-               age,
-               Grade,
-               `Skilled reader?`,
-               ParticipantCode) %>%
-      mutate(log_wpm = log10(wordPerMin)) %>% 
-      filter(!is.na(participant)) %>% 
-      mutate(Age = format(age,nsmall=2),
-             ageN = as.numeric(age),
-             X = 10^(log_crowding_distance_deg),
-             Y = wordPerMin,
-             Grade = as.character(Grade))
+      inner_join(reading, by = "participant") %>%
+      distinct(
+        participant, wordPerMin, log_crowding_distance_deg,
+        age, Grade, `Skilled reader?`, ParticipantCode
+      ) %>%
+      mutate(log_wpm = log10(wordPerMin)) %>%
+      filter(!is.na(participant)) %>%
+      mutate(
+        Age = format(age, nsmall = 2),
+        ageN = as.numeric(age),
+        X = 10^(log_crowding_distance_deg),
+        Y = wordPerMin,
+        Grade = as.character(Grade)
+      )
     
     if (nrow(data_reading) == 0) {
       return(NULL)
     }
     
-    
     if (n_distinct(data_reading$`Skilled reader?`) > 1) {
-      data_for_stat <- data_reading %>% filter(`Skilled reader?` != FALSE) %>% 
-        select(log_wpm,log_crowding_distance_deg, X, Y, ageN)
+      data_for_stat <- data_reading %>%
+        filter(`Skilled reader?` != FALSE) %>%
+        select(log_wpm, log_crowding_distance_deg, X, Y, ageN)
     } else {
-      data_for_stat <- data_reading %>% 
-        select(log_wpm,log_crowding_distance_deg, X, Y, ageN)
+      data_for_stat <- data_reading %>%
+        select(log_wpm, log_crowding_distance_deg, X, Y, ageN)
     }
+    
     if (sum(!is.na(data_for_stat$ageN)) == 0) {
       data_for_stat <- data_for_stat %>% select(-ageN)
     }
@@ -292,13 +205,13 @@ plot_reading_repeated_letter_crowding <- function(allData) {
     data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
     
     corr <- data_for_stat %>%
-      summarize(correlation = cor(log_wpm, log_crowding_distance_deg,
-                                  method = "pearson"),
-                N = n()) %>%
+      summarize(
+        correlation = cor(log_wpm, log_crowding_distance_deg, method = "pearson"),
+        N = n()
+      ) %>%
       mutate(correlation = round(correlation, 2))
     
     slope <- data_for_stat %>%
-      
       mutate(
         log_X = log10(X),
         log_Y = log10(Y)
@@ -307,86 +220,105 @@ plot_reading_repeated_letter_crowding <- function(allData) {
       do(fit = lm(log_Y ~ log_X, data = .)) %>%
       transmute(coef = map(fit, tidy)) %>%
       unnest(coef) %>%
-      filter(term == "log_X") %>%  # Extract slope of log-log regression
-      mutate(slope = round(estimate, 2)) %>%  # Round the slope to two decimals
+      filter(term == "log_X") %>%
+      mutate(slope = round(estimate, 2)) %>%
       select(slope)
-    
     
     if ('ageN' %in% names(data_for_stat)) {
       corr_without_age <- ppcor::pcor(data_for_stat %>%
-                                        select(log_wpm,
-                                               log_crowding_distance_deg,
-                                               ageN))$estimate[2,1] 
+                                        select(log_wpm, log_crowding_distance_deg, ageN))$estimate[2, 1]
       corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
     } else {
       corr_without_age <- NA
     }
     
-    xMin <- min(data_reading$X, na.rm = T) /1.5
+    xMin <- min(data_reading$X, na.rm = T) / 1.5
     xMax <- max(data_reading$X, na.rm = T) * 1.5
     yMin <- min(data_reading$Y, na.rm = T) / 1.5
     yMax <- max(data_reading$Y, na.rm = T) * 1.5
     
     # Generate dynamic breaks for the y-axis
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
-    p <- ggplot() + 
+    
+    unique_colors <- n_distinct(data_reading[[colorFactor]])
+    p <- ggplot() +
       theme_classic() +
-      scale_y_log10(breaks = y_breaks,  # Dynamic breaks based on data range
-                    limits = c(yMin, yMax), expand = c(0, 0)) +
-      scale_x_log10(breaks = c(0.003, 0.01, 0.03, 0.1, 0.3, 1, 10, 100),
-                    limits = c(xMin, xMax), expand = c(0, 0)) +
-      geom_smooth(data = data_for_stat,
-                  aes(x = X,
-                      y = Y),
-                  method = 'lm', se = FALSE) +
-      coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +  
+      scale_y_log10(
+        breaks = y_breaks,
+        limits = c(yMin, yMax),
+        expand = c(0, 0)
+      ) +
+      scale_x_log10(
+        breaks = c(0.003, 0.01, 0.03, 0.1, 0.3, 1, 10, 100),
+        limits = c(xMin, xMax),
+        expand = c(0, 0)
+      ) +
+      geom_smooth(
+        data = data_for_stat,
+        aes(x = X, y = Y),
+        method = 'lm',
+        se = FALSE,
+        color = "black"
+      ) +
+      coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +
       annotate(
         "text",
         x = xMin * 1.4,
         y = yMin * 1.4,
-        label = paste0("N = ", corr$N,
-                       "\nR = ", corr$correlation,
-                       "\nR_factor_out_age = ", corr_without_age,
-                       "\nslope = ", slope$slope),
-        hjust = 0,        # Left-align text
-        vjust = 0,        # Top-align for consistent stacking
+        label = paste0(
+          "N = ", corr$N,
+          "\nR = ", corr$correlation,
+          "\nR_factor_out_age = ", corr_without_age,
+          "\nslope = ", slope$slope
+        ),
+        hjust = 0,
+        vjust = 0,
         size = 4,
         color = "black"
       ) +
       plt_theme +
-      guides(color = guide_legend(title = colorFactor),
-             shape = 'none',
-             x = guide_axis_logticks(prescale.base = 10),
-             y = guide_axis_logticks(prescale.base = 10)) + 
-      labs(x = paste('Repeated-letter crowding (deg)'),
-           y = 'Reading (w/min)',
-           title = paste('Reading vs repeated-letter crowding\ncolored by', tolower(colorFactor), '\n' )) +
+      color_scale(n = unique_colors) +  # Apply color scale dynamically
+      guides(color = guide_legend(title = colorFactor), shape = 'none') +
+      labs(
+        x = paste('Repeated-letter crowding (deg)'),
+        y = 'Reading (w/min)',
+        title = paste('Reading vs repeated-letter crowding\ncolored by', tolower(colorFactor), '\n')
+      ) +
       theme(
-        legend.position = ifelse(n_distinct(data_reading[[colorFactor]]) == 1, 'none', 'top'),
-        margin=margin(0,0,50,0),       #
-        size = 17  
+        legend.position = ifelse(unique_colors == 1, 'none', 'top'),
+        plot.title = element_text(margin = margin(0, 0, 50, 0), size = 17),
+        plot.margin = margin(t = 10, r = 10, b = 20, l = 10)
       )
+    
     if (n_distinct(data_reading$`Skilled reader?`) == 1) {
-      p <- p + geom_point(data = data_reading, 
-                          aes(x = X,
-                              y = Y,
-                              group = ParticipantCode,
-                              color = .data[[colorFactor]]))
+      p <- p + geom_point(
+        data = data_reading,
+        aes(
+          x = X,
+          y = Y,
+          group = ParticipantCode,
+          color = .data[[colorFactor]]
+        )
+      )
     } else {
-      p <- p + geom_point(data = data_reading, 
-                          aes(x = X,
-                              y = Y,
-                              group = ParticipantCode,
-                              color = .data[[colorFactor]],
-                              shape = `Skilled reader?`)) + 
-        scale_shape_manual(values = c(4,19))
+      p <- p + geom_point(
+        data = data_reading,
+        aes(
+          x = X,
+          y = Y,
+          group = ParticipantCode,
+          color = .data[[colorFactor]],
+          shape = `Skilled reader?`
+        )
+      ) +
+        scale_shape_manual(values = c(4, 19))
     }
     
     return(p)
   }
   
   crowding <- allData$repeatedLetters %>% mutate(participant = tolower(participant))
-  foveal <- crowding %>% filter(targetEccentricityXDeg == 0,)
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   reading <- allData$reading %>% mutate(participant = tolower(participant))
   
@@ -395,8 +327,8 @@ plot_reading_repeated_letter_crowding <- function(allData) {
   }
   
   # Create plots for peripheral and foveal data
-  p3 <- create_plot(peripheral, "Peripheral",'Grade')
-  p4 <- create_plot(foveal, "Foveal",'Grade')
+  p3 <- create_plot(peripheral, "Peripheral", 'Grade')
+  p4 <- create_plot(foveal, "Foveal", 'Grade')
   
   return(list(peripheral = p3, foveal = p4))
 }

@@ -168,109 +168,227 @@ plot_60cm_speed_diff_vs_age <- function(rsvp_speed){
       parse = T)
 }
 
-plot_reading_age <- function(reading){
-  t <- reading %>% 
-    filter(!is.na(age)) %>% 
-    mutate(N=paste0('N=',n()))
+plot_reading_age <- function(reading) {
+  t <- reading %>%
+    filter(!is.na(age)) %>%
+    mutate(N = paste0("N = ", n()))
+  
   if (nrow(t) == 0) {
-   return(NULL)
+    return(NULL)
   } else {
-    if (n_distinct(t$Grade) > 1) {
-      t$Grade = as.character(t$Grade)
-      p <-  ggplot(t, aes(x = age, y = 10^(log_WPM), color = Grade))
+    # Choose appropriate aesthetics based on Grade
+    unique_grades <- n_distinct(t$Grade)
+    if (unique_grades > 1) {
+      t$Grade <- as.character(t$Grade)
+      p <- ggplot(t, aes(x = age, y = 10^(log_WPM), color = Grade))
     } else {
-      p <-  ggplot(t, aes(x = age, y = 10^(log_WPM)))
+      p <- ggplot(t, aes(x = age, y = 10^(log_WPM)))
     }
-    p <- p + 
-      scale_y_log10() + 
-      geom_point() +
-      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
+    
+    # Compute correlation, regression slope, and annotate statistics
+    t <- t %>%
+      mutate(Y = 10^(log_WPM))
+    regression <- lm(Y ~ age, data = t)
+    slope <- coef(regression)[["age"]]
+    r_value <- cor(t$age, t$Y, use = "complete.obs")
+    N <- nrow(t)
+    
+    # Plot with regression line and statistics
+    p <- p +
+      scale_y_log10() +
+      geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
       theme_bw() +
-      labs(title = 'Reading vs age\ncolored by grade',
-           x = 'Age',
-           y = 'Reading speed (w/min)')
+      labs(
+        title = "Reading vs age\ncolored by grade",
+        x = "Age",
+        y = "Reading speed (w/min)"
+      ) +
+      annotate(
+        "text",
+        x = min(t$age, na.rm = TRUE) * 1.1,  # Slightly offset from the minimum x for padding
+        y = min(t$Y, na.rm = TRUE) * 1.1,    # Slightly offset from the minimum y for padding
+        label = paste0(
+          "N = ", N,
+          "\nR = ", round(r_value, 2),
+          "\nslope = ", round(slope, 2)
+        ),
+        hjust = 0,  # Left-align text
+        vjust = 0,  # Bottom-align text
+        size = 4,
+        color = "black"
+      ) +
+      color_scale(n = unique_grades) +  # Apply dynamic color scale
+      theme(
+        legend.position = ifelse(unique_grades == 1, "none", "top"),  # Hide legend if only one grade
+        plot.title = element_text(size = 17, margin = margin(b = 10))  # Adjust title size and spacing
+      )
+    
+    # Add points and shapes for Skilled reader if applicable
     if (n_distinct(t$`Skilled reader?`) == 1) {
       p <- p + geom_point()
     } else {
-      p <- p + 
+      p <- p +
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4,19))
+        scale_shape_manual(values = c(4, 19))
     }
+    
     return(p)
   }
 }
 
-plot_rsvp_age <- function(rsvp){
-  t <- rsvp %>% 
-    filter(!is.na(age)) %>% 
-    mutate(N=paste0('N=',n()))
 
+
+plot_rsvp_age <- function(rsvp) {
+  t <- rsvp %>%
+    filter(!is.na(age)) %>%
+    mutate(N = paste0("N = ", n()))
+  
   if (nrow(t) == 0) {
-   return(NULL)
+    return(NULL)
   } else {
-    if (n_distinct(t$Grade) > 1) {
-      t$Grade = as.character(t$Grade)
-      p <-  ggplot(t, aes(x = age, y = 10^(block_avg_log_WPM), color = Grade))
+    # Determine plot aesthetics based on Grade
+    unique_grades <- n_distinct(t$Grade)
+    if (unique_grades > 1) {
+      t$Grade <- as.character(t$Grade)
+      p <- ggplot(t, aes(x = age, y = 10^(block_avg_log_WPM), color = Grade))
     } else {
-      p <-  ggplot(t, aes(x = age, y = 10^(block_avg_log_WPM)))
+      p <- ggplot(t, aes(x = age, y = 10^(block_avg_log_WPM)))
     }
+    
+    # Compute correlation, slope, and regression model
+    t <- t %>%
+      mutate(Y = 10^(block_avg_log_WPM))
+    regression <- lm(Y ~ age, data = t)
+    slope <- coef(regression)[["age"]]
+    r_value <- cor(t$age, t$Y, use = "complete.obs")
+    N <- nrow(t)
+    
+    # Plot with regression line and annotated statistics
     p <- p +
-      ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
-      scale_y_log10() + 
+      scale_y_log10() +
+      geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
       theme_bw() +
-      labs(title = 'RSVP reading vs age\ncolored by grade',
-           x = 'Age',
-           y = 'RSVP reading speed (w/min)')
+      labs(
+        title = "RSVP reading vs age\ncolored by grade",
+        x = "Age",
+        y = "RSVP reading speed (w/min)"
+      ) +
+      annotate(
+        "text",
+        x = min(t$age, na.rm = TRUE) * 1.1,  # Bottom-left placement, slightly offset for padding
+        y = min(t$Y, na.rm = TRUE) * 1.1,
+        label = paste0(
+          "N = ", N,
+          "\nR = ", round(r_value, 2),
+          "\nSlope = ", round(slope, 2)
+        ),
+        hjust = 0,  # Left-align text
+        vjust = 0,  # Bottom-align text
+        size = 4,
+        color = "black"
+      ) +
+      color_scale(n = unique_grades) +  # Apply color scale dynamically
+      theme(
+        legend.position = ifelse(unique_grades == 1, "none", "top"),  # Hide legend if only one grade
+        plot.title = element_text(size = 17, margin = margin(b = 10))  # Adjust title size and spacing
+      )
+    
+    # Add points and shapes for Skilled reader if applicable
     if (n_distinct(t$`Skilled reader?`) > 1) {
-      p <- p + 
-        geom_point(aes(shape = `Skilled reader?`)) + 
-        scale_shape_manual(values=c(4,19))
+      p <- p +
+        geom_point(aes(shape = `Skilled reader?`)) +
+        scale_shape_manual(values = c(4, 19))
     } else {
       p <- p + geom_point()
     }
+    
     return(p)
   }
 }
 
-plot_reading_rsvp <- function(reading,rsvp){
+
+
+plot_reading_rsvp <- function(reading, rsvp) {
   if (nrow(reading) == 0 | nrow(rsvp) == 0) {
-  return(NULL)
+    return(NULL)
   }
+  
+  # Preprocess RSVP data
   rsvp <- rsvp %>% 
     mutate(participant = tolower(participant)) %>% 
-    group_by(participant,targetKind, Grade) %>% 
-    summarize(avg_log_WPM = mean(block_avg_log_WPM))
+    group_by(participant, targetKind, Grade) %>% 
+    summarize(
+      avg_log_WPM = mean(block_avg_log_WPM, na.rm = TRUE), 
+      age = first(age),  # Include age in the summarized data
+      .groups = "keep"
+    )
   
+  # Preprocess Reading data and join with RSVP data
   t <- reading %>%
     mutate(participant = tolower(participant)) %>% 
     group_by(participant, block_condition, targetKind) %>%
-    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
+    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = TRUE)), .groups = "keep") %>% 
     ungroup() %>% 
     filter(avg_wordPerMin <= 1500) %>% 
     mutate(log_WPM = log10(avg_wordPerMin)) %>% 
     group_by(participant, targetKind) %>% 
-    summarize(avg_log_WPM = mean(log10(avg_wordPerMin))) %>% 
+    summarize(avg_log_WPM = mean(log10(avg_wordPerMin), na.rm = TRUE), .groups = "keep") %>% 
     left_join(rsvp, by = 'participant') %>% 
+    filter(!is.na(age)) %>%  # Drop rows with NA age
     ungroup() %>% 
-    mutate(N = paste0('N=',n()),
-           Grade = as.character(Grade)
+    mutate(
+      N = paste0('N=', n()),
+      Grade = as.character(Grade),
+      age = as.numeric(age)  # Ensure age is numeric
     )
+  
   if (nrow(t) == 0) {
     return(NULL)
   }
   
-  p <- ggplot(t,aes(x = 10^(avg_log_WPM.y), y = 10^(avg_log_WPM.x))) + 
-    geom_point(aes(color = Grade)) +
-    ggpp::geom_text_npc(aes(npcx="left", npcy = 'top', label = N)) + 
-    geom_smooth(method = "lm",formula = y ~ x, se=F) + 
-    scale_x_log10() + 
+  # Compute correlation and slope
+  t <- t %>% mutate(X = 10^(avg_log_WPM.y), Y = 10^(avg_log_WPM.x))
+  r_value <- cor(t$X, t$Y, method = "pearson", use = "complete.obs")
+  lm_fit <- lm(Y ~ X, data = t)
+  slope <- coef(lm_fit)[["X"]]
+  
+  # Compute R_factor_out_age
+  pcor <- ppcor::pcor(t %>% select(X, Y, age))
+  R_factor_out_age <- round(pcor$estimate[2, 1], 2)
+  
+  # Generate the plot
+  p <- ggplot(t, aes(x = X, y = Y, color = Grade)) + 
+    geom_point(size = 3) +  # Point size fixed for clarity
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +  # Black regression line
+    scale_x_log10() +
     scale_y_log10() +
-    labs(x="Rsvp reading (w/min)", 
-         y = "Reading (w/min)",
-         title = 'Reading vs RSVP reading\ncolored by grade') +
-    theme_bw() + 
-    theme(legend.position='top') + 
+    labs(
+      x = "RSVP reading (w/min)",
+      y = "Reading (w/min)",
+      title = 'Reading vs RSVP reading\ncolored by grade'
+    ) +
+    theme_bw() +
+    theme(legend.position = 'top') +
     annotation_logticks() +
-    guides(color=guide_legend(title="Grade"))
+    guides(color = guide_legend(title = "Grade")) +
+    annotate(
+      "text",
+      x = min(t$X, na.rm = TRUE) * 1.1,  # Bottom-left placement
+      y = min(t$Y, na.rm = TRUE) * 1.1,
+      label = paste0(
+        "N = ", t$N[1],  # Using the first value of N (constant for the group)
+        "\nR = ", round(r_value, 2),
+        "\nR_factor_out_age = ", R_factor_out_age,
+        "\nslope = ", round(slope, 2)
+      ),
+      hjust = 0, vjust = 0, size = 4, color = "black"
+    ) +
+    color_scale(n = n_distinct(t$Grade))  # Apply color_scale dynamically
+  
   return(p)
 }
+
+
+
+
+

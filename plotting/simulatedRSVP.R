@@ -280,71 +280,113 @@ plotStaircases <- function(Staircases, thresholdParameterSelected) {
                 height = height))
 }
 
-plotCrowdingStaircasesVsQuestTrials <- function(crowding, Staircases) {
-  stairdf <- Staircases %>%
-    drop_na(levelProposedByQUEST)
-  
-  if (nrow(stairdf) == 0) {
-    return(NULL)
+plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
+  if (is.null(df_list$crowding) || nrow(df_list$crowding) == 0 || is.null(stairs) || nrow(stairs) == 0) {
+    return(list(NULL, NULL))
   }
   
-  # Extract quest trials for crowding
-  crowdingQuest <- Staircases %>%
-    filter(questType == 'Crowding') %>% 
+  stairdf <- stairs %>%
+    drop_na(levelProposedByQUEST) %>%
     group_by(participant, staircaseName) %>%
+    mutate(questTrials = sum(trialGivenToQuest, na.rm = TRUE)) %>%
+    ungroup()
+  
+  crowding <- df_list$crowding %>%
+    left_join(stairdf, by = c("participant", "block_condition" = "staircaseName")) %>%
     mutate(
-      questTrials = sum(trialGivenToQuest, na.rm = TRUE),
-      block_condition = staircaseName
-    ) %>% 
-    distinct(participant, block_condition, questTrials)
+      age = ifelse(is.na(age), 0, age),
+      Age = format(age, nsmall = 2),
+      ageN = as.numeric(age),
+      Grade = as.factor(Grade)
+    ) %>%
+    filter(!is.na(Grade)) # Drop rows with NA in Grade
   
-  # Join with crowding data
-  crowding <- crowding %>%
-    left_join(crowdingQuest, by = c('participant', 'block_condition'))
+  # Helper function to create analysis plots
+  create_analysis_plot <- function(data, title) {
+    data <- data %>%
+      mutate(
+        questTrials = as.numeric(questTrials),
+        Y = 10^(log_crowding_distance_deg)
+      ) %>%
+      filter(!is.na(questTrials), !is.na(Y))
+    
+    if (nrow(data) == 0) {
+      return(NULL)
+    }
+    
+    # Compute correlation
+    corr <- cor(data$questTrials, data$Y, method = "pearson", use = "complete.obs")
+    N <- nrow(data)
+    
+    # Compute partial correlation factoring out age
+    if ("ageN" %in% colnames(data) && any(!is.na(data$ageN))) {
+      valid_data <- data %>% select(questTrials, Y, ageN) %>% drop_na()
+      if (nrow(valid_data) > 1) {
+        pcor <- ppcor::pcor(valid_data)
+        R_factor_out_age <- round(pcor$estimate[2, 1], 2)
+      } else {
+        R_factor_out_age <- NA
+      }
+    } else {
+      R_factor_out_age <- NA
+    }
+    
+    # Plot limits
+    xMin <- min(data$questTrials, na.rm = TRUE) / 1.5
+    xMax <- max(data$questTrials, na.rm = TRUE) * 1.5
+    yMin <- min(data$Y, na.rm = TRUE) / 1.5
+    yMax <- max(data$Y, na.rm = TRUE) * 1.5
+    
+    # Generate the plot
+    plot <- ggplot(data, aes(x = questTrials, y = Y, color = Grade)) +
+      geom_point(size = 3) +
+      geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +
+      color_scale(n = length(unique(data$Grade))) +  # Directly use color_scale()
+      scale_y_log10(breaks = scales::log_breaks(), limits = c(yMin, yMax)) +
+      scale_x_continuous(limits = c(xMin, xMax)) +
+      annotation_logticks(sides = "l") +
+      labs(
+        x = "QUEST trials",
+        y = "Crowding distances (deg)",
+        title = title
+      ) +
+      theme_classic() + 
+      plt_theme +
+      annotate(
+        "text",
+        x = xMax * 0.9,
+        y = yMax * 0.9,
+        label = paste0(
+          "R_factor_out_age = ", R_factor_out_age,
+          "\nR = ", round(corr, 2),
+          "\nN = ", N
+        ),
+        hjust = 1, vjust = 1, size = 4, color = "black"
+      )
+    
+    return(plot)
+  }
   
-  # Ensure Grade is a factor
-  crowding <- crowding %>%
-    mutate(Grade = as.factor(Grade))  # Convert Grade to a factor
-  
-  # Dynamically create color mapping
-  unique_grades <- sort(unique(crowding$Grade))  # Get unique grades
-  grade_colors <- scales::hue_pal()(length(unique_grades))  # Generate dynamic colors
-  names(grade_colors) <- unique_grades  # Map colors to grades
-  
-  # Separate into foveal and peripheral crowding
+  # Separate foveal and peripheral crowding
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   
-  # Helper function to create plots
-  create_plot <- function(data, title) {
-    ggplot(data, aes(x = questTrials, y = 10^(log_crowding_distance_deg), color = Grade)) +
-      geom_point(size = 3) +  # Adjust point size
-      scale_y_log10(breaks = c(0.1, 0.3, 1, 3, 10)) +
-      scale_x_continuous() +
-      annotation_logticks(sides = 'l') +
-      scale_color_manual(values = grade_colors, na.translate = TRUE) +  # Use dynamic palette
-      labs(
-        x = 'QUEST trials',
-        y = 'Crowding distances (deg)',
-        title = title,
-        color = "Grade"  # Legend title
-      ) +
-      theme_classic() +
-      theme(
-        plot.title = element_text(size = 16),  # Centered bold title
-        legend.position = "top",  # Legend at the top
-        legend.title = element_text(size = 12),  # Legend title size
-        legend.text = element_text(size = 10)  # Legend text size
-      )
-  }
+  # Create plots
+  fovealPlot <- create_analysis_plot(foveal, "Foveal crowding vs quest trials\ncolored by grade")
+  peripheralPlot <- create_analysis_plot(peripheral, "Peripheral crowding vs quest trials\ncolored by grade")
   
-  # Generate foveal and peripheral plots
-  fovealPlot <- create_plot(foveal, 'Foveal crowding\ncolored by grade')
-  peripheralPlot <- create_plot(peripheral, 'Peripheral crowding\ncolored by grade')
-  
-  # Return both plots as a list
   return(list(fovealPlot = fovealPlot, peripheralPlot = peripheralPlot))
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

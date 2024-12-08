@@ -793,7 +793,10 @@ shinyServer(function(input, output, session) {
     l <- list()
     fileNames <- list()
     
-    crowdingPlots <- plotCrowdingStaircasesVsQuestTrials(df_list()$crowding, files()$stairs)
+    print("before crowding plots")
+    
+    crowdingPlots <- plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
+    print("done crowding plots")
     
     # Add foveal plot to the list
     if (!is.null(crowdingPlots$fovealPlot)) {
