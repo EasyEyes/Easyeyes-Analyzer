@@ -230,14 +230,18 @@ extractCrowdingStaircases <- function(df, info) {
         targetKind == "letter" &
         !grepl("practice",conditionName, ignore.case = T) ~ 'Acuity',
       grepl("practice",conditionName, ignore.case = T) ~ 'practice',
+      thresholdParameter == "targetSoundDBSPL" ~ 'Sound',
       .default = 'unknown'
     )) %>% 
-    drop_na(levelProposedByQUEST)
+    drop_na(levelProposedByQUEST) %>% 
+    mutate(thresholdParameter = ifelse(is.na(thresholdParameter), 'unknown', thresholdParameter))
   # "questMeanBeforeThisTrialResponse", "", "targetMeasuredLatenessSec",
   # "targetMeasuredDurationSec", "targetDurationSec", "key_resp.corr", "level", "heightPx", "targetDurationSec", "markingOffsetBeforeTargetOnsetSecs")#, "targetSpacingPx")
 }
 
 plotStaircases <- function(Staircases, thresholdParameterSelected) {
+  print('stairdf')
+  print(Staircases$thresholdParameter)
     stairdf <- Staircases %>%
       filter(questType != 'practice')
     
