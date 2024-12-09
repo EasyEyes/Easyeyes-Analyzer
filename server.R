@@ -545,35 +545,35 @@ shinyServer(function(input, output, session) {
    
     if (!is.null(t)) {
       l[[i]] = t
-      fileNames[[i]] = 'foveal-crowding-vs-age'
+      fileNames[[i]] = 'foveal-crowding-vs-age-by-grade'
       i = i + 1
     }
     t <- get_peripheral_crowding_vs_age(df_list()$crowding)
 
     if (!is.null(t)) {
       l[[i]] = t
-      fileNames[[i]] = 'foveal-crowding-vs-age'
+      fileNames[[i]] = 'peripheral-crowding-vs-age-by-grade'
       i = i + 1
     }
     t <- get_repeatedLetter_vs_age(df_list()$repeatedLetters)
 
     if (!is.null(t)) {
       l[[i]] = t
-      fileNames[[i]] = 'repeated-letter-crowding-vs-age'
+      fileNames[[i]] = 'repeated-letter-crowding-vs-age-by-grade'
       i = i + 1
     }
     t <- plot_reading_age(df_list()$reading)
  
     if (!is.null(t)) {
       l[[i]] = t
-      fileNames[[i]] = 'reading-vs-age'
+      fileNames[[i]] = 'reading-vs-age-by-grade'
       i = i + 1
     }
     t <- plot_rsvp_age(df_list()$rsvp)
 
     if (!is.null(t)) {
       l[[i]] = t
-      fileNames[[i]] = 'RSVP-vs-age'
+      fileNames[[i]] = 'rsvp-reading-vs-age-by-grade'
       i = i + 1
     }
     t <- get_foveal_acuity_vs_age(df_list()$acuity)
@@ -726,7 +726,7 @@ shinyServer(function(input, output, session) {
     
     # Download Handler
     output$downloadReadingVsRsvpPlot <- downloadHandler(
-      filename = function() { paste0("reading-vs-rsvp.", input$fileType) },
+      filename = function() { paste0(experiment_names(),"reading-vs-rsvp-reading-by-grade.", input$fileType) },
       content = function(file) {
         if (input$fileType == "png") {
           tmp_svg <- tempfile(fileext = ".svg")
@@ -881,7 +881,7 @@ shinyServer(function(input, output, session) {
    t <- get_quest_sd_vs_trials(df_list()$quest)
     if (!is.null(t)) {
       l[[i]] <- t
-      fileNames[[i]] <- 'quest-sd-vs-quest-trials'
+      fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
       i <- i + 1
     }
     
@@ -1533,60 +1533,31 @@ shinyServer(function(input, output, session) {
   
   
   
-  
-  createDownloadHandlerWithFormat <- function(plot, base_filename) {
-    downloadHandler(
-      filename = function() { paste0(base_filename, ".", input$fileType) },
-      content = function(file) {
-        if (input$fileType == "png") {
-          # Save as SVG first and convert to PNG
-          tmp_svg <- tempfile(fileext = ".svg")
-          ggsave(
-            filename = tmp_svg,
-            plot = plot + plt_theme + 
-              theme(
-              axis.text.x = if (i < length(grade_order)) element_blank() else element_text(),
-              axis.ticks.x = if (i < length(grade_order)) element_blank() else element_line(),
-              plot.title = element_text(size = 14, margin = margin(b = 1)), # Smaller title with reduced bottom margin
-              plot.margin = margin(t = 2, r = 5, b = 2, l = 5) # Reduced overall plot margin
-            ) + theme(
-              legend.position = "top",
-              legend.key.size = unit(2, "mm"),
-              legend.title = element_text(size = 8),
-              legend.text = element_text(size = 8),
-              axis.text = element_text(size = 11),
-              plot.title = element_text(size = 12, margin = margin(b = 2)),
-              plot.margin = margin(5, 5, 5, 5, "pt")
-            ),
-            unit = "in",
-            width = 6,  # Adjusted width for PNG export
-            height = 8, # Adjusted height for PNG export
-            device = svglite
-          )
-          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)  # High-resolution PNG
-        } else {
-          # Save as SVG or other formats directly
-          ggsave(
-            filename = file,
-            plot = plot + plt_theme,
-            unit = "in",
-            width = 6,  # Adjusted width for export
-            height = 8, # Adjusted height for export
-            limitsize = FALSE,
-            device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType)
-          )
-        }
-      }
-    )
-  }
+ 
   
   observeEvent(stackedPlots(), {
-    # Render plots
+    # RSVP
     output$stackedRsvpPlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
         filename = outfile,
-        plot = stackedPlots()$rsvp_plot,
+        plot = stackedPlots()$rsvp_plot +
+          plt_theme +
+          theme(
+            axis.text.x = element_text(),
+            axis.ticks.x = element_line(),
+            plot.title = element_text(size = 14, margin = margin(b = 1)),
+            plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+          ) +
+          theme(
+            legend.position = "top",
+            legend.key.size = unit(2, "mm"),
+            legend.title = element_text(size = 8),
+            legend.text = element_text(size = 8),
+            axis.text = element_text(size = 11),
+            plot.title = element_text(size = 12, margin = margin(b = 2)),
+            plot.margin = margin(5, 5, 5, 5, "pt")
+          ),
         width = 6,
         height = 8,
         unit = "in",
@@ -1595,16 +1566,90 @@ shinyServer(function(input, output, session) {
       list(src = outfile, contenttype = 'svg')
     }, deleteFile = TRUE)
     
-    output$downloadStackedRsvpPlot <- createDownloadHandlerWithFormat(
-      plot = stackedPlots()$rsvp_plot,
-      base_filename = "histogram-of-rsvp-reading-stacked-by-grade"
+    output$downloadStackedRsvpPlot <- downloadHandler(
+      filename = function() {
+        paste0(experiment_names(),"histogram-of-rsvp-reading-stacked-by-grade.", input$fileType)
+      },
+      content = function(file) {
+        if (input$fileType == "png") {
+          tmp_svg <- tempfile(fileext = ".svg")
+          ggsave(
+            filename = tmp_svg,
+            plot = stackedPlots()$rsvp_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = svglite,
+            width = 6,
+            height = 8,
+            unit = "in"
+          )
+          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
+        } else {
+          ggsave(
+            filename = file,
+            plot = stackedPlots()$rsvp_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType),
+            width = 6,
+            height = 8,
+            unit = "in",
+            limitsize = FALSE
+          )
+        }
+      }
     )
     
+    # Crowding
     output$stackedCrowdingPlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
         filename = outfile,
-        plot = stackedPlots()$crowding_plot,
+        plot = stackedPlots()$crowding_plot +
+          plt_theme +
+          theme(
+            axis.text.x = element_text(),
+            axis.ticks.x = element_line(),
+            plot.title = element_text(size = 14, margin = margin(b = 1)),
+            plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+          ) +
+          theme(
+            legend.position = "top",
+            legend.key.size = unit(2, "mm"),
+            legend.title = element_text(size = 8),
+            legend.text = element_text(size = 8),
+            axis.text = element_text(size = 11),
+            plot.title = element_text(size = 12, margin = margin(b = 2)),
+            plot.margin = margin(5, 5, 5, 5, "pt")
+          ),
         width = 6,
         height = 8,
         unit = "in",
@@ -1613,16 +1658,90 @@ shinyServer(function(input, output, session) {
       list(src = outfile, contenttype = 'svg')
     }, deleteFile = TRUE)
     
-    output$downloadStackedCrowdingPlot <- createDownloadHandlerWithFormat(
-      plot = stackedPlots()$crowding_plot,
-      base_filename = "histogram-of-peripheral-crowding-stacked-by-grade"
+    output$downloadStackedCrowdingPlot <- downloadHandler(
+      filename = function() {
+        paste0(experiment_names(), "histogram-of-peripheral-crowding-stacked-by-grade.", input$fileType)
+      },
+      content = function(file) {
+        if (input$fileType == "png") {
+          tmp_svg <- tempfile(fileext = ".svg")
+          ggsave(
+            filename = tmp_svg,
+            plot = stackedPlots()$crowding_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = svglite,
+            width = 6,
+            height = 8,
+            unit = "in"
+          )
+          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
+        } else {
+          ggsave(
+            filename = file,
+            plot = stackedPlots()$crowding_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType),
+            width = 6,
+            height = 8,
+            unit = "in",
+            limitsize = FALSE
+          )
+        }
+      }
     )
     
+    # Foveal Acuity
     output$stackedFovealAcuityPlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
         filename = outfile,
-        plot = stackedPlots()$foveal_acuity_plot,
+        plot = stackedPlots()$foveal_acuity_plot +
+          plt_theme +
+          theme(
+            axis.text.x = element_text(),
+            axis.ticks.x = element_line(),
+            plot.title = element_text(size = 14, margin = margin(b = 1)),
+            plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+          ) +
+          theme(
+            legend.position = "top",
+            legend.key.size = unit(2, "mm"),
+            legend.title = element_text(size = 8),
+            legend.text = element_text(size = 8),
+            axis.text = element_text(size = 11),
+            plot.title = element_text(size = 12, margin = margin(b = 2)),
+            plot.margin = margin(5, 5, 5, 5, "pt")
+          ),
         width = 6,
         height = 8,
         unit = "in",
@@ -1631,34 +1750,182 @@ shinyServer(function(input, output, session) {
       list(src = outfile, contenttype = 'svg')
     }, deleteFile = TRUE)
     
-    output$downloadStackedFovealAcuityPlot <- createDownloadHandlerWithFormat(
-      plot = stackedPlots()$foveal_acuity_plot,
-      base_filename = "histogram-of-foveal-acuity-stacked-by-grade"
+    output$downloadStackedFovealAcuityPlot <- downloadHandler(
+      filename = function() {
+        paste0(experiment_names(), "histogram-of-foveal-acuity-stacked-by-grade.", input$fileType)
+      },
+      content = function(file) {
+        if (input$fileType == "png") {
+          tmp_svg <- tempfile(fileext = ".svg")
+          ggsave(
+            filename = tmp_svg,
+            plot = stackedPlots()$foveal_acuity_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = svglite,
+            width = 6,
+            height = 8,
+            unit = "in"
+          )
+          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
+        } else {
+          ggsave(
+            filename = file,
+            plot = stackedPlots()$foveal_acuity_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType),
+            width = 8,
+            height = 6,
+            unit = "in",
+            limitsize = FALSE
+          )
+        }
+      }
     )
     
+    # Foveal Crowding
     output$stackedFovealCrowdingPlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
         filename = outfile,
-        plot = stackedPlots()$foveal_crowding_plot,
+        plot = stackedPlots()$foveal_crowding_plot +
+          plt_theme +
+          theme(
+            axis.text.x = element_text(),
+            axis.ticks.x = element_line(),
+            plot.title = element_text(size = 14, margin = margin(b = 1)),
+            plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+          ) +
+          theme(
+            legend.position = "top",
+            legend.key.size = unit(2, "mm"),
+            legend.title = element_text(size = 8),
+            legend.text = element_text(size = 8),
+            axis.text = element_text(size = 11),
+            plot.title = element_text(size = 12, margin = margin(b = 2)),
+            plot.margin = margin(5, 5, 5, 5, "pt")
+          ),
         width = 6,
-        height =8,
+        height = 8,
         unit = "in",
         device = svglite
       )
       list(src = outfile, contenttype = 'svg')
     }, deleteFile = TRUE)
     
-    output$downloadStackedFovealCrowdingPlot <- createDownloadHandlerWithFormat(
-      plot = stackedPlots()$foveal_crowding_plot,
-      base_filename = "histogram-of-foveal-crowding-stacked-by-grade"
+    output$downloadStackedFovealCrowdingPlot <- downloadHandler(
+      filename = function() {
+        paste0(experiment_names(), "histogram-of-foveal-crowding-stacked-by-grade.", input$fileType)
+      },
+      content = function(file) {
+        if (input$fileType == "png") {
+          tmp_svg <- tempfile(fileext = ".svg")
+          ggsave(
+            filename = tmp_svg,
+            plot = stackedPlots()$foveal_crowding_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = svglite,
+            width = 6,
+            height = 8,
+            unit = "in"
+          )
+          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
+        } else {
+          ggsave(
+            filename = file,
+            plot = stackedPlots()$foveal_crowding_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType),
+            width = 6,
+            height = 8,
+            unit = "in",
+            limitsize = FALSE
+          )
+        }
+      }
     )
     
+    # Foveal Repeated
     output$stackedFovealRepeatedPlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
         filename = outfile,
-        plot = stackedPlots()$foveal_repeated_plot,
+        plot = stackedPlots()$foveal_repeated_plot +
+          plt_theme +
+          theme(
+            axis.text.x = element_text(),
+            axis.ticks.x = element_line(),
+            plot.title = element_text(size = 14, margin = margin(b = 1)),
+            plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+          ) +
+          theme(
+            legend.position = "top",
+            legend.key.size = unit(2, "mm"),
+            legend.title = element_text(size = 8),
+            legend.text = element_text(size = 8),
+            axis.text = element_text(size = 11),
+            plot.title = element_text(size = 12, margin = margin(b = 2)),
+            plot.margin = margin(5, 5, 5, 5, "pt")
+          ),
         width = 6,
         height = 8,
         unit = "in",
@@ -1667,16 +1934,90 @@ shinyServer(function(input, output, session) {
       list(src = outfile, contenttype = 'svg')
     }, deleteFile = TRUE)
     
-    output$downloadStackedFovealRepeatedPlot <- createDownloadHandlerWithFormat(
-      plot = stackedPlots()$foveal_repeated_plot,
-      base_filename = "histogram-of-foveal-repeated-letter-crowding-stacked-by-grade"
+    output$downloadStackedFovealRepeatedPlot <- downloadHandler(
+      filename = function() {
+        paste0(experiment_names(), "histogram-of-foveal-repeated-letter-crowding-stacked-by-grade.", input$fileType)
+      },
+      content = function(file) {
+        if (input$fileType == "png") {
+          tmp_svg <- tempfile(fileext = ".svg")
+          ggsave(
+            filename = tmp_svg,
+            plot = stackedPlots()$foveal_repeated_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = svglite,
+            width = 6,
+            height = 8,
+            unit = "in"
+          )
+          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
+        } else {
+          ggsave(
+            filename = file,
+            plot = stackedPlots()$foveal_repeated_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType),
+            width = 6,
+            height = 8,
+            unit = "in",
+            limitsize = FALSE
+          )
+        }
+      }
     )
     
+    # Peripheral Acuity
     output$stackedPeripheralAcuityPlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
         filename = outfile,
-        plot = stackedPlots()$peripheral_acuity_plot,
+        plot = stackedPlots()$peripheral_acuity_plot +
+          plt_theme +
+          theme(
+            axis.text.x = element_text(),
+            axis.ticks.x = element_line(),
+            plot.title = element_text(size = 14, margin = margin(b = 1)),
+            plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+          ) +
+          theme(
+            legend.position = "top",
+            legend.key.size = unit(2, "mm"),
+            legend.title = element_text(size = 8),
+            legend.text = element_text(size = 8),
+            axis.text = element_text(size = 11),
+            plot.title = element_text(size = 12, margin = margin(b = 2)),
+            plot.margin = margin(5, 5, 5, 5, "pt")
+          ),
         width = 6,
         height = 8,
         unit = "in",
@@ -1685,11 +2026,69 @@ shinyServer(function(input, output, session) {
       list(src = outfile, contenttype = 'svg')
     }, deleteFile = TRUE)
     
-    output$downloadStackedPeripheralAcuityPlot <- createDownloadHandlerWithFormat(
-      plot = stackedPlots()$peripheral_acuity_plot,
-      base_filename = "histogram-of-peripheral-acuity-stacked-by-grade"
+    output$downloadStackedPeripheralAcuityPlot <- downloadHandler(
+      filename = function() {
+        paste0(experiment_names(), "histogram-of-peripheral-acuity-stacked-by-grade.", input$fileType)
+      },
+      content = function(file) {
+        if (input$fileType == "png") {
+          tmp_svg <- tempfile(fileext = ".svg")
+          ggsave(
+            filename = tmp_svg,
+            plot = stackedPlots()$peripheral_acuity_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = svglite,
+            width = 6,
+            height = 8,
+            unit = "in"
+          )
+          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
+        } else {
+          ggsave(
+            filename = file,
+            plot = stackedPlots()$peripheral_acuity_plot +
+              plt_theme +
+              theme(
+                axis.text.x = element_text(),
+                axis.ticks.x = element_line(),
+                plot.title = element_text(size = 14, margin = margin(b = 1)),
+                plot.margin = margin(t = 2, r = 5, b = 2, l = 5)
+              ) +
+              theme(
+                legend.position = "top",
+                legend.key.size = unit(2, "mm"),
+                legend.title = element_text(size = 8),
+                legend.text = element_text(size = 8),
+                axis.text = element_text(size = 11),
+                plot.title = element_text(size = 12, margin = margin(b = 2)),
+                plot.margin = margin(5, 5, 5, 5, "pt")
+              ),
+            device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType),
+            width = 6,
+            height = 8,
+            unit = "in",
+            limitsize = FALSE
+          )
+        }
+      }
     )
   })
+  
   
   
   
@@ -4089,11 +4488,9 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadRsvpCrowdingFovealGradePlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('rsvp-vs-foveal-crowding-by-grade.', input$fileType),
-        sep = "-"
-      ),
+      filename = function () {
+        paste0(experiment_names(), 'rsvp-vs-foveal-crowding-by-grade.', input$fileType)
+      },
       content = function(file) {
         if (input$fileType == "png") {
           ggsave(
@@ -4122,11 +4519,9 @@ shinyServer(function(input, output, session) {
     
     
     output$downloadRsvpFovealAcuityGradePlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('rsvp-vs-acuity-by-grade.', input$fileType),
-        sep = "-"
-      ),
+      filename = function () {
+        paste0(experiment_names(), 'rsvp-vs-fovel-acuity-by-grade.', input$fileType)
+      },
       content = function(file) {
         if (input$fileType == "png") {
           ggsave(
@@ -4155,11 +4550,9 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadFactorOutAgePlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('rsvp-vs-crowding-factored-age.', input$fileType),
-        sep = "-"
-      ),
+      filename = function () {
+        paste0(experiment_names(), 'rsvp-vs-crowding-factored-age.', input$fileType)
+      },
       content = function(file) {
         if (input$fileType == "png") {
           ggsave(
@@ -4186,11 +4579,9 @@ shinyServer(function(input, output, session) {
     
     
     output$downloadRsvpPeripheralAcuityGradePlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('rsvp-vs-acuity-periphreal-by-grade.', input$fileType),
-        sep = "-"
-      ),
+      filename = function () {
+        paste0(experiment_names(), 'rsvp-vs-periphreal-acuity-by-grade.', input$fileType)
+      },
       content = function(file) {
         if (input$fileType == "png") {
           ggsave(
@@ -4219,11 +4610,9 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadrsvpRepeatedGradePlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('rsvp-vs-repeated-letter-crowding-by-grade.', input$fileType),
-        sep = "-"
-      ),
+      filename = function () {
+        paste0(experiment_names(), 'rsvp-vs-repeated-letter-crowding-by-grade.', input$fileType)
+      },
       content = function(file) {
         if (input$fileType == "png") {
           ggsave(
@@ -4284,7 +4673,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadOrdinaryFovealAcuityGradePlot <- downloadHandler(
       filename = function() {
-        paste("ordinary_foveal_acuity_grade", input$fileType, sep = ".")
+        paste0("ordinary_foveal_acuity_grade", input$fileType, sep = ".")
       },
       content = function(file) {
         if (input$fileType == "png") {
@@ -4314,7 +4703,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadOrdinaryFovealCrowdingGradePlot <- downloadHandler(
       filename = function() {
-        paste("ordinary_foveal_crowding_grade", input$fileType, sep = ".")
+        paste0(experiment_names(),"ordinary-reading-vs-foveal-crowding-by-grade.", input$fileType)
       },
       content = function(file) {
         if (input$fileType == "png") {
@@ -4341,7 +4730,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadOrdinaryPeripheralCrowdingGradePlot <- downloadHandler(
       filename = function() {
-        paste("ordinary_peripheral_crowding_grade", input$fileType, sep = ".")
+        paste0(experiment_names(),"ordinary-reading-vs-peripheral-crowding-by-grade.", input$fileType)
       },
       content = function(file) {
         if (input$fileType == "png") {
@@ -4370,11 +4759,9 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadReadingRepeatedGradePlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('reading-vs-repeated-letter-crowding-by-grade.', input$fileType),
-        sep = "-"
-      ),
+      filename =  function() {
+        paste0(experiment_names(),"reading-vs-repeated-letter-crowding-by-grade.", input$fileType)
+      },
       content = function(file) {
         if (input$fileType == "png") {
           ggsave(
