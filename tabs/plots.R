@@ -9,6 +9,11 @@ plotsTab <- tabPanel(
       text-anchor: start;    /* Left-align each text line */
       white-space: pre;      /* Preserve whitespace */
     }
+    @media print {
+      .shiny-download-link {
+        display: none;
+      }
+  }
     
     /* Additional styles as needed for specific plot adjustments */
   ")),
