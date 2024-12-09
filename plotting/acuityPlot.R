@@ -35,7 +35,6 @@ get_foveal_acuity_vs_age <- function(acuity) {
     
     # Plotting
     p <- p +
-      scale_y_log10() +
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
       geom_point(size = 3) +  # Add points
       theme_bw() +
@@ -43,6 +42,13 @@ get_foveal_acuity_vs_age <- function(acuity) {
         title = "Foveal acuity vs age\ncolored by grade",
         x = "Age",
         y = "Foveal acuity (deg)"
+      ) +
+      scale_y_log10() +
+      annotation_logticks(
+        sides = "l",  
+        short = unit(0.1, "cm"),
+        mid = unit(0.1, "cm"),
+        long = unit(0.3, "cm")
       ) +
       annotate(
         "text",
@@ -113,6 +119,12 @@ get_peripheral_acuity_vs_age <- function(acuity) {
       geom_point(size = 3) +
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
       scale_y_log10() +
+      annotation_logticks(
+        sides = "l",  
+        short = unit(0.1, "cm"),
+        mid = unit(0.1, "cm"),
+        long = unit(0.3, "cm")
+      ) +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "top",

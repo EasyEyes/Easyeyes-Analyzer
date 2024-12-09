@@ -296,9 +296,11 @@ plot_rsvp_crowding <- function(allData) {
         breaks = y_breaks,
         limits = c(yMin, yMax),
         expand = c(0, 0)
-      ) +
+      ) +  
+      annotation_logticks(short = unit(0.1, "cm"),
+                               mid = unit(0.1, "cm"),
+                               long = unit(0.3, "cm") ) +
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
-      annotation_logticks() +
       coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +  # Set exact limits
       annotate(
         "text",

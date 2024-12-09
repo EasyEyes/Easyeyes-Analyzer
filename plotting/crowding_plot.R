@@ -1,4 +1,3 @@
-library(scales)
 source('./constant.R')
 
 
@@ -242,6 +241,12 @@ get_foveal_crowding_vs_age <- function(crowding) {
         hjust = 1, vjust = 1, size = 4, color = "black"
       ) +
       scale_y_log10() +
+      annotation_logticks(
+        sides = "l",  
+        short = unit(0.1, "cm"),
+        mid = unit(0.1, "cm"),
+        long = unit(0.3, "cm")
+      ) +
       theme_bw() +
       labs(
         title = 'Foveal crowding vs age\ncolored by grade',
@@ -303,7 +308,6 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     yMax <- max(t$Y, na.rm = TRUE)
     
     p <- p +
-      scale_y_log10() +
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
       geom_point(size = 3) +  # Add points
       theme_bw() +
@@ -312,6 +316,13 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         title = "Peripheral crowding vs age\ncolored by grade",
         x = "Age",
         y = "Peripheral crowding (deg)"
+      ) +
+      scale_y_log10() +
+      annotation_logticks(
+        sides = "l",  
+        short = unit(0.1, "cm"),
+        mid = unit(0.1, "cm"),
+        long = unit(0.3, "cm")
       ) +
       annotate(
         "text",
@@ -364,6 +375,12 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
     p <- p + 
       geom_point(size = 3) +  # Add points
       scale_y_log10() + 
+      annotation_logticks(
+        sides = "l",  
+        short = unit(0.1, "cm"),
+        mid = unit(0.1, "cm"),
+        long = unit(0.3, "cm")
+      ) +
       theme_bw() +
       color_scale(n = n_grades) +  # Apply the gray-to-black color scale
       labs(
@@ -425,6 +442,11 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         geom_point() +
         scale_y_log10() + 
         scale_x_log10() + 
+        annotation_logticks(
+          short = unit(0.1, "cm"),
+          mid = unit(0.1, "cm"),
+          long = unit(0.3, "cm")
+        ) +
         theme_bw() +
         color_scale(n = n_grades) +  # Apply the color_scale function with n_grades
         labs(title = 'Repeated-letter crowding vs foveal crowding\ncolored by grade',
@@ -441,6 +463,11 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         geom_point() +
         scale_y_log10() + 
         scale_x_log10() + 
+        annotation_logticks(
+          short = unit(0.1, "cm"),
+          mid = unit(0.1, "cm"),
+          long = unit(0.3, "cm")
+        ) +
         theme_bw() +
         labs(title = 'Repeated-letter crowding vs foveal crowding\ncolored by age',
              x = 'Foveal crowding (deg)',
@@ -451,6 +478,12 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         geom_point() +
         scale_y_log10() + 
         scale_x_log10() + 
+        scale_x_log10() + 
+        annotation_logticks(
+          short = unit(0.1, "cm"),
+          mid = unit(0.1, "cm"),
+          long = unit(0.3, "cm")
+        ) +
         theme_bw() +
         labs(title = 'Repeated-letter crowding vs foveal crowding\ncolored by age',
              x = 'Foveal crowding (deg)',

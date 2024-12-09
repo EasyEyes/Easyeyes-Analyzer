@@ -928,7 +928,7 @@ shinyServer(function(input, output, session) {
     
     print('plot_rsvp_repeated_letter_crowding')
     if (!is.null(repeatedLetter_rsvp[[1]])) {
-      l[[i]] <- repeatedLetter_rsvp[[1]] + plt_theme
+      l[[i]] <- repeatedLetter_rsvp[[1]] + plt_theme  
       fileNames[[i]] <- 'rsvp-foveal-repeated-letter-crowding-grade'
       i <- i + 1
     }

@@ -195,13 +195,19 @@ plot_reading_age <- function(reading) {
     
     # Plot with regression line and statistics
     p <- p +
-      scale_y_log10() +
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
       theme_bw() +
       labs(
         title = "Reading vs age\ncolored by grade",
         x = "Age",
         y = "Reading speed (w/min)"
+      ) +
+      scale_y_log10() +
+      annotation_logticks(
+        sides = "l",  
+        short = unit(0.1, "cm"),
+        mid = unit(0.1, "cm"),
+        long = unit(0.3, "cm")
       ) +
       annotate(
         "text",
@@ -265,7 +271,7 @@ plot_rsvp_age <- function(rsvp) {
     
     # Plot with regression line and annotated statistics
     p <- p +
-      scale_y_log10() +
+     
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
       theme_bw() +
       labs(
@@ -273,6 +279,13 @@ plot_rsvp_age <- function(rsvp) {
         x = "Age",
         y = "RSVP reading speed (w/min)"
       ) +
+      scale_y_log10() +
+      annotation_logticks(
+        sides = "l",  # Log ticks only on the left (y-axis)
+        short = unit(0.1, "cm"),
+        mid = unit(0.1, "cm"),
+        long = unit(0.3, "cm")
+      )  +
       annotate(
         "text",
         x = min(t$age, na.rm = TRUE) * 1.1,  # Bottom-left placement, slightly offset for padding
@@ -362,6 +375,12 @@ plot_reading_rsvp <- function(reading, rsvp) {
     geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +  # Black regression line
     scale_x_log10() +
     scale_y_log10() +
+    annotation_logticks(
+      sides = "l",  
+      short = unit(0.1, "cm"),
+      mid = unit(0.1, "cm"),
+      long = unit(0.3, "cm")
+    ) +
     labs(
       x = "RSVP reading (w/min)",
       y = "Reading (w/min)",
