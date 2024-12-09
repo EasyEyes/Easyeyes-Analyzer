@@ -746,7 +746,6 @@ plot_crowding_vs_age <- function(crowding){
   foveal <- crowding %>% 
     filter(questType == 'Foveal crowding')
   # Only right visual field
-  write.csv('crowding')
   peripheral <- crowding %>% 
     filter(targetEccentricityXDeg > 0)
   
@@ -787,19 +786,18 @@ plot_crowding_vs_age <- function(crowding){
                               y = 10^(log_crowding_distance_deg),
                               color = questType)) + 
     annotation_logticks(sides = 'l') + 
-    scale_color_manual(values = c('red', 'blue')) + 
     geom_point()+ 
     geom_smooth(method='lm', se=F) + 
     ggpp::geom_text_npc(
       size = 12/.pt,
-      aes(npcx = "left",
-          npcy = "bottom",
+      aes(npcx = "right",
+          npcy = "top",
           label = paste0('Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr, '\n',
                          'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr))) +
     scale_y_log10() + 
     guides(color=guide_legend(title = '')) + 
     labs(x = 'Age',
-         y = 'Log crowding distance (deg)',
+         y = 'Crowding distance (deg)',
          title = 'Foveal and peripheral\ncrowding vs age')
 }
 

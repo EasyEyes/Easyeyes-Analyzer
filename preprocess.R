@@ -158,7 +158,7 @@ read_files <- function(file){
           t$hardwareConcurrency <- NA
         }
         if (!('experiment' %in% colnames(t))) {
-          t$experiment <- str_split(file$name[i], "[_]")[[1]][3]
+          t$experiment <- ''
         }
         if (!('experimentCompleteBool' %in% colnames(t))) {
           t$experimentCompleteBool <- FALSE
@@ -400,7 +400,7 @@ read_files <- function(file){
           }
           if (!('experiment' %in% colnames(t))) {
             fileName <- str_split(all_csv[k], "[/]")[[1]][2]
-            t$experiment <- str_split(fileName, "[_]")[[1]][3]
+            t$experiment <-''
           }
           if (!('experimentCompleteBool' %in% colnames(t))) {
             t$experimentCompleteBool <- FALSE

@@ -241,7 +241,6 @@ extractCrowdingStaircases <- function(df, info) {
 
 plotStaircases <- function(Staircases, thresholdParameterSelected) {
   print('stairdf')
-  print(Staircases$thresholdParameter)
     stairdf <- Staircases %>%
       filter(questType != 'practice')
     

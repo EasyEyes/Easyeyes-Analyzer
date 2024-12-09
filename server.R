@@ -4195,7 +4195,6 @@ shinyServer(function(input, output, session) {
     
     output$downloadCrowdingAgePlot <- downloadHandler(
       filename = paste0(
-        experiment_names(),
         'crowding-vs-age',
         '.',
         input$fileType
@@ -4266,23 +4265,35 @@ shinyServer(function(input, output, session) {
     
     output$downloadAcuityAgePlot <- downloadHandler(
       filename = paste0(
-        experiment_names(),
         'acuity-vs-age',
         '.',
         input$fileType
       ),
       content = function(file) {
-        ggsave(
-          file,
-          plot = plot_acuity_vs_age(df_list()) + plt_theme,
-          unit = "in",
-          limitsize = F,
-          device = ifelse(
-            input$fileType == "svg",
-            svglite::svglite,
-            input$fileProfile
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = plot_acuity_vs_age(df_list()) + plt_theme,
+            unit = "in",
+            limitsize = F,
+            device = svglite
           )
-        )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1800,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot =plot_acuity_vs_age(df_list()) + plt_theme,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
       }
     )
     

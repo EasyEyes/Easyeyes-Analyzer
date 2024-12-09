@@ -487,15 +487,15 @@ plot_acuity_vs_age <- function(allData){
     geom_smooth(method = 'lm', se=F) +
     ggpp::geom_text_npc(
       size = 12/.pt,
-      aes(npcx = "left",
-          npcy = "bottom",
+      aes(npcx = "right",
+          npcy = "top",
           label = paste0('Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr, "\n",
                          'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr))) +
     scale_y_log10() + 
     guides(color=guide_legend(title = '')) + 
     labs(x = 'Age',
-         y = 'Log acuity (deg)',
-         title = 'Foveal and peripheral\nacuity vs age')
+         y = 'Acuity (deg)',
+         title = 'Foveal and peripheral acuity vs age')
 }
 
 get_acuity_foveal_peripheral_diag <- function(acuity) {
