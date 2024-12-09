@@ -603,6 +603,7 @@ get_foveal_peripheral_diag <- function(crowding) {
       R_factor_out_age <- NA
     }
     
+    
     n_grades <- n_distinct(t$Grade)
     
     # Plot for grade
@@ -702,7 +703,7 @@ get_foveal_peripheral_diag <- function(crowding) {
 }
 
 plot_crowding_vs_age <- function(crowding){
-  
+  write.csv(crowding, '~/Downloads/english-children-crowding-2023.csv')
   crowding <- crowding %>% mutate(ageN = as.numeric(age))
 
   if (nrow(crowding) == 0) {
@@ -716,7 +717,11 @@ plot_crowding_vs_age <- function(crowding){
   peripheral <- crowding %>% 
     filter(targetEccentricityXDeg > 0)
   
-  # calculate slope foveal data
+  age_values <- seq(4, 10, by = 0.1)  
+  log_crowding_distance_deg <- 0.0535 + 1.5294 * (age_values^-1.9438)
+  
+  foveal_curve <- data.frame(ageN = age_values, log_crowding_distance_deg = log_crowding_distance_deg)
+
   foveal_stats <- foveal %>% 
     do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
     transmute(coef = map(fit, tidy)) %>%
@@ -749,8 +754,9 @@ plot_crowding_vs_age <- function(crowding){
                               y = 10^(log_crowding_distance_deg),
                               color = questType)) + 
     annotation_logticks(sides = 'l') + 
-    geom_smooth(method = 'lm', se=F) +
+    scale_color_manual(values = c('red', 'blue')) + 
     geom_point()+ 
+    geom_smooth(method='lm', se=F) + 
     ggpp::geom_text_npc(
       size = 12/.pt,
       aes(npcx = "left",
