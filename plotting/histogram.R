@@ -39,7 +39,7 @@ get_crowding_hist <- function(crowding) {
     group_by(participant, `Skilled reader?`, block) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = T)) %>% 
     ungroup()
-  print(peripheral)
+
   if (nrow(foveal) > 0) {
     if ('Skilled reader?' %in% names(foveal)) {
       stats1 <- foveal %>% filter(`Skilled reader?` != FALSE)
@@ -251,8 +251,6 @@ generate_histograms_by_grade <- function(data) {
   
   # Helper function to create stacked histograms
   create_stacked_histogram <- function(subset_data, variable, grade_order, x_label, title_prefix) {
-    print(nrow(subset_data))
-    print(subset_data[[variable]])
     if (nrow(subset_data) == 0) {return(NULL)}
     plots <- list()
     

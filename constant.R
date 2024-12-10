@@ -90,6 +90,13 @@ plt_theme_scatter <- theme(
   plot.title = element_text(size=18,
                             hjust = 0),
   plot.subtitle = element_text(size=18),
+  plot.margin = margin(
+    t = 0.1,
+    r = 0.9,
+    b = 0.1,
+    l = 0.1,
+    "inch"
+  ),
   strip.text = element_text(size = 14))
 
 plt_theme <- theme(legend.position = "top", 

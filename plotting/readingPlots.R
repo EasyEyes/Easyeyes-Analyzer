@@ -342,7 +342,6 @@ plot_reading_rsvp <- function(reading, rsvp) {
     group_by(participant, block_condition, targetKind) %>%
     dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = TRUE)), .groups = "keep") %>% 
     ungroup() %>% 
-    filter(avg_wordPerMin <= 1500) %>% 
     mutate(log_WPM = log10(avg_wordPerMin)) %>% 
     group_by(participant, targetKind) %>% 
     summarize(avg_log_WPM = mean(log10(avg_wordPerMin), na.rm = TRUE), .groups = "keep") %>% 
@@ -369,12 +368,17 @@ plot_reading_rsvp <- function(reading, rsvp) {
   pcor <- ppcor::pcor(t %>% select(X, Y, age))
   R_factor_out_age <- round(pcor$estimate[2, 1], 2)
   
+  
+  minXY = min(t$X, t$Y, na.rm = T) * 0.95
+  maxXY = max(t$X, t$Y, na.rm = T) * 1.05
   # Generate the plot
   p <- ggplot(t, aes(x = X, y = Y, color = Grade)) + 
     geom_point(size = 3) +  # Point size fixed for clarity
     geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +  # Black regression line
-    scale_x_log10() +
-    scale_y_log10() +
+    scale_x_log10(limits = c(minXY, maxXY),
+                  expand = c(0,0)) +
+    scale_y_log10(limits = c(minXY, maxXY),
+                  expand = c(0,0)) +
     annotation_logticks(
       sides = "l",  
       short = unit(0.1, "cm"),
@@ -391,18 +395,14 @@ plot_reading_rsvp <- function(reading, rsvp) {
     theme(legend.position = 'top') +
     annotation_logticks() +
     guides(color = guide_legend(title = "Grade")) +
-    annotate(
-      "text",
-      x = min(t$X, na.rm = TRUE) * 1.1,  # Bottom-left placement
-      y = min(t$Y, na.rm = TRUE) * 1.1,
-      label = paste0(
-        t$N[1],  # Using the first value of N (constant for the group)
-        "\nR = ", round(r_value, 2),
-        "\nR_factor_out_age = ", R_factor_out_age,
-        "\nslope = ", round(slope, 2)
-      ),
-      hjust = 0, vjust = 0, size = 4, color = "black"
-    ) +
+    ggpp::geom_text_npc(aes(npcx = 'left',
+                            npcy = 'top',
+                            label = paste0(
+                              t$N[1],  # Using the first value of N (constant for the group)
+                              "\nR = ", round(r_value, 2),
+                              "\nR_factor_out_age = ", R_factor_out_age,
+                              "\nslope = ", round(slope, 2)
+                            ))) + 
     color_scale(n = n_distinct(t$Grade))  # Apply color_scale dynamically
   
   return(p)

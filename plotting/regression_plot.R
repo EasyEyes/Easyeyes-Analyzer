@@ -112,9 +112,6 @@ regression_reading_plot <- function(df_list){
   p2 <- NULL
   
   if (nrow(foveal) > 0) {
-    x_range <- log10(max(foveal$crowding_distance, na.rm = TRUE)) - log10(min(foveal$crowding_distance, na.rm = TRUE))
-    y_range <- log10(max(10^(foveal$avg_log_WPM), na.rm = TRUE)) - log10(min(10^(foveal$avg_log_WPM), na.rm = TRUE))
-    aspect_ratio <- y_range / x_range
     p1 <- ggplot(foveal,aes(x = crowding_distance, y = 10^(avg_log_WPM), color = targetKind)) + 
       geom_point() +
       geom_smooth(method = "lm",formula = y ~ x, se=F) + 
@@ -129,7 +126,7 @@ regression_reading_plot <- function(df_list){
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "top",
-        label = paste0('N=', nrow(t))
+        label = paste0('N=', nrow(foveal))
       )) + 
       guides(color=guide_legend(nrow=2, byrow=TRUE,
                                 title = '')) + 
@@ -140,9 +137,6 @@ regression_reading_plot <- function(df_list){
   }
   
   if (nrow(peripheral) > 0) {
-    x_range <- log10(max(peripheral$crowding_distance, na.rm = TRUE)) - log10(min(peripheral$crowding_distance, na.rm = TRUE))
-    y_range <- log10(max(10^(peripheral$avg_log_WPM), na.rm = TRUE)) - log10(min(10^(peripheral$avg_log_WPM), na.rm = TRUE))
-    aspect_ratio <- y_range / x_range
     p2 <- ggplot(peripheral, aes(x = crowding_distance, y = 10^(avg_log_WPM), color = targetKind)) + 
       geom_point() +
       geom_smooth(method = "lm",formula = y ~ x, se=F) + 
@@ -157,7 +151,7 @@ regression_reading_plot <- function(df_list){
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "top",
-        label = paste0('N=', nrow(t))
+        label = paste0('N=', nrow(peripheral))
       )) + 
       guides(color=guide_legend(nrow=2, byrow=TRUE,
                                 title = '')) +

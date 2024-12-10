@@ -6,7 +6,9 @@ source('./plotting/simulatedRSVP.R')
 read_files <- function(file){
   if(is.null(file)) return(list())
   file_list <- file$data
-  file_list <- file_list[!grepl("^~", basename(file_list))]
+  file_names <- file$name
+  file_list <- file_list[!grepl("cursor", basename(file_names))]
+  file_list <- file_list[!grepl("^~", basename(file_names))]
   data_list <- list()
   stair_list <- list()
   summary_list <- list()
@@ -276,6 +278,7 @@ read_files <- function(file){
       file_names <- file_names[!grepl("^~", basename(file_names))]
       all_csv <- file_names[grepl(".csv", file_names)]
       all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
+      all_csv <- all_csv[!grepl("cursor", all_csv)]
       all_xlsx <- file_names[grepl(".xlsx", file_names)]
       all_xlsx <- all_xlsx[!grepl("__MACOSX", all_xlsx)]
       m <- length(all_csv)
@@ -536,7 +539,7 @@ read_files <- function(file){
             mutate(Grade = ifelse(is.na(Grade), -1, Grade))
         }
       }
-      print('done processing zip')
+      ('done processing zip')
     }
   }
   df <- tibble()

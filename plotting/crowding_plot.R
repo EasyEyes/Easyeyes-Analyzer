@@ -28,10 +28,20 @@ crowding_scatter_plot <- function(crowding_L_R){
       return(NULL)
     }
   }
+  crowding_L_R <- crowding_L_R %>% 
+    group_by(participant) %>% 
+    summarize(log_crowding_distance_deg_Left = mean(log_crowding_distance_deg_Left, na.rm=T),
+              log_crowding_distance_deg_Right = mean(log_crowding_distance_deg_Right, na.rm=T)) %>% 
+    ungroup()
+  
   print('inside crowding_scatter_plot')
   N_left = crowding_L_R %>% filter(!is.na(log_crowding_distance_deg_Left)) %>% count()
+  # this is to work around a bug, need to check later
+  N_left = N_left[1]
   N_right= crowding_L_R %>% filter(!is.na(log_crowding_distance_deg_Right)) %>% count()
+  N_right = N_right[1]
   N_both = crowding_L_R %>% filter(!is.na(log_crowding_distance_deg_Right),!is.na(log_crowding_distance_deg_Left)) %>% count()
+  N_both = N_both[1]
   summ <- group_by(crowding_L_R) %>% 
     mutate(log_delta = log_crowding_distance_deg_Left - log_crowding_distance_deg_Right,
            log_mean = (log_crowding_distance_deg_Left+log_crowding_distance_deg_Right)/2) %>% 
@@ -44,21 +54,23 @@ crowding_scatter_plot <- function(crowding_L_R){
               mean_avg = mean(log_mean, na.rm = T),
               sd_avg = sd(log_mean, na.rm = T)) %>% 
     mutate(sdTestRetest = sd_log_delta / sqrt(2)) %>% 
-    mutate(sdIndividual = sqrt(sd_avg^2 - 0.5*sdTestRetest^2)) %>% 
-    mutate(label =paste0('N= ', N_both, '\n', 
-                         'Left: log(spacingDeg left): n=', format(N_left,nsmall=2),', meanLeft= ', format(round(mean_left,2),nsmall=2), '\n',
+    mutate(sdIndividual = sqrt(sd_avg^2 - 0.5*sdTestRetest^2))
+  
+  summ <- summ %>% 
+    summarize(label =paste0('N= ', N_both, '\n', 
+                         'Left: log(spacingDeg left): n=', N_left,', meanLeft= ', format(round(mean_left,2),nsmall=2), '\n',
                          '      sdLeft= ', format(round(sd_left,2),nsmall=2), '\n',
-                         'Right: log(spacingDeg right): n=', format(N_right,nsmall=2),', meanRight= ', format(round(mean_right,2),nsmall=2), '\n',
+                         'Right: log(spacingDeg right): n=', N_right,', meanRight= ', format(round(mean_right,2),nsmall=2), '\n',
                          '      sdRight= ', format(round(sd_right,2),nsmall=2), '\n',
-                         'Diff: log(spacingDeg left)-log(spacingDeg right): n=',format(N_both,nsmall=2), '\n',
+                         'Diff: log(spacingDeg left)-log(spacingDeg right): n=',N_both, '\n',
                          '      meanDiff=', format(round(mean_log_delta,2),nsmall=2), ', sdDiff= ', format(round(sd_log_delta,2),nsmall=2), '\n',
-                         'Avg: [log(spacingDeg left)+log(spacingDeg right)]/2: n=', format(N_both,nsmall=2), '\n',
+                         'Avg: [log(spacingDeg left)+log(spacingDeg right)]/2: n=', N_both, '\n',
                          '      meanAvg=', format(round(mean_avg,2),nsmall=2), ', sdAvg=', format(round(sd_avg,2),nsmall=2), '\n',
                          'TestRetest: sdTestRetest=sdDiff/sqrt(2)=', format(round(sdTestRetest,2),nsmall=2), '\n',
                          'Individual: sdIndividual=\n',
                          '      sqrt(sdAvg^2 - 0.5*(sdTestRetest^2))=', format(round(sdIndividual,2),nsmall=2)
                          ))
-
+  print(summ)
   minXY <- min(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right, na.rm = T) * 0.9
   maxXY <- max(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right, na.rm = T) * 1.1
   p <- ggplot(crowding_L_R,aes(y = 10^(log_crowding_distance_deg_Left), x = 10^(log_crowding_distance_deg_Right))) + 

@@ -542,9 +542,11 @@ getCorrMatrix <- function(allData, pretest) {
   reading <- allData$reading %>%
     mutate(participant = tolower(participant)) %>%
     group_by(participant, block_condition) %>% 
-    summarize(log_WPM = mean(log_WPM)) %>% 
+    summarize(log_WPM = mean(log_WPM,na.rm=T)) %>% 
     rename('log reading' = 'log_WPM' ) %>% 
     select(participant, `log reading`)
+  
+  print(reading)
   
   crowdingW <- crowding %>% 
     full_join(acuity, by = 'participant') %>% 
