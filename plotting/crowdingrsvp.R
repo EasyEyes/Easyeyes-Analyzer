@@ -557,7 +557,6 @@ getCorrMatrix <- function(allData, pretest) {
       full_join(pretest_for_corr, by = 'participant')
   }
   
-  print(crowdingW)
   crowdingW <- crowdingW %>% 
     rename('log rsvp' = 'block_avg_log_WPM') %>% 
     ungroup() %>% 

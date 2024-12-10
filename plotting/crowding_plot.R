@@ -35,29 +35,32 @@ crowding_scatter_plot <- function(crowding_L_R){
   summ <- group_by(crowding_L_R) %>% 
     mutate(log_delta = log_crowding_distance_deg_Left - log_crowding_distance_deg_Right,
            log_mean = (log_crowding_distance_deg_Left+log_crowding_distance_deg_Right)/2) %>% 
-    summarize(mean_log_delta = round(mean(log_delta),2),
-              sd_log_delta = round(sd(log_delta),2),
-              mean_left = round(mean(log_crowding_distance_deg_Left),2),
-              sd_left = round(sd(log_crowding_distance_deg_Left),2),
-              mean_right = round(mean(log_crowding_distance_deg_Right),2),
-              sd_right = round(sd(log_crowding_distance_deg_Right),2),
-              mean_avg = round(mean(log_mean),2),
-              sd_avg = round(sd(log_mean),2)) %>% 
-    mutate(sdTestRetest = round(sd_log_delta / sqrt(2), 2),
-           sdIndividual = round(sqrt(sd_avg^2 - 0.5*(sdTestRetest^2)),2)) %>% 
+    summarize(mean_log_delta = mean(log_delta, na.rm = T),
+              sd_log_delta = sd(log_delta, na.rm = T),
+              mean_left = mean(log_crowding_distance_deg_Left, na.rm = T),
+              sd_left = sd(log_crowding_distance_deg_Left, na.rm = T),
+              mean_right = mean(log_crowding_distance_deg_Right, na.rm = T),
+              sd_right = sd(log_crowding_distance_deg_Right, na.rm = T),
+              mean_avg = mean(log_mean, na.rm = T),
+              sd_avg = sd(log_mean, na.rm = T)) %>% 
+    mutate(sdTestRetest = sd_log_delta / sqrt(2)) %>% 
+    mutate(sdIndividual = sqrt(sd_avg^2 - 0.5*sdTestRetest^2)) %>% 
     mutate(label =paste0('N= ', N_both, '\n', 
-                         'log(spacingDeg left): n=', format(N_left,nsmall=2),', meanLeft= ', format(mean_left,nsmall=2), ', sdLeft= ', format(sd_left,nsmall=2), '\n',
-                         'log(spacingDeg right): n=', format(N_right,nsmall=2),', meanRight= ', format(mean_right,nsmall=2), ', sdRight= ', format(sd_right,nsmall=2), '\n',
-                         'log(spacingDeg left)-log(spacingDeg right): n=',format(N_both,nsmall=2), '\n',
-                         'meanDiff=', format(mean_log_delta,nsmall=2), ', sdDiff= ', format(sd_log_delta,nsmall=2), '\n',
-                         '[log(spacingDeg left)+log(spacingDeg right)]/2: n=', format(N_both,nsmall=2), '\n',
-                         'meanAvg=', format(mean_avg,nsmall=2), ', sdAvg=', format(sd_avg,nsmall=2), '\n',
-                         'sdTestRetest=', format(sdTestRetest,nsmall=2), '\n',
-                         'sdIndividual=', format(sdIndividual,nsmall=2)
+                         'Left: log(spacingDeg left): n=', format(N_left,nsmall=2),', meanLeft= ', format(round(mean_left,2),nsmall=2), '\n',
+                         '      sdLeft= ', format(round(sd_left,2),nsmall=2), '\n',
+                         'Right: log(spacingDeg right): n=', format(N_right,nsmall=2),', meanRight= ', format(round(mean_right,2),nsmall=2), '\n',
+                         '      sdRight= ', format(round(sd_right,2),nsmall=2), '\n',
+                         'Diff: log(spacingDeg left)-log(spacingDeg right): n=',format(N_both,nsmall=2), '\n',
+                         '      meanDiff=', format(round(mean_log_delta,2),nsmall=2), ', sdDiff= ', format(round(sd_log_delta,2),nsmall=2), '\n',
+                         'Avg: [log(spacingDeg left)+log(spacingDeg right)]/2: n=', format(N_both,nsmall=2), '\n',
+                         '      meanAvg=', format(round(mean_avg,2),nsmall=2), ', sdAvg=', format(round(sd_avg,2),nsmall=2), '\n',
+                         'TestRetest: sdTestRetest=sdDiff/sqrt(2)=', format(round(sdTestRetest,2),nsmall=2), '\n',
+                         'Individual: sdIndividual=\n',
+                         '      sqrt(sdAvg^2 - 0.5*(sdTestRetest^2))=', format(round(sdIndividual,2),nsmall=2)
                          ))
 
-  minXY <- min(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right) * 0.8
-  maxXY <- max(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right) * 1.2
+  minXY <- min(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right, na.rm = T) * 0.9
+  maxXY <- max(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right, na.rm = T) * 1.1
   p <- ggplot(crowding_L_R,aes(y = 10^(log_crowding_distance_deg_Left), x = 10^(log_crowding_distance_deg_Right))) + 
     geom_point(size = 1) + 
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
@@ -74,11 +77,6 @@ crowding_scatter_plot <- function(crowding_L_R){
                         long = unit(0.3, "cm")) + 
     coord_fixed() + 
     theme_bw() + 
-    # ggpp::geom_text_npc(
-    #   data = summ,
-    #   aes(npcx = "left",
-    #       npcy = "top",
-    #       label = label)) + 
   labs(x = "Right crowding distance (deg)",
        y = "Left crowding distance (deg)",
        title = "Left vs right peripheral crowding",
@@ -270,9 +268,6 @@ get_foveal_crowding_vs_age <- function(crowding) {
   }
 }
 
-
-
-
 get_peripheral_crowding_vs_age <- function(crowding) {
   t <- crowding %>%
     filter(!is.na(age), targetEccentricityXDeg != 0) %>%
@@ -351,9 +346,6 @@ get_peripheral_crowding_vs_age <- function(crowding) {
   }
 }
 
-
-
-
 get_repeatedLetter_vs_age <- function(repeatedLetters) {
   t <- repeatedLetters %>% filter(!is.na(age))
   
@@ -406,8 +398,6 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
   }
 }
 
-
-
 get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
   if (nrow(crowding) == 0 | nrow(repeatedLetters) == 0) {
     return(list(NULL, NULL))
@@ -448,6 +438,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
           long = unit(0.3, "cm")
         ) +
         theme_bw() +
+        coord_fixed() + 
         color_scale(n = n_grades) +  # Apply the color_scale function with n_grades
         labs(title = 'Repeated-letter crowding vs foveal crowding\ncolored by grade',
              x = 'Foveal crowding (deg)',
@@ -463,6 +454,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         geom_point() +
         scale_y_log10() + 
         scale_x_log10() + 
+        coord_fixed() + 
         annotation_logticks(
           short = unit(0.1, "cm"),
           mid = unit(0.1, "cm"),
@@ -478,7 +470,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         geom_point() +
         scale_y_log10() + 
         scale_x_log10() + 
-        scale_x_log10() + 
+        coord_fixed() + 
         annotation_logticks(
           short = unit(0.1, "cm"),
           mid = unit(0.1, "cm"),

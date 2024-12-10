@@ -43,7 +43,6 @@ find_prolific_from_files <- function(file) {
     }
   }
   print('done find prolific')
-  print(prolificDT)
   return(prolificDT)
 }
 

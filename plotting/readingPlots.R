@@ -350,7 +350,7 @@ plot_reading_rsvp <- function(reading, rsvp) {
     filter(!is.na(age)) %>%  # Drop rows with NA age
     ungroup() %>% 
     mutate(
-      N = paste0('N=', n()),
+      N = paste0('N = ', n()),
       Grade = as.character(Grade),
       age = as.numeric(age)  # Ensure age is numeric
     )
@@ -386,6 +386,7 @@ plot_reading_rsvp <- function(reading, rsvp) {
       y = "Reading (w/min)",
       title = 'Reading vs RSVP reading\ncolored by grade'
     ) +
+    coord_fixed() + 
     theme_bw() +
     theme(legend.position = 'top') +
     annotation_logticks() +
@@ -395,7 +396,7 @@ plot_reading_rsvp <- function(reading, rsvp) {
       x = min(t$X, na.rm = TRUE) * 1.1,  # Bottom-left placement
       y = min(t$Y, na.rm = TRUE) * 1.1,
       label = paste0(
-        "N = ", t$N[1],  # Using the first value of N (constant for the group)
+        t$N[1],  # Using the first value of N (constant for the group)
         "\nR = ", round(r_value, 2),
         "\nR_factor_out_age = ", R_factor_out_age,
         "\nslope = ", round(slope, 2)
