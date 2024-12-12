@@ -80,6 +80,7 @@ combineProlific <- function(prolificData, summary_table){
     t <- rbind(t, t2, formSpree) 
     
   }
+  # if (F) {
   if (TRUE %in% summary_table$`_logFontBool`) {
     fontParameters <- get_font_parameters_from_formSpree(summary_table$`Pavlovia session ID`)
     t <- t %>%

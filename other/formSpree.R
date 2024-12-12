@@ -1,4 +1,4 @@
-url <- "https://formspree.io/api/0/forms/mqkrdveg/submissions"
+url <- "https://formspree.io/api/0/forms/mqkrdveg/submissions?limit=3000"
 getFormSpree <- function(){
   response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9"))
   if (httr::status_code(response)) {
@@ -97,11 +97,13 @@ monitorFormSpree <- function(listFontParameters) {
 get_font_parameters_from_formSpree <- function(participant) {
   print('inside get_font_parameters_from_formSpree')
   # we might need to add _logFontBool so that those doesn't have fontSpree log, no need to pull font parameters
-  response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9"))
+  response <- try(httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9")))
   if (httr::status_code(response)) {
     content <- httr::content(response, as = "text", encoding='UTF-8')
-
-    t <- jsonlite::fromJSON(content)$submissions %>% 
+    
+    try(t <- jsonlite::fromJSON(content))
+    if(!is.null(t))
+    t <- t$submissions %>% 
       mutate(`Pavlovia session ID` = ifelse(is.na(pavloviaID), pavloviaId, pavloviaID)) %>% 
       filter(`Pavlovia session ID` %in% participant) %>% 
       filter(!is.na(fixationXYPx)) %>% 
@@ -110,6 +112,8 @@ get_font_parameters_from_formSpree <- function(participant) {
       group_by(`Pavlovia session ID`) %>% 
       slice(1) %>% 
       select(-timestamp)
+  } else {
+    return(t)
   }
   return(t)
 }
