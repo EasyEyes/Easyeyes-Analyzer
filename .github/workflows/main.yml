@@ -19,7 +19,7 @@ jobs:
     steps:
       # Step 1: Check out the code from the repository
       - uses: actions/checkout@v2
-      - uses: r-lib/actions/v2-branch
+      - uses: r-lib/actions/setup-r
         with:
           r-version: '4.1.1' # The R version to download (if necessary) and use.
 
