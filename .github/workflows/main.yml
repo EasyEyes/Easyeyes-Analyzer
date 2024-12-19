@@ -27,7 +27,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install libcurl4-openssl-dev
-          sudo apt-get install libpng12-dev
+          sudo apt-get install libpng-dev
           
       # Step 4: Install R packages
       - name: install everything and deploy
