@@ -117,9 +117,6 @@ read_files <- function(file){
         if (!('targetDurationSec' %in% colnames(t))) {
           t$targetDurationSec <- NA
         }
-        if (!('targetMeasuredDurationSec' %in% colnames(t))) {
-          t$targetMeasuredDurationSec <- t$targetFinishSec-t$targetStartSec
-        }
         if (!('targetMeasuredLatenessSec' %in% colnames(t))) {
           t$targetMeasuredLatenessSec <- NA
         }
@@ -209,6 +206,12 @@ read_files <- function(file){
         }
         if (!('_logFontBool' %in% colnames(t))) {
           t$`_logFontBool` <- FALSE
+        }
+        if (!('targetMeasuredDurationSec' %in% colnames(t))) {
+          t$`targetMeasuredDurationSec` <- NA
+        }
+        if (!('fontNominalSizePt' %in% colnames(t))) {
+          t$`fontNominalSizePt` <- NA
         }
         
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
@@ -359,9 +362,6 @@ read_files <- function(file){
           if (!('targetDurationSec' %in% colnames(t))) {
             t$targetDurationSec <- NA
           }
-          if (!('targetMeasuredDurationSec' %in% colnames(t))) {
-            t$targetMeasuredDurationSec <- t$targetFinishSec-t$targetStartSec
-          }
           if (!('targetMeasuredLatenessSec' %in% colnames(t))) {
             t$targetMeasuredLatenessSec <- NA
           }
@@ -450,9 +450,14 @@ read_files <- function(file){
           if (!('QRConnect' %in% colnames(t))) {
             t$QRConnect <- ''
           }
-          
           if (!('_logFontBool' %in% colnames(t))) {
             t$`_logFontBool` <- FALSE
+          }
+          if (!('targetMeasuredDurationSec' %in% colnames(t))) {
+            t$`targetMeasuredDurationSec` <- NA
+          }
+          if (!('fontNominalSizePt' %in% colnames(t))) {
+            t$`fontNominalSizePt` <- NA
           }
           
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
