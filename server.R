@@ -51,6 +51,7 @@ source("./plotting/simulatedRSVP.R")
 source("./plotting/acuityPlot.R")
 source('./plotting/crowdingrsvp.R')
 source('./plotting/repeated-letter-crowding.R')
+source('./plotting/durationSecPlot.R')
 
 source("./other/getBits.R")
 source("./other/sound_plots.R")
@@ -903,6 +904,14 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'ordinary-reading-rsvp-reading-vs-acuity'
+      i = i + 1
+    }
+    
+    t <- plot_duraction_sec(files()$data_list)
+    
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'targetMeasuredDurationSec-plot'
       i = i + 1
     }
     return(list(
