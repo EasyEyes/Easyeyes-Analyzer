@@ -16,8 +16,8 @@ plot_duraction_sec <- function(data_list) {
                aes(x=fontNominalSizePt, 
                    y = targetMeasuredDurationSec,
                    color = font)) +
-    scale_x_log10(expand=c(0,0)) +
-    scale_y_log10(expand=c(0,0)) + 
+    scale_x_log10(expand=c(0,1)) +
+    scale_y_log10(expand=c(0,1)) + 
     labs(title = 'targetMeasuredDurationSec')
  return(p)
 }

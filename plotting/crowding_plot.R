@@ -740,7 +740,6 @@ get_foveal_peripheral_diag <- function(crowding) {
 }
 
 plot_crowding_vs_age <- function(crowding){
-  write.csv(crowding, '~/Downloads/english-children-crowding-2023.csv')
   crowding <- crowding %>% mutate(ageN = as.numeric(age))
 
   if (nrow(crowding) == 0) {

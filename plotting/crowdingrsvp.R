@@ -515,6 +515,7 @@ getCorrMatrix <- function(allData, pretest) {
   
   rsvp_speed <- allData$rsvp
   crowding <- allData$crowding
+  age <- allData$age
   acuity <- allData$acuity %>%
     rename('log_acuity'='questMeanAtEndOfTrialsLoop') %>% 
     mutate(type=ifelse(
@@ -557,6 +558,9 @@ getCorrMatrix <- function(allData, pretest) {
   if (nrow(pretest) > 0) {
     crowdingW <- crowdingW %>% 
       full_join(pretest_for_corr, by = 'participant')
+  }
+  if (!'age' %in% crowdingW) {
+    crowdingW <- crowdingW %>% full_join(age %>% mutate(participant = tolower(participant)), by = 'participant')
   }
   
   crowdingW <- crowdingW %>% 

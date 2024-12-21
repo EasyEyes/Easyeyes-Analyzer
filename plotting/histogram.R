@@ -171,9 +171,15 @@ get_acuity_hist <- function(acuity) {
 
 get_reading_hist <- function(reading) {
   if (nrow(reading) > 0) {
-    
     if (reading$targetKind[1] == 'rsvpReading') {
-      reading <- reading %>% mutate(log_WPM = block_avg_log_WPM)
+      reading <- reading %>%
+        group_by(participant, targetKind, `Skilled reader?`) %>% 
+        summarize(log_WPM = mean(block_avg_log_WPM, na.rm=T)) %>% 
+        ungroup()
+    } else {
+      reading <- reading %>%
+        group_by(participant, targetKind, `Skilled reader?`) %>% 
+        summarize(log_WPM = mean(log_WPM, na.rm=T))
     }
     
     if ('Skilled reader?' %in% names(reading)) {

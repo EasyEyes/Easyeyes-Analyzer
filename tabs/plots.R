@@ -91,22 +91,9 @@ plotsTab <- tabPanel(
     )
   ),
   
-
+  
   h3("Scatter diagrams"),
   shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
-  fluidRow(
-    splitLayout(
-      cellWidths = c("50%", "50%"),  # Divide the row into two halves
-      tagList(
-        shinycssloaders::withSpinner(
-          plotOutput("readingVsRsvpPlot", height = "100%", width = "100%"),  # Adjusted size
-          type = 4
-        ),
-        downloadButton("downloadReadingVsRsvpPlot", "Download")
-      ),
-      NULL  # Empty second column
-    )
-  ),
   conditionalPanel('output.isRsvp', 
                    splitLayout(
                      cellWidths = c("50%", "50%"),
@@ -149,7 +136,7 @@ plotsTab <- tabPanel(
                    #   cellWidths = c("50%", "50%"),
                    #   downloadButton("downloadFactorOutAgePlot", "Download")
                    # )
-                   ),
+  ),
   
   #### crowding ####
   h3("Ordinary reading plots"),
@@ -206,18 +193,16 @@ plotsTab <- tabPanel(
   # ),
   h3("Age plots"),
   uiOutput('plots'),
-  conditionalPanel(condition='output.fileUploaded',
-                   splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(plotOutput("crowdingAgePlot", width = "100%", height = "100%"), type = 4),
-                     shinycssloaders::withSpinner(plotOutput("acuityAgePlot", width = "100%", height = "100%"), type = 4)
-                   ),
-                   splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     downloadButton("downloadCrowdingAgePlot", "Download"),
-                     downloadButton("downloadAcuityAgePlot", "Download")
-                   )
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    conditionalPanel('output.isCrowding',shinycssloaders::withSpinner(plotOutput("crowdingAgePlot", width = "100%", height = "100%"), type = 4)),
+    conditionalPanel('output.isAcuity',shinycssloaders::withSpinner(plotOutput("acuityAgePlot", width = "100%", height = "100%"), type = 4))
   ),
+  splitLayout(
+    cellWidths = c("50%", "50%"),
+    conditionalPanel('output.isCrowding',downloadButton("downloadCrowdingAgePlot", "Download")),
+    conditionalPanel('output.isAcuity',downloadButton("downloadAcuityAgePlot", "Download"))
+  )
   
   #### stairPlots #####
   # splitLayout(

@@ -57,6 +57,7 @@ source("./other/getBits.R")
 source("./other/sound_plots.R")
 source("./other/read_json.R")
 source("./other/formSpree.R")
+source("./other/utility.R")
 
 
 #### server code ####
@@ -2806,7 +2807,7 @@ shinyServer(function(input, output, session) {
     output$downloadProfileTable <- downloadHandler(
       filename = "profiles-table.csv",
       content = function(filename) {
-        write.csv(df, file = filename)
+        write.csv(df, file = filename, row.names = FALSE)
       }
     )
     
@@ -2848,7 +2849,7 @@ shinyServer(function(input, output, session) {
     output$downloadProfileTable <- downloadHandler(
       filename = "profiles-table.csv",
       content = function(filename) {
-        write.csv(df, file = filename)
+        write.csv(df, file = filename,row.names = FALSE)
       }
     )
     
@@ -3069,7 +3070,7 @@ shinyServer(function(input, output, session) {
     output$downloadProfileTable <- downloadHandler(
       filename = "profiles-table.csv",
       content = function(filename) {
-        write.csv(df, file = filename)
+        write.csv(df, file = filename, row.names = FALSE)
       }
     )
     output$profilePlot <- renderImage({
@@ -3379,7 +3380,7 @@ shinyServer(function(input, output, session) {
       )
     },
     content = function(filename) {
-      write.csv(threshold_and_warnings()[[2]], file = filename)
+      write.csv(threshold_and_warnings()[[2]], file = filename, row.names = FALSE)
     }
   )
   
@@ -3392,7 +3393,7 @@ shinyServer(function(input, output, session) {
       )
     },
     content = function(filename) {
-      write.csv(threshold_and_warnings()[[3]], file = filename)
+      write.csv(threshold_and_warnings()[[3]], file = filename, row.names = FALSE)
     }
   )
   
@@ -3405,7 +3406,7 @@ shinyServer(function(input, output, session) {
       )
     },
     content = function(filename) {
-      write.csv(threshold_and_warnings()[[4]], file = filename)
+      write.csv(threshold_and_warnings()[[4]], file = filename, row.names = FALSE)
     }
   )
   
@@ -3418,7 +3419,7 @@ shinyServer(function(input, output, session) {
       )
     },
     content = function(filename) {
-      write.csv(all_sound_data()[[1]], file = filename)
+      write.csv(all_sound_data()[[1]], file = filename, row.names = FALSE)
     }
   )
   #### update download handler ####

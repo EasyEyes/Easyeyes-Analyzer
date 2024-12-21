@@ -436,7 +436,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
               fluency = fluency,
               acuity = acuity,
               repeatedLetters = repeatedLetters,
-              quest = quest))
+              quest = quest,
+              age = age))
 }
 
 generate_threshold <- function(data_list, summary_list, pretest){
@@ -582,11 +583,13 @@ reading <- rbind(reading, t)
   threshold_each <- rbind(threshold_all, wpm_all) %>% 
     mutate(m = round(pm,3),
            sd = round(sd,3)) %>% 
-    select(participant, conditionName, m, sd, parameter)
+    rename(pavloviaSessionID = participant) %>% 
+    select(pavloviaSessionID, conditionName, m, sd, parameter)
   threshold <- rbind(threshold_summary, wpm_summary) %>% 
     mutate(m = round(m,3),
            `se across participants` = round(`se across participants`,3),
            `sd across participants` = round(`sd across participants`,3),
            `sd across repetitions` = round(`sd across repetitions`,3))
+  all_summary <- all_summary %>% rename(pavloviaSessionID = participant)
   return(list(reading_exceed_1500 %>% select(warning), threshold, threshold_each, all_summary))
 }

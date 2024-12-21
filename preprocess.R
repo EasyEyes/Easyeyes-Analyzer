@@ -43,6 +43,8 @@ read_files <- function(file){
     }
     if (grepl(".csv", file_list[i])){ 
       try({t <- readr::read_csv(file_list[i],show_col_types = FALSE)}, silent = TRUE)
+      
+      
       if (!'Submission id' %in% names(t)){
         inf <- file.info(file_list[i])
         if (!('participant' %in% colnames(t))) {
@@ -558,6 +560,10 @@ read_files <- function(file){
     if (!'Birthdate' %in% names(data_list[[i]])) {
       data_list[[i]]$Birthdate = ''
     }
+    
+    if (!'BirthMonthYear' %in% names(t)) {
+      data_list[[i]]$Birthdate = ''
+    }
     unique_participantCode = unique(data_list[[i]]$ParticipantCode)
     if (length(unique_participantCode) > 1) {
       data_list[[i]]$ParticipantCode = unique(data_list[[i]]$ParticipantCode[!is.na(data_list[[i]]$ParticipantCode)])
@@ -565,12 +571,12 @@ read_files <- function(file){
       data_list[[i]]$ParticipantCode = ''
     }
     
-    unique_Birthdate = unique(data_list[[i]]$Birthdate)
+    unique_Birthdate = unique(data_list[[i]]$BirthMonthYear)
     if (length(unique_Birthdate) > 1) {
-      data_list[[i]]$Birthdate = unique(data_list[[i]]$Birthdate[!is.na(data_list[[i]]$Birthdate)])
-      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$Birthdate[1], orders = c('d.m.y')),today()) / years(1),2)
+      data_list[[i]]$BirthMonthYear = unique(data_list[[i]]$BirthMonthYear[!is.na(data_list[[i]]$BirthMonthYear)])
+      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$Birthdate[1], orders = c('m.y')),today()) / years(1),2)
     } else {
-      data_list[[i]]$Birthdate = ''
+      data_list[[i]]$BirthMonthYear = ''
       if (nrow(pretest) > 0 & tolower(data_list[[i]]$participant[1]) %in% tolower(pretest$participant) & 'Age' %in% names(pretest)) {
         p = tolower(data_list[[i]]$participant[1])
         data_list[[i]]$age = round(pretest[tolower(pretest$participant) == p,]$Age[1], 2)
@@ -578,7 +584,7 @@ read_files <- function(file){
         data_list[[i]]$age = NA
       }
     }
-    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, Birthdate))
+    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, BirthMonthYear))
     
   }
 
@@ -586,6 +592,7 @@ read_files <- function(file){
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
   stairs <- do.call(rbind, stair_list)
+  print(df)
   print('done preprocess')
   return(list(data_list = data_list, 
               summary_list = summary_list, 

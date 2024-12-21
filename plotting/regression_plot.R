@@ -74,7 +74,6 @@ prepare_regression_acuity <- function(df_list){
     group_by(participant, block_condition, targetKind) %>%
     dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
     ungroup() %>% 
-    filter(avg_wordPerMin <= 1500) %>% 
     mutate(log_WPM = log10(avg_wordPerMin)) %>% 
     group_by(participant, targetKind) %>% 
     summarize(avg_log_WPM = mean(log10(avg_wordPerMin)))
@@ -179,8 +178,8 @@ regression_acuity_plot <- function(df_list){
   p <- ggplot(t,aes(x = 10^(questMeanAtEndOfTrialsLoop), y = 10^(avg_log_WPM), color = targetKind)) + 
     geom_point() +
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
-    scale_x_log10() + 
-    scale_y_log10() +
+    scale_x_log10(breaks=c(0.01,0.03,0.1,0.3,1)) + 
+    scale_y_log10(breaks=c(30,100,300,1000)) +
     labs(x="Foveal acuity (deg)",
          y = "Reading speed (w/min)",
          title = 'Ordinary and RSVP reading vs\nfoveal acuity') +

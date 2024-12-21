@@ -78,8 +78,6 @@ get_foveal_acuity_vs_age <- function(acuity) {
   }
 }
 
-
-
 get_peripheral_acuity_vs_age <- function(acuity) {
   t <- acuity %>% 
     filter(!is.na(age), targetEccentricityXDeg != 0) %>%
@@ -200,12 +198,14 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       data_for_stat <- data_for_stat %>% select(-ageN)
       corr_without_age <- NA
     } else {
-      corr_without_age <- ppcor::pcor(data_for_stat %>%
-                                        select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, ageN))$estimate[2, 1]
+      t <- data_for_stat %>%
+        select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, ageN) 
+      t <- t[complete.cases(t), ]
+      corr_without_age <- ppcor::pcor(t)$estimate[2, 1]
       corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
     }
-    
     data_for_stat <- data_for_stat[complete.cases(data_for_stat), ]
+    
     
     # Calculate correlation and slope
     corr <- data_for_stat %>%
@@ -443,14 +443,14 @@ plot_acuity_reading <- function(acuity, reading, type) {
   }
 }
 
-
-
 plot_acuity_vs_age <- function(allData){
-  acuity <- allData$acuity %>% mutate(ageN = as.numeric(age))
+  acuity <- allData$acuity %>%
+    mutate(ageN = as.numeric(age)) %>% 
+    filter(!is.na(ageN))
   if (nrow(acuity) == 0) {
     return(NULL)
   }
-  
+  print(acuity)
   foveal <- acuity %>% filter(questType == 'Foveal acuity')
   peripheral <- acuity %>% filter(questType == "Peripheral acuity")
   if (nrow(foveal) > 0) {
@@ -475,10 +475,21 @@ plot_acuity_vs_age <- function(allData){
   } else{
     peripheral_stats <- NA
   }
+  foveal <- foveal %>% filter(!is.na(ageN),!is.na(questMeanAtEndOfTrialsLoop))
+  peripheral <- peripheral %>% filter(!is.na(ageN),!is.na(questMeanAtEndOfTrialsLoop))
+  label = ''
+  foveal_corr <- format(round(cor(foveal$ageN,foveal$questMeanAtEndOfTrialsLoop),2),nsmall=2)
+  peripheral_corr <- format(round(cor(peripheral$ageN,peripheral$questMeanAtEndOfTrialsLoop),2),nsmall=2)
+  if (nrow(foveal) > 0) {
+    label = paste0(label, 'Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr)
+  }
+  if (nrow(peripheral) > 0) {
+    label = paste0(label, 
+                   ifelse(length(label) > 0, '\n', ''),
+                   'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr)
+  }
   
-  foveal_corr <- format(round(cor(foveal$ageN,foveal$questMeanAtEndOfTrialsLoop,use = "complete.obs"),2),nsmall=2)
-  peripheral_corr <- format(round(cor(peripheral$ageN,peripheral$questMeanAtEndOfTrialsLoop,use = "complete.obs"),2),nsmall=2)
-  ggplot(data = acuity, aes(x = ageN, 
+  p <- ggplot(data = acuity, aes(x = ageN, 
                               y = 10^(questMeanAtEndOfTrialsLoop),
                               color = questType
   )) + 
@@ -489,13 +500,13 @@ plot_acuity_vs_age <- function(allData){
       size = 12/.pt,
       aes(npcx = "right",
           npcy = "top",
-          label = paste0('Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr, "\n",
-                         'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr))) +
+          label = label)) +
     scale_y_log10() + 
     guides(color=guide_legend(title = '')) + 
     labs(x = 'Age',
          y = 'Acuity (deg)',
          title = 'Foveal and peripheral acuity vs age')
+  return(p)
 }
 
 get_acuity_foveal_peripheral_diag <- function(acuity) {

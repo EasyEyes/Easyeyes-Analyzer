@@ -20,4 +20,18 @@ get_stats_label <- function(data, needSlope, needCorr) {
     select(-term)
 }
 
+get_range_breaks_length <- function(x) {
+  # get the range for log log plot
+  breaks <- c(0.01,0.03,0.1,0.3,1,3,10,30,100,300,1000,3000)
+  maxX <- max(x) * 1.1
+  minX <- min(x) * .9
+  breaks <- breaks[which.max(breaks > minX): which.min(breaks < maxX)]
+  length <- maxX / minX / 10 * 1.5
+  return(list(
+    range = c(minX, maxX),
+    breaks = breaks,
+    length = length
+  ))
+}
+
 
