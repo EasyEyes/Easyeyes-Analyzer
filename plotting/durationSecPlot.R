@@ -61,8 +61,6 @@ get_duration_corr <- function(data_list) {
           plot.subtitle = element_text(size=18,
                                        hjust = 1))
   
-  print(cor(params))
-  
   return(list(
     plot = corplot,
     width = 7,
@@ -78,7 +76,6 @@ plot_duraction_sec <- function(df) {
   df <- df %>% 
     filter(!is.na(font)) %>% 
     filter(font != '', participant != '')
-  print(df)
   p1 <- ggplot() +
     geom_point(data=df,
                aes(x=fontNominalSizePt, 
