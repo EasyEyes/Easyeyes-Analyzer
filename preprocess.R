@@ -215,6 +215,35 @@ read_files <- function(file){
         if (!('fontNominalSizePt' %in% colnames(t))) {
           t$`fontNominalSizePt` <- NA
         }
+        if (!('fontNominalSizePx' %in% colnames(t))) {
+          t$`fontNominalSizePx` <- NA
+        }
+        if (!('trialGivenToQuestChecks' %in% colnames(t))) {
+          t$`trialGivenToQuestChecks` <- ''
+        }
+        if (!('trialGivenToQuestErrorCheckLabels' %in% colnames(t))) {
+          t$`trialGivenToQuestErrorCheckLabels` <- ''
+        }
+        if (!('heapUsedBeforeDrawing (MB)' %in% colnames(t))) {
+          t$`heapUsedBeforeDrawing (MB)` <- ''
+        }
+        if (!('heapTotalBeforeDrawing (MB)' %in% colnames(t))) {
+          t$`heapTotalBeforeDrawing (MB)` <- ''
+        }
+        if (!('heapLimitBeforeDrawing (MB)' %in% colnames(t))) {
+          t$`heapLimitBeforeDrawing (MB)` <- ''
+        }
+        if (!('heapUsedAfterDrawing (MB)' %in% colnames(t))) {
+          t$`heapUsedAfterDrawing (MB)` <- ''
+        }
+        if (!('heapTotalAfterDrawing (MB)' %in% colnames(t))) {
+          t$`heapTotalAfterDrawing (MB)` <- ''
+        }
+        if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
+          t$`heapLimitAfterDrawing (MB)` <- ''
+        }
+        
+        
         
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                               unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
@@ -461,6 +490,33 @@ read_files <- function(file){
           if (!('fontNominalSizePt' %in% colnames(t))) {
             t$`fontNominalSizePt` <- NA
           }
+          if (!('fontNominalSizePx' %in% colnames(t))) {
+            t$`fontNominalSizePx` <- NA
+          }
+          if (!('trialGivenToQuestChecks' %in% colnames(t))) {
+            t$`trialGivenToQuestChecks` <- ''
+          }
+          if (!('trialGivenToQuestErrorCheckLabels' %in% colnames(t))) {
+            t$`trialGivenToQuestErrorCheckLabels` <- ''
+          }
+          if (!('heapUsedBeforeDrawing (MB)' %in% colnames(t))) {
+            t$`heapUsedBeforeDrawing (MB)` <- ''
+          }
+          if (!('heapTotalBeforeDrawing (MB)' %in% colnames(t))) {
+            t$`heapTotalBeforeDrawing (MB)` <- ''
+          }
+          if (!('heapLimitBeforeDrawing (MB)' %in% colnames(t))) {
+            t$`heapLimitBeforeDrawing (MB)` <- ''
+          }
+          if (!('heapUsedAfterDrawing (MB)' %in% colnames(t))) {
+            t$`heapUsedAfterDrawing (MB)` <- ''
+          }
+          if (!('heapTotalAfterDrawing (MB)' %in% colnames(t))) {
+            t$`heapTotalAfterDrawing (MB)` <- ''
+          }
+          if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
+            t$`heapLimitAfterDrawing (MB)` <- ''
+          }
           
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                                 unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
@@ -562,7 +618,7 @@ read_files <- function(file){
     }
     
     if (!'BirthMonthYear' %in% names(t)) {
-      data_list[[i]]$Birthdate = ''
+      data_list[[i]]$BirthMonthYear = ''
     }
     unique_participantCode = unique(data_list[[i]]$ParticipantCode)
     if (length(unique_participantCode) > 1) {
@@ -574,7 +630,7 @@ read_files <- function(file){
     unique_Birthdate = unique(data_list[[i]]$BirthMonthYear)
     if (length(unique_Birthdate) > 1) {
       data_list[[i]]$BirthMonthYear = unique(data_list[[i]]$BirthMonthYear[!is.na(data_list[[i]]$BirthMonthYear)])
-      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$Birthdate[1], orders = c('m.y')),today()) / years(1),2)
+      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$BirthMonthYear[1], orders = c('m.y')),today()) / years(1),2)
     } else {
       data_list[[i]]$BirthMonthYear = ''
       if (nrow(pretest) > 0 & tolower(data_list[[i]]$participant[1]) %in% tolower(pretest$participant) & 'Age' %in% names(pretest)) {
@@ -584,7 +640,7 @@ read_files <- function(file){
         data_list[[i]]$age = NA
       }
     }
-    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, BirthMonthYear))
+    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, BirthMonthYear,age))
     
   }
 

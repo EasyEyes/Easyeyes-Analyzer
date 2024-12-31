@@ -518,7 +518,7 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
     ungroup()
   
   if (nrow(foveal) == 0 | nrow(peripheral) == 0) {
-    return(list(age = NULL, grade = NULL))
+    return(NULL)
   } else {
     p1 <- NULL
     t <- foveal %>%

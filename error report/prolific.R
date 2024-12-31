@@ -111,6 +111,7 @@ combineProlific <- function(prolificData, summary_table){
                Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
                fontMaxPx, viewingDistanceCm, fontRenderMaxPx, order)
   } 
+  t <- t %>% filter(date != '', !is.na(date))
 
     print('done combine prolific')
   return(list(t, formSpree))

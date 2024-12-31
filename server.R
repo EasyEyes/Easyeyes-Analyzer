@@ -170,14 +170,13 @@ shinyServer(function(input, output, session) {
     return(get_mean_median_df(df_list()))
   })
   
-  
   corrMatrix <- reactive({
     getCorrMatrix(df_list(), files()$pretest)
   })
   
-  
-  
-  
+  durationCorrMatrix <- reactive({
+    get_duration_corr(files()$data_list)
+  })
   
   ##### SOUND CALIBRATION ####
   
@@ -699,67 +698,6 @@ shinyServer(function(input, output, session) {
     
 })
   
-  
-  readingVsRsvpPlot <- reactive({
-    req(df_list()$reading, df_list()$rsvp)  # Ensure required data is not NULL
-    print("Generating Reading vs RSVP plot...")
-    plot_reading_rsvp(df_list()$reading, df_list()$rsvp)
-  })
-  
-  
-  
-  observeEvent(readingVsRsvpPlot(), {
-    # Render Image Output
-    output$readingVsRsvpPlot <- renderImage({
-      req(readingVsRsvpPlot())  # Ensure reactive dependency is not NULL
-      
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = readingVsRsvpPlot() + plt_theme,
-        width = 6,
-        height = 6,
-        unit = 'in',
-        device = svglite
-      )
-      
-      list(src = outfile,  contenttype = 'svg')
-    }, deleteFile = TRUE)
-    
-    # Download Handler
-    output$downloadReadingVsRsvpPlot <- downloadHandler(
-      filename = function() { paste0(experiment_names(),"reading-vs-rsvp-reading-by-grade.", input$fileType) },
-      content = function(file) {
-        if (input$fileType == "png") {
-          tmp_svg <- tempfile(fileext = ".svg")
-          ggsave(
-            file = tmp_svg,
-            plot = readingVsRsvpPlot() + plt_theme,
-            width = 6,
-            unit = 'in',
-            device = svglite
-          )
-          rsvg::rsvg_png(tmp_svg, file, height = 1800, width = 1800)
-        } else {
-          ggsave(
-            file = file,
-            plot = readingVsRsvpPlot() + plt_theme,
-            width = 6,
-            unit = 'in',
-            limitsize = FALSE,
-            device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType)
-          )
-        }
-      }
-    )
-  })
-  
-  
-  
-  
-  
-  
-  
   ## stacked histograms ## 
   stackedPlots <- reactive({
     if (is.null(df_list())) {
@@ -804,6 +742,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(crowdingPlots$fovealPlot)) {
       l[[i]] <- crowdingPlots$fovealPlot + plt_theme
       fileNames[[i]] <- 'foveal-crowding-staircases-threshold-vs-questTrials'
+      print(fileNames[[i]])
       i <- i + 1
     }
     
@@ -811,6 +750,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(crowdingPlots$peripheralPlot)) {
       l[[i]] <- crowdingPlots$peripheralPlot + plt_theme
       fileNames[[i]] <- 'peripheral-crowding-staircases-threshold-vs-questTrials'
+      print(fileNames[[i]])
       i <- i + 1
     }
     
@@ -827,6 +767,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-foveal-acuity-grade-diagram'
+      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -834,6 +775,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-peripheral-acuity-grade-diagram'
+      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -841,6 +783,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-acuity-vs-peripheral-acuity-grade-diagram'
+      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -848,6 +791,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-peripheral-crowding-grade-diagram'
+      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -855,6 +799,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'
+      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -862,6 +807,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'peripheral_crowding_left_vs_right'
+      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -877,6 +823,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
+      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -884,6 +831,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] <- t
       fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
+      print(fileNames[[i]])
       i <- i + 1
     }
     
@@ -891,12 +839,14 @@ shinyServer(function(input, output, session) {
     if (!is.null(t$foveal)) {
       l[[i]] = t$foveal
       fileNames[[i]] = 'reading-rsvp-reading-vs-foveal-crowding'
+      print(fileNames[[i]])
       i = i + 1
     }
     
     if (!is.null(t$peripheral)) {
       l[[i]] = t$peripheral
       fileNames[[i]] = 'reading-rsvp-reading-vs-peripheral-crowding'
+      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -905,16 +855,42 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'ordinary-reading-rsvp-reading-vs-acuity'
+      print(fileNames[[i]])
       i = i + 1
     }
     
-    t <- plot_duraction_sec(files()$data_list)
     
+    t <- plot_reading_rsvp(df_list()$reading, df_list()$rsvp)
     if (!is.null(t)) {
       l[[i]] = t
-      fileNames[[i]] = 'targetMeasuredDurationSec-plot'
+      fileNames[[i]] = 'reading-vs-RSVP-reading-plot'
+      print(fileNames[[i]])
       i = i + 1
     }
+    
+    duration <- get_duration_data(files()$data_list)
+    
+    t <- plot_duraction_sec(duration)
+    
+    if (!is.null(t$font)) {
+      l[[i]] = t$font
+      fileNames[[i]] = 'targetMeasuredDurationSec-by-font-plot'
+      i = i + 1
+    }
+    
+    if (!is.null(t$participant)) {
+      l[[i]] = t$participant
+      fileNames[[i]] = 'targetMeasuredDurationSec-by-participant-plot'
+      i = i + 1
+    }
+    
+    t <- get_histogram_durationSec(duration)
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'targetMeasuredDurationSec-by-os-histogram'
+      i = i + 1
+    }
+    
     return(list(
       plotList = l,
       fileNames = fileNames
@@ -1092,6 +1068,22 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  output$isCrowding <- reactive({
+    if ('crowding' %in% names(df_list())) {
+      return(nrow(df_list()$crowding) > 0)
+    } else {
+      return(FALSE)
+    }
+  })
+  
+  output$isAcuity <- reactive({
+    if ('acuity' %in% names(df_list())) {
+      return(nrow(df_list()$acuity) > 0)
+    } else {
+      return(FALSE)
+    }
+  })
+  
   
   output$fileUploaded <- reactive({
     return(nrow(files()$pretest>0))
@@ -1110,6 +1102,9 @@ shinyServer(function(input, output, session) {
   outputOptions(output, 'isReading', suspendWhenHidden=FALSE)
   outputOptions(output, 'isRsvp', suspendWhenHidden=FALSE)
   outputOptions(output, 'isRepeated', suspendWhenHidden=FALSE)
+  outputOptions(output, 'isCrowding', suspendWhenHidden=FALSE)
+  outputOptions(output, 'isAcuity', suspendWhenHidden=FALSE)
+  
   
   
   #### plots ####
@@ -1118,20 +1113,23 @@ shinyServer(function(input, output, session) {
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot =  corrMatrix()$plot +
-        plt_theme +
-        theme(legend.position = 'none',
-              axis.text.x = element_text(size = 14,
-                                         angle = 30,
-                                         vjust = 1,
-                                         hjust=1),
-              plot.title = element_text(size=18,
-                                        hjust = 1),
-              plot.subtitle = element_text(size=18,
-                                           hjust = 1)),
-      device = svg,
+      plot =  corrMatrix()$plot,
+      device = svglite,
       width = corrMatrix()$width,
       height = corrMatrix()$height
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+  
+  output$durationCorrMatrixPlot <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =  durationCorrMatrix()$plot,
+      device = svg,
+      width = durationCorrMatrix()$width,
+      height = durationCorrMatrix()$height
     )
     list(src = outfile,
          contenttype = 'svg')
@@ -3252,24 +3250,25 @@ shinyServer(function(input, output, session) {
       fileNames = c()
       ggsave(
         paste0("correlation-matrix.", input$fileType),
-        plot =  corrMatrix()$plot +
-          plt_theme +
-          theme(legend.position = 'none',
-                axis.text.x = element_text(size = 14,
-                                           angle = 30,
-                                           vjust = 1,
-                                           hjust=1),
-                plot.title = element_text(size=18,
-                                          hjust = 1),
-                plot.subtitle = element_text(size=18,
-                                             hjust = 1)),
+        plot =  corrMatrix()$plot,
         width = corrMatrix()$width,
         height = corrMatrix()$height,
         unit = "in",
         limitsize = F,
         device = input$fileType
       )
-      fileNames = c( paste0("correlation-matrix.", input$fileType))
+      
+      ggsave(
+        paste0("duration-correlation-matrix.", input$fileType),
+        plot =  durationCorrMatrix()$plot,
+        width = durationCorrMatrix()$width,
+        height = durationCorrMatrix()$height,
+        unit = "in",
+        limitsize = F,
+        device = input$fileType
+      )
+      fileNames = c(paste0("correlation-matrix.", input$fileType), paste0("duration-correlation-matrix.", input$fileType))
+      
       if (length(histograms()$plotList) > 0) {
         for (i in 1:length(histograms()$plotList)) {
           print(i)
@@ -5032,17 +5031,7 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot =  corrMatrix()$plot +
-              plt_theme +
-              theme(legend.position = 'none',
-                    axis.text.x = element_text(size = 14,
-                                               angle = 30,
-                                               vjust = 1,
-                                               hjust=1),
-                    plot.title = element_text(size=18,
-                                              hjust = 1),
-                    plot.subtitle = element_text(size=18,
-                                                 hjust = 1)),
+            plot =  corrMatrix()$plot,
             width = corrMatrix()$width,
             height = corrMatrix()$height,
             unit = "in",
@@ -5055,17 +5044,7 @@ shinyServer(function(input, output, session) {
         } else {
           ggsave(
             file,
-            plot =  corrMatrix()$plot +
-              plt_theme +
-              theme(legend.position = 'none',
-                    axis.text.x = element_text(size = 14,
-                                               angle = 30,
-                                               vjust = 1,
-                                               hjust=1),
-                    plot.title = element_text(size=18,
-                                              hjust = 1),
-                    plot.subtitle = element_text(size=18,
-                                                 hjust = 1)),
+            plot =  corrMatrix()$plot,
             width = corrMatrix()$width,
             height = corrMatrix()$height,
             unit = "in",
@@ -5079,6 +5058,46 @@ shinyServer(function(input, output, session) {
         }
       }
     )
+    
+    output$downloadDurationCorrMatrixPlot <- downloadHandler(
+      filename = paste0(
+        'duration-correlation-matrix',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot =  durationCorrMatrix()$plot,
+            width = durationCorrMatrix()$width,
+            height = durationCorrMatrix()$height,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1800,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot =  durationCorrMatrix()$plot,
+            width = durationCorrMatrix()$width,
+            height = durationCorrMatrix()$height,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+    
+    
     
     # output$downloadReading30cm1.2mmVs1.4mm <- downloadHandler(
     #   filename = paste(

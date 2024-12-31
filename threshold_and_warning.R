@@ -429,6 +429,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   print(paste('nrow of rsvp_speed:', nrow(rsvp_speed)))
   print(paste('nrow of acuity:', nrow(acuity)))
   print(paste('nrow of repeatedLetters:', nrow(repeatedLetters)))
+  print(paste('nrow of age:', nrow(age)))
   
   return(list(reading = reading, 
               crowding = crowding,

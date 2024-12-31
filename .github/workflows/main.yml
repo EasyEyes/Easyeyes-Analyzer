@@ -22,21 +22,14 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.1.1' # The R version to download (if necessary) and use.
-       # Step 3: Install system dependencies
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install libcurl4-openssl-dev
-          sudo apt-get install libpng-dev
+      - uses: r-lib/actions/setup-renv@v2
           
-      # Step 4: Install R packages
+      # Step 2: Install R packages
       - name: install everything and deploy
         env:
           RS_TOKEN: ${{ secrets.TOKEN }}
           RS_SECRET: ${{ secrets.SECRET }}
         run: |
-          install.packages(c('renv','shiny', 'rsconnect'))
-          renv::restore()
           rsconnect::setAccountInfo(name='easyeyes', token=Sys.getenv('RS_TOKEN'), secret=Sys.getenv('RS_SECRET'))
           rsconnect::deployApp(appName = 'easyeyes_app', forceUpdate = TRUE)
         shell: Rscript {0}

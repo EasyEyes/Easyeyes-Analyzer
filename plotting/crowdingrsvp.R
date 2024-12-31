@@ -589,7 +589,17 @@ getCorrMatrix <- function(allData, pretest) {
     labs(x = '', 
          y = '',
          title = 'Correlation table') + 
-    ggpp::geom_text_npc(aes(npcx = 'left', npcy = 'top', label = paste0('N=', nrow(crowdingW[complete.cases(crowdingW),]))))
+    ggpp::geom_text_npc(aes(npcx = 'left', npcy = 'top', label = paste0('N=', nrow(crowdingW[complete.cases(crowdingW),])))) +
+    plt_theme +
+    theme(legend.position = 'none',
+          axis.text.x = element_text(size = 14,
+                                     angle = 30,
+                                     vjust = 1,
+                                     hjust=1),
+          plot.title = element_text(size=18,
+                                    hjust = 1),
+          plot.subtitle = element_text(size=18,
+                                       hjust = 1))
   return(list(
     plot = corplot,
     width = 2.5 + ncol(t) * 0.38,

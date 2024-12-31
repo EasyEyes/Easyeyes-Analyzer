@@ -78,11 +78,11 @@ crowding_scatter_plot <- function(crowding_L_R){
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_y_log10(limits = c(10^(minXY), 
                              10^(maxXY)),
-                  breaks = c(0.1, 0.3, 1),
+                  breaks = c(0.1, 0.3, 1, 3, 10),
                   expand=c(0,0)) +
     scale_x_log10(limits = c(10^(minXY), 
                              10^(maxXY)),
-                  breaks = c(0.1, 0.3, 1),
+                  breaks = c(0.1, 0.3, 1, 3, 10),
                   expand=c(0,0)) + 
     annotation_logticks(short = unit(0.1, "cm"),                                                
                         mid = unit(0.1, "cm"),
@@ -740,7 +740,9 @@ get_foveal_peripheral_diag <- function(crowding) {
 }
 
 plot_crowding_vs_age <- function(crowding){
-  crowding <- crowding %>% mutate(ageN = as.numeric(age))
+  crowding <- crowding %>%
+    mutate(ageN = as.numeric(age)) %>% 
+    filter(!is.na(ageN))
 
   if (nrow(crowding) == 0) {
     return(NULL)
