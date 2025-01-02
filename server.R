@@ -3391,8 +3391,8 @@ shinyServer(function(input, output, session) {
     filename = function() {
       ifelse(
         experiment_names() == "",
-        "threshold_all_participant.csv",
-        paste0(experiment_names(), "-threshold_all_participant.csv")
+        "Summary-of-each-condition.csv",
+        paste0(experiment_names(), "-Summary-of-each-condition.csv")
       )
     },
     content = function(filename) {
@@ -3404,8 +3404,8 @@ shinyServer(function(input, output, session) {
     filename = function() {
       ifelse(
         experiment_names() == "",
-        "threshold.csv",
-        paste0(experiment_names(), "-threshold.csv")
+        "Thresholds(brief).csv",
+        paste0(experiment_names(), "-Thresholds(brief).csv")
       )
     },
     content = function(filename) {
@@ -3417,8 +3417,8 @@ shinyServer(function(input, output, session) {
     filename = function() {
       ifelse(
         experiment_names() == "",
-        "all-threshold.csv",
-        paste0(experiment_names(), "-all-threshold.csv")
+        "Thresholds.csv",
+        paste0(experiment_names(), "-Thresholds.csv")
       )
     },
     content = function(filename) {

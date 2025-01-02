@@ -200,7 +200,7 @@ read_files <- function(file){
         if (!('thresholdParameter' %in% colnames(t))) {
           t$thresholdParameter <- ""
         }
-        if (!('psychojsWindowDimensions' %in% colnames(t))) {
+        if (!'psychojsWindowDimensions' %in% colnames(t)) {
           t$psychojsWindowDimensions <- "NA,NA"
         }
         if (!('QRConnect' %in% colnames(t))) {
@@ -264,7 +264,10 @@ read_files <- function(file){
                           block_condition = ifelse(block_condition == "",staircaseName, block_condition))
         t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
         t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
-        psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[1]
+        if (is.na(t$psychojsWindowDimensions[1])) {
+          t$psychojsWindowDimensions = 'NA,NA'
+        }
+        psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[[1]]
         WindowDimensions <- paste0(psychojsWindowDimensions[[1]][1], " x ", psychojsWindowDimensions[[1]][2])
         t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
         t$resolution = ifelse(t$resolution[1] == "NA x NA", "", t$resolution)
@@ -277,7 +280,7 @@ read_files <- function(file){
         
         info <- t %>% 
           dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
-          distinct(participant, block, block_condition, staircaseName, conditionName, 
+          distinct(experiment, participant, block, block_condition, staircaseName, conditionName, 
                    targetKind, font, experiment, thresholdParameter)
         
         summaries <- t %>% 
@@ -467,9 +470,6 @@ read_files <- function(file){
           if (!('thresholdParameter' %in% colnames(t))) {
             t$thresholdParameter <- ""
           }
-          if (!('psychojsWindowDimensions' %in% colnames(t))) {
-            t$psychojsWindowDimensions <- "NA,NA"
-          }
           if (!('_needsUnmet' %in% colnames(t))) {
             t$`_needsUnmet` <- ""
           }
@@ -481,6 +481,9 @@ read_files <- function(file){
           }
           if (!('Microphone survey' %in% colnames(t))) {
             t$`Microphone survey` <- ""
+          }
+          if (!('psychojsWindowDimensions' %in% colnames(t))) {
+            t$psychojsWindowDimensions <- "NA,NA"
           }
           if (!('QRConnect' %in% colnames(t))) {
             t$QRConnect <- ''
@@ -543,7 +546,11 @@ read_files <- function(file){
                             block_condition = ifelse(block_condition == "",staircaseName, block_condition))
           t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
           t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
-          psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[1]
+          print(t$psychojsWindowDimensions[1])
+          if (is.na(t$psychojsWindowDimensions[1])) {
+            t$psychojsWindowDimensions = 'NA,NA'
+          }
+          psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[[1]]
           WindowDimensions <- paste0(psychojsWindowDimensions[[1]][1], " x ", psychojsWindowDimensions[[1]][2])
           t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
           t$resolution = ifelse(t$resolution[1] == "NA x NA", "", t$resolution)
@@ -556,7 +563,7 @@ read_files <- function(file){
           
           info <- t %>% 
             dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
-            distinct(participant, block, block_condition, staircaseName, conditionName, 
+            distinct(experiment,participant, block, block_condition, staircaseName, conditionName, 
                      targetKind, font, experiment, thresholdParameter)
           
           summaries <- t %>% 

@@ -491,7 +491,7 @@ generate_threshold <- function(data_list, summary_list, pretest){
   reading <- tibble()
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>% 
-      select(block_condition, participant, conditionName, font, readingPageWords, readingPageDurationOnsetToOffsetSec,
+      select(block_condition, experiment, participant, conditionName, font, readingPageWords, readingPageDurationOnsetToOffsetSec,
              targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
       group_by(participant, block_condition) %>%
       mutate(trial = row_number()) %>% 
@@ -542,7 +542,7 @@ reading <- rbind(reading, t)
     mutate(targetKind = "reading")
   
   threshold_all <- all_summary %>%
-    group_by(participant, conditionName) %>%
+    group_by(participant, experiment, conditionName) %>%
     dplyr::summarize(
       pm = mean(questMeanAtEndOfTrialsLoop),
       sd = sd(questMeanAtEndOfTrialsLoop)) %>% 
@@ -552,7 +552,7 @@ reading <- rbind(reading, t)
   
   threshold_summary <- threshold_all %>% 
     mutate(variance = sd^2) %>% 
-    group_by(conditionName) %>% 
+    group_by(conditionName, experiment) %>% 
     dplyr::summarize(
       m = mean(pm, na.rm = T),
       `se across participants` = sd(pm)/sqrt(n()), 
@@ -564,7 +564,7 @@ reading <- rbind(reading, t)
   wpm_all <- reading %>% 
     filter(!participant %in% reading_exceed_1500$participant) %>%
     filter(conditionName != "") %>% 
-    group_by(conditionName, participant) %>%
+    group_by(conditionName, participant, experiment) %>%
     dplyr::summarize(pm = mean(wordPerMin, na.rm =T),
                      sd = sd(wordPerMin, na.rm =T)) %>% 
     filter(!is.na(pm)) %>% 
@@ -573,7 +573,7 @@ reading <- rbind(reading, t)
   
   wpm_summary <- wpm_all %>% 
     mutate(variance = sd^2) %>% 
-    group_by(conditionName) %>% 
+    group_by(conditionName, experiment) %>% 
     dplyr::summarize(
       m = mean(pm),
       `se across participants` = sd(pm)/sqrt(n()), 
@@ -585,12 +585,13 @@ reading <- rbind(reading, t)
     mutate(m = round(pm,3),
            sd = round(sd,3)) %>% 
     rename(pavloviaSessionID = participant) %>% 
-    select(pavloviaSessionID, conditionName, m, sd, parameter)
+    select(experiment, pavloviaSessionID, conditionName, m, sd, parameter)
   threshold <- rbind(threshold_summary, wpm_summary) %>% 
     mutate(m = round(m,3),
            `se across participants` = round(`se across participants`,3),
            `sd across participants` = round(`sd across participants`,3),
-           `sd across repetitions` = round(`sd across repetitions`,3))
+           `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
+    select(experiment,conditionName,m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
   all_summary <- all_summary %>% rename(pavloviaSessionID = participant)
   return(list(reading_exceed_1500 %>% select(warning), threshold, threshold_each, all_summary))
 }

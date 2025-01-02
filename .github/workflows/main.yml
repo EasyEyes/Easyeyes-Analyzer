@@ -25,10 +25,6 @@ jobs:
           r-version: '4.1.1'
 
       - uses: r-lib/actions/setup-renv@v2
-
-      - name: Install rsconnect
-        run: install.packages("rsconnect")
-        shell: Rscript {0}
           
       # Step 2: Install R packages
       - name: install everything and deploy
