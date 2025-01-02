@@ -52,6 +52,7 @@ source("./plotting/acuityPlot.R")
 source('./plotting/crowdingrsvp.R')
 source('./plotting/repeated-letter-crowding.R')
 source('./plotting/durationSecPlot.R')
+source('./plotting/distancePlot.R')
 
 source("./other/getBits.R")
 source("./other/sound_plots.R")
@@ -502,6 +503,7 @@ shinyServer(function(input, output, session) {
       ),
       parse = T)
   })
+  
   rsvpReadingTestRetest <- reactive({
     get_test_retest_rsvp(df_list()[[3]])  +
       labs(title = experiment_names(),
@@ -888,6 +890,14 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'targetMeasuredDurationSec-by-os-histogram'
+      i = i + 1
+    }
+    
+    t <- plot_distance(files()$data_list)
+    
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'
       i = i + 1
     }
     
@@ -1335,15 +1345,16 @@ shinyServer(function(input, output, session) {
           ),
           content = function(file) {
             if (input$fileType == "png") {
+              tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
               ggsave(
-                "tmp.svg",
+                tmp_svg,
                 plot = agePlots()$plotList[[ii]] + plt_theme,
                 limitsize = F,
                 width = 6,
                 unit = "in",
                 device = svglite
               )
-              rsvg::rsvg_png("tmp.svg", file,
+              rsvg::rsvg_png(tmp_svg, file,
                              height = 1800,
                              width = 1800)
             } else {
@@ -1513,15 +1524,16 @@ shinyServer(function(input, output, session) {
           ),
           content = function(file) {
             if (input$fileType == "png") {
+              tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
               ggsave(
-                "tmp.svg",
+                tmp_svg,
                 plot = histograms()$plotList[[ii]] + plt_theme,
                 unit = "in",
                 width = 3.5,  # Adjusted width for PNG export
                 limitsize = F,
                 device = svglite
               )
-              rsvg::rsvg_png("tmp.svg", file, height = 900, width = 900)  # Reduced resolution
+              rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)  # Reduced resolution
             } else {
               ggsave(
                 file,
@@ -2149,14 +2161,15 @@ shinyServer(function(input, output, session) {
           ),
           content = function(file) {
             if (input$fileType == "png") {
+              tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
               ggsave(
-                "tmp.svg",
+                tmp_svg,
                 plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
                 unit = "in",
                 limitsize = F,
                 device = svglite
               )
-              rsvg::rsvg_png("tmp.svg", file,
+              rsvg::rsvg_png(tmp_svg, file,
                              width = 1800)
             } else {
               ggsave(
@@ -2441,8 +2454,9 @@ shinyServer(function(input, output, session) {
   filename = paste0(input$thresholdParameter, '-staircases.', input$fileType),
   content = function(file) {
     if (input$fileType == "png") {
+      tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
       ggsave(
-        "tmp.svg",
+        tmp_svg,
         plot = stairPlot()$plot + plt_theme,
         width = 8,
         height = stairPlot()$height,
@@ -2450,7 +2464,7 @@ shinyServer(function(input, output, session) {
         limitsize = F,
         device = svglite
       )
-      rsvg::rsvg_png("tmp.svg", file,
+      rsvg::rsvg_png(tmp_svg, file,
                      height = 225 * stairPlot()$height,
                      width = 1800, )
     } else {
@@ -2872,8 +2886,9 @@ shinyServer(function(input, output, session) {
       ),
       content = function(file) {
         if (input$fileTypeSound == "png") {
+          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
           ggsave(
-            "tmp.svg",
+            tmp_svg,
             plot = p$plot,
             height = p$height,
             width = 8,
@@ -2881,7 +2896,7 @@ shinyServer(function(input, output, session) {
             limitsize = F,
             device = svglite
           )
-          rsvg::rsvg_png("tmp.svg", file,
+          rsvg::rsvg_png(tmp_svg, file,
                          height = p$height* 300,
                          width = 1800)
         } else {
@@ -2925,8 +2940,9 @@ shinyServer(function(input, output, session) {
       ),
       content = function(file) {
         if (input$fileTypeSound == "png") {
+          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
           ggsave(
-            "tmp.svg",
+            tmp_svg,
             plot = p$shiftedPlot,
             height = p$height,
             width = 8,
@@ -2934,7 +2950,7 @@ shinyServer(function(input, output, session) {
             limitsize = F,
             device = svglite
           )
-          rsvg::rsvg_png("tmp.svg", file,
+          rsvg::rsvg_png(tmp_svg, file,
                          height = p$height* 300,
                          width = 1800, )
         } else {
@@ -2978,8 +2994,9 @@ shinyServer(function(input, output, session) {
       ),
       content = function(file) {
         if (input$fileTypeSound == "png") {
+          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
           ggsave(
-            "tmp.svg",
+            tmp_svg,
             plot = p$avgPlot,
             height = p$avgHeight,
             width = 8,
@@ -2987,7 +3004,7 @@ shinyServer(function(input, output, session) {
             limitsize = F,
             device = svglite
           )
-          rsvg::rsvg_png("tmp.svg", file,
+          rsvg::rsvg_png(tmp_svg, file,
                          height = p$avgHeight* 300,
                          width = 1800)
         } else {
@@ -3447,8 +3464,9 @@ shinyServer(function(input, output, session) {
       ),
       content = function(file) {
         if (input$fileProfile == "png") {
+          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
           ggsave(
-            "tmp.svg",
+            tmp_svg,
             plot = profile_plot()$plot,
             height =  profile_plot()$height,
             width = 8,
@@ -3456,7 +3474,7 @@ shinyServer(function(input, output, session) {
             limitsize = F,
             device = svglite
           )
-          rsvg::rsvg_png("tmp.svg",
+          rsvg::rsvg_png(tmp_svg,
                          file,
                          height = profile_plot()$height* 300,
                          width = 1800)
@@ -3487,8 +3505,9 @@ shinyServer(function(input, output, session) {
       ),
       content = function(file) {
         if (input$fileProfile == "png") {
+          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
           ggsave(
-            "tmp.svg",
+            tmp_svg,
             plot =  profile_plot()$shiftedPlot,
             height = profile_plot()$height,
             width = 8,
@@ -3496,7 +3515,7 @@ shinyServer(function(input, output, session) {
             limitsize = F,
             device = svglite
           )
-          rsvg::rsvg_png("tmp.svg", file,
+          rsvg::rsvg_png(tmp_svg, file,
                          height =  profile_plot()$height * 300,
                          width = 1800)
         } else {
@@ -3525,8 +3544,9 @@ shinyServer(function(input, output, session) {
       ),
       content = function(file) {
         if (input$fileTypeSound == "png") {
+          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
           ggsave(
-            "tmp.svg",
+            tmp_svg,
             plot = profile_plot()$avgPlot,
             height = profile_plot()$avgHeight,
             width = 8,
@@ -3534,7 +3554,7 @@ shinyServer(function(input, output, session) {
             limitsize = F,
             device = svglite
           )
-          rsvg::rsvg_png("tmp.svg", file,
+          rsvg::rsvg_png(tmp_svg, file,
                          height = profile_plot()$avgHeight* 300,
                          width = 1800)
         } else {
@@ -3568,15 +3588,16 @@ shinyServer(function(input, output, session) {
       ),
       content = function(file) {
         if (input$fileTypeSound == "png") {
+          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
           ggsave(
-            "tmp.svg",
+            tmp_svg,
             plot = sound_level_plot()[[1]],
             width = sound_level_plot()[[2]],
             height = sound_level_plot()[[3]],
             unit = "in",
             device = svglite::svglite
           )
-          rsvg::rsvg_png("tmp.svg", file,
+          rsvg::rsvg_png(tmp_svg, file,
                          height = 2000,
                          width = 1800)
         } else {

@@ -5,9 +5,9 @@ account: easyeyes
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 8620121
-bundleId: 9589626
+bundleId: 9595337
 url: https://easyeyes.shinyapps.io/easyeyes_app/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: .github/workflows/main.yml|.ipynb_checkpoints/constant-checkpoint.R|.ipynb_checkpoints/README-checkpoint.md|.ipynb_checkpoints/Untitled-checkpoint.ipynb|.RData|.Rprofile
+ignoredFiles: .github/workflows/main.yml|.ipynb_checkpoints/constant-checkpoint.R|.ipynb_checkpoints/README-checkpoint.md|.ipynb_checkpoints/Untitled-checkpoint.ipynb|.Rprofile

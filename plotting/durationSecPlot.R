@@ -110,3 +110,4 @@ get_histogram_durationSec <- function(duration){
     facet_wrap(~deviceSystemFamily)
   return(p)
 }
+

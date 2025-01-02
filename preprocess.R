@@ -242,9 +242,13 @@ read_files <- function(file){
         if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
           t$`heapLimitAfterDrawing (MB)` <- ''
         }
-        
-        
-        
+        if (!('calibrateTrackDistanceMeasuredCm' %in% colnames(t))) {
+          t$`calibrateTrackDistanceMeasuredCm` <- ''
+        }
+        if (!('calibrateTrackDistanceRequestedCm' %in% colnames(t))) {
+          t$`calibrateTrackDistanceRequestedCm` <- ''
+        }
+
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                               unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                               NA)
@@ -516,6 +520,12 @@ read_files <- function(file){
           }
           if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
             t$`heapLimitAfterDrawing (MB)` <- ''
+          }
+          if (!('calibrateTrackDistanceMeasuredCm' %in% colnames(t))) {
+            t$`calibrateTrackDistanceMeasuredCm` <- ''
+          }
+          if (!('calibrateTrackDistanceRequestedCm' %in% colnames(t))) {
+            t$`calibrateTrackDistanceRequestedCm` <- ''
           }
           
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
