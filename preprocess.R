@@ -116,9 +116,6 @@ read_files <- function(file){
         if (!('targetStartSec' %in% colnames(t))) {
           t$targetStartSec <- NA
         }
-        if (!('targetDurationSec' %in% colnames(t))) {
-          t$targetDurationSec <- NA
-        }
         if (!('targetMeasuredLatenessSec' %in% colnames(t))) {
           t$targetMeasuredLatenessSec <- NA
         }
@@ -217,6 +214,18 @@ read_files <- function(file){
         }
         if (!('fontNominalSizePx' %in% colnames(t))) {
           t$`fontNominalSizePx` <- NA
+        }
+        if (!('fontMaxPx' %in% colnames(t))) {
+          t$`fontMaxPx` <- NA
+        }
+        if (!('thresholdAllowedDurationRatio' %in% colnames(t))) {
+          t$`thresholdAllowedDurationRatio` <- NA
+        }
+        if (!('thresholdAllowedLatenessSec' %in% colnames(t))) {
+          t$`thresholdAllowedLatenessSec` <- NA
+        }
+        if (!('targetDurationSec' %in% colnames(t))) {
+          t$`targetDurationSec` <- NA
         }
         if (!('trialGivenToQuestChecks' %in% colnames(t))) {
           t$`trialGivenToQuestChecks` <- ''
@@ -397,9 +406,6 @@ read_files <- function(file){
           if (!('targetStartSec' %in% colnames(t))) {
             t$targetStartSec <- NA
           }
-          if (!('targetDurationSec' %in% colnames(t))) {
-            t$targetDurationSec <- NA
-          }
           if (!('targetMeasuredLatenessSec' %in% colnames(t))) {
             t$targetMeasuredLatenessSec <- NA
           }
@@ -499,6 +505,18 @@ read_files <- function(file){
           }
           if (!('fontNominalSizePx' %in% colnames(t))) {
             t$`fontNominalSizePx` <- NA
+          }
+          if (!('fontMaxPx' %in% colnames(t))) {
+            t$`fontMaxPx` <- NA
+          }
+          if (!('thresholdAllowedDurationRatio' %in% colnames(t))) {
+            t$`thresholdAllowedDurationRatio` <- NA
+          }
+          if (!('thresholdAllowedLatenessSec' %in% colnames(t))) {
+            t$`thresholdAllowedLatenessSec` <- NA
+          }
+          if (!('targetDurationSec' %in% colnames(t))) {
+            t$`targetDurationSec` <- NA
           }
           if (!('trialGivenToQuestChecks' %in% colnames(t))) {
             t$`trialGivenToQuestChecks` <- ''
@@ -665,7 +683,6 @@ read_files <- function(file){
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
   stairs <- do.call(rbind, stair_list)
-  print(df)
   print('done preprocess')
   return(list(data_list = data_list, 
               summary_list = summary_list, 

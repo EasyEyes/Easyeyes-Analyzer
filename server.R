@@ -155,7 +155,7 @@ shinyServer(function(input, output, session) {
   })
   
   threshold_and_warnings <- reactive({
-    return(generate_threshold(files()$data_list, summary_list(), files()$pretest))
+    return(generate_threshold(files()$data_list, summary_list(), files()$pretest, files()$df))
   })
   
   minNQuestTrials <- reactive({input$NQuestTrials}) %>% debounce(1000)
@@ -890,6 +890,19 @@ shinyServer(function(input, output, session) {
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'targetMeasuredDurationSec-by-os-histogram'
+      i = i + 1
+    }
+    
+    t <- plot_Lateness_sec(duration)
+    if (!is.null(t$participant)) {
+      l[[i]] = t$participant
+      fileNames[[i]] = 'targetMeasuredLatenessSec-by-participant-plot'
+      i = i + 1
+    }
+    
+    if (!is.null(t$font)) {
+      l[[i]] = t$font
+      fileNames[[i]] = 'targetMeasuredLatenessSec-by-font-plot'
       i = i + 1
     }
     
@@ -2142,8 +2155,8 @@ shinyServer(function(input, output, session) {
           ggsave(
             file = outfile,
             plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-            width = 6,
             unit = 'in',
+            limitsize = F,
             device = svglite
           )
           

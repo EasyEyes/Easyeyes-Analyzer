@@ -441,8 +441,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
               age = age))
 }
 
-generate_threshold <- function(data_list, summary_list, pretest){
-  
+generate_threshold <- function(data_list, summary_list, pretest, df){
   if (nrow(pretest) > 0) {
     if (!'Grade' %in% names(pretest)) {
       pretest$Grade = -1
@@ -580,18 +579,42 @@ reading <- rbind(reading, t)
       `sd across participants` = sd(pm),
       `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
       N = n(),
-      parameter = "word per minute")
+      parameter = "word per minute") %>% 
+    mutate(conditionName = as.character(conditionName))
+  
+  print(df)
+  df <- df %>%
+    rename(pavloviaSessionID = participant,
+           participantID = ParticipantCode) %>% 
+    select(-BirthMonthYear)
+  if (nrow(pretest) > 0) {
+    grade <- pretest %>% 
+      select(participant, Grade) %>% 
+      rename(pavloviaSessionID = participant)
+  } else {
+    grade = tibble(pavloviaSessionID = unique(summary_all$participant), 
+                   Grade = NA)
+  }
+ 
+  
   threshold_each <- rbind(threshold_all, wpm_all) %>% 
     mutate(m = round(pm,3),
            sd = round(sd,3)) %>% 
     rename(pavloviaSessionID = participant) %>% 
-    select(experiment, pavloviaSessionID, conditionName, m, sd, parameter)
+    left_join(df, by = pavloviaSessionID) %>% 
+    left_join(grade, by = 'pavloviaSessionID') %>% 
+    select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, m, sd, parameter)
+  
   threshold <- rbind(threshold_summary, wpm_summary) %>% 
     mutate(m = round(m,3),
            `se across participants` = round(`se across participants`,3),
            `sd across participants` = round(`sd across participants`,3),
            `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
     select(experiment,conditionName,m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
-  all_summary <- all_summary %>% rename(pavloviaSessionID = participant)
+  all_summary <- all_summary %>% rename(pavloviaSessionID = participant) %>% 
+    mutate(condition = str_split(block_condition,'_')[[1]][2]) %>% 
+    left_join(df, by = pavloviaSessionID) %>% 
+    left_join(grade, by = 'pavloviaSessionID') %>% 
+    select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, block, condition, conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,questSDAtEndOfTrialsLoop)
   return(list(reading_exceed_1500 %>% select(warning), threshold, threshold_each, all_summary))
 }
