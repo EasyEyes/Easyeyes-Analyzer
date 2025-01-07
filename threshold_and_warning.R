@@ -592,7 +592,7 @@ reading <- rbind(reading, t)
       select(participant, Grade) %>% 
       rename(pavloviaSessionID = participant)
   } else {
-    grade = tibble(pavloviaSessionID = unique(summary_all$participant), 
+    grade = tibble(pavloviaSessionID = unique(all_summary$participant), 
                    Grade = NA)
   }
  

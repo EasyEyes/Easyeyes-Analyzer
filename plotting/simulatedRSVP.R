@@ -23,8 +23,7 @@ is.contained = function(vec1, vec2) {
 extractRSVPStaircases <- function(df) {
   stairdf <- df %>%
     filter(!is.na(staircaseName) &
-             (
-               str_detect(conditionName, "rsvp") |
+             (str_detect(conditionName, "rsvp") |
                  str_detect(conditionName, "RSVP")
              )) %>%
     select(

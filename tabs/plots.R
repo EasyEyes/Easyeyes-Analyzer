@@ -51,10 +51,10 @@ plotsTab <- tabPanel(
   fixedRow(
     splitLayout(
       cellWidths = c("50%", "50%"),
-    shinycssloaders::withSpinner(plotOutput("corrMatrixPlot", width = "100%", height = "100%"), type = 4),
-    shinycssloaders::withSpinner(plotOutput("durationCorrMatrixPlot", width = "100%", height = "100%"), type = 4),
+      shinycssloaders::withSpinner(plotOutput("corrMatrixPlot", width = "100%", height = "100%"), type = 4),
+      shinycssloaders::withSpinner(plotOutput("durationCorrMatrixPlot", width = "100%", height = "100%"), type = 4),
     )
-    ),
+  ),
   splitLayout(
     cellWidths = c("50%", "50%"),
     downloadButton("downloadCorrMatrixPlot", "Download"),
@@ -76,8 +76,8 @@ plotsTab <- tabPanel(
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      shinycssloaders::withSpinner(plotOutput("stackedFovealAcuityPlot", height = "100%"), type = 4),
-      shinycssloaders::withSpinner(plotOutput("stackedFovealCrowdingPlot", height = "100%"), type = 4)
+      shinycssloaders::withSpinner(imageOutput("stackedFovealAcuityPlot", height = "100%"), type = 4),
+      shinycssloaders::withSpinner(imageOutput("stackedFovealCrowdingPlot", height = "100%"), type = 4)
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
@@ -86,8 +86,8 @@ plotsTab <- tabPanel(
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      conditionalPanel('output.isRepeated',shinycssloaders::withSpinner(plotOutput("stackedFovealRepeatedPlot", height = "100%"), type = 4)),
-      conditionalPanel('output.isPeripheralAcuity',shinycssloaders::withSpinner(plotOutput("stackedPeripheralAcuityPlot", height = "100%"), type = 4))
+      conditionalPanel('output.isRepeated',shinycssloaders::withSpinner(imageOutput("stackedFovealRepeatedPlot", height = "100%"), type = 4)),
+      conditionalPanel('output.isPeripheralAcuity',shinycssloaders::withSpinner(imageOutput("stackedPeripheralAcuityPlot", height = "100%"), type = 4))
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
@@ -95,16 +95,45 @@ plotsTab <- tabPanel(
       conditionalPanel('output.isPeripheralAcuity',downloadButton("downloadStackedPeripheralAcuityPlot", "Download"))
     )
   ),
-  
-  
+  conditionalPanel('output.isDuration', 
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(imageOutput("durationByID", height = '100%'), type = 4),
+                     shinycssloaders::withSpinner(imageOutput("durationByFont", height = '100%'), type = 4)
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downlaodDurationByID", "Download"),
+                     downloadButton("downlaodDurationByFont", "Download")
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(imageOutput("latenessByID", height = '100%'), type = 4),
+                     shinycssloaders::withSpinner(imageOutput("latenessByFont", height = '100%'), type = 4)
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downlaodLatenessByID", "Download"),
+                     downloadButton("downlaodLatenessByFont", "Download")
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(imageOutput("durationHist", height = "100%"), type = 4),
+                     shinycssloaders::withSpinner(imageOutput("latenessHist", height = "100%"), type = 4)
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadDurationHist", "Download"),
+                     downloadButton("downloadLatenessHist", "Download")
+                   ))),
   h3("Scatter diagrams"),
+  
   shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
   conditionalPanel('output.isRsvp', 
                    splitLayout(
                      cellWidths = c("50%", "50%"),
                      shinycssloaders::withSpinner(plotlyOutput("rsvpCrowdingPeripheralGradePlot", height = '600px'), type = 4),
                      shinycssloaders::withSpinner(plotlyOutput("rsvpResidualCrowding", height = '600px'), type = 4)
-                     
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),

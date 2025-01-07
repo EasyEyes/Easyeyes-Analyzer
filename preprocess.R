@@ -230,6 +230,9 @@ read_files <- function(file){
         if (!('trialGivenToQuestChecks' %in% colnames(t))) {
           t$`trialGivenToQuestChecks` <- ''
         }
+        if (!('trialGivenToQuest' %in% colnames(t))) {
+          t$`trialGivenToQuest` <- NA
+        }
         if (!('trialGivenToQuestErrorCheckLabels' %in% colnames(t))) {
           t$`trialGivenToQuestErrorCheckLabels` <- ''
         }
@@ -251,12 +254,24 @@ read_files <- function(file){
         if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
           t$`heapLimitAfterDrawing (MB)` <- ''
         }
+        if (!('heapTotalPostLateness (MB)' %in% colnames(t))) {
+          t$`heapTotalPostLateness (MB)` <- ''
+        }
+        if (!('heapTotalPreLateness (MB)' %in% colnames(t))) {
+          t$`heapTotalPreLateness (MB)` <- ''
+        }
         if (!('calibrateTrackDistanceMeasuredCm' %in% colnames(t))) {
           t$`calibrateTrackDistanceMeasuredCm` <- ''
         }
         if (!('calibrateTrackDistanceRequestedCm' %in% colnames(t))) {
           t$`calibrateTrackDistanceRequestedCm` <- ''
         }
+        if (!('computeRandomMHz' %in% colnames(t))) {
+          t$`computeRandomMHz` <- NA
+        } else {
+          t$computeRandomMHz = t$computeRandomMHz[complete.cases(t$computeRandomMHz)]
+        }
+        
 
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                               unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
@@ -276,10 +291,12 @@ read_files <- function(file){
         if (is.na(t$psychojsWindowDimensions[1])) {
           t$psychojsWindowDimensions = 'NA,NA'
         }
-        psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[[1]]
-        WindowDimensions <- paste0(psychojsWindowDimensions[[1]][1], " x ", psychojsWindowDimensions[[1]][2])
+        psychojsWindowDimensions <- lapply(str_split(t$psychojsWindowDimensions[1],","), parse_number)[[1]]
+        
+        WindowDimensions <- paste0(psychojsWindowDimensions, collapse = " x ")
         t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
         t$resolution = ifelse(t$resolution[1] == "NA x NA", "", t$resolution)
+        t$screenWidthPx = ifelse(is.na(t$screenWidthPx[1]), psychojsWindowDimensions[1], t$screenWidthPx[1])
         info <- dplyr::filter(t, is.na(questMeanAtEndOfTrialsLoop)) %>% 
           select(block_condition, conditionName) %>% 
           distinct(block_condition, conditionName) %>% 
@@ -524,6 +541,9 @@ read_files <- function(file){
           if (!('trialGivenToQuestErrorCheckLabels' %in% colnames(t))) {
             t$`trialGivenToQuestErrorCheckLabels` <- ''
           }
+          if (!('trialGivenToQuest' %in% colnames(t))) {
+            t$`trialGivenToQuest` <- NA
+          }
           if (!('heapUsedBeforeDrawing (MB)' %in% colnames(t))) {
             t$`heapUsedBeforeDrawing (MB)` <- ''
           }
@@ -548,6 +568,11 @@ read_files <- function(file){
           if (!('calibrateTrackDistanceRequestedCm' %in% colnames(t))) {
             t$`calibrateTrackDistanceRequestedCm` <- ''
           }
+          if (!('computeRandomMHz' %in% colnames(t))) {
+            t$`computeRandomMHz` <- NA
+          } else {
+            t$computeRandomMHz = t$computeRandomMHz[complete.cases(t$computeRandomMHz)]
+          }
           
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                                 unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
@@ -564,14 +589,17 @@ read_files <- function(file){
                             block_condition = ifelse(block_condition == "",staircaseName, block_condition))
           t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
           t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
-          print(t$psychojsWindowDimensions[1])
+
           if (is.na(t$psychojsWindowDimensions[1])) {
             t$psychojsWindowDimensions = 'NA,NA'
           }
           psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[[1]]
-          WindowDimensions <- paste0(psychojsWindowDimensions[[1]][1], " x ", psychojsWindowDimensions[[1]][2])
+          print(psychojsWindowDimensions)
+          WindowDimensions <- paste0(psychojsWindowDimensions, collapse = " x ")
+          print(WindowDimensions)
           t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
           t$resolution = ifelse(t$resolution[1] == "NA x NA", "", t$resolution)
+          t$screenWidthPx = ifelse(is.na(t$screenWidthPx[1]), psychojsWindowDimensions[1], t$screenWidthPx[1])
           info <- dplyr::filter(t, is.na(questMeanAtEndOfTrialsLoop)) %>% 
             select(block_condition, conditionName) %>% 
             distinct(block_condition, conditionName) %>% 

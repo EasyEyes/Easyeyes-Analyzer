@@ -177,6 +177,12 @@ shinyServer(function(input, output, session) {
   
   durationCorrMatrix <- reactive({
     get_duration_corr(files()$data_list)
+  }) 
+  
+  #### duration data ####
+  
+  durationData <- reactive({
+    get_duration_data(files()$data_list)
   })
   
   ##### SOUND CALIBRATION ####
@@ -348,8 +354,6 @@ shinyServer(function(input, output, session) {
       )
     ))
   })
-  
-  
   
   output$jsonUploaded <- reactive({
     return(!is.null(input$fileJSON))
@@ -678,8 +682,6 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    
-    
     # t <- get_fluency_histogram(df_list()$fluency)
     # if (!is.null(t)) {
     #   l[[i]] = t
@@ -693,14 +695,12 @@ shinyServer(function(input, output, session) {
     #   fileNames[[i]] = 'reading-retention-histogram'
     #   i = i + 1
     # }
-    print('done histograms')
-    return(list(
-      plotList = l,
-      fileNames = fileNames))
-    
+    print('before appending')
+    lists = append_hist_list(data_list(),l,fileNames)
+    return(lists)
 })
   
-  ## stacked histograms ## 
+  #### stacked histograms #### 
   stackedPlots <- reactive({
     if (is.null(df_list())) {
       return(NULL)
@@ -720,7 +720,6 @@ shinyServer(function(input, output, session) {
     ))
   })
   
-  
   #### scatterDiagrams ####
   
   scatterDiagrams <- reactive({
@@ -735,10 +734,15 @@ shinyServer(function(input, output, session) {
     l <- list()
     fileNames <- list()
     
-    print("before crowding plots")
-    
     crowdingPlots <- plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
-    print("done crowding plots")
+    
+    t <- plot_distance(files()$data_list)
+    
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'
+      i = i + 1
+    }
     
     # Add foveal plot to the list
     if (!is.null(crowdingPlots$fovealPlot)) {
@@ -755,14 +759,6 @@ shinyServer(function(input, output, session) {
       print(fileNames[[i]])
       i <- i + 1
     }
-    
-    # t <- foveal_crowding_vs_acuity_diag()$foveal$age
-    # 
-    # if (!is.null(t)) {
-    #   l[[i]] = t
-    #   fileNames[[i]] = 'foveal-crowding-vs-foveal-acuity-age-diagram'
-    #   i = i + 1
-    # }
     
     t <- foveal_crowding_vs_acuity_diag()$foveal$grade
     
@@ -813,7 +809,6 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    
     # t <- get_quest_diag(df_list()$quest)$age
     # if (!is.null(t)) {
     #   l[[i]] = t
@@ -861,7 +856,6 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    
     t <- plot_reading_rsvp(df_list()$reading, df_list()$rsvp)
     if (!is.null(t)) {
       l[[i]] = t
@@ -869,51 +863,6 @@ shinyServer(function(input, output, session) {
       print(fileNames[[i]])
       i = i + 1
     }
-    
-    duration <- get_duration_data(files()$data_list)
-    
-    t <- plot_duraction_sec(duration)
-    
-    if (!is.null(t$font)) {
-      l[[i]] = t$font
-      fileNames[[i]] = 'targetMeasuredDurationSec-by-font-plot'
-      i = i + 1
-    }
-    
-    if (!is.null(t$participant)) {
-      l[[i]] = t$participant
-      fileNames[[i]] = 'targetMeasuredDurationSec-by-participant-plot'
-      i = i + 1
-    }
-    
-    t <- get_histogram_durationSec(duration)
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'targetMeasuredDurationSec-by-os-histogram'
-      i = i + 1
-    }
-    
-    t <- plot_Lateness_sec(duration)
-    if (!is.null(t$participant)) {
-      l[[i]] = t$participant
-      fileNames[[i]] = 'targetMeasuredLatenessSec-by-participant-plot'
-      i = i + 1
-    }
-    
-    if (!is.null(t$font)) {
-      l[[i]] = t$font
-      fileNames[[i]] = 'targetMeasuredLatenessSec-by-font-plot'
-      i = i + 1
-    }
-    
-    t <- plot_distance(files()$data_list)
-    
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'
-      i = i + 1
-    }
-    
     return(list(
       plotList = l,
       fileNames = fileNames
@@ -1107,6 +1056,10 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  output$isDuration <- reactive({
+    return(nrow(durationData()) > 0)
+  })
+  
   
   output$fileUploaded <- reactive({
     return(nrow(files()$pretest>0))
@@ -1127,9 +1080,8 @@ shinyServer(function(input, output, session) {
   outputOptions(output, 'isRepeated', suspendWhenHidden=FALSE)
   outputOptions(output, 'isCrowding', suspendWhenHidden=FALSE)
   outputOptions(output, 'isAcuity', suspendWhenHidden=FALSE)
-  
-  
-  
+  outputOptions(output, 'isDuration', suspendWhenHidden=FALSE)
+
   #### plots ####
 
   output$corrMatrixPlot <- renderImage({
@@ -1158,27 +1110,90 @@ shinyServer(function(input, output, session) {
          contenttype = 'svg')
   }, deleteFile = TRUE)
   
-  output$meanPlot <- renderImage({
+  
+  duration_lateness_hist <- reactive({
+    get_histogram_duration_lateness(durationData())
+  })
+  
+  output$durationHist <- renderImage({
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot =   meanPlot() + plt_theme,
-      device = svg,
+      plot =  duration_lateness_hist()$duration,
+      device = svglite,
       width = 6,
-      height = 4
+      height = 4,
+      unit = 'in'
     )
     list(src = outfile,
          contenttype = 'svg')
   }, deleteFile = TRUE)
   
-  output$medianPlot <- renderImage({
+  output$latenessHist <- renderImage({
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot =   medianPlot() + plt_theme,
-      device = svg,
+      plot =  duration_lateness_hist()$lateness,
+      device = svglite,
       width = 6,
-      height = 4
+      height = 4,
+      unit = 'in'
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+  
+  durationPlot <- reactive({
+    plot_duraction_sec(durationData())
+  })
+  
+  latenessPlot <- reactive({
+    plot_Lateness_sec(durationData())
+  })
+  
+  output$durationByID <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =  durationPlot()$participant,
+      device = svglite,
+      unit = 'in'
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+  
+  output$durationByFont <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =  durationPlot()$font,
+      device = svglite,
+      unit = 'in'
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+  
+  output$latenessByID <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =  latenessPlot()$participant,
+      device = svglite,
+      unit = 'in'
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+  
+  output$latenessByFont <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =  latenessPlot()$font,
+      device = svglite,
+      unit = 'in'
     )
     list(src = outfile,
          contenttype = 'svg')
@@ -1518,9 +1533,9 @@ shinyServer(function(input, output, session) {
           outfile <- tempfile(fileext = '.svg')
           ggsave(
             file = outfile,
-            plot = histograms()$plotList[[ii]] + plt_theme,
+            plot = histograms()$plotList[[ii]] + hist_theme,
             device = svglite,
-            width = 3.5,  # Reduced width
+            width = 4,  # Reduced width
             height = 3.5,  # Reduced height
             unit = 'in'
           )
@@ -1540,9 +1555,10 @@ shinyServer(function(input, output, session) {
               tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
               ggsave(
                 tmp_svg,
-                plot = histograms()$plotList[[ii]] + plt_theme,
+                plot = histograms()$plotList[[ii]] + hist_theme,
                 unit = "in",
-                width = 3.5,  # Adjusted width for PNG export
+                width = 4,  # Reduced width
+                height = 3.5,  # Reduced height
                 limitsize = F,
                 device = svglite
               )
@@ -1550,7 +1566,9 @@ shinyServer(function(input, output, session) {
             } else {
               ggsave(
                 file,
-                plot = histograms()$plotList[[ii]] + plt_theme,
+                plot = histograms()$plotList[[ii]] + hist_theme,
+                width = 4,  # Reduced width
+                height = 3.5,  # Reduced height
                 unit = "in",
                 limitsize = F,
                 device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType)
@@ -2121,13 +2139,6 @@ shinyServer(function(input, output, session) {
       }
     )
   })
-  
-  
-  
-  
-  
- 
-  
   
   output$scatters <- renderUI({
     out <- list()
@@ -4271,40 +4282,141 @@ shinyServer(function(input, output, session) {
       
     )
     
-    # output$downloadRsvpGradePlot <- downloadHandler(
-    #   filename = paste0(
-    #     experiment_names(),
-    #     'rsvp-vs-grade',
-    #     '.',
-    #     input$fileType
-    #   ),
-    #   content = function(file) {
-    #     if (input$fileType == "png") {
-    #       ggsave(
-    #         "tmp.svg",
-    #         plot = gradePlots()[[2]] + plt_theme,
-    #         unit = "in",
-    #         limitsize = F,
-    #         device = svglite
-    #       )
-    #       rsvg::rsvg_png("tmp.svg", file,
-    #                      height = 1800,
-    #                      width = 1800)
-    #     } else {
-    #       ggsave(
-    #         file,
-    #         plot = gradePlots()[[2]] + plt_theme,
-    #         unit = "in",
-    #         limitsize = F,
-    #         device = ifelse(
-    #           input$fileType == "svg",
-    #           svglite::svglite,
-    #           input$fileType
-    #         )
-    #       )
-    #     }
-    #   }
-    # )
+    output$downlaodDurationByFont <- downloadHandler(
+      filename = paste0(
+        'targetMeasuredDurationSec-by-font-plot',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = durationPlot()$font,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1800,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = durationPlot()$font,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+    
+    output$downlaodDurationByID <- downloadHandler(
+      filename = paste0(
+        'targetMeasuredDurationSec-by-participant-plot',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = durationPlot()$font,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1800,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = durationPlot()$participant,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+    
+    output$downlaodLatenessByFont <- downloadHandler(
+      filename = paste0(
+        'targetMeasuredLatenessSec-by-font-plot',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = latenessPlot()$font,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1800,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = latenessPlot()$font,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+    
+    output$downlaodLatenessByID <- downloadHandler(
+      filename = paste0(
+        'targetMeasuredLatenessSec-by-participant-plot',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = latenessPlot()$participant,
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1800,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = latenessPlot()$participant,
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
     
     output$downloadAcuityAgePlot <- downloadHandler(
       filename = paste0(
@@ -4389,8 +4501,6 @@ shinyServer(function(input, output, session) {
     for (j in 1:length(histograms()$plotList)) {
       local({
         ii <- j
-
-        
         output[[paste0("downloadHist", ii)]] <- downloadHandler(
           filename = paste0(
             experiment_names(),
