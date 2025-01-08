@@ -562,6 +562,12 @@ read_files <- function(file){
           if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
             t$`heapLimitAfterDrawing (MB)` <- ''
           }
+          if (!('heapTotalPostLateness (MB)' %in% colnames(t))) {
+            t$`heapTotalPostLateness (MB)` <- ''
+          }
+          if (!('heapTotalPreLateness (MB)' %in% colnames(t))) {
+            t$`heapTotalPreLateness (MB)` <- ''
+          }
           if (!('calibrateTrackDistanceMeasuredCm' %in% colnames(t))) {
             t$`calibrateTrackDistanceMeasuredCm` <- ''
           }

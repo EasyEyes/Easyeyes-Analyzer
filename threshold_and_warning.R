@@ -601,7 +601,7 @@ reading <- rbind(reading, t)
     mutate(m = round(pm,3),
            sd = round(sd,3)) %>% 
     rename(pavloviaSessionID = participant) %>% 
-    left_join(df, by = pavloviaSessionID) %>% 
+    left_join(df, by = 'pavloviaSessionID') %>% 
     left_join(grade, by = 'pavloviaSessionID') %>% 
     select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, m, sd, parameter)
   
@@ -611,9 +611,10 @@ reading <- rbind(reading, t)
            `sd across participants` = round(`sd across participants`,3),
            `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
     select(experiment,conditionName,m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
-  all_summary <- all_summary %>% rename(pavloviaSessionID = participant) %>% 
+  all_summary <- all_summary %>% 
+    rename(pavloviaSessionID = participant) %>% 
     mutate(condition = str_split(block_condition,'_')[[1]][2]) %>% 
-    left_join(df, by = pavloviaSessionID) %>% 
+    left_join(df, by = 'pavloviaSessionID') %>% 
     left_join(grade, by = 'pavloviaSessionID') %>% 
     select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, block, condition, conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,questSDAtEndOfTrialsLoop)
   return(list(reading_exceed_1500 %>% select(warning), threshold, threshold_each, all_summary))
