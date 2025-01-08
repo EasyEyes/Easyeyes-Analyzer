@@ -33,7 +33,7 @@ read_files <- function(file){
           pretest$ParticipantCode = pretest$participant
         }
       }
-
+      
       if ('ID' %in% names(pretest)) {
         pretest <- pretest %>% 
           rename('participant' = 'ID') %>% 
@@ -271,8 +271,15 @@ read_files <- function(file){
         } else {
           t$computeRandomMHz = t$computeRandomMHz[complete.cases(t$computeRandomMHz)]
         }
+        if (!('deviceMemoryGB' %in% colnames(t))) {
+          t$`deviceMemoryGB` <- NA
+        } else {
+          t$deviceMemoryGB = t$deviceMemoryGB[1]
+        }
+        if (!('longTaskDurationSec' %in% colnames(t))) {
+          t$`longTaskDurationSec` <- NA
+        }
         
-
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                               unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                               NA)
@@ -579,7 +586,15 @@ read_files <- function(file){
           } else {
             t$computeRandomMHz = t$computeRandomMHz[complete.cases(t$computeRandomMHz)]
           }
-          
+          if (!('deviceMemoryGB' %in% colnames(t))) {
+            t$`deviceMemoryGB` <- NA
+          } else {
+            t$deviceMemoryGB = t$deviceMemoryGB[1]
+          }
+          if (!('longTaskDurationSec' %in% colnames(t))) {
+            t$`longTaskDurationSec` <- NA
+          }
+
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                                 unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                                 NA)
@@ -595,7 +610,7 @@ read_files <- function(file){
                             block_condition = ifelse(block_condition == "",staircaseName, block_condition))
           t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
           t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
-
+          
           if (is.na(t$psychojsWindowDimensions[1])) {
             t$psychojsWindowDimensions = 'NA,NA'
           }
@@ -712,7 +727,7 @@ read_files <- function(file){
     df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, BirthMonthYear,age))
     
   }
-
+  
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]

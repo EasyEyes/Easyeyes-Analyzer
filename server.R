@@ -863,10 +863,8 @@ shinyServer(function(input, output, session) {
       print(fileNames[[i]])
       i = i + 1
     }
-    return(list(
-      plotList = l,
-      fileNames = fileNames
-    ))
+    lists = append_scatter_list(data_list(), l, fileNames)
+    return(lists)
   })
   
   #### plotly plots ####
