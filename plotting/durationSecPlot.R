@@ -17,10 +17,15 @@ get_duration_data <- function(data_list) {
       distinct() %>% 
       filter(!is.na(fontNominalSizePx))
   }
+  if (is.character(df$targetMeasuredDurationSec)) {
+    df <- df %>%  separate_rows(targetMeasuredDurationSec,sep=',')
+    df$targetMeasuredDurationSec <- as.numeric(df$targetMeasuredDurationSec)
+  }
   return(df)
 }
 
 get_duration_corr <- function(data_list) {
+  print('inside get_duration_corr')
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
       filter(!is.na(staircaseName)) %>%
@@ -45,27 +50,48 @@ get_duration_corr <- function(data_list) {
              trialGivenToQuest) %>% 
       rename(hardwareConcurrency = cores) %>% 
       filter(trialGivenToQuestChecks != '', !is.na(trialGivenToQuestChecks)) %>% 
-      separate_rows(trialGivenToQuestErrorCheckLabels, trialGivenToQuestChecks, sep = ",") %>%
-      mutate(trialGivenToQuestChecks = as.logical(trialGivenToQuestChecks)) %>% 
       mutate(deltaHeapUsedMB = as.numeric(`heapUsedAfterDrawing (MB)`) - as.numeric(`heapUsedBeforeDrawing (MB)`),
              deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
              deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`))
     
-    t <- t %>%
-      pivot_wider(names_from = trialGivenToQuestErrorCheckLabels,
-                  values_from = trialGivenToQuestChecks)
+    # t <- t %>%
+    #   pivot_wider(names_from = trialGivenToQuestErrorCheckLabels,
+    #               values_from = trialGivenToQuestChecks)
   }
+  
   params <- params %>%
     select(-c(block, 
               participant, 
               trialGivenToQuest,
               `heapTotalPostLateness (MB)`,
-              `heapTotalPreLateness (MB)`))
+              `heapTotalPreLateness (MB)`)) %>% 
+    mutate(order = row_number())
+  trialGivenToQuest <- params %>%
+    select(order,trialGivenToQuestErrorCheckLabels,trialGivenToQuestChecks) %>% 
+    separate_rows(trialGivenToQuestErrorCheckLabels, trialGivenToQuestChecks, sep = ',') %>% 
+    mutate(trialGivenToQuestChecks = as.logical(trialGivenToQuestChecks)) %>% 
+    pivot_wider(names_from = trialGivenToQuestErrorCheckLabels,
+                values_from = trialGivenToQuestChecks)
+  params <- params %>% select(-c(trialGivenToQuestErrorCheckLabels, trialGivenToQuestChecks)) %>% 
+    left_join(trialGivenToQuest, by = 'order') %>% 
+    select(-order)
+  
+  if (is.character(params$targetMeasuredDurationSec)) {
+    params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
+    params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
+  }
+  params %>% select_if(is.numeric) %>% 
+    select(where(~sum(!is.na(.)) > 0))
+  print(summary(params))
+
   params <- params[complete.cases(params),]
+  print(params)
   c <- colnames(params)
   t <- data.frame(cor(params))
+ 
   colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))
+  print(t)
   corplot <- ggcorrplot(t,
                         show.legend = FALSE,
                         show.diag = T,
@@ -263,12 +289,13 @@ append_hist_list <- function(data_list, plot_list, fileNames){
              deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
              deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`))
   }
-  print('params')
-  print(params)
+  if (is.character(params$targetMeasuredDurationSec)) {
+    params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
+    params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
+  }
   webGL <- tibble()
   for (i in 1:length(data_list)) {
    if ('WebGL_Report' %in% names(data_list[[i]])) {
-     print(data_list[[i]]$WebGL_Report)
      t <- fromJSON(data_list[[i]]$WebGL_Report[1])
      df <- data.frame(WebGL_Version = t$WebGL_Version,
                       Max_Texture_Size = t$Max_Texture_Size,
@@ -389,6 +416,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
              computeRandomMHz,
              deviceMemoryGB,
              cores,
+             font,
              fontNominalSizePx,
              screenWidthPx,
              trialGivenToQuest,
@@ -398,11 +426,14 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
              deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
              deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`))
   }
-  
+  if (is.character(params$targetMeasuredDurationSec)) {
+    params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
+    params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
+  }
   j = length(plot_list) + 1
   if (n_distinct(params$deltaHeapLatenessMB) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapLatenessMB,y=targetMeasuredLatenessSec, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'targetMeasuredLatenessSec vs. deltaHeapLatenessMB, \ncolored by participant')
     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-deltaHeapLatenessMB-by-participant'
@@ -411,7 +442,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   if (n_distinct(params$deltaHeapLatenessMB) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapLatenessMB,y=targetMeasuredDurationSec, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'targetMeasuredDurationSec vs. deltaHeapLatenessMB \ncolored by participant')
     fileNames[[j]] <- 'targetMeasuredDurationSec-vs-deltaHeapLatenessMB-by-participant'
@@ -420,7 +451,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   if (n_distinct(params$deltaHeapTotalMB) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapTotalMB,y=targetMeasuredLatenessSec, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'targetMeasuredLatenessSec vs. deltaHeapTotalMB \ncolored by participant')
     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-deltaHeapTotalMB-by-participant'
@@ -428,7 +459,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   }
   if (n_distinct(params$longTaskDurationSec) > 1 & n_distinct(params$targetMeasuredLatenessSec) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=longTaskDurationSec,y=targetMeasuredLatenessSec, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'targetMeasuredLatenessSec vs. longTaskDurationSec \ncolored by participant')
     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-longTaskDurationSec-by-participant'
@@ -436,23 +467,26 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   }
   if (n_distinct(params$longTaskDurationSec) > 1 & n_distinct(params$targetMeasuredDurationSec) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=longTaskDurationSec,y=targetMeasuredDurationSec, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'targetMeasuredDurationSec vs. longTaskDurationSec \ncolored by participant')
     fileNames[[j]] <- 'longTaskDurationSec-vs-longTaskDurationSec-by-participant'
     j = j + 1
   }
   if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
-    plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx,y=deltaHeapUsedMB, color = participant)) +
-      geom_point() +
+    plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx,y=deltaHeapUsedMB, color = font)) +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
-      labs(title = 'deltaHeapUsedMB vs. fontNominalSizePx \ncolored by participant')
-    fileNames[[j]] <- 'deltaHeapUsedMB-vs-fontNominalSizePx-by-participant'
+      scale_x_log10() +
+      scale_y_log10() +
+      coord_fixed() +
+      labs(title = 'deltaHeapUsedMB vs. fontNominalSizePx \ncolored by font')
+    fileNames[[j]] <- 'deltaHeapUsedMB-vs-fontNominalSizePx-by-font'
     j = j + 1
   }
   if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$longTaskDurationSec) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx,y=longTaskDurationSec, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'longTaskDurationSec vs. fontNominalSizePx \ncolored by participant')
     fileNames[[j]] <- 'longTaskDurationSec-vs-fontNominalSizePx-by-participant'
@@ -460,7 +494,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   }
   if (n_distinct(params$longTaskDurationSec) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=longTaskDurationSec,y=deltaHeapUsedMB, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'deltaHeapUsedMB vs. longTaskDurationSec \ncolored by participant')
     fileNames[[j]] <- 'deltaHeapUsedMB-vs-longTaskDurationSec-by-participant'
@@ -469,7 +503,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   if (n_distinct(params$`heapLimitAfterDrawing (MB)`) > 1 & n_distinct(params$deltaHeapTotalMB) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=`heapLimitAfterDrawing (MB)`,y=deltaHeapTotalMB, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'deltaHeapTotalMB vs. heapLimitAfterDrawing \ncolored by participant')
     fileNames[[j]] <- 'deltaHeapTotalMB-vs-heapLimitAfterDrawing-by-participant'
@@ -478,7 +512,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   if (n_distinct(params$`heapUsedBeforeDrawing (MB)`) > 1 & n_distinct(params$deltaHeapTotalMB) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=`heapUsedBeforeDrawing (MB)`,y=deltaHeapTotalMB, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'deltaHeapTotalMB vs. heapUsedBeforeDrawing \ncolored by participant')
     fileNames[[j]] <- 'deltaHeapTotalMB-vs-heapUsedBeforeDrawing-by-participant'
@@ -487,7 +521,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   if (n_distinct(params$targetMeasuredLatenessSec) > 1 & n_distinct(params$targetMeasuredDurationSec) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=targetMeasuredLatenessSec,y=targetMeasuredDurationSec, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'targetMeasuredDurationSec vs. targetMeasuredLatenessSec \ncolored by participant')
     fileNames[[j]] <- 'targetMeasuredDurationSec-vs-targetMeasuredLatenessSec-by-participant'
@@ -496,7 +530,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   if (n_distinct(params$deltaHeapTotalMB) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapTotalMB,y=deltaHeapUsedMB, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'deltaHeapUsedMB vs. deltaHeapTotalMB \ncolored by participant')
     fileNames[[j]] <- 'deltaHeapUsedMB-vs-deltaHeapTotalMB-by-participant'
@@ -514,7 +548,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   if (n_distinct(params$badLatenessTrials) > 1 & n_distinct(params$badDurationTrials) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=badLatenessTrials,y=badDurationTrials, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'badDurationTrials vs. badLatenessTrials \ncolored by participant')
     fileNames[[j]] <- 'badDurationTrials-vs-badLatenessTrials-by-participant'
@@ -523,7 +557,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   if (n_distinct(params$`heapLimitAfterDrawing (MB)`) > 1 & n_distinct(params$badLatenessTrials) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=`heapLimitAfterDrawing (MB)`,y=badLatenessTrials, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'badLatenessTrials vs. heapLimitAfterDrawing \ncolored by participant')
     fileNames[[j]] <- 'badLatenessTrials-vs-heapLimitAfterDrawing-by-participant'
@@ -532,7 +566,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
  
   if (n_distinct(params$heapUsedAfterDrawingAvg) > 1 & n_distinct(params$badLatenessTrials) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=heapUsedAfterDrawingAvg,y=badLatenessTrials, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'badLatenessTrials vs. heapUsedAfterDrawingAvg \ncolored by participant')
     fileNames[[j]] <- 'badLatenessTrials-vs-heapUsedAfterDrawingAvg-by-participant'
@@ -541,7 +575,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   if (n_distinct(params$heapTotalAfterDrawingAvg) > 1 & n_distinct(params$badLatenessTrials) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=heapTotalAfterDrawingAvg,y=badLatenessTrials, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'badLatenessTrials vs. heapTotalAfterDrawingAvg \ncolored by participant')
     fileNames[[j]] <- 'badLatenessTrials-vs-heapTotalAfterDrawingAvg-by-participant'
@@ -551,7 +585,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   if (n_distinct(params$deviceMemoryGB) > 1 & n_distinct(params$badLatenessTrials) > 1) {
     
     plot_list[[j]] <- ggplot(data=params, aes(x=deviceMemoryGB,y=badLatenessTrials, color = participant)) +
-      geom_point() +
+      geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'badLatenessTrials vs. deviceMemoryGB \ncolored by participant')
     fileNames[[j]] <- 'badLatenessTrials-vs-deviceMemoryGB-by-participant'

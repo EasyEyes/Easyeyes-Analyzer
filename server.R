@@ -4324,7 +4324,7 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot = durationPlot()$font,
+            plot = durationPlot()$participant,
             unit = "in",
             limitsize = F,
             device = svglite
@@ -4406,6 +4406,78 @@ shinyServer(function(input, output, session) {
             plot = latenessPlot()$participant,
             unit = "in",
             limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+    
+    output$downloadDurationHist <- downloadHandler(
+      filename = paste0(
+        'targetMeasuredDurationSec-by-os-histogam',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = duration_lateness_hist()$duration,
+            width = 6,
+            height = 4,
+            unit = "in",
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1800,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = duration_lateness_hist()$duration,
+            width = 6,
+            height = 4,
+            unit = "in",
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+    
+    output$downloadLatenessHist <- downloadHandler(
+      filename = paste0(
+        'targetMeasuredLatenessSec-by-os-histogam',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot =  duration_lateness_hist()$lateness,
+            unit = "in",
+            width = 6,
+            height = 4,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1800,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = duration_lateness_hist()$lateness,
+            unit = "in",
+            width = 6,
+            height = 4,
             device = ifelse(
               input$fileType == "svg",
               svglite::svglite,

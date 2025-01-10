@@ -7,8 +7,8 @@ read_files <- function(file){
   if(is.null(file)) return(list())
   file_list <- file$data
   file_names <- file$name
-  file_list <- file_list[!grepl("cursor", basename(file_names))]
-  file_list <- file_list[!grepl("^~", basename(file_names))]
+  file_list <- file_list[!grepl("cursor", basename(file_names)) & !grepl("^~", basename(file_names))]
+  file_names <- file_names[!grepl("cursor", basename(file_names)) & !grepl("^~", basename(file_names))]
   data_list <- list()
   stair_list <- list()
   summary_list <- list()
@@ -19,8 +19,16 @@ read_files <- function(file){
   pretest <- tibble()
   for (i in 1 : n) {
     t <- tibble()
-    if (grepl(".xlsx", file_list[i])) {
-      pretest <- readxl::read_xlsx(file_list[i])
+    print(file_names[i])
+    print(grepl("pretest.xlsx", file_names[i]))
+    print(grepl("pretest.csv", file_names[i]))
+    if (grepl("pretest.xlsx", file_names[i])) {
+      if (grepl("pretest.xlsx", file_list[i])) {
+        pretest <- readxl::read_xlsx(file_list[i])
+      } else {
+        pretest <- read_csv(file_list[i])
+      }
+      
       if ('PavloviaSessionID' %in% names(pretest)) {
         pretest <- pretest %>% 
           rename('participant' = 'PavloviaSessionID') %>% 
@@ -41,7 +49,7 @@ read_files <- function(file){
           mutate(Grade = ifelse(is.na(Grade), -1, Grade))
       }
     }
-    if (grepl(".csv", file_list[i])){ 
+    if (grepl(".csv", file_names[i]) & !grepl("pretest.csv", file_names[i])){ 
       try({t <- readr::read_csv(file_list[i],show_col_types = FALSE)}, silent = TRUE)
       
       
@@ -353,8 +361,9 @@ read_files <- function(file){
       all_csv <- file_names[grepl(".csv", file_names)]
       all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
       all_csv <- all_csv[!grepl("cursor", all_csv)]
-      all_xlsx <- file_names[grepl(".xlsx", file_names)]
-      all_xlsx <- all_xlsx[!grepl("__MACOSX", all_xlsx)]
+      all_csv <- all_csv[!grepl("pretest", all_csv)]
+      all_pretest <- file_names[grepl("pretest", file_names)]
+      all_pretest <- all_pretest[!grepl("__MACOSX", all_pretest)]
       m <- length(all_csv)
       for (k in 1 : m) {
         t <- tibble()
@@ -665,8 +674,14 @@ read_files <- function(file){
           }
         }
       }
-      if (length(all_xlsx) > 0) {
-        pretest <- readxl::read_xlsx(unzip(file_list[i], all_xlsx[1]))
+      if (length(all_pretest) > 0) {
+        if (grepl("pretest.xlsx", all_pretest[1])) {
+          pretest <- readxl::read_xlsx(unzip(file_list[i], all_pretest[1]))
+        } 
+        # else {
+        #   pretest <- readr::read_csv(unzip(file_list[i], all_pretest[1]),show_col_types = FALSE)
+        # }
+       
         if ('PavloviaSessionID' %in% names(pretest)) {
           pretest <- pretest %>% 
             rename('participant' = 'PavloviaSessionID') %>% 
