@@ -68,24 +68,21 @@ monitorFormSpree <- function(listFontParameters) {
       mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS')),
              pavloviaID = ifelse(is.na(pavloviaID), pavloviaId, pavloviaID)) %>% 
       group_by(pavloviaID) %>% 
-      slice(which.max(date)) %>% 
+      # slice(which.max(date)) %>% 
       ungroup() %>% 
       mutate(date = format(date, "%b %d, %Y, %H:%M:%S")) %>% 
       arrange(desc(`_date`)) %>% 
       select(-`_date`)
     
-    t <- t %>%
-      select(pavloviaID, date, font, fontPt, fontMaxPx,
-             fontRenderMaxPx, fontString, block, conditionName, trial, fontLatencySec) %>% 
-      left_join(initial, by = "pavloviaID") %>% 
-      mutate(hl = is.na(fontLatencySec)) %>% 
-      select(pavloviaID, prolificParticipantID, prolificSession, ExperimentName,
-             date, OS, browser, browserVersion, deviceType, font, fontPt, fontMaxPx, fontRenderMaxPx, fontString,
-             block, conditionName, trial, fontLatencySec, hl)
+    t <- t %>% select(-c(prolificParticipantID, prolificSession, ExperimentName,
+                          OS, browser, browserVersion, deviceType, timestamp))
+    print(nrow(t))
+    t <- initial %>% full_join(t, by = "pavloviaID") %>% 
+      mutate(hl = is.na(fontLatencySec))
     
     t$OS = stringr::str_replace_all(t$OS, "OS X","macOS")
     if (listFontParameters) {
-      t <- t %>% select(pavloviaID, date, font, fontPt, fontMaxPx, fontRenderMaxPx, fontString,
+      t <- t %>% select(pavloviaID, date, font, fontMaxPx, fontRenderMaxPx, fontString,
                         block, conditionName, trial, fontLatencySec, hl)
         
     }

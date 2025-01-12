@@ -77,8 +77,9 @@ shinyServer(function(input, output, session) {
               options = list(
                 autoWidth = TRUE,
                 fixedHeader = TRUE,
-                paging = FALSE,
-                dom = 'lt',
+                pageLength = 150,
+                paging = TRUE,
+                # dom = 'lt',
                 columnDefs = list(
                   list(visible = FALSE, targets = c(0, ncol(formSpreeTable())))))
     ) %>% 
