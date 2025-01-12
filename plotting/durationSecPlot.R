@@ -430,6 +430,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
   }
+  params <- params %>% filter(!is.na(font))
   j = length(plot_list) + 1
   if (n_distinct(params$deltaHeapLatenessMB) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapLatenessMB,y=targetMeasuredLatenessSec, color = participant)) +
@@ -484,6 +485,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
     fileNames[[j]] <- 'deltaHeapUsedMB-vs-fontNominalSizePx-by-font'
     j = j + 1
   }
+  
   if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$longTaskDurationSec) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx,y=longTaskDurationSec, color = participant)) +
       geom_jitter() +
@@ -492,6 +494,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
     fileNames[[j]] <- 'longTaskDurationSec-vs-fontNominalSizePx-by-participant'
     j = j + 1
   }
+  
   if (n_distinct(params$longTaskDurationSec) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=longTaskDurationSec,y=deltaHeapUsedMB, color = participant)) +
       geom_jitter() +
@@ -591,6 +594,29 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
     fileNames[[j]] <- 'badLatenessTrials-vs-deviceMemoryGB-by-participant'
     j = j + 1
   }
+  
+  if (n_distinct(params$hardwareConcurrency) > 1 & n_distinct(params$badLatenessTrials) > 1) {
+    
+    plot_list[[j]] <- ggplot(data=params, aes(x=hardwareConcurrency,y=badLatenessTrials, color = participant)) +
+      geom_jitter() +
+      guides(color=guide_legend(ncol=2, title = '')) + 
+      scale_x_continuous(breaks = unique(params$hardwareConcurrency)) + 
+      labs(title = 'badLatenessTrials vs. hardwareConcurrency \ncolored by participant')
+    fileNames[[j]] <- 'badLatenessTrials-vs-hardwareConcurrency-by-participant'
+    j = j + 1
+  }
+  
+  if (n_distinct(params$hardwareConcurrency) > 1 & n_distinct(params$badDurationTrials) > 1) {
+    
+    plot_list[[j]] <- ggplot(data=params, aes(x=hardwareConcurrency,y=badDurationTrials, color = participant)) +
+      geom_jitter() +
+      guides(color=guide_legend(ncol=2, title = '')) + 
+      scale_x_continuous(breaks = unique(params$hardwareConcurrency)) + 
+      labs(title = 'badDurationTrials vs. hardwareConcurrency \ncolored by participant')
+    fileNames[[j]] <- 'badDurationTrials-vs-hardwareConcurrency-by-participant'
+    j = j + 1
+  }
+  
   return(list(
     plotList = plot_list,
     fileNames=fileNames
