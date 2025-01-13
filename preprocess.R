@@ -19,15 +19,15 @@ read_files <- function(file){
   pretest <- tibble()
   for (i in 1 : n) {
     t <- tibble()
-    print(file_names[i])
-    print(grepl("pretest.xlsx", file_names[i]))
-    print(grepl("pretest.csv", file_names[i]))
-    if (grepl("pretest.xlsx", file_names[i])) {
-      if (grepl("pretest.xlsx", file_list[i])) {
+
+    if (grepl("pretest.xlsx", file_names[i]) | grepl("pretest.csv", file_names[i])) {
+      if (grepl("pretest.xlsx", file_names[i])) {
         pretest <- readxl::read_xlsx(file_list[i])
       } else {
         pretest <- read_csv(file_list[i])
       }
+     
+      print(pretest) 
       
       if ('PavloviaSessionID' %in% names(pretest)) {
         pretest <- pretest %>% 
@@ -227,13 +227,19 @@ read_files <- function(file){
           t$`fontMaxPx` <- NA
         }
         if (!('thresholdAllowedDurationRatio' %in% colnames(t))) {
-          t$`thresholdAllowedDurationRatio` <- NA
+          t$thresholdAllowedDurationRatio <- NaN
+        } else {
+          t$thresholdAllowedDurationRatio <- as.numeric(t$thresholdAllowedDurationRatio)
         }
         if (!('thresholdAllowedLatenessSec' %in% colnames(t))) {
-          t$`thresholdAllowedLatenessSec` <- NA
+          t$thresholdAllowedLatenessSec <- NaN
+        } else {
+          t$thresholdAllowedLatenessSec <- as.numeric(t$thresholdAllowedLatenessSec)
         }
         if (!('targetDurationSec' %in% colnames(t))) {
-          t$`targetDurationSec` <- NA
+          t$`targetDurationSec` <- NaN
+        } else {
+          t$`targetDurationSec` <- as.numeric(t$`targetDurationSec`)
         }
         if (!('trialGivenToQuestChecks' %in% colnames(t))) {
           t$`trialGivenToQuestChecks` <- ''
@@ -543,13 +549,19 @@ read_files <- function(file){
             t$`fontMaxPx` <- NA
           }
           if (!('thresholdAllowedDurationRatio' %in% colnames(t))) {
-            t$`thresholdAllowedDurationRatio` <- NA
+            t$`thresholdAllowedDurationRatio` <- NaN
+          } else {
+            t$`thresholdAllowedDurationRatio` <- as.numeric(t$`thresholdAllowedDurationRatio`)
           }
           if (!('thresholdAllowedLatenessSec' %in% colnames(t))) {
-            t$`thresholdAllowedLatenessSec` <- NA
+            t$`thresholdAllowedLatenessSec` <- NaN
+          } else {
+            t$`thresholdAllowedLatenessSec` <- as.numeric(t$`thresholdAllowedLatenessSec`)
           }
           if (!('targetDurationSec' %in% colnames(t))) {
             t$`targetDurationSec` <- NA
+          } else {
+            t$`targetDurationSec` <- as.numeric(t$`targetDurationSec`)
           }
           if (!('trialGivenToQuestChecks' %in% colnames(t))) {
             t$`trialGivenToQuestChecks` <- ''

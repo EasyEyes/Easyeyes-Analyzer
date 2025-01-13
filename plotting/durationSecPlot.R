@@ -420,7 +420,8 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
              fontNominalSizePx,
              screenWidthPx,
              trialGivenToQuest,
-             longTaskDurationSec) %>% 
+             longTaskDurationSec,
+             deviceSystemFamily) %>% 
       rename(hardwareConcurrency = cores) %>% 
       mutate(deltaHeapUsedMB = as.numeric(`heapUsedAfterDrawing (MB)`) - as.numeric(`heapUsedBeforeDrawing (MB)`),
              deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
@@ -614,6 +615,28 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
       scale_x_continuous(breaks = unique(params$hardwareConcurrency)) + 
       labs(title = 'badDurationTrials vs. hardwareConcurrency \ncolored by participant')
     fileNames[[j]] <- 'badDurationTrials-vs-hardwareConcurrency-by-participant'
+    j = j + 1
+  }
+  
+  if (n_distinct(params$hardwareConcurrency) > 1 & n_distinct(params$badLatenessTrials) > 1) {
+    
+    plot_list[[j]] <- ggplot(data=params, aes(x=hardwareConcurrency,y=badLatenessTrials, color = deviceSystemFamily)) +
+      geom_jitter() +
+      guides(color=guide_legend(ncol=2, title = '')) + 
+      scale_x_continuous(breaks = unique(params$hardwareConcurrency)) + 
+      labs(title = 'badLatenessTrials vs. hardwareConcurrency \ncolored by deviceSystemFamily')
+    fileNames[[j]] <- 'badLatenessTrials-vs-hardwareConcurrency-by-deviceSystemFamily'
+    j = j + 1
+  }
+  
+  if (n_distinct(params$hardwareConcurrency) > 1 & n_distinct(params$badDurationTrials) > 1) {
+    
+    plot_list[[j]] <- ggplot(data=params, aes(x=hardwareConcurrency,y=badDurationTrials, color = deviceSystemFamily)) +
+      geom_jitter() +
+      guides(color=guide_legend(ncol=2, title = '')) + 
+      scale_x_continuous(breaks = unique(params$hardwareConcurrency)) + 
+      labs(title = 'badDurationTrials vs. hardwareConcurrency \ncolored by deviceSystemFamily')
+    fileNames[[j]] <- 'badDurationTrials-vs-hardwareConcurrency-by-deviceSystemFamily'
     j = j + 1
   }
   
