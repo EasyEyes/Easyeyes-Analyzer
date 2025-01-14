@@ -59,12 +59,38 @@ monitorFormSpree <- function(listFontParameters) {
   if (httr::status_code(response)) {
     content <- httr::content(response, as = "text", encoding='UTF-8')
     
-    initial <- jsonlite::fromJSON(content)$submissions %>% 
+    submissions <- jsonlite::fromJSON(content)$submissions
+    if (!('pavloviaID' %in% colnames(submissions))) {
+      submissions$pavloviaID <- NA
+    }
+    if (!('prolificParticipantID' %in% colnames(submissions))) {
+      submissions$prolificParticipantID <- NA
+    }
+    if (!('prolificSession' %in% colnames(submissions))) {
+      submissions$prolificSession <- NA
+    }
+    if (!('ExperimentName' %in% colnames(submissions))) {
+      submissions$ExperimentName <- NA
+    }
+    if (!('OS' %in% colnames(submissions))) {
+      submissions$OS <- NA
+    }
+    if (!('browser' %in% colnames(submissions))) {
+      submissions$browser <- NA
+    }
+    if (!('browserVersion' %in% colnames(submissions))) {
+      submissions$browserVersion <- NA
+    }
+    if (!('deviceType' %in% colnames(submissions))) {
+      submissions$deviceType <- NA
+    }
+
+    initial <- submissions %>% 
       filter(!is.na(OS)) %>% 
       select(pavloviaID, prolificParticipantID, prolificSession, ExperimentName,
              OS, browser, browserVersion, deviceType)
     
-    t <- jsonlite::fromJSON(content)$submissions %>% 
+    t <- submissions %>% 
       mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS')),
              pavloviaID = ifelse(is.na(pavloviaID), pavloviaId, pavloviaID)) %>% 
       group_by(pavloviaID) %>% 
