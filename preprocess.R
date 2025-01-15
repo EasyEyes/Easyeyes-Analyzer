@@ -26,8 +26,6 @@ read_files <- function(file){
       } else {
         pretest <- read_csv(file_list[i])
       }
-     
-      print(pretest) 
       
       if ('PavloviaSessionID' %in% names(pretest)) {
         pretest <- pretest %>% 

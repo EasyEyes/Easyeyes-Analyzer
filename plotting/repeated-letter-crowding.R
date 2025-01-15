@@ -142,7 +142,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
           shape = `Skilled reader?`
         )
       ) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19, 1))
     }
     
     return(p)
@@ -311,7 +311,7 @@ plot_reading_repeated_letter_crowding <- function(allData) {
           shape = `Skilled reader?`
         )
       ) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19, 1))
     }
     
     return(p)

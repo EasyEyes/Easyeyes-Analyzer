@@ -273,7 +273,7 @@ get_foveal_crowding_vs_age <- function(crowding) {
     if (n_distinct(t$`Skilled reader?`) > 1) {
       p <- p + 
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
     }
     
     return(p)
@@ -351,7 +351,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     if (n_distinct(t$`Skilled reader?`) > 1) {
       p <- p +
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
     }
     
     return(p)
@@ -403,7 +403,7 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
     if (n_distinct(t$`Skilled reader?`) > 1) {
       p <- p + 
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
     }
     
     return(p)
@@ -498,10 +498,10 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
     if (n_distinct(foveal_vs_repeatedLetters$`Skilled reader?`) > 1) {
       p <- p + 
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
       p1 <- p1 + 
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
     }
   }
   
@@ -729,10 +729,10 @@ get_foveal_peripheral_diag <- function(crowding) {
     } else {
       p <- p +
         geom_point(aes(shape = `Skilled reader?`), size = 3) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
       p1 <- p1 +
         geom_point(aes(shape = `Skilled reader?`), size = 3) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
     }
     
     return(list(age = p, grade = p1))

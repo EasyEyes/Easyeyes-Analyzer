@@ -6,7 +6,7 @@ englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
   mutate(participant = tolower(ID))
 
 generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, stairs, filterInput, minNQuestTrials) {
-  print(pretest)
+
   print('inside threshold warning')
   if (is.null(data_list)) {
     return(list())
@@ -33,7 +33,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     if (!'Skilled reader?' %in% names(pretest)) {
       pretest$`Skilled reader?` = 'unkown'
     }
-    print(pretest)
+
     pretest <- pretest %>%
       mutate(lowerCaseParticipant = tolower(participant))
     if ('Exclude?' %in% names(pretest)) {

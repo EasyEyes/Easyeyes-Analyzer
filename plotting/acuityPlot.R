@@ -71,7 +71,7 @@ get_foveal_acuity_vs_age <- function(acuity) {
     if (n_distinct(t$`Skilled reader?`) > 1) {
       p <- p + 
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
     }
     
     return(p)
@@ -159,7 +159,7 @@ get_peripheral_acuity_vs_age <- function(acuity) {
     if (n_distinct(t$`Skilled reader?`) > 1) {
       p <- p +
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
     }
     
     return(p)
@@ -285,7 +285,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       p <- p + geom_point(
         aes(shape = `Skilled reader?`, group = ParticipantCode)
       ) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
     } else {
       p <- p + geom_point(aes(group = ParticipantCode))
     }
@@ -559,7 +559,7 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
     } else {
       p1 <- p1 +
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1))
     }
     return(p1)
   }

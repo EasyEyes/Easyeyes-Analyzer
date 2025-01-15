@@ -102,13 +102,13 @@ plot_rsvp_crowding_acuity <- function(allData) {
   } else {
     p1 <- p1 + 
       geom_point(aes(shape = `Skilled reader?`)) +
-      scale_shape_manual(values = c(4,19))
+      scale_shape_manual(values = c(4,19, 1))
     p2 <- p2 + 
       geom_point(aes(shape = `Skilled reader?`)) +
-      scale_shape_manual(values = c(4,19))
+      scale_shape_manual(values = c(4,19, 1))
     p3 <- p3 + 
       geom_point(aes(shape = `Skilled reader?`)) +
-      scale_shape_manual(values = c(4,19))
+      scale_shape_manual(values = c(4,19, 1))
   }
   return(list(
     p1,
@@ -335,7 +335,7 @@ plot_rsvp_crowding <- function(allData) {
     } else {
       plot <- plot +
         geom_point(aes(shape = `Skilled reader?`, group = ParticipantCode), size = 3) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19, 1))
     }
     
     return(plot)
@@ -463,7 +463,7 @@ plot_rsvp_crowding <- function(allData) {
       p <- p + geom_point(aes(group = ParticipantCode), size = 3)
     } else {
       p <- p + geom_point(aes(shape = `Skilled reader?`, group = ParticipantCode), size = 3) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19, 1))
     }
     
     return(p)
@@ -746,7 +746,7 @@ plot_reading_crowding <- function(allData) {
           color = .data[[colorFactor]], shape = `Skilled reader?`
         )
       ) +
-        scale_shape_manual(values = c(4, 19))
+        scale_shape_manual(values = c(4, 19,1 ))
     }
     
     return(p)
