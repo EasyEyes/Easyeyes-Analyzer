@@ -450,7 +450,7 @@ plot_acuity_vs_age <- function(allData){
   if (nrow(acuity) == 0) {
     return(NULL)
   }
-  print(acuity)
+
   foveal <- acuity %>% filter(questType == 'Foveal acuity')
   peripheral <- acuity %>% filter(questType == "Peripheral acuity")
   if (nrow(foveal) > 0) {

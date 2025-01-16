@@ -12,8 +12,7 @@ get_duration_data <- function(data_list) {
              fontMaxPx,
              targetDurationSec, 
              deviceSystemFamily) %>% 
-      mutate(fontNominalSizePx = as.numeric(fontNominalSizePx),
-             targetMeasuredDurationSec = as.numeric(targetMeasuredDurationSec)) %>%
+      mutate(fontNominalSizePx = as.numeric(fontNominalSizePx)) %>%
       distinct() %>% 
       filter(!is.na(fontNominalSizePx))
   }
@@ -80,8 +79,8 @@ get_duration_corr <- function(data_list) {
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
   }
-  params %>% select_if(is.numeric) %>% 
-    select(where(~sum(!is.na(.)) > 0))
+  params <- params %>% select_if(is.numeric) %>% 
+    select_if(~sum(!is.na(.)) > 0)
   print(summary(params))
 
   params <- params[complete.cases(params),]

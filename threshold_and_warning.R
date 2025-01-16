@@ -442,7 +442,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
               age = age))
 }
 
-generate_threshold <- function(data_list, summary_list, pretest, df){
+generate_threshold <- function(data_list, summary_list, pretest, stairs, df){
+  print('inside generate_threshold')
   if (nrow(pretest) > 0) {
     if (!'Grade' %in% names(pretest)) {
       pretest$Grade = -1
@@ -466,7 +467,12 @@ generate_threshold <- function(data_list, summary_list, pretest, df){
     summary_list[[i]]
   } %>% 
     filter(!participant %in% basicExclude$lowerCaseParticipant)
- 
+  stairs_summary <- stairs %>%
+    group_by(participant, block_condition, conditionName) %>% 
+    summarize(TrialsSentToQuest = sum(trialGivenToQuest),
+              BadTrials = sum(!trialGivenToQuest)) %>% 
+    rename(pavloviaSessionID = participant)
+  
   crowding <- all_summary %>% 
     filter(thresholdParameter != "targetSizeDeg",
            thresholdParameter != 'size',
@@ -614,9 +620,13 @@ reading <- rbind(reading, t)
     select(experiment,conditionName,m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
   all_summary <- all_summary %>% 
     rename(pavloviaSessionID = participant) %>% 
+    left_join(stairs_summary, by = c('pavloviaSessionID', 'block_condition', 'conditionName')) %>% 
     mutate(condition = str_split(block_condition,'_')[[1]][2]) %>% 
     left_join(df, by = 'pavloviaSessionID') %>% 
     left_join(grade, by = 'pavloviaSessionID') %>% 
-    select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, block, condition, conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,questSDAtEndOfTrialsLoop)
+    select(experiment, pavloviaSessionID, participantID, 
+           age, Grade, conditionName, block, condition, 
+           conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,
+           questSDAtEndOfTrialsLoop, TrialsSentToQuest, BadTrials)
   return(list(reading_exceed_1500 %>% select(warning), threshold, threshold_each, all_summary))
 }

@@ -70,7 +70,7 @@ crowding_scatter_plot <- function(crowding_L_R){
                          'Individual: sdIndividual=\n',
                          '      sqrt(sdAvg^2 - 0.5*(sdTestRetest^2))=', format(round(sdIndividual,2),nsmall=2)
                          ))
-  print(summ)
+
   minXY <- min(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right, na.rm = T) * 0.9
   maxXY <- max(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right, na.rm = T) * 1.1
   p <- ggplot(crowding_L_R,aes(y = 10^(log_crowding_distance_deg_Left), x = 10^(log_crowding_distance_deg_Right))) + 

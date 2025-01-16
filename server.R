@@ -156,7 +156,7 @@ shinyServer(function(input, output, session) {
   })
   
   threshold_and_warnings <- reactive({
-    return(generate_threshold(files()$data_list, summary_list(), files()$pretest, files()$df))
+    return(generate_threshold(files()$data_list, summary_list(), files()$pretest, files()$stairs, files()$df))
   })
   
   minNQuestTrials <- reactive({input$NQuestTrials}) %>% debounce(1000)

@@ -104,12 +104,19 @@ data_table_call_back = "
   "
 
 get_lateness_and_duration <- function(all_files){
+  print('inside get_lateness_and_duration')
   t <- all_files %>% 
-  
     select(participant, date, targetMeasuredLatenessSec, targetMeasuredDurationSec, targetDurationSec) %>% 
     mutate(targetDurationSec = as.numeric(targetDurationSec),
-           targetMeasuredDurationSec = as.numeric(targetMeasuredDurationSec),
-           targetMeasuredLatenessSec = as.numeric(targetMeasuredLatenessSec)) %>% 
+           targetMeasuredLatenessSec = as.numeric(targetMeasuredLatenessSec))
+  
+  if (is.character(t$targetMeasuredDurationSec)) {
+    t <- t %>% separate_rows(targetMeasuredDurationSec,sep=',')
+  }
+
+  t$targetMeasuredDurationSec <- as.numeric(t$targetMeasuredDurationSec)
+
+  t <- t %>% 
     group_by(participant, date) %>% 
     summarize(targetMeasuredLatenessMeanSec = mean(targetMeasuredLatenessSec, na.rm = TRUE) * 1000,
               targetMeasuredLatenessSDSec = sd(targetMeasuredLatenessSec, na.rm = TRUE) * 1000,
@@ -129,6 +136,7 @@ get_lateness_and_duration <- function(all_files){
   t <- t %>% 
     mutate(date = parse_date_time(date, orders = c('ymdHMS', 'mdyHMS'))) %>% 
     mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
+
   return(t)
 }
 
