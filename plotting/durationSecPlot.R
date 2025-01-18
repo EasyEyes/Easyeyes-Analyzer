@@ -6,8 +6,8 @@ get_webGL <- function(data_list) {
       df <- data.frame(
         participant = data_list[[i]]$participant[1],
         WebGLVersion = t$WebGL_Version,
-        WebGLMaxTextureSize = t$Max_Texture_Size,
-        WebGLMaxViewportDim = max(unlist(t$Max_Viewport_Dims)))
+        maxTextureSize = t$Max_Texture_Size,
+        maxViewportSize = max(unlist(t$Max_Viewport_Dims)))
       df$participant = data_list[[i]]$participant[1]
       webGL = rbind(webGL, df)
     }
@@ -16,14 +16,14 @@ get_webGL <- function(data_list) {
     webGL = tibble(
       participant = '',
       WebGLVersion = NA,
-      WebGLMaxTextureSize = NA,
-      WebGLMaxViewportDim = NA)
+      maxTextureSize = NA,
+      maxViewportSize = NA)
   } else {
     webGL = tibble(
       participant = webGL$participant,
       WebGLVersion = webGL$WebGLVersion,
-      WebGLMaxTextureSize = as.numeric(webGL$WebGLMaxTextureSize),
-      WebGLMaxViewportDim = as.numeric(webGL$WebGLMaxViewportDim))
+      maxTextureSize = as.numeric(webGL$maxTextureSize),
+      maxViewportSize = as.numeric(webGL$maxViewportSize))
   }
   return(webGL)
 }
@@ -346,7 +346,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
                    "heapLimitAfterDrawing (MB)", "deltaHeapTotalMB", "deltaHeapUsedMB",
                    "deltaHeapLatenessMB")
   
-  webGL_vars <- c("WebGLMaxTextureSize", "WebGLMaxViewportDim")
+  webGL_vars <- c("maxTextureSize", "maxViewportSize")
   
   summary_vars <- c("goodTrials", "badTrials","computeRandomMHz", "screenWidthPx",  "hardwareConcurrency", "deviceMemoryGB")
   
@@ -499,20 +499,20 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   }
   
   if (n_distinct(params$targetMeasuredLatenessSec) > 1) {
-    plot_list[[j]] <- ggplot(data=params, aes(x=WebGLMaxTextureSize, y=targetMeasuredLatenessSec, color = participant)) +
+    plot_list[[j]] <- ggplot(data=params, aes(x=maxTextureSize, y=targetMeasuredLatenessSec, color = participant)) +
       geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
-      labs(title = 'targetMeasuredLatenessSec vs WebGLMaxTextureSize \ncolored by participant')
-    fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-WebGLMaxTextureSize-by-participant'
+      labs(title = 'targetMeasuredLatenessSec vs maxTextureSize \ncolored by participant')
+    fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-maxTextureSize-by-participant'
     j = j + 1
   }
   
   if (n_distinct(params$targetMeasuredLatenessSec) > 1) {
-    plot_list[[j]] <- ggplot(data=params, aes(x=WebGLMaxViewportDim, y=targetMeasuredLatenessSec, color = participant)) +
+    plot_list[[j]] <- ggplot(data=params, aes(x=maxViewportSize, y=targetMeasuredLatenessSec, color = participant)) +
       geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
-      labs(title = 'targetMeasuredLatenessSec vs WebGLMaxViewportDim \ncolored by participant')
-    fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-WebGLMaxViewportDim-by-participant'
+      labs(title = 'targetMeasuredLatenessSec vs maxViewportSize \ncolored by participant')
+    fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-maxViewportSize-by-participant'
     j = j + 1
   }
   
