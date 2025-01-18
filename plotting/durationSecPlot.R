@@ -1,3 +1,33 @@
+get_webGL <- function(data_list) {
+  webGL <- tibble()
+  for (i in 1:length(data_list)) {
+    if ('WebGL_Report' %in% names(data_list[[i]])) {
+      t <- fromJSON(data_list[[i]]$WebGL_Report[1])
+      df <- data.frame(
+        participant = data_list[[i]]$participant[1],
+        WebGLVersion = t$WebGL_Version,
+        WebGLMaxTextureSize = t$Max_Texture_Size,
+        WebGLMaxViewportDim = max(unlist(t$Max_Viewport_Dims)))
+      df$participant = data_list[[i]]$participant[1]
+      webGL = rbind(webGL, df)
+    }
+  }
+  if (nrow(webGL) == 0) {
+    webGL = tibble(
+      participant = '',
+      WebGLVersion = NA,
+      WebGLMaxTextureSize = NA,
+      WebGLMaxViewportDim = NA)
+  } else {
+    webGL = tibble(
+      participant = webGL$participant,
+      WebGLVersion = webGL$WebGLVersion,
+      WebGLMaxTextureSize = as.numeric(webGL$WebGLMaxTextureSize),
+      WebGLMaxViewportDim = as.numeric(webGL$WebGLMaxViewportDim))
+  }
+  return(webGL)
+}
+
 get_duration_data <- function(data_list) {
   df <- foreach(i=1:length(data_list), .combine = 'rbind') %do% {
     data_list[[i]] %>%
@@ -34,37 +64,41 @@ get_duration_corr <- function(data_list) {
              targetMeasuredLatenessSec,
              trialGivenToQuestErrorCheckLabels,
              trialGivenToQuestChecks,
-             `heapUsedBeforeDrawing (MB)`,
-             `heapTotalBeforeDrawing (MB)`,
-             `heapLimitBeforeDrawing (MB)`,
-             `heapUsedAfterDrawing (MB)`,
-             `heapTotalAfterDrawing (MB)`,
-             `heapLimitAfterDrawing (MB)`,
-             `heapTotalPostLateness (MB)`,
-             `heapTotalPreLateness (MB)`,
+             # `heapUsedBeforeDrawing (MB)`,
+             # `heapTotalBeforeDrawing (MB)`,
+             # `heapLimitBeforeDrawing (MB)`,
+             # `heapUsedAfterDrawing (MB)`,
+             # `heapTotalAfterDrawing (MB)`,
+             # `heapLimitAfterDrawing (MB)`,
+             # `heapTotalPostLateness (MB)`,
+             # `heapTotalPreLateness (MB)`,
              computeRandomMHz,
              deviceMemoryGB,
              cores,
              fontNominalSizePx,
              trialGivenToQuest) %>% 
       rename(hardwareConcurrency = cores) %>% 
-      filter(trialGivenToQuestChecks != '', !is.na(trialGivenToQuestChecks)) %>% 
-      mutate(deltaHeapUsedMB = as.numeric(`heapUsedAfterDrawing (MB)`) - as.numeric(`heapUsedBeforeDrawing (MB)`),
-             deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
-             deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`))
-    
+      filter(trialGivenToQuestChecks != '', !is.na(trialGivenToQuestChecks))
+    # mutate(deltaHeapUsedMB = as.numeric(`heapUsedAfterDrawing (MB)`) - as.numeric(`heapUsedBeforeDrawing (MB)`),
+    #        deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
+    #        deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`))
+    # 
     # t <- t %>%
     #   pivot_wider(names_from = trialGivenToQuestErrorCheckLabels,
     #               values_from = trialGivenToQuestChecks)
   }
+  webGL <- get_webGL(data_list)
   
-  params <- params %>%
-    select(-c(block, 
-              participant, 
-              trialGivenToQuest,
-              `heapTotalPostLateness (MB)`,
-              `heapTotalPreLateness (MB)`)) %>% 
+  
+  summary <- params %>%
+    group_by(participant, block) %>% 
+    summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
+              badTrials = sum(!trialGivenToQuest, na.rm =T))
+  
+  params <- params %>% 
+    select(-trialGivenToQuest) %>% 
     mutate(order = row_number())
+  
   trialGivenToQuest <- params %>%
     select(order,trialGivenToQuestErrorCheckLabels,trialGivenToQuestChecks) %>% 
     separate_rows(trialGivenToQuestErrorCheckLabels, trialGivenToQuestChecks, sep = ',') %>% 
@@ -73,7 +107,10 @@ get_duration_corr <- function(data_list) {
                 values_from = trialGivenToQuestChecks)
   params <- params %>% select(-c(trialGivenToQuestErrorCheckLabels, trialGivenToQuestChecks)) %>% 
     left_join(trialGivenToQuest, by = 'order') %>% 
-    select(-order)
+    select(-order) %>% 
+    left_join(webGL, by = "participant") %>% 
+    left_join(summary, by = c("participant", "block")) %>% 
+    select(-participant, block)
   
   if (is.character(params$targetMeasuredDurationSec)) {
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
@@ -81,13 +118,12 @@ get_duration_corr <- function(data_list) {
   }
   params <- params %>% select_if(is.numeric) %>% 
     select_if(~sum(!is.na(.)) > 0)
-  print(summary(params))
-
+  
   params <- params[complete.cases(params),]
-  print(params)
+
   c <- colnames(params)
   t <- data.frame(cor(params))
- 
+  
   colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))
   print(t)
@@ -100,7 +136,7 @@ get_duration_corr <- function(data_list) {
     theme_bw() +
     labs(x = '', 
          y = '',
-         title = 'Correlation table targetMeasuredDurationSec') +
+         title = 'Timing Correlation Table') +
     plt_theme + 
     theme(legend.position = 'none',
           plot.title.position = "plot",
@@ -115,8 +151,8 @@ get_duration_corr <- function(data_list) {
   
   return(list(
     plot = corplot,
-    width = 10,
-    height = 10
+    width = 3 + ncol(t) * 0.4,
+    height = 3 + ncol(t) * 0.4
   ))
 }
 
@@ -292,22 +328,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
   }
-  webGL <- tibble()
-  for (i in 1:length(data_list)) {
-   if ('WebGL_Report' %in% names(data_list[[i]])) {
-     t <- fromJSON(data_list[[i]]$WebGL_Report[1])
-     df <- data.frame(WebGL_Version = t$WebGL_Version,
-                      Max_Texture_Size = t$Max_Texture_Size,
-                      Max_Viewport_Dims = max(unlist(t$Max_Viewport_Dims)))
-     df$participant = data_list[[i]]$participant[1]
-     webGL = rbind(webGL, df)
-   }
-  }
-  if (nrow(webGL) == 0) {
-    webGL = tibble(WebGL_Version = NA,
-                   Max_Texture_Size = NA,
-                   Max_Viewport_Dims = NA)
-  }
+  webGL <- get_webGL(data_list)
   summary <- params %>%
     group_by(participant,computeRandomMHz, screenWidthPx, hardwareConcurrency, deviceMemoryGB) %>% 
     summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
@@ -322,7 +343,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
                    "heapLimitAfterDrawing (MB)", "deltaHeapTotalMB", "deltaHeapUsedMB",
                    "deltaHeapLatenessMB")
   
-  webGL_vars <- c("Max_Texture_Size", "Max_Viewport_Dims")
+  webGL_vars <- c("WebGLMaxTextureSize", "WebGLMaxViewportDim")
   
   summary_vars <- c("goodTrials", "badTrials","computeRandomMHz", "screenWidthPx",  "hardwareConcurrency", "deviceMemoryGB")
   
@@ -340,52 +361,52 @@ append_hist_list <- function(data_list, plot_list, fileNames){
       j = j + 1
     }
   }
-  if (n_distinct(webGL['WebGL_Version']) > 1) {
-    plot_list[[j]] <- ggplot(webGL, aes(x = WebGL_Version)) +
+  if (n_distinct(webGL['WebGLVersion']) > 1) {
+    plot_list[[j]] <- ggplot(webGL, aes(x = WebGLVersion)) +
       geom_bar(color="black", fill="black") + 
       theme_bw() +
-      labs(title = paste("Histogram of", 'WebGL_Version')) +
+      labs(title = paste("Histogram of", 'WebGLVersion')) +
       theme(axis.text.x = element_text(size = 10,
                                        angle = 10,
                                        vjust = 0.5,
                                        hjust= 0.5))
-    fileNames[[j]] <- paste0('WebGL_Version','-histogram')
+    fileNames[[j]] <- paste0('WebGLVersion','-histogram')
     j = j + 1
   }
   
   
   for (var in webGL_vars) {
     if (n_distinct(webGL[var]) > 1) {
-    plot_list[[j]] <- ggplot(webGL, aes(x = .data[[var]])) +
-      geom_histogram(color="black", fill="black") + 
-      theme_bw() +
-      labs(title = paste("Histogram of", var))
-    fileNames[[j]] <- paste0(var,'-histogram')
-    j = j + 1
+      plot_list[[j]] <- ggplot(webGL, aes(x = .data[[var]])) +
+        geom_histogram(color="black", fill="black") + 
+        theme_bw() +
+        labs(title = paste("Histogram of", var))
+      fileNames[[j]] <- paste0(var,'-histogram')
+      j = j + 1
     }
   }
   
   # Loop through summary dataset and generate histograms
   for (var in summary_vars) {
     if (n_distinct(summary[var]) > 1) {
-    plot_list[[j]] <- ggplot(summary, aes(x = .data[[var]])) +
-      geom_histogram(color="black", fill="black") + 
-      theme_bw() +
-      labs(title = paste("Histogram of", var))
-    fileNames[[j]] <- paste0(var,'-histogram')
-    j = j + 1
+      plot_list[[j]] <- ggplot(summary, aes(x = .data[[var]])) +
+        geom_histogram(color="black", fill="black") + 
+        theme_bw() +
+        labs(title = paste("Histogram of", var))
+      fileNames[[j]] <- paste0(var,'-histogram')
+      j = j + 1
     }
   }
   
   # Loop through blockAvg dataset and generate histograms
   for (var in blockAvg_vars) {
     if (n_distinct(blockAvg[var]) > 1) {
-    plot_list[[j]] <- ggplot(blockAvg, aes(x = .data[[var]])) +
-      geom_histogram(color="black", fill="black") + 
-      theme_bw() +
-      labs(title = paste("Histogram of", var))
-    fileNames[[j]] <- paste0(var,'-histogram')
-    j = j + 1
+      plot_list[[j]] <- ggplot(blockAvg, aes(x = .data[[var]])) +
+        geom_histogram(color="black", fill="black") + 
+        theme_bw() +
+        labs(title = paste("Histogram of", var))
+      fileNames[[j]] <- paste0(var,'-histogram')
+      j = j + 1
     }
   }
   return(list(plotList = plot_list,
@@ -566,7 +587,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
     fileNames[[j]] <- 'badLatenessTrials-vs-heapLimitAfterDrawing-by-participant'
     j = j + 1
   }
- 
+  
   if (n_distinct(params$heapUsedAfterDrawingAvg) > 1 & n_distinct(params$badLatenessTrials) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=heapUsedAfterDrawingAvg,y=badLatenessTrials, color = participant)) +
       geom_jitter() +
