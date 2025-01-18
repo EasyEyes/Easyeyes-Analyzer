@@ -291,6 +291,18 @@ read_files <- function(file){
         if (!('longTaskDurationSec' %in% colnames(t))) {
           t$`longTaskDurationSec` <- NA
         }
+        if (!('targetMeasuredPreRenderSec' %in% colnames(t))) {
+          t$`targetMeasuredPreRenderSec` <- NA
+        }
+        if (!('heap100MBAllocSec' %in% colnames(t))) {
+          t$`heap100MBAllocSec` <- NA
+        }
+        if (!('fontRenderSec' %in% colnames(t))) {
+          t$`fontRenderSec` <- NA
+        }
+        if (!('mustTrackSec' %in% colnames(t))) {
+          t$`mustTrackSec` <- NA
+        }
         
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                               unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
@@ -613,7 +625,19 @@ read_files <- function(file){
           if (!('longTaskDurationSec' %in% colnames(t))) {
             t$`longTaskDurationSec` <- NA
           }
-
+          if (!('targetMeasuredPreRenderSec' %in% colnames(t))) {
+            t$`targetMeasuredPreRenderSec` <- NA
+          }
+          if (!('heap100MBAllocSec' %in% colnames(t))) {
+            t$`heap100MBAllocSec` <- NA
+          }
+          if (!('fontRenderSec' %in% colnames(t))) {
+            t$`fontRenderSec` <- NA
+          }
+          if (!('mustTrackSec' %in% colnames(t))) {
+            t$`mustTrackSec` <- NA
+          }
+          
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                                 unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                                 NA)

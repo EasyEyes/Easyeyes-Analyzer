@@ -64,6 +64,9 @@ get_duration_corr <- function(data_list) {
              targetMeasuredLatenessSec,
              trialGivenToQuestErrorCheckLabels,
              trialGivenToQuestChecks,
+             fontRenderSec,
+             heap100MBAllocSec,
+             targetMeasuredPreRenderSec,
              # `heapUsedBeforeDrawing (MB)`,
              # `heapTotalBeforeDrawing (MB)`,
              # `heapLimitBeforeDrawing (MB)`,
@@ -423,6 +426,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
              targetMeasuredDurationSec,
              targetMeasuredLatenessSec,
              targetDurationSec,
+             mustTrackSec,
              thresholdAllowedDurationRatio,
              thresholdAllowedLatenessSec,
              `heapUsedBeforeDrawing (MB)`,
@@ -453,11 +457,21 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   }
   params <- params %>% filter(!is.na(font))
   j = length(plot_list) + 1
+  
+  if (n_distinct(params$targetMeasuredLatenessSec) > 1) {
+    plot_list[[j]] <- ggplot(data=params, aes(x=mustTrackSec,y=targetMeasuredLatenessSec, color = deviceSystemFamily)) +
+      geom_jitter() +
+      guides(color=guide_legend(ncol=2, title = 'OS')) + 
+      labs(title = 'targetMeasuredLatenessSec vs mustTrackSec \ncolored by OS')
+    fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-mustTrackSec-by-OS'
+    j = j + 1
+  }
+  
   if (n_distinct(params$deltaHeapLatenessMB) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapLatenessMB,y=targetMeasuredLatenessSec, color = participant)) +
       geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
-      labs(title = 'targetMeasuredLatenessSec vs. deltaHeapLatenessMB, \ncolored by participant')
+      labs(title = 'targetMeasuredLatenessSec vs. deltaHeapLatenessMB \ncolored by participant')
     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-deltaHeapLatenessMB-by-participant'
     j = j + 1
   }
