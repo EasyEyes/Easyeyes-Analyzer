@@ -34,4 +34,44 @@ get_range_breaks_length <- function(x) {
   ))
 }
 
+get_webGL <- function(data_list) {
+  webGL <- tibble()
+  for (i in 1:length(data_list)) {
+    if ('WebGL_Report' %in% names(data_list[[i]])) {
+      t <- fromJSON(data_list[[i]]$WebGL_Report[1])
+      if ('maxTextureSize' %in% names(t)) {
+        df <- data.frame(
+          participant = data_list[[i]]$participant[1],
+          WebGLVersion = t$WebGL_Version,
+          maxTextureSize = t$maxTextureSize,
+          maxViewportSize = max(unlist(t$maxViewportSize)),
+          WebGLUnmaskedRenderer = t$Unmasked_Renderer)
+      } else {
+        df <- data.frame(
+          participant = data_list[[i]]$participant[1],
+          WebGLVersion = t$WebGL_Version,
+          maxTextureSize = t$Max_Texture_Size,
+          maxViewportSize = max(unlist(t$Max_Viewport_Dims)),
+          WebGLUnmaskedRenderer = t$Unmasked_Renderer)
+      }
+      webGL = rbind(webGL, df)
+    }
+  }
+  if (nrow(webGL) == 0) {
+    webGL = tibble(
+      participant = '',
+      WebGLVersion = NA,
+      maxTextureSize = NA,
+      maxViewportSize = NA,
+      WebGLUnmaskedRenderer = NA)
+  } else {
+    webGL = tibble(
+      participant = webGL$participant,
+      WebGLVersion = webGL$WebGLVersion,
+      maxTextureSize = as.numeric(webGL$maxTextureSize),
+      maxViewportSize = as.numeric(webGL$maxViewportSize),
+      WebGLUnmaskedRenderer = webGL$WebGLUnmaskedRenderer)
+  }
+  return(webGL)
+}
 

@@ -264,7 +264,7 @@ read_files <- function(file){
           t$`heapTotalAfterDrawing (MB)` <- ''
         }
         if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
-          t$`heapLimitAfterDrawing (MB)` <- ''
+          t$`heapLimitAfterDrawing (MB)` <- NaN
         }
         if (!('heapTotalPostLateness (MB)' %in% colnames(t))) {
           t$`heapTotalPostLateness (MB)` <- ''
@@ -595,7 +595,7 @@ read_files <- function(file){
             t$`heapUsedAfterDrawing (MB)` <- ''
           }
           if (!('heapTotalAfterDrawing (MB)' %in% colnames(t))) {
-            t$`heapTotalAfterDrawing (MB)` <- ''
+            t$`heapTotalAfterDrawing (MB)` <- NaN
           }
           if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
             t$`heapLimitAfterDrawing (MB)` <- ''

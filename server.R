@@ -1154,7 +1154,8 @@ shinyServer(function(input, output, session) {
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot =  durationPlot()$participant,
+      plot =  durationPlot()$participant +
+        scale_color_manual(values= colorPalette),
       device = svglite,
       unit = 'in'
     )
@@ -1166,7 +1167,8 @@ shinyServer(function(input, output, session) {
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot =  durationPlot()$font,
+      plot =  durationPlot()$font + 
+        scale_color_manual(values= colorPalette),
       device = svglite,
       unit = 'in'
     )
@@ -1178,7 +1180,8 @@ shinyServer(function(input, output, session) {
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot =  latenessPlot()$participant,
+      plot =latenessPlot()$participant +
+        scale_color_manual(values= colorPalette),
       device = svglite,
       unit = 'in'
     )
@@ -1190,7 +1193,8 @@ shinyServer(function(input, output, session) {
     outfile <- tempfile(fileext = '.svg')
     ggsave(
       file = outfile,
-      plot =  latenessPlot()$font,
+      plot = latenessPlot()$font +
+        scale_color_manual(values= colorPalette),
       device = svglite,
       unit = 'in'
     )
@@ -2164,7 +2168,9 @@ shinyServer(function(input, output, session) {
           outfile <- tempfile(fileext = '.svg')
           ggsave(
             file = outfile,
-            plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+            plot = scatterDiagrams()$plotList[[ii]] + 
+              plt_theme_scatter + 
+              scale_color_manual(values = colorPalette),
             unit = 'in',
             limitsize = F,
             device = svglite
@@ -2187,7 +2193,9 @@ shinyServer(function(input, output, session) {
               tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
               ggsave(
                 tmp_svg,
-                plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+                plot = scatterDiagrams()$plotList[[ii]] +
+                  plt_theme_scatter +
+                  scale_color_manual(values = colorPalette),
                 unit = "in",
                 limitsize = F,
                 device = svglite
@@ -2197,7 +2205,9 @@ shinyServer(function(input, output, session) {
             } else {
               ggsave(
                 file,
-                plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+                plot = scatterDiagrams()$plotList[[ii]] +
+                  plt_theme_scatter +
+                  scale_color_manual(values = colorPalette),
                 unit = "in",
                 limitsize = F,
                 device = ifelse(
@@ -3326,7 +3336,9 @@ shinyServer(function(input, output, session) {
         for (i in 1:length(scatterDiagrams()$plotList)) {
           plotFileName =  paste0(scatterDiagrams()$fileNames[[i]], '.',input$fileType)
           ggsave(filename = plotFileName, 
-                 plot = scatterDiagrams()$plotList[[i]] + plt_theme,
+                 plot = scatterDiagrams()$plotList[[i]] +
+                   plt_theme_scatter + 
+                 scale_color_manual(values = colorPalette),
                  width = 6,
                  unit = 'in',
                  device = input$fileType)
@@ -4267,7 +4279,7 @@ shinyServer(function(input, output, session) {
           } else {
             ggsave(
               file,
-              plot =plot_crowding_vs_age(df_list()$crowding) + plt_theme,
+              plot = plot_crowding_vs_age(df_list()$crowding) + plt_theme,
               unit = "in",
               limitsize = F,
               device = ifelse(
@@ -4291,7 +4303,8 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot = durationPlot()$font,
+            plot = durationPlot()$font +
+              scale_color_manual(values= colorPalette),
             unit = "in",
             limitsize = F,
             device = svglite
@@ -4302,7 +4315,8 @@ shinyServer(function(input, output, session) {
         } else {
           ggsave(
             file,
-            plot = durationPlot()$font,
+            plot = durationPlot()$font + 
+              scale_color_manual(values= colorPalette),
             unit = "in",
             limitsize = F,
             device = ifelse(
@@ -4325,7 +4339,8 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot = durationPlot()$participant,
+            plot = durationPlot()$participant + 
+              scale_color_manual(values= colorPalette),
             unit = "in",
             limitsize = F,
             device = svglite
@@ -4336,7 +4351,8 @@ shinyServer(function(input, output, session) {
         } else {
           ggsave(
             file,
-            plot = durationPlot()$participant,
+            plot = durationPlot()$participant + 
+              scale_color_manual(values= colorPalette),
             unit = "in",
             limitsize = F,
             device = ifelse(
@@ -4359,7 +4375,8 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot = latenessPlot()$font,
+            plot = latenessPlot()$font + 
+              scale_color_manual(values= colorPalette),
             unit = "in",
             limitsize = F,
             device = svglite
@@ -4370,7 +4387,8 @@ shinyServer(function(input, output, session) {
         } else {
           ggsave(
             file,
-            plot = latenessPlot()$font,
+            plot = latenessPlot()$font + 
+              scale_color_manual(values= colorPalette),
             unit = "in",
             limitsize = F,
             device = ifelse(
@@ -4393,7 +4411,8 @@ shinyServer(function(input, output, session) {
         if (input$fileType == "png") {
           ggsave(
             "tmp.svg",
-            plot = latenessPlot()$participant,
+            plot = latenessPlot()$participant + 
+              scale_color_manual(values= colorPalette),
             unit = "in",
             limitsize = F,
             device = svglite
@@ -4404,7 +4423,8 @@ shinyServer(function(input, output, session) {
         } else {
           ggsave(
             file,
-            plot = latenessPlot()$participant,
+            plot = latenessPlot()$participant + 
+              scale_color_manual(values= colorPalette),
             unit = "in",
             limitsize = F,
             device = ifelse(
@@ -4627,7 +4647,9 @@ shinyServer(function(input, output, session) {
             if (input$fileType == "png") {
               ggsave(
                 "tmp.svg",
-                plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+                plot = scatterDiagrams()$plotList[[ii]] + 
+                  plt_theme_scatter +
+                  scale_color_manual(values = colorPalette),
                 height = 6,
                 width = 6,
                 unit = "in",
@@ -4640,7 +4662,9 @@ shinyServer(function(input, output, session) {
             } else {
               ggsave(
                 file,
-                plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+                plot = scatterDiagrams()$plotList[[ii]] + 
+                  plt_theme_scatter +
+                  scale_color_manual(values = colorPalette),
                 height = 6,
                 width = 6,
                 unit = "in",

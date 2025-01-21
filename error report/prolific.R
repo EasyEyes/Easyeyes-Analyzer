@@ -1,5 +1,25 @@
 source('./other/formSpree.R')
 
+find_prolific_from_files <- function(file) {
+  file_list <- file$data
+  n = length(file$data)
+  prolificDT <- tibble()
+  for (k in 1:length(file_list)) {
+    if (grepl(".zip", file_list[k])) {
+      file_names <- unzip(file_list[k], list = TRUE)$Name
+      all_csv <- file_names[grepl(".csv", file_names)]
+      all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
+      prolificDT <- foreach(u=1:length(all_csv), .combine = 'rbind') %do% {
+        prolific <- read_prolific(unzip(file_list[k], all_csv[u]))
+      }
+      
+      return(prolificDT)
+    }
+  }
+  print('done find prolific')
+  return(prolificDT)
+}
+
 read_prolific <- function(fileProlific) {
   t <- tibble()
   try(t <- read.csv(fileProlific))
@@ -24,26 +44,6 @@ read_prolific <- function(fileProlific) {
     return(tibble())
   }
  
-}
-
-find_prolific_from_files <- function(file) {
-  file_list <- file$data
-  n = length(file$data)
-  prolificDT <- tibble()
-  for (k in 1:length(file_list)) {
-    if (grepl(".zip", file_list[k])) {
-      file_names <- unzip(file_list[k], list = TRUE)$Name
-      all_csv <- file_names[grepl(".csv", file_names)]
-      all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
-      prolificDT <- foreach(u=1:length(all_csv), .combine = 'rbind') %do% {
-        prolific <- read_prolific(unzip(file_list[k], all_csv[u]))
-      }
-
-      return(prolificDT)
-    }
-  }
-  print('done find prolific')
-  return(prolificDT)
 }
 
 combineProlific <- function(prolificData, summary_table){
@@ -88,12 +88,14 @@ combineProlific <- function(prolificData, summary_table){
              'Computer 51 deg' = 'computer51Deg') %>% 
       left_join(fontParameters, by = 'Pavlovia session ID') %>% 
       distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
-               `device type`, system,browser, resolution, QRConnect, date, prolificMin,
+               `device type`, system, browser, resolution, QRConnect, date, prolificMin,
                ProlificStatus,`Completion code`, ok, unmetNeeds, error, warning, cores,
                tardyMs, excessMs, KB, rows, cols,`block condition`, trial, `condition name`,
                `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
                Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
-               fontMaxPx, viewingDistanceCm, fontRenderMaxPx, order)
+               fontMaxPx, viewingDistanceCm, fontRenderMaxPx,`heapLimitAfterDrawing (MB)`,
+               deviceMemoryGB, mustTrackSec, goodTrials, badTrials, WebGLVersion, 
+               maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order)
   } else {
     t <- t %>%
       rename('Prolific session ID' = 'prolificSessionID',
@@ -109,7 +111,9 @@ combineProlific <- function(prolificData, summary_table){
                tardyMs, excessMs, KB, rows, cols,`block condition`, trial, `condition name`,
                `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
                Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
-               fontMaxPx, viewingDistanceCm, fontRenderMaxPx, order)
+               fontMaxPx, viewingDistanceCm, fontRenderMaxPx, `heapLimitAfterDrawing (MB)`,
+               deviceMemoryGB, mustTrackSec, goodTrials, badTrials, WebGLVersion, 
+               maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order)
   } 
   t <- t %>% filter(date != '', !is.na(date))
 

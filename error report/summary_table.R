@@ -1,10 +1,9 @@
 library(dplyr)
 library(DT)
-
+source('./other/utility.R')
 # Each time update the summary table, the rmd report need to be updated accordingly.
 
 data_table_call_back = "
-
   table.column(29).nodes().to$().css({cursor: 'pointer'});
     var format8 = function(d) {
       return '<p>' + d[29] + '</p>';
@@ -142,6 +141,19 @@ get_lateness_and_duration <- function(all_files){
 
 generate_summary_table <- function(data_list){
   all_files <- tibble()
+  params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
+    t <- data_list[[i]] %>% 
+      filter(!is.na(staircaseName) & !is.na(`heapLimitAfterDrawing (MB)`)) %>%
+      group_by(participant,
+               `heapLimitAfterDrawing (MB)`,
+               deviceMemoryGB) %>% 
+      summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
+                badTrials = sum(!trialGivenToQuest, na.rm =T),
+                mustTrackSec = mean(mustTrackSec, na.rm = T)) %>%
+      rename("Pavlovia session ID" = "participant")
+  }
+  webGL <- get_webGL(data_list) %>% rename("Pavlovia session ID" = "participant")
+  
   for (i in 1 : length(data_list)) {
     t <- data_list[[i]] %>% select(ProlificParticipantID, participant, prolificSessionID, deviceType, 
                                    cores, browser, deviceSystemFamily, deviceLanguage,
@@ -378,7 +390,9 @@ generate_summary_table <- function(data_list){
     left_join(block_condition_order, by = c("block", "condition")) %>%
     select(-block, -condition) %>% 
     mutate(`threshold parameter` = as.character(`threshold parameter`)) %>% 
-    left_join(logFont, by = 'Pavlovia session ID')
+    left_join(logFont, by = 'Pavlovia session ID') %>% 
+    left_join(webGL, by = 'Pavlovia session ID') %>% 
+    left_join(params, by = 'Pavlovia session ID')
   print('done summary_df')
   return(summary_df)
 }
@@ -394,14 +408,14 @@ render_summary_datatable <- function(dt, participants, prolific_id){
               autoWidth = TRUE,
               paging = FALSE,
               scrollX = TRUE, 
-              # fixedHeader = TRUE,
+              fixedHeader = TRUE,
               dom= 'lrtip',
               language = list(
                 info = 'Showing _TOTAL_ entries',
                 infoFiltered =  "(filtered from _MAX_ entries)"
               ),
               columnDefs = list(
-                list(visible = FALSE, targets = c(0, 41)),
+                list(visible = FALSE, targets = c(0, 50)),
                 list(orderData = 36, targets = 23),
                 list(
                   targets = c(15),

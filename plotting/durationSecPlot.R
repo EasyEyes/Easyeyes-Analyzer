@@ -1,40 +1,4 @@
-get_webGL <- function(data_list) {
-  webGL <- tibble()
-  for (i in 1:length(data_list)) {
-    if ('WebGL_Report' %in% names(data_list[[i]])) {
-      t <- fromJSON(data_list[[i]]$WebGL_Report[1])
-      if ('maxTextureSize' %in% names(t)) {
-        df <- data.frame(
-          participant = data_list[[i]]$participant[1],
-          WebGLVersion = t$WebGL_Version,
-          maxTextureSize = t$maxTextureSize,
-          maxViewportSize = max(unlist(t$maxViewportSize)))
-      } else {
-        df <- data.frame(
-          participant = data_list[[i]]$participant[1],
-          WebGLVersion = t$WebGL_Version,
-          maxTextureSize = t$Max_Texture_Size,
-          maxViewportSize = max(unlist(t$Max_Viewport_Dims)))
-      }
-      webGL = rbind(webGL, df)
-    }
-  }
-  if (nrow(webGL) == 0) {
-    webGL = tibble(
-      participant = '',
-      WebGLVersion = NA,
-      maxTextureSize = NA,
-      maxViewportSize = NA)
-  } else {
-    webGL = tibble(
-      participant = webGL$participant,
-      WebGLVersion = webGL$WebGLVersion,
-      maxTextureSize = as.numeric(webGL$maxTextureSize),
-      maxViewportSize = as.numeric(webGL$maxViewportSize))
-  }
-  return(webGL)
-}
-
+source('./other/utility.R')
 get_duration_data <- function(data_list) {
   df <- foreach(i=1:length(data_list), .combine = 'rbind') %do% {
     data_list[[i]] %>%

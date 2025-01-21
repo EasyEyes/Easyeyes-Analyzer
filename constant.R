@@ -100,6 +100,11 @@ plt_theme_scatter <- theme(
   ),
   strip.text = element_text(size = 14))
 
+colorPalette <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00",
+  "#FFFF33", "#F781BF", "#A65628", "#17BECF", "#999999",
+  "#B2182B", "#2166AC", "#1B7837", "#D6604D", "#4393C3",
+  "#D95F02", "#FED976", "#8C510A", "#762A83", "#D9D9D9")
+
 plt_theme <- theme(legend.position = "top", 
                    legend.box = "vertical", 
                    legend.justification='left',
