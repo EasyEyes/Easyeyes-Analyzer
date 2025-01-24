@@ -265,6 +265,8 @@ read_files <- function(file){
         }
         if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
           t$`heapLimitAfterDrawing (MB)` <- NaN
+        } else {
+          t$`heapLimitAfterDrawing (MB)` = as.numeric(t$`heapLimitAfterDrawing (MB)`)
         }
         if (!('heapTotalPostLateness (MB)' %in% colnames(t))) {
           t$`heapTotalPostLateness (MB)` <- ''
@@ -596,9 +598,13 @@ read_files <- function(file){
           }
           if (!('heapTotalAfterDrawing (MB)' %in% colnames(t))) {
             t$`heapTotalAfterDrawing (MB)` <- NaN
+          } else {
+            t$`heapTotalAfterDrawing (MB)` = as.numeric(t$`heapTotalAfterDrawing (MB)`)
           }
           if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
-            t$`heapLimitAfterDrawing (MB)` <- ''
+            t$`heapLimitAfterDrawing (MB)` <- NaN
+          } else {
+            t$`heapLimitAfterDrawing (MB)` = as.numeric(t$`heapLimitAfterDrawing (MB)`)
           }
           if (!('heapTotalPostLateness (MB)' %in% colnames(t))) {
             t$`heapTotalPostLateness (MB)` <- ''
@@ -658,9 +664,9 @@ read_files <- function(file){
             t$psychojsWindowDimensions = 'NA,NA'
           }
           psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[[1]]
-          print(psychojsWindowDimensions)
+
           WindowDimensions <- paste0(psychojsWindowDimensions, collapse = " x ")
-          print(WindowDimensions)
+
           t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
           t$resolution = ifelse(t$resolution[1] == "NA x NA", "", t$resolution)
           t$screenWidthPx = ifelse(is.na(t$screenWidthPx[1]), psychojsWindowDimensions[1], t$screenWidthPx[1])

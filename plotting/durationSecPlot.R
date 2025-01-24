@@ -446,7 +446,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   j = length(plot_list) + 1
  
-  if (n_distinct(params$targetMeasuredLatenessSec) > 1) {
+  if (n_distinct(params$targetMeasuredLatenessSec) > 1 & n_distinct(params$mustTrackSec) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=mustTrackSec,y=targetMeasuredLatenessSec, color = deviceSystemFamily)) +
       geom_jitter() + 
       scale_x_continuous(limits = c(min(params$mustTrackSec) - 2,max(params$mustTrackSec) + 2)) + 

@@ -12,10 +12,10 @@ get_measured_distance_data <- function(data_list) {
              calibrateTrackDistanceMeasuredCm != '',
              calibrateTrackDistanceRequestedCm != '')
     if (nrow(t) > 0) {
-      tmp <- tibble(participant = t$participant[1], 
-                    calibrateTrackDistanceMeasuredCm = jsonlite::fromJSON(t$calibrateTrackDistanceMeasuredCm),
-                    calibrateTrackDistanceRequestedCm = jsonlite::fromJSON(t$calibrateTrackDistanceRequestedCm))
-      df <- rbind(df, tmp)
+      t <- t %>%
+        separate_rows(calibrateTrackDistanceMeasuredCm,sep=',') %>% 
+        separate_rows(calibrateTrackDistanceRequestedCm,sep=',')
+      df <- rbind(t, df)
     }
   }
   

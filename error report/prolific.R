@@ -48,8 +48,8 @@ read_prolific <- function(fileProlific) {
 
 combineProlific <- function(prolificData, summary_table){
   print('inside combineProlific')
-  if (T) {
-  # if (is.null(prolificData) | nrow(prolificData) == 0) {
+  print(prolificData)
+  if (is.null(prolificData) | nrow(prolificData) == 0) {
     t <- summary_table %>% mutate(ProlificStatus= ' ',
                                   prolificMin = NaN,
                                   `Completion code` = NA,
@@ -58,8 +58,10 @@ combineProlific <- function(prolificData, summary_table){
                                   Nationality = NA)
     formSpree <- tibble()
   } else {
-    formSpree <- getFormSpree() %>% filter(`prolificSessionID` %in% unique(prolificData$prolificSessionID),
-                                            !`prolificSessionID` %in% unique(summary_table$prolificSessionID))
+    # formSpree temporarily problematic
+    # formSpree <- getFormSpree() %>% filter(`prolificSessionID` %in% unique(prolificData$prolificSessionID),
+    #                                         !`prolificSessionID` %in% unique(summary_table$prolificSessionID))
+    formSpree <- tibble()
     tmp <- prolificData %>%
       filter(prolificSessionID %in% unique(summary_table$prolificSessionID))
     t <- summary_table %>% 
@@ -73,12 +75,17 @@ combineProlific <- function(prolificData, summary_table){
       mutate(ProlificStatus= 'TRIED AGAIN',
              prolificMin = '',
              `Completion code` = 'TRIED AGAIN')
-    tmp <- prolificData %>% 
-      filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
-    formSpree <- tmp %>% 
-    full_join(formSpree, by = c('Prolific participant ID', 'prolificSessionID'))
-    t <- rbind(t, t2, formSpree) 
-    
+    # tmp <- prolificData %>% 
+    #   filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
+    # formSpree <- tmp %>% 
+    # full_join(formSpree, by = c('Prolific participant ID', 'prolificSessionID'))
+    print(summary(t))
+    print('t2')
+    print(summary(t2))
+    # print('formSpree')
+    # print(summary(formSpree))
+    # t <- rbind(t, t2, formSpree) 
+    t <- rbind(t, t2) 
   }
   # if (F) {
   if (TRUE %in% summary_table$`_logFontBool`) {
