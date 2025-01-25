@@ -274,7 +274,7 @@ plot_Lateness_sec <- function(df) {
   p3 <- ggplot() +
     geom_point(data=df, aes(x=fontNominalSizePx*(1+fontPadding),
                                 y=targetMeasuredLatenessSec, 
-                                color = as.factor(fontPadding)))
+                                color = font))
   for (i in 1:nrow(bounds)) {
     p3 <- p3 + 
       geom_hline(yintercept=bounds$thresholdAllowedLatenessSec[i], linetype="dashed") + 
