@@ -467,6 +467,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
              font,
              fontNominalSizePx,
              screenWidthPx,
+             fontPadding,
              trialGivenToQuest,
              longTaskDurationSec,
              deviceSystemFamily) %>% 
@@ -500,6 +501,34 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   
   j = length(plot_list) + 1
   
+<<<<<<< HEAD
+=======
+  if (n_distinct(params$targetMeasuredDurationSec) > 1 & n_distinct(params$fontNominalSizePx) > 1) {
+    plot_list[[j]] <- ggplot(data=params, 
+                             aes(x= fontNominalSizePx*(1+fontPadding),
+                                 y=targetMeasuredDurationSec, 
+                                 color = font)) +
+      geom_jitter() + 
+      guides(color=guide_legend(ncol=2, title='')) + 
+      labs(title = 'targetMeasuredDurationSec vs.\nfontNominalSizePx*(1+fontPadding) colored by font',
+           caption = 'Points jittered to avoid occlusion.')
+    fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-fontNominalSizePx*(1+fontPadding)-by-font'
+    j = j + 1
+  }
+  
+  if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$targetMeasuredDurationSec) > 1) {
+    plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx,
+                                              y=targetMeasuredDurationSec, 
+                                              color = as.factor(fontPadding))) +
+      geom_jitter() + 
+      guides(color=guide_legend(ncol=2, title='')) + 
+      labs(title = 'targetMeasuredDurationSec vs. fontNominalSizePx \ncolored by fontPadding',
+           caption = 'Points jittered to avoid occlusion.')
+    fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-fontNominalSizePx-by-fontPadding'
+    j = j + 1
+  }
+  
+>>>>>>> bc02c4ef9cb2a071abae8b8e810735c2b5e6cc8a
   if (n_distinct(params$targetMeasuredLatenessSec) > 1 & n_distinct(params$mustTrackSec) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=mustTrackSec,y=targetMeasuredLatenessSec, color = deviceSystemFamily)) +
       geom_jitter() + 
