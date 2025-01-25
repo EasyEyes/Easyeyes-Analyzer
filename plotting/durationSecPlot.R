@@ -11,6 +11,7 @@ get_duration_data <- function(data_list) {
              thresholdAllowedDurationRatio, 
              thresholdAllowedLatenessSec,
              fontMaxPx,
+             fontPadding,
              targetDurationSec, 
              deviceSystemFamily) %>% 
       mutate(fontNominalSizePx = as.numeric(fontNominalSizePx)) %>%
@@ -187,8 +188,32 @@ plot_duraction_sec <- function(df) {
     labs(title = 'targetMeasuredDurationSec vs fontNominalSizePx \n coloredby participant',
          caption = 'Dashed lines are limits set by thresholdAllowedDurationRatio and fontMaxPx')
   
+  p3 <- ggplot() +
+    geom_point(data=df, 
+               aes(x= fontNominalSizePx*(1+fontPadding),
+                   y= targetMeasuredDurationSec, 
+                   color = font))
+  
+  for (i in 1:nrow(bounds)) {
+    p3 <- p3 + 
+      geom_hline(yintercept=bounds$lower[i], linetype="dashed") +
+      geom_hline(yintercept=bounds$upper[i], linetype="dashed") + 
+      geom_vline(xintercept=bounds$fontMaxPx[i], linetype="dashed")
+  }
+  p3 <- p3 + 
+    scale_x_log10(expand=c(0,.1)) +
+    scale_y_log10(expand=c(0,.1)) + 
+    guides(color=guide_legend(ncol=2, title = '')) + 
+    annotation_logticks() + 
+    facet_wrap(~intervention) +
+    theme_bw()+
+    plt_theme_scatter+
+    labs(title = 'targetMeasuredDurationSec vs.\nfontNominalSizePx*(1+fontPadding) colored by font',
+         caption = 'Dashed lines are limits set by thresholdAllowedDurationRatio and fontMaxPx')
+  
   return(list(font = p1,
-              participant = p2))
+              participant = p2,
+              fontPadding = p3))
 }
 
 plot_Lateness_sec <- function(df) {
@@ -245,8 +270,30 @@ plot_Lateness_sec <- function(df) {
          caption = 'Dashed lines are limits set by thresholdAllowedLatenessSec and fontMaxPx') +
     theme_bw()+
     plt_theme_scatter
+  
+  p3 <- ggplot() +
+    geom_point(data=df, aes(x=fontNominalSizePx*(1+fontPadding),
+                                y=targetMeasuredLatenessSec, 
+                                color = as.factor(fontPadding)))
+  for (i in 1:nrow(bounds)) {
+    p3 <- p3 + 
+      geom_hline(yintercept=bounds$thresholdAllowedLatenessSec[i], linetype="dashed") + 
+      geom_vline(xintercept=bounds$fontMaxPx[i], linetype="dashed")
+  }
+  p3 <- p3 +
+    scale_x_log10(expand=c(0,.1)) +
+    scale_y_log10(expand=c(0,.1)) + 
+    facet_wrap(~intervention) + 
+    guides(color=guide_legend(ncol=2, title = '')) + 
+    annotation_logticks() + 
+    labs(title = 'targetMeasuredLatenessSec vs.\nfontNominalSizePx*(1+fontPadding) \ncolored by fontPadding',
+         caption = 'Dashed lines are limits set by thresholdAllowedLatenessSec and fontMaxPx') +
+    theme_bw()+
+    plt_theme_scatter
+  
   return(list(font = p1,
-              participant = p2))
+              participant = p2,
+              fontPadding = p3))
 }
 
 get_histogram_duration_lateness <- function(duration){
@@ -291,6 +338,10 @@ append_hist_list <- function(data_list, plot_list, fileNames){
              deviceMemoryGB,
              cores,
              fontNominalSizePx,
+             fontPadding,
+             heap100MBAllocSec,
+             fontRenderSec,
+             targetMeasuredPreRenderSec,
              screenWidthPx,
              trialGivenToQuest) %>% 
       rename(hardwareConcurrency = cores) %>% 
@@ -302,6 +353,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
   }
+  
   webGL <- get_webGL(data_list)
   summary <- params %>%
     group_by(participant,computeRandomMHz, screenWidthPx, hardwareConcurrency, deviceMemoryGB) %>% 
@@ -315,7 +367,8 @@ append_hist_list <- function(data_list, plot_list, fileNames){
   
   params_vars <- c("heapUsedAfterDrawing (MB)", "heapTotalAfterDrawing (MB)", 
                    "heapLimitAfterDrawing (MB)", "deltaHeapTotalMB", "deltaHeapUsedMB",
-                   "deltaHeapLatenessMB")
+                   "deltaHeapLatenessMB", "fontPadding", "heap100MBAllocSec",
+                   "fontRenderSec", "targetMeasuredPreRenderSec")
   
   webGL_vars <- c("maxTextureSize", "maxViewportSize")
   
@@ -426,6 +479,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
   }
+  
   webGL <- get_webGL(data_list)
   params <- params %>%
     filter(!is.na(font)) %>% 
@@ -445,7 +499,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
     mutate(hardwareConcurrency = as.factor(hardwareConcurrency))
   
   j = length(plot_list) + 1
- 
+  
   if (n_distinct(params$targetMeasuredLatenessSec) > 1 & n_distinct(params$mustTrackSec) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=mustTrackSec,y=targetMeasuredLatenessSec, color = deviceSystemFamily)) +
       geom_jitter() + 

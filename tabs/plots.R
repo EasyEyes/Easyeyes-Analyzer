@@ -108,6 +108,14 @@ plotsTab <- tabPanel(
                    )),
                    fixedRow(splitLayout(
                      cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(imageOutput("durationWithFontPadding", height = '100%'), type = 4)
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downlaodDurationWithFontPadding", "Download")
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
                      shinycssloaders::withSpinner(imageOutput("latenessByID", height = '100%'), type = 4),
                      shinycssloaders::withSpinner(imageOutput("latenessByFont", height = '100%'), type = 4)
                    )),
@@ -115,6 +123,14 @@ plotsTab <- tabPanel(
                      cellWidths = c("50%", "50%"),
                      downloadButton("downlaodLatenessByID", "Download"),
                      downloadButton("downlaodLatenessByFont", "Download")
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(imageOutput("latenessWithFontPadding", height = '100%'), type = 4)
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downlaodLatenessWithFontPadding", "Download")
                    )),
                    fixedRow(splitLayout(
                      cellWidths = c("50%", "50%"),
