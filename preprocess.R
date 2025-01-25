@@ -302,6 +302,9 @@ read_files <- function(file){
         if (!('fontRenderSec' %in% colnames(t))) {
           t$`fontRenderSec` <- NA
         }
+        if (!('fontPadding' %in% colnames(t))) {
+          t$`fontPadding` <- NaN
+        }
         if (!('mustTrackSec' %in% colnames(t))) {
           t$`mustTrackSec` <- NA
         }
@@ -639,6 +642,9 @@ read_files <- function(file){
           }
           if (!('fontRenderSec' %in% colnames(t))) {
             t$`fontRenderSec` <- NA
+          }
+          if (!('fontPadding' %in% colnames(t))) {
+            t$`fontPadding` <- NaN
           }
           if (!('mustTrackSec' %in% colnames(t))) {
             t$`mustTrackSec` <- NA

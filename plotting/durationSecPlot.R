@@ -291,6 +291,10 @@ append_hist_list <- function(data_list, plot_list, fileNames){
              deviceMemoryGB,
              cores,
              fontNominalSizePx,
+             fontPadding,
+             heap100MBAllocSec,
+             fontRenderSec,
+             targetMeasuredPreRenderSec,
              screenWidthPx,
              trialGivenToQuest) %>% 
       rename(hardwareConcurrency = cores) %>% 
@@ -302,6 +306,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
   }
+  
   webGL <- get_webGL(data_list)
   summary <- params %>%
     group_by(participant,computeRandomMHz, screenWidthPx, hardwareConcurrency, deviceMemoryGB) %>% 
@@ -315,7 +320,8 @@ append_hist_list <- function(data_list, plot_list, fileNames){
   
   params_vars <- c("heapUsedAfterDrawing (MB)", "heapTotalAfterDrawing (MB)", 
                    "heapLimitAfterDrawing (MB)", "deltaHeapTotalMB", "deltaHeapUsedMB",
-                   "deltaHeapLatenessMB")
+                   "deltaHeapLatenessMB", "fontPadding", "heap100MBAllocSec",
+                   "fontRenderSec", "targetMeasuredPreRenderSec")
   
   webGL_vars <- c("maxTextureSize", "maxViewportSize")
   
@@ -414,6 +420,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
              font,
              fontNominalSizePx,
              screenWidthPx,
+             fontPadding,
              trialGivenToQuest,
              longTaskDurationSec,
              deviceSystemFamily) %>% 
@@ -426,6 +433,7 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
   }
+  
   webGL <- get_webGL(data_list)
   params <- params %>%
     filter(!is.na(font)) %>% 
@@ -445,7 +453,32 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
     mutate(hardwareConcurrency = as.factor(hardwareConcurrency))
   
   j = length(plot_list) + 1
- 
+  
+  if (n_distinct(params$targetMeasuredDurationSec) > 1 & n_distinct(params$fontNominalSizePx) > 1) {
+    plot_list[[j]] <- ggplot(data=params, 
+                             aes(x= fontNominalSizePx*(1+fontPadding),
+                                 y=targetMeasuredDurationSec, 
+                                 color = font)) +
+      geom_jitter() + 
+      guides(color=guide_legend(ncol=2, title='')) + 
+      labs(title = 'targetMeasuredDurationSec vs.\nfontNominalSizePx*(1+fontPadding) colored by font',
+           caption = 'Points jittered to avoid occlusion.')
+    fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-fontNominalSizePx*(1+fontPadding)-by-font'
+    j = j + 1
+  }
+  
+  if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$targetMeasuredDurationSec) > 1) {
+    plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx,
+                                              y=targetMeasuredDurationSec, 
+                                              color = as.factor(fontPadding))) +
+      geom_jitter() + 
+      guides(color=guide_legend(ncol=2, title='')) + 
+      labs(title = 'targetMeasuredDurationSec vs. fontNominalSizePx \ncolored by fontPadding',
+           caption = 'Points jittered to avoid occlusion.')
+    fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-fontNominalSizePx-by-fontPadding'
+    j = j + 1
+  }
+  
   if (n_distinct(params$targetMeasuredLatenessSec) > 1 & n_distinct(params$mustTrackSec) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=mustTrackSec,y=targetMeasuredLatenessSec, color = deviceSystemFamily)) +
       geom_jitter() + 
