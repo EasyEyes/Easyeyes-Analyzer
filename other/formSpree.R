@@ -20,7 +20,7 @@ getFormSpree <- function(){
       mutate(browser = ifelse(browser == "", "", paste0(browser,  " ", browserVersion)),
              resolution = '', 
              QRConnect = '', 
-             computer51Deg = '',
+             `Computer 51 deg` = '',
              cores = NaN, 
              tardyMs = '', 
              excessMs = '', 
@@ -41,11 +41,23 @@ getFormSpree <- function(){
              Microphone = '',
              QRConnect = '',
              comment = '',
+             `heapLimitAfterDrawing (MB)` = NaN,
+             deviceMemoryGB = NaN,
+             mustTrackSec = NaN,
+             goodTrials = NaN,
+             badTrials = NaN,
+             WebGLVersion = '',
+             maxTextureSize= NaN,
+             maxViewportSize = NaN,
+             WebGLUnmaskedRenderer = '',
              order = NaN) %>% 
-      select(`Prolific participant ID`, `Pavlovia session ID`, prolificSessionID, `device type`, system,
-               browser, resolution, QRConnect, computer51Deg, cores, tardyMs, excessMs, date, KB, rows, cols, 
-               ok, unmetNeeds, error, warning, `block condition`, trial, `condition name`,
-               `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, QRConnect, comment, order)
+      select(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
+             `device type`, system, browser, resolution, QRConnect, date, ok, unmetNeeds, 
+             error, warning, cores, tardyMs, excessMs, KB, rows, cols,`block condition`, 
+             trial, `condition name`, `target task`, `threshold parameter`, `target kind`,
+             `Computer 51 deg`, Loudspeaker, Microphone, comment,`heapLimitAfterDrawing (MB)`,
+             deviceMemoryGB, mustTrackSec, goodTrials, badTrials, WebGLVersion, 
+             maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order)
       t$ok = as.factor(t$ok)
     return(t)
   } else {

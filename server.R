@@ -1213,6 +1213,19 @@ timingHistograms <- reactive({
          contenttype = 'svg')
   }, deleteFile = TRUE)
   
+  output$durationWithFontPadding <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =  durationPlot()$fontPadding +
+        scale_color_manual(values= colorPalette),
+      device = svglite,
+      unit = 'in'
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+  
   output$latenessByID <- renderImage({
     outfile <- tempfile(fileext = '.svg')
     ggsave(
@@ -1231,6 +1244,19 @@ timingHistograms <- reactive({
     ggsave(
       file = outfile,
       plot = latenessPlot()$font +
+        scale_color_manual(values= colorPalette),
+      device = svglite,
+      unit = 'in'
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+  
+  output$latenessWithFontPadding <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file = outfile,
+      plot =  latenessPlot()$fontPadding +
         scale_color_manual(values= colorPalette),
       device = svglite,
       unit = 'in'
@@ -4582,6 +4608,42 @@ timingHistograms <- reactive({
       }
     )
     
+    output$downlaodDurationWithFontPadding <- downloadHandler(
+      filename = paste0(
+        'targetMeasuredDurationSec-vs-fontNominalSizePx*(1+fontPadding)-by-font-plot',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = durationPlot()$fontPadding +
+              scale_color_manual(values= colorPalette),
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1800,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = durationPlot()$fontPadding + 
+              scale_color_manual(values= colorPalette),
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+    
     output$downlaodLatenessByFont <- downloadHandler(
       filename = paste0(
         'targetMeasuredLatenessSec-by-font-plot',
@@ -4641,6 +4703,42 @@ timingHistograms <- reactive({
           ggsave(
             file,
             plot = latenessPlot()$participant + 
+              scale_color_manual(values= colorPalette),
+            unit = "in",
+            limitsize = F,
+            device = ifelse(
+              input$fileType == "svg",
+              svglite::svglite,
+              input$fileType
+            )
+          )
+        }
+      }
+    )
+    
+    output$downlaodLatenessWithFontPadding <- downloadHandler(
+      filename = paste0(
+        'targetMeasuredLatenessSec-vs-fontNominalSizePx*(1+fontPadding)-by-font-plot',
+        '.',
+        input$fileType
+      ),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave(
+            "tmp.svg",
+            plot = latenessPlot()$fontPadding + 
+              scale_color_manual(values= colorPalette),
+            unit = "in",
+            limitsize = F,
+            device = svglite
+          )
+          rsvg::rsvg_png("tmp.svg", file,
+                         height = 1800,
+                         width = 1800)
+        } else {
+          ggsave(
+            file,
+            plot = latenessPlot()$fontPadding + 
               scale_color_manual(values= colorPalette),
             unit = "in",
             limitsize = F,

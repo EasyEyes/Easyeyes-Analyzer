@@ -95,6 +95,33 @@ plotsTab <- tabPanel(
       conditionalPanel('output.isPeripheralAcuity',downloadButton("downloadStackedPeripheralAcuityPlot", "Download"))
     )
   ),
+  conditionalPanel('output.isDuration', 
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(imageOutput("durationWithFontPadding", height = '100%'), type = 4)
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downlaodDurationWithFontPadding", "Download")
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(imageOutput("latenessWithFontPadding", height = '100%'), type = 4)
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downlaodLatenessWithFontPadding", "Download")
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(imageOutput("durationHist", height = "100%"), type = 4),
+                     shinycssloaders::withSpinner(imageOutput("latenessHist", height = "100%"), type = 4)
+                   )),
+                   fixedRow(splitLayout(
+                     cellWidths = c("50%", "50%"),
+                     downloadButton("downloadDurationHist", "Download"),
+                     downloadButton("downloadLatenessHist", "Download")
+                   ))),
   h3("Scatter diagrams"),
   
   shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
