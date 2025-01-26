@@ -303,7 +303,9 @@ read_files <- function(file){
         if (!('mustTrackSec' %in% colnames(t))) {
           t$`mustTrackSec` <- NA
         }
-        
+        if (!('pxPerCm' %in% colnames(t))) {
+          t$pxPerCm <- NA
+        } 
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                               unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                               NA)
@@ -637,6 +639,9 @@ read_files <- function(file){
           if (!('mustTrackSec' %in% colnames(t))) {
             t$`mustTrackSec` <- NA
           }
+          if (!('pxPerCm' %in% colnames(t))) {
+            t$pxPerCm <- NA
+          } 
           
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                                 unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 

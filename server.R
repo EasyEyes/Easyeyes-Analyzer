@@ -700,6 +700,24 @@ shinyServer(function(input, output, session) {
     lists = append_hist_list(data_list(),l,fileNames)
     return(lists)
 })
+
+timingHistograms <- reactive({
+  if (is.null(input$file)) {
+    return(list(
+      plotList = list(),
+      fileNames = list()
+    ))
+  }
+  
+  print('Generating timing histograms')
+  l <- list()
+  fileNames <- list()
+  
+  lists <- append_hist_time(data_list(), l, fileNames)
+  return(lists)
+})
+
+
   
   #### stacked histograms #### 
   stackedPlots <- reactive({
@@ -867,6 +885,25 @@ shinyServer(function(input, output, session) {
     lists = append_scatter_list(data_list(), l, fileNames)
     return(lists)
   })
+  scatterTime <- reactive({
+    if (is.null(input$file)) {
+      return(list(
+        plotList = list(),
+        fileNames = list()
+      ))
+    }
+    
+    print("inside ScatterTime")
+    i <- 1
+    l <- list()
+    fileNames <- list()
+    
+    # Extract scatter plots using the append_scatter_time function
+    scatter_time_plots <- append_scatter_time(data_list(), l, fileNames)
+    
+    return(scatter_time_plots)
+  })
+
   
   #### plotly plots ####
   rsvpPlotlyPlots <-  reactive({
@@ -1584,6 +1621,101 @@ shinyServer(function(input, output, session) {
     
     return(out)
   })
+  output$timingHistograms <- renderUI({
+    out <- list()
+    i <- 1
+    
+    while (i <= length(timingHistograms()$plotList) - 3) {
+      # Create a row with 4 histograms
+      out[[i]] <- splitLayout(cellWidths = c("25%", "25%", "25%", "25%"),
+                              shinycssloaders::withSpinner(plotOutput(paste0("timingHist", i), width = "100%", height = "100%"), type = 4),
+                              shinycssloaders::withSpinner(plotOutput(paste0("timingHist", i + 1), width = "100%", height = "100%"), type = 4),
+                              shinycssloaders::withSpinner(plotOutput(paste0("timingHist", i + 2), width = "100%", height = "100%"), type = 4),
+                              shinycssloaders::withSpinner(plotOutput(paste0("timingHist", i + 3), width = "100%", height = "100%"), type = 4))
+      # Create a row with 4 download buttons
+      out[[i + 1]] <- splitLayout(cellWidths = c("25%", "25%", "25%", "25%"),
+                                  downloadButton(paste0("downloadTimingHist", i), 'Download'),
+                                  downloadButton(paste0("downloadTimingHist", i + 1), 'Download'),
+                                  downloadButton(paste0("downloadTimingHist", i + 2), 'Download'),
+                                  downloadButton(paste0("downloadTimingHist", i + 3), 'Download'))
+      i <- i + 4
+    }
+    
+    # Handle any remaining histograms (fewer than 4)
+    remaining <- length(timingHistograms()$plotList) - i + 1
+    if (remaining > 0) {
+      plotOutputs <- lapply(1:remaining, function(j) {
+        shinycssloaders::withSpinner(plotOutput(paste0("timingHist", i + j - 1), width = "100%", height = "100%"), type = 4)
+      })
+      downloadButtons <- lapply(1:remaining, function(j) {
+        downloadButton(paste0("downloadTimingHist", i + j - 1), 'Download')
+      })
+      
+      # Fill remaining cells with empty space
+      emptyCells <- 4 - remaining
+      plotOutputs <- c(plotOutputs, rep("", emptyCells))
+      downloadButtons <- c(downloadButtons, rep("", emptyCells))
+      
+      out[[length(out) + 1]] <- do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), plotOutputs))
+      out[[length(out) + 1]] <- do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), downloadButtons))
+    }
+    
+    # Render histograms and download handlers
+    for (j in seq_along(timingHistograms()$plotList)) {
+      local({
+        ii <- j
+        output[[paste0("timingHist", ii)]] <- renderImage({
+          outfile <- tempfile(fileext = '.svg')
+          ggsave(
+            file = outfile,
+            plot = timingHistograms()$plotList[[ii]] + hist_theme,
+            device = svglite,
+            width = 4,  # Reduced width
+            height = 3.5,  # Reduced height
+            unit = 'in'
+          )
+          list(src = outfile, contenttype = 'svg')
+        }, deleteFile = TRUE)
+        
+        output[[paste0("downloadTimingHist", ii)]] <- downloadHandler(
+          filename = paste0(
+            experiment_names(),
+            timingHistograms()$fileNames[[ii]],
+            ii,
+            '.',
+            input$fileType
+          ),
+          content = function(file) {
+            if (input$fileType == "png") {
+              tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+              ggsave(
+                tmp_svg,
+                plot = timingHistograms()$plotList[[ii]] + hist_theme,
+                unit = "in",
+                width = 4,  # Reduced width
+                height = 3.5,  # Reduced height
+                limitsize = F,
+                device = svglite
+              )
+              rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)  # Reduced resolution
+            } else {
+              ggsave(
+                file,
+                plot = timingHistograms()$plotList[[ii]] + hist_theme,
+                width = 4,  # Reduced width
+                height = 3.5,  # Reduced height
+                unit = "in",
+                limitsize = F,
+                device = ifelse(input$fileType == "svg", svglite::svglite, input$fileType)
+              )
+            }
+          }
+        )
+      })
+    }
+    
+    return(out)
+  })
   
   
   
@@ -2223,6 +2355,91 @@ shinyServer(function(input, output, session) {
     }
     return(out)
   })
+  output$scatterTime <- renderUI({
+    out <- list()
+    i = 1
+    
+    while (i <= length(scatterTime()$plotList) - 1) {
+      out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
+                              shinycssloaders::withSpinner(plotOutput(paste0("scatterTime", i), width = "100%", height = "100%"), type = 4),
+                              shinycssloaders::withSpinner(plotOutput(paste0("scatterTime", i + 1), width = "100%", height = "100%"), type = 4))
+      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                  downloadButton(paste0("downloadScatterTime", i), 'Download'),
+                                  downloadButton(paste0("downloadScatterTime", i + 1), 'Download'))
+      i = i + 2
+    }
+    
+    # Handle any remaining scatter plot
+    if (i == length(scatterTime()$plotList)) {
+      out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
+                              shinycssloaders::withSpinner(plotOutput(paste0("scatterTime", i), width = "100%", height = "100%"), type = 4))
+      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                  downloadButton(paste0("downloadScatterTime", i), 'Download'))
+    }
+    
+    # Generate the plots and download handlers
+    for (j in 1:length(scatterTime()$plotList)) {
+      local({
+        ii <- j
+        output[[paste0("scatterTime", ii)]] <- renderImage({
+          outfile <- tempfile(fileext = '.svg')
+          ggsave(
+            file = outfile,
+            plot = scatterTime()$plotList[[ii]] +
+              plt_theme_scatter +
+              scale_color_manual(values = colorPalette),
+            unit = 'in',
+            limitsize = F,
+            device = svglite
+          )
+          
+          list(src = outfile, contenttype = 'svg')
+        }, deleteFile = TRUE)
+        
+        output[[paste0("downloadScatterTime", ii)]] <- downloadHandler(
+          filename = paste0(
+            experiment_names(),
+            scatterTime()$fileNames[[ii]],
+            ii,
+            '.',
+            input$fileType
+          ),
+          content = function(file) {
+            if (input$fileType == "png") {
+              tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+              ggsave(
+                tmp_svg,
+                plot = scatterTime()$plotList[[ii]] +
+                  plt_theme_scatter +
+                  scale_color_manual(values = colorPalette),
+                unit = "in",
+                limitsize = F,
+                device = svglite
+              )
+              rsvg::rsvg_png(tmp_svg, file, width = 1800)
+            } else {
+              ggsave(
+                file,
+                plot = scatterTime()$plotList[[ii]] +
+                  plt_theme_scatter +
+                  scale_color_manual(values = colorPalette),
+                unit = "in",
+                limitsize = F,
+                device = ifelse(
+                  input$fileType == "svg",
+                  svglite::svglite,
+                  input$fileType
+                )
+              )
+            }
+          }
+        )
+      })
+    }
+    
+    return(out)
+  })
+  
   
   
   # output$rsvpPlotlys <- renderUI({

@@ -7,6 +7,7 @@ source('./tabs/staircases.R')
 source('./tabs/sound.R')
 source('./tabs/profile.R')
 source('./tabs/formSpreeDash.R')
+source('./tabs/timming.R')
 
 # packages
 library(shiny)
@@ -89,6 +90,7 @@ shinyUI(
     tabPanel("Sessions", value = "Sessions", sessionTab),
     tabPanel("Stats", value = "Stats", statTab),
     tabPanel("Plots", value = "Plots", plotsTab),
+    tabPanel("Timing", value='Timing', timingTab),
     tabPanel("Staircases", value = "Staircases", staircasesTab),
     tabPanel("Sound", value = "Sound", soundTab),
     tabPanel("Profile", value = "Profile", profileTab),

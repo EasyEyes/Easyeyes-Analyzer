@@ -95,37 +95,6 @@ plotsTab <- tabPanel(
       conditionalPanel('output.isPeripheralAcuity',downloadButton("downloadStackedPeripheralAcuityPlot", "Download"))
     )
   ),
-  conditionalPanel('output.isDuration', 
-                   fixedRow(splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(imageOutput("durationByID", height = '100%'), type = 4),
-                     shinycssloaders::withSpinner(imageOutput("durationByFont", height = '100%'), type = 4)
-                   )),
-                   fixedRow(splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     downloadButton("downlaodDurationByID", "Download"),
-                     downloadButton("downlaodDurationByFont", "Download")
-                   )),
-                   fixedRow(splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(imageOutput("latenessByID", height = '100%'), type = 4),
-                     shinycssloaders::withSpinner(imageOutput("latenessByFont", height = '100%'), type = 4)
-                   )),
-                   fixedRow(splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     downloadButton("downlaodLatenessByID", "Download"),
-                     downloadButton("downlaodLatenessByFont", "Download")
-                   )),
-                   fixedRow(splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(imageOutput("durationHist", height = "100%"), type = 4),
-                     shinycssloaders::withSpinner(imageOutput("latenessHist", height = "100%"), type = 4)
-                   )),
-                   fixedRow(splitLayout(
-                     cellWidths = c("50%", "50%"),
-                     downloadButton("downloadDurationHist", "Download"),
-                     downloadButton("downloadLatenessHist", "Download")
-                   ))),
   h3("Scatter diagrams"),
   
   shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
