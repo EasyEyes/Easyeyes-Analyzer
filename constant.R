@@ -100,10 +100,29 @@ plt_theme_scatter <- theme(
   ),
   strip.text = element_text(size = 14))
 
-colorPalette <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00",
+colorPalette <- c(
+  "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00",
   "#FFFF33", "#F781BF", "#A65628", "#17BECF", "#999999",
   "#B2182B", "#2166AC", "#1B7837", "#D6604D", "#4393C3",
-  "#D95F02", "#FED976", "#8C510A", "#762A83", "#D9D9D9")
+  "#D95F02", "#FED976", "#8C510A", "#762A83", "#D9D9D9",
+  "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3",
+  "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD",
+  "#CCEBC5", "#FFED6F", "#7FC97F", "#BEAED4", "#FDC086",
+  "#386CB0", "#F0027F", "#BF5B17", "#666666", "#1F78B4",
+  "#33A02C", "#E31A1C", "#FF7F00", "#6A3D9A", "#B15928",
+  "#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C", "#FB9A99",
+  "#E31A1C", "#FDBF6F", "#FF7F00", "#CAB2D6", "#6A3D9A",
+  "#FF7F7F", "#FFD700", "#7FFF7F", "#7F7FFF", "#B03060",
+  "#7FFFD4", "#FFD700", "#6B8E23", "#8A2BE2", "#DC143C",
+  "#4169E1", "#6495ED", "#228B22", "#FF6347", "#2E8B57",
+  "#FFA07A", "#20B2AA", "#87CEEB", "#FF4500", "#FFDAB9",
+  "#800080", "#ADFF2F", "#7CFC00", "#FF69B4", "#B0E0E6",
+  "#48D1CC", "#E6E6FA", "#40E0D0", "#F08080", "#EE82EE",
+  "#8B0000", "#DEB887", "#D8BFD8", "#FFE4B5", "#FA8072",
+  "#FFE4E1", "#00CED1", "#4682B4", "#C71585", "#708090",
+  "#FF1493", "#191970", "#00BFFF", "#7B68EE", "#87CEFA"
+)
+
 
 plt_theme <- theme(legend.position = "top", 
                    legend.box = "vertical", 
