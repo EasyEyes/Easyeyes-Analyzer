@@ -239,21 +239,22 @@ extractCrowdingStaircases <- function(df, info) {
 plotStaircases <- function(Staircases, thresholdParameterSelected) {
     stairdf <- Staircases %>%
       filter(questType != 'practice')
+    print('inside plotStaircases')
     
     if (is.null(thresholdParameterSelected) | nrow(stairdf) == 0) {
       return(NULL)
     }
-    
     t <- stairdf %>%
       # Order since trials were randomized
       arrange(participant, staircaseName) %>%
       filter(thresholdParameter == thresholdParameterSelected) %>%
       group_by(participant, staircaseName) %>%
       mutate(trial = row_number(),
+             nTrials = sum(trialGivenToQuest,na.rm = T),
              questTrials = paste0(sum(trialGivenToQuest,na.rm = T), ' questTrials'))
     
     height = n_distinct(t %>% select(participant,thresholdParameter, conditionName)) * 1.3 + 2
-
+    maxTrials <- max(t$nTrials)
     p <- ggplot(t, aes(x = trial, y = levelProposedByQUEST)) +
       geom_point() +
       geom_line() +
@@ -265,8 +266,15 @@ plotStaircases <- function(Staircases, thresholdParameterSelected) {
                  ncol = 2, 
                  axes = 'all', 
                  scales = 'free_x',
-                 axis.labels = 'all_x') +
-      scale_x_continuous(breaks = scales::breaks_width(5)) +
+                 axis.labels = 'all_x')
+    if (max(t$nTrials) > 5) {
+      p <- p + 
+      scale_x_continuous(breaks = scales::breaks_width(5))
+    } else {
+      p <- p + 
+      scale_x_continuous(breaks = scales::breaks_width(1))
+    }
+      
       theme(
         axis.ticks = element_line(),
         axis.ticks.length = unit(0.3, "line"),
