@@ -49,17 +49,12 @@ plotsTab <- tabPanel(
     )
   ),
   fixedRow(
-    splitLayout(
-      cellWidths = c("50%", "50%"),
-      shinycssloaders::withSpinner(plotOutput("corrMatrixPlot", width = "100%", height = "100%"), type = 4),
-      shinycssloaders::withSpinner(plotOutput("durationCorrMatrixPlot", width = "100%", height = "100%"), type = 4),
+    shinycssloaders::withSpinner(
+      plotOutput("corrMatrixPlot", width = "100%", height = "100%"), 
+      type = 4
     )
   ),
-  splitLayout(
-    cellWidths = c("50%", "50%"),
-    downloadButton("downloadCorrMatrixPlot", "Download"),
-    downloadButton("downloadDurationCorrMatrixPlot", "Download")
-  ),
+  downloadButton("downloadCorrMatrixPlot", "Download"),
   #### histogram ####
   h3("Histograms"),
   shinycssloaders::withSpinner(uiOutput('histograms'),type=4),

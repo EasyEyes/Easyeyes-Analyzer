@@ -13,7 +13,13 @@ timingTab <- tabPanel(
       }
     }
   ")),
-  
+  fixedRow(
+    shinycssloaders::withSpinner(
+      plotOutput("durationCorrMatrixPlot", width = "100%", height = "100%"), 
+      type = 4
+    )
+  ),
+  downloadButton("downloadDurationCorrMatrixPlot", "Download"),
   conditionalPanel('output.isDuration', 
                    h3("Histograms"),
                    fixedRow(splitLayout(
