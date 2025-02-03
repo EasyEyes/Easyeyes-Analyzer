@@ -304,13 +304,29 @@ get_histogram_duration_lateness <- function(duration){
     geom_histogram(aes(x = targetMeasuredDurationSec),color="black", fill="black") + 
     theme_bw()+
     plt_theme+
-    facet_wrap(~deviceSystemFamily)
+    facet_wrap(~deviceSystemFamily) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_x_continuous(
+      labels = scales::label_number(accuracy = 0.01),  # Reduce decimal places
+      breaks = scales::breaks_pretty(n = 5)  # Reduce number of labels shown
+    ) 
   
   p2 <- ggplot(data = duration) +  
-    geom_histogram(aes(x = targetMeasuredLatenessSec),color="black", fill="black") + 
-    theme_bw()+
-    plt_theme+
-    facet_wrap(~deviceSystemFamily)
+    geom_histogram(aes(x = targetMeasuredLatenessSec), color="black", fill="black") + 
+    theme_bw() +
+    plt_theme +
+    facet_wrap(~deviceSystemFamily) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) + # Rotate x-axis labels
+    scale_x_continuous(
+      labels = scales::label_number(accuracy = 0.01),  # Reduce decimal places
+      breaks = scales::breaks_pretty(n = 5)  # Reduce number of labels shown
+    ) 
+  
+  # p2 <- ggplot(data = duration) +  
+  #   geom_histogram(aes(x = targetMeasuredLatenessSec),color="black", fill="black") + 
+  #   theme_bw()+
+  #   plt_theme+
+  #   facet_wrap(~deviceSystemFamily)
   return(list(
     duration = p1,
     lateness = p2
@@ -513,6 +529,18 @@ append_hist_time <- function(data_list, plot_list, fileNames){
   
   j = length(plot_list) + 1
   # Loop through params dataset and generate histograms
+  
+  for (var in summary_vars) {
+    if (n_distinct(summary[var]) > 1) {
+      plot_list[[j]] <- ggplot(summary, aes(x = .data[[var]])) +
+        geom_histogram(color="black", fill="black") + 
+        theme_bw() +
+        labs(title = paste("Histogram of", var))
+      fileNames[[j]] <- paste0(var,'-histogram')
+      j = j + 1
+    }
+  }
+  
   for (var in params_vars) {
     if (n_distinct(params[var]) > 1) {
       plot_list[[j]] <- ggplot(params, aes(x = .data[[var]])) +
@@ -549,16 +577,7 @@ append_hist_time <- function(data_list, plot_list, fileNames){
   }
   
   # Loop through summary dataset and generate histograms
-  for (var in summary_vars) {
-    if (n_distinct(summary[var]) > 1) {
-      plot_list[[j]] <- ggplot(summary, aes(x = .data[[var]])) +
-        geom_histogram(color="black", fill="black") + 
-        theme_bw() +
-        labs(title = paste("Histogram of", var))
-      fileNames[[j]] <- paste0(var,'-histogram')
-      j = j + 1
-    }
-  }
+  
   
   # Loop through blockAvg dataset and generate histograms
   for (var in blockAvg_vars) {
@@ -768,18 +787,18 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   #   fileNames[[j]] <- 'longTaskDurationSec-vs-longTaskDurationSec-by-participant'
   #   j = j + 1
   # }
-  if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
-    plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx*(1+fontPadding),y=deltaHeapUsedMB, color = font)) +
-      geom_jitter() +
-      guides(color=guide_legend(ncol=2, title = '')) + 
-      scale_x_log10() +
-      scale_y_log10() +
-      coord_fixed() +
-      labs(title = 'deltaHeapUsedMB vs.fontNominalSizePx*(1+fontPadding)\ncolored by font',
-           caption = 'Points jittered to avoid occlusion.')
-    fileNames[[j]] <- 'deltaHeapUsedMB-vs-fontNominalSizePx-by-font'
-    j = j + 1
-  }
+  # if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
+  #   plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx*(1+fontPadding),y=deltaHeapUsedMB, color = font)) +
+  #     geom_jitter() +
+  #     guides(color=guide_legend(ncol=2, title = '')) + 
+  #     scale_x_log10() +
+  #     scale_y_log10() +
+  #     coord_fixed() +
+  #     labs(title = 'deltaHeapUsedMB vs.fontNominalSizePx*(1+fontPadding)\ncolored by font',
+  #          caption = 'Points jittered to avoid occlusion.')
+  #   fileNames[[j]] <- 'deltaHeapUsedMB-vs-fontNominalSizePx-by-font'
+  #   j = j + 1
+  # }
   
   # if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$longTaskDurationSec) > 1) {
   #   plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx,y=longTaskDurationSec, color = participant)) +
@@ -801,25 +820,25 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   #   j = j + 1
   # }
   
-  if (n_distinct(params$`heapLimitAfterDrawing (MB)`) > 1 & n_distinct(params$deltaHeapTotalMB) > 1) {
-    plot_list[[j]] <- ggplot(data=params, aes(x=`heapLimitAfterDrawing (MB)`,y=deltaHeapTotalMB, color = participant)) +
-      geom_jitter() +
-      guides(color=guide_legend(ncol=2, title = '')) + 
-      labs(title = 'deltaHeapTotalMB vs. heapLimitAfterDrawing \ncolored by participant',
-           caption = 'Points jittered to avoid occlusion.')
-    fileNames[[j]] <- 'deltaHeapTotalMB-vs-heapLimitAfterDrawing-by-participant'
-    j = j + 1
-  }
+  # if (n_distinct(params$`heapLimitAfterDrawing (MB)`) > 1 & n_distinct(params$deltaHeapTotalMB) > 1) {
+  #   plot_list[[j]] <- ggplot(data=params, aes(x=`heapLimitAfterDrawing (MB)`,y=deltaHeapTotalMB, color = participant)) +
+  #     geom_jitter() +
+  #     guides(color=guide_legend(ncol=2, title = '')) +
+  #     labs(title = 'deltaHeapTotalMB vs. heapLimitAfterDrawing \ncolored by participant',
+  #          caption = 'Points jittered to avoid occlusion.')
+  #   fileNames[[j]] <- 'deltaHeapTotalMB-vs-heapLimitAfterDrawing-by-participant'
+  #   j = j + 1
+  # }
   
-  if (n_distinct(params$`heapUsedBeforeDrawing (MB)`) > 1 & n_distinct(params$deltaHeapTotalMB) > 1) {
-    plot_list[[j]] <- ggplot(data=params, aes(x=`heapUsedBeforeDrawing (MB)`,y=deltaHeapTotalMB, color = participant)) +
-      geom_jitter() +
-      guides(color=guide_legend(ncol=2, title = '')) + 
-      labs(title = 'deltaHeapTotalMB vs. heapUsedBeforeDrawing \ncolored by participant',
-           caption = 'Points jittered to avoid occlusion.')
-    fileNames[[j]] <- 'deltaHeapTotalMB-vs-heapUsedBeforeDrawing-by-participant'
-    j = j + 1
-  }
+  # if (n_distinct(params$`heapUsedBeforeDrawing (MB)`) > 1 & n_distinct(params$deltaHeapTotalMB) > 1) {
+  #   plot_list[[j]] <- ggplot(data=params, aes(x=`heapUsedBeforeDrawing (MB)`,y=deltaHeapTotalMB, color = participant)) +
+  #     geom_jitter() +
+  #     guides(color=guide_legend(ncol=2, title = '')) + 
+  #     labs(title = 'deltaHeapTotalMB vs. heapUsedBeforeDrawing \ncolored by participant',
+  #          caption = 'Points jittered to avoid occlusion.')
+  #   fileNames[[j]] <- 'deltaHeapTotalMB-vs-heapUsedBeforeDrawing-by-participant'
+  #   j = j + 1
+  # }
   
   # if (n_distinct(params$targetMeasuredLatenessSec) > 1 & n_distinct(params$targetMeasuredDurationSec) > 1) {
   #   plot_list[[j]] <- ggplot(data=params, aes(x=targetMeasuredLatenessSec,y=targetMeasuredDurationSec, color = participant)) +
@@ -831,15 +850,15 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
   #   j = j + 1
   # }
   
-  if (n_distinct(params$deltaHeapTotalMB) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
-    plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapTotalMB,y=deltaHeapUsedMB, color = participant)) +
-      geom_jitter() +
-      guides(color=guide_legend(ncol=2, title = '')) + 
-      labs(title = 'deltaHeapUsedMB vs. deltaHeapTotalMB \ncolored by participant',
-           caption = 'Points jittered to avoid occlusion.')
-    fileNames[[j]] <- 'deltaHeapUsedMB-vs-deltaHeapTotalMB-by-participant'
-    j = j + 1
-  }
+  # if (n_distinct(params$deltaHeapTotalMB) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
+  #   plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapTotalMB,y=deltaHeapUsedMB, color = participant)) +
+  #     geom_jitter() +
+  #     guides(color=guide_legend(ncol=2, title = '')) + 
+  #     labs(title = 'deltaHeapUsedMB vs. deltaHeapTotalMB \ncolored by participant',
+  #          caption = 'Points jittered to avoid occlusion.')
+  #   fileNames[[j]] <- 'deltaHeapUsedMB-vs-deltaHeapTotalMB-by-participant'
+  #   j = j + 1
+  # }
   
   # if (n_distinct(blockAvg$badLatenessTrials) > 1 & n_distinct(blockAvg$badDurationTrials) > 1) {
   #   plot_list[[j]] <- ggplot(data=blockAvg, aes(x=badLatenessTrials,y=badDurationTrials, color = participant)) +
@@ -1245,6 +1264,49 @@ append_scatter_time <- function(data_list, plot_list, fileNames) {
       labs(title = 'targetMeasuredLatenessSec vs. deltaHeapLatenessMB \ncolored by participant',
            caption = 'Points jittered to avoid occlusion.')
     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-deltaHeapLatenessMB-by-participant'
+    j = j + 1
+  }
+  
+  if (n_distinct(params$`heapUsedBeforeDrawing (MB)`) > 1 & n_distinct(params$deltaHeapTotalMB) > 1) {
+    plot_list[[j]] <- ggplot(data=params, aes(x=`heapUsedBeforeDrawing (MB)`,y=deltaHeapTotalMB, color = participant)) +
+      geom_jitter() +
+      guides(color=guide_legend(ncol=2, title = '')) + 
+      labs(title = 'deltaHeapTotalMB vs. heapUsedBeforeDrawing \ncolored by participant',
+           caption = 'Points jittered to avoid occlusion.')
+    fileNames[[j]] <- 'deltaHeapTotalMB-vs-heapUsedBeforeDrawing-by-participant'
+    j = j + 1
+  }
+  
+  if (n_distinct(params$deltaHeapTotalMB) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
+    plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapTotalMB,y=deltaHeapUsedMB, color = participant)) +
+      geom_jitter() +
+      guides(color=guide_legend(ncol=2, title = '')) + 
+      labs(title = 'deltaHeapUsedMB vs. deltaHeapTotalMB \ncolored by participant',
+           caption = 'Points jittered to avoid occlusion.')
+    fileNames[[j]] <- 'deltaHeapUsedMB-vs-deltaHeapTotalMB-by-participant'
+    j = j + 1
+  }
+  
+  if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
+    plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx*(1+fontPadding),y=deltaHeapUsedMB, color = font)) +
+      geom_jitter() +
+      guides(color=guide_legend(ncol=2, title = '')) + 
+      scale_x_log10() +
+      scale_y_log10() +
+      coord_fixed() +
+      labs(title = 'deltaHeapUsedMB vs.fontNominalSizePx*(1+fontPadding)\ncolored by font',
+           caption = 'Points jittered to avoid occlusion.')
+    fileNames[[j]] <- 'deltaHeapUsedMB-vs-fontNominalSizePx-by-font'
+    j = j + 1
+  }
+  
+  if (n_distinct(params$`heapLimitAfterDrawing (MB)`) > 1 & n_distinct(params$deltaHeapTotalMB) > 1) {
+    plot_list[[j]] <- ggplot(data=params, aes(x=`heapLimitAfterDrawing (MB)`,y=deltaHeapTotalMB, color = participant)) +
+      geom_jitter() +
+      guides(color=guide_legend(ncol=2, title = '')) +
+      labs(title = 'deltaHeapTotalMB vs. heapLimitAfterDrawing \ncolored by participant',
+           caption = 'Points jittered to avoid occlusion.')
+    fileNames[[j]] <- 'deltaHeapTotalMB-vs-heapLimitAfterDrawing-by-participant'
     j = j + 1
   }
   

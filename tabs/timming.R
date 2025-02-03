@@ -22,6 +22,7 @@ timingTab <- tabPanel(
   downloadButton("downloadDurationCorrMatrixPlot", "Download"),
   conditionalPanel('output.isDuration', 
                    h3("Histograms"),
+                   shinycssloaders::withSpinner(uiOutput("timingHistograms"), type = 4),
                    fixedRow(splitLayout(
                      cellWidths = c("50%", "50%"),
                      shinycssloaders::withSpinner(imageOutput("durationHist", height = "100%"), type = 4),
@@ -32,7 +33,6 @@ timingTab <- tabPanel(
                      downloadButton("downloadDurationHist", "Download"),
                      downloadButton("downloadLatenessHist", "Download")
                    )),
-                   shinycssloaders::withSpinner(uiOutput("timingHistograms"), type = 4),
                    h3("Scatter diagrams"),
                    fixedRow(splitLayout(
                      cellWidths = c("50%", "50%"),
