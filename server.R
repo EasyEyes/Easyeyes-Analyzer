@@ -6,7 +6,7 @@
 #
 #    http://shiny.rstudio.com/
 #
-options(shiny.maxRequestSize = 500 * 1024 ^ 2)
+options(shiny.maxRequestSize = 3000 * 1024 ^ 2)
 library(shiny)
 library(dplyr)
 library(readr)
