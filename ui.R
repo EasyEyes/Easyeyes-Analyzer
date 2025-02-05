@@ -15,6 +15,7 @@ library(shinytitle)
 library(svglite)
 library(shinycssloaders)
 library(plotly)
+library(shinyalert)
 # Define UI for application that draws a histogram
 timer_js <- "
   let startTime = new Date().getTime();

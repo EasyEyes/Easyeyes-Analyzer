@@ -1,3 +1,4 @@
+
 sessionTab <- tabPanel(
   'Sessions',
   tags$head(# Note the wrapping of the string in HTML()
@@ -63,30 +64,28 @@ sessionTab <- tabPanel(
         }
             "
       )),
-    
-    tags$script(HTML(
-      "
-        $(document).on('shiny:inputchanged', function(event) {
-          if (event.name === 'file') {
-            $('.overlay-background').show(); // Show the overlay
-            $('.custom-loading-message').text('Reading file(s)...').show(); // Show the popup
-          }
-        });
-
-        $(document).on('shiny:idle', function() {
-          $('.overlay-background').hide(); // Hide the overlay
-          $('.custom-loading-message').hide(); // Hide the popup
-        });
-  
-        "
-    ))
+  #   
+  #   tags$script(HTML(
+  #     "
+  #       $(document).on('shiny:inputchanged', function(event) {
+  #         if (event.name === 'file') {
+  #           $('.overlay-background').show(); // Show the overlay
+  #           $('.custom-loading-message').text('Reading file(s)...').show(); // Show the popup
+  #         }
+  #       });
+  # 
+  #       $(document).on('shiny:idle', function() {
+  #         $('.overlay-background').hide(); // Hide the overlay
+  #         $('.custom-loading-message').hide(); // Hide the popup
+  #       });
+  # 
+  #       "
+  #   ))
+  tags$script(type = "text/javascript",
+              src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML")
   ),
-  tags$head(
-    tags$script(type = "text/javascript",
-                src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML")
-  ),
-  tags$div(class = "overlay-background"),
-  tags$div(class = "custom-loading-message"),
+  # tags$div(class = "overlay-background"),
+  # tags$div(class = "custom-loading-message"),
   fluidRow(column(
     width = 4,
     fileInput(
@@ -96,7 +95,13 @@ sessionTab <- tabPanel(
       buttonLabel = "Select CSV files or ZIP file",
       multiple = T,
       width = '1000px'
-    ),
+    ) |>
+      tagAppendAttributes(
+        onInput = "
+                  const id = $(this).find('input[type=\"file\"]').attr('id');
+                  Shiny.setInputValue(id + '_click', Math.random());
+        "
+      ),
     textOutput("fileStatusMessage")
   )),
   fixedRow(

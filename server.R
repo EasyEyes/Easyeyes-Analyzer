@@ -64,6 +64,28 @@ source("./other/utility.R")
 #### server code ####
 
 shinyServer(function(input, output, session) {
+  
+  observeEvent(input$file_click,
+               {
+                 shinyalert(
+                   title = "",
+                   text = "Reading file(s)...",
+                   size = "xs",
+                   closeOnEsc = FALSE,
+                   closeOnClickOutside = FALSE,
+                   html = TRUE,
+                   type = "info",
+                   showConfirmButton = FALSE,
+                   confirmButtonCol = "#004192",
+                   showCancelButton = FALSE,
+                   imageUrl = "",
+                   animation = TRUE
+                 )
+                 
+               },
+               ignoreNULL = FALSE,
+               ignoreInit = TRUE)
+
 
   #### formSpree ####
   formSpreeTable <- reactive(monitorFormSpree(input$listFontParameters))
@@ -125,22 +147,27 @@ shinyServer(function(input, output, session) {
   # })
   
   prolific <- reactive({
+    req(input$file)
     t <- find_prolific_from_files(input$file)
     return(t)
   })
   data_list <- reactive({
+    req(input$file)
     t <- files()[[1]]
     return(t)
   })
   summary_list <- reactive({
+    req(input$file)
     t <- files()[[2]]
     return(t)
   })
   experiment_names <- reactive({
+    req(input$file)
     return(trimws(files()[[3]]))
   })
   
   readingCorpus <- reactive({
+    req(input$file)
     return(trimws(files()[[4]]))
   })
   
@@ -357,6 +384,7 @@ shinyServer(function(input, output, session) {
   })
   
   output$jsonUploaded <- reactive({
+    req(input$file)
     return(!is.null(input$fileJSON))
   })
   
@@ -380,6 +408,7 @@ shinyServer(function(input, output, session) {
   # })
   
   meanPlot <- reactive({
+    req(input$file)
     mean_plot(reading_rsvp_crowding_df()) +
       labs(title = paste(c(
         experiment_names(),
@@ -396,6 +425,7 @@ shinyServer(function(input, output, session) {
   })
   
   medianPlot <- reactive({
+    req(input$file)
     median_plot(reading_rsvp_crowding_df()) +
       labs(title = paste(c(
         experiment_names(),
@@ -413,10 +443,12 @@ shinyServer(function(input, output, session) {
   })
   
   crowdingPlot <- reactive({
+    req(input$file)
     crowding_scatter_plot(crowdingBySide())
   })
   
   crowdingAvgPlot <- reactive({
+    req(input$file)
     crowding_mean_scatter_plot(crowdingBySide())  +
       coord_fixed(ratio = 1) +
       labs(title = paste(
@@ -429,60 +461,73 @@ shinyServer(function(input, output, session) {
   #### rsvpCrowding reactive ####
   
   rsvpCrowding <- reactive({
+    req(input$file)
     plot_rsvp_crowding(df_list())
   })
   
   rsvpAcuityFoveal <- reactive({
+    req(input$file)
     plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp,'foveal')
   })
   
   rsvpAcuityPeripheral <- reactive({
+    req(input$file)
     plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp,'peripheral')
   })
   
  rsvp_repeated_letter_crowding <- reactive({
+   req(input$file)
     plot_rsvp_repeated_letter_crowding(df_list())
   })
   
   two_fonts_plots <- reactive({
+    req(input$file)
     get_two_fonts_plots(df_list()$crowding)
   })
   
   crowding_hist <- reactive({
+    req(input$file)
     get_crowding_hist(df_list()$crowding)
   })
   
   acuity_hist <- reactive({
+    req(input$file)
     get_acuity_hist(df_list()$acuity)
   })
   
   
   repeated_letter_hist <- reactive({
+    req(input$file)
     get_repeatedLetter_hist(df_list()$repeatedLetters)
   })
   
   foveal_peripheral_diag <- reactive({
+    req(input$file)
     get_foveal_peripheral_diag(df_list()$crowding)
   })
   
   
   foveal_crowding_vs_acuity_diag <- reactive({
+    req(input$file)
     get_foveal_acuity_diag(df_list()$crowding, df_list()$acuity)
   })
   
   regressionFontPlot <- reactive({
+    req(input$file)
     regression_font(df_list(), reading_rsvp_crowding_df()) +
       labs(title = experiment_names(),
            subtitle = "Reading vs crowding")
   })
   
   regressionFontPlotWithLabel <- reactive({
+    req(input$file)
     regression_font_with_label(df_list(), reading_rsvp_crowding_df()) +
       labs(title = experiment_names(),
            subtitle = "Reading vs crowding")
   })
   
   readingTestRetest <- reactive({
+    req(input$file)
     get_test_retest_reading(df_list()[[1]]) +
       labs(title = experiment_names(),
            subtitle = "Test retest of reading") +
@@ -496,6 +541,7 @@ shinyServer(function(input, output, session) {
       parse = T)
   })
   crowdingTestRetest <- reactive({
+    req(input$file)
     get_test_retest_crowding(df_list()[[2]]) +
       labs(title = experiment_names(),
            subtitle = "Test retest of crowding") +
@@ -510,6 +556,7 @@ shinyServer(function(input, output, session) {
   })
   
   rsvpReadingTestRetest <- reactive({
+    req(input$file)
     get_test_retest_rsvp(df_list()[[3]])  +
       labs(title = experiment_names(),
            subtitle = "Test retest of rsvp reading") +
@@ -524,6 +571,7 @@ shinyServer(function(input, output, session) {
   })
   
   readingSpeedRetention <- reactive({
+    req(input$file)
     reading_speed_vs_retention(df_list()[[1]]) +
       labs(title = experiment_names(),
            subtitle = "Reading vs retention") +
@@ -538,6 +586,7 @@ shinyServer(function(input, output, session) {
   })
   
   agePlots <- reactive({
+    req(input$file)
     if (is.null(input$file)) {
       return(list(
         plotList = list(),
@@ -627,6 +676,7 @@ shinyServer(function(input, output, session) {
   })
   
   histograms <- reactive({
+    req(input$file)
     if (is.null(input$file)) {
       return(list(
         plotList = list(),
@@ -702,6 +752,7 @@ shinyServer(function(input, output, session) {
 })
 
 timingHistograms <- reactive({
+  req(input$file)
   if (is.null(input$file)) {
     return(list(
       plotList = list(),
@@ -3465,9 +3516,10 @@ timingHistograms <- reactive({
                    unique(combinedTable$`Pavlovia session ID`)
                  prolific_id <-
                    unique(combinedTable$`Prolific participant ID`)
-                 output$ex1 <- DT::renderDataTable(
+                 output$ex1 <- DT::renderDataTable({
                    render_summary_datatable(combinedTable, participants, prolific_id)
-                 )
+                 })
+                 
                  #### stats page ####
                  output$ex2 <-
                    renderTable(threshold_and_warnings()[[2]])
@@ -3485,6 +3537,7 @@ timingHistograms <- reactive({
                                    choices = unique(files()$stairs$thresholdParameter),
                                    selected = unique(files()$stairs$thresholdParameter)[1],
                                    )
+                 closeAlert()
                  #### stairPlots ####
 
                  # output$p1 <- renderImage({
