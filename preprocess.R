@@ -175,7 +175,7 @@ read_files <- function(file){
         }
         if (!('block_condition' %in% colnames(t))) {
           t$block_condition <- ''
-        }
+        } 
         if (!('staircaseName' %in% colnames(t))) {
           t$staircaseName <- NA
         }

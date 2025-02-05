@@ -21,7 +21,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     group_by(participant, staircaseName, thresholdParameter) %>%
     summarize(questTrials = sum(trialGivenToQuest,na.rm = T)) %>% 
     filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | questTrials >= minNQuestTrials) %>% 
-    mutate(block_condition = staircaseName) %>% 
+    mutate(block_condition = as.character(staircaseName)) %>% 
     distinct(participant, block_condition)
 
   # I think we should merge the reading data and threshold data with the Grade and Skilled reader column
