@@ -34,33 +34,9 @@ sessionTab <- tabPanel(
         .shiny-file-input-progress {
           display: none !important;
         }
-        .custom-loading-message {
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: white;
-          border: 2px solid #ccc;
-          padding: 20px;
-          width: 23%;
-          text-align: center;
-          border-radius: 10px;
-          font-size: 16px;
-          font-weight: bold;
-          color: black;
-          z-index: 10000;
-          display: none;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .overlay-background {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.5);
-          z-index: 9999;
-          display: none;
+        div.datatable-wide {
+        padding-left: 0;
+        padding-right: 0;
         }
             "
       )),

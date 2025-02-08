@@ -85,42 +85,40 @@ combineProlific <- function(prolificData, summary_table){
     # t <- rbind(t, t2, formSpree) 
     t <- rbind(t, t2) 
   }
-  # if (F) {
+  
+  t <- t %>%
+    rename('Prolific session ID' = 'prolificSessionID',
+           'Computer 51 deg' = 'computer51Deg',
+           'Phone QR connect'='QRConnect',
+           'Prolific min' = 'prolificMin',
+           'Prolific status' = 'ProlificStatus',
+           'heapLimitAfterDrawing' = 'heapLimitAfterDrawing (MB)',
+           'Lateness ms' = 'tardyMs',
+           'Duration ms' = 'excessMs')
+  
   if (TRUE %in% summary_table$`_logFontBool`) {
     fontParameters <- get_font_parameters_from_formSpree(summary_table$`Pavlovia session ID`)
     t <- t %>%
-      rename('Prolific session ID' = 'prolificSessionID',
-             'Computer 51 deg' = 'computer51Deg') %>% 
-      left_join(fontParameters, by = 'Pavlovia session ID') %>% 
-      distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
-               `device type`, system, browser, resolution, QRConnect, date, prolificMin,
-               ProlificStatus,`Completion code`, ok, unmetNeeds, error, warning, cores,
-               tardyMs, excessMs, KB, rows, cols,`block condition`, trial, `condition name`,
-               `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
-               Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
-               fontMaxPx, viewingDistanceCm, fontRenderMaxPx,`heapLimitAfterDrawing (MB)`,
-               deviceMemoryGB, mustTrackSec, goodTrials, badTrials, WebGLVersion, 
-               maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order)
+      left_join(fontParameters, by = 'Pavlovia session ID')
   } else {
     t <- t %>%
-      rename('Prolific session ID' = 'prolificSessionID',
-             'Computer 51 deg' = 'computer51Deg') %>% 
       mutate(fontSizePx = '',
              fixationXYPx = '',
              fontMaxPx = '',
              viewingDistanceCm = '',
-             fontRenderMaxPx = '') %>% 
-      distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
-               `device type`, system,browser, resolution, QRConnect, date, prolificMin,
-               ProlificStatus,`Completion code`, ok, unmetNeeds, error, warning, cores,
-               tardyMs, excessMs, KB, rows, cols,`block condition`, trial, `condition name`,
-               `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
-               Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
-               fontMaxPx, viewingDistanceCm, fontRenderMaxPx, `heapLimitAfterDrawing (MB)`,
-               deviceMemoryGB, mustTrackSec, goodTrials, badTrials, WebGLVersion, 
-               maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order)
+             fontRenderMaxPx = '')
   } 
-  t <- t %>% filter(date != '', !is.na(date))
+  t <- t %>%
+    distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
+             `device type`, system,browser, resolution, `Phone QR connect`, date, `Prolific min`,
+             `Prolific status`,`Completion code`, ok, unmetNeeds, error, warning, cores,
+             `Lateness ms`, `Duration ms`, KB, rows, cols,`block condition`, trial, `condition name`,
+             `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
+             Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
+             fontMaxPx, viewingDistanceCm, fontRenderMaxPx, heapLimitAfterDrawing, heapTotalAvgMB,
+             deviceMemoryGB, mustTrackSec, goodTrials, badTrials, WebGLVersion, 
+             maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order) %>% 
+    filter(date != '', !is.na(date))
   print('done combine prolific')
   return(list(t, formSpree))
 }

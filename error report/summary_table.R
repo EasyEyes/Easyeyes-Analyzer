@@ -71,13 +71,14 @@ data_table_call_back = "
     });
 
     table.column(1).nodes().to$().css({cursor: 'pointer'});
-    var format3 = function(d) {
-      return '<p>' + d[1] + '</p> <p>' + d[3] + '</p>';
-    };
+    table.column(2).nodes().to$().css({cursor: 'pointer'});
     table.column(3).nodes().to$().css({cursor: 'pointer'});
-    var format4 = function(d) {
-      return '<p>' + d[1] + '</p> <p>' + d[3] + '</p>';
+    
+    var format3 = function(d) {
+    return '<p>' + d[1] + '</p> <p>' + d[2]+  '</p> <p>' + d[3] + '</p>';
     };
+    
+    
     table.on('click', 'td.information-control1', function() {
       var td = $(this), row = table.row(td.closest('tr'));
       if (row.child.isShown()) {
@@ -91,7 +92,15 @@ data_table_call_back = "
       if (row.child.isShown()) {
         row.child.hide();
       } else {
-        row.child(format4(row.data())).show();
+        row.child(format3(row.data())).show();
+      }
+    });
+    table.on('click', 'td.information-control3', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format3(row.data())).show();
       }
     });
     
@@ -122,12 +131,8 @@ get_lateness_and_duration <- function(all_files){
               targetMeasuredDurationMeanSec = mean(targetMeasuredDurationSec - targetDurationSec, na.rm = TRUE) * 1000,
               targetMeasuredDurationSDSec = sd(targetMeasuredDurationSec - targetDurationSec, na.rm = TRUE) * 1000,
               .groups = "keep") %>% 
-    mutate(tardyMs =
-             paste0(round(targetMeasuredLatenessMeanSec), "±",
-                    round(targetMeasuredLatenessSDSec)),
-           excessMs =
-             paste0(round(targetMeasuredDurationMeanSec), "±",
-                    round(targetMeasuredDurationSDSec))) %>% 
+    mutate(tardyMs = format(round(targetMeasuredLatenessMeanSec,2), nsmall=2),
+           excessMs = format(round(targetMeasuredDurationMeanSec,2),nsmall=2)) %>% 
     select(-targetMeasuredLatenessMeanSec,
            -targetMeasuredLatenessSDSec,
            -targetMeasuredDurationMeanSec,
@@ -149,12 +154,13 @@ generate_summary_table <- function(data_list){
                deviceMemoryGB) %>% 
       summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
                 badTrials = sum(!trialGivenToQuest, na.rm =T),
-                mustTrackSec = format(round(mean(mustTrackSec, na.rm = T),2), nsmall=2)) %>%
+                mustTrackSec = format(round(mean(mustTrackSec, na.rm = T),2), nsmall=2),
+                heapTotalAvgMB = format(round(mean(`heapTotalAfterDrawing (MB)`, na.rm = T),2), nsmall=2)) %>%
       rename("Pavlovia session ID" = "participant")
   }
-  print(params)
+
   webGL <- get_webGL(data_list) %>% rename("Pavlovia session ID" = "participant")
-  print(webGL)
+
   for (i in 1 : length(data_list)) {
     t <- data_list[[i]] %>% select(ProlificParticipantID, participant, prolificSessionID, deviceType, 
                                    cores, browser, deviceSystemFamily, deviceLanguage,
@@ -400,7 +406,7 @@ generate_summary_table <- function(data_list){
 
 render_summary_datatable <- function(dt, participants, prolific_id){
   datatable(dt,
-            class = list(stripe = FALSE),
+            class = list(stripe = FALSE, 'compact'),
             selection = 'none',
             filter = "top",
             escape = FALSE,
@@ -416,11 +422,11 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 infoFiltered =  "(filtered from _MAX_ entries)"
               ),
               columnDefs = list(
-                list(visible = FALSE, targets = c(0, 50)),
+                list(visible = FALSE, targets = c(0, 51)),
                 list(orderData = 36, targets = 23),
                 list(
                   targets = c(15),
-                  width = '200px',
+                  width = '100px',
                   className = 'errorC-control',
                   render = JS(
                     "function(data, type, row, meta) {",
@@ -431,7 +437,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 ),
                 list(
                   targets = c(16),
-                  width = '200px',
+                  width = '100px',
                   className = 'warnC-control',
                   render = JS(
                     "function(data, type, row, meta) {",
@@ -442,7 +448,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 ),
                 list(
                   targets = c(29),
-                  width = '200px',
+                  width = '50px',
                   className = 'computer51Deg',
                   render = JS(
                     "function(data, type, row, meta) {",
@@ -453,7 +459,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 ),
                 list(
                   targets = c(30),
-                  width = '250px',
+                  width = '50px',
                   className = 'loudspeakerSurvey',
                   render = JS(
                     "function(data, type, row, meta) {",
@@ -464,7 +470,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 ),
                 list(
                   targets = c(31),
-                  width = '250px',
+                  width = '50px',
                   className = 'microphoneSurvey',
                   render = JS(
                     "function(data, type, row, meta) {",
@@ -484,7 +490,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   className = 'information-control1'
                 ),
                 list(
-                  targets = c(3),
+                  targets = c(2),
                   render = JS(
                     "function(data, type, row, meta) {",
                     "return type === 'display' && data && data.length > 6 ?",
@@ -494,17 +500,26 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   className = 'information-control2'
                 ),
                 list(
+                  targets = c(3),
+                  render = JS(
+                    "function(data, type, row, meta) {",
+                    "return type === 'display' && data && data.length > 6 ?",
+                    "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                    "}"
+                  ),
+                  className = 'information-control3'
+                ),
+                list(
                   width = '50px',
-                  targets = c(7, 8, 20, 24),
+                  targets = c(7),
                   className = 'dt-center'
                 ),
                 list(
                   width = '20px',
-                  targets = c(10,14,15,16,24,28,32,33),
+                  targets = c(8:14, 17:28, 32:34, 36:50),
                   className = 'dt-center'
                 ),
-                list(width = '100px', targets = c(13)),
-                list(width = '600px', targets = c(35))
+                list(padding = '0px', targets = c(0:50))
               )
             ),
             callback = JS(data_table_call_back)) %>% 
