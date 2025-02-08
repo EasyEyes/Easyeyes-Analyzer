@@ -43,7 +43,7 @@ read_prolific <- function(fileProlific) {
   } else {
     return(tibble())
   }
- 
+  
 }
 
 combineProlific <- function(prolificData, summary_table){
@@ -79,9 +79,7 @@ combineProlific <- function(prolificData, summary_table){
     #   filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
     # formSpree <- tmp %>% 
     # full_join(formSpree, by = c('Prolific participant ID', 'prolificSessionID'))
-    print(summary(t))
-    print('t2')
-    print(summary(t2))
+
     # print('formSpree')
     # print(summary(formSpree))
     # t <- rbind(t, t2, formSpree) 
@@ -123,7 +121,6 @@ combineProlific <- function(prolificData, summary_table){
                maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order)
   } 
   t <- t %>% filter(date != '', !is.na(date))
-
-    print('done combine prolific')
+  print('done combine prolific')
   return(list(t, formSpree))
 }

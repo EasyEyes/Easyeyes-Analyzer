@@ -149,11 +149,12 @@ generate_summary_table <- function(data_list){
                deviceMemoryGB) %>% 
       summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
                 badTrials = sum(!trialGivenToQuest, na.rm =T),
-                mustTrackSec = mean(mustTrackSec, na.rm = T)) %>%
+                mustTrackSec = format(round(mean(mustTrackSec, na.rm = T),2), nsmall=2)) %>%
       rename("Pavlovia session ID" = "participant")
   }
+  print(params)
   webGL <- get_webGL(data_list) %>% rename("Pavlovia session ID" = "participant")
-  
+  print(webGL)
   for (i in 1 : length(data_list)) {
     t <- data_list[[i]] %>% select(ProlificParticipantID, participant, prolificSessionID, deviceType, 
                                    cores, browser, deviceSystemFamily, deviceLanguage,

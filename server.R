@@ -818,7 +818,6 @@ timingHistograms <- reactive({
     if (!is.null(crowdingPlots$fovealPlot)) {
       l[[i]] <- crowdingPlots$fovealPlot + plt_theme
       fileNames[[i]] <- 'foveal-crowding-staircases-threshold-vs-questTrials'
-      print(fileNames[[i]])
       i <- i + 1
     }
     
@@ -826,7 +825,6 @@ timingHistograms <- reactive({
     if (!is.null(crowdingPlots$peripheralPlot)) {
       l[[i]] <- crowdingPlots$peripheralPlot + plt_theme
       fileNames[[i]] <- 'peripheral-crowding-staircases-threshold-vs-questTrials'
-      print(fileNames[[i]])
       i <- i + 1
     }
     
@@ -835,7 +833,6 @@ timingHistograms <- reactive({
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-foveal-acuity-grade-diagram'
-      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -843,7 +840,6 @@ timingHistograms <- reactive({
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-peripheral-acuity-grade-diagram'
-      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -851,7 +847,6 @@ timingHistograms <- reactive({
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-acuity-vs-peripheral-acuity-grade-diagram'
-      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -859,7 +854,6 @@ timingHistograms <- reactive({
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-peripheral-crowding-grade-diagram'
-      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -867,7 +861,6 @@ timingHistograms <- reactive({
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'
-      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -875,7 +868,6 @@ timingHistograms <- reactive({
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'peripheral_crowding_left_vs_right'
-      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -890,7 +882,6 @@ timingHistograms <- reactive({
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
-      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -898,7 +889,6 @@ timingHistograms <- reactive({
     if (!is.null(t)) {
       l[[i]] <- t
       fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
-      print(fileNames[[i]])
       i <- i + 1
     }
     
@@ -906,14 +896,12 @@ timingHistograms <- reactive({
     if (!is.null(t$foveal)) {
       l[[i]] = t$foveal
       fileNames[[i]] = 'reading-rsvp-reading-vs-foveal-crowding'
-      print(fileNames[[i]])
       i = i + 1
     }
     
     if (!is.null(t$peripheral)) {
       l[[i]] = t$peripheral
       fileNames[[i]] = 'reading-rsvp-reading-vs-peripheral-crowding'
-      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -922,7 +910,6 @@ timingHistograms <- reactive({
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'ordinary-reading-rsvp-reading-vs-acuity'
-      print(fileNames[[i]])
       i = i + 1
     }
     
@@ -930,7 +917,6 @@ timingHistograms <- reactive({
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'reading-vs-RSVP-reading-plot'
-      print(fileNames[[i]])
       i = i + 1
     }
     lists = append_scatter_list(data_list(), l, fileNames)
