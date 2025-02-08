@@ -297,10 +297,9 @@ generate_summary_table <- function(data_list){
   noerror_fails$warning = ""
   completes = tibble()
   for (i in 1 : length(data_list)) {
-    if (!data_list[[i]]$participant[1] %in% error$participant 
-        & !data_list[[i]]$participant[1] %in% noerror_fails_participant) {
+    if (!data_list[[i]]$participant[1] %in% noerror_fails_participant) {
       t <- data_list[[i]] %>% 
-        distinct(ProlificParticipantID, participant, prolificSessionID, deviceType, error,
+        distinct(ProlificParticipantID, participant, prolificSessionID, deviceType,
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
                  QRConnect, questionAndAnswerResponse) %>% 
@@ -320,15 +319,16 @@ generate_summary_table <- function(data_list){
       tmp <- t$questionAndAnswerResponse[1]
       t <- t %>% mutate(questionAndAnswerResponse = ifelse(is.na(tmp), '',tmp))
       t <- t %>%
-        distinct(ProlificParticipantID, participant, prolificSessionID, deviceType, error,
+        distinct(ProlificParticipantID, participant, prolificSessionID, deviceType,
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
                  QRConnect, questionAndAnswerResponse)
       info <- data_list[[i]] %>% 
         distinct(block, block_condition, conditionName, 
                  targetTask, targetKind, thresholdParameter) %>% 
-        dplyr::filter(block_condition != "" & conditionName != "") %>% 
+        dplyr::filter(block_condition != "") %>% 
         tail(1)
+      print(info)
       if (nrow(t) == nrow(info)) {
         t <- cbind(t, info)
       } else {
@@ -340,6 +340,7 @@ generate_summary_table <- function(data_list){
     }
   }
   completes$warning <- ""
+  completes$error <- ""
   print('done completes')
   summary_df <- rbind(noerror_fails,
                       completes,
