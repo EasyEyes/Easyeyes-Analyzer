@@ -101,7 +101,7 @@ get_duration_corr <- function(data_list) {
   
   colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))
-  print(t)
+
   corplot <- ggcorrplot(t,
                         show.legend = FALSE,
                         show.diag = T,

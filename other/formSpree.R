@@ -114,7 +114,6 @@ monitorFormSpree <- function(listFontParameters) {
     
     t <- t %>% select(-c(prolificParticipantID, prolificSession, ExperimentName,
                           OS, browser, browserVersion, deviceType, timestamp))
-    print(nrow(t))
     t <- initial %>% full_join(t, by = "pavloviaID") %>% 
       mutate(hl = is.na(fontLatencySec))
     
