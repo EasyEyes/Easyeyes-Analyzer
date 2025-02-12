@@ -125,7 +125,7 @@ shinyServer(function(input, output, session) {
   
   files <- reactive({
     req(input$file)  
-    t <- read_files(input$file)  
+    t <- read_files(input$file) 
     return(t)
   })
   
@@ -971,6 +971,8 @@ timingHistograms <- reactive({
     
     repeatedLetter_rsvp <- plot_rsvp_repeated_letter_crowding(df_list())
     
+    
+    
     print('plot_rsvp_repeated_letter_crowding')
     if (!is.null(repeatedLetter_rsvp[[1]])) {
       l[[i]] <- repeatedLetter_rsvp[[1]] + plt_theme  
@@ -987,6 +989,8 @@ timingHistograms <- reactive({
     t <- plot_rsvp_crowding(df_list())
     
     print('plot_rsvp_crowding')
+    
+    
     if (!is.null(t[[3]])) {
       l[[i]] <- t[[3]] + plt_theme
       fileNames[[i]] <- 'rsvp-vs-peripheral-crowding-by-grade'
@@ -995,7 +999,12 @@ timingHistograms <- reactive({
     
     if (!is.null(t[[4]])) {
       l[[i]] <- t[[4]] + plt_theme
-      fileNames[[i]] <- 'rsvp-vs-foveal-crowding-by-grade'
+      fileNames[[i]] <- 'residual-rsvp-vs-residual-peripheral-crowding-by-grade'
+      i <- i + 1
+    }
+    if (!is.null(t[[5]])) {
+      l[[i]] <- t[[5]] + plt_theme
+      fileNames[[i]] <- 'rsvp-vs-fovel-crowding-by-grade'
       i <- i + 1
     }
     
@@ -1013,13 +1022,13 @@ timingHistograms <- reactive({
       i <- i + 1
     }
     
-    print('factor_out_age_and_plot')
-    factored_age_plot <- factor_out_age_and_plot(df_list())
-    if (!is.null(factored_age_plot)) {
-      l[[i]] <- factored_age_plot + plt_theme
-      fileNames[[i]] <- 'rsvp-vs-crowding-factored-age'
-      i <- i + 1
-    }
+    # print('factor_out_age_and_plot')
+    # factored_age_plot <- factor_out_age_and_plot(df_list())
+    # if (!is.null(factored_age_plot)) {
+    #   l[[i]] <- factored_age_plot + plt_theme
+    #   fileNames[[i]] <- 'rsvp-vs-crowding-factored-age'
+    #   i <- i + 1
+    # }
     
     return(list(
       plotList = l,
