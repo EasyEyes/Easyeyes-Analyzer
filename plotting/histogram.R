@@ -386,6 +386,83 @@ generate_histograms_by_grade <- function(data) {
   ))
 }
 
+get_age_histogram <- function(data) {
+  if (is.null(data) || nrow(data) == 0) return(NULL)
+  
+  # Remove negative ages
+  data <- data %>% filter(age >= 0)
+  
+  # Calculate summary statistics
+  stats <- data %>%
+    summarize(
+      mean = round(mean(age, na.rm = TRUE), 2),
+      sd = round(sd(age, na.rm = TRUE), 2),
+      N = n()
+    )
+  
+  # Generate histogram
+  p <- ggplot(data) + 
+    geom_histogram(aes(x = age), color = "black", fill = "black") +
+    scale_x_continuous(expand = c(0, 0)) + 
+    scale_y_continuous(expand = c(0, 0)) + 
+    ggpp::geom_text_npc(
+      aes(npcx = 'right',
+          npcy = 'top',
+          label = paste0('mean=', stats$mean, '\n sd=', stats$sd, '\n N=', stats$N))
+    ) +
+    labs(x = 'Age',
+         y = 'Count',
+         title = 'Histogram of Age')
+  
+  return(p)
+}
+
+
+get_grade_histogram <- function(rsvp) {
+  if (is.null(rsvp) || nrow(rsvp) == 0) return(NULL)
+  
+  # Extract Grade column from RSVP data
+  grade_data <- rsvp %>% select(Grade) %>% drop_na()
+  
+  # Ensure Grade is numeric and remove invalid values (if any)
+  grade_data <- grade_data %>% filter(Grade >= 0)  # Ensures no negative grades
+  
+  # Calculate summary statistics
+  stats <- grade_data %>%
+    summarize(
+      mean = round(mean(Grade, na.rm = TRUE), 2),
+      sd = round(sd(Grade, na.rm = TRUE), 2),
+      N = n()
+    )
+  
+  # Define bin width dynamically
+
+  
+  # Generate histogram
+  p <- ggplot(grade_data, aes(x = Grade)) +
+    geom_histogram(color = "black", fill = "black") +
+    scale_x_continuous(expand = c(0, 0)) + 
+    scale_y_continuous(expand = c(0, 0)) + 
+    ggpp::geom_text_npc(
+      aes(npcx = 'right',
+          npcy = 'top',
+          label = paste0('mean=', stats$mean, '\n sd=', stats$sd, '\n N=', stats$N))
+    ) +
+    labs(x = 'Grade',
+         y = 'Count',
+         title = 'Histogram of grades') +
+    theme_minimal()  # Consistent minimal theme
+  
+  return(p)
+}
+
+
+
+
+
+
+
+
 
 
 

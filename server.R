@@ -68,23 +68,23 @@ shinyServer(function(input, output, session) {
   observeEvent(input$file_click,
                {
                  shinyalert(
-                   title = "",
-                   text = "Reading file(s)...",
+                   title = "Reading file(s) ...",
                    size = "xs",
                    closeOnEsc = FALSE,
                    closeOnClickOutside = FALSE,
                    html = TRUE,
-                   type = "info",
+                   type = "",
                    showConfirmButton = FALSE,
                    confirmButtonCol = "#004192",
                    showCancelButton = FALSE,
                    imageUrl = "",
                    animation = TRUE
                  )
-                 
+
                },
                ignoreNULL = FALSE,
                ignoreInit = TRUE)
+
 
 
   #### formSpree ####
@@ -730,6 +730,22 @@ shinyServer(function(input, output, session) {
     if (!is.null(repeated_letter_hist())) {
       l[[i]] = repeated_letter_hist()
       fileNames[[i]] = 'repeated-letter-crowding-histogram'
+      i = i + 1
+    }
+    
+   
+    print('Displaying Age')
+    age_hist <- get_age_histogram(df_list()$age)
+    if (!is.null(age_hist)) {
+      l[[i]] = age_hist
+      fileNames[[i]] = 'age-histogram'
+      i = i + 1
+    }
+    
+    grade_hist <- get_grade_histogram(df_list()$rsvp)
+    if (!is.null(grade_hist)) {
+      l[[i]] = grade_hist
+      fileNames[[i]] = 'grade-histogram'
       i = i + 1
     }
     
