@@ -22,7 +22,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     summarize(questTrials = sum(trialGivenToQuest,na.rm = T)) %>% 
     filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | questTrials >= minNQuestTrials) %>% 
     mutate(block_condition = as.character(staircaseName)) %>% 
-    distinct(participant, block_condition)
+    distinct(participant, block_condition, questTrials)
 
   # I think we should merge the reading data and threshold data with the Grade and Skilled reader column
   # in pretest data here so that we don't need to merge it every time we want to use the pretest data.
@@ -268,7 +268,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       select(-lowerCaseParticipant)
   }
   quest <- all_summary %>% 
-    select(participant, block, block_condition, conditionName, font, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode, order) %>% 
+    select(participant, block, block_condition, conditionName, font, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode, questTrials, order) %>% 
     left_join(eccentricityDeg, by = c('participant', 'block_condition', 'conditionName', 'order'))
   
   if (nrow(pretest) > 0) {

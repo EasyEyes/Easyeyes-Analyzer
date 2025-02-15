@@ -328,7 +328,7 @@ generate_summary_table <- function(data_list){
                  targetTask, targetKind, thresholdParameter) %>% 
         dplyr::filter(block_condition != "") %>% 
         tail(1)
-      print(info)
+
       if (nrow(t) == nrow(info)) {
         t <- cbind(t, info)
       } else {
