@@ -254,7 +254,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       annotation_logticks() +
       plt_theme +
       color_scale(n = unique_colors) +  # Dynamic color scale
-      guides(color = guide_legend(title = colorFactor), shape = 'none') +
+      guides(color = guide_legend(title = colorFactor), shape = F) +
       coord_fixed(ratio = 1) +
       annotate(
         "text",

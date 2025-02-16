@@ -47,7 +47,7 @@ plot_rsvp_crowding_acuity <- function(allData) {
       theme_classic() +
       scale_y_log10() + 
       annotation_logticks(sides = 'l') + 
-      guides(shape = 'none') +
+      guides(shape = F) +
       labs(title = 'Foveal crowding vs grade colored by font',
            y = 'Foveal crowding (deg)')
   }
@@ -63,7 +63,7 @@ plot_rsvp_crowding_acuity <- function(allData) {
       theme_classic() +
       scale_y_log10() + 
       annotation_logticks(sides = 'l') + 
-      guides(shape = 'none') +
+      guides(shape = F) +
       labs(title = 'Foveal crowding vs grade colored by font',
            y = 'Foveal crowding (deg)')
   }
@@ -76,7 +76,7 @@ plot_rsvp_crowding_acuity <- function(allData) {
         theme_classic() + 
         scale_y_log10() +
         annotation_logticks(sides = 'l') + 
-        guides(shape = 'none') +
+        guides(shape = F) +
         labs(title = 'RSVP vs grade',
              y = 'RSVP reading speed (w/min)')
   }
@@ -90,7 +90,7 @@ plot_rsvp_crowding_acuity <- function(allData) {
      theme_classic() +
      scale_y_log10() +
      annotation_logticks(sides = 'l') + 
-     guides(shape = 'none') +
+     guides(shape = F) +
      labs(title = 'Foveal acuity vs grade',
           y = ' Foveal acuity (deg)')
   }
@@ -326,7 +326,7 @@ plot_rsvp_crowding <- function(allData) {
       theme(
         legend.position = ifelse(n_distinct(data[[colorFactor]]) == 1, "none", "top")
       ) +
-      guides(color = guide_legend(title = "Grade"), shape = "none") +
+      guides(color = guide_legend(title = "Grade"), shape = FALSE) +
       plt_theme  # Ensure plt_theme is included
     
     # Add points to the plot
@@ -457,7 +457,7 @@ plot_rsvp_crowding <- function(allData) {
       theme(
         legend.position = ifelse(n_distinct(data_rsvp[[colorFactor]]) == 1, "none", "top")
       ) +
-      guides(color = guide_legend(title = colorFactor), shape = "none")
+      guides(color = guide_legend(title = colorFactor), shape = FALSE)
     
     if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
       p <- p + geom_point(aes(group = ParticipantCode), size = 3)

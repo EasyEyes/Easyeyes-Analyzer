@@ -52,7 +52,7 @@ read_prolific <- function(fileProlific) {
   
 }
 
-combineProlific <- function(prolificData, summary_table){
+combineProlific <- function(prolificData, summary_table, pretest){
   print('inside combineProlific')
   if (is.null(prolificData) | nrow(prolificData) == 0) {
     t <- summary_table %>% mutate(ProlificStatus= ' ',
@@ -113,8 +113,17 @@ combineProlific <- function(prolificData, summary_table){
              viewingDistanceCm = '',
              fontRenderMaxPx = '')
   } 
+  print(pretest)
+  if( nrow(pretest) == 0){
+    pretest <- tibble(participant = t$`Pavlovia session ID`,
+                      `Participant ID` = '')
+  }
   t <- t %>%
-    distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
+    left_join(pretest %>%
+                rename('Pavlovia session ID' = 'participant') %>%
+                select(`Pavlovia session ID`, `Participant ID`),
+              by = 'Pavlovia session ID') %>% 
+    distinct(`Participant ID`,`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
              `device type`, system,browser, resolution, `Phone QR connect`, date, `Prolific min`,
              `Prolific status`,`Completion code`, ok, unmetNeeds, error, warning, cores,
              `Lateness ms`, `Duration ms`, KB, rows, cols,block,condition, trial, `condition name`,

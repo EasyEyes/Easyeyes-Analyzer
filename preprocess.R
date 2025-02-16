@@ -38,6 +38,10 @@ read_files <- function(file){
         if (!'ParticipantCode' %in% names(pretest)) {
           pretest$ParticipantCode = pretest$participant
         }
+        if ('participantID' %in% names(pretest)) {
+          pretest$ParticipantCode = pretest$participantID
+        }
+        pretest$`Participant ID` = pretest$ParticipantCode
       }
       
       if ('ID' %in% names(pretest)) {
@@ -774,6 +778,10 @@ read_files <- function(file){
           if (!'ParticipantCode' %in% names(pretest)) {
             pretest$ParticipantCode = pretest$participant
           }
+          if ('participantID' %in% names(pretest)) {
+            pretest$ParticipantCode = pretest$participantID
+          }
+          pretest$`Participant ID` = pretest$ParticipantCode
         }
         if ('ID' %in% names(pretest)) {
           pretest <- pretest %>% 

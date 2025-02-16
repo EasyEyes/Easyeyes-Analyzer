@@ -3518,9 +3518,9 @@ timingHistograms <- reactive({
                  output$instruction <- renderText(instruction)
                  output$experiment <- renderText(experiment_names())
                  if (!is.null(prolific())) {
-                   combinedTable <- combineProlific(prolific(), summary_table())[[1]]
+                   combinedTable <- combineProlific(prolific(), summary_table(), files()$pretest)[[1]]
                  } else{
-                   combinedTable <- combineProlific(NULL, summary_table())[[1]]
+                   combinedTable <- combineProlific(NULL, summary_table(), files()$pretest)[[1]]
                  }
 
                  participants <-
@@ -3706,9 +3706,9 @@ timingHistograms <- reactive({
     },
     content = function(filename) {
       if (!is.null(prolific())) {
-        combinedTable <- combineProlific(prolific(), summary_table())[[1]]
+        combinedTable <- combineProlific(prolific(), summary_table(), files()$pretest)[[1]]
       } else{
-        combinedTable <- combineProlific(NULL, summary_table())[[1]]
+        combinedTable <- combineProlific(NULL, summary_table(), files()$pretest)[[1]]
       }
       openxlsx::write.xlsx(combinedTable %>% select(-order), file = filename)
     }

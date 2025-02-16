@@ -110,7 +110,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
       plt_theme +
       color_scale(n = unique_colors) +  # Apply dynamic color scale
       theme(legend.position = ifelse(unique_colors == 1, 'none', 'top')) +
-      guides(color = guide_legend(title = colorFactor), shape = 'none') +
+      guides(color = guide_legend(title = colorFactor), shape = F) +
       labs(
         x = paste('Repeated-letter crowding (deg)'),
         y = 'RSVP reading (w/min)',
@@ -278,7 +278,7 @@ plot_reading_repeated_letter_crowding <- function(allData) {
       ) +
       plt_theme +
       color_scale(n = unique_colors) +  # Apply color scale dynamically
-      guides(color = guide_legend(title = colorFactor), shape = 'none') +
+      guides(color = guide_legend(title = colorFactor), shape = F) +
       labs(
         x = paste('Repeated-letter crowding (deg)'),
         y = 'Reading (w/min)',
