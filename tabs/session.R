@@ -44,7 +44,6 @@ sessionTab <- tabPanel(
           left: 50% !important;  /* Moves it right by 50% of the viewport width */
           transform: translate(-50%, -50%) !important;  /* Centers it properly */
           
-          background-color: #D3D3D3 !important; /* Gray background */
           font-family: 'Arial', sans-serif !important; /* Match compiler pop-up font */
           font-size: 18px !important; /* Match compiler pop-up text size */
           font-weight: bold;
