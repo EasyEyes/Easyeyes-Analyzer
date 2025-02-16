@@ -330,7 +330,7 @@ read_files <- function(file){
           t$block[1:(first_non_na - 1)] <- 0
           for (i in first_non_na:length(t$block)) {
             if (is.na(t$block[i])) {
-              block[i] <- current_value
+              t$block[i] <- current_value
             } else {
               current_value <- t$block[i]
             }
@@ -689,7 +689,7 @@ read_files <- function(file){
             t$block[1:(first_non_na - 1)] <- 0
             for (i in first_non_na:length(t$block)) {
               if (is.na(t$block[i])) {
-                block[i] <- current_value
+                t$block[i] <- current_value
               } else {
                 current_value <- t$block[i]
               }
