@@ -131,8 +131,8 @@ get_lateness_and_duration <- function(all_files){
               targetMeasuredDurationMeanSec = mean(targetMeasuredDurationSec - targetDurationSec, na.rm = TRUE) * 1000,
               targetMeasuredDurationSDSec = sd(targetMeasuredDurationSec - targetDurationSec, na.rm = TRUE) * 1000,
               .groups = "keep") %>% 
-    mutate(tardyMs = format(round(targetMeasuredLatenessMeanSec,2), nsmall=2),
-           excessMs = format(round(targetMeasuredDurationMeanSec,2),nsmall=2)) %>% 
+    mutate(tardyMs = round(targetMeasuredLatenessMeanSec),
+           excessMs = round(targetMeasuredDurationMeanSec)) %>% 
     select(-targetMeasuredLatenessMeanSec,
            -targetMeasuredLatenessSDSec,
            -targetMeasuredDurationMeanSec,
@@ -144,21 +144,37 @@ get_lateness_and_duration <- function(all_files){
   return(t)
 }
 
-generate_summary_table <- function(data_list){
+generate_summary_table <- function(data_list, stairs){
   all_files <- tibble()
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
-      filter(!is.na(staircaseName) & !is.na(`heapLimitAfterDrawing (MB)`)) %>%
-      group_by(participant,
-               `heapLimitAfterDrawing (MB)`,
-               deviceMemoryGB) %>% 
-      summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
-                badTrials = sum(!trialGivenToQuest, na.rm =T),
-                mustTrackSec = format(round(mean(mustTrackSec, na.rm = T),2), nsmall=2),
-                heapTotalAvgMB = format(round(mean(`heapTotalAfterDrawing (MB)`, na.rm = T),2), nsmall=2)) %>%
-      rename("Pavlovia session ID" = "participant")
+      filter(!is.na(staircaseName)) %>% 
+      select(participant,
+             `heapTotalAfterDrawing (MB)`,
+             `heapLimitAfterDrawing (MB)`,
+             deviceMemoryGB,
+             mustTrackSec)
   }
-
+  
+  NQuestTrials <- stairs %>%
+    arrange(participant, staircaseName) %>%
+    group_by(participant, staircaseName) %>%
+    summarize(goodTrials = sum(trialGivenToQuest,na.rm = T),
+              badTrials = sum(!trialGivenToQuest,na.rm = T)) %>% 
+    ungroup() %>% 
+    group_by(participant) %>% 
+    summarize(goodTrials = format(round(mean(goodTrials),2),nsmall=2),
+              badTrials = format(round(mean(badTrials),2),nsmall=2))
+  
+  params <- params %>% 
+    group_by(participant,
+             `heapLimitAfterDrawing (MB)`,
+             deviceMemoryGB) %>% 
+    summarize(mustTrackSec = format(round(mean(mustTrackSec, na.rm = T),2), nsmall=2),
+              heapTotalAvgMB = format(round(mean(`heapTotalAfterDrawing (MB)`, na.rm = T),2), nsmall=2)) %>%
+    left_join(NQuestTrials, by = 'participant') %>% 
+    rename("Pavlovia session ID" = "participant")
+  
   webGL <- get_webGL(data_list) %>% rename("Pavlovia session ID" = "participant")
 
   for (i in 1 : length(data_list)) {
@@ -276,7 +292,7 @@ generate_summary_table <- function(data_list){
         if (nrow(info) > 0) {
           info <- info %>% tail(1)
         } else {
-          info <- tibble(block = NA,
+          info <- tibble(block = 0,
                          block_condition = NA, 
                          conditionName = NA, 
                          targetTask = NA, 
@@ -381,22 +397,25 @@ generate_summary_table <- function(data_list){
            'comment' = 'questionAndAnswerResponse') %>% 
     distinct(`Prolific participant ID`, `Pavlovia session ID`, prolificSessionID, `device type`, system,
              browser, resolution, QRConnect, date, ok, unmetNeeds, error, warning, computer51Deg, cores, tardyMs,
-             excessMs, KB, rows, cols, `block condition`, trial, `condition name`,
+             excessMs, KB, rows, cols, block, `block condition`, trial, `condition name`,
              `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, comment)
   
   #### order block_condition by splitting and order block and condition order ####
   summary_df <- summary_df %>% 
-    mutate(block = as.numeric(unlist(lapply(summary_df$`block condition`, 
-                                            FUN = function(x){unlist(str_split(x, "[_]"))[1]}))),
-           condition = as.numeric(unlist(lapply(summary_df$`block condition`, 
-                                                FUN = function(x){unlist(str_split(x, "[_]"))[2]}))))
+    mutate(block_new = as.numeric(unlist(lapply(summary_df$`block condition`, 
+                                                FUN = function(x){unlist(str_split(x, "[_]"))[1]}))),
+      condition = as.numeric(unlist(lapply(summary_df$`block condition`, 
+                                                FUN = function(x){unlist(str_split(x, "[_]"))[2]})))) %>% 
+    group_by(`Pavlovia session ID`, `block condition`, block) %>% 
+    mutate(block = max(block, block_new, na.rm = T)) %>% 
+    ungroup()
   block_condition_order <- summary_df %>%
     distinct(block, condition) %>%
     arrange(block, condition) %>%
     mutate(order = row_number())
   summary_df <- summary_df %>%
     left_join(block_condition_order, by = c("block", "condition")) %>%
-    select(-block, -condition) %>% 
+    select(-`block condition`) %>% 
     mutate(`threshold parameter` = as.character(`threshold parameter`)) %>% 
     left_join(logFont, by = 'Pavlovia session ID') %>% 
     left_join(webGL, by = 'Pavlovia session ID') %>% 
@@ -423,7 +442,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 infoFiltered =  "(filtered from _MAX_ entries)"
               ),
               columnDefs = list(
-                list(visible = FALSE, targets = c(0, 51)),
+                list(visible = FALSE, targets = c(0, 52)),
                 list(orderData = 36, targets = 23),
                 list(
                   targets = c(15),
@@ -448,7 +467,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   )
                 ),
                 list(
-                  targets = c(29),
+                  targets = c(30),
                   width = '50px',
                   className = 'computer51Deg',
                   render = JS(
@@ -459,7 +478,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   )
                 ),
                 list(
-                  targets = c(30),
+                  targets = c(31),
                   width = '50px',
                   className = 'loudspeakerSurvey',
                   render = JS(
@@ -470,7 +489,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   )
                 ),
                 list(
-                  targets = c(31),
+                  targets = c(32),
                   width = '50px',
                   className = 'microphoneSurvey',
                   render = JS(
@@ -517,7 +536,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 ),
                 list(
                   width = '20px',
-                  targets = c(8:14, 17:28, 32:34, 36:50),
+                  targets = c(8:14, 17:28, 33:50),
                   className = 'dt-center'
                 ),
                 list(padding = '0px', targets = c(0:50))

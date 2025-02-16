@@ -12,11 +12,11 @@ find_prolific_from_files <- function(file) {
       prolificDT <- foreach(u=1:length(all_csv), .combine = 'rbind') %do% {
         prolific <- read_prolific(unzip(file_list[k], all_csv[u]))
       }
-      
-      return(prolificDT)
+    }
+    if (grepl('prolific', file$name[k])) {
+      prolificDT <- read_prolific(file_list[k])
     }
   }
-  print('done find prolific')
   return(prolificDT)
 }
 
@@ -26,6 +26,12 @@ read_prolific <- function(fileProlific) {
   if ('Participant.id' %in% names(t) & 'Submission.id' %in% names(t)) {
     t <- t %>% select(`Participant.id`, `Submission.id`, Status, `Completion.code`,
                       `Time.taken`, Age, Sex, Nationality) %>% 
+      mutate(Sex = case_when(Sex == 'Female' ~ 'F',
+                             Sex == 'Male' ~ 'M',
+                             Sex == 'CONSENT_REVOKED' ~ '',
+                             .default = ''),
+             Age = ifelse(Age == 'CONSENT_REVOKED', '', Age),
+             Nationality = ifelse(Nationality == 'CONSENT_REVOKED', '', Nationality)) %>% 
       rename("prolificSessionID" = "Submission.id",
              "Prolific participant ID" = "Participant.id",
              "ProlificStatus" = "Status",
@@ -48,7 +54,6 @@ read_prolific <- function(fileProlific) {
 
 combineProlific <- function(prolificData, summary_table){
   print('inside combineProlific')
-  print(prolificData)
   if (is.null(prolificData) | nrow(prolificData) == 0) {
     t <- summary_table %>% mutate(ProlificStatus= ' ',
                                   prolificMin = NaN,
@@ -112,7 +117,7 @@ combineProlific <- function(prolificData, summary_table){
     distinct(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
              `device type`, system,browser, resolution, `Phone QR connect`, date, `Prolific min`,
              `Prolific status`,`Completion code`, ok, unmetNeeds, error, warning, cores,
-             `Lateness ms`, `Duration ms`, KB, rows, cols,`block condition`, trial, `condition name`,
+             `Lateness ms`, `Duration ms`, KB, rows, cols,block,condition, trial, `condition name`,
              `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
              Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
              fontMaxPx, viewingDistanceCm, fontRenderMaxPx, heapLimitAfterDrawing, heapTotalAvgMB,

@@ -16,7 +16,6 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   }
   
   NQuestTrials <- stairs %>%
-    # Order since trials were randomized
     arrange(participant, staircaseName) %>%
     group_by(participant, staircaseName, thresholdParameter) %>%
     summarize(questTrials = sum(trialGivenToQuest,na.rm = T)) %>% 
@@ -87,19 +86,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   } else {
     basicExclude <- tibble(lowerCaseParticipant = '')
   }
- 
-  # URGENT. ENHANCE EXCLUSION 2. The English data set requires more selective exclusion, 
-  # e.g. skipping acuity and crowding, or skipping peripheral data. I added six new columns to Sarah’s pretest file.
-  # Exclude-acuity
-  # Exclude-crowding
-  # Exclude-peripheral
-  # Exclude-repeated
-  # Exclude-ordinary
-  # The column name consists of “Exclude-” followed by a keyword. 
-  # That means that we exclude all conditions that have the keyword in conditionName. 
-  # I’m attaching the pretest file. It assumes that step 1 has already been implemented, so an empty cell means FALSE.
-  
-  
+
   reading <- tibble()
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>% 

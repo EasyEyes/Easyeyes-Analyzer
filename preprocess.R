@@ -168,7 +168,7 @@ read_files <- function(file){
           t$experimentCompleteBool <- FALSE
         }
         if (!('block' %in% colnames(t))) {
-          t$block <- NA
+          t$block <- 0
         }
         if (!('conditionName' %in% colnames(t))) {
           t$conditionName <- ""
@@ -324,6 +324,21 @@ read_files <- function(file){
                                                                            str_split(deviceBrowserVersion, "[.]")[[1]][1])),
                           resolution = paste0(screenWidthPx, " x ", screenHeightPx),
                           block_condition = ifelse(block_condition == "",staircaseName, block_condition))
+        # fill block column
+        first_non_na <- which(!is.na(t$block))[1]
+        if (!is.na(first_non_na)) {
+          t$block[1:(first_non_na - 1)] <- 0
+          for (i in first_non_na:length(t$block)) {
+            if (is.na(t$block[i])) {
+              block[i] <- current_value
+            } else {
+              current_value <- t$block[i]
+            }
+          }
+        }
+        if (is.na(first_non_na) & length(t$block) > 0) {
+          t$block <- 0
+        }
         t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
         t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
         if (is.na(t$psychojsWindowDimensions[1])) {
@@ -509,7 +524,7 @@ read_files <- function(file){
             t$experimentCompleteBool <- FALSE
           }
           if (!('block' %in% colnames(t))) {
-            t$block <- NA
+            t$block <- 0
           }
           if (!('conditionName' %in% colnames(t))) {
             t$conditionName <- ""
@@ -668,6 +683,21 @@ read_files <- function(file){
                                                                              str_split(deviceBrowserVersion, "[.]")[[1]][1])),
                             resolution = paste0(screenWidthPx, " x ", screenHeightPx),
                             block_condition = ifelse(block_condition == "",staircaseName, block_condition))
+          # fill block column
+          first_non_na <- which(!is.na(t$block))[1]
+          if (!is.na(first_non_na)) {
+            t$block[1:(first_non_na - 1)] <- 0
+            for (i in first_non_na:length(t$block)) {
+              if (is.na(t$block[i])) {
+                block[i] <- current_value
+              } else {
+                current_value <- t$block[i]
+              }
+            }
+          }
+          if (is.na(first_non_na) & length(t$block) > 0) {
+          t$block <- 0
+          }
           t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
           t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
           

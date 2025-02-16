@@ -179,7 +179,7 @@ shinyServer(function(input, output, session) {
   #### reactive dataframes ####
   
   summary_table <- reactive({
-    generate_summary_table(files()$data_list)
+    generate_summary_table(files()$data_list, files()$stairs)
   })
   
   threshold_and_warnings <- reactive({
@@ -3705,7 +3705,12 @@ timingHistograms <- reactive({
       )
     },
     content = function(filename) {
-      openxlsx::write.xlsx(summary_table() %>% select(-order), file = filename)
+      if (!is.null(prolific())) {
+        combinedTable <- combineProlific(prolific(), summary_table())[[1]]
+      } else{
+        combinedTable <- combineProlific(NULL, summary_table())[[1]]
+      }
+      openxlsx::write.xlsx(combinedTable %>% select(-order), file = filename)
     }
   )
   
