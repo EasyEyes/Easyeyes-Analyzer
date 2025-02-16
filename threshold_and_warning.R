@@ -142,8 +142,11 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
   } %>% 
-    filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
-    inner_join(NQuestTrials, by = c('participant', 'block_condition'))
+    filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
+  print(all_summary)
+  all_summary <- all_summary %>% 
+    left_join(NQuestTrials, by = c('participant', 'block_condition'))
+  
   
   if (nrow(pretest) > 0) {
     if ('Include' %in% names(pretest)) {
@@ -576,7 +579,6 @@ reading <- rbind(reading, t)
       parameter = "word per minute") %>% 
     mutate(conditionName = as.character(conditionName))
   
-  print(df)
   df <- df %>%
     rename(pavloviaSessionID = participant,
            participantID = ParticipantCode) %>% 

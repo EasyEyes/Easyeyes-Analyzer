@@ -113,7 +113,6 @@ combineProlific <- function(prolificData, summary_table, pretest){
              viewingDistanceCm = '',
              fontRenderMaxPx = '')
   } 
-  print(pretest)
   if( nrow(pretest) == 0){
     pretest <- tibble(participant = t$`Pavlovia session ID`,
                       `Participant ID` = '')
