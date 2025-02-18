@@ -16,13 +16,12 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   }
   
   NQuestTrials <- stairs %>%
-    # Order since trials were randomized
     arrange(participant, staircaseName) %>%
     group_by(participant, staircaseName, thresholdParameter) %>%
     summarize(questTrials = sum(trialGivenToQuest,na.rm = T)) %>% 
     filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | questTrials >= minNQuestTrials) %>% 
     mutate(block_condition = as.character(staircaseName)) %>% 
-    distinct(participant, block_condition)
+    distinct(participant, block_condition, questTrials)
 
   # I think we should merge the reading data and threshold data with the Grade and Skilled reader column
   # in pretest data here so that we don't need to merge it every time we want to use the pretest data.
@@ -87,19 +86,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   } else {
     basicExclude <- tibble(lowerCaseParticipant = '')
   }
- 
-  # URGENT. ENHANCE EXCLUSION 2. The English data set requires more selective exclusion, 
-  # e.g. skipping acuity and crowding, or skipping peripheral data. I added six new columns to Sarah’s pretest file.
-  # Exclude-acuity
-  # Exclude-crowding
-  # Exclude-peripheral
-  # Exclude-repeated
-  # Exclude-ordinary
-  # The column name consists of “Exclude-” followed by a keyword. 
-  # That means that we exclude all conditions that have the keyword in conditionName. 
-  # I’m attaching the pretest file. It assumes that step 1 has already been implemented, so an empty cell means FALSE.
-  
-  
+
   reading <- tibble()
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>% 
@@ -155,8 +142,11 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
   } %>% 
-    filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
-    inner_join(NQuestTrials, by = c('participant', 'block_condition'))
+    filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
+  print(all_summary)
+  all_summary <- all_summary %>% 
+    left_join(NQuestTrials, by = c('participant', 'block_condition'))
+  
   
   if (nrow(pretest) > 0) {
     if ('Include' %in% names(pretest)) {
@@ -268,7 +258,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       select(-lowerCaseParticipant)
   }
   quest <- all_summary %>% 
-    select(participant, block, block_condition, conditionName, font, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode, order) %>% 
+    select(participant, block, block_condition, conditionName, font, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode, questTrials, order) %>% 
     left_join(eccentricityDeg, by = c('participant', 'block_condition', 'conditionName', 'order'))
   
   if (nrow(pretest) > 0) {
@@ -589,7 +579,6 @@ reading <- rbind(reading, t)
       parameter = "word per minute") %>% 
     mutate(conditionName = as.character(conditionName))
   
-  print(df)
   df <- df %>%
     rename(pavloviaSessionID = participant,
            participantID = ParticipantCode) %>% 

@@ -38,6 +38,10 @@ read_files <- function(file){
         if (!'ParticipantCode' %in% names(pretest)) {
           pretest$ParticipantCode = pretest$participant
         }
+        if ('participantID' %in% names(pretest)) {
+          pretest$ParticipantCode = pretest$participantID
+        }
+        pretest$`Participant ID` = pretest$ParticipantCode
       }
       
       if ('ID' %in% names(pretest)) {
@@ -168,7 +172,7 @@ read_files <- function(file){
           t$experimentCompleteBool <- FALSE
         }
         if (!('block' %in% colnames(t))) {
-          t$block <- NA
+          t$block <- 0
         }
         if (!('conditionName' %in% colnames(t))) {
           t$conditionName <- ""
@@ -324,6 +328,21 @@ read_files <- function(file){
                                                                            str_split(deviceBrowserVersion, "[.]")[[1]][1])),
                           resolution = paste0(screenWidthPx, " x ", screenHeightPx),
                           block_condition = ifelse(block_condition == "",staircaseName, block_condition))
+        # fill block column
+        first_non_na <- which(!is.na(t$block))[1]
+        if (!is.na(first_non_na)) {
+          t$block[1:(first_non_na - 1)] <- 0
+          for (i in first_non_na:length(t$block)) {
+            if (is.na(t$block[i])) {
+              t$block[i] <- current_value
+            } else {
+              current_value <- t$block[i]
+            }
+          }
+        }
+        if (is.na(first_non_na) & length(t$block) > 0) {
+          t$block <- 0
+        }
         t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
         t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
         if (is.na(t$psychojsWindowDimensions[1])) {
@@ -388,9 +407,12 @@ read_files <- function(file){
       all_pretest <- file_names[grepl("pretest", file_names)]
       all_pretest <- all_pretest[!grepl("__MACOSX", all_pretest)]
       m <- length(all_csv)
+      tmp <- tempdir()
+      unzip(file_list[i], exdir = tmp)
       for (k in 1 : m) {
         t <- tibble()
-        try({t <- readr::read_csv(unzip(file_list[i], all_csv[k]),show_col_types = FALSE)}, silent = TRUE)
+        file_path <- file.path(tmp,all_csv[k])
+        try({t <- readr::read_csv(file_path,show_col_types = FALSE)}, silent = TRUE)
         if (!'Submission id' %in% names(t)) {
           if (!('participant' %in% colnames(t))) {
             fileName <- all_csv[k]
@@ -404,7 +426,7 @@ read_files <- function(file){
             t$cols <- ncol(t)
             t$rows <- ifelse(nrow(t) == 0, 0, nrow(t) + 1)
           }
-          inf <- file.info(unzip(file_list[i], all_csv[k]))
+          inf <- file.info(file_path)
           t$kb <-round(inf$size/1024)
           if (!('ProlificParticipantID' %in% colnames(t))) {
             t$ProlificParticipantID <- ""
@@ -509,7 +531,7 @@ read_files <- function(file){
             t$experimentCompleteBool <- FALSE
           }
           if (!('block' %in% colnames(t))) {
-            t$block <- NA
+            t$block <- 0
           }
           if (!('conditionName' %in% colnames(t))) {
             t$conditionName <- ""
@@ -668,6 +690,21 @@ read_files <- function(file){
                                                                              str_split(deviceBrowserVersion, "[.]")[[1]][1])),
                             resolution = paste0(screenWidthPx, " x ", screenHeightPx),
                             block_condition = ifelse(block_condition == "",staircaseName, block_condition))
+          # fill block column
+          first_non_na <- which(!is.na(t$block))[1]
+          if (!is.na(first_non_na)) {
+            t$block[1:(first_non_na - 1)] <- 0
+            for (i in first_non_na:length(t$block)) {
+              if (is.na(t$block[i])) {
+                t$block[i] <- current_value
+              } else {
+                current_value <- t$block[i]
+              }
+            }
+          }
+          if (is.na(first_non_na) & length(t$block) > 0) {
+          t$block <- 0
+          }
           t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
           t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
           
@@ -726,12 +763,13 @@ read_files <- function(file){
         }
       }
       if (length(all_pretest) > 0) {
+        file_path = file.path(tmp,all_pretest[1] )
         if (grepl("pretest.xlsx", all_pretest[1])) {
-          pretest <- readxl::read_xlsx(unzip(file_list[i], all_pretest[1]))
+          pretest <- readxl::read_xlsx(file_path)
         } 
-        # else {
-        #   pretest <- readr::read_csv(unzip(file_list[i], all_pretest[1]),show_col_types = FALSE)
-        # }
+        else {
+          pretest <- readr::read_csv(file_path,show_col_types = FALSE)
+        }
        
         if ('PavloviaSessionID' %in% names(pretest)) {
           pretest <- pretest %>% 
@@ -744,6 +782,10 @@ read_files <- function(file){
           if (!'ParticipantCode' %in% names(pretest)) {
             pretest$ParticipantCode = pretest$participant
           }
+          if ('participantID' %in% names(pretest)) {
+            pretest$ParticipantCode = pretest$participantID
+          }
+          pretest$`Participant ID` = pretest$ParticipantCode
         }
         if ('ID' %in% names(pretest)) {
           pretest <- pretest %>% 

@@ -92,9 +92,7 @@ get_quest_sd_vs_trials <- function(quest) {
   }
   
   quest <- quest %>%
-    group_by(participant, questType) %>%
-    mutate(questTrials = row_number()) %>%
-    group_by(questType) %>%
+    group_by(questType) %>% 
     mutate(N = paste0('N=', n())) %>%
     drop_na(questTrials, questSDAtEndOfTrialsLoop, Grade) %>%
     mutate(Grade = as.character(Grade))
@@ -120,7 +118,7 @@ get_quest_sd_vs_trials <- function(quest) {
   } else {
     p <- p +
       geom_point(aes(shape = `Skilled reader?`), size = 3) +
-      scale_shape_manual(values = c(4, 19,1))
+      scale_shape_manual(values = c(4, 19, 1))
   }
   
   return(p)

@@ -85,8 +85,6 @@ get_measured_distance_data <- function(data_list) {
              calibrateTrackDistanceMeasuredCm != '',
              calibrateTrackDistanceRequestedCm != '')
     
-    #print("Before cleaning:")
-    #print(t)
     
     if (nrow(t) > 0) {
       # Convert JSON-like lists into strings and remove extra characters
@@ -104,9 +102,6 @@ get_measured_distance_data <- function(data_list) {
           calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list))
         ) %>%
         select(-measured_list, -requested_list)  # Remove temp lists
-      
-      #print("After cleaning:")
-      #print(t)
       
       df <- rbind(t, df)
     }
@@ -149,8 +144,7 @@ get_measured_distance_data <- function(data_list) {
 plot_distance <- function(data_list) {
   print('inside plot_distance')
   distance <- get_measured_distance_data(data_list)
-  print(distance)
-  
+
   # Check if the data is empty
   if (nrow(distance) == 0) {
     print("Error: Empty dataset returned from get_measured_distance_data()")
@@ -179,8 +173,7 @@ plot_distance <- function(data_list) {
   
   # Perform regression
   fit <- lm(log10(calibrateTrackDistanceMeasuredCm) ~ log10(calibrateTrackDistanceRequestedCm), data = distance)
-  print(fit)
-  
+
   # Calculate slope and correlation
   slope <- coef(fit)
   slope <- format(round(slope[['log10(calibrateTrackDistanceRequestedCm)']], 2), nsmall=2)

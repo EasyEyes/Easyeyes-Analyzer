@@ -60,8 +60,7 @@ get_crowding_hist <- function(crowding) {
       ) +
       labs(x = 'Log foveal crowding (deg)',
            y = 'Count',
-           title ='Histogram of foveal\ncrowding',
-           subtitle = "Geometric average of left \nand right thresholds") + 
+           title ='Histogram of foveal\ncrowding') + 
       theme(
         plot.title = element_text(size = rel(0.5)),  # Scale down title size
         axis.title = element_text(size = rel(0.5)),  # Scale down axis title size
@@ -92,7 +91,8 @@ get_crowding_hist <- function(crowding) {
    ) + 
     labs(x = 'Log peripheral crowding (deg)',
          y = 'Count',
-         title ='Histogram of peripheral\ncrowding')
+         title ='Histogram of peripheral\ncrowding',
+         caption = 'Geometric average of the left and right thresholds')
  } else {
    p2 <- NULL
  }

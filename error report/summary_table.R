@@ -4,9 +4,9 @@ source('./other/utility.R')
 # Each time update the summary table, the rmd report need to be updated accordingly.
 
 data_table_call_back = "
-  table.column(29).nodes().to$().css({cursor: 'pointer'});
+  table.column(31).nodes().to$().css({cursor: 'pointer'});
     var format8 = function(d) {
-      return '<p>' + d[29] + '</p>';
+      return '<p>' + d[31] + '</p>';
     };
     table.on('click', 'td.computer51Deg', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -17,9 +17,9 @@ data_table_call_back = "
       }
     });
     
-    table.column(15).nodes().to$().css({cursor: 'pointer'});
+    table.column(16).nodes().to$().css({cursor: 'pointer'});
     var format1 = function(d) {
-      return '<p>' + d[15] + '</p>';
+      return '<p>' + d[16] + '</p>';
     };
     table.on('click', 'td.errorC-control', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -30,9 +30,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(16).nodes().to$().css({cursor: 'pointer'});
+    table.column(17).nodes().to$().css({cursor: 'pointer'});
     var format2 = function(d) {
-      return '<p>' + d[16] + '</p>';
+      return '<p>' + d[17] + '</p>';
     };
     table.on('click', 'td.warnC-control', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -43,9 +43,9 @@ data_table_call_back = "
       }
     });
     
-    table.column(30).nodes().to$().css({cursor: 'pointer'});
+    table.column(32).nodes().to$().css({cursor: 'pointer'});
     var format6 = function(d) {
-      return '<p>' + d[30] + '</p>';
+      return '<p>' + d[32] + '</p>';
     };
     table.on('click', 'td.loudspeakerSurvey', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -56,9 +56,9 @@ data_table_call_back = "
       }
     });
     
-    table.column(31).nodes().to$().css({cursor: 'pointer'});
+    table.column(33).nodes().to$().css({cursor: 'pointer'});
     var format5 = function(d) {
-      return '<p>' + d[31] + '</p>';
+      return '<p>' + d[33] + '</p>';
     };
     table.on('click', 'td.microphoneSurvey', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -70,12 +70,12 @@ data_table_call_back = "
       }
     });
 
-    table.column(1).nodes().to$().css({cursor: 'pointer'});
     table.column(2).nodes().to$().css({cursor: 'pointer'});
     table.column(3).nodes().to$().css({cursor: 'pointer'});
+    table.column(4).nodes().to$().css({cursor: 'pointer'});
     
     var format3 = function(d) {
-    return '<p>' + d[1] + '</p> <p>' + d[2]+  '</p> <p>' + d[3] + '</p>';
+    return '<p>' + d[2] + '</p> <p>' + d[3]+  '</p> <p>' + d[4] + '</p>';
     };
     
     
@@ -131,8 +131,8 @@ get_lateness_and_duration <- function(all_files){
               targetMeasuredDurationMeanSec = mean(targetMeasuredDurationSec - targetDurationSec, na.rm = TRUE) * 1000,
               targetMeasuredDurationSDSec = sd(targetMeasuredDurationSec - targetDurationSec, na.rm = TRUE) * 1000,
               .groups = "keep") %>% 
-    mutate(tardyMs = format(round(targetMeasuredLatenessMeanSec,2), nsmall=2),
-           excessMs = format(round(targetMeasuredDurationMeanSec,2),nsmall=2)) %>% 
+    mutate(tardyMs = round(targetMeasuredLatenessMeanSec),
+           excessMs = round(targetMeasuredDurationMeanSec)) %>% 
     select(-targetMeasuredLatenessMeanSec,
            -targetMeasuredLatenessSDSec,
            -targetMeasuredDurationMeanSec,
@@ -144,21 +144,37 @@ get_lateness_and_duration <- function(all_files){
   return(t)
 }
 
-generate_summary_table <- function(data_list){
+generate_summary_table <- function(data_list, stairs){
   all_files <- tibble()
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
-      filter(!is.na(staircaseName) & !is.na(`heapLimitAfterDrawing (MB)`)) %>%
-      group_by(participant,
-               `heapLimitAfterDrawing (MB)`,
-               deviceMemoryGB) %>% 
-      summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
-                badTrials = sum(!trialGivenToQuest, na.rm =T),
-                mustTrackSec = format(round(mean(mustTrackSec, na.rm = T),2), nsmall=2),
-                heapTotalAvgMB = format(round(mean(`heapTotalAfterDrawing (MB)`, na.rm = T),2), nsmall=2)) %>%
-      rename("Pavlovia session ID" = "participant")
+      filter(!is.na(staircaseName)) %>% 
+      select(participant,
+             `heapTotalAfterDrawing (MB)`,
+             `heapLimitAfterDrawing (MB)`,
+             deviceMemoryGB,
+             mustTrackSec)
   }
-
+  
+  NQuestTrials <- stairs %>%
+    arrange(participant, staircaseName) %>%
+    group_by(participant, staircaseName) %>%
+    summarize(goodTrials = sum(trialGivenToQuest,na.rm = T),
+              badTrials = sum(!trialGivenToQuest,na.rm = T)) %>% 
+    ungroup() %>% 
+    group_by(participant) %>% 
+    summarize(goodTrials = format(round(mean(goodTrials),2),nsmall=2),
+              badTrials = format(round(mean(badTrials),2),nsmall=2))
+  
+  params <- params %>% 
+    group_by(participant,
+             `heapLimitAfterDrawing (MB)`,
+             deviceMemoryGB) %>% 
+    summarize(mustTrackSec = format(round(mean(mustTrackSec, na.rm = T),2), nsmall=2),
+              heapTotalAvgMB = format(round(mean(`heapTotalAfterDrawing (MB)`, na.rm = T),2), nsmall=2)) %>%
+    left_join(NQuestTrials, by = 'participant') %>% 
+    rename("Pavlovia session ID" = "participant")
+  
   webGL <- get_webGL(data_list) %>% rename("Pavlovia session ID" = "participant")
 
   for (i in 1 : length(data_list)) {
@@ -276,7 +292,7 @@ generate_summary_table <- function(data_list){
         if (nrow(info) > 0) {
           info <- info %>% tail(1)
         } else {
-          info <- tibble(block = NA,
+          info <- tibble(block = 0,
                          block_condition = NA, 
                          conditionName = NA, 
                          targetTask = NA, 
@@ -328,7 +344,7 @@ generate_summary_table <- function(data_list){
                  targetTask, targetKind, thresholdParameter) %>% 
         dplyr::filter(block_condition != "") %>% 
         tail(1)
-      print(info)
+
       if (nrow(t) == nrow(info)) {
         t <- cbind(t, info)
       } else {
@@ -381,22 +397,25 @@ generate_summary_table <- function(data_list){
            'comment' = 'questionAndAnswerResponse') %>% 
     distinct(`Prolific participant ID`, `Pavlovia session ID`, prolificSessionID, `device type`, system,
              browser, resolution, QRConnect, date, ok, unmetNeeds, error, warning, computer51Deg, cores, tardyMs,
-             excessMs, KB, rows, cols, `block condition`, trial, `condition name`,
+             excessMs, KB, rows, cols, block, `block condition`, trial, `condition name`,
              `target task`, `threshold parameter`, `target kind`, Loudspeaker, Microphone, comment)
   
   #### order block_condition by splitting and order block and condition order ####
   summary_df <- summary_df %>% 
-    mutate(block = as.numeric(unlist(lapply(summary_df$`block condition`, 
-                                            FUN = function(x){unlist(str_split(x, "[_]"))[1]}))),
-           condition = as.numeric(unlist(lapply(summary_df$`block condition`, 
-                                                FUN = function(x){unlist(str_split(x, "[_]"))[2]}))))
+    mutate(block_new = as.numeric(unlist(lapply(summary_df$`block condition`, 
+                                                FUN = function(x){unlist(str_split(x, "[_]"))[1]}))),
+      condition = as.numeric(unlist(lapply(summary_df$`block condition`, 
+                                                FUN = function(x){unlist(str_split(x, "[_]"))[2]})))) %>% 
+    group_by(`Pavlovia session ID`, `block condition`, block) %>% 
+    mutate(block = max(block, block_new, na.rm = T)) %>% 
+    ungroup()
   block_condition_order <- summary_df %>%
     distinct(block, condition) %>%
     arrange(block, condition) %>%
     mutate(order = row_number())
   summary_df <- summary_df %>%
     left_join(block_condition_order, by = c("block", "condition")) %>%
-    select(-block, -condition) %>% 
+    select(-`block condition`) %>% 
     mutate(`threshold parameter` = as.character(`threshold parameter`)) %>% 
     left_join(logFont, by = 'Pavlovia session ID') %>% 
     left_join(webGL, by = 'Pavlovia session ID') %>% 
@@ -423,10 +442,9 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 infoFiltered =  "(filtered from _MAX_ entries)"
               ),
               columnDefs = list(
-                list(visible = FALSE, targets = c(0, 51)),
-                list(orderData = 36, targets = 23),
+                list(visible = FALSE, targets = c(0, 53)),
                 list(
-                  targets = c(15),
+                  targets = c(16),
                   width = '100px',
                   className = 'errorC-control',
                   render = JS(
@@ -437,7 +455,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   )
                 ),
                 list(
-                  targets = c(16),
+                  targets = c(17),
                   width = '100px',
                   className = 'warnC-control',
                   render = JS(
@@ -448,7 +466,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   )
                 ),
                 list(
-                  targets = c(29),
+                  targets = c(31),
                   width = '50px',
                   className = 'computer51Deg',
                   render = JS(
@@ -459,7 +477,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   )
                 ),
                 list(
-                  targets = c(30),
+                  targets = c(32),
                   width = '50px',
                   className = 'loudspeakerSurvey',
                   render = JS(
@@ -470,7 +488,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   )
                 ),
                 list(
-                  targets = c(31),
+                  targets = c(33),
                   width = '50px',
                   className = 'microphoneSurvey',
                   render = JS(
@@ -481,7 +499,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   )
                 ),
                 list(
-                  targets = c(1),
+                  targets = c(2),
                   render = JS(
                     "function(data, type, row, meta) {",
                     "return type === 'display' && data && data.length > 6 ?",
@@ -491,7 +509,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   className = 'information-control1'
                 ),
                 list(
-                  targets = c(2),
+                  targets = c(3),
                   render = JS(
                     "function(data, type, row, meta) {",
                     "return type === 'display' && data && data.length > 6 ?",
@@ -501,7 +519,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   className = 'information-control2'
                 ),
                 list(
-                  targets = c(3),
+                  targets = c(4),
                   render = JS(
                     "function(data, type, row, meta) {",
                     "return type === 'display' && data && data.length > 6 ?",
@@ -512,15 +530,15 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 ),
                 list(
                   width = '50px',
-                  targets = c(7),
+                  targets = c(8),
                   className = 'dt-center'
                 ),
                 list(
                   width = '20px',
-                  targets = c(8:14, 17:28, 32:34, 36:50),
+                  padding = '0px',
+                  targets = c(9:15, 18:29, 34:52),
                   className = 'dt-center'
-                ),
-                list(padding = '0px', targets = c(0:50))
+                )
               )
             ),
             callback = JS(data_table_call_back)) %>% 

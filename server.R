@@ -194,7 +194,7 @@ shinyServer(function(input, output, session) {
   #### reactive dataframes ####
   
   summary_table <- reactive({
-    generate_summary_table(files()$data_list)
+    generate_summary_table(files()$data_list, files()$stairs)
   })
   
   threshold_and_warnings <- reactive({
@@ -3533,9 +3533,9 @@ timingHistograms <- reactive({
                  output$instruction <- renderText(instruction)
                  output$experiment <- renderText(experiment_names())
                  if (!is.null(prolific())) {
-                   combinedTable <- combineProlific(prolific(), summary_table())[[1]]
+                   combinedTable <- combineProlific(prolific(), summary_table(), files()$pretest)[[1]]
                  } else{
-                   combinedTable <- combineProlific(NULL, summary_table())[[1]]
+                   combinedTable <- combineProlific(NULL, summary_table(), files()$pretest)[[1]]
                  }
 
                  participants <-
@@ -3620,36 +3620,81 @@ timingHistograms <- reactive({
       owd <- setwd(tempdir())
       on.exit(setwd(owd))
       fileNames = c()
-      ggsave(
-        paste0("correlation-matrix.", input$fileType),
-        plot =  corrMatrix()$plot,
-        width = corrMatrix()$width,
-        height = corrMatrix()$height,
-        unit = "in",
-        limitsize = F,
-        device = input$fileType
-      )
+      if (input$fileType == "png") {
+        ggsave(
+          "tmp.svg",
+          plot =  corrMatrix()$plot,
+          width = corrMatrix()$width,
+          height = corrMatrix()$height,
+          unit = "in",
+          limitsize = F,
+          device = svglite
+        )
+        rsvg::rsvg_png("tmp.svg",  paste0("correlation-matrix.", input$fileType),
+                       height = 1800,
+                       width = 1800)
+        ggsave(
+          'tmp.svg',
+          plot =  durationCorrMatrix()$plot,
+          width = durationCorrMatrix()$width,
+          height = durationCorrMatrix()$height,
+          unit = "in",
+          limitsize = F,
+          device = svglite
+        )
+        rsvg::rsvg_png("tmp.svg",   paste0("duration-correlation-matrix.", input$fileType),
+                       height = 1800,
+                       width = 1800)
+      } else {
+        ggsave(
+          paste0("correlation-matrix.", input$fileType),
+          plot =  corrMatrix()$plot,
+          width = corrMatrix()$width,
+          height = corrMatrix()$height,
+          unit = "in",
+          limitsize = F,
+          device = ifelse(
+            input$fileType == "svg",
+            svglite::svglite,
+            input$fileType
+          )
+        )
+        ggsave(
+          paste0("duration-correlation-matrix.", input$fileType),
+          plot =  durationCorrMatrix()$plot,
+          width = durationCorrMatrix()$width,
+          height = durationCorrMatrix()$height,
+          unit = "in",
+          limitsize = F,
+          device = ifelse(
+            input$fileType == "svg",
+            svglite::svglite,
+            input$fileType
+          )
+        )
+      }
       
-      ggsave(
-        paste0("duration-correlation-matrix.", input$fileType),
-        plot =  durationCorrMatrix()$plot,
-        width = durationCorrMatrix()$width,
-        height = durationCorrMatrix()$height,
-        unit = "in",
-        limitsize = F,
-        device = input$fileType
-      )
       fileNames = c(paste0("correlation-matrix.", input$fileType), paste0("duration-correlation-matrix.", input$fileType))
       
       if (length(histograms()$plotList) > 0) {
         for (i in 1:length(histograms()$plotList)) {
-          print(i)
           plotFileName =  paste0(histograms()$fileNames[[i]], '.',input$fileType)
-          ggsave(filename = plotFileName, 
-                 plot = histograms()$plotList[[i]] + plt_theme,
-                 width = 6,
-                 unit = 'in',
-                 device = input$fileType)
+          if (input$fileType == "png") {
+            ggsave('tmp.svg', 
+                   plot = histograms()$plotList[[i]] + plt_theme,
+                   width = 6,
+                   unit = 'in',
+                   device = svglite)
+            rsvg::rsvg_png("tmp.svg", plotFileName,
+                           height = 1200,
+                           width = 1200)
+          } else {
+            ggsave(filename = plotFileName, 
+                   plot = histograms()$plotList[[i]] + plt_theme,
+                   width = 6,
+                   unit = 'in',
+                   device = input$fileType)
+          }
           fileNames = c(fileNames, plotFileName)
         }
         print('done histograms')
@@ -3657,13 +3702,26 @@ timingHistograms <- reactive({
       if (length(scatterDiagrams()$plotList) > 0) {
         for (i in 1:length(scatterDiagrams()$plotList)) {
           plotFileName =  paste0(scatterDiagrams()$fileNames[[i]], '.',input$fileType)
-          ggsave(filename = plotFileName, 
-                 plot = scatterDiagrams()$plotList[[i]] +
-                   plt_theme_scatter + 
-                 scale_color_manual(values = colorPalette),
-                 width = 6,
-                 unit = 'in',
-                 device = input$fileType)
+          if (input$fileType == "png") {
+            ggsave('tmp.svg', 
+                   plot = scatterDiagrams()$plotList[[i]] +
+                     plt_theme_scatter + 
+                     scale_color_manual(values = colorPalette),
+                   width = 6,
+                   unit = 'in',
+                   device = svglite)
+            rsvg::rsvg_png("tmp.svg", plotFileName,
+                           height = 1200,
+                           width = 1200)
+          } else {
+            ggsave(filename = plotFileName, 
+                   plot = scatterDiagrams()$plotList[[i]] +
+                     plt_theme_scatter + 
+                     scale_color_manual(values = colorPalette),
+                   width = 6,
+                   unit = 'in',
+                   device = input$fileType)
+          }
           fileNames = c(fileNames, plotFileName)
         }
         print('done scatterDiagrams')
@@ -3671,11 +3729,22 @@ timingHistograms <- reactive({
       if (length(agePlots()$plotList) > 0) {
        for (i in 1:length(agePlots()$plotList)) {
          plotFileName =  paste0(agePlots()$fileNames[[i]], '.',input$fileType)
-         ggsave(filename = plotFileName, 
-                plot = agePlots()$plotList[[i]] + plt_theme,
-                width = 6,
-                unit = 'in',
-                device = input$fileType)
+         if (input$fileType == "png") {
+           ggsave('tmp.svg', 
+                  plot = agePlots()$plotList[[i]] + plt_theme,
+                  width = 6,
+                  unit = 'in',
+                  device = svglite)
+           rsvg::rsvg_png("tmp.svg", plotFileName,
+                          height = 1200,
+                          width = 1200)
+         } else {
+           ggsave(filename = plotFileName, 
+                  plot = agePlots()$plotList[[i]] + plt_theme,
+                  width = 6,
+                  unit = 'in',
+                  device = input$fileType)
+         }
          fileNames = c(fileNames, plotFileName)
        }
        print('done agePlots')
@@ -3683,11 +3752,22 @@ timingHistograms <- reactive({
       if (length(rsvpPlotlyPlots()$plotList) > 0) {
         for (i in 1:length(rsvpPlotlyPlots()$plotList)) {
           plotFileName =  paste0(rsvpPlotlyPlots()$fileNames[[i]], '.',input$fileType)
-          ggsave(filename = plotFileName, 
-                 plot = rsvpPlotlyPlots()$plotList[[i]] + plt_theme,
-                 width = 6,
-                 unit = 'in',
-                 device = input$fileType)
+          if (input$fileType == "png") {
+            ggsave('tmp.svg', 
+                   plot = rsvpPlotlyPlots()$plotList[[i]],
+                   width = 6,
+                   unit = 'in',
+                   device = svglite)
+            rsvg::rsvg_png("tmp.svg", plotFileName,
+                           height = 1200,
+                           width = 1200)
+          } else {
+            ggsave(filename = plotFileName, 
+                   plot = rsvpPlotlyPlots()$plotList[[i]],
+                   width = 6,
+                   unit = 'in',
+                   device = input$fileType)
+          }
           fileNames = c(fileNames, plotFileName)
         }
         print('done rsvpPlotlyPlots')
@@ -3696,16 +3776,26 @@ timingHistograms <- reactive({
       if (length(readingPlotlyPlots()$plotList) > 0) {
         for (i in 1:length(readingPlotlyPlots()$plotList)) {
           plotFileName =  paste0(readingPlotlyPlots()$fileNames[[i]], '.',input$fileType)
-          ggsave(filename = plotFileName, 
-                 plot = readingPlotlyPlots()$plotList[[i]] + plt_theme,
-                 width = 6,
-                 unit = 'in',
-                 device = input$fileType)
+          if (input$fileType == "png") {
+            ggsave('tmp.svg', 
+                   plot = readingPlotlyPlots()$plotList[[i]],
+                   width = 6,
+                   unit = 'in',
+                   device = svglite)
+            rsvg::rsvg_png("tmp.svg", plotFileName,
+                           height = 1200,
+                           width = 1200)
+          } else {
+            ggsave(filename = plotFileName, 
+                   plot = readingPlotlyPlots()$plotList[[i]],
+                   width = 6,
+                   unit = 'in',
+                   device = input$fileType)
+          }
           fileNames = c(fileNames, plotFileName)
         }
       }
       print('done readingPlotlyPlots')
-      print(fileNames)
       # Zip them up
       zip(file, fileNames)
     }
@@ -3720,7 +3810,12 @@ timingHistograms <- reactive({
       )
     },
     content = function(filename) {
-      openxlsx::write.xlsx(summary_table() %>% select(-order), file = filename)
+      if (!is.null(prolific())) {
+        combinedTable <- combineProlific(prolific(), summary_table(), files()$pretest)[[1]]
+      } else{
+        combinedTable <- combineProlific(NULL, summary_table(), files()$pretest)[[1]]
+      }
+      openxlsx::write.xlsx(combinedTable %>% select(-order), file = filename)
     }
   )
   
