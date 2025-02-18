@@ -1,5 +1,7 @@
 source('./other/formSpree.R')
 
+
+
 find_prolific_from_files <- function(file) {
   file_list <- file$data
   n = length(file$data)
@@ -12,13 +14,29 @@ find_prolific_from_files <- function(file) {
       prolificDT <- foreach(u=1:length(all_csv), .combine = 'rbind') %do% {
         prolific <- read_prolific(unzip(file_list[k], all_csv[u]))
       }
-      
+
+
       return(prolificDT)
     }
   }
+  
+  for (k in 1:length(file_list)) {
+    if (grepl("\\.csv$", file_list[k], ignore.case = TRUE)) {  # Check for CSV files
+      temp_data <- read_prolific(file_list[k])
+      if (nrow(temp_data) > 0) {
+        prolificDT <- bind_rows(prolificDT, temp_data)
+      } else {
+        print(paste("WARNING: Skipping empty or unreadable file:", file_list[k]))
+      }
+    }
+  }
   print('done find prolific')
+
   return(prolificDT)
 }
+
+
+
 
 read_prolific <- function(fileProlific) {
   t <- tibble()
@@ -75,8 +93,8 @@ combineProlific <- function(prolificData, summary_table){
       mutate(ProlificStatus= 'TRIED AGAIN',
              prolificMin = '',
              `Completion code` = 'TRIED AGAIN')
-    # tmp <- prolificData %>% 
-    #   filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
+     tmp <- prolificData %>% 
+       filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
     # formSpree <- tmp %>% 
     # full_join(formSpree, by = c('Prolific participant ID', 'prolificSessionID'))
 
@@ -122,3 +140,31 @@ combineProlific <- function(prolificData, summary_table){
   print('done combine prolific')
   return(list(t, formSpree))
 }
+
+
+get_prolific_file_counts <- function(prolificData, summary_table) {
+  print("DEBUG: Prolific Data Loaded")
+  print(prolificData)
+  
+  prolific_count <- if (!is.null(prolificData) && nrow(prolificData) > 0) {
+    nrow(prolificData)
+  } else {
+    0
+  }
+  
+  print(paste("DEBUG: Count of unique prolificSessionID in summary_table: ", length(unique(summary_table$prolificSessionID))))
+ # Should be 169
+  
+  formSpree_count <- 0
+  if (!is.null(prolificData) && nrow(prolificData) > 0) {
+    tmp <- prolificData %>%
+      filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
+    formSpree_count <- nrow(tmp)
+  }
+  
+  print(paste("DEBUG: Prolific Count:", prolific_count))
+  print(paste("DEBUG: FormSpree Count:", formSpree_count))
+  
+  return(list(prolific_count = prolific_count, formSpree_count = formSpree_count))
+}
+

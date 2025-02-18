@@ -101,7 +101,7 @@ sessionTab <- tabPanel(
                   Shiny.setInputValue(id + '_click', Math.random());
         "
       ),
-    textOutput("fileStatusMessage")
+    htmlOutput("fileStatusMessage")
   )),
   fixedRow(
     column(

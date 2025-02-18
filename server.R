@@ -130,13 +130,28 @@ shinyServer(function(input, output, session) {
   })
   
   # text output to show the file upload status
-  output$fileStatusMessage <- renderText({
-    t <- files()  
-    paste0(
+  # output$fileStatusMessage <- renderText({
+  #   t <- files()  
+  #   paste0(
+  #     'Analyzed ', length(t$data_list), ' sessions and ',
+  #     ifelse(nrow(t$pretest) > 0, 1, 0), ' pretest file'
+  #   )
+  # })
+  output$fileStatusMessage <- renderUI({
+    t <- files()
+    print("t$data")
+    #print(t$data)
+    prolific_counts <- get_prolific_file_counts(prolific(), summary_table())  # Call the new function
+    
+    HTML(paste0(
       'Analyzed ', length(t$data_list), ' sessions and ',
-      ifelse(nrow(t$pretest) > 0, 1, 0), ' pretest file'
-    )
+      ifelse(nrow(t$pretest) > 0, 1, 0), ' pretest file.<br>',
+      'Read ', prolific_counts$prolific_count, ' prolific records.<br>',
+      'Read ', prolific_counts$formSpree_count, ' formSpree records.'
+    ))
   })
+  
+  
   
   
   

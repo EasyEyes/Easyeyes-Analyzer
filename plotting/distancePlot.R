@@ -85,8 +85,8 @@ get_measured_distance_data <- function(data_list) {
              calibrateTrackDistanceMeasuredCm != '',
              calibrateTrackDistanceRequestedCm != '')
     
-    print("Before cleaning:")
-    print(t)
+    #print("Before cleaning:")
+    #print(t)
     
     if (nrow(t) > 0) {
       # Convert JSON-like lists into strings and remove extra characters
@@ -105,8 +105,8 @@ get_measured_distance_data <- function(data_list) {
         ) %>%
         select(-measured_list, -requested_list)  # Remove temp lists
       
-      print("After cleaning:")
-      print(t)
+      #print("After cleaning:")
+      #print(t)
       
       df <- rbind(t, df)
     }
