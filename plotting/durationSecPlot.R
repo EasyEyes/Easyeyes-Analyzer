@@ -1,5 +1,6 @@
 source('./other/utility.R')
 get_duration_data <- function(data_list) {
+  print('inside get_duration_data')
   df <- foreach(i=1:length(data_list), .combine = 'rbind') %do% {
     data_list[[i]] %>%
       select(participant, 
@@ -14,9 +15,9 @@ get_duration_data <- function(data_list) {
              fontPadding,
              targetDurationSec, 
              deviceSystemFamily) %>% 
-      mutate(fontNominalSizePx = as.numeric(fontNominalSizePx)) %>%
-      distinct() %>% 
-      filter(!is.na(fontNominalSizePx))
+      mutate(fontNominalSizePxCsv = fontNominalSizePx,
+        fontNominalSizePx = as.numeric(fontNominalSizePx)) %>%
+      distinct()
   }
   if (is.character(df$targetMeasuredDurationSec)) {
     df <- df %>%  separate_rows(targetMeasuredDurationSec,sep=',')
@@ -85,7 +86,7 @@ get_duration_corr <- function(data_list) {
     select(-order) %>% 
     left_join(webGL, by = "participant") %>% 
     left_join(summary, by = c("participant", "block")) %>% 
-    select(-participant, block)
+    select(-c(participant, block))
   
   if (is.character(params$targetMeasuredDurationSec)) {
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
@@ -180,7 +181,6 @@ plot_duraction_sec <- function(df) {
   p2 <- p2 + 
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
-    guides(color=guide_legend(ncol=2, title = '')) + 
     annotation_logticks() + 
     facet_wrap(~intervention) +
     theme_bw()+
@@ -188,6 +188,11 @@ plot_duraction_sec <- function(df) {
     labs(title = 'targetMeasuredDurationSec vs fontNominalSizePx*(1+fontPadding)\ncolored by participant',
          caption = 'Dashed lines are limits set by thresholdAllowedDurationRatio and fontMaxPx')
   
+  if(n_distinct(df$participant) <= 20) {
+    p2 <- p2 + guides(color=guide_legend(ncol=2, title = ''))
+  } else {
+    p2 <- p2 + guides(color=F)
+  }
   p3 <- ggplot() +
     geom_point(data=df, 
                aes(x= fontNominalSizePx*(1+fontPadding),
@@ -264,17 +269,22 @@ plot_Lateness_sec <- function(df) {
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
     facet_wrap(~intervention) + 
-    guides(color=guide_legend(ncol=2, title = '')) + 
     annotation_logticks() + 
     labs(title = 'targetMeasuredLatenessSec vs fontNominalSizePx*(1+fontPadding)\ncolored by participant',
          caption = 'Dashed lines are limits set by thresholdAllowedLatenessSec and fontMaxPx') +
     theme_bw()+
     plt_theme_scatter
   
+  if (n_distinct(df$participant) <= 20) {
+    p2 <- p2 + guides(color=guide_legend(ncol=2, title = ''))
+  } else {
+    p2 <- p2 + guides(color=F)
+  }
+  
   p3 <- ggplot() +
-    geom_point(data=df, aes(x=fontNominalSizePx*(1+fontPadding),
+    geom_point(data=df %>% filter(!is.na(fontPadding)), aes(x=fontNominalSizePx*(1+fontPadding),
                             y=targetMeasuredLatenessSec, 
-                            color = font))
+                            color = as.factor(fontPadding)))
   for (i in 1:nrow(bounds)) {
     p3 <- p3 + 
       geom_hline(yintercept=bounds$thresholdAllowedLatenessSec[i], linetype="dashed") + 
@@ -1193,7 +1203,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames) {
     j = j + 1
   }
   
-  if (n_distinct(params$targetMeasuredLatenessSec) > 1) {
+  if (n_distinct(params$targetMeasuredLatenessSec) > 1  & n_distinct(params$maxViewportSize) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=maxTextureSize, y=targetMeasuredLatenessSec, color = participant)) +
       geom_jitter() +
       scale_x_continuous(limits = c(min(params$maxTextureSize)-5, max(params$maxTextureSize) + 5)) +
@@ -1204,7 +1214,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames) {
     j = j + 1
   }
   
-  if (n_distinct(params$targetMeasuredLatenessSec) > 1) {
+  if (n_distinct(params$targetMeasuredLatenessSec) > 1 & n_distinct(params$maxViewportSize) > 1) {
     plot_list[[j]] <- ggplot(data=params, aes(x=maxViewportSize, y=targetMeasuredLatenessSec, color = participant)) +
       geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 

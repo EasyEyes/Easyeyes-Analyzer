@@ -185,8 +185,10 @@ plot_distance <- function(data_list) {
   max_val <- max(c(distance$calibrateTrackDistanceRequestedCm, distance$calibrateTrackDistanceMeasuredCm))
   
   # Logarithmic plot with identical scales
-  p <- ggplot(data=distance, aes(x = calibrateTrackDistanceRequestedCm, y = calibrateTrackDistanceMeasuredCm)) + 
-    geom_point() + 
+  p <- ggplot(data=distance, 
+              aes(x = calibrateTrackDistanceRequestedCm, 
+                  y = calibrateTrackDistanceMeasuredCm)) + 
+    geom_point(aes(color =participant)) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
                         label = paste0('N=', nrow(distance), '\n',
