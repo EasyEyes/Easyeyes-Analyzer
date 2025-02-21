@@ -478,7 +478,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
 
 append_hist_time <- function(data_list, plot_list, fileNames){
   print('inside get_dur_param_hist')
-  print("Data list done")
+
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
       filter(!is.na(staircaseName)) %>%
