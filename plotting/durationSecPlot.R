@@ -310,7 +310,7 @@ get_histogram_duration_lateness <- function(duration){
   if (nrow(duration) == 0) {
     return(NULL)
   }
-  p1 <- ggplot(data = duration) +  
+  p1 <- ggplot(data = duration %>% filter(!is.na(targetMeasuredDurationSec))) +  
     geom_histogram(aes(x = targetMeasuredDurationSec),color="black", fill="black") + 
     theme_bw()+
     plt_theme+
@@ -321,7 +321,7 @@ get_histogram_duration_lateness <- function(duration){
       breaks = scales::breaks_pretty(n = 5)  # Reduce number of labels shown
     ) 
   
-  p2 <- ggplot(data = duration) +  
+  p2 <- ggplot(data = duration %>% filter(!is.na(targetMeasuredLatenessSec))) +  
     geom_histogram(aes(x = targetMeasuredLatenessSec), color="black", fill="black") + 
     theme_bw() +
     plt_theme +
@@ -484,6 +484,7 @@ append_hist_time <- function(data_list, plot_list, fileNames){
       filter(!is.na(staircaseName)) %>%
       select(participant,
              block,
+             block_condition,
              targetMeasuredDurationSec,
              targetMeasuredLatenessSec,
              `heapUsedBeforeDrawing (MB)`,
@@ -516,14 +517,17 @@ append_hist_time <- function(data_list, plot_list, fileNames){
   }
   webGL <- get_webGL(data_list)
   summary <- params %>%
-    group_by(participant,computeRandomMHz, screenWidthPx, hardwareConcurrency, deviceMemoryGB) %>% 
-    summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
-              badTrials = sum(!trialGivenToQuest, na.rm =T))
+    distinct(participant,computeRandomMHz, screenWidthPx, hardwareConcurrency, deviceMemoryGB)
   
   blockAvg <- params %>% 
     group_by(participant, block) %>% 
     summarize(heapTotalAfterDrawingAvg = mean( `heapTotalAfterDrawing (MB)`, na.rm =T),
               heapUsedAfterDrawingAvg = mean( `heapUsedAfterDrawing (MB)`, na.rm =T))
+  
+  blockCondition <- params %>% 
+    group_by(participant, block_condition) %>% 
+    summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
+              badTrials = sum(!trialGivenToQuest, na.rm =T))
   
   params_vars <- c("heapUsedAfterDrawing (MB)", 
                    "heapTotalAfterDrawing (MB)", 
@@ -533,9 +537,11 @@ append_hist_time <- function(data_list, plot_list, fileNames){
   
   webGL_vars <- c("maxTextureSize", "maxViewportSize")
   
-  summary_vars <- c("goodTrials", "badTrials","computeRandomMHz",   "hardwareConcurrency", "deviceMemoryGB")
+  summary_vars <- c("computeRandomMHz",   "hardwareConcurrency", "deviceMemoryGB")
   
   blockAvg_vars <- c("heapTotalAfterDrawingAvg", "heapUsedAfterDrawingAvg")
+  
+  blockCondition_vars <- c("goodTrials", 'badTrials')
   
   j = length(plot_list) + 1
   # Loop through params dataset and generate histograms
@@ -585,11 +591,7 @@ append_hist_time <- function(data_list, plot_list, fileNames){
     j = j + 1
     }
   }
-  
-  # Loop through summary dataset and generate histograms
-  
-  
-  # Loop through blockAvg dataset and generate histograms
+
   for (var in blockAvg_vars) {
     if (n_distinct(blockAvg[var]) > 1) {
       plot_list[[j]] <- ggplot(blockAvg, aes(x = .data[[var]])) +
@@ -600,6 +602,18 @@ append_hist_time <- function(data_list, plot_list, fileNames){
       j = j + 1
     }
   }
+  
+  for (var in blockCondition_vars) {
+    if (n_distinct(blockCondition[var]) > 1) {
+      plot_list[[j]] <- ggplot(blockCondition, aes(x = .data[[var]])) +
+        geom_histogram(color="black", fill="black") + 
+        theme_bw() +
+        labs(title = paste("Histogram of", var))
+      fileNames[[j]] <- paste0(var,'-histogram')
+      j = j + 1
+    }
+  }
+  
   return(list(plotList = plot_list,
               fileNames = fileNames))
 }

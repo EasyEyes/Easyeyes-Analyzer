@@ -45,7 +45,7 @@ plotsTab <- tabPanel(
     div(style = "display: flex; align-items: center; margin-left:12px;",
         HTML('<div style="font-size: 16px; margin-right: 5px;">Show only spacingDeg thresholds with at least</div>'),
         numericInput('NQuestTrials', NULL, value = 10, min = 1, width = '80px'),
-        HTML('<div style="font-size: 16px; margin-left: 5px;">trials.</div>')
+        HTML('<div style="font-size: 16px; margin-left: 5px;">good trials.</div>')
     )
   ),
   fixedRow(

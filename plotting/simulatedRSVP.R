@@ -251,7 +251,7 @@ plotStaircases <- function(Staircases, thresholdParameterSelected) {
       group_by(participant, staircaseName) %>%
       mutate(trial = row_number(),
              nTrials = sum(trialGivenToQuest,na.rm = T),
-             questTrials = paste0(sum(trialGivenToQuest,na.rm = T), ' questTrials'))
+             questTrials = paste0(sum(trialGivenToQuest,na.rm = T), ' good Trials'))
     
     height = n_distinct(t %>% select(participant,thresholdParameter, conditionName)) * 1.3 + 2
     maxTrials <- max(t$nTrials)
@@ -353,8 +353,8 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
       scale_x_continuous(limits = c(xMin, xMax)) +
       annotation_logticks(sides = "l") +
       labs(
-        x = "QUEST trials",
-        y = "Crowding distances (deg)",
+        x = "Good trials",
+        y = "Crowding distance (deg)",
         title = title
       ) +
       theme_classic() + 
@@ -379,8 +379,8 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0)
   
   # Create plots
-  fovealPlot <- create_analysis_plot(foveal, "Foveal crowding vs quest trials\ncolored by grade")
-  peripheralPlot <- create_analysis_plot(peripheral, "Peripheral crowding vs quest trials\ncolored by grade")
+  fovealPlot <- create_analysis_plot(foveal, "Foveal crowding vs good trials\ncolored by grade")
+  peripheralPlot <- create_analysis_plot(peripheral, "Peripheral crowding vs good trials\ncolored by grade")
   
   return(list(fovealPlot = fovealPlot, peripheralPlot = peripheralPlot))
 }

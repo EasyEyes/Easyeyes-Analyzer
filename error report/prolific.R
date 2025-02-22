@@ -155,7 +155,6 @@ combineProlific <- function(prolificData, summary_table, pretest){
 
 get_prolific_file_counts <- function(prolificData, summary_table) {
   print("DEBUG: Prolific Data Loaded")
-  print(prolificData)
   
   prolific_count <- if (!is.null(prolificData) && nrow(prolificData) > 0) {
     nrow(prolificData)

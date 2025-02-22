@@ -143,7 +143,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     summary_list[[i]] %>% mutate(order = i)
   } %>% 
     filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
-  print(all_summary)
+
   all_summary <- all_summary %>% 
     left_join(NQuestTrials, by = c('participant', 'block_condition'))
   

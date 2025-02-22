@@ -103,8 +103,8 @@ get_quest_sd_vs_trials <- function(quest) {
     theme_bw() +
     ggpp::geom_text_npc(aes(npcx = "left", npcy = 'top', label = N)) +
     labs(
-      title = 'Quest SD vs quest trials colored by grade',
-      x = 'Quest trials',
+      title = 'Quest SD vs good trials colored by grade',
+      x = 'Good trials',
       y = 'Quest SD'
     ) +
     theme(

@@ -191,13 +191,19 @@ plot_distance <- function(data_list) {
     geom_point(aes(color =participant)) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
-                        label = paste0('N=', nrow(distance), '\n',
+                        label = paste0('N=', n_distinct(distance$participant), '\n',
                                        'R=', corr, '\n',
                                        'slope=', slope)) + 
     geom_smooth(method='lm', se=F, formula=y~x) + 
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") + # y=x line
     scale_x_log10(limits = c(min_val, max_val)) +  # Log scale for X-axis
     scale_y_log10(limits = c(min_val, max_val)) +  # Log scale for Y-axis (identical to X)
-    coord_fixed() +  # Ensures identical aspect ratio for axes
+    scale_color_manual(values= colorPalette) + 
+    guides(color = guide_legend(
+      nrow = 3,
+      title = ""
+    )) +
+    coord_fixed() +  
     labs(title = 'Measured vs requested Distance',
          x = 'Requested Distance (cm)',
          y = 'Measured Distance (cm)')
