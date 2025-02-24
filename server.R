@@ -3843,12 +3843,12 @@ timingHistograms <- reactive({
     filename = function() {
       ifelse(
         experiment_names() == "",
-        "Summary-of-each-condition.csv",
-        paste0(experiment_names(), "-Summary-of-each-condition.csv")
+        "Summary-of-each-condition.xlsx",
+        paste0(experiment_names(), "-Summary-of-each-condition.xlsx")
       )
     },
     content = function(filename) {
-      write.csv(threshold_and_warnings()[[2]], file = filename, row.names = FALSE)
+      openxlsx::write.xlsx(threshold_and_warnings()[[2]], file = filename)  # Using openxlsx
     }
   )
   
@@ -3856,12 +3856,12 @@ timingHistograms <- reactive({
     filename = function() {
       ifelse(
         experiment_names() == "",
-        "Thresholds(brief).csv",
-        paste0(experiment_names(), "-Thresholds(brief).csv")
+        "Thresholds(brief).xlsx",
+        paste0(experiment_names(), "-Thresholds(brief).xlsx")
       )
     },
     content = function(filename) {
-      write.csv(threshold_and_warnings()[[3]], file = filename, row.names = FALSE)
+      openxlsx::write.xlsx(threshold_and_warnings()[[3]], file = filename)  # Using openxlsx
     }
   )
   
@@ -3869,12 +3869,12 @@ timingHistograms <- reactive({
     filename = function() {
       ifelse(
         experiment_names() == "",
-        "Thresholds.csv",
-        paste0(experiment_names(), "-Thresholds.csv")
+        "Thresholds.xlsx",
+        paste0(experiment_names(), "-Thresholds.xlsx")
       )
     },
     content = function(filename) {
-      write.csv(threshold_and_warnings()[[4]], file = filename, row.names = FALSE)
+      openxlsx::write.xlsx(threshold_and_warnings()[[4]], file = filename)  # Using openxlsx
     }
   )
   
@@ -3882,14 +3882,15 @@ timingHistograms <- reactive({
     filename = function() {
       ifelse(
         experiment_names() == "",
-        "sound-calibration.csv",
-        paste0(experiment_names(), "sound-calibration.csv")
+        "sound-calibration.xlsx",  # Change file extension to .xlsx
+        paste0(experiment_names(), "sound-calibration.xlsx")
       )
     },
     content = function(filename) {
-      write.csv(all_sound_data()[[1]], file = filename, row.names = FALSE)
+      openxlsx::write.xlsx(all_sound_data()[[1]], file = filename)  # Use openxlsx instead of write.csv
     }
   )
+  
   #### update download handler ####
   
   toListen <- reactive({
