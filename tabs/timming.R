@@ -64,6 +64,7 @@ timingTab <- tabPanel(
                      downloadButton("downlaodDurationWithFontPadding", "Download"),
                      downloadButton("downlaodLatenessWithFontPadding", "Download")
                    )),
-                   shinycssloaders::withSpinner(uiOutput('scatterTime'),type=4)
+                   shinycssloaders::withSpinner(uiOutput('scatterTime'),type=4),
+                   shinycssloaders::withSpinner(uiOutput('scatterTimeParticipant'),type=4)
   )
 )

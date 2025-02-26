@@ -971,7 +971,24 @@ timingHistograms <- reactive({
     
     return(scatter_time_plots)
   })
-
+  scatterTimeParticipant <- reactive({
+    if (is.null(input$file)) {
+      return(list(
+        plotList = list(),
+        fileNames = list()
+      ))
+    }
+    
+    print("inside ScatterTimeParticipant")
+    i <- 1
+    l <- list()
+    fileNames <- list()
+    
+    # Extract scatter plots using the append_scatter_time function
+    scatter_time_plots <- append_scatter_time_participant(data_list(), l, fileNames)
+    
+    return(scatter_time_plots)
+  })
   
   #### plotly plots ####
   rsvpPlotlyPlots <-  reactive({
@@ -2458,6 +2475,92 @@ timingHistograms <- reactive({
     }
     return(out)
   })
+  
+  
+  output$scatterTimeParticipant <- renderUI({
+    out <- list()
+    i = 1
+
+    while (i <= length(scatterTimeParticipant()$plotList) - 1) {
+      out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
+                              shinycssloaders::withSpinner(plotOutput(paste0("scatterTimeParticipant", i), width = "100%", height = "1200px"), type = 4),
+                              shinycssloaders::withSpinner(plotOutput(paste0("scatterTimeParticipant", i + 1), width = "100%", height = "1200px"), type = 4))
+      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                  downloadButton(paste0("downloadScatterTimeParticipant", i), 'Download'),
+                                  downloadButton(paste0("downloadScatterTimeParticipant", i + 1), 'Download'))
+      i = i + 2
+    }
+
+    # Handle any remaining scatter plot
+    if (i == length(scatterTimeParticipant()$plotList)) {
+      out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
+                              shinycssloaders::withSpinner(plotOutput(paste0("scatterTimeParticipant", i), width = "100%", height = "1200px"), type = 4))
+      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                  downloadButton(paste0("downloadScatterTimeParticipant", i), 'Download'))
+    }
+
+    # Generate the plots and download handlers
+    for (j in 1:length(scatterTimeParticipant()$plotList)) {
+      local({
+        ii <- j
+        output[[paste0("scatterTimeParticipant", ii)]] <- renderImage({
+          outfile <- tempfile(fileext = '.svg')
+          ggsave(
+            file = outfile,
+            plot = scatterTimeParticipant()$plotList[[ii]] +
+              scale_color_manual(values = colorPalette),
+            height = 12.5,
+            unit = 'in',
+            limitsize = F,
+            device = svglite
+          )
+
+          list(src = outfile, contenttype = 'svg')
+        }, deleteFile = TRUE)
+
+        output[[paste0("downloadScatterTimeParticipant", ii)]] <- downloadHandler(
+          filename = paste0(
+            experiment_names(),
+            scatterTimeParticipant()$fileNames[[ii]],
+            ii,
+            '.',
+            input$fileType
+          ),
+          content = function(file) {
+            if (input$fileType == "png") {
+              tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+              ggsave(
+                tmp_svg,
+                plot = scatterTimeParticipant()$plotList[[ii]] +
+                  scale_color_manual(values = colorPalette),
+                height = 12.5,
+                unit = "in",
+                limitsize = F,
+                device = svglite
+              )
+              rsvg::rsvg_png(tmp_svg, file, width = 1800)
+            } else {
+              ggsave(
+                file,
+                plot = scatterTimeParticipant()$plotList[[ii]] +
+                  scale_color_manual(values = colorPalette),
+                height = 12.5,
+                unit = "in",
+                limitsize = F,
+                device = ifelse(
+                  input$fileType == "svg",
+                  svglite::svglite,
+                  input$fileType
+                )
+              )
+            }
+          }
+        )
+      })
+    }
+
+    return(out)
+  })
   output$scatterTime <- renderUI({
     out <- list()
     i = 1
@@ -3838,6 +3941,8 @@ timingHistograms <- reactive({
       )
     }
   )
+
+  
   
   output$thresholdOne <- downloadHandler(
     filename = function() {
