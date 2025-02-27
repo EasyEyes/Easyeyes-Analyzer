@@ -885,7 +885,7 @@ read_files <- function(file){
           .default = NA
         ))
     }
-    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, birthDate_pre, BirthMonthYear,age))
+    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, BirthMonthYear,age))
   }
   print(df)
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
