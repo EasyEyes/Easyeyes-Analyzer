@@ -178,8 +178,19 @@ shinyServer(function(input, output, session) {
   })
   experiment_names <- reactive({
     req(input$file)
-    return(trimws(files()[[3]]))
+    exp_names <- trimws(files()[[3]])  # Extract and trim whitespace
+    
+    # Split names based on hyphen (-)
+    name_list <- unlist(strsplit(exp_names, "-"))
+    
+    if (length(name_list) > 1) {
+      return(paste(name_list[1], "Etc. "))
+    } else {
+      return(name_list)
+    }
   })
+  
+
   
   readingCorpus <- reactive({
     req(input$file)
