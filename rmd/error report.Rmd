@@ -30,6 +30,22 @@ params:
   Microphone: NA
   threshold parameter: NA
   order: NA
+  prolificSessionID: NA
+  block: NA
+  comment: NA
+  block_new: NA
+  condition: NA
+  _logFontBool: NA
+  WebGLVersion: NA
+  maxTextureSize: NA
+  maxViewportSize: NA
+  WebGLUnmaskedRenderer: NA
+  "heapLimitAfterDrawing (MB)": NA
+  deviceMemoryGB: NA
+  mustTrackSec: NA
+  heapTotalAvgMB: NA
+  goodTrials: NA
+  badTrials: NA
   experiment: ""
 title: "`r paste(unique(params$experiment), collapse = '-')`"
 output: html_document
