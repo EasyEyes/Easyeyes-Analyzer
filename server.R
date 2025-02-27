@@ -26,8 +26,6 @@ library(grid)
 
 # showtext_auto(F)
 
-
-source('load_fonts.R')
 source('constant.R')
 source("preprocess.R")
 

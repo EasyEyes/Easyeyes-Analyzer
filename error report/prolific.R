@@ -23,8 +23,6 @@ find_prolific_from_files <- function(file) {
       temp_data <- read_prolific(file_list[k])
       if (nrow(temp_data) > 0) {
         prolificDT <- bind_rows(prolificDT, temp_data)
-      } else {
-        print(paste("WARNING: Skipping empty or unreadable file:", file_list[k]))
       }
     }
   }
