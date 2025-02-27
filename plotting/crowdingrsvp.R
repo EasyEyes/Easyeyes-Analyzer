@@ -512,7 +512,7 @@ getCorrMatrix <- function(allData, pretest) {
     pretest_for_corr <- tibble()
   }
   
-  
+  print(summary(pretest_for_corr))
   rsvp_speed <- allData$rsvp
   crowding <- allData$crowding
   age <- allData$age
@@ -557,7 +557,7 @@ getCorrMatrix <- function(allData, pretest) {
     crowdingW <- crowdingW %>% 
       full_join(pretest_for_corr, by = 'participant')
   }
-  if (!'age' %in% crowdingW) {
+  if (!'Age' %in% crowdingW) {
     crowdingW <- crowdingW %>% full_join(age %>% mutate(participant = tolower(participant)), by = 'participant')
   }
   
@@ -566,7 +566,7 @@ getCorrMatrix <- function(allData, pretest) {
     ungroup() %>% 
     select_if(is.numeric) %>% 
     select(where(~sum(!is.na(.)) > 0))
- 
+
   c <- colnames(crowdingW)
 
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))

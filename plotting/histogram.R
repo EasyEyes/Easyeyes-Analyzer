@@ -391,6 +391,7 @@ get_age_histogram <- function(data) {
   
   # Remove negative ages
   data <- data %>% filter(age >= 0)
+  print(data %>% arrange(age))
   
   # Calculate summary statistics
   stats <- data %>%

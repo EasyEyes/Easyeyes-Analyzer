@@ -22,7 +22,15 @@ read_files <- function(file){
 
     if (grepl("pretest.xlsx", file_names[i]) | grepl("pretest.csv", file_names[i])) {
       if (grepl("pretest.xlsx", file_names[i])) {
-        pretest <- readxl::read_xlsx(file_list[i])
+        pretest <- readxl::read_xlsx(file_list[i], col_types = 'text')
+        column_names <- names(pretest)
+        date_columns <- grep('date', column_names, ignore.case = TRUE, value = TRUE)
+        # If there are any columns with 'date' in the name, reload the file with date columns
+        if (length(date_columns) > 0) {
+          col_types <- ifelse(column_names %in% date_columns, 'date', 'text')
+          pretest <- readxl::read_xlsx(file_list[i], col_types = col_types)
+        }
+        
       } else {
         pretest <- read_csv(file_list[i])
       }
@@ -49,6 +57,17 @@ read_files <- function(file){
           rename('participant' = 'ID') %>% 
           select(where(~sum(!is.na(.)) >0)) %>% 
           mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+      }
+      if (!'Date of Birth' %in% names(pretest)) {
+        pretest$birthDate = NA
+      } else {
+        pretest <- pretest %>% rename('birthDate' = 'Date of Birth')
+      }
+      
+      if (!'Age' %in% names(pretest)) {
+        pretest$Age = NA
+      } else {
+        pretest$Age <- as.numeric(pretest$Age)
       }
     }
     if (grepl(".csv", file_names[i]) & !grepl("pretest.csv", file_names[i])){ 
@@ -765,7 +784,14 @@ read_files <- function(file){
       if (length(all_pretest) > 0) {
         file_path = file.path(tmp,all_pretest[1] )
         if (grepl("pretest.xlsx", all_pretest[1])) {
-          pretest <- readxl::read_xlsx(file_path)
+          pretest <- readxl::read_xlsx(file_path, col_types = 'text')
+          column_names <- names(pretest)
+          date_columns <- grep('date', column_names, ignore.case = TRUE, value = TRUE)
+          # If there are any columns with 'date' in the name, reload the file with date columns
+          if (length(date_columns) > 0) {
+            col_types <- ifelse(column_names %in% date_columns, 'date', 'text')
+            pretest <- readxl::read_xlsx(file_path, col_types = col_types)
+          }
         } 
         else {
           pretest <- readr::read_csv(file_path,show_col_types = FALSE)
@@ -793,11 +819,31 @@ read_files <- function(file){
             select(where(~sum(!is.na(.)) >0)) %>% 
             mutate(Grade = ifelse(is.na(Grade), -1, Grade))
         }
+        if (!'Date of Birth' %in% names(pretest)) {
+          pretest$birthDate = NA
+        } else {
+          pretest <- pretest %>% rename('birthDate' = 'Date of Birth')
+        }
+        if (!'Age' %in% names(pretest)) {
+          pretest$Age = NA
+        } else {
+          pretest$Age <- as.numeric(pretest$Age)
+        }
       }
       ('done processing zip')
     }
   }
+  
+  # Use pretest to override age
+  if (nrow(pretest) > 0 ) {
+    toJoin <- pretest %>% 
+      select(participant, Age, birthDate) %>% 
+      rename('birthDate_pre' = 'birthDate',
+             'Age_pre' = 'Age')
+  }
+  
   df <- tibble()
+  
   for (i in 1:length(data_list)) {
     if (!'ParticipantCode' %in% names(data_list[[i]])) {
       data_list[[i]]$ParticipantCode = ''
@@ -822,20 +868,26 @@ read_files <- function(file){
     unique_Birthdate = unique(data_list[[i]]$BirthMonthYear)
     if (length(unique_Birthdate) > 1) {
       data_list[[i]]$BirthMonthYear = unique(data_list[[i]]$BirthMonthYear[!is.na(data_list[[i]]$BirthMonthYear)])
-      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$BirthMonthYear[1], orders = c('m.y')),today()) / years(1),2)
+      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$BirthMonthYear[1], orders = c('my')),data_list[[i]]$date[1]) / years(1),2)
     } else {
       data_list[[i]]$BirthMonthYear = ''
-      if (nrow(pretest) > 0 & tolower(data_list[[i]]$participant[1]) %in% tolower(pretest$participant) & 'Age' %in% names(pretest)) {
-        p = tolower(data_list[[i]]$participant[1])
-        data_list[[i]]$age = round(pretest[tolower(pretest$participant) == p,]$Age[1], 2)
-      } else {
-        data_list[[i]]$age = NA
-      }
+      data_list[[i]]$age = NA
     }
-    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, BirthMonthYear,age))
-    
+    #Override
+    if (nrow(pretest) > 0) {
+      data_list[[i]] <- data_list[[i]] %>%
+        left_join(toJoin, by = 'participant', relationship = "many-to-many") %>% 
+        mutate(ageByPretestBirthDate =  round(interval(birthDate_pre, date) / years(1),2)) %>% 
+        mutate(age = case_when(
+          !is.na(ageByPretestBirthDate) ~ ageByPretestBirthDate,
+          !is.na(Age_pre) & is.na(ageByPretestBirthDate) ~ Age_pre,
+          is.na(birthDate_pre) & is.na(Age_pre) ~ age,
+          .default = NA
+        ))
+    }
+    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, birthDate_pre, BirthMonthYear,age))
   }
-  
+  print(df)
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
