@@ -5,7 +5,7 @@ library(stringr)
 englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
   mutate(participant = tolower(ID))
 
-generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, stairs, filterInput, minNQuestTrials) {
+generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, stairs, filterInput, minNQuestTrials, maxQuestSD) {
 
   print('inside threshold warning')
   if (is.null(data_list)) {
@@ -125,6 +125,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
     reading <- reading %>% 
       mutate(lowerCaseParticipant = tolower(participant)) %>% 
       left_join(select(pretest, Grade, `Skilled reader?`, lowerCaseParticipant), by = 'lowerCaseParticipant') %>% 
+      mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
       filter(!lowerCaseParticipant %in% excludeOrdinary$lowerCaseParticipant) %>% 
       select(-lowerCaseParticipant) %>% 
       mutate(`Skilled reader?` = ifelse(is.na(`Skilled reader?`), 'unkown', `Skilled reader?`))
@@ -144,8 +145,10 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   } %>% 
     filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
 
+  # apply questSD filter
   all_summary <- all_summary %>% 
-    left_join(NQuestTrials, by = c('participant', 'block_condition'))
+    left_join(NQuestTrials, by = c('participant', 'block_condition')) %>% 
+    filter(questSDAtEndOfTrialsLoop <= maxQuestSD)
   
   
   if (nrow(pretest) > 0) {
@@ -158,6 +161,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       mutate(lowerCaseParticipant = tolower(participant)) %>% 
       left_join(select(pretest, Grade, `Skilled reader?`, lowerCaseParticipant), by = 'lowerCaseParticipant') %>% 
       select(-lowerCaseParticipant) %>% 
+      mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
       mutate(`Skilled reader?` = ifelse(is.na(`Skilled reader?`), 'unkown', `Skilled reader?`))
     
     if (!'ParticipantCode' %in% names(all_summary)) {

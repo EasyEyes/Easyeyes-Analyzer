@@ -211,8 +211,9 @@ shinyServer(function(input, output, session) {
   })
   
   minNQuestTrials <- reactive({input$NQuestTrials}) %>% debounce(1000)
+  maxQuestSD <- reactive({input$maxQuestSD}) %>% debounce(1000)
   df_list <- reactive({
-    return(generate_rsvp_reading_crowding_fluency(files()$data_list, summary_list(), files()$pretest, files()$stairs, input$filterInput, minNQuestTrials()))
+    return(generate_rsvp_reading_crowding_fluency(files()$data_list, summary_list(), files()$pretest, files()$stairs, input$filterInput, minNQuestTrials(), maxQuestSD()))
   })
   
   crowdingBySide <- reactive({

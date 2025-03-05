@@ -425,9 +425,6 @@ get_grade_histogram <- function(rsvp) {
   # Extract Grade column from RSVP data
   grade_data <- rsvp %>% select(Grade) %>% drop_na() %>% mutate(Grade = as.numeric(Grade))
   
-  # Ensure Grade is numeric and remove invalid values (if any)
-  grade_data <- grade_data %>% filter(Grade >= 0)  # Ensures no negative grades
-  
   # Calculate summary statistics
   stats <- grade_data %>%
     summarize(
