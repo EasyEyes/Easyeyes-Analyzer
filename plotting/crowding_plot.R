@@ -663,7 +663,7 @@ get_foveal_peripheral_diag <- function(crowding) {
         labs(
           y = "Peripheral crowding (deg)",
           x = "Foveal crowding (deg)",
-          title = "Peripheral crowding vs foveal\ncrowding colored by grade"
+          title = "Peripheral crowding vs foveal crowding\ncolored by grade"
         ) +
         coord_fixed() +
         color_scale(n = n_grades) +  # Apply color scale

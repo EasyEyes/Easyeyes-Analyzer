@@ -549,7 +549,7 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
                             long = unit(0.3, "cm")) +
         labs(y = 'Peripheral acuity (deg)',
              x = 'Foveal acuity (deg)',
-             title = 'Peripheral acuity vs foveal\nacuity colored by grade') +
+             title = 'Peripheral acuity vs foveal acuity\ncolored by grade') +
         coord_fixed() +
         color_scale(n = n_grades)  # Pass the dynamic number of grades
     } 
@@ -593,7 +593,7 @@ peripheral_plot <- function(allData) {
     labs(
       x = 'Peripheral crowding distance (deg)',
       y = 'Peripheral acuity (deg)',
-      title = 'Peripheral acuity vs peripheral\ncrowding colored by grade'
+      title = 'Peripheral acuity vs peripheral crowding\ncolored by grade'
     ) +
     theme_classic() +
     plt_theme +
