@@ -229,8 +229,8 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
     
     xMin <- min(data_rsvp$X, na.rm = TRUE)
     xMax <- max(data_rsvp$X, na.rm = TRUE)
-    yMin <- min(data_rsvp$Y, na.rm = TRUE) / 1.2
-    yMax <- max(data_rsvp$Y, na.rm = TRUE) * 1.2
+    yMin <- min(data_rsvp$Y, na.rm = TRUE)
+    yMax <- max(data_rsvp$Y, na.rm = TRUE)
     
     # Dynamic breaks for log scales
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
@@ -242,24 +242,22 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       theme_classic() +
       scale_y_log10(
         breaks = y_breaks,
-        limits = c(yMin, yMax),
+        limits = c(yMin/1.5, yMax*1.5),
         expand = c(0, 0)
       ) +
       scale_x_log10(
         breaks = x_breaks,
-        limits = c(xMin, xMax),
+        limits = c(xMin/1.5, xMax*1.5),
         expand = c(0, 0)
       ) +
       geom_smooth(method = 'lm', formula = y ~ x, se = FALSE, color = "black") +  # Black regression line
       annotation_logticks() +
-      plt_theme +
       color_scale(n = unique_colors) +  # Dynamic color scale
       guides(color = guide_legend(title = colorFactor), shape = F) +
-      coord_fixed(ratio = 1) +
       annotate(
         "text",
         x = xMin,
-        y = yMin * 1.6,
+        y = yMin * 1.8,
         label = paste0(
           "N = ", corr$N,
           "\nR = ", corr$correlation,
