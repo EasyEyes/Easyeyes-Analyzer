@@ -296,7 +296,7 @@ plot_Lateness_sec <- function(df) {
     facet_wrap(~intervention) + 
     guides(color=guide_legend(ncol=2, title = '')) + 
     annotation_logticks() + 
-    labs(title = 'targetMeasuredLatenessSec vs.\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
+    labs(title = 'targetMeasuredLatenessSec vs.fontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
          caption = 'Dashed lines are limits set by thresholdAllowedLatenessSec and fontMaxPx') +
     theme_bw()+
     plt_theme_scatter
@@ -1661,10 +1661,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     y_padding <- (y_max - y_min) * 0.1
 
     y_limits <- c(y_min, y_max + y_padding)
-    print("Ylimit")
-    print(params$targetMeasuredLatenessSec)
-    print(params$targetMeasuredDurationSec)
-    print(y_limits)
+    
 
     plot_list[[j]] <- ggplot(data=params, aes(x=targetMeasuredLatenessSec, y=targetMeasuredDurationSec, color = participant)) +
       geom_jitter() +
@@ -1679,7 +1676,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
         title   = 'targetMeasuredDurationSec vs. targetMeasuredLatenessSec\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
-      coord_cartesian(lim = c(y_min, y_max + y_padding))
+      coord_cartesian(ylim = c(y_min, y_max + y_padding))
 
     fileNames[[j]] <- 'targetMeasuredDurationSec-vs-targetMeasuredLatenessSec-by-participant'
     j = j + 1

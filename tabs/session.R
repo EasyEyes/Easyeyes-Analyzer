@@ -106,7 +106,7 @@ sessionTab <- tabPanel(
     column(
       width = 2,
       align = "left",
-      downloadButton("report", "Download report")
+      downloadButton("report", "Download HTML")
     ),
     column(
       width = 1,

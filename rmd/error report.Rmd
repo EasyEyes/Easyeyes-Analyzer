@@ -1,53 +1,56 @@
 ---
+# params:
+#   Prolific participant ID: NA
+#   Pavlovia session ID: NA 
+#   device type: NA 
+#   cores: NA
+#   tardyMs: NA
+#   excessMs: NA
+#   date: NA
+#   KB: NA
+#   rows: NA
+#   cols: NA
+#   system: NA
+#   browser: NA
+#   resolution: NA
+#   QRConnect: NA
+#   computer51Deg: NA
+#   ok: NA
+#   unmetNeeds: NA
+#   error: NA
+#   warning: NA 
+#   block condition: NA
+#   trial: NA
+#   condition name: NA
+#   target task: NA
+#   target kind: NA
+#   Loudspeaker: NA
+#   Microphone: NA
+#   threshold parameter: NA
+#   order: NA
+#   prolificSessionID: NA
+#   block: NA
+#   comment: NA
+#   block_new: NA
+#   condition: NA
+#   _logFontBool: NA
+#   WebGLVersion: NA
+#   maxTextureSize: NA
+#   maxViewportSize: NA
+#   WebGLUnmaskedRenderer: NA
+#   "heapLimitAfterDrawing (MB)": NA
+#   deviceMemoryGB: NA
+#   mustTrackSec: NA
+#   heapTotalAvgMB: NA
+#   goodTrials: NA
+#   badTrials: NA
+#   experiment: ""
+# title: "`r paste(unique(params$experiment), collapse = '-')`"
+# output: html_document
+
 params:
-  Prolific participant ID: NA
-  Pavlovia session ID: NA 
-  Prolific session ID: NA
-  ProlificStatus: NA
-  device type: NA 
-  cores: NA
-  tardyMs: NA
-  excessMs: NA
-  date: NA
-  KB: NA
-  rows: NA
-  cols: NA
-  system: NA
-  browser: NA
-  resolution: NA
-  QRConnect: NA
-  computer51Deg: NA
-  ok: NA
-  unmetNeeds: NA
-  error: NA
-  warning: NA 
-  block condition: NA
-  trial: NA
-  condition name: NA
-  target task: NA
-  target kind: NA
-  Loudspeaker: NA
-  Microphone: NA
-  threshold parameter: NA
-  order: NA
-  prolificSessionID: NA
-  block: NA
-  comment: NA
-  block_new: NA
-  condition: NA
-  _logFontBool: NA
-  WebGLVersion: NA
-  maxTextureSize: NA
-  maxViewportSize: NA
-  WebGLUnmaskedRenderer: NA
-  "heapLimitAfterDrawing (MB)": NA
-  deviceMemoryGB: NA
-  mustTrackSec: NA
-  heapTotalAvgMB: NA
-  goodTrials: NA
-  badTrials: NA
-  experiment: ""
-title: "`r paste(unique(params$experiment), collapse = '-')`"
+  data: NA
+title: "`r if (is.null(params$data) || nrow(params$data) == 0) 'error report' else paste(unique(params$data$experiment), collapse='-')`"
 output: html_document
 ---
 ```{r, echo = F, inlcude = FALSE, message=FALSE}
@@ -88,39 +91,45 @@ top:0px;
 ```
 
 ```{r, echo = F, include = FALSE}
-dt <- tibble(
-  `Prolific participant ID` = params$`Prolific participant ID`,
-  `Pavlovia session ID` = params$`Pavlovia session ID`,
-  `Prolific session ID` =  params$`Prolific session ID`,
-   ProlificStatus= params$ProlificStatus,
-  `device type` = params$`device type`,
-  system = params$system,
-  browser = params$browser,
-  resolution = params$resolution,
-  QRConnect = params$QRConnect,
-  computer51Deg = params$computer51Deg,
-  cores = params$cores,
-  tardyMs = params$tardyMs,
-  excessMs = params$excessMs,
-  date = params$date,
-  KB = params$KB,
-  rows = params$rows,
-  cols= params$cols,
-  ok = params$ok,
-  unmetNeeds = params$unmetNeeds,
-  error = params$error,
-  warning = params$warning,
-  `block condition` = params$`block condition`,
-  trial = params$trial,
-  `condition name` = params$`condition name`,
-  `target task` = params$`target task`,
-  `target kind` = params$`target kind`,
-  `threshold parameter` = params$`threshold parameter`,
-   Loudspeaker = params$`Loudspeaker`, 
-   Microphone =  params$Microphone,
-  `order` = params$`order`)
+# dt <- tibble(
+#   `Prolific participant ID` = params$`Prolific participant ID`,
+#   `Pavlovia session ID` = params$`Pavlovia session ID`,
+#   `Prolific session ID` =  params$`Prolific session ID`,
+#    ProlificStatus= params$ProlificStatus,
+#   `device type` = params$`device type`,
+#   system = params$system,
+#   browser = params$browser,
+#   resolution = params$resolution,
+#   QRConnect = params$QRConnect,
+#   computer51Deg = params$computer51Deg,
+#   cores = params$cores,
+#   tardyMs = params$tardyMs,
+#   excessMs = params$excessMs,
+#   date = params$date,
+#   KB = params$KB,
+#   rows = params$rows,
+#   cols= params$cols,
+#   ok = params$ok,
+#   unmetNeeds = params$unmetNeeds,
+#   error = params$error,
+#   warning = params$warning,
+#   `block condition` = params$`block condition`,
+#   trial = params$trial,
+#   `condition name` = params$`condition name`,
+#   `target task` = params$`target task`,
+#   `target kind` = params$`target kind`,
+#   `threshold parameter` = params$`threshold parameter`,
+#    Loudspeaker = params$`Loudspeaker`,
+#    Microphone =  params$Microphone,
+#   `order` = params$`order`)
+# participants <- unique(dt$`Pavlovia session ID`)
+# prolific_id <- unique(dt$`Prolific participant ID`)
+
+dt <- params$data
+print(ncol(dt))
 participants <- unique(dt$`Pavlovia session ID`)
 prolific_id <- unique(dt$`Prolific participant ID`)
+
 ```
 
 

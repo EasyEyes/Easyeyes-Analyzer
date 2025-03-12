@@ -424,13 +424,138 @@ generate_summary_table <- function(data_list, stairs){
   return(summary_df)
 }
 
+# render_summary_datatable <- function(dt, participants, prolific_id){
+#   datatable(dt,
+#             class = list(stripe = FALSE, 'compact'),
+#             selection = 'none',
+#             filter = "top",
+#             escape = FALSE,
+#             # extensions = 'FixedHeader',
+#             options = list(
+#               autoWidth = TRUE,
+#               paging = FALSE,
+#               scrollX = TRUE, 
+#               fixedHeader = TRUE,
+#               dom= 'lrtip',
+#               language = list(
+#                 info = 'Showing _TOTAL_ entries',
+#                 infoFiltered =  "(filtered from _MAX_ entries)"
+#               ),
+#               columnDefs = list(
+#                 list(visible = FALSE, targets = c(0, 53)),
+#                 list(
+#                   targets = c(16),
+#                   width = '100px',
+#                   className = 'errorC-control',
+#                   render = JS(
+#                     "function(data, type, row, meta) {",
+#                     "return type === 'display' && data && data.length > 30 ?",
+#                     "data.substr(0, 30) + '...' : data;",
+#                     "}"
+#                   )
+#                 ),
+#                 list(
+#                   targets = c(17),
+#                   width = '100px',
+#                   className = 'warnC-control',
+#                   render = JS(
+#                     "function(data, type, row, meta) {",
+#                     "return type === 'display' && data && data.length > 30 ?",
+#                     "data.substr(0, 30) + '...' : data;",
+#                     "}"
+#                   )
+#                 ),
+#                 list(
+#                   targets = c(31),
+#                   width = '50px',
+#                   className = 'computer51Deg',
+#                   render = JS(
+#                     "function(data, type, row, meta) {",
+#                     "return type === 'display' && data && data.length > 30 ?",
+#                     "data.substr(0, 30) + '...' : data;",
+#                     "}"
+#                   )
+#                 ),
+#                 list(
+#                   targets = c(32),
+#                   width = '50px',
+#                   className = 'loudspeakerSurvey',
+#                   render = JS(
+#                     "function(data, type, row, meta) {",
+#                     "return type === 'display' && data && data.length > 30 ?",
+#                     "data.substr(0, 30) + '...' : data;",
+#                     "}"
+#                   )
+#                 ),
+#                 list(
+#                   targets = c(33),
+#                   width = '50px',
+#                   className = 'microphoneSurvey',
+#                   render = JS(
+#                     "function(data, type, row, meta) {",
+#                     "return type === 'display' && data && data.length > 30 ?",
+#                     "data.substr(0, 30) + '...' : data;",
+#                     "}"
+#                   )
+#                 ),
+#                 list(
+#                   targets = c(2),
+#                   render = JS(
+#                     "function(data, type, row, meta) {",
+#                     "return type === 'display' && data && data.length > 6 ?",
+#                     "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+#                     "}"
+#                   ),
+#                   className = 'information-control1'
+#                 ),
+#                 list(
+#                   targets = c(3),
+#                   render = JS(
+#                     "function(data, type, row, meta) {",
+#                     "return type === 'display' && data && data.length > 6 ?",
+#                     "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+#                     "}"
+#                   ),
+#                   className = 'information-control2'
+#                 ),
+#                 list(
+#                   targets = c(4),
+#                   render = JS(
+#                     "function(data, type, row, meta) {",
+#                     "return type === 'display' && data && data.length > 6 ?",
+#                     "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+#                     "}"
+#                   ),
+#                   className = 'information-control3'
+#                 ),
+#                 list(
+#                   width = '50px',
+#                   targets = c(8),
+#                   className = 'dt-center'
+#                 ),
+#                 list(
+#                   width = '20px',
+#                   padding = '0px',
+#                   targets = c(9:15, 18:29, 34:52),
+#                   className = 'dt-center'
+#                 )
+#               )
+#             ),
+#             callback = JS(data_table_call_back)) %>% 
+#     formatStyle(names(dt),color = 'black', lineHeight="15px") %>% 
+#     formatStyle(names(dt)[-1],
+#                 'Pavlovia session ID',
+#                 backgroundColor = styleEqual(participants, random_rgb(length(participants)))) %>% 
+#     formatStyle(names(dt)[1],
+#                 'Prolific participant ID',
+#                 backgroundColor = styleEqual(prolific_id, random_rgb(length(prolific_id))))
+# }
 render_summary_datatable <- function(dt, participants, prolific_id){
   datatable(dt,
             class = list(stripe = FALSE, 'compact'),
             selection = 'none',
             filter = "top",
             escape = FALSE,
-            # extensions = 'FixedHeader',
             options = list(
               autoWidth = TRUE,
               paging = FALSE,
@@ -442,15 +567,16 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 infoFiltered =  "(filtered from _MAX_ entries)"
               ),
               columnDefs = list(
-                list(visible = FALSE, targets = c(0, 53)),
+                # Hide only the first column; remove reference to column index 53
+                list(visible = FALSE, targets = 0),
                 list(
                   targets = c(16),
                   width = '100px',
                   className = 'errorC-control',
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 30 ?",
-                    "data.substr(0, 30) + '...' : data;",
+                    "  return type === 'display' && data && data.length > 30 ?",
+                    "    data.substr(0, 30) + '...' : data;",
                     "}"
                   )
                 ),
@@ -460,8 +586,8 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   className = 'warnC-control',
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 30 ?",
-                    "data.substr(0, 30) + '...' : data;",
+                    "  return type === 'display' && data && data.length > 30 ?",
+                    "    data.substr(0, 30) + '...' : data;",
                     "}"
                   )
                 ),
@@ -471,8 +597,8 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   className = 'computer51Deg',
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 30 ?",
-                    "data.substr(0, 30) + '...' : data;",
+                    "  return type === 'display' && data && data.length > 30 ?",
+                    "    data.substr(0, 30) + '...' : data;",
                     "}"
                   )
                 ),
@@ -482,8 +608,8 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   className = 'loudspeakerSurvey',
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 30 ?",
-                    "data.substr(0, 30) + '...' : data;",
+                    "  return type === 'display' && data && data.length > 30 ?",
+                    "    data.substr(0, 30) + '...' : data;",
                     "}"
                   )
                 ),
@@ -493,8 +619,8 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   className = 'microphoneSurvey',
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 30 ?",
-                    "data.substr(0, 30) + '...' : data;",
+                    "  return type === 'display' && data && data.length > 30 ?",
+                    "    data.substr(0, 30) + '...' : data;",
                     "}"
                   )
                 ),
@@ -502,8 +628,8 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   targets = c(2),
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 6 ?",
-                    "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                    "  return type === 'display' && data && data.length > 6 ?",
+                    "    '<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
                     "}"
                   ),
                   className = 'information-control1'
@@ -512,8 +638,8 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   targets = c(3),
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 6 ?",
-                    "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                    "  return type === 'display' && data && data.length > 6 ?",
+                    "    '<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
                     "}"
                   ),
                   className = 'information-control2'
@@ -522,8 +648,8 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                   targets = c(4),
                   render = JS(
                     "function(data, type, row, meta) {",
-                    "return type === 'display' && data && data.length > 6 ?",
-                    "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
+                    "  return type === 'display' && data && data.length > 6 ?",
+                    "    '<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
                     "}"
                   ),
                   className = 'information-control3'
@@ -536,13 +662,15 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 list(
                   width = '20px',
                   padding = '0px',
-                  targets = c(9:15, 18:29, 34:52),
+                  # Update the range so it only covers valid column indices (9:15, 18:29, and 34:43)
+                  targets = c(9:15, 18:29, 34:43),
                   className = 'dt-center'
                 )
               )
             ),
-            callback = JS(data_table_call_back)) %>% 
-    formatStyle(names(dt),color = 'black', lineHeight="15px") %>% 
+            callback = JS(data_table_call_back)
+  ) %>% 
+    formatStyle(names(dt), color = 'black', lineHeight="15px") %>% 
     formatStyle(names(dt)[-1],
                 'Pavlovia session ID',
                 backgroundColor = styleEqual(participants, random_rgb(length(participants)))) %>% 

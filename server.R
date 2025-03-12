@@ -3943,10 +3943,13 @@ timingHistograms <- reactive({
     content = function(file) {
       tempReport <- file.path(tempdir(), "error report.Rmd")
       file.copy("rmd/error report.Rmd", tempReport, overwrite = TRUE)
+      
       rmarkdown::render(
         tempReport,
         output_file = file,
-        params = summary_table() %>% mutate(experiment = experiment_names()),
+        params = list(
+          data = summary_table() %>% mutate(experiment = experiment_names())
+        ),
         envir = new.env(parent = globalenv())
       )
     }
