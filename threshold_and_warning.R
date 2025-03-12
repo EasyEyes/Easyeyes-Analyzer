@@ -148,7 +148,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   # apply questSD filter
   all_summary <- all_summary %>% 
     left_join(NQuestTrials, by = c('participant', 'block_condition')) %>% 
-    filter(questSDAtEndOfTrialsLoop <= maxQuestSD)
+    filter(questSDAtEndOfTrialsLoop <= maxQuestSD | (thresholdParameter != 'sizeDeg'  & thresholdParameter != 'size'))
   
   
   if (nrow(pretest) > 0) {
@@ -603,6 +603,7 @@ reading <- rbind(reading, t)
     rename(pavloviaSessionID = participant) %>% 
     left_join(df, by = 'pavloviaSessionID') %>% 
     left_join(grade, by = 'pavloviaSessionID') %>% 
+    mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
     select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, m, sd, parameter)
   
   threshold <- rbind(threshold_summary, wpm_summary) %>% 
@@ -617,6 +618,7 @@ reading <- rbind(reading, t)
     mutate(condition = str_split(block_condition,'_')[[1]][2]) %>% 
     left_join(df, by = 'pavloviaSessionID') %>% 
     left_join(grade, by = 'pavloviaSessionID') %>% 
+    mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
     select(experiment, pavloviaSessionID, participantID, 
            age, Grade, conditionName, block, condition, 
            conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,

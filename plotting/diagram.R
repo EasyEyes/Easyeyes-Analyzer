@@ -16,8 +16,8 @@ get_quest_diag <- function(quest) {
         mutate(Grade = as.character(Grade))
       
       p1 <- ggplot(quest, aes(
-        x = questSDAtEndOfTrialsLoop,
-        y = questMeanAtEndOfTrialsLoop,
+        x = questMeanAtEndOfTrialsLoop,
+        y = questSDAtEndOfTrialsLoop,
         color = Grade
       )) +
         facet_wrap(~questType) +
@@ -25,8 +25,8 @@ get_quest_diag <- function(quest) {
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top", label = N)) +
         labs(
           title = 'Quest SD vs mean colored by grade',
-          x = 'Quest SD',
-          y = 'Quest mean'
+          x = 'Quest mean',
+          y = 'Quest SD'
         ) +
         theme(
           aspect.ratio = 1,
