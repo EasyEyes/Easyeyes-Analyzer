@@ -1,4 +1,4 @@
-source('./other/utility.R')
+source('./constant.R')
 get_duration_data <- function(data_list) {
   print('inside get_duration_data')
   df <- foreach(i=1:length(data_list), .combine = 'rbind') %do% {
@@ -159,6 +159,7 @@ plot_duraction_sec <- function(df) {
   p1 <- p1 + 
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
+    scale_color_manual(values = colorPalette) + 
     guides(color=guide_legend(ncol=3, title = '')) + 
     theme_bw() +
     plt_theme_scatter +
@@ -166,7 +167,6 @@ plot_duraction_sec <- function(df) {
     annotation_logticks() + 
     labs(title = 'targetMeasuredDurationSec vs fontNominalSizePx*(1+fontPadding)\ncolored by font',
          caption = 'Dashed lines are limits set by thresholdAllowedDurationRatio and fontMaxPx')
-  
   p2 <- ggplot() +
     geom_point(data=df,
                aes(x=fontNominalSizePx*(1+fontPadding), 
@@ -181,6 +181,7 @@ plot_duraction_sec <- function(df) {
   p2 <- p2 + 
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
+    scale_color(df$participant) +  
     annotation_logticks() + 
     facet_wrap(~intervention) +
     theme_bw()+
@@ -208,6 +209,7 @@ plot_duraction_sec <- function(df) {
   p3 <- p3 + 
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
+    scale_color(df$font) +  
     guides(color=guide_legend(ncol=2, title = '')) + 
     annotation_logticks() + 
     facet_wrap(~intervention) +
@@ -247,6 +249,7 @@ plot_Lateness_sec <- function(df) {
   p1 <- p1 + 
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
+    scale_color(df$font) +  
     facet_wrap(~intervention) + 
     guides(color=guide_legend(ncol=3, title = '')) + 
     annotation_logticks() + 
@@ -268,6 +271,7 @@ plot_Lateness_sec <- function(df) {
   p2 <- p2 +
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
+    scale_color(df$participant) +  
     facet_wrap(~intervention) + 
     annotation_logticks() + 
     labs(title = 'targetMeasuredLatenessSec vs fontNominalSizePx*(1+fontPadding)\ncolored by participant',
@@ -293,6 +297,7 @@ plot_Lateness_sec <- function(df) {
   p3 <- p3 +
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
+    scale_color(df$fontPadding) +  
     facet_wrap(~intervention) + 
     guides(color=guide_legend(ncol=2, title = '')) + 
     annotation_logticks() + 
@@ -1496,9 +1501,10 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     y_min <- min(filtered_params$targetMeasuredLatenessSec, na.rm = TRUE)
     y_max <- max(filtered_params$targetMeasuredLatenessSec, na.rm = TRUE)
     y_padding <- (y_max - y_min) * 0.1
-
+    
     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapTotalMB, y=targetMeasuredLatenessSec, color = participant)) +
       geom_jitter() +
+      scale_color(params$participant) +  
       plt_theme_scatter +
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
@@ -1532,6 +1538,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=longTaskDurationSec, y=targetMeasuredLatenessSec, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1564,6 +1571,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=longTaskDurationSec, y=targetMeasuredDurationSec, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1598,6 +1606,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
                              aes(x=fontNominalSizePx*(1+fontPadding), y=longTaskDurationSec, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1630,6 +1639,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=longTaskDurationSec, y=deltaHeapUsedMB, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1666,6 +1676,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=targetMeasuredLatenessSec, y=targetMeasuredDurationSec, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1696,6 +1707,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=blockAvg, aes(x=badLatenessTrials, y=badDurationTrials, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(blockAvg$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1729,6 +1741,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
                              aes(x=`heapLimitAfterDrawing (MB)`, y=badLatenessTrials, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(blockAvg$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1762,6 +1775,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
                              aes(x=hardwareConcurrency, y=badLatenessTrials, color = participant)) +
       geom_jitter(position=position_jitter(width=0.1, height=0.1)) +
       plt_theme_scatter +
+      scale_color(blockAvg$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1794,6 +1808,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=blockAvg,
                              aes(x=hardwareConcurrency, y=badDurationTrials, color = participant)) +
       geom_jitter(position=position_jitter(width=0.1, height=0.1)) +
+      scale_color(blockAvg$participant) +  
       plt_theme_scatter +
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
@@ -1828,6 +1843,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
                              aes(x=heapUsedAfterDrawingAvg, y=badLatenessTrials, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(blockAvg$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1861,6 +1877,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
                              aes(x=heapTotalAfterDrawingAvg, y=badLatenessTrials, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(blockAvg$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1893,6 +1910,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapLatenessMB, y=targetMeasuredDurationSec, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1927,6 +1945,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=maxTextureSize, y=targetMeasuredLatenessSec, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1960,6 +1979,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=maxViewportSize, y=targetMeasuredLatenessSec, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -1993,6 +2013,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapLatenessMB, y=targetMeasuredLatenessSec, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -2025,6 +2046,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=`heapUsedBeforeDrawing (MB)`, y=deltaHeapTotalMB, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -2057,6 +2079,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapTotalMB, y=deltaHeapUsedMB, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',
@@ -2089,6 +2112,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
     plot_list[[j]] <- ggplot(data=params, aes(x=`heapLimitAfterDrawing (MB)`, y=deltaHeapTotalMB, color = participant)) +
       geom_jitter() +
       plt_theme_scatter +
+      scale_color(params$participant) +  
       guides(color = guide_legend(
         col  = ifelse(num_legend_items > 20, 5, 3),
         title = '',

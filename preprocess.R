@@ -3,6 +3,29 @@ library(stringr)
 library(readr)
 source('./plotting/simulatedRSVP.R')
 
+
+check_file_names <- function(file) {
+  file_names <- file$name
+  valid_endings <- c(".results.zip", ".csv", ".prolific.csv", ".pretest.xlsx")
+  is_valid <- sapply(file_names, 
+                     function(name) any(sapply(valid_endings, function(ext) grepl(paste0(ext, "$"), name))))
+  invalid_files <- file_names[!is_valid]
+  
+  if (all(is_valid)) {
+    return(NULL) 
+  } else {
+    return(paste0(
+      "Sorry. Incompatible filename(s):<br> ", 
+      paste(invalid_files, collapse = ", "), "<br><br>",
+      "Compatible filenames must have one of these endings:<br>",
+      "&nbsp;&nbsp;&nbsp;• .results.zip<br>",
+      "&nbsp;&nbsp;&nbsp;• .csv<br>",
+      "&nbsp;&nbsp;&nbsp;• .prolific.csv<br>",
+      "&nbsp;&nbsp;&nbsp;• .pretest.xlsx"
+    ))
+  }
+}
+
 read_files <- function(file){
   if(is.null(file)) return(list())
   file_list <- file$data
@@ -420,9 +443,7 @@ read_files <- function(file){
       file_names <- unzip(file_list[i], list = TRUE)$Name
       file_names <- file_names[!grepl("^~", basename(file_names))]
       all_csv <- file_names[grepl(".csv", file_names)]
-      all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
-      all_csv <- all_csv[!grepl("cursor", all_csv)]
-      all_csv <- all_csv[!grepl("pretest", all_csv)]
+      all_csv <- all_csv[!grepl("__MACOSX", all_csv) & !grepl("cursor", all_csv) & !grepl("pretest", all_csv)]
       all_pretest <- file_names[grepl("pretest", file_names)]
       all_pretest <- all_pretest[!grepl("__MACOSX", all_pretest)]
       m <- length(all_csv)

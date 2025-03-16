@@ -38,8 +38,25 @@ sessionTab <- tabPanel(
         padding-left: 0;
         padding-right: 0;
         }
-        .sweet-alert {
+        .sweet-alert.alert-size-s {
           position: fixed !important;  /* Ensures it's positioned relative to the viewport */
+          top: 50% !important;  /* Moves it down by 50% of the viewport height */
+          left: 50% !important;  /* Moves it right by 50% of the viewport width */
+          transform: translate(-50%, -50%) !important;  /* Centers it properly */
+          font-family: 'Arial', sans-serif !important; /* Match compiler pop-up font */
+          font-size: 18px !important; /* Match compiler pop-up text size */
+          font-weight: bold;
+          color: black !important;
+          box-shadow: none !important;
+          border-radius: 8px !important;
+          width: 500px !important;  /* Reduce width */
+          height: 100px !important;
+          padding: 0px !important;  /* Reduce inner spacing */
+          margin: 0px !important;
+        }
+        
+        .sweet-alert.alert-size-l {
+           position: fixed !important;  /* Ensures it's positioned relative to the viewport */
           top: 50% !important;  /* Moves it down by 50% of the viewport height */
           left: 50% !important;  /* Moves it right by 50% of the viewport width */
           transform: translate(-50%, -50%) !important;  /* Centers it properly */
@@ -50,15 +67,21 @@ sessionTab <- tabPanel(
           color: black !important;
           box-shadow: none !important;
           border-radius: 8px !important;
-          width: 500px !important;  /* Reduce width */
-          height: 100px !important; /* Reduce height */
-          padding: 0px !important;  /* Reduce inner spacing */
-          margin: 0px !important;
+          width: 800px !important;  
+          padding: 0px !important; 
+          margin: 00px !important;
         }
 
-      .sweet-alert h2 {
+      .sweet-alert.alert-size-s h2 {
           font-size: 20px !important; /* Adjust the title font size */
           color: #494949 !important;
+      }
+      
+      .sweet-alert.alert-size-l h2 {
+          font-size: 20px !important; 
+          color: #494949 !important;
+          text-align: left !important;
+          margin: 20px !important;
       }
       "
       )),

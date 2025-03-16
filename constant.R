@@ -65,6 +65,9 @@ downloadtheme <- theme(legend.position = "right",
                        plot.title = element_text(size=20),
                        plot.subtitle = element_text(size=20),
                        strip.text = element_text(size = 20))
+
+#### black and grey color scale ####
+
 color_scale <- function(n) {
   scale_color_manual(
     values = grDevices::colorRampPalette(c("gray", "black"))(n),
@@ -127,7 +130,14 @@ colorPalette <- c(
   "#B0C4DE", "#BA55D3", "#8B008B", "#FA8072", "#20B2AA"
 )
 
-
+scale_color <- function(list) {
+  if (length(list) <= 120) {
+    scale_color_manual(values = colorPalette)
+  } else {
+    extendedPalette <- rep(colorPalette, length.out = length(list))
+    scale_color_manual(values = extendedPalette)
+  }
+}
 
 
 plt_theme <- theme(legend.position = "top", 
