@@ -295,7 +295,7 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
   stairdf <- stairs %>%
     drop_na(levelProposedByQUEST) %>%
     group_by(participant, staircaseName) %>%
-    mutate(questTrials = sum(trialGivenToQuest, na.rm = TRUE)) %>%
+    summarize(questTrials = sum(trialGivenToQuest, na.rm = TRUE)) %>%
     ungroup()
   
   crowding <- df_list$crowding %>%
@@ -316,7 +316,7 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
         Y = 10^(log_crowding_distance_deg)
       ) %>%
       filter(!is.na(questTrials), !is.na(Y))
-    
+
     if (nrow(data) == 0) {
       return(NULL)
     }
@@ -345,7 +345,7 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
     yMax <- max(data$Y, na.rm = TRUE) * 1.5
     
     # Generate the plot
-    plot <- ggplot(data, aes(x = questTrials, y = Y, color = Grade)) +
+    plot <- ggplot(data, aes(x = questTrials, y = Y, color = Grade, shape = conditionName)) +
       geom_point(size = 3) +
       geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +
       color_scale(n = length(unique(data$Grade))) +  # Directly use color_scale()
@@ -370,6 +370,9 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
         ),
         hjust = 1, vjust = 1, size = 4, color = "black"
       )
+    guides(color = guide_legend(title='Grade'),
+           shape = guide_legend(title='', 
+                                ncol = 1))
     
     return(plot)
   }
@@ -384,20 +387,4 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
   
   return(list(fovealPlot = fovealPlot, peripheralPlot = peripheralPlot))
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

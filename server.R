@@ -904,7 +904,7 @@ shinyServer(function(input, output, session) {
       i <- i + 1
     }
     
-    t <- foveal_crowding_vs_acuity_diag()$foveal$grade
+    t <- foveal_crowding_vs_acuity_diag()$foveal
     
     if (!is.null(t)) {
       l[[i]] = t
@@ -912,7 +912,7 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    t <-  foveal_crowding_vs_acuity_diag()$peripheral$grade
+    t <-  foveal_crowding_vs_acuity_diag()$peripheral
     if (!is.null(t)) {
       l[[i]] = t
       fileNames[[i]] = 'foveal-crowding-vs-peripheral-acuity-grade-diagram'
@@ -1454,28 +1454,25 @@ shinyServer(function(input, output, session) {
   }, deleteFile = TRUE)
   
   #### rsvp plotlys ####
-  output$rsvpCrowdingPeripheralAgePlot <- renderPlotly({
-    rsvpCrowding()[[1]]
+  output$rsvpCrowdingPeripheralAgePlot <- ggiraph::renderGirafe({
+    ggiraph::girafe(ggobj = rsvpCrowding()[[1]] + plt_theme_ggiraph)
   })
-  output$rsvpCrowdingPeripheralGradePlot <- renderPlotly({
-    rsvpCrowding()[[3]]
+  output$rsvpCrowdingPeripheralGradePlot <- ggiraph::renderGirafe({
+    ggiraph::girafe(ggobj =rsvpCrowding()[[3]] + plt_theme_ggiraph)
   })
-  output$rsvpResidualCrowding <- renderPlotly({
-    rsvpCrowding()[[4]]
+  output$rsvpResidualCrowding <- ggiraph::renderGirafe({
+    ggiraph::girafe(ggobj =rsvpCrowding()[[4]] + plt_theme_ggiraph)
   })
-  output$rsvpCrowdingFovealGradePlot <- renderPlotly({
-    rsvpCrowding()[[5]]
-  })
-  
-  output$rsvpFovealAcuityGradePlot <- renderPlotly({
-    rsvpAcuityFoveal()[[2]]
-  })
-  output$factorOutAgePlot <- renderPlotly({
-    factor_out_age_and_plot(df_list())
+  output$rsvpCrowdingFovealGradePlot <- ggiraph::renderGirafe({
+    ggiraph::girafe(ggobj =rsvpCrowding()[[5]] + plt_theme_ggiraph)
   })
   
-  output$rsvpPeripheralAcuityGradePlot <- renderPlotly({
-    ggplotly(rsvpAcuityPeripheral()[[2]]) %>% layout()
+  output$rsvpFovealAcuityGradePlot <- ggiraph::renderGirafe({
+    ggiraph::girafe(ggobj =rsvpAcuityFoveal()[[2]] + plt_theme_ggiraph)
+  })
+
+  output$rsvpPeripheralAcuityGradePlot <- ggiraph::renderGirafe({
+    ggiraph::girafe(ggobj =rsvpAcuityPeripheral()[[2]] + plt_theme_ggiraph)
   })
   output$rsvpRepeatedGradePlot <- renderPlotly({
     rsvp_repeated_letter_crowding()[[2]]
@@ -6098,7 +6095,7 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         ggsave(
           file,
-          plot = crowdingAvgPlot() + downloadtheme,
+          plot = crowdingAvgPlot(),
           device = ifelse(input$fileType == "svg", svglite, input$fileType)
         )
       }
@@ -6126,26 +6123,6 @@ shinyServer(function(input, output, session) {
     
     
     #### download sloan vs times ####
-    
-    output$downloadSloanVsTimesSDPlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('2_fonts_sd.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = two_fonts_plots()[[2]] +
-            labs(
-              title = experiment_names(),
-              subtitle = paste0("Crowding ", two_fonts_plots()$title, ", sd")
-            ) +
-            downloadtheme,
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
-      }
-    )
     
     output$downloadReadingSpeedRetention <- downloadHandler(
       filename = paste(

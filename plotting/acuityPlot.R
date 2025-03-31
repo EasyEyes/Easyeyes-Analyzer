@@ -16,12 +16,14 @@ get_foveal_acuity_vs_age <- function(acuity) {
       p <- ggplot(t, aes(
         x = age,
         y = 10 ^ (questMeanAtEndOfTrialsLoop),
-        color = Grade
+        color = Grade,
+        shape = conditionName
       ))
     } else {
       p <- ggplot(t, aes(
         x = age,
-        y = 10 ^ (questMeanAtEndOfTrialsLoop)
+        y = 10 ^ (questMeanAtEndOfTrialsLoop),
+        shape = conditionName
       ))
     }
     
@@ -65,14 +67,16 @@ get_foveal_acuity_vs_age <- function(acuity) {
       plt_theme +
       theme(
         legend.position = ifelse(unique_grades == 1, "none", "top")
-      )
+      ) +
+      guides(color = guide_legend(title = 'Grade'),
+             shape = guide_legend(title = '', ncol = 1))
     
     # Add shapes for Skilled Reader if necessary
-    if (n_distinct(t$`Skilled reader?`) > 1) {
-      p <- p + 
-        geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19,1))
-    }
+    # if (n_distinct(t$`Skilled reader?`) > 1) {
+    #   p <- p + 
+    #     geom_point(aes(shape = `Skilled reader?`)) +
+    #     scale_shape_manual(values = c(4, 19,1))
+    # }
     
     return(p)
   }
@@ -114,7 +118,7 @@ get_peripheral_acuity_vs_age <- function(acuity) {
     
     # Plotting
     p <- p +
-      geom_point(size = 3) +
+      geom_point(aes(shape = conditionName), size = 3) +
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
       scale_y_log10() +
       annotation_logticks(
@@ -153,14 +157,16 @@ get_peripheral_acuity_vs_age <- function(acuity) {
       plt_theme
       theme(
         legend.position = ifelse(unique_grades == 1, "none", "top")
-      )
+      ) + 
+        guides(color = guide_legend(title = 'Grade'),
+               shape = guide_legend(title = '', ncol = 1))
     
     # Add shapes for Skilled Reader if applicable
-    if (n_distinct(t$`Skilled reader?`) > 1) {
-      p <- p +
-        geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19,1))
-    }
+    # if (n_distinct(t$`Skilled reader?`) > 1) {
+    #   p <- p +
+    #     geom_point(aes(shape = `Skilled reader?`)) +
+    #     scale_shape_manual(values = c(4, 19,1))
+    # }
     
     return(p)
   }
@@ -171,8 +177,8 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
   create_plot <- function(data, type, colorFactor) {
     # Merge data and calculate WPM and acuity
     data_rsvp <- data %>%
-      select(participant, questMeanAtEndOfTrialsLoop) %>%
-      inner_join(rsvp, by = "participant") %>%
+      select(participant, questMeanAtEndOfTrialsLoop, conditionName) %>%
+      inner_join(rsvp %>% select(-conditionName), by = "participant") %>%
       mutate(
         Y = 10 ^ (block_avg_log_WPM),
         X = 10 ^ (questMeanAtEndOfTrialsLoop),
@@ -239,6 +245,9 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
     # Apply dynamic color scale
     unique_colors <- n_distinct(data_rsvp[[colorFactor]])
     p <- ggplot(data_rsvp, aes(x = X, y = Y, color = .data[[colorFactor]])) +
+      ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, 
+                                          tooltip = ParticipantCode, 
+                                          shape = conditionName), size = 3) +
       theme_classic() +
       scale_y_log10(
         breaks = y_breaks,
@@ -253,7 +262,9 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       geom_smooth(method = 'lm', formula = y ~ x, se = FALSE, color = "black") +  # Black regression line
       annotation_logticks() +
       color_scale(n = unique_colors) +  # Dynamic color scale
-      guides(color = guide_legend(title = colorFactor), shape = F) +
+      guides(color = guide_legend(title = colorFactor), 
+             shape = guide_legend(title = '',
+                                  ncol = 1)) +
       annotate(
         "text",
         x = xMin,
@@ -266,7 +277,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
         ),
         hjust = 0,
         vjust = 0,
-        size = 4,
+        size = 3,
         color = "black"
       ) +
       labs(
@@ -279,15 +290,15 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
         legend.position = ifelse(unique_colors == 1, 'none', 'top')
       )
     
-    if (n_distinct(data_rsvp$`Skilled reader?`) > 1) {
-      p <- p + geom_point(
-        aes(shape = `Skilled reader?`, group = ParticipantCode)
-      ) +
-        scale_shape_manual(values = c(4, 19,1))
-    } else {
-      p <- p + geom_point(aes(group = ParticipantCode))
-    }
-    
+    # if (n_distinct(data_rsvp$`Skilled reader?`) > 1) {
+    #   p <- p + geom_point(
+    #     aes(shape = `Skilled reader?`, group = ParticipantCode)
+    #   ) +
+    #     scale_shape_manual(values = c(4, 19,1))
+    # } else {
+    #   p <- p + geom_point(aes(group = ParticipantCode))
+    # }
+    # 
     return(p)
   }
   
@@ -320,8 +331,8 @@ plot_acuity_reading <- function(acuity, reading, type) {
   create_reading_plot <- function(data, type, colorFactor) {
     # Merge data and calculate WPM and acuity
     data_reading <- data %>%
-      select(participant, questMeanAtEndOfTrialsLoop) %>%
-      inner_join(reading, by = "participant") %>%
+      select(participant, questMeanAtEndOfTrialsLoop, conditionName) %>%
+      inner_join(reading %>% select(-conditionName), by = "participant") %>%
       mutate(
         Y = wordPerMin,  # Linear scale
         log_WPM = log10(wordPerMin),  # Convert wordPerMin to log scale
@@ -383,6 +394,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
     
     p <- ggplot(data_reading, aes(x = X, y = Y, color = .data[[colorFactor]])) +
       theme_classic() +
+      ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode, shape = conditionName), size = 3)
       scale_x_log10(
         limits = c(xMin, xMax),
         breaks = scales::log_breaks(),
@@ -394,7 +406,6 @@ plot_acuity_reading <- function(acuity, reading, type) {
         expand = c(0, 0)
       ) +
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
-      geom_point(size = 3) +
       color_scale +  # Apply dynamic color scale directly
       annotate(
         "text",
@@ -403,7 +414,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
         label = annotation_text,
         hjust = 0,
         vjust = 0,
-        size = 4,
+        size = 3,
         color = "black"
       ) +
       labs(
@@ -411,7 +422,10 @@ plot_acuity_reading <- function(acuity, reading, type) {
         y = "Ordinary reading speed (w/min)",
         title = paste("Ordinary reading vs", type, "acuity\ncolored by", tolower(colorFactor))
       ) +
-      plt_theme
+      plt_theme + 
+      guides(color = guide_legend(title = colorFactor), 
+             shape = guide_legend(title = '',
+                                  ncol = 1))
     
     return(p)
   }
@@ -492,7 +506,7 @@ plot_acuity_vs_age <- function(allData){
                               color = questType
   )) + 
     annotation_logticks(sides = 'l') + 
-    geom_point()+ 
+    geom_point(aes(shape = conditionName))+ 
     geom_smooth(method = 'lm', se=F) +
     ggpp::geom_text_npc(
       size = 12/.pt,

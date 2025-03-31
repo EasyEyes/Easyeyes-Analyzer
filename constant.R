@@ -49,22 +49,6 @@ rowCallback <- c(
 )
 
 library(ggplot2)
-##### ggplot download theme #####
-downloadtheme <- theme(legend.position = "right", 
-                       legend.box = "vertical", 
-                       legend.justification = c(1,1),
-                       legend.margin = margin(-0.4),
-                       legend.key.size = unit(4.5, "mm"),
-                       legend.title = element_text(size=20),
-                       panel.grid.major = element_blank(), 
-                       panel.grid.minor = element_blank(),
-                       panel.background = element_blank(), 
-                       axis.title = element_text(size = 20),
-                       axis.text = element_text(size = 20),
-                       axis.line = element_line(colour = "black"),
-                       plot.title = element_text(size=20),
-                       plot.subtitle = element_text(size=20),
-                       strip.text = element_text(size = 20))
 
 #### black and grey color scale ####
 
@@ -81,7 +65,7 @@ plt_theme_scatter <- theme(
   legend.position = "top", 
   legend.box = "vertical", 
   legend.key.size = unit(4.5, "mm"),
-  legend.title = element_text(size=14),
+  legend.title = element_text(size=14,hjust = 0),
   legend.text = element_text(size=14),
   legend.box.margin = margin(0,0,0,0,"cm"),
   panel.grid.major = element_blank(), 
@@ -144,8 +128,8 @@ plt_theme <- theme(legend.position = "top",
                    legend.box = "vertical", 
                    legend.justification='left',
                    legend.key.size = unit(4.5, "mm"),
-                   legend.title = element_text(size=14),
-                   legend.text = element_text(size=14),
+                   legend.title = element_text(size=14, hjust = 0),
+                   legend.text = element_text(size=14, hjust = 0),
                    legend.box.margin = margin(0,0,0,0,"cm"),
                    panel.grid.major = element_blank(), 
                    panel.grid.minor = element_blank(),
@@ -166,6 +150,33 @@ plt_theme <- theme(legend.position = "top",
                      "inch"
                    ),
                    strip.text = element_text(size = 14))
+
+plt_theme_ggiraph <- theme(legend.position = "top", 
+                   legend.box = "vertical", 
+                   legend.justification='left',
+                   legend.key.size = unit(4.5, "mm"),
+                   legend.title = element_text(size=10, hjust = 0),
+                   legend.text = element_text(size=10, hjust = 0),
+                   legend.box.margin = margin(0,0,0,0,"cm"),
+                   panel.grid.major = element_blank(), 
+                   panel.grid.minor = element_blank(),
+                   panel.background = element_blank(), 
+                   axis.title = element_text(size = 10),
+                   axis.text = element_text(size = 10),
+                   axis.line = element_line(colour = "black"),
+                   plot.title = element_text(size=12,
+                                             hjust = 0),
+                   plot.title.position = "plot",
+                   plot.subtitle = element_text(size=12,
+                                                hjust = 0),
+                   plot.margin = margin(
+                     t = 0.1,
+                     r = 0.1,
+                     b = 0.1,
+                     l = 0.1,
+                     "inch"
+                   ),
+                   strip.text = element_text(size = 10))
 
 hist_theme <- theme(legend.position = "top", 
                    legend.box = "vertical", 

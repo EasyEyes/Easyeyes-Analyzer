@@ -3,19 +3,25 @@ source('./constant.R')
 
 crowding_by_side <- function(crowding) {
   print('insdie crowding_by_side')
-  crowding <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
+  crowding <- crowding %>% filter(targetEccentricityXDeg != 0, !is.na(conditionName)) %>% 
     mutate(side = ifelse(targetEccentricityXDeg < 0, 'L', 'R'),
            XDeg = abs(targetEccentricityXDeg))
   
-  crowding_L <- crowding %>% filter(side == "L") %>% select(-conditionName, -side)
-  crowding_R <- crowding %>% filter(side == "R") %>% select(-conditionName, -side)
+  crowding_L <- crowding %>%
+    filter(side == "L") %>%
+    select(-side)
+  crowding_R <- crowding %>% 
+    filter(side == "R") %>%
+    select(-side)
 
   crowding_L_R <- crowding_L %>% 
     full_join(crowding_R, by = c("participant","font", 'XDeg','order', 'block')) %>% 
     rename("bouma_factor_Left" = "bouma_factor.x",
            "bouma_factor_Right" = "bouma_factor.y",
            "log_crowding_distance_deg_Left" = "log_crowding_distance_deg.x",
-           "log_crowding_distance_deg_Right" = "log_crowding_distance_deg.y")
+           "log_crowding_distance_deg_Right" = "log_crowding_distance_deg.y") %>%
+    filter(!is.na(log_crowding_distance_deg_Left) & !is.na(log_crowding_distance_deg_Right)) %>% 
+    mutate(conditionName =  paste0(conditionName.x, ' vs ', conditionName.y)) %>% 
   return(crowding_L_R)
 }
 
@@ -29,7 +35,7 @@ crowding_scatter_plot <- function(crowding_L_R){
     }
   }
   crowding_L_R <- crowding_L_R %>% 
-    group_by(participant) %>% 
+    group_by(participant, conditionName) %>% 
     summarize(log_crowding_distance_deg_Left = mean(log_crowding_distance_deg_Left, na.rm=T),
               log_crowding_distance_deg_Right = mean(log_crowding_distance_deg_Right, na.rm=T)) %>% 
     ungroup()
@@ -73,7 +79,9 @@ crowding_scatter_plot <- function(crowding_L_R){
 
   minXY <- min(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right, na.rm = T) * 0.9
   maxXY <- max(crowding_L_R$log_crowding_distance_deg_Left, crowding_L_R$log_crowding_distance_deg_Right, na.rm = T) * 1.1
-  p <- ggplot(crowding_L_R,aes(y = 10^(log_crowding_distance_deg_Left), x = 10^(log_crowding_distance_deg_Right))) + 
+  p <- ggplot(crowding_L_R,aes(y = 10^(log_crowding_distance_deg_Left), 
+                               x = 10^(log_crowding_distance_deg_Right),
+                               color = conditionName)) + 
     geom_point(size = 1) + 
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_y_log10(limits = c(10^(minXY), 
@@ -94,7 +102,9 @@ crowding_scatter_plot <- function(crowding_L_R){
        title = "Left vs right peripheral crowding",
        caption = summ$label
   ) + 
-    theme(plot.caption = element_text(hjust = 0, size = 12))
+    theme(plot.caption = element_text(hjust = 0, size = 12)) +
+    guides(color = guide_legend(title = '', 
+                                ncol = 1))
   return(p)
 }
 
@@ -105,16 +115,16 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
              ylab("Right Bouma factor") )
   }
   
-  t <- crowding_L_R %>% group_by(font) %>% summarize(avg_left_deg = mean(log_crowding_distance_deg_Left),
+  t <- crowding_L_R %>% group_by(conditionName) %>% summarize(avg_left_deg = mean(log_crowding_distance_deg_Left),
                                                      avg_right_deg = mean(log_crowding_distance_deg_Right))
   corrrelation <- ifelse(nrow(t) > 1, cor(t$avg_left_deg, t$avg_right_deg), NA)
   
-  ggplot(t, aes(x = avg_left_deg, y = avg_right_deg, color = font)) + 
+  ggplot(t, aes(x = avg_left_deg, y = avg_right_deg, color = conditionName)) + 
     geom_point(size = 2) +
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     stat_cor() +  
     coord_fixed(ratio = 1) + 
-    guides(color = guide_legend(title="Font")) + 
+    guides(color = guide_legend(title="", ncol = 1)) + 
     xlab("Left crowding distance (deg)") + 
     ylab("Right crowding distance (deg)") + 
     theme_bw() + 
@@ -177,7 +187,6 @@ get_two_fonts_plots <- function(crowding) {
     theme_bw() + 
     coord_fixed(ratio = 1) + 
     labs(x = paste0(font1, " Bouma Factor"), y = paste0(font2, " Bouma Factor")) +
-    downloadtheme + 
     ggpp::geom_text_npc(
       aes(npcx = "left", npcy = "bottom", label = paste0("italic('N=')~", n)), 
       parse = TRUE
@@ -199,7 +208,6 @@ get_two_fonts_plots <- function(crowding) {
     theme_bw() + 
     coord_fixed(ratio = 1) + 
     labs(x = paste0(font1, " Bouma Factor"), y = paste0(font2, " Bouma Factor")) +
-    downloadtheme + 
     ggpp::geom_text_npc(
       aes(npcx = "left", npcy = "bottom", label = paste0("italic('N=')~", n)), 
       parse = TRUE
@@ -230,9 +238,9 @@ get_foveal_crowding_vs_age <- function(crowding) {
     # Start building the plot
     if (n_grades > 1) {
       t$Grade = as.character(t$Grade)
-      p <- ggplot(t, aes(x = X, y = Y, color = Grade))
+      p <- ggplot(t, aes(x = X, y = Y, color = Grade, shape = conditionName))
     } else {
-      p <- ggplot(t, aes(x = X, y = Y))
+      p <- ggplot(t, aes(x = X, y = Y, shape = conditionName))
     }
     
     # Add plot components
@@ -267,14 +275,15 @@ get_foveal_crowding_vs_age <- function(crowding) {
       plt_theme +
       theme(
         legend.position = "top"
-      )
+      ) +
+      guides(shape = guide_legend(title = '', ncol = 1))
     
     # Handle Skilled reader?
-    if (n_distinct(t$`Skilled reader?`) > 1) {
-      p <- p + 
-        geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19,1))
-    }
+    # if (n_distinct(t$`Skilled reader?`) > 1) {
+    #   p <- p + 
+    #     geom_point(aes(shape = `Skilled reader?`)) +
+    #     scale_shape_manual(values = c(4, 19,1))
+    # }
     
     return(p)
   }
@@ -283,7 +292,7 @@ get_foveal_crowding_vs_age <- function(crowding) {
 get_peripheral_crowding_vs_age <- function(crowding) {
   t <- crowding %>%
     filter(!is.na(age), targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade, `Skilled reader?`, block) %>%
+    group_by(participant, age, Grade, `Skilled reader?`, block, conditionName) %>%
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
     ungroup()
   
@@ -316,7 +325,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     
     p <- p +
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
-      geom_point(size = 3) +  # Add points
+      geom_point(aes(shape = conditionName), size = 3) +  # Add points
       theme_bw() +
       color_scale(n = n_grades) +  # Apply the gray-to-black color scale
       labs(
@@ -345,14 +354,16 @@ get_peripheral_crowding_vs_age <- function(crowding) {
       plt_theme +
       theme(
         legend.position = "top"
-      )
+      ) +
+      guides(color = guide_legend(title = 'Grade'),
+             shape = guide_legend(title = '', ncol = 1))
     
     # Add shapes for Skilled Reader if applicable
-    if (n_distinct(t$`Skilled reader?`) > 1) {
-      p <- p +
-        geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19,1))
-    }
+    # if (n_distinct(t$`Skilled reader?`) > 1) {
+    #   p <- p +
+    #     geom_point(aes(shape = `Skilled reader?`)) +
+    #     scale_shape_manual(values = c(4, 19,1))
+    # }
     
     return(p)
   }
@@ -399,12 +410,12 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
         legend.text = element_text(size = 10)
       )
     
-    # Add shapes for Skilled Reader if applicable
-    if (n_distinct(t$`Skilled reader?`) > 1) {
-      p <- p + 
-        geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19,1))
-    }
+    # # Add shapes for Skilled Reader if applicable
+    # if (n_distinct(t$`Skilled reader?`) > 1) {
+    #   p <- p + 
+    #     geom_point(aes(shape = `Skilled reader?`)) +
+    #     scale_shape_manual(values = c(4, 19,1))
+    # }
     
     return(p)
   }
@@ -418,7 +429,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% 
     filter(targetEccentricityXDeg != 0) %>% 
-    group_by(participant, age, Grade, `Skilled reader?`, block) %>% 
+    group_by(participant, age, Grade, `Skilled reader?`, block, conditionName) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>% 
     ungroup()
   
@@ -440,7 +451,8 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
       
       p1 <- ggplot(foveal_vs_repeatedLetters, aes(x = 10^(log_crowding_distance_deg), 
                                                   y = 10^(repeatedLetters), 
-                                                  color = Grade)) +
+                                                  color = Grade,
+                                                  shape = conditionName)) +
         geom_point() +
         scale_y_log10() + 
         scale_x_log10() + 
@@ -509,86 +521,160 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
 }
 
 
-
 get_foveal_acuity_diag <- function(crowding, acuity) {
-  # Filter for foveal crowding and remove rows with missing age
-  foveal <- crowding %>% filter(targetEccentricityXDeg == 0, !is.na(age))
+
+  foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   
   if (nrow(foveal) == 0 | nrow(acuity) == 0) {
     return(list(
-      age = NULL,
-      grade = NULL
+      periphreal = NULL,
+      foveal = NULL
     ))
   } else {
+
+    p <- NULL
+    p1 <- NULL
+    
     foveal_acuity <- acuity %>%
       rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>%
       filter(targetEccentricityXDeg == 0) %>%
-      select(participant, log_acuity) %>%
+      select(participant, log_acuity, conditionName) %>%
       inner_join(foveal, by = 'participant') %>%  # Get age from foveal
       mutate(
+        conditionName = paste0(conditionName.x, ' vs ', conditionName.y),
         age = as.numeric(age),  # Convert age to numeric
         X = 10^log_crowding_distance_deg,
         Y = 10^log_acuity
       )
     
-    if (nrow(foveal_acuity) == 0) {
-      return(list(age = NULL, grade = NULL))
-    }
     
-    # Calculate regression metrics
-    r_value <- cor(foveal_acuity$X, foveal_acuity$Y, method = "pearson", use = "complete.obs")
-    lm_fit <- lm(Y ~ X, data = foveal_acuity)
-    slope <- coef(lm_fit)[["X"]]
-    
-    # Compute \( R_{\text{factor out age}} \)
-    if ("age" %in% colnames(foveal_acuity) && any(!is.na(foveal_acuity$age))) {
-      pcor <- ppcor::pcor(foveal_acuity %>% select(X, Y, age))
-      R_factor_out_age <- round(pcor$estimate[2, 1], 2)
-    } else {
-      R_factor_out_age <- NA
-    }
-    
-    # Count distinct grades for the color scale
-    n_grades <- n_distinct(foveal_acuity$Grade)
-    
-    # Generate the plot
-    p <- ggplot(foveal_acuity, aes(x = X, y = Y)) +
-      geom_point(aes(color = Grade), size = 3) +
-      geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +  # Regression line in black
-      annotate(
-        "text",
-        x = max(foveal_acuity$X, na.rm = TRUE) * 0.8,  # Adjusted for better placement
-        y = max(foveal_acuity$Y, na.rm = TRUE) * 0.8,
-        label = paste0(
-          "N = ", nrow(foveal_acuity),
-          "\nR = ", round(r_value, 2),
-          "\nR_factor_out_age = ", R_factor_out_age,
-          "\nslope = ", round(slope, 2)
-        ),
-        hjust = 1, vjust = 1, size = 4, color = "black"
-      ) +
-      scale_x_log10() +
-      scale_y_log10() +
-      theme_bw() +
-      color_scale(n = n_grades) +  # Apply the color scale
-      annotation_logticks(short = unit(0.1, "cm"),
-                          mid = unit(0.1, "cm"),
-                          long = unit(0.3, "cm")) +
-      labs(
-        title = 'Foveal acuity vs foveal crowding',
-        x = 'Foveal crowding (deg)',
-        y = 'Foveal acuity (deg)'
-      ) +
-      coord_fixed() +
-      theme(
-        plot.title = element_text(size = 16, hjust = 0.5),
-        legend.position = "top",
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 10)
+    peripheral_acuity <- acuity %>%
+      rename('log_acuity' = 'questMeanAtEndOfTrialsLoop') %>%
+      filter(targetEccentricityXDeg != 0) %>%
+      select(participant, log_acuity, conditionName) %>%
+      inner_join(foveal, by = 'participant') %>%  # Get age from foveal
+      mutate(
+        conditionName = paste0(conditionName.x, ' vs ', conditionName.y),
+        age = as.numeric(age),  # Convert age to numeric
+        X = 10^log_crowding_distance_deg,
+        Y = 10^log_acuity
       )
+  
+    if (nrow(foveal_acuity) != 0) {
+      
+      r_value <- cor(foveal_acuity$X, foveal_acuity$Y, method = "pearson", use = "complete.obs")
+      lm_fit <- lm(Y ~ X, data = foveal_acuity)
+      slope <- coef(lm_fit)[["X"]]
+      
+      # Compute \( R_{\text{factor out age}} \)
+      if ("age" %in% colnames(foveal_acuity) && sum(!is.na(foveal_acuity$age)) > 0) {
+        pcor <- ppcor::pcor(foveal_acuity %>% filter(!is.na(age)) %>% select(X, Y, age))
+        R_factor_out_age <- round(pcor$estimate[2, 1], 2)
+      } else {
+        R_factor_out_age <- NA
+      }
+      
+      # Count distinct grades for the color scale
+      n_grades <- n_distinct(foveal_acuity$Grade)
+      
+      # Generate the plot
+      p <- ggplot(foveal_acuity, aes(x = X, y = Y)) +
+        geom_point(aes(color = Grade, shape = conditionName), size = 3) +
+        geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +  # Regression line in black
+        annotate(
+          "text",
+          x = max(foveal_acuity$X, na.rm = TRUE) * 0.8,  # Adjusted for better placement
+          y = max(foveal_acuity$Y, na.rm = TRUE) * 0.8,
+          label = paste0(
+            "N = ", nrow(foveal_acuity),
+            "\nR = ", round(r_value, 2),
+            "\nR_factor_out_age = ", R_factor_out_age,
+            "\nslope = ", round(slope, 2)
+          ),
+          hjust = 1, vjust = 1, size = 4, color = "black"
+        ) +
+        scale_x_log10() +
+        scale_y_log10() +
+        theme_bw() +
+        color_scale(n = n_grades) +  # Apply the color scale
+        annotation_logticks(short = unit(0.1, "cm"),
+                            mid = unit(0.1, "cm"),
+                            long = unit(0.3, "cm")) +
+        labs(
+          title = 'Foveal acuity vs foveal crowding',
+          x = 'Foveal crowding (deg)',
+          y = 'Foveal acuity (deg)'
+        ) +
+        coord_fixed() +
+        guides(color = guide_legend(title = 'Grade'), 
+               shape = guide_legend(title = '', ncol = 1)) +
+        theme(
+          plot.title = element_text(size = 16, hjust = 0.5),
+          legend.position = "top",
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10)
+        )
+    }
+    
+    if (nrow(peripheral_acuity) != 0) {
+      
+      r_value <- cor(peripheral_acuity$X, peripheral_acuity$Y, method = "pearson", use = "complete.obs")
+      lm_fit <- lm(Y ~ X, data = peripheral_acuity)
+      slope <- coef(lm_fit)[["X"]]
+      
+      # Compute \( R_{\text{factor out age}} \)
+      if ("age" %in% colnames(peripheral_acuity) && sum(!is.na(peripheral_acuity$age)) > 0) {
+        pcor <- ppcor::pcor(peripheral_acuity %>% filter(!is.na(age)) %>% select(X, Y, age))
+        R_factor_out_age <- round(pcor$estimate[2, 1], 2)
+      } else {
+        R_factor_out_age <- NA
+      }
+      
+      # Count distinct grades for the color scale
+      n_grades <- n_distinct(peripheral_acuity$Grade)
+      
+      # Generate the plot
+      p <- ggplot(peripheral_acuity, aes(x = X, y = Y)) +
+        geom_point(aes(color = Grade, shape = conditionName), size = 3) +
+        geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +  # Regression line in black
+        annotate(
+          "text",
+          x = max(peripheral_acuity$X, na.rm = TRUE) * 0.8,  # Adjusted for better placement
+          y = max(peripheral_acuity$Y, na.rm = TRUE) * 0.8,
+          label = paste0(
+            "N = ", nrow(foveal_acuity),
+            "\nR = ", round(r_value, 2),
+            "\nR_factor_out_age = ", R_factor_out_age,
+            "\nslope = ", round(slope, 2)
+          ),
+          hjust = 1, vjust = 1, size = 4, color = "black"
+        ) +
+        scale_x_log10() +
+        scale_y_log10() +
+        theme_bw() +
+        color_scale(n = n_grades) +  # Apply the color scale
+        annotation_logticks(short = unit(0.1, "cm"),
+                            mid = unit(0.1, "cm"),
+                            long = unit(0.3, "cm")) +
+        labs(
+          title = 'Peripheral acuity vs foveal crowding',
+          x = 'Foveal crowding (deg)',
+          y = 'Peripheral acuity (deg)'
+        ) +
+        coord_fixed() +
+        guides(color = guide_legend(title = 'Grade'), 
+               shape = guide_legend(title = '', ncol = 1)) +
+        theme(
+          plot.title = element_text(size = 16, hjust = 0.5),
+          legend.position = "top",
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10)
+        )
+    }
     
     return(list(
-      foveal = list(age = p)
+      foveal = p,
+      perpheral = p1
     ))
   }
 }
@@ -600,7 +686,7 @@ get_foveal_peripheral_diag <- function(crowding) {
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade, `Skilled reader?`, block) %>%
+    group_by(participant, age, Grade, `Skilled reader?`, block, conditionName) %>%
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
     ungroup()
   
@@ -613,19 +699,16 @@ get_foveal_peripheral_diag <- function(crowding) {
     # Combine foveal and peripheral data
     t <- foveal %>%
       rename(foveal = log_crowding_distance_deg) %>%
-      select(foveal, participant) %>%
+      select(foveal, participant, conditionName) %>%
       inner_join(peripheral, by = "participant") %>%
       rename(peripheral = log_crowding_distance_deg) %>%
       mutate(
+        conditionName = paste0(conditionName.x, ' vs ', conditionName.y),
         age = ifelse(is.na(age), 0, age),  # Handle missing ages
-        N = paste0("N = ", n())
-      )
-    
-    # Compute stats
-    t <- t %>%
-      mutate(
+        N = paste0("N = ", n()),
         foveal_y = 10^foveal,
-        peripheral_x = 10^peripheral
+        peripheral_x = 10^peripheral,
+        Grade = as.character(Grade)
       )
     
     regression <- lm(peripheral_x ~ foveal_y, data = t)
@@ -640,19 +723,26 @@ get_foveal_peripheral_diag <- function(crowding) {
       R_factor_out_age <- NA
     }
     
-    
     n_grades <- n_distinct(t$Grade)
     
     # Plot for grade
     if (n_distinct(t$Grade) > 1) {
-      t <- t %>%
-        mutate(Grade = as.character(Grade))
-      
       p1 <- ggplot(t, aes(
         y = peripheral_x,
         x = foveal_y,
-        color = Grade
-      )) +
+        color = Grade,
+        shape = conditionName
+      )) 
+    } else {
+      p1 <- ggplot(t, aes(
+        y = peripheral_x,
+        x = foveal_y,
+        shape = conditionName
+      )) 
+    }
+      
+    p1 <- p1 +
+        geom_point(size =3) + 
         geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
         scale_x_log10() +
         scale_y_log10() +
@@ -678,15 +768,19 @@ get_foveal_peripheral_diag <- function(crowding) {
             "\nslope = ", round(slope, 2)
           ),
           hjust = 0, vjust = 1, size = 4, color = "black"
-        )
-    }
+        ) + 
+        guides(color = guide_legend(title = 'Grade'),
+               shape = guide_legend(title = '',
+                                    ncol=1))
+    
     
     # Plot for age
     if (n_distinct(t$age) > 1) {
       p <- ggplot(t, aes(
         y = foveal_y,
         x = peripheral_x,
-        color = age
+        color = age,
+        shape = conditionName
       ))
     } else {
       p <- ggplot(t, aes(
@@ -696,6 +790,7 @@ get_foveal_peripheral_diag <- function(crowding) {
     }
     
     p <- p +
+      geom_point(size =3) + 
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
       scale_x_log10() +
       scale_y_log10() +
@@ -720,20 +815,23 @@ get_foveal_peripheral_diag <- function(crowding) {
           "\nslope = ", round(slope, 2)
         ),
         hjust = 1, vjust = 1, size = 4, color = "black"
-      )
+      ) + 
+      guides(color = guide_legend(title = 'Grade'),
+             shape = guide_legend(title = '',
+                                  ncol = 1))
     
     # Add shapes for Skilled Reader if applicable
-    if (n_distinct(t$`Skilled reader?`) == 1) {
-      p <- p + geom_point(size = 3)
-      p1 <- p1 + geom_point(size = 3)
-    } else {
-      p <- p +
-        geom_point(aes(shape = `Skilled reader?`), size = 3) +
-        scale_shape_manual(values = c(4, 19,1))
-      p1 <- p1 +
-        geom_point(aes(shape = `Skilled reader?`), size = 3) +
-        scale_shape_manual(values = c(4, 19,1))
-    }
+    # if (n_distinct(t$`Skilled reader?`) == 1) {
+    #   p <- p + geom_point(size = 3)
+    #   p1 <- p1 + geom_point(size = 3)
+    # } else {
+    #   p <- p +
+    #     geom_point(aes(shape = `Skilled reader?`), size = 3) +
+    #     scale_shape_manual(values = c(4, 19,1))
+    #   p1 <- p1 +
+    #     geom_point(aes(shape = `Skilled reader?`), size = 3) +
+    #     scale_shape_manual(values = c(4, 19,1))
+    # }
     
     return(list(age = p, grade = p1))
   }
@@ -789,9 +887,10 @@ plot_crowding_vs_age <- function(crowding){
  
   ggplot(data = crowding, aes(x = ageN, 
                               y = 10^(log_crowding_distance_deg),
-                              color = questType)) + 
+                              color = questType
+                              )) + 
     annotation_logticks(sides = 'l') + 
-    geom_point()+ 
+    geom_point(aes(shape = conditionName))+ 
     geom_smooth(method='lm', se=F) + 
     ggpp::geom_text_npc(
       size = 12/.pt,
@@ -800,7 +899,9 @@ plot_crowding_vs_age <- function(crowding){
           label = paste0('Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr, '\n',
                          'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr))) +
     scale_y_log10() + 
-    guides(color=guide_legend(title = '')) + 
+    guides(color=guide_legend(title = ''),
+           shape=guide_legend(title = '',
+                              ncol=1)) + 
     labs(x = 'Age',
          y = 'Crowding distance (deg)',
          title = 'Foveal and peripheral\ncrowding vs age')

@@ -27,7 +27,7 @@ prepare_regression_data <- function(df_list){
   
   crowding_summary <- crowding %>% 
     mutate(type = ifelse(targetEccentricityXDeg == 0,'Foveal', 'Peripheral')) %>% 
-    group_by(participant, type) %>% 
+    group_by(participant, type, conditionName) %>% 
     summarize(crowding_distance = 10^(mean(log_crowding_distance_deg)))
   
   reading_crowding <- reading_valid %>% 
@@ -112,7 +112,7 @@ regression_reading_plot <- function(df_list){
   
   if (nrow(foveal) > 0) {
     p1 <- ggplot(foveal,aes(x = crowding_distance, y = 10^(avg_log_WPM), color = targetKind)) + 
-      geom_point() +
+      geom_point(aes(shape = conditionName)) +
       geom_smooth(method = "lm",formula = y ~ x, se=F) + 
       scale_x_log10() + 
       scale_y_log10() +
@@ -137,7 +137,7 @@ regression_reading_plot <- function(df_list){
   
   if (nrow(peripheral) > 0) {
     p2 <- ggplot(peripheral, aes(x = crowding_distance, y = 10^(avg_log_WPM), color = targetKind)) + 
-      geom_point() +
+      geom_point(aes(shape = conditionName)) +
       geom_smooth(method = "lm",formula = y ~ x, se=F) + 
       scale_x_log10() + 
       scale_y_log10() +
@@ -153,7 +153,9 @@ regression_reading_plot <- function(df_list){
         label = paste0('N=', nrow(peripheral))
       )) + 
       guides(color=guide_legend(nrow=2, byrow=TRUE,
-                                title = '')) +
+                                title = ''),
+             shape = guide_legend(ncol=1,
+                                  title = '')) +
       theme(
         axis.text.x = element_text(angle = 45, hjust = 1),# Rotate x-axis labels
         plot.margin = margin(10, 10, 10, 10) 
@@ -176,7 +178,7 @@ regression_acuity_plot <- function(df_list){
   }
   t <- t %>% mutate(targetKind = paste0(targetKind, ", R = ", correlation))
   p <- ggplot(t,aes(x = 10^(questMeanAtEndOfTrialsLoop), y = 10^(avg_log_WPM), color = targetKind)) + 
-    geom_point() +
+    geom_point(aes(shape = conditionName)) +
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_x_log10(breaks=c(0.01,0.03,0.1,0.3,1)) + 
     scale_y_log10(breaks=c(30,100,300,1000)) +
