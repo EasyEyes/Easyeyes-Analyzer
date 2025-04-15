@@ -9,7 +9,7 @@ preprocessJSON <- function(jsonFile) {
     `1000 Hz in (dB)` = jsonFile$Cal1000HzInDb,
     `1000 Hz out (dB SPL)` = jsonFile$Cal1000HzOutDb,
     THD = jsonFile$THD * 100,
-    `All Hz out (dB SPL)` = jsonFile$Cal1000HzOutDb
+    `All Hz out (dB SPL)` = jsonFile$outDBSPLValues
   )
   volume_task <- volume_task %>%
     mutate(`out - in (dB SPL)` = `1000 Hz out (dB SPL)` - `1000 Hz in (dB)`,
