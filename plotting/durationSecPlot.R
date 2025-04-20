@@ -165,7 +165,7 @@ plot_duraction_sec <- function(df) {
     plt_theme_scatter +
     facet_wrap(~intervention) +
     annotation_logticks() + 
-    labs(title = 'targetMeasuredDurationSec vs fontNominalSizePx*(1+fontPadding)\ncolored by font',
+    labs(title = 'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by font',
          caption = 'Dashed lines are limits set by thresholdAllowedDurationRatio and fontMaxPx')
   p2 <- ggplot() +
     geom_point(data=df,
@@ -186,7 +186,7 @@ plot_duraction_sec <- function(df) {
     facet_wrap(~intervention) +
     theme_bw()+
     plt_theme_scatter+
-    labs(title = 'targetMeasuredDurationSec vs fontNominalSizePx*(1+fontPadding)\ncolored by participant',
+    labs(title = 'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant',
          caption = 'Dashed lines are limits set by thresholdAllowedDurationRatio and fontMaxPx')
   
   if(n_distinct(df$participant) <= 20) {
@@ -198,7 +198,7 @@ plot_duraction_sec <- function(df) {
     geom_point(data=df, 
                aes(x= fontNominalSizePx*(1+fontPadding),
                    y= targetMeasuredDurationSec, 
-                   color = font))
+                   color = as.factor(fontPadding)))
   
   for (i in 1:nrow(bounds)) {
     p3 <- p3 + 
@@ -209,13 +209,13 @@ plot_duraction_sec <- function(df) {
   p3 <- p3 + 
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
-    scale_color(df$font) +  
-    guides(color=guide_legend(ncol=2, title = '')) + 
+    scale_color(df$fontPadding) + 
+    guides(color=guide_legend(ncol=2, title = 'fontPadding')) + 
     annotation_logticks() + 
     facet_wrap(~intervention) +
     theme_bw()+
-    plt_theme_scatter+
-    labs(title = 'targetMeasuredDurationSec vs.fontNominalSizePx*(1+fontPadding)\ncolored by font',
+    plt_theme_scatter + 
+    labs(title = 'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
          caption = 'Dashed lines are limits set by thresholdAllowedDurationRatio and fontMaxPx')
   
   return(list(font = p1,
@@ -253,7 +253,7 @@ plot_Lateness_sec <- function(df) {
     facet_wrap(~intervention) + 
     guides(color=guide_legend(ncol=3, title = '')) + 
     annotation_logticks() + 
-    labs(title = 'targetMeasuredLatenessSec vs fontNominalSizePx*(1+fontPadding)\ncolored by font',
+    labs(title = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by font',
          caption = 'Dashed lines are limits set by thresholdAllowedLatenessSec and fontMaxPx') + 
     theme_bw()+
     plt_theme_scatter
@@ -274,7 +274,7 @@ plot_Lateness_sec <- function(df) {
     scale_color(df$participant) +  
     facet_wrap(~intervention) + 
     annotation_logticks() + 
-    labs(title = 'targetMeasuredLatenessSec vs fontNominalSizePx*(1+fontPadding)\ncolored by participant',
+    labs(title = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant',
          caption = 'Dashed lines are limits set by thresholdAllowedLatenessSec and fontMaxPx') +
     theme_bw()+
     plt_theme_scatter
@@ -299,9 +299,9 @@ plot_Lateness_sec <- function(df) {
     scale_y_log10(expand=c(0,.1)) + 
     scale_color(df$fontPadding) +  
     facet_wrap(~intervention) + 
-    guides(color=guide_legend(ncol=2, title = '')) + 
+    guides(color=guide_legend(ncol=2, title = 'fontPadding')) + 
     annotation_logticks() + 
-    labs(title = 'targetMeasuredLatenessSec vs.fontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
+    labs(title = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
          caption = 'Dashed lines are limits set by thresholdAllowedLatenessSec and fontMaxPx') +
     theme_bw()+
     plt_theme_scatter
