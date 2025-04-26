@@ -51,6 +51,7 @@ source('./plotting/crowdingrsvp.R')
 source('./plotting/repeated-letter-crowding.R')
 source('./plotting/durationSecPlot.R')
 source('./plotting/distancePlot.R')
+source('./plotting/minDegPlot.R')
 
 source("./other/getBits.R")
 source("./other/sound_plots.R")
@@ -769,6 +770,14 @@ shinyServer(
       print('done age plots')
       return(list(plotList = l,
                   fileNames = fileNames))
+    })
+    
+    minDegPlots <- reactive({
+      if (is.null(files())) {
+        return(list(plotList = list(),
+                    fileNames = list()))
+      }
+      return(get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding))
     })
     
     histograms <- reactive({
@@ -1924,86 +1933,108 @@ shinyServer(
         return(out)
       })
       
-      # output$histograms <- renderUI({
-      #   out <- list()
-      #   i = 1
-      #
-      #   while(i <= length(histograms()$plotList)-1) {
-      #
-      #     out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
-      #                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "50%", height = "50%"), type = 4),
-      #                              shinycssloaders::withSpinner(plotOutput(paste0("hist", i+1), width = "50%", height = "50%"), type = 4))
-      #     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-      #                                 downloadButton(paste0("downloadHist", i), 'Download'),
-      #                                 downloadButton(paste0("downloadHist", i+1), 'Download'))
-      #     i = i + 2
-      #   }
-      #   if (i == length(histograms()$plotList)){
-      #     out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
-      #                             shinycssloaders::withSpinner(plotOutput(paste0("hist", i), width = "50%", height = "50%"), type = 4))
-      #     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-      #                                 downloadButton(paste0("downloadHist", i), 'Download'))
-      #   }
-      #   for (j in 1:length(histograms()$plotList)) {
-      #
-      #     local({
-      #       ii <- j
-      #
-      #       output[[paste0("hist", ii)]] <- renderImage({
-      #         outfile <- tempfile(fileext = '.svg')
-      #         ggsave(
-      #           file = outfile,
-      #           plot = histograms()$plotList[[ii]] + plt_theme,
-      #           device = svglite,
-      #           width = 5,
-      #           height=5,
-      #           unit = 'in',
-      #         )
-      #
-      #         list(src = outfile,
-      #              contenttype = 'svg')
-      #       }, deleteFile = TRUE)
-      #
-      #       output[[paste0("downloadHist", ii)]] <- downloadHandler(
-      #         filename = paste0(
-      #           experiment_names(),
-      #           histograms()$fileNames[[ii]],
-      #           ii,
-      #           '.',
-      #           input$fileType
-      #         ),
-      #         content = function(file) {
-      #           if (input$fileType == "png") {
-      #             ggsave(
-      #               "tmp.svg",
-      #               plot = histograms()$plotList[[ii]] + plt_theme,
-      #               unit = "in",
-      #               width = 6,
-      #               limitsize = F,
-      #               device = svglite
-      #             )
-      #             rsvg::rsvg_png("tmp.svg", file,
-      #                            height = 1800,
-      #                            width = 1800)
-      #           } else {
-      #             ggsave(
-      #               file,
-      #               plot = histograms()$plotList[[ii]] + plt_theme,
-      #               unit = "in",
-      #               limitsize = F,
-      #               device = ifelse(
-      #                 input$fileType == "svg",
-      #                 svglite::svglite,
-      #                 input$fileType
-      #               )
-      #             )
-      #           }
-      #         }
-      #       )
-      #     })
-      #   }
-      #   return(out)
-      # })
+      output$minDegPlots <- renderUI({
+        out <- list()
+        i = 1
+
+        while(i <= length(minDegPlots()$plotList)-1) {
+
+          out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
+                                   shinycssloaders::withSpinner(plotOutput(paste0("mdpLot", i), width = "50%", height = "50%"), type = 4),
+                                   shinycssloaders::withSpinner(plotOutput(paste0("mdpLot", i+1), width = "50%", height = "50%"), type = 4))
+          out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                      downloadButton(paste0("downloadmdpLot", i), 'Download'),
+                                      downloadButton(paste0("downloadmdpLot", i+1), 'Download'))
+          i = i + 2
+        }
+        if (i == length(minDegPlots()$plotList)){
+          out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                  shinycssloaders::withSpinner(plotOutput(paste0("mdpLot", i), width = "50%", height = "50%"), type = 4))
+          out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                      downloadButton(paste0("downloadmdpLot", i), 'Download'))
+        }
+        for (j in 1:length(minDegPlots()$plotList)) {
+
+          local({
+            ii <- j
+
+            output[[paste0("mdpLot", ii)]] <- renderImage({
+              tryCatch({
+                outfile <- tempfile(fileext = '.svg')
+                ggsave(
+                  file = outfile,
+                  plot = minDegPlots()$plotList[[ii]] + plt_theme,
+                  device = svglite
+                )
+                list(src = outfile, contenttype = 'svg')
+              }, error = function(e) {
+                error_plot <- ggplot() +
+                  annotate(
+                    "text",
+                    x = 0.5,
+                    y = 0.5,
+                    label = paste("Error:", e$message),
+                    color = "red",
+                    size = 5,
+                    hjust = 0.5,
+                    vjust = 0.5
+                  ) +
+                  theme_void() +
+                  ggtitle(minDegPlots()$fileNames[[ii]])
+                
+                outfile <- tempfile(fileext = '.svg')
+                ggsave(
+                  file = outfile,
+                  plot = error_plot,
+                  device = svglite,
+                )
+                list(
+                  src = outfile,
+                  contenttype = 'svg',
+                  alt = paste0("Error in ", minDegPlots()$fileNames[[ii]])
+                )
+              })
+              
+            }, deleteFile = TRUE)
+
+            output[[paste0("downloadmdpLot", ii)]] <- downloadHandler(
+              filename = paste0(
+                experiment_names(),
+                minDegPlots()$fileNames[[ii]],
+                ii,
+                '.',
+                input$fileType
+              ),
+              content = function(file) {
+                if (input$fileType == "png") {
+                  ggsave(
+                    "tmp.svg",
+                    plot = minDegPlots()$plotList[[ii]] + plt_theme,
+                    limitsize = F,
+                    device = svglite
+                  )
+                  rsvg::rsvg_png("tmp.svg", file,
+                                 height = 1800,
+                                 width = 1800)
+                } else {
+                  ggsave(
+                    file,
+                    plot = minDegPlots()$plotList[[ii]] + plt_theme,
+                    limitsize = F,
+                    device = ifelse(
+                      input$fileType == "svg",
+                      svglite::svglite,
+                      input$fileType
+                    )
+                  )
+                }
+              }
+            )
+          })
+        }
+        return(out)
+      })
+      
       output$histograms <- renderUI({
         out <- list()
         i <- 1
@@ -2252,7 +2283,6 @@ shinyServer(
                 )
                 list(src = outfile, contenttype = 'svg')
               }, error = function(e) {
-                # Show error in a ggplot-friendly way
                 error_plot <- ggplot() +
                   annotate(
                     "text",

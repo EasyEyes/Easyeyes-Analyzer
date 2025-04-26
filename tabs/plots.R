@@ -66,6 +66,7 @@ plotsTab <- tabPanel(
   #### histogram ####
   h3("Histograms"),
   shinycssloaders::withSpinner(uiOutput('histograms'),type=4),
+  shinycssloaders::withSpinner(uiOutput('minDegPlots'),type=4),
   fluidRow(
     splitLayout(
       cellWidths = c("50%", "50%"),

@@ -357,6 +357,19 @@ read_files <- function(file){
         if (!('pxPerCm' %in% colnames(t))) {
           t$pxPerCm <- NA
         } 
+        if (!('level' %in% colnames(t))) {
+          t$level <- NA
+        }
+        if (!('targetMinPhysicalPx' %in% colnames(t))) {
+          t$targetMinPhysicalPx <- NA
+        }
+        if (!('viewingDistanceCm' %in% colnames(t))) {
+          t$viewingDistanceCm <- NA
+        }
+        if (!('spacingOverSizeRatio' %in% colnames(t))) {
+          t$spacingOverSizeRatio <- NA
+        }
+        
         screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                               unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
                               NA)
@@ -716,6 +729,18 @@ read_files <- function(file){
           if (!('pxPerCm' %in% colnames(t))) {
             t$pxPerCm <- NA
           } 
+          if (!('level' %in% colnames(t))) {
+            t$level <- NA
+          }
+          if (!('targetMinPhysicalPx' %in% colnames(t))) {
+            t$targetMinPhysicalPx <- NA
+          }
+          if (!('viewingDistanceCm' %in% colnames(t))) {
+            t$viewingDistanceCm <- NA
+          }
+          if (!('spacingOverSizeRatio' %in% colnames(t))) {
+            t$spacingOverSizeRatio <- NA
+          }
           
           screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                                 unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 

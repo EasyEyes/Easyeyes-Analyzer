@@ -14,7 +14,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   if (length(data_list) == 0) {
     return(list())
   }
-  
+
   NQuestTrials <- stairs %>%
     arrange(participant, staircaseName) %>%
     group_by(participant, staircaseName, thresholdParameter) %>%
@@ -139,7 +139,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   }
   
   # combine all thresholds
-  
+
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]] %>% mutate(order = i)
   } %>% 
