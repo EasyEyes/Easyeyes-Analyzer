@@ -4,6 +4,14 @@ library(readr)
 source('./plotting/simulatedRSVP.R')
 
 
+pxToPt <- function(px, pxPerCm) {
+  return ((px / pxPerCm) * 72) / 2.54
+}
+
+ptToPx <- function(pt, pxPerCm) {
+  return ((2.54 * pt) / 72) * pxPerCm
+}
+
 check_file_names <- function(file) {
   file_names <- file$name
   valid_endings <- c(".results.zip", ".csv", ".prolific.csv", ".pretest.xlsx")
@@ -265,11 +273,16 @@ read_files <- function(file){
           t$`fontNominalSizePt` <- NA
         }
         if (!('fontNominalSizePx' %in% colnames(t))) {
-          t$`fontNominalSizePx` <- NA
+          if ('fontNominalSizePt' %in% colnames(t)) {
+            t$`fontNominalSizePx` <- ptToPx(t$fontNominalSizePt)
+          } else {
+            t$`fontNominalSizePx` <- NA
+          }
         }
         if (!('fontMaxPx' %in% colnames(t))) {
           t$`fontMaxPx` <- NA
         }
+        
         if (!('thresholdAllowedDurationRatio' %in% colnames(t))) {
           t$thresholdAllowedDurationRatio <- NaN
         } else {
@@ -357,14 +370,14 @@ read_files <- function(file){
         if (!('pxPerCm' %in% colnames(t))) {
           t$pxPerCm <- NA
         } 
-        if (!('level' %in% colnames(t))) {
-          t$level <- NA
-        }
         if (!('targetMinPhysicalPx' %in% colnames(t))) {
           t$targetMinPhysicalPx <- NA
         }
         if (!('viewingDistanceCm' %in% colnames(t))) {
           t$viewingDistanceCm <- NA
+        }
+        if (!('level' %in% colnames(t))) {
+          t$level = NA
         }
         if (!('spacingOverSizeRatio' %in% colnames(t))) {
           t$spacingOverSizeRatio <- NA
@@ -730,7 +743,7 @@ read_files <- function(file){
             t$pxPerCm <- NA
           } 
           if (!('level' %in% colnames(t))) {
-            t$level <- NA
+            t$level = NA
           }
           if (!('targetMinPhysicalPx' %in% colnames(t))) {
             t$targetMinPhysicalPx <- NA
