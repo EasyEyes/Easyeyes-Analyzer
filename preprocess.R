@@ -370,8 +370,17 @@ read_files <- function(file){
         if (!('pxPerCm' %in% colnames(t))) {
           t$pxPerCm <- NA
         } 
+        if (!('targetMinimumPix' %in% colnames(t))) {
+          t$targetMinimumPix = NA
+        }
         if (!('targetMinPhysicalPx' %in% colnames(t))) {
-          t$targetMinPhysicalPx <- NA
+          if ('targetMinimumPix' %in% colnames(t)) {
+            # assume devicePixelRatio = 2 for now
+            devicePixelRatio = 2
+            t$targetMinPhysicalPx  = devicePixelRatio * t$targetMinimumPix
+          } else {
+            t$targetMinPhysicalPx <- NA
+          }
         }
         if (!('viewingDistanceCm' %in% colnames(t))) {
           t$viewingDistanceCm <- NA
@@ -745,8 +754,17 @@ read_files <- function(file){
           if (!('level' %in% colnames(t))) {
             t$level = NA
           }
+          if (!('targetMinimumPix' %in% colnames(t))) {
+            t$targetMinimumPix = NA
+          }
           if (!('targetMinPhysicalPx' %in% colnames(t))) {
-            t$targetMinPhysicalPx <- NA
+            if ('targetMinimumPix' %in% colnames(t)) {
+              # assume devicePixelRatio = 2 for now
+              devicePixelRatio = 2
+              t$targetMinPhysicalPx  = devicePixelRatio * t$targetMinimumPix
+            } else {
+              t$targetMinPhysicalPx <- NA
+            }
           }
           if (!('viewingDistanceCm' %in% colnames(t))) {
             t$viewingDistanceCm <- NA

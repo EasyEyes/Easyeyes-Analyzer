@@ -777,7 +777,7 @@ shinyServer(
         return(list(plotList = list(),
                     fileNames = list()))
       }
-      return(get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding))
+      return(get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding)$scatter)
     })
     
     histograms <- reactive({
@@ -851,22 +851,14 @@ shinyServer(
         i = i + 1
       }
       
-      # t <- get_fluency_histogram(df_list()$fluency)
-      # if (!is.null(t)) {
-      #   l[[i]] = t
-      #   fileNames[[i]] = 'english-fluency-histogram'
-      #   i = i + 1
-      # }
-      #
-      # t <- get_reading_retention_histogram(df_list()[[1]])
-      # if (!is.null(t)) {
-      #   l[[i]] = t
-      #   fileNames[[i]] = 'reading-retention-histogram'
-      #   i = i + 1
-      # }
       print('before appending')
       lists = append_hist_list(data_list(), l, fileNames)
-      return(lists)
+      
+      minDegHist <- get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding)$hist
+      return(list(
+        plotList = c(lists$plotList, minDegHist$plotList),
+        fileNames = c(lists$fileNames, minDegHist$fileNames)
+      ))
     })
     
     timingHistograms <- reactive({
