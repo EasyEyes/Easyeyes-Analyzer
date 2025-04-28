@@ -51,9 +51,12 @@ get_test_retest_reading <- function(reading){
              y = 100, 
              label = paste("italic(n)==",length(unique(reading_test_retest$participant))), 
              parse = TRUE) +
-    annotation_logticks(short = unit(0.1, "cm"),                                                                        
-                        mid = unit(0.1, "cm"),
-                        long = unit(0.3, "cm")) +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     scale_shape_manual(values = sample(1:25, length(unique(reading_test_retest$participant)))) + 
     stat_cor(aes(label = ..r.label..), label.x.npc = "left", label.y.npc = "top", r.accuracy = 0.01)
 }
@@ -108,9 +111,12 @@ get_test_retest_crowding <- function(crowding){
              y = 0.3, 
              label = paste("italic(n)==",length(unique(crowding_test_retest$participant))), 
              parse = TRUE) +
-    annotation_logticks(short = unit(0.1, "cm"),
-                        mid = unit(0.1, "cm"),
-                        long = unit(0.3, "cm")) +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     scale_shape_manual(values = sample(1:25, length(unique(crowding_test_retest$participant)))) + 
     stat_cor(aes(label = ..r.label..), label.x.npc = "left", label.y.npc = "top", r.accuracy = 0.01)
 }
@@ -161,9 +167,12 @@ get_test_retest_rsvp <- function(rsvp_speed){
              y = 10^(min(rsvp_test_retest$retest)*0.9), 
              label = paste("italic(n)==",length(unique(rsvp_test_retest$participant))), 
              parse = TRUE) +
-    annotation_logticks(short = unit(0.1, "cm"),
-                        mid = unit(0.1, "cm"),
-                        long = unit(0.3, "cm")) +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     scale_shape_manual(values = sample(1:25, length(unique(rsvp_test_retest$participant)))) +
     stat_cor(aes(label = ..r.label..), label.x.npc = "left", label.y.npc = "top", r.accuracy = 0.01)
 }

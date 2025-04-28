@@ -121,7 +121,12 @@ regression_reading_plot <- function(df_list){
            y = "Reading speed (w/min)",
            title = "Reading vs foveal crowding") +
       theme_bw() + 
-      annotation_logticks() +
+      annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "top",
@@ -146,7 +151,12 @@ regression_reading_plot <- function(df_list){
            y = "Reading speed (w/min)",
            title = "Reading vs peripheral crowding") +
       theme_bw() + 
-      annotation_logticks() +
+      annotation_logticks(
+        sides = "bl", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      ) +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "top",
@@ -187,7 +197,12 @@ regression_acuity_plot <- function(df_list){
          title = 'Ordinary and RSVP reading vs\nfoveal acuity') +
     theme_bw() + 
     coord_fixed() + 
-    annotation_logticks() +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     ggpp::geom_text_npc(aes(
       npcx = "left",
       npcy = "top",
@@ -263,7 +278,12 @@ regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
     coord_fixed(ratio = 1) +
     labs(x="Bouma factor", y = "Reading speed (w/min)") +
     theme_bw() + 
-    annotation_logticks() +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     guides(color = guide_legend(title="Font"),
            shape = F,
            linetype = guide_legend(title = NULL,
@@ -327,7 +347,12 @@ regression_font <- function(df_list, reading_rsvp_crowding_df){
     coord_fixed(ratio = 1) +
     labs(x="Bouma factor", y = "Reading speed (w/min)") +
     theme_bw() + 
-    annotation_logticks() +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     guides(color = guide_legend(title="TargetKind"),
            shape = F,
            linetype = guide_legend(title = NULL,
@@ -418,7 +443,12 @@ regression_font_with_label <- function(df_list, reading_rsvp_crowding_df){
     coord_fixed(ratio = 1) +
     labs(x="Bouma factor", y = "Reading speed (w/min)") +
     theme_bw() + 
-    annotation_logticks() +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     guides(color = guide_legend(title="TargetKind"),
            shape = F,
            linetype = guide_legend(title = NULL,

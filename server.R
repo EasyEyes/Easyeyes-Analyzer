@@ -777,7 +777,7 @@ shinyServer(
         return(list(plotList = list(),
                     fileNames = list()))
       }
-      return(get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding)$scatter)
+      return(get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding, df_list()$quest)$scatter)
     })
     
     histograms <- reactive({
@@ -854,7 +854,7 @@ shinyServer(
       print('before appending')
       lists = append_hist_list(data_list(), l, fileNames)
       
-      minDegHist <- get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding)$hist
+      minDegHist <- get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding, df_list()$quest)$hist
       return(list(
         plotList = c(lists$plotList, minDegHist$plotList),
         fileNames = c(lists$fileNames, minDegHist$fileNames)

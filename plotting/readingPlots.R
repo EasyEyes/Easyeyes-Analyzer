@@ -103,7 +103,12 @@ get_60cm_scatter <- function(rsvp_speed) {
     geom_point() + 
     scale_x_log10() +
     scale_y_log10() +
-    annotation_logticks() +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     coord_fixed(ratio = 1) +
     theme_bw() + 
     xlab("reading speed (w/min) 1.2 mm") +
@@ -139,7 +144,12 @@ get_30cm_scatter <- function(rsvp_speed) {
     geom_point() + 
     scale_x_log10() +
     scale_y_log10() +
-    annotation_logticks() +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     coord_fixed(ratio = 1) +
     theme_bw() + 
     xlab("reading speed (w/min)1.2 mm") +
@@ -204,10 +214,10 @@ plot_reading_age <- function(reading) {
       ) +
       scale_y_log10() +
       annotation_logticks(
-        sides = "l",  
-        short = unit(0.1, "cm"),
-        mid = unit(0.1, "cm"),
-        long = unit(0.3, "cm")
+        sides = "l", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
       ) +
       annotate(
         "text",
@@ -279,11 +289,11 @@ plot_rsvp_age <- function(rsvp) {
       ) +
       scale_y_log10() +
       annotation_logticks(
-        sides = "l",  # Log ticks only on the left (y-axis)
-        short = unit(0.1, "cm"),
-        mid = unit(0.1, "cm"),
-        long = unit(0.3, "cm")
-      )  +
+        sides = "l", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      ) +
       annotate(
         "text",
         x = min(t$age, na.rm = TRUE) * 1.1,  # Bottom-left placement, slightly offset for padding
@@ -376,10 +386,10 @@ plot_reading_rsvp <- function(reading, rsvp) {
     scale_y_log10(limits = c(minXY, maxXY),
                   expand = c(0,0)) +
     annotation_logticks(
-      sides = "l",  
-      short = unit(0.1, "cm"),
-      mid = unit(0.1, "cm"),
-      long = unit(0.3, "cm")
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
     ) +
     labs(
       x = "RSVP reading (w/min)",
@@ -389,7 +399,12 @@ plot_reading_rsvp <- function(reading, rsvp) {
     coord_fixed() + 
     theme_bw() +
     theme(legend.position = 'top') +
-    annotation_logticks() +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     guides(color = guide_legend(title = "Grade")) +
     ggpp::geom_text_npc(aes(npcx = 'left',
                             npcy = 'top',
@@ -504,7 +519,12 @@ plot_reading_crowding <- function(allData) {
         se = FALSE,
         color = "black"  # Regression line in black
       ) +
-      annotation_logticks() +
+      annotation_logticks(
+        sides = "bl", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      ) +
       coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +
       annotate(
         "text",

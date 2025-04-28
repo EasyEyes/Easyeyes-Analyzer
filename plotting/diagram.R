@@ -96,7 +96,6 @@ get_quest_sd_vs_trials <- function(quest) {
     mutate(N = paste0('N=', n())) %>%
     drop_na(questTrials, questSDAtEndOfTrialsLoop, Grade) %>%
     mutate(Grade = as.character(Grade))
-  
   # Apply color_scale for Grade
   p <- ggplot(quest, aes(x = questTrials, y = questSDAtEndOfTrialsLoop, color = Grade)) +
     facet_wrap(~questType) +

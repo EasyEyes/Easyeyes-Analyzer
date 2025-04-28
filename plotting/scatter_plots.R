@@ -9,7 +9,12 @@ reading_speed_vs_retention <- function(reading){
     summarize(wordPerMin = 10^(mean(log_WPM)), .groups = "keep")
   ggplot(t) + 
     geom_point(aes(x = accuracy, y = wordPerMin)) +
-    annotation_logticks(sides = "l") +
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     scale_y_log10() + 
     theme_bw() + 
     theme(legend.position = "right", 

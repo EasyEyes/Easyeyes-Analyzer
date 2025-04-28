@@ -1,6 +1,6 @@
 
 
-get_minDeg_plots <- function(data_list, acuity, crowding) {
+get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
 
   levels <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     data_list[[i]] %>% select(participant, conditionName, block_condition,thresholdParameter, 
@@ -44,30 +44,43 @@ get_minDeg_plots <- function(data_list, acuity, crowding) {
     )) %>% 
     filter(!is.na(estimatedDevicePixelRatio))
 
-  # histogram of estimatedDevicePixelRatio
+  
+  # histogram of estimatedDevicePixelRatio 
   p1 <- ggplot(estimatedDevicePixelRatio) + 
-    geom_histogram(aes(x = estimatedDevicePixelRatio),color="black", fill="black") +
-    scale_x_continuous(expand = c(0, 0)) + 
-    scale_y_continuous(expand = c(0, 0)) + 
-    labs(x = 'estimatedDevicePixelRatio',
-         y = 'Count',
-         title ='Histogram of estimatedDevicePixelRatio')
-  # histogram of sizeMinDeg
+    geom_histogram(aes(x = estimatedDevicePixelRatio),
+                   color = "black", fill = "black") +
+    scale_x_log10(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    labs(
+      x     = 'estimatedDevicePixelRatio',
+      y     = 'Count',
+      title = 'Histogram of estimatedDevicePixelRatio'
+    )
+  
+  # histogram of sizeMinDeg (log-x, no ticks)
   p2 <- ggplot(minDeg %>% filter(thresholdParameter == 'targetSizeDeg')) + 
-    geom_histogram(aes(x = minDeg),color="black", fill="black") +
-    scale_x_continuous(expand = c(0, 0)) + 
-    scale_y_continuous(expand = c(0, 0)) + 
-    labs(x = 'sizeMinDeg',
-         y = 'Count',
-         title ='Histogram of sizeMinDeg')
-  # histogram of spacingMinDeg
+    geom_histogram(aes(x = minDeg),
+                   color = "black", fill = "black") +
+    scale_x_log10(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    labs(
+      x     = 'sizeMinDeg',
+      y     = 'Count',
+      title = 'Histogram of sizeMinDeg'
+    )
+  
+  # histogram of spacingMinDeg (log-x, no ticks)
   p3 <- ggplot(minDeg %>% filter(thresholdParameter == 'spacingDeg')) + 
-    geom_histogram(aes(x = minDeg),color="black", fill="black") +
-    scale_x_continuous(expand = c(0, 0)) + 
-    scale_y_continuous(expand = c(0, 0)) + 
-    labs(x = 'spacingMinDeg',
-         y = 'Count',
-         title ='Histogram of spacingMinDeg')
+    geom_histogram(aes(x = minDeg),
+                   color = "black", fill = "black") +
+    scale_x_log10(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    labs(
+      x     = 'spacingMinDeg',
+      y     = 'Count',
+      title = 'Histogram of spacingMinDeg'
+    )
+  
   
   # scatter diagram of foveal acuity (deg) vs. sizeMinDeg
   foveal_acuity <- acuity %>%
@@ -75,21 +88,40 @@ get_minDeg_plots <- function(data_list, acuity, crowding) {
     left_join(minDeg %>% select(participant,block_condition,minDeg), by = c('participant', 'block_condition')) %>% 
     filter(!is.na(minDeg), !is.na(questMeanAtEndOfTrialsLoop)) %>% 
     distinct()
-
+  
+  x_min <- min(foveal_acuity$minDeg, na.rm = TRUE)
+  x_max <- max(foveal_acuity$minDeg, na.rm = TRUE)
+  xlim_p4 <- c(0.6 * x_min, 1.2 * x_max)
+  
   p4 <- ggplot(foveal_acuity) + 
-    geom_point(aes(x = minDeg, y = 10^(questMeanAtEndOfTrialsLoop)),color="black", fill="black") +
-    scale_x_log10() + 
-    scale_y_log10() + 
+    # equality line (y = x)
+    geom_abline(slope = 1, intercept = 0, linetype = "solid") +
+    geom_point(aes(x = minDeg, y = 10^(questMeanAtEndOfTrialsLoop)),
+               color = "black", fill = "black") +
+    scale_x_log10(
+      limits = xlim_p4,
+      breaks       = scales::log_breaks(base = 10),
+    ) +
+    scale_y_log10(
+      breaks       = scales::log_breaks(base = 10),
+    ) + 
     coord_fixed() + 
-    annotation_logticks() + 
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) + 
     ggpp::geom_text_npc(aes(
       npcx = "left",
       npcy = "top",
       label = paste0('N=', nrow(foveal_acuity))
     )) + 
-    labs(x = 'sizeMinDeg',
-         y = 'Acuity (deg)',
-         title ='Foveal acuity vs. sizeMinDeg')
+    labs(
+      x     = 'sizeMinDeg',
+      y     = 'Acuity (deg)',
+      title = 'Foveal acuity vs. sizeMinDeg'
+    )
   
   # scatter diagram of foveal crowding (deg) vs. spacingMinDeg
   foveal_crowding <- crowding %>%
@@ -98,26 +130,105 @@ get_minDeg_plots <- function(data_list, acuity, crowding) {
     filter(!is.na(minDeg), !is.na(log_crowding_distance_deg)) %>% 
     distinct()
   
+  x_min <- min(foveal_crowding$minDeg, na.rm = TRUE)
+  x_max <- max(foveal_crowding$minDeg, na.rm = TRUE)
+  xlim_p5 <- c(0.8 * x_min, 1.2 * x_max)
+  
   p5 <- ggplot(foveal_crowding) + 
-    geom_point(aes(x = minDeg, y = 10^(log_crowding_distance_deg)),color="black", fill="black") +
-    scale_x_log10() + 
-    scale_y_log10() + 
+    # equality line (y = x)
+    geom_abline(slope = 1, intercept = 0, linetype = "solid") +
+    geom_point(aes(x = minDeg, y = 10^(log_crowding_distance_deg)),
+               color = "black", fill = "black") +
+    scale_x_log10(
+      limits = xlim_p5,
+      breaks = scales::log_breaks(base = 10),
+    ) +
+    scale_y_log10(
+      breaks = scales::log_breaks(base = 10),
+    ) + 
     coord_fixed() + 
-    annotation_logticks() + 
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) + 
     ggpp::geom_text_npc(aes(
       npcx = "left",
       npcy = "top",
       label = paste0('N=', nrow(foveal_crowding))
     )) + 
-    labs(x = 'spacingMinDeg',
-         y = 'Crowding distance (deg)',
-         title ='Foveal crowding vs. spacingMinDeg')
+    labs(
+      x     = 'spacingMinDeg',
+      y     = 'Crowding distance (deg)',
+      title = 'Foveal crowding vs. spacingMinDeg'
+    )
+  
+  quest_subset <- quest %>%
+    select(participant, block_condition, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType)
+  
+  # 4. derive foveal crowding DF and plot p6
+  crowding_df <- quest_subset %>%
+    filter(questType == "Foveal crowding") %>%
+    rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop) %>%
+    left_join(minDeg %>% select(participant, block_condition, minDeg),
+              by = c("participant", "block_condition")) %>%
+    distinct()
+  
+  p6 <- ggplot(crowding_df, aes(
+    x = questSDAtEndOfTrialsLoop,
+    y = 10^(log_crowding_distance_deg)
+  )) +
+    geom_point(color = "black", fill = "black") +
+    scale_x_log10(breaks = scales::log_breaks(base = 10)) +
+    scale_y_log10(breaks = scales::log_breaks(base = 10)) +
+    coord_fixed() +
+    annotation_logticks(sides = "bl",
+                        short = unit(2, "pt"),
+                        mid   = unit(2, "pt"),
+                        long  = unit(7, "pt")) +
+    labs(
+      x = "Quest SD",
+      y = "Crowding distance (deg)",
+      title = "Quest SD vs. foveal crowding"
+    )
+  
+  # 5. derive foveal acuity DF and plot p7
+  acuity_df <- quest_subset %>%
+    filter(questType == "Foveal acuity") %>%
+    left_join(minDeg %>% select(participant, block_condition, minDeg),
+              by = c("participant", "block_condition")) %>%
+    distinct()
+  
+  p7 <- ggplot(acuity_df, aes(
+    x = questSDAtEndOfTrialsLoop,
+    y = 10^(questMeanAtEndOfTrialsLoop)
+  )) +
+    geom_point(color = "black", fill = "black") +
+    scale_x_log10(breaks = scales::log_breaks(base = 10)) +
+    scale_y_log10(breaks = scales::log_breaks(base = 10)) +
+    coord_fixed() +
+    annotation_logticks(sides = "bl",
+                        short = unit(2, "pt"),
+                        mid   = unit(2, "pt"),
+                        long  = unit(7, "pt")) +
+    labs(
+      x = "Quest SD",
+      y = "Acuity (deg)",
+      title = "Quest SD vs. foveal acuity"
+    )
+   
+  
   return(
     list(
       scatter = list(
-        plotList = list(p4,p5),
-        fileNames = list('foveal-acuity-vs-sizeMinDeg', 
-                         'foveal-crowding-vs-spacingMinDeg')
+        plotList = list(p4, p5, p6, p7),
+        fileNames = list(
+          'foveal-acuity-vs-sizeMinDeg',
+          'foveal-crowding-vs-spacingMinDeg',
+          'questSD-vs-crowding',
+          'questSD-vs-acuity'
+        )
       ),
       hist = list(
         plotList = list(p1,p2,p3),

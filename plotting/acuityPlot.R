@@ -47,11 +47,11 @@ get_foveal_acuity_vs_age <- function(acuity) {
       ) +
       scale_y_log10() +
       annotation_logticks(
-        sides = "l",  
-        short = unit(0.1, "cm"),
-        mid = unit(0.1, "cm"),
-        long = unit(0.3, "cm")
-      ) +
+        sides = "l", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+     ) +
       annotate(
         "text",
         x = min(t$age, na.rm = TRUE),  # Slightly offset from the minimum x for padding
@@ -122,10 +122,10 @@ get_peripheral_acuity_vs_age <- function(acuity) {
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
       scale_y_log10() +
       annotation_logticks(
-        sides = "l",  
-        short = unit(0.1, "cm"),
-        mid = unit(0.1, "cm"),
-        long = unit(0.3, "cm")
+        sides = "bl", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
       ) +
       ggpp::geom_text_npc(aes(
         npcx = "left",
@@ -260,7 +260,12 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
         expand = c(0, 0)
       ) +
       geom_smooth(method = 'lm', formula = y ~ x, se = FALSE, color = "black") +  # Black regression line
-      annotation_logticks() +
+      annotation_logticks(
+        sides = "bl", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      ) +
       color_scale(n = unique_colors) +  # Dynamic color scale
       guides(color = guide_legend(title = colorFactor), 
              shape = guide_legend(title = '',
@@ -505,7 +510,12 @@ plot_acuity_vs_age <- function(allData){
                               y = 10^(questMeanAtEndOfTrialsLoop),
                               color = questType
   )) + 
-    annotation_logticks(sides = 'l') + 
+    annotation_logticks(
+      sides = "l", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) + 
     geom_point(aes(shape = conditionName))+ 
     geom_smooth(method = 'lm', se=F) +
     ggpp::geom_text_npc(
@@ -556,9 +566,12 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
         scale_y_log10() +
         theme_bw() +
         plt_theme +
-        annotation_logticks(short = unit(0.1, "cm"),
-                            mid = unit(0.1, "cm"),
-                            long = unit(0.3, "cm")) +
+        annotation_logticks(
+          sides = "bl", 
+          short = unit(2, "pt"), 
+          mid   = unit(2, "pt"), 
+          long  = unit(7, "pt")
+        ) +
         labs(y = 'Peripheral acuity (deg)',
              x = 'Foveal acuity (deg)',
              title = 'Peripheral acuity vs foveal acuity\ncolored by grade') +

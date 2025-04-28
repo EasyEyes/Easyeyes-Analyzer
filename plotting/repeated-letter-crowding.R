@@ -90,7 +90,12 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
                   method = 'lm',
                   se = FALSE,
                   color = "black") +  # Black regression line
-      annotation_logticks() +
+      annotation_logticks(
+        sides = "bl", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      ) +
       coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +
       annotate(
         "text",

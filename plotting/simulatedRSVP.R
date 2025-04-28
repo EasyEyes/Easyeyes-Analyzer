@@ -351,7 +351,12 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
       color_scale(n = length(unique(data$Grade))) +  # Directly use color_scale()
       scale_y_log10(breaks = scales::log_breaks(), limits = c(yMin, yMax)) +
       scale_x_continuous(limits = c(xMin, xMax)) +
-      annotation_logticks(sides = "l") +
+      annotation_logticks(
+        sides = "l", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      ) +
       labs(
         x = "Good trials",
         y = "Crowding distance (deg)",

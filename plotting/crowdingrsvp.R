@@ -49,9 +49,12 @@ plot_rsvp_crowding_acuity <- function(allData) {
       facet_wrap(font~.) + 
       theme_classic() +
       scale_y_log10() + 
-      annotation_logticks(sides = 'l') + 
-      guides(shape =guide_legend(title = '', ncol = 1),
-             color = guide_legend(title = 'Age')) +
+      annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+     ) +
       labs(title = 'Foveal crowding vs grade colored by font',
            y = 'Foveal crowding (deg)')
   }
@@ -65,7 +68,12 @@ plot_rsvp_crowding_acuity <- function(allData) {
                       color = Age)) +
         theme_classic() + 
         scale_y_log10() +
-        annotation_logticks(sides = 'l') + 
+        annotation_logticks(
+          sides = "bl", 
+          short = unit(2, "pt"), 
+          mid   = unit(2, "pt"), 
+          long  = unit(7, "pt")
+        ) +
         guides(shape =guide_legend(title = '', ncol = 1),
                color = guide_legend(title = 'Age')) +
         labs(title = 'RSVP vs grade',
@@ -81,7 +89,12 @@ plot_rsvp_crowding_acuity <- function(allData) {
                    shape = conditionName)) +
      theme_classic() +
      scale_y_log10() +
-     annotation_logticks(sides = 'l') + 
+     annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
      guides(shape =guide_legend(title = '', ncol = 1),
             color = guide_legend(title = 'Age')) +
      labs(title = 'Foveal acuity vs grade',
@@ -187,9 +200,12 @@ plot_rsvp_crowding <- function(allData) {
         limits = c(yMin, yMax),
         expand = c(0, 0)
       ) +  
-      annotation_logticks(short = unit(0.1, "cm"),
-                               mid = unit(0.1, "cm"),
-                               long = unit(0.3, "cm") ) +
+      annotation_logticks(
+        sides = "bl", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      )+
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
       coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +  # Set exact limits
       annotate(
@@ -321,7 +337,12 @@ plot_rsvp_crowding <- function(allData) {
         expand = c(0, 0)
       ) +
       geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +  # Black regression line
-      annotation_logticks() +
+      annotation_logticks(
+        sides = "bl", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      ) +
       coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +
       annotate(
         "text",

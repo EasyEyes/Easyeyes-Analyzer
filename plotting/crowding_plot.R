@@ -92,9 +92,12 @@ crowding_scatter_plot <- function(crowding_L_R){
                              10^(maxXY)),
                   breaks = c(0.1, 0.3, 1, 3, 10),
                   expand=c(0,0)) + 
-    annotation_logticks(short = unit(0.1, "cm"),                                                
-                        mid = unit(0.1, "cm"),
-                        long = unit(0.3, "cm")) + 
+    annotation_logticks(
+      sides = "bl", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     coord_fixed() + 
     theme_bw() + 
   labs(x = "Right crowding distance (deg)",
@@ -260,11 +263,11 @@ get_foveal_crowding_vs_age <- function(crowding) {
       ) +
       scale_y_log10() +
       annotation_logticks(
-        sides = "l",  
-        short = unit(0.1, "cm"),
-        mid = unit(0.1, "cm"),
-        long = unit(0.3, "cm")
-      ) +
+      sides = "l", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
       theme_bw() +
       labs(
         title = 'Foveal crowding vs age\ncolored by grade',
@@ -335,11 +338,11 @@ get_peripheral_crowding_vs_age <- function(crowding) {
       ) +
       scale_y_log10() +
       annotation_logticks(
-        sides = "l",  
-        short = unit(0.1, "cm"),
-        mid = unit(0.1, "cm"),
-        long = unit(0.3, "cm")
-      ) +
+        sides = "l", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      )+
       annotate(
         "text",
         x = xMax,  # Slightly offset for better visibility
@@ -391,10 +394,10 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
       geom_point(size = 3) +  # Add points
       scale_y_log10() + 
       annotation_logticks(
-        sides = "l",  
-        short = unit(0.1, "cm"),
-        mid = unit(0.1, "cm"),
-        long = unit(0.3, "cm")
+        sides = "bl", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
       ) +
       theme_bw() +
       color_scale(n = n_grades) +  # Apply the gray-to-black color scale
@@ -457,9 +460,10 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         scale_y_log10() + 
         scale_x_log10() + 
         annotation_logticks(
-          short = unit(0.1, "cm"),
-          mid = unit(0.1, "cm"),
-          long = unit(0.3, "cm")
+          sides = "bl", 
+          short = unit(2, "pt"), 
+          mid   = unit(2, "pt"), 
+          long  = unit(7, "pt")
         ) +
         theme_bw() +
         coord_fixed() + 
@@ -480,9 +484,10 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         scale_x_log10() + 
         coord_fixed() + 
         annotation_logticks(
-          short = unit(0.1, "cm"),
-          mid = unit(0.1, "cm"),
-          long = unit(0.3, "cm")
+          sides = "bl", 
+          short = unit(2, "pt"), 
+          mid   = unit(2, "pt"), 
+          long  = unit(7, "pt")
         ) +
         theme_bw() +
         labs(title = 'Repeated-letter crowding vs foveal crowding\ncolored by age',
@@ -496,9 +501,10 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         scale_x_log10() + 
         coord_fixed() + 
         annotation_logticks(
-          short = unit(0.1, "cm"),
-          mid = unit(0.1, "cm"),
-          long = unit(0.3, "cm")
+          sides = "bl", 
+          short = unit(2, "pt"), 
+          mid   = unit(2, "pt"), 
+          long  = unit(7, "pt")
         ) +
         theme_bw() +
         labs(title = 'Repeated-letter crowding vs foveal crowding\ncolored by age',
@@ -597,9 +603,12 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
         scale_y_log10() +
         theme_bw() +
         color_scale(n = n_grades) +  # Apply the color scale
-        annotation_logticks(short = unit(0.1, "cm"),
-                            mid = unit(0.1, "cm"),
-                            long = unit(0.3, "cm")) +
+        annotation_logticks(
+          sides = "bl", 
+          short = unit(2, "pt"), 
+          mid   = unit(2, "pt"), 
+          long  = unit(7, "pt")
+        ) +
         labs(
           title = 'Foveal acuity vs foveal crowding',
           x = 'Foveal crowding (deg)',
@@ -653,9 +662,12 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
         scale_y_log10() +
         theme_bw() +
         color_scale(n = n_grades) +  # Apply the color scale
-        annotation_logticks(short = unit(0.1, "cm"),
-                            mid = unit(0.1, "cm"),
-                            long = unit(0.3, "cm")) +
+        annotation_logticks(
+          sides = "bl", 
+          short = unit(2, "pt"), 
+          mid   = unit(2, "pt"), 
+          long  = unit(7, "pt")
+        ) +
         labs(
           title = 'Peripheral acuity vs foveal crowding',
           x = 'Foveal crowding (deg)',
@@ -747,9 +759,12 @@ get_foveal_peripheral_diag <- function(crowding) {
         scale_x_log10() +
         scale_y_log10() +
         theme_bw() +
-        annotation_logticks(short = unit(0.1, "cm"),
-                            mid = unit(0.1, "cm"),
-                            long = unit(0.3, "cm")) +
+        annotation_logticks(
+          sides = "bl", 
+          short = unit(2, "pt"), 
+          mid   = unit(2, "pt"), 
+          long  = unit(7, "pt")
+        ) +
         labs(
           y = "Peripheral crowding (deg)",
           x = "Foveal crowding (deg)",
@@ -795,9 +810,12 @@ get_foveal_peripheral_diag <- function(crowding) {
       scale_x_log10() +
       scale_y_log10() +
       theme_bw() +
-      annotation_logticks(short = unit(0.1, "cm"),
-                          mid = unit(0.1, "cm"),
-                          long = unit(0.3, "cm")) +
+      annotation_logticks(
+        sides = "bl", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      ) +
       labs(
         y = "Foveal crowding (deg)",
         x = "Peripheral crowding (deg)",
@@ -889,7 +907,12 @@ plot_crowding_vs_age <- function(crowding){
                               y = 10^(log_crowding_distance_deg),
                               color = questType
                               )) + 
-    annotation_logticks(sides = 'l') + 
+    annotation_logticks(
+      sides = "l", 
+      short = unit(2, "pt"), 
+      mid   = unit(2, "pt"), 
+      long  = unit(7, "pt")
+    ) +
     geom_point(aes(shape = conditionName))+ 
     geom_smooth(method='lm', se=F) + 
     ggpp::geom_text_npc(
