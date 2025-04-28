@@ -835,8 +835,6 @@ shinyServer(
         i = i + 1
       }
       
-      
-      print('Displaying Age')
       age_hist <- get_age_histogram(df_list()$age)
       if (!is.null(age_hist)) {
         l[[i]] = age_hist
@@ -844,7 +842,7 @@ shinyServer(
         i = i + 1
       }
       
-      grade_hist <- get_grade_histogram(df_list()$rsvp)
+      grade_hist <- get_grade_histogram(df_list()$quest)
       if (!is.null(grade_hist)) {
         l[[i]] = grade_hist
         fileNames[[i]] = 'grade-histogram'

@@ -460,7 +460,7 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df){
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]]
   } %>% 
-    filter(!participant %in% basicExclude$lowerCaseParticipant)
+    filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
   stairs_summary <- stairs %>%
     group_by(participant, block_condition, conditionName) %>% 
     summarize(TrialsSentToQuest = sum(trialGivenToQuest),

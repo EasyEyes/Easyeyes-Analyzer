@@ -169,38 +169,41 @@ get_acuity_hist <- function(acuity) {
   return(list(p1,p2))
 }
 
-get_reading_hist <- function(reading) {
-  if (nrow(reading) > 0) {
-    if (reading$targetKind[1] == 'rsvpReading') {
-      reading <- reading %>%
+get_reading_hist <- function(data) {
+  if (nrow(data) > 0) {
+    if (data$targetKind[1] == 'rsvpReading') {
+      data <- data %>%
         group_by(participant, targetKind, `Skilled reader?`) %>% 
         summarize(log_WPM = mean(block_avg_log_WPM, na.rm=T)) %>% 
         ungroup()
     } else {
-      reading <- reading %>%
+      data <- data %>%
         group_by(participant, targetKind, `Skilled reader?`) %>% 
         summarize(log_WPM = mean(log_WPM, na.rm=T))
     }
+    data <- data %>% filter(!is.na(log_WPM))
     
-    if ('Skilled reader?' %in% names(reading)) {
-      stats1 <- reading %>% filter(`Skilled reader?` != FALSE)
+    if ('Skilled reader?' %in% names(data)) {
+      stats1 <- data %>% filter(`Skilled reader?` != FALSE)
     } else {
-      stats1 <- reading
+      stats1 <- data
     }
     
     stats1 <- stats1 %>% summarize(mean = round(mean(log_WPM),2), 
                                    sd = round(sd(log_WPM),2),
                                    N = n())
-    p1 <- ggplot(reading) + 
+    print(data$targetKind[1])
+    print(data)
+    p1 <- ggplot(data) + 
       geom_histogram(aes(x = log_WPM),color="black", fill="black") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
         aes( npcx = 'right',
              npcy = 'top',
-             label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
+             label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', nrow(data)))
       ) 
-    if (reading$targetKind[1] == 'rsvpReading') {
+    if (data$targetKind[1] == 'rsvpReading') {
       p1 <- p1 + 
         labs(x = 'Log RSVP reading speed (w/min)',
              y = 'Count',
@@ -391,7 +394,6 @@ get_age_histogram <- function(data) {
   
   # Remove negative ages
   data <- data %>% filter(age >= 0)
-  print(data %>% arrange(age))
   
   # Calculate summary statistics
   stats <- data %>%
@@ -419,12 +421,14 @@ get_age_histogram <- function(data) {
 }
 
 
-get_grade_histogram <- function(rsvp) {
-  if (is.null(rsvp) || nrow(rsvp) == 0) return(NULL)
+get_grade_histogram <- function(quest) {
+  if (is.null(quest) || nrow(quest) == 0) return(NULL)
   
-  # Extract Grade column from RSVP data
-  grade_data <- rsvp %>% select(Grade) %>% drop_na() %>% mutate(Grade = as.numeric(Grade))
-  
+  grade_data <- quest %>%
+    distinct(participant, Grade) %>%
+    drop_na() %>%
+    mutate(Grade = as.numeric(Grade))
+
   # Calculate summary statistics
   stats <- grade_data %>%
     summarize(
@@ -432,9 +436,6 @@ get_grade_histogram <- function(rsvp) {
       sd = round(sd(Grade, na.rm = TRUE), 2),
       N = n()
     )
-  
-  # Define bin width dynamically
-
   
   # Generate histogram
   p <- ggplot(grade_data, aes(x = Grade)) +
