@@ -390,7 +390,7 @@ generate_histograms_by_grade <- function(data) {
 }
 
 get_age_histogram <- function(data) {
-  if (is.null(data) || nrow(data) == 0) return(NULL)
+  if (is.null(data) || n_distinct(data$age) == 1) return(NULL)
   
   # Remove negative ages
   data <- data %>% filter(age >= 0)
@@ -421,10 +421,10 @@ get_age_histogram <- function(data) {
 }
 
 
-get_grade_histogram <- function(quest) {
-  if (is.null(quest) || nrow(quest) == 0) return(NULL)
+get_grade_histogram <- function(age) {
+  if (is.null(age) || n_distinct(age$Grade) <= 1) return(NULL)
   
-  grade_data <- quest %>%
+  grade_data <- age %>%
     distinct(participant, Grade) %>%
     drop_na() %>%
     mutate(Grade = as.numeric(Grade))

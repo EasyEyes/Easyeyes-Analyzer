@@ -148,7 +148,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   # apply questSD filter
   all_summary <- all_summary %>% 
     left_join(NQuestTrials, by = c('participant', 'block_condition')) %>% 
-    filter(questSDAtEndOfTrialsLoop <= maxQuestSD | (thresholdParameter != 'sizeDeg'  & thresholdParameter != 'size'))
+    filter(questSDAtEndOfTrialsLoop <= maxQuestSD | (thresholdParameter != 'targetSizeDeg'  & thresholdParameter != 'size'))
   
   
   if (nrow(pretest) > 0) {
@@ -202,7 +202,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   
   if (filterInput == 'slowest' & nrow(slowest) > 0) {
     print('before filtering')
-    print(paste('unique pavloviaSessionID in  <- ', n_distinct(reading$participant)))
+    print(paste('unique pavloviaSessionID in reading', n_distinct(reading$participant)))
     print(paste('unique pavloviaSessionID in threshold', n_distinct(all_summary$participant)))
     print(paste('number of rows in reading', nrow(reading)))
     print(paste('number of rows all_summary', nrow(all_summary)))
@@ -285,7 +285,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       select(participant, age) %>% 
       distinct()
   }
-  
+ 
   age <- distinct(age)
   quest <- quest %>% left_join(age, by = 'participant')
   ########################### CROWDING ############################
@@ -417,6 +417,13 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   acuity <- quest %>% 
     filter(questType == 'Foveal acuity' | questType == 'Peripheral acuity') %>% 
     left_join(eccentricityDeg, by = c("participant", "conditionName", "block_condition", "order"))
+  if ('Grade' %in% names(pretest)) {
+    age <- age %>%
+      mutate(lowerCaseParticipant = tolower(participant)) %>% 
+      left_join(select(pretest, Grade, lowerCaseParticipant), by = 'lowerCaseParticipant')
+  } else {
+    age$Grade = NA
+  }
   
   print(paste('nrow of quest:', nrow(quest)))
   print(paste('nrow of reading:', nrow(reading)))

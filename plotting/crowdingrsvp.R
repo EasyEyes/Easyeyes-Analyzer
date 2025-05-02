@@ -432,7 +432,7 @@ getCorrMatrix <- function(allData, pretest) {
   print(summary(pretest_for_corr))
   rsvp_speed <- allData$rsvp
   crowding <- allData$crowding
-  age <- allData$age
+  age <- allData$age %>% select(-Grade)
   acuity <- allData$acuity %>%
     rename('log_acuity'='questMeanAtEndOfTrialsLoop') %>% 
     mutate(type=ifelse(
@@ -474,7 +474,7 @@ getCorrMatrix <- function(allData, pretest) {
     crowdingW <- crowdingW %>% 
       full_join(pretest_for_corr, by = 'participant')
   }
-  if (!'Age' %in% crowdingW) {
+  if (!'Age' %in% names(crowdingW)) {
     crowdingW <- crowdingW %>% full_join(age %>% mutate(participant = tolower(participant)), by = 'participant')
   }
   
@@ -483,7 +483,7 @@ getCorrMatrix <- function(allData, pretest) {
     ungroup() %>% 
     select_if(is.numeric) %>% 
     select(where(~sum(!is.na(.)) > 0))
-
+  write.csv(crowdingW, 'data_for_correlation.csv')
   c <- colnames(crowdingW)
 
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))

@@ -11,6 +11,30 @@ pxToPt <- function(px, pxPerCm) {
 ptToPx <- function(pt, pxPerCm) {
   return ((2.54 * pt) / 72) * pxPerCm
 }
+impute_column <- function(df, colname, preceding_value) {
+  col <- df[[colname]]
+  
+  if (all(is.na(col))) {
+    return(df)
+  }
+  
+  first_non_na <- which(!is.na(col))[1]
+  
+  if (!is.na(first_non_na) && first_non_na > 1) {
+    df[[colname]][1:(first_non_na - 1)] <- preceding_value
+  }
+  
+  current_value <- col[first_non_na]
+  if (first_non_na == nrow(df)) return(df)
+  for (i in (first_non_na + 1):nrow(df)) {
+    if (is.na(df[[colname]][i])) {
+      df[[colname]][i] <- current_value[1]
+    } else {
+      current_value <- df[[colname]][i]
+    }
+  }
+  return(df)
+}
 
 check_file_names <- function(file) {
   file_names <- file$name
@@ -50,7 +74,7 @@ read_files <- function(file){
   pretest <- tibble()
   for (i in 1 : n) {
     t <- tibble()
-
+    
     if (grepl("pretest.xlsx", file_names[i]) | grepl("pretest.csv", file_names[i])) {
       if (grepl("pretest.xlsx", file_names[i])) {
         pretest <- readxl::read_xlsx(file_list[i], col_types = 'text')
@@ -222,7 +246,7 @@ read_files <- function(file){
           t$experimentCompleteBool <- FALSE
         }
         if (!('block' %in% colnames(t))) {
-          t$block <- 0
+          t$block <- NA
         }
         if (!('conditionName' %in% colnames(t))) {
           t$conditionName <- ""
@@ -237,10 +261,10 @@ read_files <- function(file){
           t$font <- ""
         }
         if (!('targetTask' %in% colnames(t))) {
-          t$targetTask <- ""
+          t$targetTask <- NA
         }
         if (!('targetKind' %in% colnames(t))) {
-          t$targetKind <- ""
+          t$targetKind <- NA
         }
         if (!('_needsUnmet' %in% colnames(t))) {
           t$`_needsUnmet` <- ""
@@ -255,7 +279,7 @@ read_files <- function(file){
           t$`Microphone survey` <- ""
         }
         if (!('thresholdParameter' %in% colnames(t))) {
-          t$thresholdParameter <- ""
+          t$thresholdParameter <- NA
         }
         if (!'psychojsWindowDimensions' %in% colnames(t)) {
           t$psychojsWindowDimensions <- "NA,NA"
@@ -406,20 +430,11 @@ read_files <- function(file){
                           resolution = paste0(screenWidthPx, " x ", screenHeightPx),
                           block_condition = ifelse(block_condition == "",staircaseName, block_condition))
         # fill block column
-        first_non_na <- which(!is.na(t$block))[1]
-        if (!is.na(first_non_na)) {
-          t$block[1:(first_non_na - 1)] <- 0
-          for (i in first_non_na:length(t$block)) {
-            if (is.na(t$block[i])) {
-              t$block[i] <- current_value
-            } else {
-              current_value <- t$block[i]
-            }
-          }
-        }
-        if (is.na(first_non_na) & length(t$block) > 0) {
-          t$block <- 0
-        }
+        t <- impute_column(t, 'block',0)
+        t <- impute_column(t, 'thresholdParameter', '')
+        t <- impute_column(t, 'targetTask', '')
+        t <- impute_column(t, 'targetKind', '')
+        
         t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
         t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
         if (is.na(t$psychojsWindowDimensions[1])) {
@@ -606,7 +621,7 @@ read_files <- function(file){
             t$experimentCompleteBool <- FALSE
           }
           if (!('block' %in% colnames(t))) {
-            t$block <- 0
+            t$block <- NA
           }
           if (!('conditionName' %in% colnames(t))) {
             t$conditionName <- ""
@@ -621,13 +636,13 @@ read_files <- function(file){
             t$font <- ""
           }
           if (!('targetTask' %in% colnames(t))) {
-            t$targetTask <- ""
+            t$targetTask <- NA
           }
           if (!('targetKind' %in% colnames(t))) {
-            t$targetKind <- ""
+            t$targetKind <- NA
           }
           if (!('thresholdParameter' %in% colnames(t))) {
-            t$thresholdParameter <- ""
+            t$thresholdParameter <- NA
           }
           if (!('_needsUnmet' %in% colnames(t))) {
             t$`_needsUnmet` <- ""
@@ -787,20 +802,11 @@ read_files <- function(file){
                             resolution = paste0(screenWidthPx, " x ", screenHeightPx),
                             block_condition = ifelse(block_condition == "",staircaseName, block_condition))
           # fill block column
-          first_non_na <- which(!is.na(t$block))[1]
-          if (!is.na(first_non_na)) {
-            t$block[1:(first_non_na - 1)] <- 0
-            for (i in first_non_na:length(t$block)) {
-              if (is.na(t$block[i])) {
-                t$block[i] <- current_value
-              } else {
-                current_value <- t$block[i]
-              }
-            }
-          }
-          if (is.na(first_non_na) & length(t$block) > 0) {
-          t$block <- 0
-          }
+          t <- impute_column(t, 'block',0)
+          t <- impute_column(t, 'thresholdParameter', '')
+          t <- impute_column(t, 'targetTask', '')
+          t <- impute_column(t, 'targetKind', '')
+          
           t$system = str_replace_all(t$deviceSystem, "OS X","macOS")
           t$deviceSystemFamily = str_replace_all(t$deviceSystemFamily, "OS X","macOS")
           
@@ -808,9 +814,9 @@ read_files <- function(file){
             t$psychojsWindowDimensions = 'NA,NA'
           }
           psychojsWindowDimensions <- lapply(strsplit(t$psychojsWindowDimensions[1],","), parse_number)[[1]]
-
+          
           WindowDimensions <- paste0(psychojsWindowDimensions, collapse = " x ")
-
+          
           t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
           t$resolution = ifelse(t$resolution[1] == "NA x NA", "", t$resolution)
           t$screenWidthPx = ifelse(is.na(t$screenWidthPx[1]), psychojsWindowDimensions[1], t$screenWidthPx[1])
@@ -873,7 +879,7 @@ read_files <- function(file){
         else {
           pretest <- readr::read_csv(file_path,show_col_types = FALSE)
         }
-       
+        
         if ('PavloviaSessionID' %in% names(pretest)) {
           pretest <- pretest %>% 
             rename('participant' = 'PavloviaSessionID') %>% 
@@ -964,7 +970,7 @@ read_files <- function(file){
     }
     df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, BirthMonthYear,age))
   }
-
+  
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
