@@ -245,7 +245,9 @@ shinyServer(
           summary_list(),
           files()$pretest,
           files()$stairs,
-          files()$df
+          files()$df,
+          minNQuestTrials(),
+          maxQuestSD()
         )
       )
     })

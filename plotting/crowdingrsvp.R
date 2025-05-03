@@ -483,7 +483,6 @@ getCorrMatrix <- function(allData, pretest) {
     ungroup() %>% 
     select_if(is.numeric) %>% 
     select(where(~sum(!is.na(.)) > 0))
-  write.csv(crowdingW, 'data_for_correlation.csv')
   c <- colnames(crowdingW)
 
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))

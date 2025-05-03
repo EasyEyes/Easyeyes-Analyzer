@@ -44,15 +44,15 @@ plotsTab <- tabPanel(
   ),
   fixedRow(
     div(style = "display: flex; align-items: center; margin-left:12px;",
-        HTML('<div style="font-size: 16px; margin-right: 5px;">Show only spacingDeg thresholds with at least</div>'),
+        HTML('<div style="font-size: 16px; margin-right: 5px;">Exclude spacingDeg thresholds with fewer than</div>'),
         numericInput('NQuestTrials', NULL, value = 10, min = 1, width = '60px'),
         HTML('<div style="font-size: 16px; margin-left: 5px;margin-right: 5px;">good trials.</div>')
     )
   ),
   fixedRow(
     div(style = "display: flex; align-items: center; margin-left:12px;",
-         HTML('<div style="font-size: 16px; margin-right: 5px;">Show only sizeDeg thresholds with SD < </div>'),
-         numericInput('maxQuestSD', NULL, value = .35, min = 0, width = '60px'),
+         HTML('<div style="font-size: 16px; margin-right: 5px;">Exclude thresholds with QUEST SD ></div>'),
+         numericInput('maxQuestSD', NULL, value = .2, min = 0, width = '60px'),
          HTML('<div style="font-size: 16px; margin-left: 5px;">. </div>')
          )
   ),
