@@ -84,6 +84,34 @@ shinyUI(
           var tabName = $(e.target).text();  // Get the active tab name
           updateTitleBasedOnTab(tabName);
         });
+        
+        
+        // Removed gray screen element
+        document.addEventListener('DOMContentLoaded', function() {
+        // Function to remove the overlay if it exists
+        function removeOverlayIfExists() {
+          var overlay = document.getElementById('ss-overlay');
+          if (overlay) {
+            overlay.remove();
+            return true;
+          }
+          return false;
+        }
+
+        // Try removing right away
+        if (!removeOverlayIfExists()) {
+          // If not found, observe for it
+          var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+              if (removeOverlayIfExists()) {
+                observer.disconnect(); // Stop watching once removed
+              }
+            });
+          });
+
+          observer.observe(document.body, { childList: true, subtree: true });
+        }
+      });
       "))
     ),
     

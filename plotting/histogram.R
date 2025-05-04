@@ -462,7 +462,7 @@ add_questsd_hist <- function(quest, lists) {
     if (nrow(t) == 0) {
       next
     }
-    print(t)
+
     stats <- t %>%
       summarise(mean = round(mean(questSDAtEndOfTrialsLoop, na.rm = TRUE), 2),
                 sd = round(sd(questSDAtEndOfTrialsLoop, na.rm = TRUE), 2),
