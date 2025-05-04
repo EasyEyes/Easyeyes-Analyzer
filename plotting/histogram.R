@@ -31,7 +31,6 @@ get_reading_retention_histogram <- function(reading) {
          title = "Reading retention histogram")
 }
 
-
 get_crowding_hist <- function(crowding) {
 
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
@@ -249,8 +248,6 @@ get_repeatedLetter_hist <- function(repeated) {
   return(p1)
 }
 
-
-
 generate_histograms_by_grade <- function(data) {
 
   crowding <- data$crowding
@@ -420,7 +417,6 @@ get_age_histogram <- function(data) {
   return(p)
 }
 
-
 get_grade_histogram <- function(age) {
   if (is.null(age) || n_distinct(age$Grade) <= 1) return(NULL)
   
@@ -455,7 +451,47 @@ get_grade_histogram <- function(age) {
   return(p)
 }
 
+add_questsd_hist <- function(quest, lists) {
+  i = length(lists$plotList) + 1
+  plotList = lists$plotList
+  fileNames = lists$fileNames
 
+  for (qt in c('Foveal crowding', 'Peripheral crowding', 'Foveal acuity', 'Peripheral acuity', 'RSVP reading')) {
+    
+    t <- quest %>% filter(questType == qt)
+    if (nrow(t) == 0) {
+      next
+    }
+    print(t)
+    stats <- t %>%
+      summarise(mean = round(mean(questSDAtEndOfTrialsLoop, na.rm = TRUE), 2),
+                sd = round(sd(questSDAtEndOfTrialsLoop, na.rm = TRUE), 2),
+                N = n())
+    
+    p <- ggplot(t, aes(x = questSDAtEndOfTrialsLoop)) +
+      geom_histogram(color = "black", fill = "black", bins = 30) +
+      scale_x_continuous(expand = c(0, 0)) + 
+      scale_y_continuous(expand = c(0, 0)) + 
+      ggpp::geom_text_npc(
+        aes(npcx = 'right',
+            npcy = 'top'),
+        label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N),
+        hjust = 1, vjust = 1
+      ) +
+      labs(
+        x = 'Quest SD',
+        y = 'Count',
+        title = paste0('Histogram of quest SD, ', tolower(qt))
+      )
+    
+    plotList[[i]] <- p
+    fileNames[[i]] <- paste0('hist-of-questsd-', gsub(" ", "-", tolower(qt)))
+    i <- i + 1
+  }
+  
+  return(list(plotList = plotList,
+              fileNames = fileNames))
+}
 
 
 

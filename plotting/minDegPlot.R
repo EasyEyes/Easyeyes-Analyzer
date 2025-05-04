@@ -190,7 +190,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     labs(
       x = "Quest SD",
       y = "Crowding distance (deg)",
-      title = "Quest SD vs. foveal crowding"
+      title = "Foveal crowding vs. Quest SD"
     )
   
   # 5. derive foveal acuity DF and plot p7
@@ -215,7 +215,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     labs(
       x = "Quest SD",
       y = "Acuity (deg)",
-      title = "Quest SD vs. foveal acuity"
+      title = "foveal acuity vs. Quest SD"
     )
    
   

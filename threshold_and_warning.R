@@ -298,6 +298,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
            questType,
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
+           questSDAtEndOfTrialsLoop,
            font,
            Grade,
            `Skilled reader?`,
@@ -315,7 +316,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   rsvp_speed <- all_summary %>% 
     filter(targetKind == "rsvpReading",
            !grepl("practice",conditionName, ignore.case = T)) %>% 
-    select(participant, block_condition,conditionName, questMeanAtEndOfTrialsLoop, 
+    select(participant, block_condition,conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop,
            font, targetKind, thresholdParameter, Grade, `Skilled reader?`,ParticipantCode) %>%
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
@@ -342,6 +343,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
            block_condition,
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
+           questSDAtEndOfTrialsLoop,
            font,
            experiment,
            Grade,
@@ -413,7 +415,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   }
   
   
-  #### acuity  
+  #### acuity ####
   acuity <- quest %>% 
     filter(questType == 'Foveal acuity' | questType == 'Peripheral acuity') %>% 
     left_join(eccentricityDeg, by = c("participant", "conditionName", "block_condition", "order"))
@@ -424,6 +426,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   } else {
     age$Grade = NA
   }
+  print(acuity)
+  ##### console logs #####
   
   print(paste('nrow of quest:', nrow(quest)))
   print(paste('nrow of reading:', nrow(reading)))
