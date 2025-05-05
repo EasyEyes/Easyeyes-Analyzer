@@ -245,7 +245,9 @@ shinyServer(
           summary_list(),
           files()$pretest,
           files()$stairs,
-          files()$df
+          files()$df,
+          minNQuestTrials(),
+          maxQuestSD()
         )
       )
     })
@@ -589,21 +591,6 @@ shinyServer(
       get_two_fonts_plots(df_list()$crowding)
     })
     
-    crowding_hist <- reactive({
-      req(input$file)
-      get_crowding_hist(df_list()$crowding)
-    })
-    
-    acuity_hist <- reactive({
-      req(input$file)
-      get_acuity_hist(df_list()$acuity)
-    })
-    
-    
-    repeated_letter_hist <- reactive({
-      req(input$file)
-      get_repeatedLetter_hist(df_list()$repeatedLetters)
-    })
     
     foveal_peripheral_diag <- reactive({
       req(input$file)
@@ -772,14 +759,6 @@ shinyServer(
                   fileNames = fileNames))
     })
     
-    minDegPlots <- reactive({
-      if (is.null(files())) {
-        return(list(plotList = list(),
-                    fileNames = list()))
-      }
-      return(get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding, df_list()$quest)$scatter)
-    })
-    
     histograms <- reactive({
       if (is.null(files())) {
         return(list(plotList = list(),
@@ -790,61 +769,64 @@ shinyServer(
       l <- list()
       fileNames <- list()
       
-      if (!is.null(acuity_hist()[[1]])) {
-        l[[i]] =  acuity_hist()[[1]]
+      acuity_hist <- get_acuity_hist(df_list()$acuity)
+      crowding_hist <- get_crowding_hist(df_list()$crowding)
+      rsvp_hist <- get_reading_hist(df_list()$rsvp)
+      reading_hist <- get_reading_hist(df_list()$reading)
+      repeated_hist <- get_repeatedLetter_hist(df_list()$repeatedLetters)
+      age_hist <- get_age_histogram(df_list()$age)
+      grade_hist <- get_grade_histogram(df_list()$age)
+      
+      if (!is.null(acuity_hist[[1]])) {
+        l[[i]] =  acuity_hist[[1]]
         fileNames[[i]] = 'foveal-acuity-histogram'
         i = i + 1
       }
       
-      if (!is.null(acuity_hist()[[2]])) {
-        l[[i]] = acuity_hist()[[2]]
+      if (!is.null(acuity_hist[[2]])) {
+        l[[i]] = acuity_hist[[2]]
         fileNames[[i]] = 'peripheral-acuity-histogram'
         i = i + 1
       }
       
       
-      if (!is.null(crowding_hist()$foveal)) {
-        l[[i]] = crowding_hist()$foveal
+      if (!is.null(crowding_hist$foveal)) {
+        l[[i]] = crowding_hist$foveal
         fileNames[[i]] = 'foveal-crowding-histogram'
         i = i + 1
       }
       
-      if (!is.null(crowding_hist()$peripheral)) {
-        l[[i]] = crowding_hist()$peripheral
+      if (!is.null(crowding_hist$peripheral)) {
+        l[[i]] = crowding_hist$peripheral
         fileNames[[i]] = 'peripheral-crowding-histogram'
         i = i + 1
       }
       
-      t <- get_reading_hist(df_list()$rsvp)
-      if (!is.null(t)) {
-        l[[i]] = t
+      
+      if (!is.null(rsvp_hist)) {
+        l[[i]] = rsvp_hist
         fileNames[[i]] = 'rsvp-reading-speed-histogram'
         i = i + 1
       }
       
-      t <- get_reading_hist(df_list()$reading)
-      if (!is.null(t)) {
-        l[[i]] = t
+      if (!is.null(reading_hist)) {
+        l[[i]] = reading_hist
         fileNames[[i]] = 'reading-speed-histogram'
         i = i + 1
       }
       
-      if (!is.null(repeated_letter_hist())) {
-        l[[i]] = repeated_letter_hist()
+      if (!is.null(repeated_hist)) {
+        l[[i]] = repeated_hist
         fileNames[[i]] = 'repeated-letter-crowding-histogram'
         i = i + 1
       }
       
-      
-      print('Displaying Age')
-      age_hist <- get_age_histogram(df_list()$age)
       if (!is.null(age_hist)) {
         l[[i]] = age_hist
         fileNames[[i]] = 'age-histogram'
         i = i + 1
       }
       
-      grade_hist <- get_grade_histogram(df_list()$rsvp)
       if (!is.null(grade_hist)) {
         l[[i]] = grade_hist
         fileNames[[i]] = 'grade-histogram'
@@ -853,6 +835,7 @@ shinyServer(
       
       print('before appending')
       lists = append_hist_list(data_list(), l, fileNames)
+      lists = add_questsd_hist(df_list()$quest, lists)
       
       minDegHist <- get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding, df_list()$quest)$hist
       return(list(
@@ -1023,7 +1006,12 @@ shinyServer(
         i = i + 1
       }
       lists = append_scatter_list(data_list(), l, fileNames)
-      return(lists)
+      minDegPlot <- get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding, df_list()$quest)$scatter
+      
+      return(list(
+        plotList = c(lists$plotList, minDegPlot$plotList),
+        fileNames = c(lists$fileNames, minDegPlot$fileNames)
+      ))
     })
     
     scatterTime <- reactive({
@@ -1925,108 +1913,6 @@ shinyServer(
         return(out)
       })
       
-      output$minDegPlots <- renderUI({
-        out <- list()
-        i = 1
-
-        while(i <= length(minDegPlots()$plotList)-1) {
-
-          out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
-                                   shinycssloaders::withSpinner(plotOutput(paste0("mdpLot", i), width = "50%", height = "50%"), type = 4),
-                                   shinycssloaders::withSpinner(plotOutput(paste0("mdpLot", i+1), width = "50%", height = "50%"), type = 4))
-          out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                      downloadButton(paste0("downloadmdpLot", i), 'Download'),
-                                      downloadButton(paste0("downloadmdpLot", i+1), 'Download'))
-          i = i + 2
-        }
-        if (i == length(minDegPlots()$plotList)){
-          out[[i]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                  shinycssloaders::withSpinner(plotOutput(paste0("mdpLot", i), width = "50%", height = "50%"), type = 4))
-          out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                      downloadButton(paste0("downloadmdpLot", i), 'Download'))
-        }
-        for (j in 1:length(minDegPlots()$plotList)) {
-
-          local({
-            ii <- j
-
-            output[[paste0("mdpLot", ii)]] <- renderImage({
-              tryCatch({
-                outfile <- tempfile(fileext = '.svg')
-                ggsave(
-                  file = outfile,
-                  plot = minDegPlots()$plotList[[ii]] + plt_theme,
-                  device = svglite
-                )
-                list(src = outfile, contenttype = 'svg')
-              }, error = function(e) {
-                error_plot <- ggplot() +
-                  annotate(
-                    "text",
-                    x = 0.5,
-                    y = 0.5,
-                    label = paste("Error:", e$message),
-                    color = "red",
-                    size = 5,
-                    hjust = 0.5,
-                    vjust = 0.5
-                  ) +
-                  theme_void() +
-                  ggtitle(minDegPlots()$fileNames[[ii]])
-                
-                outfile <- tempfile(fileext = '.svg')
-                ggsave(
-                  file = outfile,
-                  plot = error_plot,
-                  device = svglite,
-                )
-                list(
-                  src = outfile,
-                  contenttype = 'svg',
-                  alt = paste0("Error in ", minDegPlots()$fileNames[[ii]])
-                )
-              })
-              
-            }, deleteFile = TRUE)
-
-            output[[paste0("downloadmdpLot", ii)]] <- downloadHandler(
-              filename = paste0(
-                experiment_names(),
-                minDegPlots()$fileNames[[ii]],
-                ii,
-                '.',
-                input$fileType
-              ),
-              content = function(file) {
-                if (input$fileType == "png") {
-                  ggsave(
-                    "tmp.svg",
-                    plot = minDegPlots()$plotList[[ii]] + plt_theme,
-                    limitsize = F,
-                    device = svglite
-                  )
-                  rsvg::rsvg_png("tmp.svg", file,
-                                 height = 1800,
-                                 width = 1800)
-                } else {
-                  ggsave(
-                    file,
-                    plot = minDegPlots()$plotList[[ii]] + plt_theme,
-                    limitsize = F,
-                    device = ifelse(
-                      input$fileType == "svg",
-                      svglite::svglite,
-                      input$fileType
-                    )
-                  )
-                }
-              }
-            )
-          })
-        }
-        return(out)
-      })
-      
       output$histograms <- renderUI({
         out <- list()
         i <- 1
@@ -2359,9 +2245,6 @@ shinyServer(
         
         return(out)
       })
-      
-      
-      
       
       
       observeEvent(stackedPlots(), {

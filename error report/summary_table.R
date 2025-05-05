@@ -288,7 +288,7 @@ generate_summary_table <- function(data_list, stairs){
         info <- data_list[[i]] %>% 
           distinct(block, block_condition, conditionName, 
                    targetTask, targetKind, thresholdParameter) %>% 
-          dplyr::filter(block_condition != "", conditionName != "") 
+          dplyr::filter(block_condition != "") 
         if (nrow(info) > 0) {
           info <- info %>% tail(1)
         } else {

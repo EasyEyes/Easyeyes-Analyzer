@@ -31,7 +31,6 @@ get_reading_retention_histogram <- function(reading) {
          title = "Reading retention histogram")
 }
 
-
 get_crowding_hist <- function(crowding) {
 
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
@@ -169,38 +168,41 @@ get_acuity_hist <- function(acuity) {
   return(list(p1,p2))
 }
 
-get_reading_hist <- function(reading) {
-  if (nrow(reading) > 0) {
-    if (reading$targetKind[1] == 'rsvpReading') {
-      reading <- reading %>%
+get_reading_hist <- function(data) {
+  if (nrow(data) > 0) {
+    if (data$targetKind[1] == 'rsvpReading') {
+      data <- data %>%
         group_by(participant, targetKind, `Skilled reader?`) %>% 
         summarize(log_WPM = mean(block_avg_log_WPM, na.rm=T)) %>% 
         ungroup()
     } else {
-      reading <- reading %>%
+      data <- data %>%
         group_by(participant, targetKind, `Skilled reader?`) %>% 
         summarize(log_WPM = mean(log_WPM, na.rm=T))
     }
+    data <- data %>% filter(!is.na(log_WPM))
     
-    if ('Skilled reader?' %in% names(reading)) {
-      stats1 <- reading %>% filter(`Skilled reader?` != FALSE)
+    if ('Skilled reader?' %in% names(data)) {
+      stats1 <- data %>% filter(`Skilled reader?` != FALSE)
     } else {
-      stats1 <- reading
+      stats1 <- data
     }
     
     stats1 <- stats1 %>% summarize(mean = round(mean(log_WPM),2), 
                                    sd = round(sd(log_WPM),2),
                                    N = n())
-    p1 <- ggplot(reading) + 
+    print(data$targetKind[1])
+    print(data)
+    p1 <- ggplot(data) + 
       geom_histogram(aes(x = log_WPM),color="black", fill="black") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
         aes( npcx = 'right',
              npcy = 'top',
-             label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
+             label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', nrow(data)))
       ) 
-    if (reading$targetKind[1] == 'rsvpReading') {
+    if (data$targetKind[1] == 'rsvpReading') {
       p1 <- p1 + 
         labs(x = 'Log RSVP reading speed (w/min)',
              y = 'Count',
@@ -245,8 +247,6 @@ get_repeatedLetter_hist <- function(repeated) {
   }
   return(p1)
 }
-
-
 
 generate_histograms_by_grade <- function(data) {
 
@@ -387,11 +387,10 @@ generate_histograms_by_grade <- function(data) {
 }
 
 get_age_histogram <- function(data) {
-  if (is.null(data) || nrow(data) == 0) return(NULL)
+  if (is.null(data) || n_distinct(data$age) == 1) return(NULL)
   
   # Remove negative ages
   data <- data %>% filter(age >= 0)
-  print(data %>% arrange(age))
   
   # Calculate summary statistics
   stats <- data %>%
@@ -418,13 +417,14 @@ get_age_histogram <- function(data) {
   return(p)
 }
 
+get_grade_histogram <- function(age) {
+  if (is.null(age) || n_distinct(age$Grade) <= 1) return(NULL)
+  
+  grade_data <- age %>%
+    distinct(participant, Grade) %>%
+    drop_na() %>%
+    mutate(Grade = as.numeric(Grade))
 
-get_grade_histogram <- function(rsvp) {
-  if (is.null(rsvp) || nrow(rsvp) == 0) return(NULL)
-  
-  # Extract Grade column from RSVP data
-  grade_data <- rsvp %>% select(Grade) %>% drop_na() %>% mutate(Grade = as.numeric(Grade))
-  
   # Calculate summary statistics
   stats <- grade_data %>%
     summarize(
@@ -432,9 +432,6 @@ get_grade_histogram <- function(rsvp) {
       sd = round(sd(Grade, na.rm = TRUE), 2),
       N = n()
     )
-  
-  # Define bin width dynamically
-
   
   # Generate histogram
   p <- ggplot(grade_data, aes(x = Grade)) +
@@ -454,7 +451,47 @@ get_grade_histogram <- function(rsvp) {
   return(p)
 }
 
+add_questsd_hist <- function(quest, lists) {
+  i = length(lists$plotList) + 1
+  plotList = lists$plotList
+  fileNames = lists$fileNames
 
+  for (qt in c('Foveal crowding', 'Peripheral crowding', 'Foveal acuity', 'Peripheral acuity', 'RSVP reading')) {
+    
+    t <- quest %>% filter(questType == qt)
+    if (nrow(t) == 0) {
+      next
+    }
+
+    stats <- t %>%
+      summarise(mean = round(mean(questSDAtEndOfTrialsLoop, na.rm = TRUE), 2),
+                sd = round(sd(questSDAtEndOfTrialsLoop, na.rm = TRUE), 2),
+                N = n())
+    
+    p <- ggplot(t, aes(x = questSDAtEndOfTrialsLoop)) +
+      geom_histogram(color = "black", fill = "black", bins = 30) +
+      scale_x_continuous(expand = c(0, 0)) + 
+      scale_y_continuous(expand = c(0, 0)) + 
+      ggpp::geom_text_npc(
+        aes(npcx = 'right',
+            npcy = 'top'),
+        label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N),
+        hjust = 1, vjust = 1
+      ) +
+      labs(
+        x = 'Quest SD',
+        y = 'Count',
+        title = paste0('Histogram of quest SD, ', tolower(qt))
+      )
+    
+    plotList[[i]] <- p
+    fileNames[[i]] <- paste0('hist-of-questsd-', gsub(" ", "-", tolower(qt)))
+    i <- i + 1
+  }
+  
+  return(list(plotList = plotList,
+              fileNames = fileNames))
+}
 
 
 

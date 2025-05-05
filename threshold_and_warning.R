@@ -148,7 +148,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   # apply questSD filter
   all_summary <- all_summary %>% 
     left_join(NQuestTrials, by = c('participant', 'block_condition')) %>% 
-    filter(questSDAtEndOfTrialsLoop <= maxQuestSD | (thresholdParameter != 'sizeDeg'  & thresholdParameter != 'size'))
+    filter(questSDAtEndOfTrialsLoop <= maxQuestSD)
   
   
   if (nrow(pretest) > 0) {
@@ -202,7 +202,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   
   if (filterInput == 'slowest' & nrow(slowest) > 0) {
     print('before filtering')
-    print(paste('unique pavloviaSessionID in  <- ', n_distinct(reading$participant)))
+    print(paste('unique pavloviaSessionID in reading', n_distinct(reading$participant)))
     print(paste('unique pavloviaSessionID in threshold', n_distinct(all_summary$participant)))
     print(paste('number of rows in reading', nrow(reading)))
     print(paste('number of rows all_summary', nrow(all_summary)))
@@ -285,7 +285,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       select(participant, age) %>% 
       distinct()
   }
-  
+ 
   age <- distinct(age)
   quest <- quest %>% left_join(age, by = 'participant')
   ########################### CROWDING ############################
@@ -298,6 +298,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
            questType,
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
+           questSDAtEndOfTrialsLoop,
            font,
            Grade,
            `Skilled reader?`,
@@ -315,7 +316,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   rsvp_speed <- all_summary %>% 
     filter(targetKind == "rsvpReading",
            !grepl("practice",conditionName, ignore.case = T)) %>% 
-    select(participant, block_condition,conditionName, questMeanAtEndOfTrialsLoop, 
+    select(participant, block_condition,conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop,
            font, targetKind, thresholdParameter, Grade, `Skilled reader?`,ParticipantCode) %>%
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
@@ -342,6 +343,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
            block_condition,
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
+           questSDAtEndOfTrialsLoop,
            font,
            experiment,
            Grade,
@@ -413,10 +415,19 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   }
   
   
-  #### acuity  
+  #### acuity ####
   acuity <- quest %>% 
     filter(questType == 'Foveal acuity' | questType == 'Peripheral acuity') %>% 
     left_join(eccentricityDeg, by = c("participant", "conditionName", "block_condition", "order"))
+  if ('Grade' %in% names(pretest)) {
+    age <- age %>%
+      mutate(lowerCaseParticipant = tolower(participant)) %>% 
+      left_join(select(pretest, Grade, lowerCaseParticipant), by = 'lowerCaseParticipant')
+  } else {
+    age$Grade = NA
+  }
+  print(acuity)
+  ##### console logs #####
   
   print(paste('nrow of quest:', nrow(quest)))
   print(paste('nrow of reading:', nrow(reading)))
@@ -436,7 +447,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
               age = age))
 }
 
-generate_threshold <- function(data_list, summary_list, pretest, stairs, df){
+generate_threshold <- function(data_list, summary_list, pretest, stairs, df, minNQuestTrials, maxQuestSD){
   print('inside generate_threshold')
   if (nrow(pretest) > 0) {
     if (!'Grade' %in% names(pretest)) {
@@ -457,15 +468,19 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df){
     basicExclude <- tibble(participant = '')
   }
   
+  stairs_summary <- stairs %>%
+    group_by(participant, thresholdParameter, block_condition, conditionName) %>% 
+    summarize(TrialsSentToQuest = sum(trialGivenToQuest),
+              BadTrials = sum(!trialGivenToQuest)) %>% 
+    filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | TrialsSentToQuest >= minNQuestTrials)
+  
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]]
   } %>% 
-    filter(!participant %in% basicExclude$lowerCaseParticipant)
-  stairs_summary <- stairs %>%
-    group_by(participant, block_condition, conditionName) %>% 
-    summarize(TrialsSentToQuest = sum(trialGivenToQuest),
-              BadTrials = sum(!trialGivenToQuest)) %>% 
-    rename(pavloviaSessionID = participant)
+    filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
+    inner_join(stairs_summary %>% select(participant, block_condition)) %>% 
+    filter(questSDAtEndOfTrialsLoop <= maxQuestSD)
+  
   
   crowding <- all_summary %>% 
     filter(thresholdParameter != "targetSizeDeg",
@@ -613,8 +628,8 @@ reading <- rbind(reading, t)
            `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
     select(experiment,conditionName,m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
   all_summary <- all_summary %>% 
+    left_join(stairs_summary, by = c('participant', 'block_condition', 'conditionName')) %>% 
     rename(pavloviaSessionID = participant) %>% 
-    left_join(stairs_summary, by = c('pavloviaSessionID', 'block_condition', 'conditionName')) %>% 
     mutate(condition = str_split(block_condition,'_')[[1]][2]) %>% 
     left_join(df, by = 'pavloviaSessionID') %>% 
     left_join(grade, by = 'pavloviaSessionID') %>% 

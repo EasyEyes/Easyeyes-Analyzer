@@ -44,15 +44,15 @@ plotsTab <- tabPanel(
   ),
   fixedRow(
     div(style = "display: flex; align-items: center; margin-left:12px;",
-        HTML('<div style="font-size: 16px; margin-right: 5px;">Show only spacingDeg thresholds with at least</div>'),
+        HTML('<div style="font-size: 16px; margin-right: 5px;">Exclude spacingDeg thresholds with fewer than</div>'),
         numericInput('NQuestTrials', NULL, value = 10, min = 1, width = '60px'),
         HTML('<div style="font-size: 16px; margin-left: 5px;margin-right: 5px;">good trials.</div>')
     )
   ),
   fixedRow(
     div(style = "display: flex; align-items: center; margin-left:12px;",
-         HTML('<div style="font-size: 16px; margin-right: 5px;">Show only sizeDeg thresholds with SD < </div>'),
-         numericInput('maxQuestSD', NULL, value = .35, min = 0, width = '60px'),
+         HTML('<div style="font-size: 16px; margin-right: 5px;">Exclude thresholds with QUEST SD ></div>'),
+         numericInput('maxQuestSD', NULL, value = .2, min = 0, width = '60px'),
          HTML('<div style="font-size: 16px; margin-left: 5px;">. </div>')
          )
   ),
@@ -64,9 +64,8 @@ plotsTab <- tabPanel(
   ),
   downloadButton("downloadCorrMatrixPlot", "Download"),
   #### histogram ####
-  h3("Histograms"),
+  h2("Histograms"),
   shinycssloaders::withSpinner(uiOutput('histograms'),type=4),
-  shinycssloaders::withSpinner(uiOutput('minDegPlots'),type=4),
   fluidRow(
     splitLayout(
       cellWidths = c("50%", "50%"),
@@ -99,7 +98,7 @@ plotsTab <- tabPanel(
       conditionalPanel('output.isPeripheralAcuity',downloadButton("downloadStackedPeripheralAcuityPlot", "Download"))
     )
   ),
-  h3("Scatter diagrams"),
+  h2("Scatter diagrams"),
   
   shinycssloaders::withSpinner(uiOutput('scatters'),type=4),
   conditionalPanel('output.isRsvp', 
@@ -148,7 +147,7 @@ plotsTab <- tabPanel(
   ),
   
   #### crowding ####
-  h3("Ordinary reading plots"),
+  h2("Ordinary reading plots"),
   conditionalPanel('output.isReading',
                    splitLayout(
                      cellWidths = c("50%", "50%"),
@@ -200,7 +199,7 @@ plotsTab <- tabPanel(
   #   downloadButton("downloadSloanVsTimesMeanPlot", "Download"),
   #   downloadButton("downloadSloanVsTimesSDPlot", "Download")
   # ),
-  h3("Age plots"),
+  h2("Age plots"),
   uiOutput('plots'),
   splitLayout(
     cellWidths = c("50%", "50%"),
