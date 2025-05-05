@@ -273,7 +273,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       annotate(
         "text",
         x = xMin,
-        y = yMin * 1.8,
+        y = yMin,
         label = paste0(
           "N = ", corr$N,
           "\nR = ", corr$correlation,
