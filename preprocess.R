@@ -399,8 +399,8 @@ read_files <- function(file){
         }
         if (!('targetMinPhysicalPx' %in% colnames(t))) {
           if ('targetMinimumPix' %in% colnames(t)) {
-            # assume devicePixelRatio = 2 for now
-            devicePixelRatio = 2
+            # Windows computers with devicePixelRatio=1.25. Some was collected on a Macintosh with devicePixelRatio=2
+            devicePixelRatio = ifelse(grepl("windows", t$deviceSystem[1], ignore.case = TRUE), 1.25, 2)
             t$targetMinPhysicalPx  = devicePixelRatio * t$targetMinimumPix
           } else {
             t$targetMinPhysicalPx <- NA
@@ -774,8 +774,8 @@ read_files <- function(file){
           }
           if (!('targetMinPhysicalPx' %in% colnames(t))) {
             if ('targetMinimumPix' %in% colnames(t)) {
-              # assume devicePixelRatio = 2 for now
-              devicePixelRatio = 2
+              # Windows computers with devicePixelRatio=1.25. Some was collected on a Macintosh with devicePixelRatio=2
+              devicePixelRatio = ifelse(grepl("windows", t$deviceSystem[1], ignore.case = TRUE), 1.25, 2)
               t$targetMinPhysicalPx  = devicePixelRatio * t$targetMinimumPix
             } else {
               t$targetMinPhysicalPx <- NA
