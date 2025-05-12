@@ -138,6 +138,7 @@ get_lateness_and_duration <- function(all_files){
            -targetMeasuredDurationMeanSec,
            -targetMeasuredDurationSDSec)
   t <- t %>% 
+    mutate(date = str_remove(date, " UTC[+-]\\d+")) %>% 
     mutate(date = parse_date_time(date, orders = c('ymdHMS', 'mdyHMS'))) %>% 
     mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
 
@@ -309,6 +310,8 @@ generate_summary_table <- function(data_list, stairs){
   if (nrow(noerror_fails) > 0) {
     noerror_fails_participant <- noerror_fails$participant
   }
+  print('noerror_fails_participant')
+  print(noerror_fails_participant)
   print('done noerror_fails')
   noerror_fails$warning = ""
   completes = tibble()
@@ -339,6 +342,7 @@ generate_summary_table <- function(data_list, stairs){
                  cores, deviceSystemFamily, browser, resolution, rows, cols, kb, 
                  ComputerInfoFrom51Degrees, `_needsUnmet`,`Loudspeaker survey`,`Microphone survey`,
                  QRConnect, questionAndAnswerResponse)
+
       info <- data_list[[i]] %>% 
         distinct(block, block_condition, conditionName, 
                  targetTask, targetKind, thresholdParameter) %>% 
@@ -421,6 +425,7 @@ generate_summary_table <- function(data_list, stairs){
     left_join(webGL, by = 'Pavlovia session ID') %>% 
     left_join(params, by = 'Pavlovia session ID')
   print('done summary_df')
+  print(summary_df)
   return(summary_df)
 }
 
@@ -567,8 +572,7 @@ render_summary_datatable <- function(dt, participants, prolific_id){
                 infoFiltered =  "(filtered from _MAX_ entries)"
               ),
               columnDefs = list(
-                # Hide only the first column; remove reference to column index 53
-                list(visible = FALSE, targets = 0),
+                list(visible = FALSE, targets = c(0, 53)),
                 list(
                   targets = c(16),
                   width = '100px',
