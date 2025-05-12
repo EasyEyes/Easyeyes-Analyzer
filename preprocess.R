@@ -112,6 +112,8 @@ read_files <- function(file){
           rename('participant' = 'ID') %>% 
           select(where(~sum(!is.na(.)) >0)) %>% 
           mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+        
+        pretest$`Participant ID` = pretest$participant
       }
       if (!'Date of Birth' %in% names(pretest)) {
         pretest$birthDate = NA
@@ -401,7 +403,7 @@ read_files <- function(file){
           if ('targetMinimumPix' %in% colnames(t)) {
             # Windows computers with devicePixelRatio=1.25. Some was collected on a Macintosh with devicePixelRatio=2
             devicePixelRatio = ifelse(grepl("windows", t$deviceSystem[1], ignore.case = TRUE), 1.25, 2)
-            t$targetMinPhysicalPx  = devicePixelRatio * t$targetMinimumPix
+            t$targetMinPhysicalPx  = devicePixelRatio * as.numeric(t$targetMinimumPix)
           } else {
             t$targetMinPhysicalPx <- NA
           }
@@ -493,8 +495,8 @@ read_files <- function(file){
       file_names <- unzip(file_list[i], list = TRUE)$Name
       file_names <- file_names[!grepl("^~", basename(file_names))]
       all_csv <- file_names[grepl(".csv", file_names)]
-      all_csv <- all_csv[!grepl("__MACOSX", all_csv) & !grepl("cursor", all_csv) & !grepl("pretest", all_csv)]
-      all_pretest <- file_names[grepl("pretest", file_names)]
+      all_csv <- all_csv[!grepl("__MACOSX", all_csv) & !grepl("cursor", all_csv) & !grepl("pretest.csv", all_csv)]
+      all_pretest <- file_names[grepl("pretest.csv", file_names) | grepl("pretest.xlsx", file_names)]
       all_pretest <- all_pretest[!grepl("__MACOSX", all_pretest)]
       m <- length(all_csv)
       tmp <- tempdir()
@@ -776,7 +778,7 @@ read_files <- function(file){
             if ('targetMinimumPix' %in% colnames(t)) {
               # Windows computers with devicePixelRatio=1.25. Some was collected on a Macintosh with devicePixelRatio=2
               devicePixelRatio = ifelse(grepl("windows", t$deviceSystem[1], ignore.case = TRUE), 1.25, 2)
-              t$targetMinPhysicalPx  = devicePixelRatio * t$targetMinimumPix
+              t$targetMinPhysicalPx  = devicePixelRatio * as.numeric(t$targetMinimumPix)
             } else {
               t$targetMinPhysicalPx <- NA
             }
@@ -852,7 +854,6 @@ read_files <- function(file){
           
           # for stair plots
           stairdf <- extractCrowdingStaircases(t, info)
-          
           if (! t$participant[1] == '') {
             summary_list[[j]] <- summaries
             data_list[[j]] <- t
@@ -901,6 +902,7 @@ read_files <- function(file){
             rename('participant' = 'ID') %>% 
             select(where(~sum(!is.na(.)) >0)) %>% 
             mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+          pretest$`Participant ID` = pretest$participant
         }
         if (!'Date of Birth' %in% names(pretest)) {
           pretest$birthDate = NA

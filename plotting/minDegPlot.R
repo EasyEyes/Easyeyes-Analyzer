@@ -5,11 +5,15 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
   levels <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     data_list[[i]] %>% select(participant, conditionName, block_condition,thresholdParameter, 
                               targetEccentricityXDeg, targetEccentricityYDeg, spacingOverSizeRatio, 
-                              viewingDistanceCm, fontNominalSizePt, level,
-                              font)
+                              viewingDistanceCm, fontNominalSizePt, level, font)
   } %>% 
     filter(targetEccentricityXDeg == 0 & targetEccentricityYDeg == 0) %>% 
-    filter(!grepl("practice",conditionName, ignore.case = T))
+    filter(!grepl("practice",conditionName, ignore.case = T)) %>% 
+    mutate(spacingOverSizeRatio = as.numeric(spacingOverSizeRatio),
+           viewingDistanceCm = as.numeric(viewingDistanceCm),
+           fontNominalSizePt = as.numeric(fontNominalSizePt),
+           level = as.numeric(level))
+  
   # the conversion formula from fontNominalSizePt to level only true when font is Sloan.woff2
   minDeg <- levels %>% 
     mutate(fontNominalSizeDeg = (180/pi) * atan2(fontNominalSizePt*2.54/72, viewingDistanceCm)) %>% 
@@ -29,7 +33,12 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
 
   params <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     data_list[[i]] %>% distinct(participant, block_condition,targetMinimumPix, targetMinPhysicalPx, pxPerCm,viewingDistanceCm,spacingOverSizeRatio)
-  } %>% filter(!is.na(targetMinPhysicalPx))
+  } %>% filter(!is.na(targetMinPhysicalPx)) %>% 
+    mutate(targetMinimumPix = as.numeric(targetMinimumPix), 
+           targetMinPhysicalPx = as.numeric(targetMinPhysicalPx),
+           pxPerCm = as.numeric(pxPerCm),
+           viewingDistanceCm = as.numeric(viewingDistanceCm),
+           spacingOverSizeRatio = as.numeric(spacingOverSizeRatio))
   
   estimatedDevicePixelRatio <- minDeg %>%
     left_join(params, by = c('participant', 'block_condition')) %>% 
