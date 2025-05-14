@@ -177,20 +177,18 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     select(participant, block_condition, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType)
   
   # 4. derive foveal crowding DF and plot p6
-  crowding_df <- quest_subset %>%
+  foveal_crowding <- quest_subset %>%
     filter(questType == "Foveal crowding") %>%
     rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop) %>%
-    left_join(minDeg %>% select(participant, block_condition, minDeg),
-              by = c("participant", "block_condition")) %>%
     distinct()
   
-  p6 <- ggplot(crowding_df, aes(
+  p6 <- ggplot(foveal_crowding, aes(
     x = questSDAtEndOfTrialsLoop,
     y = 10^(log_crowding_distance_deg)
   )) +
     geom_point(color = "black", fill = "black") +
-    scale_x_log10(breaks = scales::log_breaks(base = 10)) +
-    scale_y_log10(breaks = scales::log_breaks(base = 10)) +
+    scale_x_log10(breaks = c(0.1,0.12)) +
+    scale_y_log10(breaks =c(0.1,0.12)) +
     coord_fixed() +
     annotation_logticks(sides = "bl",
                         short = unit(2, "pt"),
@@ -202,20 +200,42 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
       title = "Foveal crowding vs. Quest SD"
     )
   
-  # 5. derive foveal acuity DF and plot p7
-  acuity_df <- quest_subset %>%
-    filter(questType == "Foveal acuity") %>%
-    left_join(minDeg %>% select(participant, block_condition, minDeg),
-              by = c("participant", "block_condition")) %>%
+  p_crowding <- quest_subset %>%
+    filter(questType == "Peripheral crowding") %>%
+    rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop) %>%
     distinct()
   
-  p7 <- ggplot(acuity_df, aes(
+  p7 <- ggplot(p_crowding, aes(
+    x = questSDAtEndOfTrialsLoop,
+    y = 10^(log_crowding_distance_deg)
+  )) +
+    geom_point(color = "black", fill = "black") +
+    scale_x_log10(breaks = c(0.1,0.12)) +
+    scale_y_log10(breaks =c(0.1,0.12)) +
+    coord_fixed() +
+    annotation_logticks(sides = "bl",
+                        short = unit(2, "pt"),
+                        mid   = unit(2, "pt"),
+                        long  = unit(7, "pt")) +
+    labs(
+      x = "Quest SD",
+      y = "Crowding distance (deg)",
+      title = "Peripheral crowding vs. Quest SD"
+    )
+  
+  
+  # 5. derive foveal acuity DF and plot p7
+  foveal_acuity <- quest_subset %>%
+    filter(questType == "Foveal acuity") %>%
+    distinct()
+  
+  p8 <- ggplot(foveal_acuity, aes(
     x = questSDAtEndOfTrialsLoop,
     y = 10^(questMeanAtEndOfTrialsLoop)
   )) +
     geom_point(color = "black", fill = "black") +
-    scale_x_log10(breaks = scales::log_breaks(base = 10)) +
-    scale_y_log10(breaks = scales::log_breaks(base = 10)) +
+    scale_x_log10(breaks = c(0.1,0.12)) +
+    scale_y_log10(breaks =c(0.1,0.12)) +
     coord_fixed() +
     annotation_logticks(sides = "bl",
                         short = unit(2, "pt"),
@@ -224,19 +244,43 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     labs(
       x = "Quest SD",
       y = "Acuity (deg)",
-      title = "foveal acuity vs. Quest SD"
+      title = "Foveal acuity vs. Quest SD"
+    )
+  
+  p_acuity <- quest_subset %>%
+    filter(questType == "Foveal acuity") %>%
+    distinct()
+  
+  p9 <- ggplot(p_acuity, aes(
+    x = questSDAtEndOfTrialsLoop,
+    y = 10^(questMeanAtEndOfTrialsLoop)
+  )) +
+    geom_point(color = "black", fill = "black") +
+    scale_x_log10(breaks = c(0.1,0.12)) +
+    scale_y_log10(breaks =c(0.1,0.12)) +
+    coord_fixed() +
+    annotation_logticks(sides = "bl",
+                        short = unit(2, "pt"),
+                        mid   = unit(2, "pt"),
+                        long  = unit(7, "pt")) +
+    labs(
+      x = "Quest SD",
+      y = "Acuity (deg)",
+      title = "Peripheral acuity vs. Quest SD"
     )
    
   
   return(
     list(
       scatter = list(
-        plotList = list(p4, p5, p6, p7),
+        plotList = list(p4, p5, p6, p7,p8,p9),
         fileNames = list(
           'foveal-acuity-vs-sizeMinDeg',
           'foveal-crowding-vs-spacingMinDeg',
-          'questSD-vs-crowding',
-          'questSD-vs-acuity'
+          'questSD-vs-foveal-crowding',
+          'questSD-vs-peripheral-crowding',
+          'questSD-vs-foveal-acuity',
+          'questSD-vs-peripheral-acuity'
         )
       ),
       hist = list(
