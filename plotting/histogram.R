@@ -191,8 +191,6 @@ get_reading_hist <- function(data) {
     stats1 <- stats1 %>% summarize(mean = round(mean(log_WPM),2), 
                                    sd = round(sd(log_WPM),2),
                                    N = n())
-    print(data$targetKind[1])
-    print(data)
     p1 <- ggplot(data) + 
       geom_histogram(aes(x = log_WPM),color="black", fill="black") +
       scale_x_continuous(expand = c(0, 0)) + 

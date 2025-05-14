@@ -213,6 +213,7 @@ plot_reading_age <- function(reading) {
         y = "Reading speed (w/min)"
       ) +
       scale_y_log10() +
+      scale_x_continuous(breaks = floor(min(t$age)): ceiling(max(t$age))) + 
       annotation_logticks(
         sides = "l", 
         short = unit(2, "pt"), 
@@ -288,6 +289,7 @@ plot_rsvp_age <- function(rsvp) {
         y = "RSVP reading speed (w/min)"
       ) +
       scale_y_log10() +
+      scale_x_continuous(breaks = floor(min(t$age)): ceiling(max(t$age))) + 
       annotation_logticks(
         sides = "l", 
         short = unit(2, "pt"), 

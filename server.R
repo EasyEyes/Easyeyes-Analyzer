@@ -736,24 +736,7 @@ shinyServer(
         fileNames[[i]] = 'peripheral-acuity-vs-age'
         i = i + 1
       }
-      # t <- get_crowding_vs_repeatedLetter(df_list()$crowding,
-      #                                     df_list()$repeatedLetters)$age
-      #
-      # if (!is.null(t)) {
-      #   l[[i]] = t
-      #   fileNames[[i]] = 'crowding-vs-repeated-letters-crowding-age'
-      #   i = i + 1
-      # }
-      
-      t <- get_crowding_vs_repeatedLetter(df_list()$crowding,
-                                          df_list()$repeatedLetters)$grade
-      
-      if (!is.null(t)) {
-        l[[i]] = t
-        fileNames[[i]] = 'crowding-vs-repeated-letters-crowding-grade'
-        i = i + 1
-      }
-      
+
       print('done age plots')
       return(list(plotList = l,
                   fileNames = fileNames))
@@ -857,8 +840,6 @@ shinyServer(
       lists <- append_hist_time(data_list(), l, fileNames)
       return(lists)
     })
-    
-    
     
     #### stacked histograms ####
     stackedPlots <- reactive({
@@ -1005,6 +986,16 @@ shinyServer(
         fileNames[[i]] = 'reading-vs-RSVP-reading-plot'
         i = i + 1
       }
+      
+      t <- get_crowding_vs_repeatedLetter(df_list()$crowding,
+                                          df_list()$repeatedLetters)$grade
+      
+      if (!is.null(t)) {
+        l[[i]] = t
+        fileNames[[i]] = 'crowding-vs-repeated-letters-crowding-grade'
+        i = i + 1
+      }
+      
       lists = append_scatter_list(data_list(), l, fileNames)
       minDegPlot <- get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding, df_list()$quest)$scatter
       
@@ -1158,8 +1149,7 @@ shinyServer(
       }
       
       print('plot_acuity_reading')
-      t <-
-        plot_acuity_reading(df_list()$acuity, df_list()$reading, 'foveal')[[2]]
+      t <-plot_acuity_reading(df_list()$acuity, df_list()$reading, 'foveal')[[2]]
       
       if (!is.null(t)) {
         l[[i]] <- t + plt_theme
@@ -1167,8 +1157,7 @@ shinyServer(
         i <- i + 1
       }
       
-      t <-
-        plot_acuity_reading(df_list()$acuity, df_list()$reading, 'peripheral')[[2]]
+      t <-plot_acuity_reading(df_list()$acuity, df_list()$reading, 'peripheral')[[2]]
       
       if (!is.null(t)) {
         l[[i]] <- t + plt_theme
@@ -1744,16 +1733,51 @@ shinyServer(
              contenttype = 'svg')
       }, deleteFile = TRUE)
       
-      #### rsvp plotlys ####
-      output$rsvpCrowdingPeripheralAgePlot <- ggiraph::renderGirafe({
-        ggiraph::girafe(ggobj = rsvpCrowding()[[1]] + plt_theme_ggiraph)
-      })
+      #### rsvp ggiraph ####
+      
       output$rsvpCrowdingPeripheralGradePlot <- ggiraph::renderGirafe({
-        ggiraph::girafe(ggobj = rsvpCrowding()[[3]] + plt_theme_ggiraph)
+        tryCatch({
+          ggiraph::girafe(ggobj = rsvpCrowding()[[3]] + plt_theme_ggiraph)
+        }, error = function(e) {
+          error_plot <- ggplot() +
+            annotate(
+              "text",
+              x = 0.5,
+              y = 0.5,
+              label = paste("Error:", e$message),
+              color = "red",
+              size = 5,
+              hjust = 0.5,
+              vjust = 0.5
+            ) +
+            theme_void() +
+            ggtitle('rsvp-vs-peripheral-crowding-by-grade')
+          ggiraph::girafe(ggobj =error_plot)
+        })
       })
-      output$rsvpResidualCrowding <- ggiraph::renderGirafe({
-        ggiraph::girafe(ggobj = rsvpCrowding()[[4]] + plt_theme_ggiraph)
-      })
+      
+      output$rsvpResidualCrowding <- 
+        ggiraph::renderGirafe({
+          tryCatch({
+            ggiraph::girafe(ggobj = rsvpCrowding()[[4]] + plt_theme_ggiraph)
+          }, error = function(e) {
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                color = "red",
+                size = 5,
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              theme_void() +
+              ggtitle('residual-rsvp-vs-residual-peripheral-crowding-by-grade')
+            ggiraph::girafe(ggobj =error_plot)
+          })
+        })
+      
       output$rsvpCrowdingFovealGradePlot <- ggiraph::renderGirafe({
         ggiraph::girafe(ggobj = rsvpCrowding()[[5]] + plt_theme_ggiraph)
       })
@@ -1765,8 +1789,9 @@ shinyServer(
       output$rsvpPeripheralAcuityGradePlot <- ggiraph::renderGirafe({
         ggiraph::girafe(ggobj = rsvpAcuityPeripheral()[[2]] + plt_theme_ggiraph)
       })
-      output$rsvpRepeatedGradePlot <- renderPlotly({
-        rsvp_repeated_letter_crowding()[[2]]
+      
+      output$rsvpRepeatedGradePlot <- ggiraph::renderGirafe({
+        ggiraph::girafe(ggobj = rsvp_repeated_letter_crowding()[[2]]+ plt_theme_ggiraph)
       })
       
       #### reading plotlys ####
@@ -1779,12 +1804,12 @@ shinyServer(
         plot_acuity_reading(df_list()$acuity, df_list()$reading, 'peripheral')
       })
       
-      output$ordinaryFovealAcuityGradePlot <- renderPlotly({
-        ordinaryAcuityFoveal()[[2]]  # Second plot (e.g., grade-based)
+      output$ordinaryFovealAcuityGradePlot <- ggiraph::renderGirafe({
+        ggiraph::girafe(ggobj = ordinaryAcuityFoveal()[[2]] + plt_theme_ggiraph)
       })
       
-      output$ordinaryPeripheralAcuityGradePlot <- renderPlotly({
-        ordinaryAcuityPeripheral()[[2]]  # Second plot (e.g., grade-based)
+      output$ordinaryPeripheralAcuityGradePlot <- ggiraph::renderGirafe({
+        ggiraph::girafe(ggobj = ordinaryAcuityPeripheral()[[2]] + plt_theme_ggiraph)
       })
       
       ordinaryCrowdingPlots <- reactive({
@@ -1796,25 +1821,26 @@ shinyServer(
       })
       
       # Peripheral Crowding Plots
-      output$ordinaryPeripheralCrowdingAgePlot <- renderPlotly({
-        ordinaryCrowdingPlots()[[1]]  # Age-based peripheral crowding plot
+      output$ordinaryPeripheralCrowdingAgePlot <- ggiraph::renderGirafe({
+        ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[1]] + plt_theme_ggiraph)
+          # Age-based peripheral crowding plot
       })
       
-      output$ordinaryPeripheralCrowdingGradePlot <- renderPlotly({
-        ordinaryCrowdingPlots()[[3]]  # Grade-based peripheral crowding plot
+      output$ordinaryPeripheralCrowdingGradePlot <-ggiraph::renderGirafe({
+        ggiraph::girafe(ggobj =  ordinaryCrowdingPlots()[[3]] + plt_theme_ggiraph)  # Grade-based peripheral crowding plot
       })
       
       # Foveal Crowding Plots
-      output$ordinaryFovealCrowdingAgePlot <- renderPlotly({
-        ordinaryCrowdingPlots()[[2]]  # Age-based foveal crowding plot
+      output$ordinaryFovealCrowdingAgePlot <- ggiraph::renderGirafe({
+        ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[2]] + plt_theme_ggiraph) # Age-based foveal crowding plot
       })
       
-      output$ordinaryFovealCrowdingGradePlot <- renderPlotly({
-        ordinaryCrowdingPlots()[[4]]  # Grade-based foveal crowding plot
+      output$ordinaryFovealCrowdingGradePlot <- ggiraph::renderGirafe({
+        ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[4]] + plt_theme_ggiraph)  # Grade-based foveal crowding plot
       })
       
-      output$readingRepeatedGradePlot <- renderPlotly({
-        readingRepeatedPlots()[[2]]
+      output$readingRepeatedGradePlot <- ggiraph::renderGirafe({
+        ggiraph::girafe(ggobj = readingRepeatedPlots()[[2]]+ plt_theme_ggiraph) 
       })
       
       #### age plots ####

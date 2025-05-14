@@ -262,6 +262,7 @@ get_foveal_crowding_vs_age <- function(crowding) {
         hjust = 1, vjust = 1, size = 4, color = "black"
       ) +
       scale_y_log10() +
+      scale_x_continuous(breaks = floor(min(t$age)): ceiling(max(t$age))) + 
       annotation_logticks(
       sides = "l", 
       short = unit(2, "pt"), 
@@ -337,6 +338,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         y = "Peripheral crowding (deg)"
       ) +
       scale_y_log10() +
+      scale_x_continuous(breaks = xMin: xMax) + 
       annotation_logticks(
         sides = "l", 
         short = unit(2, "pt"), 
@@ -393,8 +395,9 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
     p <- p + 
       geom_point(size = 3) +  # Add points
       scale_y_log10() + 
+      scale_x_continuous(breaks = floor(min(t$age)): ceiling(max(t$age))) + 
       annotation_logticks(
-        sides = "bl", 
+        sides = "l", 
         short = unit(2, "pt"), 
         mid   = unit(2, "pt"), 
         long  = unit(7, "pt")
@@ -525,7 +528,6 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
   
   return(list(age = p, grade = p1))
 }
-
 
 get_foveal_acuity_diag <- function(crowding, acuity) {
 
@@ -692,8 +694,6 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
 }
 
 
-
-
 get_foveal_peripheral_diag <- function(crowding) {
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>%
@@ -856,6 +856,7 @@ get_foveal_peripheral_diag <- function(crowding) {
 }
 
 plot_crowding_vs_age <- function(crowding){
+
   crowding <- crowding %>%
     mutate(ageN = as.numeric(age)) %>% 
     filter(!is.na(ageN))
@@ -922,6 +923,7 @@ plot_crowding_vs_age <- function(crowding){
           label = paste0('Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr, '\n',
                          'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr))) +
     scale_y_log10() + 
+    scale_x_continuous(breaks = floor(min(crowding$ageN)) : ceiling(max(crowding$ageN))) + 
     guides(color=guide_legend(title = ''),
            shape=guide_legend(title = '',
                               ncol=1)) + 

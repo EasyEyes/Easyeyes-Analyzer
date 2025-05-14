@@ -285,9 +285,31 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       select(participant, age) %>% 
       distinct()
   }
+  print(pretest)
+  if ('Age' %in% names(pretest) & nrow(pretest) > 0) {
+    if (all(is.na(age$age))) {
+      age <- age %>%
+        select(participant) %>%
+        mutate(lowerCaseParticipant = tolower(participant)) %>% 
+        left_join(pretest, by = 'lowerCaseParticipant') %>% 
+        rename('age' = 'Age') %>% 
+        select(participant, age)
+    } else {
+      tmp <- pretest %>% mutate(Age_p = Age) %>% select(lowerCaseParticipant, Age_p)
+      
+      age <- age %>%
+        select(participant, age) %>%
+        mutate(lowerCaseParticipant = tolower(participant)) %>% 
+        left_join(tmp, by = 'lowerCaseParticipant') %>% 
+        mutate(age = ifelse(is.na(Age_p), age, Age_p)) %>% 
+        select(participant, age)
+    }
+  }
+  print(age)
  
   age <- distinct(age)
   quest <- quest %>% left_join(age, by = 'participant')
+  
   ########################### CROWDING ############################
   crowding <- quest %>% 
     filter(questType == 'Foveal crowding' | 
@@ -426,7 +448,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   } else {
     age$Grade = NA
   }
-  print(acuity)
+
   ##### console logs #####
   
   print(paste('nrow of quest:', nrow(quest)))

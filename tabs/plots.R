@@ -128,7 +128,7 @@ plotsTab <- tabPanel(
                    splitLayout(
                      cellWidths = c("50%", "50%"),
                      conditionalPanel('output.isRepeated', 
-                                      shinycssloaders::withSpinner(plotlyOutput("rsvpRepeatedGradePlot", height = '100%'), type = 4)),
+                                      shinycssloaders::withSpinner(ggiraph::girafeOutput("rsvpRepeatedGradePlot", height = '100%'), type = 4)),
                      conditionalPanel('output.isPeripheralAcuity',
                                       shinycssloaders::withSpinner(ggiraph::girafeOutput("rsvpPeripheralAcuityGradePlot", height = '100%'), type = 4))
                    ),
@@ -151,8 +151,8 @@ plotsTab <- tabPanel(
   conditionalPanel('output.isReading',
                    splitLayout(
                      cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralCrowdingGradePlot", height = '600px'), type = 4),
-                     shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealCrowdingGradePlot", height = '600px'), type = 4)
+                     shinycssloaders::withSpinner(ggiraph::girafeOutput("ordinaryPeripheralCrowdingGradePlot", height = '600px'), type = 4),
+                     shinycssloaders::withSpinner(ggiraph::girafeOutput("ordinaryFovealCrowdingGradePlot", height = '600px'), type = 4)
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),
@@ -161,8 +161,8 @@ plotsTab <- tabPanel(
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),
-                     shinycssloaders::withSpinner(plotlyOutput("ordinaryFovealAcuityGradePlot", height = '600px'), type = 4),
-                     conditionalPanel('output.isPeripheralAcuity', shinycssloaders::withSpinner(plotlyOutput("ordinaryPeripheralAcuityGradePlot", height = '600px'), type = 4))
+                     shinycssloaders::withSpinner(ggiraph::girafeOutput("ordinaryFovealAcuityGradePlot", height = '600px'), type = 4),
+                     conditionalPanel('output.isPeripheralAcuity', shinycssloaders::withSpinner(ggiraph::girafeOutput("ordinaryPeripheralAcuityGradePlot", height = '600px'), type = 4))
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),
@@ -173,7 +173,7 @@ plotsTab <- tabPanel(
                    # Peripheral Acuity Plots
                    splitLayout(
                      cellWidths = c("50%", "50%"),
-                     conditionalPanel('output.isRepeated',shinycssloaders::withSpinner(plotlyOutput("readingRepeatedGradePlot", height = '600px'), type = 4))
+                     conditionalPanel('output.isRepeated',shinycssloaders::withSpinner(ggiraph::girafeOutput("readingRepeatedGradePlot", height = '600px'), type = 4))
                    ),
                    splitLayout(
                      cellWidths = c("50%", "50%"),

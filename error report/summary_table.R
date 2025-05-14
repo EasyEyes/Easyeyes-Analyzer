@@ -310,8 +310,7 @@ generate_summary_table <- function(data_list, stairs){
   if (nrow(noerror_fails) > 0) {
     noerror_fails_participant <- noerror_fails$participant
   }
-  print('noerror_fails_participant')
-  print(noerror_fails_participant)
+
   print('done noerror_fails')
   noerror_fails$warning = ""
   completes = tibble()
@@ -425,7 +424,6 @@ generate_summary_table <- function(data_list, stairs){
     left_join(webGL, by = 'Pavlovia session ID') %>% 
     left_join(params, by = 'Pavlovia session ID')
   print('done summary_df')
-  print(summary_df)
   return(summary_df)
 }
 

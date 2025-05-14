@@ -46,6 +46,7 @@ get_foveal_acuity_vs_age <- function(acuity) {
         y = "Foveal acuity (deg)"
       ) +
       scale_y_log10() +
+      scale_x_continuous(breaks = floor(min(t$age)): ceiling(max(t$age))) + 
       annotation_logticks(
         sides = "l", 
         short = unit(2, "pt"), 
@@ -85,7 +86,7 @@ get_foveal_acuity_vs_age <- function(acuity) {
 get_peripheral_acuity_vs_age <- function(acuity) {
   t <- acuity %>% 
     filter(!is.na(age), targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade, `Skilled reader?`, block) %>% 
+    group_by(participant, age, Grade, `Skilled reader?`, block, conditionName) %>% 
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T)) %>% 
     ungroup() %>% 
     mutate(N = paste0('N = ', n()))
@@ -121,8 +122,9 @@ get_peripheral_acuity_vs_age <- function(acuity) {
       geom_point(aes(shape = conditionName), size = 3) +
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
       scale_y_log10() +
+      scale_x_continuous(breaks = floor(min(t$age)): ceiling(max(t$age))) + 
       annotation_logticks(
-        sides = "bl", 
+        sides = "l", 
         short = unit(2, "pt"), 
         mid   = unit(2, "pt"), 
         long  = unit(7, "pt")
@@ -154,7 +156,7 @@ get_peripheral_acuity_vs_age <- function(acuity) {
         color = "black"
       ) +
       color_scale(n = unique_grades) +  # Apply dynamic color scale
-      plt_theme
+      plt_theme + 
       theme(
         legend.position = ifelse(unique_grades == 1, "none", "top")
       ) + 
@@ -346,7 +348,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
         ageN = as.numeric(age),
         Grade = as.character(Grade)
       )
-    
+
     if (nrow(data_reading) == 0) {
       return(NULL)
     }
@@ -399,7 +401,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
     
     p <- ggplot(data_reading, aes(x = X, y = Y, color = .data[[colorFactor]])) +
       theme_classic() +
-      ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode, shape = conditionName), size = 3)
+      ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode, shape = conditionName), size = 3) +
       scale_x_log10(
         limits = c(xMin, xMax),
         breaks = scales::log_breaks(),
@@ -411,7 +413,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
         expand = c(0, 0)
       ) +
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
-      color_scale +  # Apply dynamic color scale directly
+      color_scale + 
       annotate(
         "text",
         x = xMin * 1.5,
@@ -441,7 +443,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, block) %>%
+    group_by(participant, block, conditionName) %>%
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T), .groups = "keep") %>%
     ungroup()
   
@@ -524,6 +526,7 @@ plot_acuity_vs_age <- function(allData){
           npcy = "top",
           label = label)) +
     scale_y_log10() + 
+    scale_x_continuous(breaks = floor(min(acuity$ageN)): ceiling(max(acuity$ageN))) + 
     guides(color=guide_legend(title = '')) + 
     labs(x = 'Age',
          y = 'Acuity (deg)',
@@ -589,8 +592,6 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
     return(p1)
   }
 }
-
-
 
 peripheral_plot <- function(allData) {
   crowding <- allData$crowding %>% filter(targetEccentricityXDeg != 0)
