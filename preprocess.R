@@ -94,7 +94,8 @@ read_files <- function(file){
         pretest <- pretest %>% 
           rename('participant' = 'PavloviaSessionID') %>% 
           select(where(~sum(!is.na(.)) >0)) %>% 
-          mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+          mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
+          mutate(Grade = ifelse(Grade == 'R', '0', Grade))
         if (!'Skilled reader?' %in% names(pretest)) {
           pretest$`Skilled reader?` = 'unknown'
         }
@@ -111,7 +112,8 @@ read_files <- function(file){
         pretest <- pretest %>% 
           rename('participant' = 'ID') %>% 
           select(where(~sum(!is.na(.)) >0)) %>% 
-          mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+          mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
+          mutate(Grade = ifelse(Grade == 'R', '0', Grade))
         
         pretest$`Participant ID` = pretest$participant
       }
@@ -885,7 +887,8 @@ read_files <- function(file){
           pretest <- pretest %>% 
             rename('participant' = 'PavloviaSessionID') %>% 
             select(where(~sum(!is.na(.)) >0)) %>% 
-            mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+            mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
+            mutate(Grade = ifelse(Grade == 'R', '0', Grade))
           if (!'Skilled reader?' %in% names(pretest)) {
             pretest$`Skilled reader?` = 'unknown'
           }
@@ -901,7 +904,8 @@ read_files <- function(file){
           pretest <- pretest %>% 
             rename('participant' = 'ID') %>% 
             select(where(~sum(!is.na(.)) >0)) %>% 
-            mutate(Grade = ifelse(is.na(Grade), -1, Grade))
+            mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
+            mutate(Grade = ifelse(Grade == 'R', '0', Grade))
           pretest$`Participant ID` = pretest$participant
         }
         if (!'Date of Birth' %in% names(pretest)) {

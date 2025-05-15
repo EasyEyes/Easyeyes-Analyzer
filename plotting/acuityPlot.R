@@ -314,7 +314,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, block) %>%
+    group_by(participant, block, conditionName) %>%
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T)) %>%
     ungroup()
   

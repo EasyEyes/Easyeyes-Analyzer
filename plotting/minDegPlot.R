@@ -187,8 +187,8 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     y = 10^(log_crowding_distance_deg)
   )) +
     geom_point(color = "black", fill = "black") +
-    scale_x_log10(breaks = c(0.1,0.12)) +
-    scale_y_log10(breaks =c(0.1,0.12)) +
+    scale_x_log10() +
+    scale_y_log10() +
     coord_fixed() +
     annotation_logticks(sides = "bl",
                         short = unit(2, "pt"),
@@ -210,8 +210,8 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     y = 10^(log_crowding_distance_deg)
   )) +
     geom_point(color = "black", fill = "black") +
-    scale_x_log10(breaks = c(0.1,0.12)) +
-    scale_y_log10(breaks =c(0.1,0.12)) +
+    scale_x_log10() +
+    scale_y_log10() +
     coord_fixed() +
     annotation_logticks(sides = "bl",
                         short = unit(2, "pt"),
@@ -234,8 +234,8 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     y = 10^(questMeanAtEndOfTrialsLoop)
   )) +
     geom_point(color = "black", fill = "black") +
-    scale_x_log10(breaks = c(0.1,0.12)) +
-    scale_y_log10(breaks =c(0.1,0.12)) +
+    scale_x_log10() +
+    scale_y_log10() +
     coord_fixed() +
     annotation_logticks(sides = "bl",
                         short = unit(2, "pt"),
@@ -248,7 +248,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     )
   
   p_acuity <- quest_subset %>%
-    filter(questType == "Foveal acuity") %>%
+    filter(questType == "Peripheral acuity") %>%
     distinct()
   
   p9 <- ggplot(p_acuity, aes(
@@ -256,8 +256,8 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     y = 10^(questMeanAtEndOfTrialsLoop)
   )) +
     geom_point(color = "black", fill = "black") +
-    scale_x_log10(breaks = c(0.1,0.12)) +
-    scale_y_log10(breaks =c(0.1,0.12)) +
+    scale_x_log10() +
+    scale_y_log10() +
     coord_fixed() +
     annotation_logticks(sides = "bl",
                         short = unit(2, "pt"),

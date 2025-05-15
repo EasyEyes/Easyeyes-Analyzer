@@ -246,10 +246,27 @@ get_foveal_crowding_vs_age <- function(crowding) {
       p <- ggplot(t, aes(x = X, y = Y, shape = conditionName))
     }
     
+    # formula from Sarah
+    y0 <- 0.0535
+    A <- 1.5294
+    P <- -1.9436
+    A_se <- 0.371
+    P_se <- 0.145
+    
+    # Generate x and compute y values
+    x_vals <- seq(1, 10, length.out = 100)  # avoid 0 due to negative exponent
+    y_vals <- y0 + A * x_vals^P
+    y_upper <- y0 + (A + A_se) * x_vals^(P - P_se)
+    y_lower <- y0 + (A - A_se) * x_vals^(P + P_se)
+    
+    # Create data frame
+    df <- data.frame(x = x_vals, y = y_vals, y_upper = y_upper, y_lower = y_lower)
     # Add plot components
     p <- p +
       geom_point(size = 3) +
-      geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +  # Regression line in black
+      geom_line(data = df, aes(x = x, y = y), linetype = "dashed", color = "blue", size = 1.2, inherit.aes = FALSE) +
+      geom_ribbon(data = df, aes(x = x, ymin = y_lower, ymax = y_upper), 
+                  fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) + 
       annotate(
         "text",
         x = max(t$X, na.rm = TRUE) * 1.3,  # Adjusted for better placement
@@ -261,7 +278,7 @@ get_foveal_crowding_vs_age <- function(crowding) {
         ),
         hjust = 1, vjust = 1, size = 4, color = "black"
       ) +
-      scale_y_log10() +
+      scale_y_log10(limits = c(0.05, 2)) +
       scale_x_continuous(breaks = floor(min(t$age)): ceiling(max(t$age))) + 
       annotation_logticks(
       sides = "l", 
@@ -316,9 +333,9 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     # Define plot aesthetics based on Grade
     if (n_grades > 1) {
       t$Grade <- as.character(t$Grade)
-      p <- ggplot(t, aes(x = age, y = Y, color = Grade))
+      p1 <- ggplot(t, aes(x = age, y = Y, color = Grade))
     } else {
-      p <- ggplot(t, aes(x = age, y = Y))
+      p1 <- ggplot(t, aes(x = age, y = Y))
     }
     
     # Plot adjustments
@@ -327,9 +344,27 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     yMin <- min(t$Y, na.rm = TRUE)
     yMax <- max(t$Y, na.rm = TRUE)
     
-    p <- p +
-      geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
+    # formula from Sarah
+    y0 <- 0.0535
+    A <- 1.5294
+    P <- -1.9436
+    A_se <- 0.371
+    P_se <- 0.145
+    
+    # Generate x and compute y values
+    x_vals <- seq(1, 10, length.out = 100)  # avoid 0 due to negative exponent
+    y_vals <- y0 + A * x_vals^P
+    y_upper <- y0 + (A + A_se) * x_vals^(P - P_se)
+    y_lower <- y0 + (A - A_se) * x_vals^(P + P_se)
+    
+    # Create data frame
+    df <- data.frame(x = x_vals, y = y_vals, y_upper = y_upper, y_lower = y_lower)
+    
+    p1 <- p1 +
       geom_point(aes(shape = conditionName), size = 3) +  # Add points
+      geom_line(data = df, aes(x = x, y = y),  linetype = "dashed",color = "blue", size = 1.2, inherit.aes = FALSE) +
+      geom_ribbon(data = df, aes(x = x, ymin = y_lower, ymax = y_upper), 
+                  fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) + 
       theme_bw() +
       color_scale(n = n_grades) +  # Apply the gray-to-black color scale
       labs(
@@ -337,8 +372,8 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         x = "Age",
         y = "Peripheral crowding (deg)"
       ) +
-      scale_y_log10() +
-      scale_x_continuous(breaks = xMin: xMax) + 
+      scale_y_log10(limits = c(0.05, 2)) +
+      scale_x_continuous(breaks = floor(xMin): ceiling(xMax)) + 
       annotation_logticks(
         sides = "l", 
         short = unit(2, "pt"), 
@@ -363,14 +398,64 @@ get_peripheral_crowding_vs_age <- function(crowding) {
       guides(color = guide_legend(title = 'Grade'),
              shape = guide_legend(title = '', ncol = 1))
     
-    # Add shapes for Skilled Reader if applicable
-    # if (n_distinct(t$`Skilled reader?`) > 1) {
-    #   p <- p +
-    #     geom_point(aes(shape = `Skilled reader?`)) +
-    #     scale_shape_manual(values = c(4, 19,1))
-    # }
+    t <- t %>% 
+      group_by(participant, age, Grade, `Skilled reader?`) %>%
+      summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>% 
+      mutate(Y = 10^(log_crowding_distance_deg))
     
-    return(p)
+    if (n_grades > 1) {
+      t$Grade <- as.character(t$Grade)
+      p2 <- ggplot(t, aes(x = age, y = Y, color = Grade))
+    } else {
+      p2 <- ggplot(t, aes(x = age, y = Y))
+    }
+    
+    # Plot adjustments
+    xMin <- min(t$age, na.rm = TRUE)
+    xMax <- max(t$age, na.rm = TRUE)
+    yMin <- min(t$Y, na.rm = TRUE)
+    yMax <- max(t$Y, na.rm = TRUE)
+    
+    p2 <- p2 +
+      geom_point(size = 3) + 
+      geom_line(data = df, aes(x = x, y = y), linetype = "dashed",color = "blue", size = 1.2, inherit.aes = FALSE) +
+      geom_ribbon(data = df, aes(x = x, ymin = y_lower, ymax = y_upper), 
+                  fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) + 
+      theme_bw() +
+      color_scale(n = n_grades) +  # Apply the gray-to-black color scale
+      labs(
+        subtitle = "Geometric average of left and right thresholds",
+        title = "Peripheral crowding vs age\ncolored by grade",
+        x = "Age",
+        y = "Peripheral crowding (deg)"
+      ) +
+      scale_y_log10(limits = c(0.05, 2)) +
+      scale_x_continuous(breaks = floor(xMin): ceiling(xMax)) + 
+      annotation_logticks(
+        sides = "l", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      ) +
+      annotate(
+        "text",
+        x = xMax,  # Slightly offset for better visibility
+        y = yMax * 0.95,  # Adjust placement to the top-left
+        label = paste0(
+          "slope = ", round(slope, 2),
+          "\nR = ", round(r_value, 2),
+          "\nN = ", N
+        ),
+        hjust = 1, vjust = 1, size = 4, color = "black"
+      ) +
+      plt_theme +
+      theme(
+        legend.position = "top"
+      ) +
+      guides(color = guide_legend(title = 'Grade'),
+             shape = guide_legend(title = '', ncol = 1))
+    
+    return(list(p1,p2))
   }
 }
 

@@ -696,10 +696,15 @@ shinyServer(
       t <- get_peripheral_crowding_vs_age(df_list()$crowding)
       
       if (!is.null(t)) {
-        l[[i]] = t
+        l[[i]] = t[[1]]
         fileNames[[i]] = 'peripheral-crowding-vs-age-by-grade'
         i = i + 1
+        
+        l[[i]] = t[[2]]
+        fileNames[[i]] = 'peripheral-crowding-ave-vs-age-by-grade'
+        i = i + 1
       }
+      
       t <- get_repeatedLetter_vs_age(df_list()$repeatedLetters)
       
       if (!is.null(t)) {
