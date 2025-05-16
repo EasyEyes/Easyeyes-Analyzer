@@ -454,6 +454,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   print(paste('nrow of quest:', nrow(quest)))
   print(paste('nrow of reading:', nrow(reading)))
   print(paste('nrow of crowding:', nrow(crowding)))
+  write.csv(crowding, 'crowding.csv')
   print(paste('nrow of rsvp_speed:', nrow(rsvp_speed)))
   print(paste('nrow of acuity:', nrow(acuity)))
   print(paste('nrow of repeatedLetters:', nrow(repeatedLetters)))
@@ -586,7 +587,7 @@ reading <- rbind(reading, t)
     mutate(parameter = "threshold") %>% 
     ungroup()
   
-  
+  print(unique(threshold_all$conditionName))
   threshold_summary <- threshold_all %>% 
     mutate(variance = sd^2) %>% 
     group_by(conditionName, experiment) %>% 

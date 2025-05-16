@@ -20,6 +20,7 @@ library(svglite)
 library(patchwork)
 library(plotly)
 library(grid)
+library(ggnewscale)
 # library(showtext)
 # library(systemfonts)
 # Enables automatic font loading for showtext
