@@ -262,7 +262,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       select(-lowerCaseParticipant)
   }
   quest <- all_summary %>% 
-    select(participant, block, block_condition, conditionName, font, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode, questTrials, order) %>% 
+    select(participant, thresholdParameter, block, block_condition, conditionName, font, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode, questTrials, order) %>% 
     left_join(eccentricityDeg, by = c('participant', 'block_condition', 'conditionName', 'order'))
   
   if (nrow(pretest) > 0) {
@@ -277,7 +277,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       (questType == 'crowding' | questType == 'acuity') & targetEccentricityXDeg != 0 ~ paste('Peripheral', questType),
       .default = questType
     )) %>% 
-    select(-targetEccentricityXDeg, -targetEccentricityYDeg)
+    select(-targetEccentricityXDeg, -targetEccentricityYDeg, -thresholdParameter)
 
   
   age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
@@ -285,7 +285,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       select(participant, age) %>% 
       distinct()
   }
-  print(pretest)
+
   if ('Age' %in% names(pretest) & nrow(pretest) > 0) {
     if (all(is.na(age$age))) {
       age <- age %>%
@@ -296,13 +296,13 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
         select(participant, age)
     } else {
       tmp <- pretest %>% mutate(Age_p = Age) %>% select(lowerCaseParticipant, Age_p)
-      
       age <- age %>%
         select(participant, age) %>%
         mutate(lowerCaseParticipant = tolower(participant)) %>% 
         left_join(tmp, by = 'lowerCaseParticipant') %>% 
         mutate(age = ifelse(is.na(Age_p), age, Age_p)) %>% 
         select(participant, age)
+      print(age %>% filter(participant == 'kwra10'))
     }
   }
   print(age)
@@ -454,7 +454,6 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   print(paste('nrow of quest:', nrow(quest)))
   print(paste('nrow of reading:', nrow(reading)))
   print(paste('nrow of crowding:', nrow(crowding)))
-  write.csv(crowding, 'crowding.csv')
   print(paste('nrow of rsvp_speed:', nrow(rsvp_speed)))
   print(paste('nrow of acuity:', nrow(acuity)))
   print(paste('nrow of repeatedLetters:', nrow(repeatedLetters)))
@@ -521,8 +520,6 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df, min
     select(block_condition, participant, conditionName, questMeanAtEndOfTrialsLoop, font, targetKind, thresholdParameter) %>%
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
     mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
-  
-  crowding_vs_rsvp <- merge(crowding,rsvp_speed, by = c("participant", "font"))
   
   
   ################################ READING #######################################
