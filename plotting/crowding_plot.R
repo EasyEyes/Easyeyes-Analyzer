@@ -960,8 +960,9 @@ plot_crowding_vs_age <- function(crowding){
     return(NULL)
   } 
   
+  
   foveal <- crowding %>% 
-    filter(questType == 'Foveal crowding')
+    filter(questType == 'Foveal crowding') %>% 
     select(participant, questType, ageN,log_crowding_distance_deg)
   # Only right visual field
   peripheral <- crowding %>% 

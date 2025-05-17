@@ -269,6 +269,8 @@ read_files <- function(file){
         }
         if (!('targetKind' %in% colnames(t))) {
           t$targetKind <- NA
+        } else {
+          t$targetKind <- as.character(t$targetKind)
         }
         if (!('_needsUnmet' %in% colnames(t))) {
           t$`_needsUnmet` <- ""
@@ -644,6 +646,8 @@ read_files <- function(file){
           }
           if (!('targetKind' %in% colnames(t))) {
             t$targetKind <- NA
+          } else {
+            t$targetKind <- as.character(t$targetKind)
           }
           if (!('thresholdParameter' %in% colnames(t))) {
             t$thresholdParameter <- NA
@@ -944,9 +948,15 @@ read_files <- function(file){
       data_list[[i]]$Birthdate = ''
     }
     
-    if (!'BirthMonthYear' %in% names(t)) {
+    if (!'BirthMonthYear' %in% names(data_list[[i]])) {
       data_list[[i]]$BirthMonthYear = ''
     }
+    
+    if (!'BirthYear' %in% names(data_list[[i]])) {
+      data_list[[i]]$BirthYear = NA
+    }
+    
+    
     unique_participantCode = unique(data_list[[i]]$ParticipantCode)
     if (length(unique_participantCode) > 1) {
       data_list[[i]]$ParticipantCode = unique(data_list[[i]]$ParticipantCode[!is.na(data_list[[i]]$ParticipantCode)])
@@ -955,11 +965,22 @@ read_files <- function(file){
     }
     
     unique_Birthdate = unique(data_list[[i]]$BirthMonthYear)
+    unique_BirthYear = unique(data_list[[i]]$BirthYear)
+    print(unique_Birthdate )
+    print(unique_BirthYear)
     if (length(unique_Birthdate) > 1) {
       data_list[[i]]$BirthMonthYear = unique(data_list[[i]]$BirthMonthYear[!is.na(data_list[[i]]$BirthMonthYear)])
       data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$BirthMonthYear[1], orders = c('my')),data_list[[i]]$date[1]) / years(1),2)
     } else {
       data_list[[i]]$BirthMonthYear = ''
+      data_list[[i]]$age = NA
+    }
+    
+    if (length(unique_BirthYear) > 1 & length(unique_Birthdate) == 1 ) {
+      data_list[[i]]$BirthYear = unique(data_list[[i]]$BirthYear[!is.na(data_list[[i]]$BirthYear)])
+      data_list[[i]]$age = year(data_list[[i]]$date[1]) - data_list[[i]]$BirthYear[1]
+    } else {
+      data_list[[i]]$BirthYear = ''
       data_list[[i]]$age = NA
     }
     #Override
