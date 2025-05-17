@@ -74,7 +74,8 @@ prepare_regression_acuity <- function(df_list){
     group_by(participant, block_condition, targetKind) %>%
     dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
     ungroup() %>% 
-    mutate(log_WPM = log10(avg_wordPerMin)) %>% 
+    mutate(log_WPM = log10(avg_wordPerMin),
+           targetKind = as.character(targetKind)) %>% 
     group_by(participant, targetKind) %>% 
     summarize(avg_log_WPM = mean(log10(avg_wordPerMin)))
     
@@ -88,7 +89,8 @@ prepare_regression_acuity <- function(df_list){
   rsvp_speed <- rsvp_speed %>% 
     mutate(participant = tolower(participant)) %>% 
     group_by(participant,targetKind) %>% 
-    summarize( avg_log_WPM = mean(block_avg_log_WPM))
+    summarize( avg_log_WPM = mean(block_avg_log_WPM)) %>% 
+    mutate(targetKind = as.character(targetKind))
   
   dt <- rbind(reading,rsvp_speed) %>% 
     left_join(acuity, by = 'participant')

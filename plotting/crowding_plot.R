@@ -962,9 +962,12 @@ plot_crowding_vs_age <- function(crowding){
   
   foveal <- crowding %>% 
     filter(questType == 'Foveal crowding')
+    select(participant, questType, ageN,log_crowding_distance_deg)
   # Only right visual field
   peripheral <- crowding %>% 
-    filter(targetEccentricityXDeg > 0)
+    filter(targetEccentricityXDeg > 0) %>% 
+    group_by(participant, questType, ageN) %>% 
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm =T))
   
   age_values <- seq(4, 10, by = 0.1)  
   log_crowding_distance_deg <- 0.0535 + 1.5294 * (age_values^-1.9438)
@@ -998,7 +1001,7 @@ plot_crowding_vs_age <- function(crowding){
       summarize(cor = format(round(cor(ageN,log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)) %>% 
       select(cor)
   }
- 
+ t <- rbind(foveal, peripheral)
   ggplot(data = crowding, aes(x = ageN, 
                               y = 10^(log_crowding_distance_deg),
                               color = questType
@@ -1009,7 +1012,7 @@ plot_crowding_vs_age <- function(crowding){
       mid   = unit(2, "pt"), 
       long  = unit(7, "pt")
     ) +
-    geom_point(aes(shape = conditionName))+ 
+    geom_point()+ 
     geom_smooth(method='lm', se=F) + 
     ggpp::geom_text_npc(
       size = 12/.pt,
@@ -1024,6 +1027,7 @@ plot_crowding_vs_age <- function(crowding){
                               ncol=1)) + 
     labs(x = 'Age',
          y = 'Crowding distance (deg)',
+         subtitle = 'Geometric average of left and right thresholds',
          title = 'Foveal and peripheral\ncrowding vs age')
 }
 
