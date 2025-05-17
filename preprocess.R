@@ -966,8 +966,6 @@ read_files <- function(file){
     
     unique_Birthdate = unique(data_list[[i]]$BirthMonthYear)
     unique_BirthYear = unique(data_list[[i]]$BirthYear)
-    print(unique_Birthdate )
-    print(unique_BirthYear)
     if (length(unique_Birthdate) > 1) {
       data_list[[i]]$BirthMonthYear = unique(data_list[[i]]$BirthMonthYear[!is.na(data_list[[i]]$BirthMonthYear)])
       data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$BirthMonthYear[1], orders = c('my')),data_list[[i]]$date[1]) / years(1),2)
