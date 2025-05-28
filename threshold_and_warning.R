@@ -5,7 +5,7 @@ library(stringr)
 englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
   mutate(participant = tolower(ID))
 
-generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, stairs, filterInput, minNQuestTrials, maxQuestSD) {
+generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, stairs, filterInput, minNQuestTrials, maxQuestSD, conditionNameInput) {
 
   print('inside threshold warning')
   if (is.null(data_list)) {
@@ -271,6 +271,10 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
                ( targetEccentricityXDeg != 0 & !tolower(participant) %in% excludePeripheral$lowerCaseParticipant))
   }
   
+  if (conditionNameInput != 'All') {
+    quest <- quest %>% filter(conditionName == conditionNameInput)
+  } 
+  
   quest <- quest %>% 
     mutate(questType = case_when(
       (questType == 'crowding' | questType == 'acuity') & targetEccentricityXDeg == 0 ~ paste('Foveal', questType),
@@ -283,6 +287,14 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     data_list[[i]] %>% 
       select(participant, age) %>% 
+      filter(!is.na(age)) %>% 
+      distinct()
+  }
+  
+  targetDurationSecs <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+    data_list[[i]] %>% 
+      select(participant, block_condition, targetDurationSec) %>% 
+      filter(!is.na(targetDurationSec)) %>% 
       distinct()
   }
 
@@ -308,7 +320,9 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   print(age)
  
   age <- distinct(age)
-  quest <- quest %>% left_join(age, by = 'participant')
+  quest <- quest %>%
+    left_join(age, by = 'participant') %>% 
+    left_join(targetDurationSecs, by = c('participant', 'block_condition'))
   
   ########################### CROWDING ############################
   crowding <- quest %>% 
@@ -321,6 +335,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
            questSDAtEndOfTrialsLoop,
+           targetDurationSec,
            font,
            Grade,
            `Skilled reader?`,
@@ -335,13 +350,13 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   
   ########################### RSVP READING ############################
   
-  rsvp_speed <- all_summary %>% 
-    filter(targetKind == "rsvpReading",
-           !grepl("practice",conditionName, ignore.case = T)) %>% 
+  rsvp_speed <- quest %>% 
+    filter(questType == "RSVP reading") %>% 
     select(participant, block_condition,conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop,
-           font, targetKind, thresholdParameter, Grade, `Skilled reader?`,ParticipantCode) %>%
+           font, Grade, `Skilled reader?`,ParticipantCode) %>%
     dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
-    mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
+    mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP,
+           targetKind = 'rsvpReading') 
   
   ################################ READING #######################################
   
@@ -356,18 +371,14 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
  
 
   ################################ REPEAT LETTER #######################################
-  repeatedLetters <- all_summary %>% 
-    filter(thresholdParameter != "targetSizeDeg",
-           thresholdParameter != 'size',
-           targetKind == "repeatedLetters",
-           !grepl("practice",conditionName, ignore.case = T)) %>% 
+  repeatedLetters <- quest %>% 
+    filter(questType == "Repeated letters") %>% 
     select(participant,
            block_condition,
            conditionName, 
            questMeanAtEndOfTrialsLoop, 
            questSDAtEndOfTrialsLoop,
            font,
-           experiment,
            Grade,
            `Skilled reader?`,
            ParticipantCode,

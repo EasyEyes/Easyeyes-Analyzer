@@ -205,35 +205,17 @@ hist_theme <- theme(legend.position = "top",
                    ),
                    strip.text = element_text(size = 14))
 
-stacked_theme <- function() {
-  scaling_factor <- 0.5  # Further reduce size for smaller aesthetics
-  
-  theme(
-    legend.position = "top", 
-    legend.box = "vertical", 
-    legend.justification = 'left',
-    legend.key.size = unit(4.5 * scaling_factor, "mm"),  # Reduced size
-    legend.title = element_text(size = 14 * scaling_factor),  # Reduced size
-    legend.text = element_text(size = 14 * scaling_factor),  # Reduced size
-    legend.box.margin = margin(0, 0, 0, 0, "cm"),
-    panel.grid.major = element_blank(), 
-    panel.grid.minor = element_blank(),
-    panel.background = element_blank(), 
-    axis.title = element_text(size = 14 * scaling_factor),  # Reduced size
-    axis.text = element_text(size = 14 * scaling_factor),  # Reduced size
-    axis.line = element_line(colour = "black", size=0.2), 
-    plot.title = element_text(size = 18 * scaling_factor, hjust = 0),  # Reduced size
-    plot.subtitle = element_text(size = 18 * scaling_factor, hjust = 0),  # Reduced size
-    plot.margin = margin(
-      t = 0.1,  # Reduced size
-      r = 0.1,  # Reduced size
-      b = 0.1,  # Reduced size
-      l = 0.1,  # Reduced size
-      "inch"
-    ),
-    strip.text = element_text(size = 14 * scaling_factor)  # Reduced size
-  )
-}
+stacked_theme <- theme(
+  axis.text.x = element_text(),
+  axis.ticks.x = element_line(),
+  legend.position = "top",
+  legend.key.size = unit(2, "mm"),
+  legend.title = element_text(size = 8),
+  legend.text = element_text(size = 8),
+  axis.text = element_text(size = 11),
+  plot.title = element_text(size = 12, margin = margin(b = 2)),
+  plot.margin = margin(5, 5, 5, 5, "pt")
+)
 
 
 

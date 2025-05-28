@@ -376,7 +376,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         y = "Peripheral crowding (deg)"
       ) +
       scale_y_log10(limits = c(0.05, 2)) +
-      scale_x_continuous(breaks = 3: ceiling(xMax)) + 
+      scale_x_continuous(breaks = floor(xMin): ceiling(xMax)) + 
       annotation_logticks(
         sides = "l", 
         short = unit(2, "pt"), 
@@ -444,7 +444,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         y = "Peripheral crowding (deg)"
       ) +
       scale_y_log10(limits = c(0.05, 2)) +
-      scale_x_continuous(breaks = 3: ceiling(xMax)) + 
+      scale_x_continuous(breaks = floor(xMin): ceiling(xMax)) + 
       annotation_logticks(
         sides = "l", 
         short = unit(2, "pt"), 
@@ -514,14 +514,7 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 10)
       )
-    
-    # # Add shapes for Skilled Reader if applicable
-    # if (n_distinct(t$`Skilled reader?`) > 1) {
-    #   p <- p + 
-    #     geom_point(aes(shape = `Skilled reader?`)) +
-    #     scale_shape_manual(values = c(4, 19,1))
-    # }
-    
+
     return(p)
   }
 }
@@ -974,29 +967,34 @@ plot_crowding_vs_age <- function(crowding){
   log_crowding_distance_deg <- 0.0535 + 1.5294 * (age_values^-1.9438)
   
   foveal_curve <- data.frame(ageN = age_values, log_crowding_distance_deg = log_crowding_distance_deg)
-
-  foveal_stats <- foveal %>% 
-    do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
-    transmute(coef = map(fit, tidy)) %>%
-    unnest(coef) %>%
-    filter(term == "ageN") %>%  
-    mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
-    select(slope)
-  
-  # calculate correlation foveal data
-  foveal_corr <- foveal %>% 
-    summarize(cor = format(round(cor(ageN,log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)) %>% 
-    select(cor)
+  if (nrow(foveal) > 0) {
+    foveal_stats <- foveal %>% 
+      do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
+      transmute(coef = map(fit, tidy)) %>%
+      unnest(coef) %>%
+      filter(term == "ageN") %>%  
+      mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
+      select(slope)
+    foveal_slope <- foveal_stats$slope[1]
+    # calculate correlation foveal data
+    foveal_corr <- foveal %>% 
+      summarize(cor = format(round(cor(ageN,log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)) %>% 
+      select(cor)
+    foveal_corr <- foveal_corr$cor[1]
+  } else {
+    foveal_stats = NA
+    foveal_corr = NA
+  }
+ 
   
   # calculate slope peripheral data
   if (nrow(peripheral) > 0) {
     model <- lm(log_crowding_distance_deg ~ ageN, data = peripheral)
-    tidy(model) %>%
+    p_slope <- tidy(model) %>%
       filter(term == "ageN") %>%
       mutate(slope = format(round(estimate, 2), nsmall = 2)) %>%
       select(slope)
     # calculate correlation peripheral data
-    print(peripheral)
     peripheral_corr <- format(round(cor(peripheral$ageN, peripheral$log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)
   }
   
@@ -1017,8 +1015,8 @@ plot_crowding_vs_age <- function(crowding){
       size = 12/.pt,
       aes(npcx = "right",
           npcy = "top",
-          label = paste0('Foveal: slope=', foveal_stats$slope[1], ', R=', foveal_corr$cor[1], '\n',
-                         'Peripheral: slope=', peripheral_stats$slope[1], ', R=', peripheral_corr))) +
+          label = paste0('Foveal: slope=', foveal_slope, ', R=', foveal_corr, '\n',
+                         'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr))) +
     scale_y_log10() + 
     scale_x_continuous(breaks = c(seq(2,18,2), seq(20 , 50, 10))) + 
     guides(color=guide_legend(title = ''),

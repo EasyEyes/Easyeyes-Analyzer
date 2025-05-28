@@ -967,20 +967,26 @@ read_files <- function(file){
     unique_Birthdate = unique(data_list[[i]]$BirthMonthYear)
     unique_BirthYear = unique(data_list[[i]]$BirthYear)
     if (length(unique_Birthdate) > 1) {
-      data_list[[i]]$BirthMonthYear = unique(data_list[[i]]$BirthMonthYear[!is.na(data_list[[i]]$BirthMonthYear)])
-      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$BirthMonthYear[1], orders = c('my')),data_list[[i]]$date[1]) / years(1),2)
+      data_list[[i]]$BirthMonthYear = unique(data_list[[i]]$BirthMonthYear[!is.na(data_list[[i]]$BirthMonthYear) & data_list[[i]]$BirthMonthYear != ""])
+      clean_date <- gsub("([0-9]{2})h([0-9]{2})\\.([0-9]{2})\\.([0-9]{3})", "\\1:\\2:\\3.\\4", data_list[[i]]$date[1])
+      clean_date <- sub("_", "T", clean_date)
+      
+      # Parse with parse_date_time
+      parsed_time <- parse_date_time(substr(clean_date, 1, 10), orders = "Ymd", tz = "UTC")
+      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$BirthMonthYear[1], orders = c('my')), parsed_time) / years(1),2)
     } else {
       data_list[[i]]$BirthMonthYear = ''
       data_list[[i]]$age = NA
+      if (length(unique_BirthYear) > 1 & length(unique_Birthdate) == 1 ) {
+        data_list[[i]]$BirthYear = unique(data_list[[i]]$BirthYear[!is.na(data_list[[i]]$BirthYear)])
+        data_list[[i]]$age = year(data_list[[i]]$date[1]) - data_list[[i]]$BirthYear[1]
+      } else {
+        data_list[[i]]$BirthYear = ''
+        data_list[[i]]$age = NA
+      }
     }
     
-    if (length(unique_BirthYear) > 1 & length(unique_Birthdate) == 1 ) {
-      data_list[[i]]$BirthYear = unique(data_list[[i]]$BirthYear[!is.na(data_list[[i]]$BirthYear)])
-      data_list[[i]]$age = year(data_list[[i]]$date[1]) - data_list[[i]]$BirthYear[1]
-    } else {
-      data_list[[i]]$BirthYear = ''
-      data_list[[i]]$age = NA
-    }
+   
     #Override
     if (nrow(pretest) > 0) {
       data_list[[i]] <- data_list[[i]] %>%

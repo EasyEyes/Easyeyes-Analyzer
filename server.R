@@ -274,7 +274,8 @@ shinyServer(
           files()$stairs,
           input$filterInput,
           minNQuestTrials(),
-          maxQuestSD()
+          maxQuestSD(),
+          input$conditionName
         )
       )
     })
@@ -1204,16 +1205,6 @@ shinyServer(
       get_histogram_duration_lateness(durationData())
     })
     
-    output$isPeripheralAcuity <- reactive({
-      if ('acuity' %in% names(df_list())) {
-        peripheral <-
-          df_list()$acuity %>% filter(targetEccentricityXDeg != 0)
-        return(nrow(peripheral) > 0)
-      } else {
-        return(FALSE)
-      }
-    })
-    
     output$isRsvp <- reactive({
       if ('rsvp' %in% names(df_list())) {
         return(nrow(df_list()$rsvp) > 0)
@@ -1245,6 +1236,23 @@ shinyServer(
       }
     })
     
+    output$isFovealCrowding <- reactive({
+      if ('crowding' %in% names(df_list())) {
+        return(nrow(df_list()$crowding %>% filter(targetEccentricityXDeg ==0)) > 0)
+      } else {
+        return(FALSE)
+      }
+    })
+    
+    output$isPeripheralCrowding <- reactive({
+      if ('crowding' %in% names(df_list())) {
+        return(nrow(df_list()$crowding %>% filter(targetEccentricityXDeg !=0)) > 0)
+      } else {
+        return(FALSE)
+      }
+    })
+    
+    
     output$isAcuity <- reactive({
       if ('acuity' %in% names(df_list())) {
         return(nrow(df_list()$acuity) > 0)
@@ -1252,6 +1260,26 @@ shinyServer(
         return(FALSE)
       }
     })
+    
+    output$isFovealAcuity<- reactive({
+      if ('acuity' %in% names(df_list())) {
+        return(nrow(df_list()$acuity %>%
+                      filter(targetEccentricityXDeg ==0)) > 0)
+      } else {
+        return(FALSE)
+      }
+    })
+    
+    output$isPeripheralAcuity <- reactive({
+      if ('acuity' %in% names(df_list())) {
+        peripheral <-
+          df_list()$acuity %>% filter(targetEccentricityXDeg != 0)
+        return(nrow(peripheral) > 0)
+      } else {
+        return(FALSE)
+      }
+    })
+    
     
     output$isDuration <- reactive({
       return(nrow(durationData()) > 0)
@@ -1276,7 +1304,10 @@ shinyServer(
     outputOptions(output, 'isRsvp', suspendWhenHidden = FALSE)
     outputOptions(output, 'isRepeated', suspendWhenHidden = FALSE)
     outputOptions(output, 'isCrowding', suspendWhenHidden = FALSE)
+    outputOptions(output, 'isFovealCrowding', suspendWhenHidden = FALSE)
+    outputOptions(output, 'isPeripheralCrowding', suspendWhenHidden = FALSE)
     outputOptions(output, 'isAcuity', suspendWhenHidden = FALSE)
+    outputOptions(output, 'isFovealAcuity', suspendWhenHidden = FALSE)
     outputOptions(output, 'isDuration', suspendWhenHidden = FALSE)
     
     #### plots ####
@@ -2402,26 +2433,7 @@ shinyServer(
             filename = outfile,
             plot = stackedPlots()$crowding_plot +
               plt_theme +
-              theme(
-                axis.text.x = element_text(),
-                axis.ticks.x = element_line(),
-                plot.title = element_text(size = 14, margin = margin(b = 1)),
-                plot.margin = margin(
-                  t = 2,
-                  r = 5,
-                  b = 2,
-                  l = 5
-                )
-              ) +
-              theme(
-                legend.position = "top",
-                legend.key.size = unit(2, "mm"),
-                legend.title = element_text(size = 8),
-                legend.text = element_text(size = 8),
-                axis.text = element_text(size = 11),
-                plot.title = element_text(size = 12, margin = margin(b = 2)),
-                plot.margin = margin(5, 5, 5, 5, "pt")
-              ),
+              stacked_theme,
             width = 6,
             height = 8,
             unit = "in",
@@ -2445,26 +2457,7 @@ shinyServer(
                 filename = tmp_svg,
                 plot = stackedPlots()$crowding_plot +
                   plt_theme +
-                  theme(
-                    axis.text.x = element_text(),
-                    axis.ticks.x = element_line(),
-                    plot.title = element_text(size = 14, margin = margin(b = 1)),
-                    plot.margin = margin(
-                      t = 2,
-                      r = 5,
-                      b = 2,
-                      l = 5
-                    )
-                  ) +
-                  theme(
-                    legend.position = "top",
-                    legend.key.size = unit(2, "mm"),
-                    legend.title = element_text(size = 8),
-                    legend.text = element_text(size = 8),
-                    axis.text = element_text(size = 11),
-                    plot.title = element_text(size = 12, margin = margin(b = 2)),
-                    plot.margin = margin(5, 5, 5, 5, "pt")
-                  ),
+                  stacked_theme,
                 device = svglite,
                 width = 6,
                 height = 8,
@@ -2475,27 +2468,7 @@ shinyServer(
               ggsave(
                 filename = file,
                 plot = stackedPlots()$crowding_plot +
-                  plt_theme +
-                  theme(
-                    axis.text.x = element_text(),
-                    axis.ticks.x = element_line(),
-                    plot.title = element_text(size = 14, margin = margin(b = 1)),
-                    plot.margin = margin(
-                      t = 2,
-                      r = 5,
-                      b = 2,
-                      l = 5
-                    )
-                  ) +
-                  theme(
-                    legend.position = "top",
-                    legend.key.size = unit(2, "mm"),
-                    legend.title = element_text(size = 8),
-                    legend.text = element_text(size = 8),
-                    axis.text = element_text(size = 11),
-                    plot.title = element_text(size = 12, margin = margin(b = 2)),
-                    plot.margin = margin(5, 5, 5, 5, "pt")
-                  ),
+                  plt_theme + stacked_theme,
                 device = ifelse(
                   input$fileType == "svg",
                   svglite::svglite,
@@ -2516,27 +2489,7 @@ shinyServer(
           ggsave(
             filename = outfile,
             plot = stackedPlots()$foveal_acuity_plot +
-              plt_theme +
-              theme(
-                axis.text.x = element_text(),
-                axis.ticks.x = element_line(),
-                plot.title = element_text(size = 14, margin = margin(b = 1)),
-                plot.margin = margin(
-                  t = 2,
-                  r = 5,
-                  b = 2,
-                  l = 5
-                )
-              ) +
-              theme(
-                legend.position = "top",
-                legend.key.size = unit(2, "mm"),
-                legend.title = element_text(size = 8),
-                legend.text = element_text(size = 8),
-                axis.text = element_text(size = 11),
-                plot.title = element_text(size = 12, margin = margin(b = 2)),
-                plot.margin = margin(5, 5, 5, 5, "pt")
-              ),
+              plt_theme + stacked_theme,
             width = 6,
             height = 8,
             unit = "in",
@@ -2559,27 +2512,7 @@ shinyServer(
               ggsave(
                 filename = tmp_svg,
                 plot = stackedPlots()$foveal_acuity_plot +
-                  plt_theme +
-                  theme(
-                    axis.text.x = element_text(),
-                    axis.ticks.x = element_line(),
-                    plot.title = element_text(size = 14, margin = margin(b = 1)),
-                    plot.margin = margin(
-                      t = 2,
-                      r = 5,
-                      b = 2,
-                      l = 5
-                    )
-                  ) +
-                  theme(
-                    legend.position = "top",
-                    legend.key.size = unit(2, "mm"),
-                    legend.title = element_text(size = 8),
-                    legend.text = element_text(size = 8),
-                    axis.text = element_text(size = 11),
-                    plot.title = element_text(size = 12, margin = margin(b = 2)),
-                    plot.margin = margin(5, 5, 5, 5, "pt")
-                  ),
+                  plt_theme +stacked_theme,
                 device = svglite,
                 width = 6,
                 height = 8,
@@ -2590,27 +2523,7 @@ shinyServer(
               ggsave(
                 filename = file,
                 plot = stackedPlots()$foveal_acuity_plot +
-                  plt_theme +
-                  theme(
-                    axis.text.x = element_text(),
-                    axis.ticks.x = element_line(),
-                    plot.title = element_text(size = 14, margin = margin(b = 1)),
-                    plot.margin = margin(
-                      t = 2,
-                      r = 5,
-                      b = 2,
-                      l = 5
-                    )
-                  ) +
-                  theme(
-                    legend.position = "top",
-                    legend.key.size = unit(2, "mm"),
-                    legend.title = element_text(size = 8),
-                    legend.text = element_text(size = 8),
-                    axis.text = element_text(size = 11),
-                    plot.title = element_text(size = 12, margin = margin(b = 2)),
-                    plot.margin = margin(5, 5, 5, 5, "pt")
-                  ),
+                  plt_theme +stacked_theme,
                 device = ifelse(
                   input$fileType == "svg",
                   svglite::svglite,
@@ -2631,27 +2544,7 @@ shinyServer(
           ggsave(
             filename = outfile,
             plot = stackedPlots()$foveal_crowding_plot +
-              plt_theme +
-              theme(
-                axis.text.x = element_text(),
-                axis.ticks.x = element_line(),
-                plot.title = element_text(size = 14, margin = margin(b = 1)),
-                plot.margin = margin(
-                  t = 2,
-                  r = 5,
-                  b = 2,
-                  l = 5
-                )
-              ) +
-              theme(
-                legend.position = "top",
-                legend.key.size = unit(2, "mm"),
-                legend.title = element_text(size = 8),
-                legend.text = element_text(size = 8),
-                axis.text = element_text(size = 11),
-                plot.title = element_text(size = 12, margin = margin(b = 2)),
-                plot.margin = margin(5, 5, 5, 5, "pt")
-              ),
+              plt_theme +stacked_theme,
             width = 6,
             height = 8,
             unit = "in",
@@ -2674,27 +2567,7 @@ shinyServer(
               ggsave(
                 filename = tmp_svg,
                 plot = stackedPlots()$foveal_crowding_plot +
-                  plt_theme +
-                  theme(
-                    axis.text.x = element_text(),
-                    axis.ticks.x = element_line(),
-                    plot.title = element_text(size = 14, margin = margin(b = 1)),
-                    plot.margin = margin(
-                      t = 2,
-                      r = 5,
-                      b = 2,
-                      l = 5
-                    )
-                  ) +
-                  theme(
-                    legend.position = "top",
-                    legend.key.size = unit(2, "mm"),
-                    legend.title = element_text(size = 8),
-                    legend.text = element_text(size = 8),
-                    axis.text = element_text(size = 11),
-                    plot.title = element_text(size = 12, margin = margin(b = 2)),
-                    plot.margin = margin(5, 5, 5, 5, "pt")
-                  ),
+                  plt_theme +stacked_theme,
                 device = svglite,
                 width = 6,
                 height = 8,
@@ -2705,27 +2578,7 @@ shinyServer(
               ggsave(
                 filename = file,
                 plot = stackedPlots()$foveal_crowding_plot +
-                  plt_theme +
-                  theme(
-                    axis.text.x = element_text(),
-                    axis.ticks.x = element_line(),
-                    plot.title = element_text(size = 14, margin = margin(b = 1)),
-                    plot.margin = margin(
-                      t = 2,
-                      r = 5,
-                      b = 2,
-                      l = 5
-                    )
-                  ) +
-                  theme(
-                    legend.position = "top",
-                    legend.key.size = unit(2, "mm"),
-                    legend.title = element_text(size = 8),
-                    legend.text = element_text(size = 8),
-                    axis.text = element_text(size = 11),
-                    plot.title = element_text(size = 12, margin = margin(b = 2)),
-                    plot.margin = margin(5, 5, 5, 5, "pt")
-                  ),
+                  plt_theme +stacked_theme,
                 device = ifelse(
                   input$fileType == "svg",
                   svglite::svglite,
@@ -2746,27 +2599,7 @@ shinyServer(
           ggsave(
             filename = outfile,
             plot = stackedPlots()$foveal_repeated_plot +
-              plt_theme +
-              theme(
-                axis.text.x = element_text(),
-                axis.ticks.x = element_line(),
-                plot.title = element_text(size = 14, margin = margin(b = 1)),
-                plot.margin = margin(
-                  t = 2,
-                  r = 5,
-                  b = 2,
-                  l = 5
-                )
-              ) +
-              theme(
-                legend.position = "top",
-                legend.key.size = unit(2, "mm"),
-                legend.title = element_text(size = 8),
-                legend.text = element_text(size = 8),
-                axis.text = element_text(size = 11),
-                plot.title = element_text(size = 12, margin = margin(b = 2)),
-                plot.margin = margin(5, 5, 5, 5, "pt")
-              ),
+              plt_theme +stacked_theme,
             width = 6,
             height = 8,
             unit = "in",
@@ -2789,27 +2622,7 @@ shinyServer(
               ggsave(
                 filename = tmp_svg,
                 plot = stackedPlots()$foveal_repeated_plot +
-                  plt_theme +
-                  theme(
-                    axis.text.x = element_text(),
-                    axis.ticks.x = element_line(),
-                    plot.title = element_text(size = 14, margin = margin(b = 1)),
-                    plot.margin = margin(
-                      t = 2,
-                      r = 5,
-                      b = 2,
-                      l = 5
-                    )
-                  ) +
-                  theme(
-                    legend.position = "top",
-                    legend.key.size = unit(2, "mm"),
-                    legend.title = element_text(size = 8),
-                    legend.text = element_text(size = 8),
-                    axis.text = element_text(size = 11),
-                    plot.title = element_text(size = 12, margin = margin(b = 2)),
-                    plot.margin = margin(5, 5, 5, 5, "pt")
-                  ),
+                  plt_theme +stacked_theme,
                 device = svglite,
                 width = 6,
                 height = 8,
@@ -2820,27 +2633,7 @@ shinyServer(
               ggsave(
                 filename = file,
                 plot = stackedPlots()$foveal_repeated_plot +
-                  plt_theme +
-                  theme(
-                    axis.text.x = element_text(),
-                    axis.ticks.x = element_line(),
-                    plot.title = element_text(size = 14, margin = margin(b = 1)),
-                    plot.margin = margin(
-                      t = 2,
-                      r = 5,
-                      b = 2,
-                      l = 5
-                    )
-                  ) +
-                  theme(
-                    legend.position = "top",
-                    legend.key.size = unit(2, "mm"),
-                    legend.title = element_text(size = 8),
-                    legend.text = element_text(size = 8),
-                    axis.text = element_text(size = 11),
-                    plot.title = element_text(size = 12, margin = margin(b = 2)),
-                    plot.margin = margin(5, 5, 5, 5, "pt")
-                  ),
+                  plt_theme +stacked_theme,
                 device = ifelse(
                   input$fileType == "svg",
                   svglite::svglite,
@@ -2861,27 +2654,7 @@ shinyServer(
           ggsave(
             filename = outfile,
             plot = stackedPlots()$peripheral_acuity_plot +
-              plt_theme +
-              theme(
-                axis.text.x = element_text(),
-                axis.ticks.x = element_line(),
-                plot.title = element_text(size = 14, margin = margin(b = 1)),
-                plot.margin = margin(
-                  t = 2,
-                  r = 5,
-                  b = 2,
-                  l = 5
-                )
-              ) +
-              theme(
-                legend.position = "top",
-                legend.key.size = unit(2, "mm"),
-                legend.title = element_text(size = 8),
-                legend.text = element_text(size = 8),
-                axis.text = element_text(size = 11),
-                plot.title = element_text(size = 12, margin = margin(b = 2)),
-                plot.margin = margin(5, 5, 5, 5, "pt")
-              ),
+              plt_theme +stacked_theme,
             width = 6,
             height = 8,
             unit = "in",
@@ -2904,27 +2677,7 @@ shinyServer(
               ggsave(
                 filename = tmp_svg,
                 plot = stackedPlots()$peripheral_acuity_plot +
-                  plt_theme +
-                  theme(
-                    axis.text.x = element_text(),
-                    axis.ticks.x = element_line(),
-                    plot.title = element_text(size = 14, margin = margin(b = 1)),
-                    plot.margin = margin(
-                      t = 2,
-                      r = 5,
-                      b = 2,
-                      l = 5
-                    )
-                  ) +
-                  theme(
-                    legend.position = "top",
-                    legend.key.size = unit(2, "mm"),
-                    legend.title = element_text(size = 8),
-                    legend.text = element_text(size = 8),
-                    axis.text = element_text(size = 11),
-                    plot.title = element_text(size = 12, margin = margin(b = 2)),
-                    plot.margin = margin(5, 5, 5, 5, "pt")
-                  ),
+                  plt_theme +stacked_theme,
                 device = svglite,
                 width = 6,
                 height = 8,
@@ -2935,27 +2688,7 @@ shinyServer(
               ggsave(
                 filename = file,
                 plot = stackedPlots()$peripheral_acuity_plot +
-                  plt_theme +
-                  theme(
-                    axis.text.x = element_text(),
-                    axis.ticks.x = element_line(),
-                    plot.title = element_text(size = 14, margin = margin(b = 1)),
-                    plot.margin = margin(
-                      t = 2,
-                      r = 5,
-                      b = 2,
-                      l = 5
-                    )
-                  ) +
-                  theme(
-                    legend.position = "top",
-                    legend.key.size = unit(2, "mm"),
-                    legend.title = element_text(size = 8),
-                    legend.text = element_text(size = 8),
-                    axis.text = element_text(size = 11),
-                    plot.title = element_text(size = 12, margin = margin(b = 2)),
-                    plot.margin = margin(5, 5, 5, 5, "pt")
-                  ),
+                  plt_theme +stacked_theme,
                 device = ifelse(
                   input$fileType == "svg",
                   svglite::svglite,
@@ -4437,6 +4170,13 @@ shinyServer(
                          'thresholdParameter',
                          choices = unique(files()$stairs$thresholdParameter),
                          selected = unique(files()$stairs$thresholdParameter)[1],
+                       )
+                       
+                       updateSelectInput(
+                         session,
+                         'conditionName',
+                         choices = c('All', unique(df_list()$quest$conditionName)),
+                         selected ='All',
                        )
                        closeAlert()
                        

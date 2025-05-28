@@ -248,10 +248,10 @@ get_repeatedLetter_hist <- function(repeated) {
 
 generate_histograms_by_grade <- function(data) {
 
-  crowding <- data$crowding
-  acuity <- data$acuity
-  repeated <- data$repeated
-  rsvp <- data$rsvp
+  crowding <- data$crowding %>% filter(!is.na(log_crowding_distance_deg))
+  acuity <- data$acuity %>% filter(!is.na(questMeanAtEndOfTrialsLoop))
+  repeated <- data$repeated %>% filter(!is.na(log_crowding_distance_deg))
+  rsvp <- data$rsvp %>% filter(!is.na(block_avg_log_WPM))
   
   # Helper function to create stacked histograms
   create_stacked_histogram <- function(subset_data, variable, grade_order, x_label, title_prefix) {

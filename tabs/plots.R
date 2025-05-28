@@ -57,6 +57,15 @@ plotsTab <- tabPanel(
          )
   ),
   fixedRow(
+    div(style = "display: flex; align-items: center; margin-left:12px;",
+    selectInput(
+      'conditionName',
+      'conditionName:',
+      choices =  c('All'),
+      selected = 'All'
+    ))
+  ),
+  fixedRow(
     shinycssloaders::withSpinner(
       plotOutput("corrMatrixPlot", width = "100%", height = "100%"), 
       type = 4
