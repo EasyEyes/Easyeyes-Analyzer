@@ -982,7 +982,7 @@ plot_crowding_vs_age <- function(crowding){
       select(cor)
     foveal_corr <- foveal_corr$cor[1]
   } else {
-    foveal_stats = NA
+    foveal_slope = NA
     foveal_corr = NA
   }
  

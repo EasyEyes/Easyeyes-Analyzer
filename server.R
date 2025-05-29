@@ -262,6 +262,10 @@ shinyServer(
       input$maxQuestSD
     }) %>% debounce(1000)
     
+    conditionNames <- reactive({
+      input$conditionName
+    }) %>% debounce(1000)
+    
     df_list <- reactive({
       if (is.null(files())) {
         return(NULL)
@@ -275,7 +279,7 @@ shinyServer(
           input$filterInput,
           minNQuestTrials(),
           maxQuestSD(),
-          input$conditionName
+          conditionNames()
         )
       )
     })
@@ -4172,12 +4176,15 @@ shinyServer(
                          selected = unique(files()$stairs$thresholdParameter)[1],
                        )
                        
-                       updateSelectInput(
+                       updateCheckboxGroupInput(
                          session,
-                         'conditionName',
-                         choices = c('All', unique(df_list()$quest$conditionName)),
-                         selected ='All',
+                         inputId = 'conditionName',
+                         label = "conditionName",
+                         choices = df_list()$conditionNames,
+                         selected = df_list()$conditionNames,
+                         inline = TRUE
                        )
+                       
                        closeAlert()
                        
                      }

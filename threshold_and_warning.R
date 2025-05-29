@@ -270,9 +270,9 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       filter((targetEccentricityXDeg == 0) | 
                ( targetEccentricityXDeg != 0 & !tolower(participant) %in% excludePeripheral$lowerCaseParticipant))
   }
-  
-  if (conditionNameInput != 'All') {
-    quest <- quest %>% filter(conditionName == conditionNameInput)
+  conditionNames = unique(quest$conditionName)
+  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
+    quest <- quest %>% filter(conditionName %in% conditionNameInput)
   } 
   
   quest <- quest %>% 
@@ -477,7 +477,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
               acuity = acuity,
               repeatedLetters = repeatedLetters,
               quest = quest,
-              age = age))
+              age = age,
+              conditionNames = conditionNames))
 }
 
 generate_threshold <- function(data_list, summary_list, pretest, stairs, df, minNQuestTrials, maxQuestSD){

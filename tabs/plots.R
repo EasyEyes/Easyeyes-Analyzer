@@ -51,19 +51,20 @@ plotsTab <- tabPanel(
   ),
   fixedRow(
     div(style = "display: flex; align-items: center; margin-left:12px;",
-         HTML('<div style="font-size: 16px; margin-right: 5px;">Exclude thresholds with QUEST SD ></div>'),
-         numericInput('maxQuestSD', NULL, value = .2, min = 0, width = '60px'),
-         HTML('<div style="font-size: 16px; margin-left: 5px;">. </div>')
-         )
+        HTML('<div style="font-size: 16px; margin-right: 5px;">Exclude thresholds with QUEST SD ></div>'),
+        numericInput('maxQuestSD', NULL, value = .2, min = 0, width = '60px'),
+        HTML('<div style="font-size: 16px; margin-left: 5px;">. </div>')
+    )
   ),
   fixedRow(
     div(style = "display: flex; align-items: center; margin-left:12px;",
-    selectInput(
-      'conditionName',
-      'conditionName:',
-      choices =  c('All'),
-      selected = 'All'
-    ))
+        checkboxGroupInput(
+          inputId = "conditionName",
+          label = "conditionName",
+          inline = TRUE,
+          choices =  NULL,
+          selected = NULL
+        ))
   ),
   fixedRow(
     shinycssloaders::withSpinner(
@@ -79,22 +80,22 @@ plotsTab <- tabPanel(
     splitLayout(
       cellWidths = c("50%", "50%"),
       conditionalPanel('output.isRsvp', shinycssloaders::withSpinner(plotOutput("stackedRsvpPlot", height = "100%"), type = 4)),
-      shinycssloaders::withSpinner(plotOutput("stackedCrowdingPlot", height = "100%"), type = 4)
+      conditionalPanel('output.isCrowding', shinycssloaders::withSpinner(plotOutput("stackedCrowdingPlot", height = "100%"), type = 4))
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
       conditionalPanel('output.isRsvp', downloadButton("downloadStackedRsvpPlot", "Download")),
-      downloadButton("downloadStackedCrowdingPlot", "Download")
+      conditionalPanel('output.isCrowding', downloadButton("downloadStackedCrowdingPlot", "Download"))
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      shinycssloaders::withSpinner(imageOutput("stackedFovealAcuityPlot", height = "100%"), type = 4),
-      shinycssloaders::withSpinner(imageOutput("stackedFovealCrowdingPlot", height = "100%"), type = 4)
+      conditionalPanel('output.isFovealAcuity', shinycssloaders::withSpinner(imageOutput("stackedFovealAcuityPlot", height = "100%"), type = 4)),
+      conditionalPanel('output.isFovealCrowding',shinycssloaders::withSpinner(imageOutput("stackedFovealCrowdingPlot", height = "100%"), type = 4))
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      downloadButton("downloadStackedFovealAcuityPlot", "Download"),
-      downloadButton("downloadStackedFovealCrowdingPlot", "Download")
+      conditionalPanel('output.isFovealAcuity', downloadButton("downloadStackedFovealAcuityPlot", "Download")),
+      conditionalPanel('output.isFovealCrowding',downloadButton("downloadStackedFovealCrowdingPlot", "Download"))
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
