@@ -1,3 +1,4 @@
+source("./tabs/conditional_checkbox.R")
 staircasesTab <- tabPanel(
   'Staircases',
   conditionalPanel(
@@ -12,6 +13,7 @@ staircasesTab <- tabPanel(
         selected = NULL
       )
     ),
+    conditionCheckboxUI("Staircases"),
     fixedRow(
       style = "margin-left:2px;",
       shinycssloaders::withSpinner(plotOutput(

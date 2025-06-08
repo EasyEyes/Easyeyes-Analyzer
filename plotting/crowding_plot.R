@@ -5,7 +5,10 @@ crowding_by_side <- function(crowding) {
   print('insdie crowding_by_side')
   crowding <- crowding %>% filter(targetEccentricityXDeg != 0, !is.na(conditionName)) %>% 
     mutate(side = ifelse(targetEccentricityXDeg < 0, 'L', 'R'),
-           XDeg = abs(targetEccentricityXDeg))
+           XDeg = abs(targetEccentricityXDeg)) %>% 
+    group_by(participant, side, XDeg, font) %>% 
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T),
+              bouma_factor = mean(bouma_factor, na.rm=T))
   
   crowding_L <- crowding %>%
     filter(side == "L") %>%
@@ -15,13 +18,13 @@ crowding_by_side <- function(crowding) {
     select(-side)
 
   crowding_L_R <- crowding_L %>% 
-    full_join(crowding_R, by = c("participant","font", 'XDeg','order', 'block')) %>% 
+    full_join(crowding_R, by = c("participant","font", 'XDeg')) %>% 
     rename("bouma_factor_Left" = "bouma_factor.x",
            "bouma_factor_Right" = "bouma_factor.y",
            "log_crowding_distance_deg_Left" = "log_crowding_distance_deg.x",
            "log_crowding_distance_deg_Right" = "log_crowding_distance_deg.y") %>%
     filter(!is.na(log_crowding_distance_deg_Left) & !is.na(log_crowding_distance_deg_Right)) %>% 
-    mutate(conditionName =  paste0(conditionName.x, ' vs ', conditionName.y)) %>% 
+    mutate(conditionName =  paste0('-', XDeg, ' vs ', '+', XDeg)) %>% 
   return(crowding_L_R)
 }
 
@@ -314,7 +317,7 @@ get_foveal_crowding_vs_age <- function(crowding) {
 get_peripheral_crowding_vs_age <- function(crowding) {
   t <- crowding %>%
     filter(!is.na(age), targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade, `Skilled reader?`, block, conditionName) %>%
+    group_by(participant, age, Grade, `Skilled reader?`,conditionName) %>%
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
     ungroup()
   
@@ -527,7 +530,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% 
     filter(targetEccentricityXDeg != 0) %>% 
-    group_by(participant, age, Grade, `Skilled reader?`, block, conditionName) %>% 
+    group_by(participant, age, Grade, `Skilled reader?`, conditionName) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>% 
     ungroup()
   

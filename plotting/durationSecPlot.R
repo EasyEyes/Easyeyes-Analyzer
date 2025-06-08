@@ -1,5 +1,5 @@
 source('./constant.R')
-get_duration_data <- function(data_list) {
+get_duration_data <- function(data_list, conditionNameInput) {
   print('inside get_duration_data')
   df <- foreach(i=1:length(data_list), .combine = 'rbind') %do% {
     data_list[[i]] %>%
@@ -19,6 +19,10 @@ get_duration_data <- function(data_list) {
         fontNominalSizePx = as.numeric(fontNominalSizePx)) %>%
       distinct()
   }
+  
+  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
+    df <- df %>% filter(conditionName %in% conditionNameInput)
+  } 
   if (is.character(df$targetMeasuredDurationSec)) {
     df <- df %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     df$targetMeasuredDurationSec <- as.numeric(df$targetMeasuredDurationSec)
@@ -26,13 +30,14 @@ get_duration_data <- function(data_list) {
   return(df)
 }
 
-get_duration_corr <- function(data_list) {
+get_duration_corr <- function(data_list, conditionNameInput) {
   print('inside get_duration_corr')
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
       filter(!is.na(staircaseName)) %>%
       select(participant,
              block,
+             conditionName,
              targetMeasuredDurationSec,
              targetMeasuredLatenessSec,
              trialGivenToQuestErrorCheckLabels,
@@ -55,14 +60,12 @@ get_duration_corr <- function(data_list) {
              trialGivenToQuest) %>% 
       rename(hardwareConcurrency = cores) %>% 
       filter(trialGivenToQuestChecks != '', !is.na(trialGivenToQuestChecks))
-    # mutate(deltaHeapUsedMB = as.numeric(`heapUsedAfterDrawing (MB)`) - as.numeric(`heapUsedBeforeDrawing (MB)`),
-    #        deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
-    #        deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`))
-    # 
-    # t <- t %>%
-    #   pivot_wider(names_from = trialGivenToQuestErrorCheckLabels,
-    #               values_from = trialGivenToQuestChecks)
+
   }
+  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
+    params <- params %>% filter(conditionName %in% conditionNameInput)
+  } 
+  
   webGL <- get_webGL(data_list)
   
   
@@ -378,15 +381,14 @@ get_histogram_duration_lateness <- function(duration){
   ))
 }
 
-append_hist_list <- function(data_list, plot_list, fileNames){
-  print('inside get_dur_param_hist')
-  print("Data list done")
+append_hist_list <- function(data_list, plot_list, fileNames, conditionNameInput){
   
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
       filter(!is.na(staircaseName)) %>%
       select(participant,
              block,
+             conditionName,
              targetMeasuredDurationSec,
              targetMeasuredLatenessSec,
              `heapUsedBeforeDrawing (MB)`,
@@ -420,6 +422,12 @@ append_hist_list <- function(data_list, plot_list, fileNames){
       )
     
   }
+  
+  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
+    params <- params %>% filter(conditionName %in% conditionNameInput)
+  } 
+
+  
   if (is.character(params$targetMeasuredDurationSec)) {
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
@@ -511,7 +519,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
               fileNames = fileNames))
 }
 
-append_hist_time <- function(data_list, plot_list, fileNames){
+append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput){
   print('inside get_dur_param_hist')
 
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
@@ -520,6 +528,7 @@ append_hist_time <- function(data_list, plot_list, fileNames){
       select(participant,
              block,
              block_condition,
+             conditionName,
              targetMeasuredDurationSec,
              targetMeasuredLatenessSec,
              `heapUsedBeforeDrawing (MB)`,
@@ -545,7 +554,11 @@ append_hist_time <- function(data_list, plot_list, fileNames){
         # screenWidthCm = screenWidthPx / pxPerCm,
         #s creenHeightCm = screenHeightPx / pxPerCm,
       )
+  
   }
+  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
+    params <- params %>% filter(conditionName %in% conditionNameInput)
+  } 
   if (is.character(params$targetMeasuredDurationSec)) {
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
@@ -653,13 +666,14 @@ append_hist_time <- function(data_list, plot_list, fileNames){
               fileNames = fileNames))
 }
 
-append_scatter_list <- function(data_list, plot_list, fileNames) {
+append_scatter_list <- function(data_list, plot_list, fileNames, conditionNameInput) {
   print('inside append_scatter_list')
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
       filter(!is.na(staircaseName)) %>%
       select(participant,
              block,
+             conditionName,
              targetMeasuredDurationSec,
              targetMeasuredLatenessSec,
              targetDurationSec,
@@ -689,6 +703,11 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
              deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
              deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`))
   }
+  
+  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
+    params <- params %>% filter(conditionName %in% conditionNameInput)
+  } 
+  
   if (is.character(params$targetMeasuredDurationSec)) {
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
@@ -1019,434 +1038,8 @@ append_scatter_list <- function(data_list, plot_list, fileNames) {
     fileNames=fileNames
   ))
 }
-# append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
-#   print('inside append_scatter_time_participant')
-#   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
-#     t <- data_list[[i]] %>%
-#       filter(!is.na(staircaseName)) %>%
-#       select(participant,
-#              block,
-#              targetMeasuredDurationSec,
-#              targetMeasuredLatenessSec,
-#              targetDurationSec,
-#              mustTrackSec,
-#              thresholdAllowedDurationRatio,
-#              thresholdAllowedLatenessSec,
-#              `heapUsedBeforeDrawing (MB)`,
-#              `heapTotalBeforeDrawing (MB)`,
-#              `heapLimitBeforeDrawing (MB)`,
-#              `heapUsedAfterDrawing (MB)`,
-#              `heapTotalAfterDrawing (MB)`,
-#              `heapLimitAfterDrawing (MB)`,
-#              `heapTotalPostLateness (MB)`,
-#              `heapTotalPreLateness (MB)`,
-#              computeRandomMHz,
-#              deviceMemoryGB,
-#              cores,
-#              font,
-#              fontNominalSizePx,
-#              screenWidthPx,
-#              fontPadding,
-#              trialGivenToQuest,
-#              longTaskDurationSec,
-#              deviceSystemFamily) %>%
-#       rename(hardwareConcurrency = cores) %>%
-#       mutate(deltaHeapUsedMB = as.numeric(`heapUsedAfterDrawing (MB)`) - as.numeric(`heapUsedBeforeDrawing (MB)`),
-#              deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
-#              deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`))
-#   }
-#   if (is.character(params$targetMeasuredDurationSec)) {
-#     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
-#     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
-#   }
-# 
-#   webGL <- get_webGL(data_list)
-#   params <- params %>%
-#     filter(!is.na(font)) %>%
-#     left_join(webGL, by = 'participant') %>%
-#     arrange(hardwareConcurrency) %>%
-#     mutate(hardwareConcurrency = as.factor(hardwareConcurrency))
-# 
-#   blockAvg <- params %>%
-#     group_by(participant, block, hardwareConcurrency, deviceSystemFamily, font) %>%
-#     mutate(upper = max(thresholdAllowedDurationRatio, 1/thresholdAllowedDurationRatio) * targetDurationSec,
-#            lower = targetDurationSec / max(thresholdAllowedDurationRatio, 1/thresholdAllowedDurationRatio)) %>%
-#     summarize(heapTotalAfterDrawingAvg = mean(`heapTotalAfterDrawing (MB)`, na.rm =T),
-#               heapUsedAfterDrawingAvg = mean(`heapUsedAfterDrawing (MB)`, na.rm =T),
-#               badLatenessTrials = sum(targetMeasuredLatenessSec > thresholdAllowedLatenessSec),
-#               badDurationTrials = sum(targetMeasuredDurationSec > upper | targetMeasuredDurationSec < lower)) %>%
-#     arrange(hardwareConcurrency) %>%
-#     mutate(hardwareConcurrency = as.factor(hardwareConcurrency))
-# 
-#   j = length(plot_list) + 1
-# 
-#   if (n_distinct(params$deltaHeapTotalMB) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapTotalMB, y=targetMeasuredLatenessSec, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'targetMeasuredLatenessSec vs. deltaHeapTotalMB\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-deltaHeapTotalMB-by-participant'
-#     j = j + 1
-#   }
-# 
-# 
-#   if (n_distinct(params$longTaskDurationSec) > 1 & n_distinct(params$targetMeasuredLatenessSec) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=longTaskDurationSec, y=targetMeasuredLatenessSec, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'targetMeasuredLatenessSec vs. longTaskDurationSec \ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-longTaskDurationSec-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$longTaskDurationSec) > 1 & n_distinct(params$targetMeasuredDurationSec) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=longTaskDurationSec, y=targetMeasuredDurationSec, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'targetMeasuredDurationSec vs. longTaskDurationSec\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'longTaskDurationSec-vs-longTaskDurationSec-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$longTaskDurationSec) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=fontNominalSizePx*(1+fontPadding), y=longTaskDurationSec, color = participant)) +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'longTaskDurationSec vs. fontNominalSizePx*(1+fontPadding)\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'longTaskDurationSec-vs-fontNominalSizePx-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$longTaskDurationSec) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=longTaskDurationSec, y=deltaHeapUsedMB, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'deltaHeapUsedMB vs. longTaskDurationSec\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'deltaHeapUsedMB-vs-longTaskDurationSec-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$targetMeasuredLatenessSec) > 1 & n_distinct(params$targetMeasuredDurationSec) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     # Dynamically calculate ylim range with padding
-#     filtered_params <- params %>%
-#       filter(!is.na(targetMeasuredLatenessSec) & !is.na(targetMeasuredDurationSec))  # Remove rows where x or y is NA
-# 
-#     # Compute y-limits using only valid (x, y) pairs
-#     y_min <- min(filtered_params$targetMeasuredDurationSec, na.rm = TRUE)
-#     y_max <- max(filtered_params$targetMeasuredDurationSec, na.rm = TRUE)
-# 
-#     # Apply a 10% padding to avoid points touching the plot boundaries
-#     y_padding <- (y_max - y_min) * 0.1
-# 
-#     y_limits <- c(y_min, y_max + y_padding)
-#     print("Ylimit")
-#     print(params$targetMeasuredLatenessSec)
-#     print(params$targetMeasuredDurationSec)
-#     print(y_limits)
-#     plot_list[[j]] <- ggplot(data=params, aes(x=targetMeasuredLatenessSec, y=targetMeasuredDurationSec, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'targetMeasuredDurationSec vs. targetMeasuredLatenessSec\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')  + # Set dynamic Y-axis limits
-#       coord_cartesian(ylim = c(y_min, y_max))
-# 
-#     fileNames[[j]] <- 'targetMeasuredDurationSec-vs-targetMeasuredLatenessSec-by-participant'
-#     j = j + 1
-#   }
-# 
-# 
-#   if (n_distinct(blockAvg$badLatenessTrials) > 1 & n_distinct(blockAvg$badDurationTrials) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=blockAvg, aes(x=badLatenessTrials, y=badDurationTrials, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'badDurationTrials vs. badLatenessTrials\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'badDurationTrials-vs-badLatenessTrials-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$`heapLimitAfterDrawing (MB)`) > 1 & n_distinct(params$badLatenessTrials) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=`heapLimitAfterDrawing (MB)`, y=badLatenessTrials, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'badLatenessTrials vs. heapLimitAfterDrawing\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'badLatenessTrials-vs-heapLimitAfterDrawing-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(blockAvg$hardwareConcurrency) > 1 & n_distinct(blockAvg$badLatenessTrials) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=blockAvg, aes(x=hardwareConcurrency, y=badLatenessTrials, color = participant)) +
-#       geom_jitter(position=position_jitter(width=0.1, height=0.1)) +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'badLatenessTrials vs. hardwareConcurrency\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'badLatenessTrials-vs-hardwareConcurrency-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(blockAvg$hardwareConcurrency) > 1 & n_distinct(blockAvg$badDurationTrials) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=blockAvg, aes(x=hardwareConcurrency, y=badDurationTrials, color = participant)) +
-#       geom_jitter(position=position_jitter(width=0.1, height=0.1)) +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'badDurationTrials vs. hardwareConcurrency\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'badDurationTrials-vs-hardwareConcurrency-by-participant'
-#     j = j + 1
-#   }
-# 
-#  if (n_distinct(blockAvg$heapUsedAfterDrawingAvg) > 1 & n_distinct(blockAvg$badLatenessTrials) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=blockAvg, aes(x=heapUsedAfterDrawingAvg, y=badLatenessTrials, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'badLatenessTrials vs. heapUsedAfterDrawingAvg\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'badLatenessTrials-vs-heapUsedAfterDrawingAvg-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(blockAvg$heapTotalAfterDrawingAvg) > 1 & n_distinct(blockAvg$badLatenessTrials) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=blockAvg, aes(x=heapTotalAfterDrawingAvg, y=badLatenessTrials, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'badLatenessTrials vs. heapTotalAfterDrawingAvg\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'badLatenessTrials-vs-heapTotalAfterDrawingAvg-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$deltaHeapLatenessMB) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapLatenessMB, y=targetMeasuredDurationSec, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'targetMeasuredDurationSec vs. deltaHeapLatenessMB\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'targetMeasuredDurationSec-vs-deltaHeapLatenessMB-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$targetMeasuredLatenessSec) > 1  & n_distinct(params$maxViewportSize) > 1) {
-#     plot_list[[j]] <- ggplot(data=params, aes(x=maxTextureSize, y=targetMeasuredLatenessSec, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       scale_x_continuous(limits = c(min(params$maxTextureSize)-5, max(params$maxTextureSize) + 5)) +
-#       labs(title = 'targetMeasuredLatenessSec vs maxTextureSize\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-maxTextureSize-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$targetMeasuredLatenessSec) > 1 & n_distinct(params$maxViewportSize) > 1) {
-#     plot_list[[j]] <- ggplot(data=params, aes(x=maxViewportSize, y=targetMeasuredLatenessSec, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       scale_x_continuous(limits = c(min(params$maxViewportSize)-5, max(params$maxViewportSize)+5)) +
-#       labs(title = 'targetMeasuredLatenessSec vs maxViewportSize\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-maxViewportSize-by-participant'
-#     j = j + 1
-#   }
-# 
-#  if (n_distinct(params$deltaHeapLatenessMB) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapLatenessMB, y=targetMeasuredLatenessSec, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'targetMeasuredLatenessSec vs. deltaHeapLatenessMB\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-deltaHeapLatenessMB-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$`heapUsedBeforeDrawing (MB)`) > 1 & n_distinct(params$deltaHeapTotalMB) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=`heapUsedBeforeDrawing (MB)`, y=deltaHeapTotalMB, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'deltaHeapTotalMB vs. heapUsedBeforeDrawing\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'deltaHeapTotalMB-vs-heapUsedBeforeDrawing-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$deltaHeapTotalMB) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=deltaHeapTotalMB, y=deltaHeapUsedMB, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'deltaHeapUsedMB vs. deltaHeapTotalMB \ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'deltaHeapUsedMB-vs-deltaHeapTotalMB-by-participant'
-#     j = j + 1
-#   }
-# 
-#   if (n_distinct(params$`heapLimitAfterDrawing (MB)`) > 1 & n_distinct(params$deltaHeapTotalMB) > 1) {
-#     num_legend_items <- n_distinct(params$participant)
-# 
-#     plot_list[[j]] <- ggplot(data=params, aes(x=`heapLimitAfterDrawing (MB)`, y=deltaHeapTotalMB, color = participant)) +
-#       geom_jitter() +
-#       plt_theme_scatter +
-#       guides(color = guide_legend(
-#         col = ifelse(num_legend_items > 20, 5, 3),
-#         title = '',
-#         override.aes = list(size = ifelse(num_legend_items > 20, 3, 5))
-#       )) +
-#       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
-#       labs(title = 'deltaHeapTotalMB vs. heapLimitAfterDrawing\ncolored by participant',
-#            caption = 'Points jittered to avoid occlusion.')
-#     fileNames[[j]] <- 'deltaHeapTotalMB-vs-heapLimitAfterDrawing-by-participant'
-#     j = j + 1
-#   }
-# 
-# 
-#   return(list(
-#     plotList = plot_list,
-#     fileNames = fileNames
-#   ))
-# }
 
-append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
+append_scatter_time_participant <- function(data_list, plot_list, fileNames, conditionNameInput) {
   print('inside append_scatter_time_participant')
 
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
@@ -1454,6 +1047,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
       filter(!is.na(staircaseName)) %>%
       select(participant,
              block,
+             conditionName,
              targetMeasuredDurationSec,
              targetMeasuredLatenessSec,
              targetDurationSec,
@@ -1485,7 +1079,11 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
         deltaHeapLatenessMB  = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`)
       )
   }
-
+  
+  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
+    params <- params %>% filter(conditionName %in% conditionNameInput)
+  } 
+  
   # Convert targetMeasuredDurationSec if character with comma-separated values
   if (is.character(params$targetMeasuredDurationSec)) {
     params <- params %>%
@@ -2167,14 +1765,14 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames) {
   ))
 }
 
-
-append_scatter_time <- function(data_list, plot_list, fileNames) {
+append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameInput) {
   print('inside append_scatter_time')
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>%
       filter(!is.na(staircaseName)) %>%
       select(participant,
              block,
+             conditionName,
              targetMeasuredDurationSec,
              targetMeasuredLatenessSec,
              targetDurationSec,
@@ -2204,10 +1802,16 @@ append_scatter_time <- function(data_list, plot_list, fileNames) {
              deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
              deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`))
   }
+  
+  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
+    params <- params %>% filter(conditionName %in% conditionNameInput)
+  } 
+  
   if (is.character(params$targetMeasuredDurationSec)) {
     params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
   }
+  
   
   webGL <- get_webGL(data_list)
   params <- params %>%

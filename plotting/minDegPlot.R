@@ -3,7 +3,7 @@
 get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
 
   levels <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% select(participant, conditionName, block_condition,thresholdParameter, 
+    data_list[[i]] %>% select(participant, conditionName,thresholdParameter, 
                               targetEccentricityXDeg, targetEccentricityYDeg, spacingOverSizeRatio, 
                               viewingDistanceCm, fontNominalSizePt, level, font)
   } %>% 
@@ -17,7 +17,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
   # the conversion formula from fontNominalSizePt to level only true when font is Sloan.woff2
   minDeg <- levels %>% 
     mutate(fontNominalSizeDeg = (180/pi) * atan2(fontNominalSizePt*2.54/72, viewingDistanceCm)) %>% 
-    group_by(participant, block_condition, conditionName, 
+    group_by(participant, conditionName, 
                  thresholdParameter, font) %>%
     # minDeg = spacingMinDeg when thresholdParameter = spacingDeg, minDeg = sizeMinDeg when tresholdParameter = targetSizeDeg
     summarize(minDeg = case_when(!is.na(level) ~ 10^min(level),
@@ -32,7 +32,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
 
 
   params <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% distinct(participant, block_condition,targetMinimumPix, targetMinPhysicalPx, pxPerCm,viewingDistanceCm,spacingOverSizeRatio)
+    data_list[[i]] %>% distinct(participant, conditionName,targetMinimumPix, targetMinPhysicalPx, pxPerCm,viewingDistanceCm,spacingOverSizeRatio)
   } %>% filter(!is.na(targetMinPhysicalPx)) %>% 
     mutate(targetMinimumPix = as.numeric(targetMinimumPix), 
            targetMinPhysicalPx = as.numeric(targetMinPhysicalPx),
@@ -41,13 +41,13 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
            spacingOverSizeRatio = as.numeric(spacingOverSizeRatio))
   
   estimatedDevicePixelRatio <- minDeg %>%
-    left_join(params, by = c('participant', 'block_condition')) %>% 
+    left_join(params, by = c('participant', 'conditionName')) %>% 
     filter(thresholdParameter == 'targetSizeDeg' | thresholdParameter == 'spacingDeg')
   
   estimatedDevicePixelRatio <- minDeg %>%
-    left_join(params, by = c('participant', 'block_condition')) %>% 
+    left_join(params, by = c('participant', 'conditionName')) %>% 
     filter(thresholdParameter == 'targetSizeDeg' | thresholdParameter == 'spacingDeg') %>% 
-    group_by(participant, block_condition, conditionName, thresholdParameter) %>% 
+    group_by(participant, conditionName, thresholdParameter) %>% 
     summarize(estimatedDevicePixelRatio = case_when(thresholdParameter == 'targetSizeDeg' ~ targetMinPhysicalPx/(tan(minDeg * pi / 180) * pxPerCm * viewingDistanceCm),
                                                     thresholdParameter == 'spacingDeg' ~ targetMinPhysicalPx/(tan((minDeg/spacingOverSizeRatio) * pi / 180) * pxPerCm * viewingDistanceCm)
     )) %>% 
@@ -94,7 +94,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
   # scatter diagram of foveal acuity (deg) vs. sizeMinDeg
   foveal_acuity <- acuity %>%
     filter(targetEccentricityXDeg == 0) %>%
-    left_join(minDeg %>% select(participant,block_condition,minDeg), by = c('participant', 'block_condition')) %>% 
+    left_join(minDeg %>% select(participant,conditionName,minDeg), by = c('participant', 'conditionName')) %>% 
     filter(!is.na(minDeg), !is.na(questMeanAtEndOfTrialsLoop)) %>% 
     distinct()
   
@@ -135,7 +135,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
   # scatter diagram of foveal crowding (deg) vs. spacingMinDeg
   foveal_crowding <- crowding %>%
     filter(targetEccentricityXDeg == 0) %>%
-    left_join(minDeg %>% select(participant,block_condition,minDeg), by = c('participant', 'block_condition')) %>% 
+    left_join(minDeg %>% select(participant,conditionName,minDeg), by = c('participant', 'conditionName')) %>% 
     filter(!is.na(minDeg), !is.na(log_crowding_distance_deg)) %>% 
     distinct()
   
@@ -174,7 +174,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     )
   
   quest_subset <- quest %>%
-    select(participant, block_condition, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType)
+    select(participant, conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType)
   
   # 4. derive foveal crowding DF and plot p6
   foveal_crowding <- quest_subset %>%

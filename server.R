@@ -60,7 +60,7 @@ source("./other/read_json.R")
 source("./other/formSpree.R")
 source("./other/utility.R")
 
-
+source("./tabs/conditional_checkbox.R")
 #### server code ####
 
 shinyServer(
@@ -248,7 +248,8 @@ shinyServer(
           files()$stairs,
           files()$df,
           minNQuestTrials(),
-          maxQuestSD()
+          maxQuestSD(),
+          conditionNames()
         )
       )
     })
@@ -309,7 +310,7 @@ shinyServer(
       if (is.null(files())) {
         return(NULL)
       }
-      get_duration_corr(files()$data_list)
+      get_duration_corr(files()$data_list, conditionNames())
     })
     
     #### duration data ####
@@ -318,7 +319,7 @@ shinyServer(
       if (is.null(files())) {
         return(NULL)
       }
-      get_duration_data(files()$data_list)
+      get_duration_data(files()$data_list, conditionNames())
     })
     
     ##### SOUND CALIBRATION ####
@@ -828,7 +829,7 @@ shinyServer(
       }
       
       print('before appending')
-      lists = append_hist_list(data_list(), l, fileNames)
+      lists = append_hist_list(data_list(), l, fileNames, conditionNames())
       lists = add_questsd_hist(df_list()$quest, lists)
       
       minDegHist <- get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding, df_list()$quest)$hist
@@ -848,7 +849,7 @@ shinyServer(
       l <- list()
       fileNames <- list()
       
-      lists <- append_hist_time(data_list(), l, fileNames)
+      lists <- append_hist_time(data_list(), l, fileNames, conditionNames())
       return(lists)
     })
     
@@ -963,7 +964,7 @@ shinyServer(
         i = i + 1
       }
       
-      t <- get_quest_sd_vs_trials(df_list()$quest)
+      t <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
       if (!is.null(t)) {
         l[[i]] <- t
         fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
@@ -1007,7 +1008,7 @@ shinyServer(
         i = i + 1
       }
       
-      lists = append_scatter_list(data_list(), l, fileNames)
+      lists = append_scatter_list(data_list(), l, fileNames, conditionNames())
       minDegPlot <- get_minDeg_plots(data_list(), df_list()$acuity, df_list()$crowding, df_list()$quest)$scatter
       
       return(list(
@@ -1029,7 +1030,7 @@ shinyServer(
       
       # Extract scatter plots using the append_scatter_time function
       scatter_time_plots <-
-        append_scatter_time(data_list(), l, fileNames)
+        append_scatter_time(data_list(), l, fileNames, conditionNames())
       
       return(scatter_time_plots)
     })
@@ -1047,7 +1048,7 @@ shinyServer(
       
       # Extract scatter plots using the append_scatter_time function
       scatter_time_plots <-
-        append_scatter_time_participant(data_list(), l, fileNames)
+        append_scatter_time_participant(data_list(), l, fileNames, conditionNames())
       
       return(scatter_time_plots)
     })
@@ -3391,7 +3392,7 @@ shinyServer(
       
       #### crowding stair plots
       stairPlot <- reactive({
-        plotStaircases(files()$stairs, input$thresholdParameter)
+        plotStaircases(files()$stairs, input$thresholdParameter, conditionNames())
       })
       
       output$stairPlot <- renderImage({
@@ -4176,14 +4177,17 @@ shinyServer(
                          selected = unique(files()$stairs$thresholdParameter)[1],
                        )
                        
-                       updateCheckboxGroupInput(
-                         session,
-                         inputId = 'conditionName',
-                         label = "conditionName",
-                         choices = df_list()$conditionNames,
-                         selected = df_list()$conditionNames,
-                         inline = TRUE
-                       )
+                       # updateCheckboxGroupInput(
+                       #   session,
+                       #   inputId = 'conditionName',
+                       #   label = "conditionName",
+                       #   choices = df_list()$conditionNames,
+                       #   selected = df_list()$conditionNames,
+                       #   inline = TRUE
+                       # )
+                       condition_timing <- conditionCheckboxServer("Timing", reactive(df_list()$conditionNames))
+                       condition_plots <- conditionCheckboxServer("Plots", reactive(df_list()$conditionNames))
+                       condition_staircases <- conditionCheckboxServer("Staircases", reactive(df_list()$conditionNames))
                        
                        closeAlert()
                        

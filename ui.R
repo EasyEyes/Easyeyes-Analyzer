@@ -42,12 +42,12 @@ timer_js <- "
 
 
 shinyUI(
-  
   navbarPage(
     title = div(
       textOutput("app_title"),
       div(id = "timer", "00:00:00")
     ),
+    
     use_shiny_title(),
     header = tags$head(
       tags$style(type = "text/css",  "

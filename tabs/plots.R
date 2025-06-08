@@ -1,7 +1,5 @@
 library(plotly)
-
-
-
+source('./tabs/conditional_checkbox.R')
 plotsTab <- tabPanel(
   'Plots',
   tags$style(HTML("
@@ -56,16 +54,17 @@ plotsTab <- tabPanel(
         HTML('<div style="font-size: 16px; margin-left: 5px;">. </div>')
     )
   ),
-  fixedRow(
-    div(style = "display: flex; align-items: center; margin-left:12px;",
-        checkboxGroupInput(
-          inputId = "conditionName",
-          label = "conditionName",
-          inline = TRUE,
-          choices =  NULL,
-          selected = NULL
-        ))
-  ),
+  # fixedRow(
+  #   div(style = "display: flex; align-items: center; margin-left:12px;",
+  #       checkboxGroupInput(
+  #         inputId = "conditionName",
+  #         label = "conditionName",
+  #         inline = TRUE,
+  #         choices =  NULL,
+  #         selected = NULL
+  #       ))
+  # ),
+  conditionCheckboxUI("Plots"),
   fixedRow(
     shinycssloaders::withSpinner(
       plotOutput("corrMatrixPlot", width = "100%", height = "100%"), 

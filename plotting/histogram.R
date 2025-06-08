@@ -35,7 +35,7 @@ get_crowding_hist <- function(crowding) {
 
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
-    group_by(participant, `Skilled reader?`, block) %>% 
+    group_by(participant, `Skilled reader?`) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = T)) %>% 
     ungroup()
 
@@ -106,7 +106,7 @@ get_acuity_hist <- function(acuity) {
 
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, `Skilled reader?`, block) %>% 
+    group_by(participant, `Skilled reader?`) %>% 
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop)) %>% 
     ungroup()
   

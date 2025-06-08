@@ -86,7 +86,7 @@ get_foveal_acuity_vs_age <- function(acuity) {
 get_peripheral_acuity_vs_age <- function(acuity) {
   t <- acuity %>% 
     filter(!is.na(age), targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade, `Skilled reader?`, block, conditionName) %>% 
+    group_by(participant, age, Grade, `Skilled reader?`, conditionName) %>% 
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T)) %>% 
     ungroup() %>% 
     mutate(N = paste0('N = ', n()))
@@ -314,7 +314,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, block, conditionName) %>%
+    group_by(participant, conditionName) %>%
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T)) %>%
     ungroup()
   
@@ -443,7 +443,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, block, conditionName) %>%
+    group_by(participant, conditionName) %>%
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T), .groups = "keep") %>%
     ungroup()
   
@@ -538,7 +538,7 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade, `Skilled reader?`, block) %>%
+    group_by(participant, age, Grade, `Skilled reader?`) %>%
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T)) %>%
     ungroup()
   
@@ -600,7 +600,8 @@ peripheral_plot <- function(allData) {
   if (nrow(crowding) == 0 | nrow(acuity) == 0) {
     return(NULL)
   }
-  
+  print(crowding)
+  print(acuity)
   t <- crowding %>%
     select(participant, log_crowding_distance_deg) %>%
     left_join(acuity, by = "participant") %>%

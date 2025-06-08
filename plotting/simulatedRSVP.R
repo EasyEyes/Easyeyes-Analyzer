@@ -236,11 +236,15 @@ extractCrowdingStaircases <- function(df, info) {
   # "targetMeasuredDurationSec", "targetDurationSec", "key_resp.corr", "level", "heightPx", "targetDurationSec", "markingOffsetBeforeTargetOnsetSecs")#, "targetSpacingPx")
 }
 
-plotStaircases <- function(Staircases, thresholdParameterSelected) {
+plotStaircases <- function(Staircases, thresholdParameterSelected, conditionNameInput) {
     stairdf <- Staircases %>%
       filter(questType != 'practice')
     print('inside plotStaircases')
-    
+
+    if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
+      stairdf <- stairdf %>% filter(conditionName %in% conditionNameInput)
+    } 
+
     if (is.null(thresholdParameterSelected) | nrow(stairdf) == 0) {
       return(NULL)
     }
@@ -253,6 +257,9 @@ plotStaircases <- function(Staircases, thresholdParameterSelected) {
              nTrials = sum(trialGivenToQuest,na.rm = T),
              questTrials = paste0(sum(trialGivenToQuest,na.rm = T), ' good Trials'))
     
+    if (is.null(thresholdParameterSelected) | nrow(stairdf) == 0) {
+      return(NULL)
+    }
     height = n_distinct(t %>% select(participant,thresholdParameter, conditionName)) * 1.3 + 2
     maxTrials <- max(t$nTrials)
     p <- ggplot(t, aes(x = trial, y = levelProposedByQUEST)) +
@@ -297,8 +304,10 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
     group_by(participant, staircaseName) %>%
     summarize(questTrials = sum(trialGivenToQuest, na.rm = TRUE)) %>%
     ungroup()
-  
-  crowding <- df_list$crowding %>%
+
+  crowding <- df_list$quest_all_thresholds %>%
+    filter(grepl('crowding', questType)) %>% 
+    select(-questTrials) %>% 
     left_join(stairdf, by = c("participant", "block_condition" = "staircaseName")) %>%
     mutate(
       age = ifelse(is.na(age), 0, age),
@@ -313,7 +322,7 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
     data <- data %>%
       mutate(
         questTrials = as.numeric(questTrials),
-        Y = 10^(log_crowding_distance_deg)
+        Y = 10^(questMeanAtEndOfTrialsLoop)
       ) %>%
       filter(!is.na(questTrials), !is.na(Y))
 

@@ -1,5 +1,5 @@
 library(plotly)
-
+source("./tabs/conditional_checkbox.R")
 timingTab <- tabPanel(
   'Timing',
   tags$style(HTML("
@@ -13,6 +13,7 @@ timingTab <- tabPanel(
       }
     }
   ")),
+  conditionCheckboxUI("Timing"),
   fixedRow(
     shinycssloaders::withSpinner(
       plotOutput("durationCorrMatrixPlot", width = "100%", height = "100%"), 
