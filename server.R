@@ -263,9 +263,78 @@ shinyServer(
       input$maxQuestSD
     }) %>% debounce(1000)
     
-    conditionNames <- reactive({
-      input$conditionName
-    }) %>% debounce(1000)
+    
+    # Optional debounced reactive
+    conditionNames <- reactive(
+      input$conditionNamePlots
+    ) %>% debounce(5000)
+    
+    conditionNameTiming <- reactive(
+      input$conditionNameTiming
+    ) %>% debounce(5000)
+    
+    conditionNameStaircase <- reactive(
+      input$conditionNameStaircase
+    ) %>% debounce(5000)
+    
+    observeEvent(conditionNames(),{
+      updateCheckboxGroupInput(
+        session,
+        inputId = 'conditionNameStaircase',
+        label = "conditionName",
+        choices = df_list()$conditionNames,
+        selected = input$conditionNamePlots,
+        inline = TRUE
+      )
+      
+      updateCheckboxGroupInput(
+        session,
+        inputId = 'conditionNameTiming',
+        label = "conditionName",
+        choices = df_list()$conditionNames,
+        selected = input$conditionNamePlots,
+        inline = TRUE
+      )
+    })
+    
+    observeEvent(conditionNameTiming(),{
+      updateCheckboxGroupInput(
+        session,
+        inputId = 'conditionNamePlots',
+        label = "conditionName",
+        choices = df_list()$conditionNames,
+        selected = input$conditionNameTiming,
+        inline = TRUE
+      )
+      updateCheckboxGroupInput(
+        session,
+        inputId = 'conditionNameStaircase',
+        label = "conditionName",
+        choices = df_list()$conditionNames,
+        selected = input$conditionNameTiming,
+        inline = TRUE
+      )
+    })
+    
+    observeEvent(conditionNameStaircase(),{
+
+      updateCheckboxGroupInput(
+        session,
+        inputId = 'conditionNamePlots',
+        label = "conditionName",
+        choices = df_list()$conditionNames,
+        selected = input$conditionNameStaircase,
+        inline = TRUE
+      )
+      updateCheckboxGroupInput(
+        session,
+        inputId = 'conditionNameTiming',
+        label = "conditionName",
+        choices = df_list()$conditionNames,
+        selected = input$conditionNameStaircase,
+        inline = TRUE
+      )
+    })
     
     df_list <- reactive({
       if (is.null(files())) {
@@ -4177,17 +4246,33 @@ shinyServer(
                          selected = unique(files()$stairs$thresholdParameter)[1],
                        )
                        
-                       # updateCheckboxGroupInput(
-                       #   session,
-                       #   inputId = 'conditionName',
-                       #   label = "conditionName",
-                       #   choices = df_list()$conditionNames,
-                       #   selected = df_list()$conditionNames,
-                       #   inline = TRUE
-                       # )
-                       condition_timing <- conditionCheckboxServer("Timing", reactive(df_list()$conditionNames))
-                       condition_plots <- conditionCheckboxServer("Plots", reactive(df_list()$conditionNames))
-                       condition_staircases <- conditionCheckboxServer("Staircases", reactive(df_list()$conditionNames))
+                       updateCheckboxGroupInput(
+                         session,
+                         inputId = 'conditionNamePlots',
+                         label = "conditionName",
+                         choices = df_list()$conditionNames,
+                         selected = df_list()$conditionNames,
+                         inline = TRUE
+                       )
+                       
+                       updateCheckboxGroupInput(
+                         session,
+                         inputId = 'conditionNameStaircase',
+                         label = "conditionName",
+                         choices = df_list()$conditionNames,
+                         selected = df_list()$conditionNames,
+                         inline = TRUE
+                       )
+                       
+                       updateCheckboxGroupInput(
+                         session,
+                         inputId = 'conditionNameTiming',
+                         label = "conditionName",
+                         choices = df_list()$conditionNames,
+                         selected = df_list()$conditionNames,
+                         inline = TRUE
+                       )
+                       
                        
                        closeAlert()
                        

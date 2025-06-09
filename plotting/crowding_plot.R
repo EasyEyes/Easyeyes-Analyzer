@@ -999,8 +999,13 @@ plot_crowding_vs_age <- function(crowding){
       select(slope)
     # calculate correlation peripheral data
     peripheral_corr <- format(round(cor(peripheral$ageN, peripheral$log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)
+  } else {
+    p_slope = tibble(slope = NA)
+    peripheral_corr = NA
   }
   
+ label = paste0('Foveal: slope=', foveal_slope, ', R=', foveal_corr, '\n',
+                'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr)
  t <- rbind(foveal, peripheral)
   ggplot(data = crowding, aes(x = ageN, 
                               y = 10^(log_crowding_distance_deg),
@@ -1018,8 +1023,7 @@ plot_crowding_vs_age <- function(crowding){
       size = 12/.pt,
       aes(npcx = "right",
           npcy = "top",
-          label = paste0('Foveal: slope=', foveal_slope, ', R=', foveal_corr, '\n',
-                         'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr))) +
+          label = )) +
     scale_y_log10() + 
     scale_x_continuous(breaks = c(seq(2,18,2), seq(20 , 50, 10))) + 
     guides(color=guide_legend(title = ''),
