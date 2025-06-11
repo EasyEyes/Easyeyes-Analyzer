@@ -282,18 +282,18 @@ shinyServer(
         session,
         inputId = 'conditionNameStaircase',
         label = "conditionName",
-        choices = df_list()$conditionNames,
+        choices = sort( df_list()$conditionNames),
         selected = input$conditionNamePlots,
-        inline = TRUE
+        inline = FALSE
       )
       
       updateCheckboxGroupInput(
         session,
         inputId = 'conditionNameTiming',
         label = "conditionName",
-        choices = df_list()$conditionNames,
+        choices = sort( df_list()$conditionNames),
         selected = input$conditionNamePlots,
-        inline = TRUE
+        inline = FALSE
       )
     })
     
@@ -302,17 +302,17 @@ shinyServer(
         session,
         inputId = 'conditionNamePlots',
         label = "conditionName",
-        choices = df_list()$conditionNames,
+        choices = sort( df_list()$conditionNames),
         selected = input$conditionNameTiming,
-        inline = TRUE
+        inline = FALSE
       )
       updateCheckboxGroupInput(
         session,
         inputId = 'conditionNameStaircase',
         label = "conditionName",
-        choices = df_list()$conditionNames,
+        choices = sort( df_list()$conditionNames),
         selected = input$conditionNameTiming,
-        inline = TRUE
+        inline = FALSE
       )
     })
     
@@ -322,17 +322,17 @@ shinyServer(
         session,
         inputId = 'conditionNamePlots',
         label = "conditionName",
-        choices = df_list()$conditionNames,
+        choices = sort(df_list()$conditionNames),
         selected = input$conditionNameStaircase,
-        inline = TRUE
+        inline = FALSE
       )
       updateCheckboxGroupInput(
         session,
         inputId = 'conditionNameTiming',
         label = "conditionName",
-        choices = df_list()$conditionNames,
+        choices = sort(df_list()$conditionNames),
         selected = input$conditionNameStaircase,
-        inline = TRUE
+        inline = FALSE
       )
     })
     
@@ -3545,8 +3545,8 @@ shinyServer(
         output$`Dynamic Range Compression Model` <-
           renderTable(
             expr = sound_data()[[3]],
-            rownames = sound_data()[[4]],
-            colnames = F,
+            rownames = FALSE,
+            colnames = TRUE,
             digits = 1
           )
         
@@ -4250,27 +4250,27 @@ shinyServer(
                          session,
                          inputId = 'conditionNamePlots',
                          label = "conditionName",
-                         choices = df_list()$conditionNames,
+                         choices = sort(df_list()$conditionNames),
                          selected = df_list()$conditionNames,
-                         inline = TRUE
+                         inline = FALSE
                        )
                        
                        updateCheckboxGroupInput(
                          session,
                          inputId = 'conditionNameStaircase',
                          label = "conditionName",
-                         choices = df_list()$conditionNames,
+                         choices = sort(df_list()$conditionNames),
                          selected = df_list()$conditionNames,
-                         inline = TRUE
+                         inline = FALSE
                        )
                        
                        updateCheckboxGroupInput(
                          session,
                          inputId = 'conditionNameTiming',
                          label = "conditionName",
-                         choices = df_list()$conditionNames,
+                         choices = sort(df_list()$conditionNames),
                          selected = df_list()$conditionNames,
-                         inline = TRUE
+                         inline = FALSE
                        )
                        
                        

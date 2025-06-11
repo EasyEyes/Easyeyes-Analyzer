@@ -17,11 +17,11 @@ timingTab <- tabPanel(
     div(
       style = "background-color: #e6f2ff; padding: 10px; border-radius: 10px; margin: 10px 0;",
       div(
-        style = "display: flex; align-items: center; margin-left:12px;",
+        style = "display: flex; flex-direction: column; align-items: flex-start; margin-left:12px;",
         checkboxGroupInput(
           inputId = "conditionNameTiming",  
           label = "conditionName",
-          inline = TRUE,
+          inline = FALSE,
           choices = NULL,
           selected = NULL
         )

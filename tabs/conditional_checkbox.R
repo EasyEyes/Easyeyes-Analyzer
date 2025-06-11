@@ -10,7 +10,7 @@ conditionCheckboxUI <- function(id) {
         checkboxGroupInput(
           inputId = "conditionName",  
           label = "conditionName",
-          inline = TRUE,
+          inline = FALSE,
           choices = NULL,
           selected = NULL
         )
@@ -24,12 +24,19 @@ conditionCheckboxServer <- function(id, updateChoices, sharedValue) {
   moduleServer(id, function(input, output, session) {
     
     # When the choices change (e.g., new df_list), update the input
+    # observe({
+    #   choices <- updateChoices()
+    #   updateCheckboxGroupInput(session, "conditionName",
+    #                            choices = choices,
+    #                            selected = sharedValue(),
+    #                            inline = TRUE)
+    # })
     observe({
-      choices <- updateChoices()
+      raw_choices <- updateChoices()
+      sorted_choices <- sort(raw_choices)
       updateCheckboxGroupInput(session, "conditionName",
-                               choices = choices,
-                               selected = sharedValue(),
-                               inline = TRUE)
+                               choices  = sorted_choices,
+                               selected = sharedValue())
     })
     
     # When the user changes this particular input, update sharedValue
