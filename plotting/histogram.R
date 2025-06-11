@@ -389,7 +389,7 @@ get_age_histogram <- function(data) {
   
   # Remove negative ages
   data <- data %>% filter(age >= 0)
-  
+ 
   # Calculate summary statistics
   stats <- data %>%
     summarize(
@@ -399,6 +399,7 @@ get_age_histogram <- function(data) {
     )
   
   # Generate histogram
+  
   p <- ggplot(data) + 
     geom_histogram(aes(x = age), color = "black", fill = "black") +
     scale_x_continuous(expand = c(0, 0)) + 
@@ -410,7 +411,7 @@ get_age_histogram <- function(data) {
     ) +
     labs(x = 'Age',
          y = 'Count',
-         title = 'Histogram of Age')
+         title = 'Histogram of age')
   
   return(p)
 }
