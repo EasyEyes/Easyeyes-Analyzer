@@ -28,7 +28,8 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
                                  )) %>% 
   filter(thresholdParameter == 'targetSizeDeg' | thresholdParameter == 'spacingDeg') %>% 
   distinct() %>% 
-    filter(!is.na(minDeg))
+    filter(!is.na(minDeg)) %>% 
+    ungroup()
 
 
   params <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
@@ -51,15 +52,27 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     summarize(estimatedDevicePixelRatio = case_when(thresholdParameter == 'targetSizeDeg' ~ targetMinPhysicalPx/(tan(minDeg * pi / 180) * pxPerCm * viewingDistanceCm),
                                                     thresholdParameter == 'spacingDeg' ~ targetMinPhysicalPx/(tan((minDeg/spacingOverSizeRatio) * pi / 180) * pxPerCm * viewingDistanceCm)
     )) %>% 
-    filter(!is.na(estimatedDevicePixelRatio))
+    filter(!is.na(estimatedDevicePixelRatio)) %>% 
+    ungroup()
 
   
   # histogram of estimatedDevicePixelRatio 
+  stats <- estimatedDevicePixelRatio %>%
+    filter(!is.na(estimatedDevicePixelRatio)) %>%
+    summarise(mean = round(mean(estimatedDevicePixelRatio),2),
+              sd = round(sd(estimatedDevicePixelRatio),2),
+              N = n())
   p1 <- ggplot(estimatedDevicePixelRatio) + 
     geom_histogram(aes(x = estimatedDevicePixelRatio),
                    color = "black", fill = "black") +
     scale_x_log10(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
+    ggpp::geom_text_npc(
+      aes(npcx = 'right',
+          npcy = 'top'),
+      label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N),
+      hjust = 1, vjust = 1
+    ) +
     labs(
       x     = 'estimatedDevicePixelRatio',
       y     = 'Count',
@@ -67,21 +80,43 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     )
   
   # histogram of sizeMinDeg (log-x, no ticks)
+  stats <- minDeg %>%
+    filter(thresholdParameter == 'targetSizeDeg',
+           !is.na(minDeg)) %>%
+    summarize(mean = round(mean(minDeg),2),
+              sd = round(sd(minDeg),2),
+              N = n())
   p2 <- ggplot(minDeg %>% filter(thresholdParameter == 'targetSizeDeg')) + 
     geom_histogram(aes(x = minDeg),
                    color = "black", fill = "black") +
     scale_x_log10(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
+    ggpp::geom_text_npc(
+      aes(npcx = 'right',
+          npcy = 'top'),
+      label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N)
+    ) +
     labs(
-      x     = 'sizeMinDeg',
-      y     = 'Count',
+      x = 'sizeMinDeg',
+      y = 'Count',
       title = 'Histogram of sizeMinDeg'
     )
   
   # histogram of spacingMinDeg (log-x, no ticks)
+  stats <- minDeg %>%
+    filter(thresholdParameter == 'spacingDeg',
+           !is.na(minDeg)) %>%
+    summarize(mean = round(mean(minDeg),2),
+              sd = round(sd(minDeg),2),
+              N = n())
   p3 <- ggplot(minDeg %>% filter(thresholdParameter == 'spacingDeg')) + 
     geom_histogram(aes(x = minDeg),
                    color = "black", fill = "black") +
+    ggpp::geom_text_npc(
+      aes(npcx = 'right',
+          npcy = 'top'),
+      label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N)
+    ) +
     scale_x_log10(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
     labs(
@@ -109,10 +144,10 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
                color = "black", fill = "black") +
     scale_x_log10(
       limits = xlim_p4,
-      breaks       = scales::log_breaks(base = 10),
+      breaks = scales::log_breaks(base = 10)
     ) +
     scale_y_log10(
-      breaks       = scales::log_breaks(base = 10),
+      breaks = scales::log_breaks(base = 10)
     ) + 
     coord_fixed() + 
     annotation_logticks(
@@ -127,8 +162,8 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
       label = paste0('N=', nrow(foveal_acuity))
     )) + 
     labs(
-      x     = 'sizeMinDeg',
-      y     = 'Acuity (deg)',
+      x = 'sizeMinDeg',
+      y= 'Acuity (deg)',
       title = 'Foveal acuity vs. sizeMinDeg'
     )
   
@@ -168,8 +203,8 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
       label = paste0('N=', nrow(foveal_crowding))
     )) + 
     labs(
-      x     = 'spacingMinDeg',
-      y     = 'Crowding distance (deg)',
+      x = 'spacingMinDeg',
+      y = 'Crowding distance (deg)',
       title = 'Foveal crowding vs. spacingMinDeg'
     )
   
@@ -187,9 +222,12 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     y = 10^(log_crowding_distance_deg)
   )) +
     geom_point(color = "black", fill = "black") +
-    scale_x_log10() +
+    ggpp::geom_text_npc(aes(
+      npcx = "left",
+      npcy = "top",
+      label = paste0('N=', nrow(foveal_crowding))
+    )) + 
     scale_y_log10() +
-    coord_fixed() +
     annotation_logticks(sides = "bl",
                         short = unit(2, "pt"),
                         mid   = unit(2, "pt"),
@@ -209,10 +247,13 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     x = questSDAtEndOfTrialsLoop,
     y = 10^(log_crowding_distance_deg)
   )) +
+    ggpp::geom_text_npc(aes(
+      npcx = "left",
+      npcy = "top",
+      label = paste0('N=', nrow(p_crowding))
+    )) + 
     geom_point(color = "black", fill = "black") +
-    scale_x_log10() +
     scale_y_log10() +
-    coord_fixed() +
     annotation_logticks(sides = "bl",
                         short = unit(2, "pt"),
                         mid   = unit(2, "pt"),
@@ -233,10 +274,13 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     x = questSDAtEndOfTrialsLoop,
     y = 10^(questMeanAtEndOfTrialsLoop)
   )) +
+    ggpp::geom_text_npc(aes(
+      npcx = "left",
+      npcy = "top",
+      label = paste0('N=', nrow(foveal_acuity))
+    )) + 
     geom_point(color = "black", fill = "black") +
-    scale_x_log10() +
     scale_y_log10() +
-    coord_fixed() +
     annotation_logticks(sides = "bl",
                         short = unit(2, "pt"),
                         mid   = unit(2, "pt"),
@@ -255,10 +299,13 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     x = questSDAtEndOfTrialsLoop,
     y = 10^(questMeanAtEndOfTrialsLoop)
   )) +
+    ggpp::geom_text_npc(aes(
+      npcx = "left",
+      npcy = "top",
+      label = paste0('N=', nrow(p_acuity))
+    )) + 
     geom_point(color = "black", fill = "black") +
-    scale_x_log10() +
     scale_y_log10() +
-    coord_fixed() +
     annotation_logticks(sides = "bl",
                         short = unit(2, "pt"),
                         mid   = unit(2, "pt"),

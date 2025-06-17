@@ -1,5 +1,4 @@
-library(plotly)
-source('./tabs/conditional_checkbox.R')
+
 plotsTab <- tabPanel(
   'Plots',
   tags$style(HTML("

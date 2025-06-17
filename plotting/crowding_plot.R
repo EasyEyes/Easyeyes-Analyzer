@@ -261,27 +261,26 @@ get_foveal_crowding_vs_age <- function(crowding) {
                                      crowding_distance_deg = 10^(-1.27165 + 0.72863 * 10^(-((age_values / 10.77473)^1.62730))))
 
     p <- p +
-      new_scale_color() +
-      geom_line(data = foveal_curve_old, linetype = 'dashed', aes(x = ageN, 
-                                                                  y = crowding_distance_deg,
-                                                                  color = "Old fit")) +
-      geom_line(data = foveal_curve_new, linetype = 'dashed', aes(x = ageN, 
-                                                                  y = crowding_distance_deg,
-                                                                  color = "New fit")) +
-      geom_line(data = foveal_curve_denis, linetype = 'dashed', aes(x = ageN, 
-                                                                    y = crowding_distance_deg,
-                                                                    color = "Denis fit")) +
-      scale_color_manual(values = c("Old fit" = "green", "New fit" = "blue", "Denis fit" = "red")) +
-      annotate(
-        "text",
-        x = max(t$X, na.rm = TRUE) * 1.3,  # Adjusted for better placement
-        y = max(t$Y, na.rm = TRUE) * 0.9,
-        label = paste0(
+      # new_scale_color() +
+      # geom_line(data = foveal_curve_old, linetype = 'dashed', aes(x = ageN, 
+      #                                                             y = crowding_distance_deg,
+      #                                                             color = "Old fit")) +
+      # geom_line(data = foveal_curve_new, linetype = 'dashed', aes(x = ageN, 
+      #                                                             y = crowding_distance_deg,
+      #                                                             color = "New fit")) +
+      # geom_line(data = foveal_curve_denis, linetype = 'dashed', aes(x = ageN, 
+      #                                                               y = crowding_distance_deg,
+      #                                                               color = "Denis fit")) +
+      # scale_color_manual(values = c("Old fit" = "green", "New fit" = "blue", "Denis fit" = "red")) +
+      ggpp::geom_text_npc(
+        aes(npcx = "right",
+            npcy = "top",
+            label = paste0(
           "slope = ", round(slope, 2),
           "\nR = ", round(r_value, 2),
           "\nN = ", nrow(t)
-        ),
-        hjust = 1, vjust = 1, size = 4, color = "black"
+        )),
+        size = 4, color = "black"
       ) +
       scale_y_log10(limits = c(0.05, 2)) +
       scale_x_continuous(breaks = 3: ceiling(max(t$age))) + 
@@ -358,19 +357,17 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     foveal_curve_denis <- data.frame(ageN = age_values, 
                                      crowding_distance_deg = 10^(-1.27165 + 0.72863 * 10^(-((age_values / 10.77473)^1.62730))))
     p1 <- p1 +
-      new_scale_color() + 
-      geom_line(data = foveal_curve_old, linetype = 'dashed', aes(x = ageN, 
-                                                                  y = crowding_distance_deg,
-                                                                  color = "Old fit")) +
-      geom_line(data = foveal_curve_new, linetype = 'dashed', aes(x = ageN, 
-                                                                  y = crowding_distance_deg,
-                                                                  color = "New fit")) +
-      geom_line(data = foveal_curve_denis, linetype = 'dashed', aes(x = ageN, 
-                                                                    y = crowding_distance_deg,
-                                                                    color = "Denis fit")) +
-      scale_color_manual(values = c("Old fit" = "green", "New fit" = "blue", "Denis fit" = "red")) +
-      # geom_ribbon(data = df, aes(x = x, ymin = y_lower, ymax = y_upper), 
-      #             fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) + 
+      # new_scale_color() + 
+      # geom_line(data = foveal_curve_old, linetype = 'dashed', aes(x = ageN, 
+      #                                                             y = crowding_distance_deg,
+      #                                                             color = "Old fit")) +
+      # geom_line(data = foveal_curve_new, linetype = 'dashed', aes(x = ageN, 
+      #                                                             y = crowding_distance_deg,
+      #                                                             color = "New fit")) +
+      # geom_line(data = foveal_curve_denis, linetype = 'dashed', aes(x = ageN, 
+      #                                                               y = crowding_distance_deg,
+      #                                                               color = "Denis fit")) +
+      # scale_color_manual(values = c("Old fit" = "green", "New fit" = "blue", "Denis fit" = "red")) +
       theme_bw() +
       # color_scale(n = n_grades) +  # Apply the gray-to-black color scale
       labs(
@@ -386,16 +383,15 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         mid   = unit(2, "pt"), 
         long  = unit(7, "pt")
       )+
-      annotate(
-        "text",
-        x = xMax,  # Slightly offset for better visibility
-        y = yMax * 0.95,  # Adjust placement to the top-left
-        label = paste0(
-          "slope = ", round(slope, 2),
-          "\nR = ", round(r_value, 2),
-          "\nN = ", N
-        ),
-        hjust = 1, vjust = 1, size = 4, color = "black"
+      ggpp::geom_text_npc(
+        aes(npcx = "right",
+            npcy = "top",
+            label = paste0(
+              "slope = ", round(slope, 2),
+              "\nR = ", round(r_value, 2),
+              "\nN = ",N
+            )),
+        size = 4, color = "black"
       ) +
       plt_theme +
       theme(
@@ -407,7 +403,8 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     t <- t %>% 
       group_by(participant, age, Grade, `Skilled reader?`) %>%
       summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>% 
-      mutate(Y = 10^(log_crowding_distance_deg))
+      mutate(Y = 10^(log_crowding_distance_deg)) %>% 
+      filter(!is.na(Y))
     
     if (n_grades > 1) {
       t$Grade = as.character(t$Grade)
@@ -425,19 +422,17 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     yMax <- max(t$Y, na.rm = TRUE)
     
     p2 <- p2 +
-      new_scale_color() + 
-      geom_line(data = foveal_curve_old, linetype = 'dashed', aes(x = ageN, 
-                                                                  y = crowding_distance_deg,
-                                                                  color = "Old fit")) +
-      geom_line(data = foveal_curve_new, linetype = 'dashed', aes(x = ageN, 
-                                                                  y = crowding_distance_deg,
-                                                                  color = "New fit")) +
-      geom_line(data = foveal_curve_denis, linetype = 'dashed', aes(x = ageN, 
-                                                                    y = crowding_distance_deg,
-                                                                    color = "Denis fit")) +
-      scale_color_manual(values = c("Old fit" = "green", "New fit" = "blue", "Denis fit" = "red")) +
-      # geom_ribbon(data = df, aes(x = x, ymin = y_lower, ymax = y_upper), 
-      #             fill = "lightblue", alpha = 0.3, inherit.aes = FALSE) + 
+      # new_scale_color() + 
+      # geom_line(data = foveal_curve_old, linetype = 'dashed', aes(x = ageN, 
+      #                                                             y = crowding_distance_deg,
+      #                                                             color = "Old fit")) +
+      # geom_line(data = foveal_curve_new, linetype = 'dashed', aes(x = ageN, 
+      #                                                             y = crowding_distance_deg,
+      #                                                             color = "New fit")) +
+      # geom_line(data = foveal_curve_denis, linetype = 'dashed', aes(x = ageN, 
+      #                                                               y = crowding_distance_deg,
+      #                                                               color = "Denis fit")) +
+      # scale_color_manual(values = c("Old fit" = "green", "New fit" = "blue", "Denis fit" = "red")) +
       theme_bw() +
       # color_scale(n = n_grades) +  # Apply the gray-to-black color scale
       labs(
@@ -454,16 +449,15 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         mid   = unit(2, "pt"), 
         long  = unit(7, "pt")
       ) +
-      annotate(
-        "text",
-        x = xMax,  # Slightly offset for better visibility
-        y = yMax * 0.95,  # Adjust placement to the top-left
-        label = paste0(
-          "slope = ", round(slope, 2),
-          "\nR = ", round(r_value, 2),
-          "\nN = ", N
-        ),
-        hjust = 1, vjust = 1, size = 4, color = "black"
+      ggpp::geom_text_npc(
+        aes(npcx = "right",
+            npcy = "top",
+            label = paste0(
+              "slope = ", round(slope, 2),
+              "\nR = ", round(r_value, 2),
+              "\nN = ", nrow(t)
+            )),
+        size = 4, color = "black"
       ) +
       plt_theme +
       theme(
@@ -966,9 +960,9 @@ plot_crowding_vs_age <- function(crowding){
     group_by(participant, questType, ageN) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm =T))
   
-  age_values <- seq(4, 10, by = 0.1)  
+  age_values <- seq(4, 10, by = 0.1)
   log_crowding_distance_deg <- 0.0535 + 1.5294 * (age_values^-1.9438)
-  
+
   foveal_curve <- data.frame(ageN = age_values, log_crowding_distance_deg = log_crowding_distance_deg)
   if (nrow(foveal) > 0) {
     foveal_stats <- foveal %>% 
@@ -1004,8 +998,8 @@ plot_crowding_vs_age <- function(crowding){
     peripheral_corr = NA
   }
   
- label = paste0('Foveal: slope=', foveal_slope, ', R=', foveal_corr, '\n',
-                'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr)
+ label = paste0('Foveal: slope=', foveal_slope, ', R=', foveal_corr, ', N=', nrow(foveal), '\n',
+                'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr,  ', N=', nrow(peripheral))
  t <- rbind(foveal, peripheral)
   ggplot(data = crowding, aes(x = ageN, 
                               y = 10^(log_crowding_distance_deg),
@@ -1023,7 +1017,7 @@ plot_crowding_vs_age <- function(crowding){
       size = 12/.pt,
       aes(npcx = "right",
           npcy = "top",
-          label = )) +
+          label = label)) +
     scale_y_log10() + 
     scale_x_continuous(breaks = c(seq(2,18,2), seq(20 , 50, 10))) + 
     guides(color=guide_legend(title = ''),

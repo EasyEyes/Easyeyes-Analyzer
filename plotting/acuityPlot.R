@@ -500,12 +500,12 @@ plot_acuity_vs_age <- function(allData){
   foveal_corr <- format(round(cor(foveal$ageN,foveal$questMeanAtEndOfTrialsLoop),2),nsmall=2)
   peripheral_corr <- format(round(cor(peripheral$ageN,peripheral$questMeanAtEndOfTrialsLoop),2),nsmall=2)
   if (nrow(foveal) > 0) {
-    label = paste0(label, 'Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr)
+    label = paste0(label, 'Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr, ', N=', nrow(foveal))
   }
   if (nrow(peripheral) > 0) {
     label = paste0(label, 
                    ifelse(length(label) > 0, '\n', ''),
-                   'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr)
+                   'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr, ', N=', nrow(peripheral))
   }
   
   p <- ggplot(data = acuity, aes(x = ageN, 

@@ -322,6 +322,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
   quest <- quest %>%
     left_join(age, by = 'participant') %>% 
     left_join(targetDurationSecs, by = c('participant', 'conditionName'))
+  
   quest_all_thresholds <- quest
   valid_ids <- unique(quest_all_thresholds$participant)
   age <- age %>% filter(participant %in% valid_ids)
@@ -362,9 +363,7 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
       reading <- reading %>% filter(!participant %in% (pretest %>% filter(Include == 'no') %>% select(participant)))
     }
   }
-  print(names(reading))
  
-
   ################################ REPEAT LETTER #######################################
   repeatedLetters <- quest %>% 
     filter(questType == "Repeated letters") %>% 

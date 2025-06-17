@@ -60,7 +60,6 @@ source("./other/read_json.R")
 source("./other/formSpree.R")
 source("./other/utility.R")
 
-source("./tabs/conditional_checkbox.R")
 #### server code ####
 
 shinyServer(
