@@ -1,87 +1,157 @@
 source('./constant.R')
 
 
+# get_foveal_acuity_vs_age <- function(acuity) {
+#   t <- acuity %>% 
+#     filter(!is.na(age), targetEccentricityXDeg == 0) %>%
+#     mutate(N = paste0('N = ', n()))
+#   
+#   if (nrow(t) == 0) {
+#     return(NULL)
+#   } else {
+#     # Determine plot aesthetics based on Grade
+#     unique_grades <- n_distinct(t$Grade)
+#     if (unique_grades > 1) {
+#       t$Grade <- as.character(t$Grade)
+#       p <- ggplot(t, aes(
+#         x = age,
+#         y = 10 ^ (questMeanAtEndOfTrialsLoop),
+#         color = Grade,
+#         shape = conditionName
+#       ))
+#     } else {
+#       p <- ggplot(t, aes(
+#         x = age,
+#         y = 10 ^ (questMeanAtEndOfTrialsLoop),
+#         shape = conditionName
+#       ))
+#     }
+#     
+#     # Regression line and statistics
+#     t <- t %>% mutate(Y = 10^(questMeanAtEndOfTrialsLoop))
+#     
+#     regression <- lm(Y ~ age, data = t)
+#     slope <- coef(regression)[["age"]]
+#     r_value <- cor(t$age, t$Y, use = "complete.obs")
+#     N <- nrow(t)
+#     
+#     # Plotting
+#     p <- p +
+#       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
+#       geom_point(size = 3) +  # Add points
+#       theme_bw() +
+#       labs(
+#         title = "Foveal acuity vs age\ncolored by grade",
+#         x = "Age",
+#         y = "Foveal acuity (deg)"
+#       ) +
+#       scale_y_log10() +
+#       scale_x_continuous(breaks = floor(min(t$age)): ceiling(max(t$age))) + 
+#       annotation_logticks(
+#         sides = "l", 
+#         short = unit(2, "pt"), 
+#         mid   = unit(2, "pt"), 
+#         long  = unit(7, "pt")
+#      ) +
+#       annotate(
+#         "text",
+#         x = min(t$age, na.rm = TRUE),  # Slightly offset from the minimum x for padding
+#         y = min(t$Y, na.rm = TRUE),  # Slightly offset from the minimum y for padding
+#         label = paste0(
+#           "R = ", round(r_value, 2),
+#           "\nslope = ", round(slope, 2),
+#           "\nN = ", N
+#         ),
+#         hjust = 0, vjust = 0, size = 4, color = "black"
+#       ) +
+#       color_scale(n = unique_grades) +  # Apply color scale
+#       plt_theme +
+#       theme(
+#         legend.position = ifelse(unique_grades == 1, "none", "top")
+#       ) +
+#       guides(color = guide_legend(title = 'Grade'),
+#              shape = guide_legend(title = '', ncol = 1))
+#     
+#     # Add shapes for Skilled Reader if necessary
+#     # if (n_distinct(t$`Skilled reader?`) > 1) {
+#     #   p <- p + 
+#     #     geom_point(aes(shape = `Skilled reader?`)) +
+#     #     scale_shape_manual(values = c(4, 19,1))
+#     # }
+#     
+#     return(p)
+#   }
+# }
+
+library(scales)
+
 get_foveal_acuity_vs_age <- function(acuity) {
   t <- acuity %>% 
-    filter(!is.na(age), targetEccentricityXDeg == 0) %>%
-    mutate(N = paste0('N = ', n()))
+    filter(!is.na(age), targetEccentricityXDeg == 0)
   
-  if (nrow(t) == 0) {
-    return(NULL)
+  if (nrow(t)==0) return(NULL)
+  
+  # build base aes mapping…
+  unique_grades <- n_distinct(t$Grade)
+  aes_args <- if (unique_grades>1) {
+    aes(x = age, y = 10^(questMeanAtEndOfTrialsLoop), color = Grade, shape = conditionName)
   } else {
-    # Determine plot aesthetics based on Grade
-    unique_grades <- n_distinct(t$Grade)
-    if (unique_grades > 1) {
-      t$Grade <- as.character(t$Grade)
-      p <- ggplot(t, aes(
-        x = age,
-        y = 10 ^ (questMeanAtEndOfTrialsLoop),
-        color = Grade,
-        shape = conditionName
-      ))
-    } else {
-      p <- ggplot(t, aes(
-        x = age,
-        y = 10 ^ (questMeanAtEndOfTrialsLoop),
-        shape = conditionName
-      ))
-    }
-    
-    # Regression line and statistics
-    t <- t %>% mutate(Y = 10^(questMeanAtEndOfTrialsLoop))
-    
-    regression <- lm(Y ~ age, data = t)
-    slope <- coef(regression)[["age"]]
-    r_value <- cor(t$age, t$Y, use = "complete.obs")
-    N <- nrow(t)
-    
-    # Plotting
-    p <- p +
-      geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
-      geom_point(size = 3) +  # Add points
-      theme_bw() +
-      labs(
-        title = "Foveal acuity vs age\ncolored by grade",
-        x = "Age",
-        y = "Foveal acuity (deg)"
-      ) +
-      scale_y_log10() +
-      scale_x_continuous(breaks = floor(min(t$age)): ceiling(max(t$age))) + 
-      annotation_logticks(
-        sides = "l", 
-        short = unit(2, "pt"), 
-        mid   = unit(2, "pt"), 
-        long  = unit(7, "pt")
-     ) +
-      annotate(
-        "text",
-        x = min(t$age, na.rm = TRUE),  # Slightly offset from the minimum x for padding
-        y = min(t$Y, na.rm = TRUE),  # Slightly offset from the minimum y for padding
-        label = paste0(
-          "R = ", round(r_value, 2),
-          "\nslope = ", round(slope, 2),
-          "\nN = ", N
-        ),
-        hjust = 0, vjust = 0, size = 4, color = "black"
-      ) +
-      color_scale(n = unique_grades) +  # Apply color scale
-      plt_theme +
-      theme(
-        legend.position = ifelse(unique_grades == 1, "none", "top")
-      ) +
-      guides(color = guide_legend(title = 'Grade'),
-             shape = guide_legend(title = '', ncol = 1))
-    
-    # Add shapes for Skilled Reader if necessary
-    # if (n_distinct(t$`Skilled reader?`) > 1) {
-    #   p <- p + 
-    #     geom_point(aes(shape = `Skilled reader?`)) +
-    #     scale_shape_manual(values = c(4, 19,1))
-    # }
-    
-    return(p)
+    aes(x = age, y = 10^(questMeanAtEndOfTrialsLoop), shape = conditionName)
   }
+  p <- ggplot(t, aes_args) +
+    geom_smooth(method="lm", se=FALSE, color="black") +
+    geom_point(size=3) +
+    theme_bw() +
+    labs(title="Foveal acuity vs age\ncolored by grade",
+         x="Age", y="Foveal acuity (deg)") +
+    scale_y_log10() +
+    annotation_logticks(sides="l") +
+    color_scale(n = unique_grades) +
+    plt_theme +
+    theme(legend.position = ifelse(unique_grades==1, "none", "top"))
+  
+  # ---- here’s the new x‐axis logic ----
+  n_ages <- n_distinct(t$age)
+  if (n_ages > 1) {
+    # pretty_breaks will pick ~5 ticks across your actual data range
+    p <- p +
+      scale_x_continuous(
+        breaks = pretty_breaks(n = 5),
+        expand = expansion(mult = c(0.05,0.05))
+      ) +
+      # rotate if still crowded
+      theme(
+        axis.text.x = element_text(
+          angle = ifelse(n_ages > 4, 45, 0),
+          hjust = ifelse(n_ages > 4, 1, 0.5)
+        )
+      )
+  } else {
+    # single age → give it some breathing room
+    a <- unique(t$age)
+    p <- p +
+      scale_x_continuous(
+        breaks = a,
+        limits = a + c(-1, 1),
+        expand = c(0,0)
+      )
+  }
+  
+  # add the regression stats
+  t <- t %>% mutate(Y = 10^(questMeanAtEndOfTrialsLoop))
+  reg <- lm(Y ~ age, data=t)
+  r_val <- cor(t$age, t$Y, use="complete.obs")
+  slope <- coef(reg)[["age"]]
+  N <- nrow(t)
+  
+  p + annotate(
+    "text",
+    x = min(t$age), y = min(t$Y),
+    label = sprintf("R = %.2f\nslope = %.2f\nN = %d", r_val, slope, N),
+    hjust = 0, vjust = 0, size = 4
+  )
 }
+
 
 get_peripheral_acuity_vs_age <- function(acuity) {
   t <- acuity %>% 
@@ -526,11 +596,32 @@ plot_acuity_vs_age <- function(allData){
           npcy = "top",
           label = label)) +
     scale_y_log10() + 
-    scale_x_continuous(breaks = floor(min(acuity$ageN)): ceiling(max(acuity$ageN))) + 
+    #scale_x_continuous(breaks = floor(min(acuity$ageN)): ceiling(max(acuity$ageN))) + 
     guides(color=guide_legend(title = '')) + 
     labs(x = 'Age',
          y = 'Acuity (deg)',
-         title = 'Foveal and peripheral acuity vs age')
+         title = 'Foveal and peripheral acuity vs age') 
+  
+  uniq <- n_distinct(acuity$ageN)
+  if (uniq > 1) {
+    p <-  p + scale_x_continuous(
+      breaks = scales::pretty_breaks(n = 5),
+      expand = expansion(mult = c(0.05, 0.05))
+    ) +
+      theme(
+        axis.text.x = element_text(
+          angle = ifelse(uniq > 4, 45, 0),
+          hjust = ifelse(uniq > 4, 1, 0.5)
+        )
+      )
+  } else {
+    a <- unique(acuity$ageN)
+    p <- p + scale_x_continuous(
+      breaks = a,
+      limits = a + c(-1, 1),
+      expand = c(0, 0)
+    )
+  }
   return(p)
 }
 

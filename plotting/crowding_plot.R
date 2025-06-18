@@ -115,6 +115,7 @@ crowding_scatter_plot <- function(crowding_L_R){
 }
 
 crowding_mean_scatter_plot <- function(crowding_L_R){
+  print("Inside crowding_mean_scatter_plot")
   if (n_distinct(crowding_L_R$font) < 1) {
     return(ggplot() + 
              xlab("Left Bouma factor") + 
@@ -124,7 +125,8 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
   t <- crowding_L_R %>% group_by(conditionName) %>% summarize(avg_left_deg = mean(log_crowding_distance_deg_Left),
                                                      avg_right_deg = mean(log_crowding_distance_deg_Right))
   corrrelation <- ifelse(nrow(t) > 1, cor(t$avg_left_deg, t$avg_right_deg), NA)
-  
+  print("Correlation in corwding mean")
+  print(corrrelation)
   ggplot(t, aes(x = avg_left_deg, y = avg_right_deg, color = conditionName)) + 
     geom_point(size = 2) +
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
@@ -134,16 +136,37 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
     xlab("Left crowding distance (deg)") + 
     ylab("Right crowding distance (deg)") + 
     theme_bw() + 
+    # ggpp::geom_text_npc(
+    #   aes(npcx = "left",
+    #       npcy = "top",
+    #       label = paste0("italic('R=')~", corrrelation)), 
+    #   parse = T) + 
     ggpp::geom_text_npc(
-      aes(npcx = "left",
-          npcy = "top",
-          label = paste0("italic('R=')~", corrrelation)), 
-      parse = T) + 
+      # turn off inherited x/y/color
+      inherit.aes = FALSE,
+      
+      # npc positions as arguments
+      npcx   = "left",
+      npcy   = "top",
+      
+      # your computed label as a constant
+      label  = paste0("italic('R=')~", corrrelation),
+      parse  = TRUE
+    ) +
+  
+    # ggpp::geom_text_npc(
+    #   aes(npcx = "left",
+    #       npcy = "bottom",
+    #       label = paste0("italic('N=')~", dplyr::n_distinct(crowding_L_R$participant))), 
+    #   parse = T)
     ggpp::geom_text_npc(
-      aes(npcx = "left",
-          npcy = "bottom",
-          label = paste0("italic('N=')~", dplyr::n_distinct(crowding_L_R$participant))), 
-      parse = T)
+      inherit.aes = FALSE,
+      npcx   = "left",
+      npcy   = "bottom",
+      label  = paste0("italic('N=')~",  dplyr::n_distinct(crowding_L_R$participant)),
+      parse  = TRUE
+    )
+  
 }
 
 get_two_fonts_plots <- function(crowding) {
@@ -284,7 +307,7 @@ get_foveal_crowding_vs_age <- function(crowding) {
         hjust = 1, vjust = 1, size = 4, color = "black"
       ) +
       scale_y_log10(limits = c(0.05, 2)) +
-      scale_x_continuous(breaks = 3: ceiling(max(t$age))) + 
+      #scale_x_continuous(breaks = 3: ceiling(max(t$age))) + 
       annotation_logticks(
       sides = "l", 
       short = unit(2, "pt"), 
@@ -309,6 +332,28 @@ get_foveal_crowding_vs_age <- function(crowding) {
     #     geom_point(aes(shape = `Skilled reader?`)) +
     #     scale_shape_manual(values = c(4, 19,1))
     # }
+    uniq <- n_distinct(t$age)
+    if (uniq > 1) {
+      p <- p +
+        scale_x_continuous(
+          breaks = pretty_breaks(n = 5),
+          expand = expansion(mult = c(0.05, 0.05))
+        ) +
+        theme(
+          axis.text.x = element_text(
+            angle = ifelse(uniq > 4, 45, 0),
+            hjust  = ifelse(uniq > 4, 1, 0.5)
+          )
+        )
+    } else {
+      a <- unique(t$age)
+      p <- p +
+        scale_x_continuous(
+          breaks = a,
+          limits = a + c(-1, 1),
+          expand = c(0, 0)
+        )
+    }
     
     return(p)
   }
@@ -379,7 +424,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         y = "Peripheral crowding (deg)"
       ) +
       scale_y_log10(limits = c(0.05, 2)) +
-      scale_x_continuous(breaks = floor(xMin): ceiling(xMax)) + 
+      #scale_x_continuous(breaks = floor(xMin): ceiling(xMax)) + 
       annotation_logticks(
         sides = "l", 
         short = unit(2, "pt"), 
@@ -403,6 +448,27 @@ get_peripheral_crowding_vs_age <- function(crowding) {
       ) +
       guides(color = guide_legend(title = 'Grade'),
              shape = guide_legend(title = '', ncol = 1))
+    
+    uniq1 <- n_distinct(t$age)
+    if (uniq1 > 1) {
+      p1 <- p1 +
+        scale_x_continuous(
+          breaks = pretty_breaks(n = 5),
+          expand = expansion(mult = c(0.05, 0.05))
+        ) +
+        theme(axis.text.x = element_text(
+          angle = ifelse(uniq1 > 4, 45, 0),
+          hjust = ifelse(uniq1 > 4, 1, 0.5)
+        ))
+    } else {
+      a1 <- unique(t$age)
+      p1 <- p1 +
+        scale_x_continuous(
+          breaks = a1,
+          limits = a1 + c(-1, 1),
+          expand = c(0, 0)
+        )
+    }
     
     t <- t %>% 
       group_by(participant, age, Grade, `Skilled reader?`) %>%
@@ -447,7 +513,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         y = "Peripheral crowding (deg)"
       ) +
       scale_y_log10(limits = c(0.05, 2)) +
-      scale_x_continuous(breaks = floor(xMin): ceiling(xMax)) + 
+      #scale_x_continuous(breaks = floor(xMin): ceiling(xMax)) + 
       annotation_logticks(
         sides = "l", 
         short = unit(2, "pt"), 
@@ -471,6 +537,27 @@ get_peripheral_crowding_vs_age <- function(crowding) {
       ) +
       guides(color = guide_legend(title = 'Grade'),
              shape = guide_legend(title = '', ncol = 1))
+    
+    uniq2 <- n_distinct(t$age)
+    if (uniq2 > 1) {
+      p2 <- p2 +
+        scale_x_continuous(
+          breaks = pretty_breaks(n = 5),
+          expand = expansion(mult = c(0.05, 0.05))
+        ) +
+        theme(axis.text.x = element_text(
+          angle = ifelse(uniq2 > 4, 45, 0),
+          hjust = ifelse(uniq2 > 4, 1, 0.5)
+        ))
+    } else {
+      a2 <- unique(t$age)
+      p2 <- p2 +
+        scale_x_continuous(
+          breaks = a2,
+          limits = a2 + c(-1, 1),
+          expand = c(0, 0)
+        )
+    }
     
     return(list(p1,p2))
   }
@@ -644,6 +731,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
       select(participant, log_acuity, conditionName) %>%
       inner_join(foveal, by = 'participant') %>%  # Get age from foveal
       mutate(
+        Grade = factor(Grade),
         conditionName = paste0(conditionName.x, ' vs ', conditionName.y),
         age = as.numeric(age),  # Convert age to numeric
         X = 10^log_crowding_distance_deg,
@@ -657,6 +745,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
       select(participant, log_acuity, conditionName) %>%
       inner_join(foveal, by = 'participant') %>%  # Get age from foveal
       mutate(
+        Grade = factor(Grade),
         conditionName = paste0(conditionName.x, ' vs ', conditionName.y),
         age = as.numeric(age),  # Convert age to numeric
         X = 10^log_crowding_distance_deg,
@@ -679,6 +768,8 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
       
       # Count distinct grades for the color scale
       n_grades <- n_distinct(foveal_acuity$Grade)
+      print("foveal_acuity$Grade")
+      print(foveal_acuity$Grade)
       
       # Generate the plot
       p <- ggplot(foveal_acuity, aes(x = X, y = Y)) +
@@ -707,7 +798,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
           long  = unit(7, "pt")
         ) +
         labs(
-          title = 'Foveal acuity vs foveal crowding',
+          title = 'Foveal acuity vs foveal crowding\ncolored by grade',
           x = 'Foveal crowding (deg)',
           y = 'Foveal acuity (deg)'
         ) +
@@ -1007,7 +1098,7 @@ plot_crowding_vs_age <- function(crowding){
  label = paste0('Foveal: slope=', foveal_slope, ', R=', foveal_corr, '\n',
                 'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr)
  t <- rbind(foveal, peripheral)
-  ggplot(data = crowding, aes(x = ageN, 
+  p <- ggplot(data = crowding, aes(x = ageN, 
                               y = 10^(log_crowding_distance_deg),
                               color = questType
                               )) + 
@@ -1023,9 +1114,10 @@ plot_crowding_vs_age <- function(crowding){
       size = 12/.pt,
       aes(npcx = "right",
           npcy = "top",
-          label = )) +
+          label = label)) +
     scale_y_log10() + 
-    scale_x_continuous(breaks = c(seq(2,18,2), seq(20 , 50, 10))) + 
+    # scale_x_continuous(breaks = c(seq(2,18,2), seq(20 , 50, 10))) + 
+    
     guides(color=guide_legend(title = ''),
            shape=guide_legend(title = '',
                               ncol=1)) + 
@@ -1033,5 +1125,27 @@ plot_crowding_vs_age <- function(crowding){
          y = 'Crowding distance (deg)',
          subtitle = 'Geometric average of left and right thresholds',
          title = 'Foveal and peripheral\ncrowding vs age')
+  
+  uniq <- n_distinct(crowding$ageN)
+  if (uniq > 1) {
+    p <- p + scale_x_continuous(
+      breaks = scales::pretty_breaks(n = 5),
+      expand = expansion(mult = c(0.05, 0.05))
+    ) +
+      theme(
+        axis.text.x = element_text(
+          angle = ifelse(uniq > 4, 45, 0),
+          hjust = ifelse(uniq > 4, 1, 0.5)
+        )
+      )
+  } else {
+    a <- unique(crowding$ageN)
+    p <- p + scale_x_continuous(
+      breaks = a,
+      limits = a + c(-1, 1),
+      expand = c(0, 0)
+    )
+  }
+  return(p)
 }
 
