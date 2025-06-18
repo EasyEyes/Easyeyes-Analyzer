@@ -75,3 +75,13 @@ get_webGL <- function(data_list) {
   return(webGL)
 }
 
+get_N_text <- function(data) {
+  # create a text in this format:
+  #   conditionName1: N = xx\nconditionName2 N= xx
+  text = c()
+  t <- data %>%
+    group_by(conditionName) %>%
+    summarise(n = n()) %>%
+    mutate(text = paste0(conditionName, ': N=', n))
+  return(paste0(unique(t$text), collapse='\n'))
+}

@@ -1,5 +1,4 @@
-library(plotly)
-source("./tabs/conditional_checkbox.R")
+
 timingTab <- tabPanel(
   'Timing',
   tags$style(HTML("

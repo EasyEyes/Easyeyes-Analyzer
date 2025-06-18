@@ -1,4 +1,4 @@
-source("./tabs/conditional_checkbox.R")
+
 staircasesTab <- tabPanel(
   'Staircases',
   conditionalPanel(

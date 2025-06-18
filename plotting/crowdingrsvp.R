@@ -428,8 +428,7 @@ getCorrMatrix <- function(allData, pretest) {
   } else {
     pretest_for_corr <- tibble()
   }
-  
-  print(summary(pretest_for_corr))
+
   rsvp_speed <- allData$rsvp
   crowding <- allData$crowding
   age <- allData$age %>% select(-Grade)
@@ -488,10 +487,10 @@ getCorrMatrix <- function(allData, pretest) {
   t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
   colnames(t) <- c
   t <- t %>% mutate(across(everything(), round, 3))
-  print(paste('nrow of reading:', nrow(reading)))
-  print(paste('nrow of crowding:', nrow(crowding)))
-  print(paste('nrow of rsvp_speed:', nrow(rsvp_speed)))
-  print(paste('nrow of acuity:', nrow(acuity)))
+  # print(paste('nrow of reading:', nrow(reading)))
+  # print(paste('nrow of crowding:', nrow(crowding)))
+  # print(paste('nrow of rsvp_speed:', nrow(rsvp_speed)))
+  # print(paste('nrow of acuity:', nrow(acuity)))
   
   corplot <- ggcorrplot(t,
                         show.legend = FALSE,

@@ -16,10 +16,11 @@ get_quest_diag <- function(quest) {
         mutate(Grade = as.character(Grade))
       
       p1 <- ggplot(quest, aes(
-        x = questMeanAtEndOfTrialsLoop,
+        x = 10^questMeanAtEndOfTrialsLoop,
         y = questSDAtEndOfTrialsLoop,
         color = Grade
       )) +
+        scale_x_log10() + 
         facet_wrap(~questType) +
         theme_bw() +
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top", label = N)) +
@@ -39,13 +40,13 @@ get_quest_diag <- function(quest) {
       quest <- quest %>%
         mutate(Age = format(age, nsmall = 2))
       p <- ggplot(quest, aes(
-        x = questMeanAtEndOfTrialsLoop,
-        y = questSDAtEndOfTrialsLoop,
+        x = 10^questMeanAtEndOfTrialsLoop,
+        y =questSDAtEndOfTrialsLoop,
         color = Age
       ))
     } else {
       p <- ggplot(quest, aes(
-        x = questMeanAtEndOfTrialsLoop,
+        x = 10^questMeanAtEndOfTrialsLoop,
         y = questSDAtEndOfTrialsLoop
       ))
     }
@@ -53,6 +54,7 @@ get_quest_diag <- function(quest) {
     p <- p +
       ggpp::geom_text_npc(aes(npcx = "left", npcy = "top", label = N)) +
       facet_wrap(~questType) +
+      scale_x_log10() + 
       theme_bw() +
       labs(
         title = 'Quest SD vs mean by age\ncolored by age',
