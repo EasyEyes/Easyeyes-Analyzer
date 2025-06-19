@@ -1,0 +1,119 @@
+#timer {
+          position: absolute;  
+          top: 15px;  
+          right: 15px;  
+          font-size: 16px;
+          font-weight: bold;
+          color: #FFFFFF; 
+          background-color: rgba(0, 0, 0, 0.7); 
+          padding: 5px;
+          border-radius: 5px;
+          z-index: 9999;
+        }
+
+.g-gtitle {
+          margin: 500px !important; 
+        }
+        
+#fileStatusMessage {
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.form-group .form-control {
+  margin-right: 0px;
+  padding-right: 0px;
+}
+
+.textpoint text {
+      text-anchor: start;    /* Left-align each text line */
+      white-space: pre;      /* Preserve whitespace */
+    }
+    @media print {
+      .shiny-download-link {
+        display: none;
+      }
+  }
+    #NQuestTrials{height: 28px}
+    #maxQuestSD{height: 28px}
+
+/* Sweet alert styles... */
+.sweet-alert.alert-size-s {
+          position: fixed !important;
+          top: 50% !important; 
+          left: 50% !important; 
+          transform: translate(-50%, -50%) !important;
+          font-family: 'Arial', sans-serif !important; 
+          font-size: 18px !important;
+          font-weight: bold;
+          color: black !important;
+          box-shadow: none !important;
+          border-radius: 8px !important;
+          width: 500px !important;  
+          height: 100px !important;
+          padding: 0px !important; 
+          margin: 0px !important;
+        }
+.sweet-alert.alert-size-l {
+           position: fixed !important;  
+          top: 50% !important;  
+          left: 50% !important; 
+          transform: translate(-50%, -50%) !important;  
+          font-family: 'Arial', sans-serif !important; 
+          font-size: 18px !important; 
+          font-weight: bold;
+          color: black !important;
+          box-shadow: none !important;
+          border-radius: 8px !important;
+          width: 800px !important;  
+          padding: 0px !important; 
+          margin: 00px !important;
+        }
+        
+.sweet-alert.alert-size-s h2 {
+          font-size: 20px !important; /* Adjust the title font size */
+          color: #494949 !important;
+      }
+      
+.sweet-alert.alert-size-l h2 {
+          font-size: 20px !important; 
+          color: #494949 !important;
+          text-align: left !important;
+          margin: 20px !important;
+      }      
+        
+        
+.navbar {
+          margin-bottom: 10px;
+        }
+        .dataTables_filter {
+          float: left !important;
+        }
+        .form-group {
+          margin-bottom: 10px;
+        }
+        .form-group .form-control {
+          margin-right: 0px;
+          padding-right: 0px;
+        }
+        .container-fluid {
+          padding-left: 5px;
+          padding-right: 0px;
+        }
+        .radio-inline {
+          font-size: 16px;
+        }
+        .control-label {
+          font-size: 16px;
+        }
+        #fileStatusMessage {
+          margin-bottom: 10px;
+          font-weight: bold;
+        }
+        .shiny-file-input-progress {
+          display: none !important;
+        }
+        div.datatable-wide {
+        padding-left: 0;
+        padding-right: 0;
+        }      
