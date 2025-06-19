@@ -341,7 +341,11 @@ generate_histograms_by_grade <- function(data) {
     "Log RSVP reading speed (w/min)", "RSVP reading"
   )
   
-  peripheral_crowding <- crowding %>% filter(targetEccentricityXDeg != 0)
+  peripheral_crowding <- crowding %>% 
+    filter(targetEccentricityXDeg != 0) %>% 
+    group_by(participant,Grade) %>% 
+    summarise(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T)) %>% 
+    ungroup()
   peripheral_crowding_plot <- create_stacked_histogram(
     peripheral_crowding, "log_crowding_distance_deg", grade_order, 
     "Log peripheral crowding (deg)", "peripheral crowding"

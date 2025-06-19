@@ -772,8 +772,6 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
       
       # Count distinct grades for the color scale
       n_grades <- n_distinct(foveal_acuity$Grade)
-      print("foveal_acuity$Grade")
-      print(foveal_acuity$Grade)
       
       # Generate the plot
       p <- ggplot(foveal_acuity, aes(x = X, y = Y)) +

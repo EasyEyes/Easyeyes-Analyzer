@@ -1314,6 +1314,15 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  
+  output$isGrade <- reactive({
+    if ('quest' %in% names(df_list())) {
+      return(n_distinct(df_list()$quest$Grade) > 1)
+    } else {
+      return(FALSE)
+    }
+  })
+  
   output$isFovealCrowding <- reactive({
     if ('crowding' %in% names(df_list())) {
       return(nrow(
@@ -1381,6 +1390,7 @@ shinyServer(function(input, output, session) {
   
   outputOptions(output, 'fileUploaded', suspendWhenHidden = FALSE)
   outputOptions(output, 'questData', suspendWhenHidden = FALSE)
+  outputOptions(output, 'isGrade', suspendWhenHidden = FALSE)
   outputOptions(output, 'isPeripheralAcuity', suspendWhenHidden = FALSE)
   outputOptions(output, 'isReading', suspendWhenHidden = FALSE)
   outputOptions(output, 'isRsvp', suspendWhenHidden = FALSE)

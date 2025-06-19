@@ -104,6 +104,16 @@ shinyUI(
             inline = FALSE,
             choices = NULL,
             selected = NULL
+          ),
+          div(
+            id = "thresholdParameterSelector",
+            style = "display: none;",
+            selectInput(
+              'thresholdParameter',
+              'thresholdParameter:',
+              choices =  NULL,
+              selected = NULL
+            )
           )
         )
       )
