@@ -618,7 +618,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
       avg <- round(mean(as.numeric(summary[[var]]), na.rm =T),2)
       sd <- round(sd(as.numeric(summary[[var]]), na.rm =T),2)
       n <- length(summary[!is.na(summary[var]),])
-      label = paste0('mean = ', avg, '\n sd = ', sd, '\n N = ', n)
+      label = paste0('N = ', n)
       plot_list[[j]] <- ggplot(summary, aes(x = .data[[var]])) +
         geom_histogram(color="black", fill="black") + 
         ggpp::geom_text_npc(

@@ -15,111 +15,104 @@ library(shinytitle)
 library(svglite)
 library(shinycssloaders)
 library(plotly)
+library(shinyjs)
 library(shinyalert)
-# Define UI for application that draws a histogram
-timer_js <- "
-  let startTime = new Date().getTime();
-  function updateTimer() {
-    let now = new Date().getTime();
-    let elapsed = now - startTime;
-    let seconds = Math.floor((elapsed / 1000) % 60);
-    let minutes = Math.floor((elapsed / (1000 * 60)) % 60);
-    let hours = Math.floor((elapsed / (1000 * 60 * 60)) % 24);
-
-    document.getElementById('timer').innerHTML = 
-        (hours < 10 ? '0' + hours : hours) + ':' + 
-        (minutes < 10 ? '0' + minutes : minutes) + ':' + 
-        (seconds < 10 ? '0' + seconds : seconds);
-
-    // Check every second
-    setTimeout(updateTimer, 1000);
-  }
-  document.addEventListener('DOMContentLoaded', (event) => {
-      updateTimer();
-  });
-"
-
-
-
 shinyUI(
   navbarPage(
-    title = div(
-      textOutput("app_title"),
-      div(id = "timer", "00:00:00")
-    ),
-    
+    id = "navbar",
+    title = div(textOutput("app_title"),
+                div(id = "timer", "00:00:00")),
     use_shiny_title(),
-    header = tags$head(
-      tags$style(type = "text/css",  "
-        #timer {
-          position: absolute;  
-          top: 15px;  
-          right: 15px;  
-          font-size: 16px;
-          font-weight: bold;
-          color: #FFFFFF; 
-          background-color: rgba(0, 0, 0, 0.7); 
-          padding: 5px;
-          border-radius: 5px;
-          z-index: 9999;
-        }
-        .g-gtitle {
-          margin: 500px !important; 
-        }
-      "),
-      tags$script(HTML(timer_js)),
-      tags$script(HTML("
-        // JavaScript function to update document title based on active tab
-        function updateTitleBasedOnTab(tabName) {
-          document.title = tabName + ' | EasyEyes Analysis';
-        }
-
-        // Set initial title to 'EasyEyes Analysis' with the default tab
-        document.addEventListener('DOMContentLoaded', function() {
-          updateTitleBasedOnTab('Session');  // Default tab name
-        });
-
-        // Update title whenever a tab is clicked
-        $(document).on('shown.bs.tab', 'a[data-toggle=\"tab\"]', function (e) {
-          var tabName = $(e.target).text();  // Get the active tab name
-          updateTitleBasedOnTab(tabName);
-        });
-        
-        
-        // Removed gray screen element
-        document.addEventListener('DOMContentLoaded', function() {
-        // Function to remove the overlay if it exists
-        function removeOverlayIfExists() {
-          var overlay = document.getElementById('ss-overlay');
-          if (overlay) {
-            overlay.remove();
-            return true;
-          }
-          return false;
-        }
-
-        // Try removing right away
-        if (!removeOverlayIfExists()) {
-          // If not found, observe for it
-          var observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-              if (removeOverlayIfExists()) {
-                observer.disconnect(); // Stop watching once removed
-              }
-            });
-          });
-
-          observer.observe(document.body, { childList: true, subtree: true });
-        }
-      });
-      "))
+    header = tagList(
+      tags$head(
+        tags$script(type = "text/javascript",
+                    src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"),
+        tags$script(src = "ui.js"),
+        tags$script(src = "controlPanel.js"),
+        tags$link(rel = "stylesheet", type = "text/css", href = "ui.css")
+      ),
+      div(
+        style = "background-color: #e6f2ff;border-radius: 10px;",
+        id = "controlPanel",
+        useShinyjs(),
+        div(
+          style = "margin-left:12px;",
+          div(
+            fileInput(
+              "file",
+              NULL,
+              accept = c(".csv", ".zip", '.xlsx'),
+              buttonLabel = "Select CSV files or ZIP file",
+              multiple = T,
+              width = '1000px'
+            ) |>
+              tagAppendAttributes(onInput = "const id = $(this).find('input[type=\"file\"]').attr('id');
+                         Shiny.setInputValue(id + '_click', Math.random());")
+          ),
+          htmlOutput("fileStatusMessage"),
+          radioButtons(
+            "fileType",
+            "Select download file type:",
+            c(
+              "eps" = "eps",
+              "pdf" = "pdf",
+              "png" = "png",
+              "svg" = "svg"
+            ),
+            inline = TRUE,
+            selected = "png"
+          ),
+          downloadButton("downloadAll", "Download All"),
+          radioButtons(
+            "filterInput",
+            "Select participants by reading speed:",
+            c(
+              'all' = 'all',
+              'slowest 25%' = 'slowest',
+              'fastest 75%' = 'fastest'
+            ),
+            inline = TRUE,
+            selected = "all"
+          ),
+          div(
+            style = "display: flex; align-items: center; flex-wrap: wrap; gap: 5px;",
+            tags$span("Exclude spacingDeg thresholds with fewer than"),
+            numericInput(
+              'NQuestTrials',
+              NULL,
+              value = 10,
+              min = 1,
+              width = '60px'
+            ),
+            tags$span("good trials.")
+          ),
+          div(
+            style = "display: flex; align-items: center; gap: 5px;",
+            tags$span("Exclude thresholds with QUEST SD >"),
+            numericInput(
+              'maxQuestSD',
+              NULL,
+              value = 0.2,
+              min = 0,
+              width = '60px'
+            ),
+            tags$span(".")
+          ),
+          checkboxGroupInput(
+            inputId = "conditionName",
+            label = "conditionName",
+            inline = FALSE,
+            choices = NULL,
+            selected = NULL
+          )
+        )
+      )
     ),
-    
     # tabs
     tabPanel("Sessions", value = "Sessions", sessionTab),
     tabPanel("Stats", value = "Stats", statTab),
     tabPanel("Plots", value = "Plots", plotsTab),
-    tabPanel("Timing", value='Timing', timingTab),
+    tabPanel("Timing", value = 'Timing', timingTab),
     tabPanel("Staircases", value = "Staircases", staircasesTab),
     tabPanel("Sound", value = "Sound", soundTab),
     tabPanel("Profile", value = "Profile", profileTab),
