@@ -209,7 +209,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     )
   
   quest_subset <- quest %>%
-    select(participant, conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType)
+    select(participant, conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, targetEccentricityXDeg)
   
   # 4. derive foveal crowding DF and plot p6
   foveal_crowding <- quest_subset %>%
@@ -243,6 +243,9 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop) %>%
     distinct()
   
+
+  eccs_pc  <- sort(unique(p_crowding$targetEccentricityXDeg))
+  lbl_pc   <- paste0("EccX = ", paste(as.integer(round(eccs_pc)), collapse=", "), " deg")
   p7 <- ggplot(p_crowding, aes(
     x = questSDAtEndOfTrialsLoop,
     y = 10^(log_crowding_distance_deg)
@@ -250,7 +253,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     ggpp::geom_text_npc(aes(
       npcx = "left",
       npcy = "top",
-      label = paste0('N=', nrow(p_crowding))
+      label=paste0(lbl_pc, "\nN=", nrow(p_crowding))
     )) + 
     geom_point(color = "black", fill = "black") +
     scale_y_log10() +
@@ -295,6 +298,11 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     filter(questType == "Peripheral acuity") %>%
     distinct()
   
+  print("in get_min_deg_plot")
+  print(p_acuity)
+  eccs_pa <- sort(unique(p_acuity$targetEccentricityXDeg))
+  lbl_pa  <- paste0("EccX = ", paste(as.integer(round(eccs_pa)), collapse=", "), " deg")
+  
   p9 <- ggplot(p_acuity, aes(
     x = questSDAtEndOfTrialsLoop,
     y = 10^(questMeanAtEndOfTrialsLoop)
@@ -302,7 +310,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     ggpp::geom_text_npc(aes(
       npcx = "left",
       npcy = "top",
-      label = paste0('N=', nrow(p_acuity))
+      label = paste0(lbl_pa,'\nN=', nrow(p_acuity))
     )) + 
     geom_point(color = "black", fill = "black") +
     scale_y_log10() +

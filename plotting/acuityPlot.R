@@ -539,9 +539,14 @@ plot_acuity_vs_age <- function(allData){
   if (nrow(acuity) == 0) {
     return(NULL)
   }
-
+  
+  eccs_periph <- sort(unique(acuity$targetEccentricityXDeg[acuity$targetEccentricityXDeg > 0]))
+  eccs_int    <- as.integer(round(eccs_periph))
+  ecc_label   <- paste0("EccX = ", paste(eccs_int, collapse = ", "), " deg")
+  
   foveal <- acuity %>% filter(questType == 'Foveal acuity')
   peripheral <- acuity %>% filter(questType == "Peripheral acuity")
+  
   if (nrow(foveal) > 0) {
   foveal_stats <- foveal %>% 
     do(fit = lm(questMeanAtEndOfTrialsLoop ~ ageN, data = .)) %>%
@@ -575,7 +580,7 @@ plot_acuity_vs_age <- function(allData){
   if (nrow(peripheral) > 0) {
     label = paste0(label, 
                    ifelse(length(label) > 0, '\n', ''),
-                   'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr, ', N=', nrow(peripheral))
+                   'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr, ', N=', nrow(peripheral), ', ' ,ecc_label)
   }
   
   p <- ggplot(data = acuity, aes(x = ageN, 

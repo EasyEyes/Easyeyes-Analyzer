@@ -127,6 +127,9 @@ plot_rsvp_crowding <- function(allData) {
   
   factor_out_age_and_plot <- function(allData) {
     # Helper function to compute residuals after factoring out age
+    eccs     <- sort(unique(allData$crowding$targetEccentricityXDeg[allData$crowding$targetEccentricityXDeg != 0]))
+    ecc_label <- paste0("EccX = ", paste(as.integer(round(eccs)), collapse = ", "), " deg")
+    
     compute_residuals <- function(data, x_var, y_var, age_var) {
       regression_y <- lm(paste0(y_var, " ~ ", age_var), data = data)
       residuals_y <- residuals(regression_y)
@@ -215,7 +218,8 @@ plot_rsvp_crowding <- function(allData) {
         label = paste0(
           "N = ", N,
           "\nR = ", round(correlation, 2),
-          "\nslope = ", round(slope, 2)
+          "\nslope = ", round(slope, 2),
+          "\n",ecc_label
         ),
         hjust = 0,
         vjust = 0,
@@ -324,6 +328,29 @@ plot_rsvp_crowding <- function(allData) {
     # Generate dynamic breaks for the y-axis
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
     
+    
+    
+    if (condition == "Peripheral") {
+      eccs     <- sort(unique(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg != 0]))
+      ecc_label <- paste0("EccX = ", paste(as.integer(round(eccs)), collapse = ", "), " deg")
+      label_text <- paste0(
+        "N = ", corr$N, "\n",
+        "R = ", corr$correlation, "\n",
+        "slope = ", round(slope,2), "\n",
+        ecc_label, "\n",
+        "R_factor_out_age = ", corr_without_age
+        
+      )
+    } else {
+      label_text <- paste0(
+        "N = ", corr$N, "\n",
+        "R = ", corr$correlation, "\n",
+        "slope = ", round(slope,2),"\n",
+        "R_factor_out_age = ", corr_without_age
+        
+      )
+    }
+    
     p <- ggplot(data_rsvp, aes(x = X, y = Y, color = .data[[colorFactor]])) +
       theme_classic() +
       scale_y_log10(
@@ -348,12 +375,7 @@ plot_rsvp_crowding <- function(allData) {
         "text",
         x = xMin * 1.4,
         y = yMin * 1.6,
-        label = paste0(
-          "N = ", corr$N,
-          "\nR = ", corr$correlation,
-          "\nR_factor_out_age = ", corr_without_age,
-          "\nslope = ", slope$slope
-        ),
+        label = label_text,
         hjust = 0,
         vjust = 0,
         size = 3,

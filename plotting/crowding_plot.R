@@ -37,6 +37,10 @@ crowding_scatter_plot <- function(crowding_L_R){
       return(NULL)
     }
   }
+  
+  eccs     <- sort(unique(crowding_L_R$XDeg))
+  ecc_label <- paste0("EccX = ", paste(eccs, collapse = ", "), " deg")
+  
   crowding_L_R <- crowding_L_R %>% 
     group_by(participant, conditionName) %>% 
     summarize(log_crowding_distance_deg_Left = mean(log_crowding_distance_deg_Left, na.rm=T),
@@ -106,7 +110,7 @@ crowding_scatter_plot <- function(crowding_L_R){
   labs(x = "Right crowding distance (deg)",
        y = "Left crowding distance (deg)",
        title = "Left vs right peripheral crowding",
-       caption = summ$label
+       caption = paste0(ecc_label, "\n", summ$label)
   ) + 
     theme(plot.caption = element_text(hjust = 0, size = 12)) +
     guides(color = guide_legend(title = '', 
@@ -361,13 +365,17 @@ get_foveal_crowding_vs_age <- function(crowding) {
 get_peripheral_crowding_vs_age <- function(crowding) {
   t <- crowding %>%
     filter(!is.na(age), targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade, `Skilled reader?`,conditionName) %>%
+    group_by(participant, age, Grade, `Skilled reader?`,conditionName, targetEccentricityXDeg) %>%
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
     ungroup()
   
   if (nrow(t) == 0) {
     return(NULL)
   } else {
+    
+    eccs     <- sort(unique(t$targetEccentricityXDeg))
+    eccs_int <- as.integer(round(eccs))
+    ecc_label <- paste0("EccX = ", paste(eccs_int, collapse = ", "), " deg")
     # Add regression line, compute slope and R
     t <- t %>% mutate(Y = 10^(log_crowding_distance_deg))
     regression <- lm(Y ~ age, data = t)
@@ -432,7 +440,8 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         aes(npcx = "right",
             npcy = "top",
             label = paste0(
-              "slope = ", round(slope, 2),
+              ecc_label,
+              "\nslope = ", round(slope, 2),
               "\nR = ", round(r_value, 2),
               "\nN = ",N
             )),
@@ -519,7 +528,8 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         aes(npcx = "right",
             npcy = "top",
             label = paste0(
-              "slope = ", round(slope, 2),
+              ecc_label,
+              "\nslope = ", round(slope, 2),
               "\nR = ", round(r_value, 2),
               "\nN = ", nrow(t)
             )),
@@ -885,8 +895,13 @@ get_foveal_peripheral_diag <- function(crowding) {
   if (nrow(foveal) == 0 | nrow(peripheral) == 0) {
     return(list(age = NULL, grade = NULL))
   } else {
+    
     p <- NULL
     p1 <- NULL
+    
+    eccs <- sort(unique(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg != 0]))
+    eccs_int <- as.integer(round(eccs))
+    ecc_label <- paste0("EccX = ", paste(eccs_int, collapse = ", "), " deg")
     
     # Combine foveal and peripheral data
     t <- foveal %>%
@@ -955,10 +970,11 @@ get_foveal_peripheral_diag <- function(crowding) {
           x = max(t$foveal_y, na.rm = TRUE) * 0.1,  # Moved further to the left
           y = max(t$peripheral_x, na.rm = TRUE),    # Keep at the same vertical position
           label = paste0(
-            "N = ", N,
-            "\nR = ", round(r_value, 2),
             "\nR_factor_out_age = ", R_factor_out_age,
-            "\nslope = ", round(slope, 2)
+            "\n", ecc_label,
+            "\nslope = ", round(slope, 2),
+            "\nR = ", round(r_value, 2),
+            "\nN = ", N
           ),
           hjust = 0, vjust = 1, size = 4, color = "black"
         ) + 
@@ -1005,10 +1021,11 @@ get_foveal_peripheral_diag <- function(crowding) {
         x = max(t$peripheral_x, na.rm = TRUE) * 0.9,
         y = max(t$foveal_y, na.rm = TRUE) * 0.9,
         label = paste0(
-          "N = ", N,
-          "\nR = ", round(r_value, 2),
           "\nR_factor_out_age = ", R_factor_out_age,
-          "\nslope = ", round(slope, 2)
+          "\n", ecc_label,
+          "\nslope = ", round(slope, 2),
+          "\nR = ", round(r_value, 2),
+          "\nN = ", N
         ),
         hjust = 1, vjust = 1, size = 4, color = "black"
       ) + 
@@ -1041,6 +1058,9 @@ plot_crowding_vs_age <- function(crowding){
     return(NULL)
   } 
   
+  eccs_periph <- sort(unique(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg > 0]))
+  eccs_int    <- as.integer(round(eccs_periph))
+  ecc_label   <- paste0("EccX = ", paste(eccs_int, collapse = ", "), " deg")
   
   foveal <- crowding %>% 
     filter(questType == 'Foveal crowding') %>% 
@@ -1090,7 +1110,7 @@ plot_crowding_vs_age <- function(crowding){
   }
   
  label = paste0('Foveal: slope=', foveal_slope, ', R=', foveal_corr, ', N=', nrow(foveal), '\n',
-                'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr,  ', N=', nrow(peripheral))
+                'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr,  ', N=', nrow(peripheral), ', ' , ecc_label)
  t <- rbind(foveal, peripheral)
   p <- ggplot(data = crowding, aes(x = ageN, 
                               y = 10^(log_crowding_distance_deg),

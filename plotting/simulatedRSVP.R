@@ -353,6 +353,28 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
     yMin <- min(data$Y, na.rm = TRUE) / 1.5
     yMax <- max(data$Y, na.rm = TRUE) * 1.5
     
+   
+    eccs     <- sort(unique(data$targetEccentricityXDeg))
+    eccs_int <- as.integer(round(eccs))
+    
+    # 2) Build the stats label differently for foveal vs peripheral
+    if (all(eccs_int == 0)) {
+      # Foveal only → no EccX line
+      stats_label <- paste0(
+        "R_factor_out_age = ", R_factor_out_age,  "\n",
+        "R = ",                  round(corr, 2), "\n",
+        "N = ",                  N
+      )
+    } else {
+      # Peripheral → include EccX on top
+      ecc_label   <- paste0("EccX = ", paste(eccs_int, collapse = ", "), " deg")
+      stats_label <- paste0(
+        "R_factor_out_age = ", R_factor_out_age,  "\n",
+        ecc_label,                                "\n",
+        "R = ",                  round(corr, 2), "\n",
+        "N = ",                  N
+      )
+    }
     # Generate the plot
     plot <- ggplot(data, aes(x = questTrials, y = Y, color = Grade, shape = conditionName)) +
       geom_point(size = 3) +
@@ -377,11 +399,7 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
         "text",
         x = xMax * 0.9,
         y = yMax * 0.9,
-        label = paste0(
-          "R_factor_out_age = ", R_factor_out_age,
-          "\nR = ", round(corr, 2),
-          "\nN = ", N
-        ),
+        label = stats_label,
         hjust = 1, vjust = 1, size = 4, color = "black"
       )
     guides(color = guide_legend(title='Grade'),

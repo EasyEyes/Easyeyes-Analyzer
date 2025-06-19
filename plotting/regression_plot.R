@@ -27,7 +27,7 @@ prepare_regression_data <- function(df_list){
   
   crowding_summary <- crowding %>% 
     mutate(type = ifelse(targetEccentricityXDeg == 0,'Foveal', 'Peripheral')) %>% 
-    group_by(participant, type, conditionName) %>% 
+    group_by(participant, type, conditionName, targetEccentricityXDeg) %>% 
     summarize(crowding_distance = 10^(mean(log_crowding_distance_deg)))
   
   reading_crowding <- reading_valid %>% 
@@ -143,6 +143,12 @@ regression_reading_plot <- function(df_list){
   }
   
   if (nrow(peripheral) > 0) {
+    print("in regression_reading_plot peripheral")
+    print(peripheral)
+    eccs     <- sort(unique(peripheral$targetEccentricityXDeg))
+    eccs_int <- as.integer(round(eccs))
+    ecc_label <- paste0("EccX = ", paste(eccs_int, collapse = ", "), " deg")
+    
     p2 <- ggplot(peripheral, aes(x = crowding_distance, y = 10^(avg_log_WPM), color = targetKind)) + 
       geom_point(aes(shape = conditionName)) +
       geom_smooth(method = "lm",formula = y ~ x, se=F) + 
@@ -162,7 +168,7 @@ regression_reading_plot <- function(df_list){
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "top",
-        label = paste0('N=', nrow(peripheral))
+        label = paste0(ecc_label, "\n", "N=", nrow(peripheral))
       )) + 
       guides(color=guide_legend(nrow=2, byrow=TRUE,
                                 title = ''),
