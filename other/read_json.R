@@ -583,17 +583,17 @@ plot_power_variations <- function(jsonFile, sound_data) {
                        " dB")
       )
     ) %>%
-    rbind(
-      tibble(
-        time = jsonFile$recordingChecks$system[[1]]$warmupT,
-        power = jsonFile$recordingChecks$system[[1]]$warmupDb,
-        label = paste0(
-          "Loudspeaker+Microphone corrected MLS, SD = ",
-          format(jsonFile$recordingChecks$system[[1]]$sd, nsmall = 1),
-          " dB"
-        )
-      )
-    ) %>%
+    # rbind(
+    #   tibble(
+    #     time = jsonFile$recordingChecks$system[[1]]$warmupT,
+    #     power = jsonFile$recordingChecks$system[[1]]$warmupDb,
+    #     label = paste0(
+    #       "Loudspeaker+Microphone corrected MLS, SD = ",
+    #       format(jsonFile$recordingChecks$system[[1]]$sd, nsmall = 1),
+    #       " dB"
+    #     )
+    #   )
+    # ) %>%
     rbind(
       tibble(
         time = jsonFile$recordingChecks$component[[1]]$warmupT,
@@ -651,17 +651,17 @@ plot_power_variations <- function(jsonFile, sound_data) {
                        " dB")
       )
     ) %>%
-    rbind(
-      tibble(
-        time = jsonFile$recordingChecks$system[[1]]$postT,
-        power = jsonFile$recordingChecks$system[[1]]$postDb,
-        label = paste0(
-          "Loudspeaker+Microphone corrected MLS, SD = ",
-          format(jsonFile$recordingChecks$system[[1]]$sd,nsmall = 1),
-          " dB"
-        )
-      )
-    ) %>%
+    # rbind(
+    #   tibble(
+    #     time = jsonFile$recordingChecks$system[[1]]$postT,
+    #     power = jsonFile$recordingChecks$system[[1]]$postDb,
+    #     label = paste0(
+    #       "Loudspeaker+Microphone corrected MLS, SD = ",
+    #       format(jsonFile$recordingChecks$system[[1]]$sd,nsmall = 1),
+    #       " dB"
+    #     )
+    #   )
+    # ) %>%
     rbind(
       tibble(
         time = jsonFile$recordingChecks$component[[1]]$postT,
@@ -1541,11 +1541,14 @@ plot_sound_level <- function(sound_data) {
     DRCMforDisplay[2, 2] = paste(DRCMforDisplay[2, 2] , "dB")
     DRCMforDisplay[4, 2] = paste(DRCMforDisplay[4, 2] , "dB")
     DRCMforDisplay[5, 2] = paste(DRCMforDisplay[5, 2] , "dB")
+    
     dynamic_range_compression_model <- sound_data[[5]] %>%
       select(`T`, W, `1/R`, gainDBSPL, RMSError)
-    threshold <-
-      dynamic_range_compression_model$`T`
+    
+    threshold <-dynamic_range_compression_model$`T`
+    
     model <- sound_data$model
+    
     micGainDBSPL <-
       as.numeric(unlist(strsplit(sound_data$transducerTable[1, 2], " "))[1])
     
@@ -1584,13 +1587,13 @@ plot_sound_level <- function(sound_data) {
       scale_y_continuous(
         limits = c(minY, maxY),
         breaks = seq(minY, maxY - 10, 10),
-        expand = c(0, 0),
-        sec.axis = sec_axis(
-          ~ . - micGainDBSPL,
-          breaks = seq(minY - micGainDBSPL, maxY - micGainDBSPL, 10),
-          labels = scales::number_format(accuracy = 0.1),
-          name = "Sound level (dB SPL)"
-        )
+        expand = c(0, 0)
+        # sec.axis = sec_axis(
+        #   ~ . - micGainDBSPL,
+        #   breaks = seq(minY - micGainDBSPL, maxY - micGainDBSPL, 10),
+        #   labels = scales::number_format(accuracy = 0.1),
+        #   name = "Sound level (dB SPL)"
+        # )
       ) +
       scale_x_continuous(
         breaks = seq(minX, maxX, 10),

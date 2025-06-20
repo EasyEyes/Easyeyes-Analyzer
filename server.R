@@ -266,81 +266,31 @@ shinyServer(function(input, output, session) {
   # Optional debounced reactive
   conditionNames <- reactive(input$conditionName) %>% debounce(5000)
   
-  
-  # observeEvent(conditionNames(),{
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNameStaircase',
-  #     label = "conditionName",
-  #     choices = sort( df_list()$conditionNames),
-  #     selected = input$conditionNamePlots,
-  #     inline = FALSE
-  #   )
-  #
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNameTiming',
-  #     label = "conditionName",
-  #     choices = sort( df_list()$conditionNames),
-  #     selected = input$conditionNamePlots,
-  #     inline = FALSE
-  #   )
-  # })
-  #
-  # observeEvent(conditionNameTiming(),{
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNamePlots',
-  #     label = "conditionName",
-  #     choices = sort( df_list()$conditionNames),
-  #     selected = input$conditionNameTiming,
-  #     inline = FALSE
-  #   )
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNameStaircase',
-  #     label = "conditionName",
-  #     choices = sort( df_list()$conditionNames),
-  #     selected = input$conditionNameTiming,
-  #     inline = FALSE
-  #   )
-  # })
-  #
-  # observeEvent(conditionNameStaircase(),{
-  #
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNamePlots',
-  #     label = "conditionName",
-  #     choices = sort(df_list()$conditionNames),
-  #     selected = input$conditionNameStaircase,
-  #     inline = FALSE
-  #   )
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNameTiming',
-  #     label = "conditionName",
-  #     choices = sort(df_list()$conditionNames),
-  #     selected = input$conditionNameStaircase,
-  #     inline = FALSE
-  #   )
-  # })
-  
   df_list <- reactive({
     if (is.null(files())) {
       return(NULL)
     }
+    df_list <- generate_rsvp_reading_crowding_fluency(
+      files()$data_list,
+      summary_list(),
+      files()$pretest,
+      files()$stairs,
+      input$filterInput,
+      minNQuestTrials(),
+      maxQuestSD(),
+      conditionNames()
+    )
+    
+    updateCheckboxGroupInput(
+      session,
+      inputId = 'conditionName',
+      label = "conditionName",
+      choices = sort(df_list$conditionNames),
+      selected = df_list$conditionNames,
+      inline = FALSE
+    )
     return(
-      generate_rsvp_reading_crowding_fluency(
-        files()$data_list,
-        summary_list(),
-        files()$pretest,
-        files()$stairs,
-        input$filterInput,
-        minNQuestTrials(),
-        maxQuestSD(),
-        conditionNames()
-      )
+      df_list
     )
   })
   
@@ -4263,36 +4213,7 @@ shinyServer(function(input, output, session) {
                      selected = unique(files()$stairs$thresholdParameter)[1],
                    )
                    
-                   updateCheckboxGroupInput(
-                     session,
-                     inputId = 'conditionNamePlots',
-                     label = "conditionName",
-                     choices = sort(df_list()$conditionNames),
-                     selected = df_list()$conditionNames,
-                     inline = FALSE
-                   )
-                   
-                   updateCheckboxGroupInput(
-                     session,
-                     inputId = 'conditionNameStaircase',
-                     label = "conditionName",
-                     choices = sort(df_list()$conditionNames),
-                     selected = df_list()$conditionNames,
-                     inline = FALSE
-                   )
-                   
-                   updateCheckboxGroupInput(
-                     session,
-                     inputId = 'conditionNameTiming',
-                     label = "conditionName",
-                     choices = sort(df_list()$conditionNames),
-                     selected = df_list()$conditionNames,
-                     inline = FALSE
-                   )
-                   
-                   
                    closeAlert()
-                   
                  }
                })
   

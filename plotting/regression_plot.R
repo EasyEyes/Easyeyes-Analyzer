@@ -144,7 +144,7 @@ regression_reading_plot <- function(df_list){
   
   if (nrow(peripheral) > 0) {
     print("in regression_reading_plot peripheral")
-    print(peripheral)
+
     eccs     <- sort(unique(peripheral$targetEccentricityXDeg))
     eccs_int <- as.integer(round(eccs))
     ecc_label <- paste0("EccX = ", paste(eccs_int, collapse = ", "), " deg")
