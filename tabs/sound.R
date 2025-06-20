@@ -184,14 +184,14 @@ soundTab <- tabPanel(
       )
     ),
     fixedRow(
-      column(
-        width = 6,
-        align = "center",
-        shinycssloaders::withSpinner(
-          plotOutput("cumSumPowerPlotSystem", height = "100%", width = "100%"),
-          type = 4
-        )
-      ),
+      # column(
+      #   width = 6,
+      #   align = "center",
+      #   shinycssloaders::withSpinner(
+      #     plotOutput("cumSumPowerPlotSystem", height = "100%", width = "100%"),
+      #     type = 4
+      #   )
+      # ),
       column(
         width = 6,
         align = "center",
@@ -202,11 +202,11 @@ soundTab <- tabPanel(
       )
     ),
     fixedRow(
-      column(
-        width = 6,
-        align = "center",
-        downloadButton("downloadCumSumPowerPlotSystem", "Download")
-      ),
+    #   column(
+    #     width = 6,
+    #     align = "center",
+    #     downloadButton("downloadCumSumPowerPlotSystem", "Download")
+    #   ),
       column(
         width = 6,
         align = "center",
@@ -262,16 +262,16 @@ soundTab <- tabPanel(
     align = "center",
     downloadButton("downloadPowerVariation", "Download")
   )),
-  fixedRow(column(
-    width = 12,
-    align = "center",
-    shinycssloaders::withSpinner(imageOutput("record freq plot system", height = "100%"), type = 4)
-  )),
-  fixedRow(column(
-    width = 12,
-    align = "center",
-    downloadButton("downloadRecordFreqPlotSystem", "Download")
-  )),
+  # fixedRow(column(
+  #   width = 12,
+  #   align = "center",
+  #   shinycssloaders::withSpinner(imageOutput("record freq plot system", height = "100%"), type = 4)
+  # )),
+  # fixedRow(column(
+  #   width = 12,
+  #   align = "center",
+  #   downloadButton("downloadRecordFreqPlotSystem", "Download")
+  # )),
   fixedRow(column(
     width = 12,
     align = "center",

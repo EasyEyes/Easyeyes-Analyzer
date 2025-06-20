@@ -248,6 +248,8 @@ read_files <- function(file){
         }
         if (!('experimentCompleteBool' %in% colnames(t))) {
           t$experimentCompleteBool <- FALSE
+        } else {
+          t$experimentCompleteBool[is.na(t$experimentCompleteBool)] <- FALSE
         }
         if (!('block' %in% colnames(t))) {
           t$block <- NA
@@ -350,7 +352,7 @@ read_files <- function(file){
           t$`heapUsedAfterDrawing (MB)` <- ''
         }
         if (!('heapTotalAfterDrawing (MB)' %in% colnames(t))) {
-          t$`heapTotalAfterDrawing (MB)` <- ''
+          t$`heapTotalAfterDrawing (MB)` <- NaN
         }
         if (!('heapLimitAfterDrawing (MB)' %in% colnames(t))) {
           t$`heapLimitAfterDrawing (MB)` <- NaN
@@ -625,6 +627,8 @@ read_files <- function(file){
           }
           if (!('experimentCompleteBool' %in% colnames(t))) {
             t$experimentCompleteBool <- FALSE
+          } else {
+            t$experimentCompleteBool[is.na(t$experimentCompleteBool)] <- FALSE
           }
           if (!('block' %in% colnames(t))) {
             t$block <- NA

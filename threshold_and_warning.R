@@ -8,6 +8,8 @@ englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
 generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, stairs, filterInput, minNQuestTrials, maxQuestSD, conditionNameInput) {
 
   print('inside threshold warning')
+  print(paste0('length of data list: ', length(data_list)))
+  print(paste0('length of summary list: ', length(summary_list)))
   if (is.null(data_list)) {
     return(list())
   }

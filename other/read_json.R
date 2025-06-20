@@ -1,7 +1,7 @@
 require(jsonlite)
 require(dplyr)
 
-# jsonFile <- fromJSON("SuperYellowWolf857_threshold_0001_January 22, 2024 10_54 AM GMT-05_00_sound.json", simplifyDataFrame = F)
+# jsonFile <- fromJSON("SoundCalibrationScientistQuick45_BrightSkyDog646_0001_May_25%2C_2025_7_43_PM_UTC-04_00_sound.json", simplifyDataFrame = F)
 
 preprocessJSON <- function(jsonFile) {
   #### volume ####
@@ -59,31 +59,31 @@ preprocessJSON <- function(jsonFile) {
   loudspeaker_system_ir <-
     data.frame(Gain = jsonFile$`Loudspeaker system IR`) %>%
     mutate(Freq = row_number())
-  
+
   inputParameters <-
     tibble(
-      calibrateSoundBurstDb = jsonFile$calibrateSoundBurstDb,
-      calibrateSoundBurstSec = jsonFile$calibrateSoundBurstSec,
-      calibrateSoundBurstRepeats = jsonFile$calibrateSoundBurstRepeats,
-      calibrateSoundIRSec = jsonFile$calibrateSoundIRSec,
-      calibrateSoundIIRSec = jsonFile$calibrateSoundIIRSec,
+      calibrateSoundBurstDb = jsonFile$`_calibrateSoundBurstDb`,
+      calibrateSoundBurstSec = jsonFile$`_calibrateSoundBurstSec`,
+      calibrateSoundBurstRepeats = jsonFile$`_calibrateSoundBurstRepeats`,
+      calibrateSoundIRSec = jsonFile$`_calibrateSoundIRSec`,
+      calibrateSoundIIRSec = jsonFile$`_calibrateSoundIIRSec`,
       calibrateSoundMinHz = jsonFile$calibrateSoundMinHz,
       calibrateSoundMaxHz = jsonFile$calibrateSoundMaxHz,
       calibrateSoundHz = jsonFile$calibrateSoundHz,
-      filteredRangeMinSys = round(jsonFile$filteredMLSRange$system$Min, 1),
-      filteredRangeMaxSys = round(jsonFile$filteredMLSRange$system$Max, 1),
+      # filteredRangeMinSys = round(jsonFile$filteredMLSRange$system$Min, 1),
+      # filteredRangeMaxSys = round(jsonFile$filteredMLSRange$system$Max, 1),
       filteredRangeMinComp = round(jsonFile$filteredMLSRange$component$Min, 1),
       filteredRangeMaxComp = round(jsonFile$filteredMLSRange$component$Max, 1),
-      systemCorrectionSD = jsonFile$systemCorrectionSD,
+      # systemCorrectionSD = jsonFile$systemCorrectionSD,
       componentCorrectionSD = jsonFile$componentCorrectionSD,
       mlsSD = jsonFile$mlsSD,
-      calibrateSoundAttenuationSpeakerAndMicDb = jsonFile$calibrateSoundAttenuationSpeakerAndMicDb,
-      calibrateSoundAttenuationSpeakerAndMicGain = jsonFile$calibrateSoundAttenuationSpeakerAndMicGain,
-      filteredMLSMaxAbsSystem = jsonFile$filteredMLSMaxAbsSystem,
+      # calibrateSoundAttenuationSpeakerAndMicDb = jsonFile$calibrateSoundAttenuationSpeakerAndMicDb,
+      # calibrateSoundAttenuationSpeakerAndMicGain = jsonFile$calibrateSoundAttenuationSpeakerAndMicGain,
+      # filteredMLSMaxAbsSystem = jsonFile$filteredMLSMaxAbsSystem,
       filteredMLSMaxAbsComponent = jsonFile$filteredMLSMaxAbsComponent,
       fMaxHzComponent = round(jsonFile$fMaxHz$component / 100) * 100,
-      fMaxHzSystem = round(jsonFile$fMaxHz$system / 100) * 100,
-      attenuatorDBSystem = jsonFile$attenuatorGainDB$system,
+      # fMaxHzSystem = round(jsonFile$fMaxHz$system / 100) * 100,
+      # attenuatorDBSystem = jsonFile$attenuatorGainDB$system,
       attenuatorDBComponent = jsonFile$attenuatorGainDB$component,
       transducerTypeF = ifelse(
         "calibrateSoundAttenuationLoudspeakerGain" %in% names(jsonFile),
@@ -112,7 +112,6 @@ preprocessJSON <- function(jsonFile) {
   #### mls ####
   mlsPSD <- get_mls_psd(jsonFile)
   
-  testConv <- tibble()
   if ("microphoneGain" %in% names(jsonFile)) {
     knownGain <- tibble(
       freq = unlist(jsonFile$microphoneGain$Freq),
@@ -133,7 +132,6 @@ preprocessJSON <- function(jsonFile) {
   
   sound_data <- list(
     volume_task = volume_task,
-    #1
     model = model,
     #2
     DRCMforDisplay = DRCMforDisplay,
@@ -145,7 +143,6 @@ preprocessJSON <- function(jsonFile) {
     recording_vs_freq = recording_vs_freq,
     #6
     transducerTable = transducerTable,
-    #7
     loudspeaker_component_ir = loudspeaker_component_ir,
     #8
     loudspeaker_system_ir = loudspeaker_system_ir,
@@ -156,14 +153,12 @@ preprocessJSON <- function(jsonFile) {
     #11
     inputParameters = inputParameters,
     #12
-    testConv = testConv,
-    #13
     knownGain = knownGain,
-    #14
+    #13
     subtitle = subtitle,
-    #15
+    #14
     convolutions = convolutions
-    #16
+    #15
   )
   return(sound_data)
 }
@@ -223,29 +218,29 @@ get_subtitle <- function(inputParameters) {
   )
   
   subtitleTwo <- list(
-    system =  paste0(
-      "Filtered MLS: ",
-      format(round(
-        inputParameters$calibrateSoundAttenuationSpeakerAndMicDb,
-        1
-      ), nsmall = 1
-      ),
-      " dB, ampl. ",
-      format(round(inputParameters$filteredMLSMaxAbsSystem, 1), nsmall = 1),
-      ", ",
-      inputParameters$calibrateSoundMinHz,
-      " – ",
-      inputParameters$fMaxHzSystem,
-      " Hz, ",
-      format(
-        round(
-          inputParameters$attenuatorDBSystem,
-          1
-        ),
-        nsmall = 1
-      ),
-      " dB atten."
-    ),
+    # system =  paste0(
+    #   "Filtered MLS: ",
+    #   format(round(
+    #     inputParameters$calibrateSoundAttenuationSpeakerAndMicDb,
+    #     1
+    #   ), nsmall = 1
+    #   ),
+    #   " dB, ampl. ",
+    #   format(round(inputParameters$filteredMLSMaxAbsSystem, 1), nsmall = 1),
+    #   ", ",
+    #   inputParameters$calibrateSoundMinHz,
+    #   " – ",
+    #   inputParameters$fMaxHzSystem,
+    #   " Hz, ",
+    #   format(
+    #     round(
+    #       inputParameters$attenuatorDBSystem,
+    #       1
+    #     ),
+    #     nsmall = 1
+    #   ),
+    #   " dB atten."
+    # ),
     component = paste0(
       "Filtered MLS: ",
       format(
@@ -274,17 +269,17 @@ get_subtitle <- function(inputParameters) {
   )
   
   subtitleThree <- list(
-    system = paste0(
-      "IR: ",
-      inputParameters$calibrateSoundIRSec,
-      " s, IIR: ",
-      inputParameters$calibrateSoundIIRSec,
-      " s, ",
-      inputParameters$calibrateSoundMinHz,
-      " – ",
-      inputParameters$fMaxHzSystem,
-      " Hz"
-    ),
+    # system = paste0(
+    #   "IR: ",
+    #   inputParameters$calibrateSoundIRSec,
+    #   " s, IIR: ",
+    #   inputParameters$calibrateSoundIIRSec,
+    #   " s, ",
+    #   inputParameters$calibrateSoundMinHz,
+    #   " – ",
+    #   inputParameters$fMaxHzSystem,
+    #   " Hz"
+    # ),
     component = paste0(
       "IR: ",
       inputParameters$calibrateSoundIRSec,
@@ -300,12 +295,19 @@ get_subtitle <- function(inputParameters) {
   
   
   
+  # return(list(system = list(
+  #   c(subtitleOne,
+  #     subtitleTwo$system,
+  #     subtitleThree$system)
+  # ),
+  # component = list(
+  #   c(subtitleOne,
+  #     subtitleTwo$component,
+  #     subtitleThree$component
+  #   )
+  # )))
   
-  return(list(system = list(
-    c(subtitleOne,
-      subtitleTwo$system,
-      subtitleThree$system)
-  ),
+  return(list(
   component = list(
     c(subtitleOne,
       subtitleTwo$component,
@@ -919,18 +921,18 @@ plot_volume_power_variations <- function(jsonFile, sound_data) {
 }
 
 get_recording_vs_frequency <- function(jsonFile) {
-  record_freq_system <- rbind(
-    tibble(
-      freq = jsonFile$MlsSpectrumHz_system,
-      gain = jsonFile$MlsSpectrumFilteredDb_system,
-      label = "Recording of filtered MLS"
-    ),
-    tibble(
-      freq = jsonFile$MlsSpectrumUnfilteredHz_system,
-      gain = jsonFile$MlsSpectrumUnfilteredDb_system,
-      label = "Recording of MLS"
-    )
-  )
+  # record_freq_system <- rbind(
+  #   tibble(
+  #     freq = jsonFile$MlsSpectrumHz_system,
+  #     gain = jsonFile$MlsSpectrumFilteredDb_system,
+  #     label = "Recording of filtered MLS"
+  #   ),
+  #   tibble(
+  #     freq = jsonFile$MlsSpectrumUnfilteredHz_system,
+  #     gain = jsonFile$MlsSpectrumUnfilteredDb_system,
+  #     label = "Recording of MLS"
+  #   )
+  # )
   record_freq_component <- rbind(
     tibble(
       freq = jsonFile$MlsSpectrumHz_component,
@@ -943,8 +945,9 @@ get_recording_vs_frequency <- function(jsonFile) {
       label = "Recording of MLS"
     )
   )
-  return(list(system = record_freq_system,
-              component = record_freq_component))
+  # return(list(system = record_freq_system,
+  #             component = record_freq_component))
+  return(list(component = record_freq_component))
 }
 
 get_bg_recording_vs_frequency <- function(jsonFile) {
@@ -973,7 +976,7 @@ get_autocorrelation_plot <- function(jsonFile, sound_data) {
     labs(x = "Lag (s)") +
     theme_bw() +
     add_transducerTable_component(
-      transducerTable = sound_data[[7]],
+      transducerTable = sound_data$transducerTable,
       position = c(2, 1.2),
       title_text = "",
       leftShift = -0.14,
@@ -1151,7 +1154,7 @@ plot_record_freq_system <- function(sound_data) {
       title = "Loudspeaker + Microphone Correction"
     ) +
     add_transducerTable_system(
-      transducerTable = sound_data[[7]],
+      transducerTable = sound_data$transducerTable,
       position = c("left", "bottom"),
       title_text = tt,
       subtitle =  sound_data$subtitle$system,
@@ -1186,7 +1189,7 @@ plot_record_freq_component <- function(sound_data) {
            label) %>%
     rbind(convolutions$component) %>%
     rbind(sound_data[[11]]) %>%
-    rbind(sound_data[[14]])
+    rbind(sound_data$knownGain)
   
   tmp <- t %>%
     filter(label == "Recording of MLS") %>%
@@ -1201,7 +1204,7 @@ plot_record_freq_component <- function(sound_data) {
     select(freq, gain, label)
   
   t <- rbind(t, tmp)
-  transducerLabel <- unique(sound_data[[14]]$label)
+  transducerLabel <- unique(sound_data$knownGain$label)
   t$label <- factor(
     t$label,
     levels = c(
@@ -1220,7 +1223,7 @@ plot_record_freq_component <- function(sound_data) {
   tmp <- t %>%
     filter(label == "Recording of filtered MLS")
   interpolated_values <-
-    approx(sound_data[[14]]$freq, sound_data[[14]]$gain, xout = tmp$freq)$y
+    approx(sound_data$knownGain$freq, sound_data$knownGain$gain, xout = tmp$freq)$y
   
   tmp$transducergain = interpolated_values
   tmp <- tmp %>% mutate(gain = gain - transducergain) %>%
@@ -1245,19 +1248,20 @@ plot_record_freq_component <- function(sound_data) {
   
   
   #subtract component gain Recording of background
-  tmp <- t %>%
+  backgroud <- t %>%
     filter(label == "Recording of background")
-  
-  tmp$transducergain = interpolated_values
-  tmp <- tmp %>% mutate(gain = gain - transducergain) %>%
-    select(freq,
-           gain,
-           label)
-  t <- t %>% filter(label != "Recording of background") %>%
-    rbind(tmp)
+  if(nrow(tmp) > 0) {
+    backgroud$transducergain = interpolated_values
+    backgroud <- backgroud %>% mutate(gain = gain - transducergain) %>%
+      select(freq,
+             gain,
+             label)
+    t <- t %>% filter(label != "Recording of background") %>%
+      rbind(backgroud)
+  }
   
   #subtract component gain Expectation
-  tmp <- t %>%
+  expected_corr <- t %>%
     filter(label == "Expected corr")
   
   tmp$transducergain = interpolated_values
@@ -1397,7 +1401,7 @@ plot_record_freq_component <- function(sound_data) {
   if (transducerLabel == "microphone gain") {
     p1 <-
       p1 + add_transducerTable_component(
-        transducerTable = sound_data[[7]],
+        transducerTable = sound_data$transducerTable,
         position = c("left", "bottom"),
         title_text = tt,
         subtitle =  sound_data$subtitle$component
@@ -1405,7 +1409,7 @@ plot_record_freq_component <- function(sound_data) {
   } else {
     p1 <-
       p1 + add_transducerTable_component(
-        transducerTable = sound_data[[7]],
+        transducerTable = sound_data$transducerTable,
         position = c("left", "bottom"),
         title_text = tt,
         subtitle = sound_data$subtitle$component,
@@ -1525,9 +1529,9 @@ getCumSumPowerPlot <- function(jsonFile) {
 
 plot_sound_level <- function(sound_data) {
     # add <- plot here
-    volume_task <- sound_data[[1]]
+    volume_task <- sound_data$volume_task
     
-    DRCMforDisplay <- data.frame(sound_data[[3]])
+    DRCMforDisplay <- data.frame(sound_data$DRCMforDisplay)
     
     DRCMforDisplay <- cbind(rownames(DRCMforDisplay), DRCMforDisplay)
     colnames(DRCMforDisplay) <- NULL
@@ -1541,9 +1545,9 @@ plot_sound_level <- function(sound_data) {
       select(`T`, W, `1/R`, gainDBSPL, RMSError)
     threshold <-
       dynamic_range_compression_model$`T`
-    model <- sound_data[[2]]
+    model <- sound_data$model
     micGainDBSPL <-
-      as.numeric(unlist(strsplit(sound_data[[7]][1, 2], " "))[1])
+      as.numeric(unlist(strsplit(sound_data$transducerTable[1, 2], " "))[1])
     
     minY = floor(min(volume_task$`out (dB SPL)`) / 10) * 10
     maxY = ceiling(max(volume_task$`out (dB SPL)`) / 10) * 10
@@ -1551,12 +1555,18 @@ plot_sound_level <- function(sound_data) {
     minX = floor(min(volume_task$`in (dB)`)/10) * 10
     maxX = max(volume_task$`in (dB)`)
     
+    # DEBUG
+    print(paste0("threshold: ", threshold))
+    print(paste0("minY: ", minY))
+    print(paste0("maxY: ", maxY))
+    print(paste0("minX: ", minX))
+    print(paste0("maxX: ", maxX))
+    
     thd_data <- filter(volume_task, `in (dB)` > -45)
     thdMax <- ceiling(max(thd_data$`THD (%)`) / 0.5) * 0.5
     # thdMax = 1
     
-    p <-
-      ggplot() +
+    p <- ggplot() +
       geom_point(data = volume_task, aes(x = `in (dB)`, y = `out (dB SPL)`), size = 3) +
       geom_vline(xintercept = threshold, color = "red") +
       geom_line(data = model, aes(x = x, y = y), size = 0.8) +
@@ -1610,7 +1620,7 @@ plot_sound_level <- function(sound_data) {
         plot.title = element_text(size = 12, hjust = 0.5)
       ) +
       add_transducerTable_system(
-        transducerTable = sound_data[[7]],
+        transducerTable = sound_data$transducerTable,
         position = c("left", "bottom"),
         title_text = "",
         subtitle = sound_data$subtitle$system,
@@ -1727,7 +1737,7 @@ get_ir_plots <- function(jsonFile, sound_data) {
       )
     ) +
     add_transducerTable_component(
-      sound_data[[7]],
+      sound_data$transducerTable,
       c("left", "bottom"),
       subtitle = sound_data$subtitle$component,
       transducerType = sound_data$inputParameters$transducerTypeF
@@ -1752,7 +1762,7 @@ get_ir_plots <- function(jsonFile, sound_data) {
       )
     ) +
     add_transducerTable_component(
-      sound_data[[7]],
+      sound_data$transducerTable,
       c("left", "bottom"),
       subtitle = sound_data$subtitle$component,
       transducerType = sound_data$inputParameters$transducerTypeF
@@ -1784,7 +1794,7 @@ get_ir_plots <- function(jsonFile, sound_data) {
       )
     ) +
     add_transducerTable_component(
-      sound_data[[7]],
+      sound_data$transducerTable,
       c("left", "bottom"),
       subtitle = sound_data$subtitle$component,
       transducerType = sound_data$inputParameters$transducerTypeF,
@@ -1928,8 +1938,8 @@ get_transducer_table <- function(jsonFile) {
 get_iir_plot <- function(iir, sound_data) {
   component_iir <- iir[[1]]
   component_iir_no_bandpass <- iir[[2]]
-  system_iir <- iir[[3]]
-  system_iir_no_bandpass <- iir[[4]]
+  # system_iir <- iir[[3]]
+  # system_iir_no_bandpass <- iir[[4]]
   # Plot Power Spectral Density of component iir
   t1 <- component_iir %>%
     filter(Hz_component_iir > 20,
@@ -2002,104 +2012,113 @@ get_iir_plot <- function(iir, sound_data) {
       axis.line = element_line(colour = "black")
     )  +
     add_transducerTable_component(
-      sound_data[[7]],
+      sound_data$transducerTable,
       c("left", "bottom"),
       subtitle = sound_data$subtitle$component,
       transducerType = sound_data$inputParameters$transducerTypeF
     ) +
     sound_theme_display
   
-  t1 <- system_iir %>%
-    filter(Hz_system_iir > 20,
-           Hz_system_iir < 20000,
-           is.finite(dB_system_iir))
-  
-  t2 <- system_iir_no_bandpass %>%
-    filter(
-      Hz_system_iir_no_bandpass > 20,
-      Hz_system_iir_no_bandpass < 20000,
-      is.finite(dB_system_iir_no_bandpass)
-    )
+  # t1 <- system_iir %>%
+  #   filter(Hz_system_iir > 20,
+  #          Hz_system_iir < 20000,
+  #          is.finite(dB_system_iir))
+  # 
+  # t2 <- system_iir_no_bandpass %>%
+  #   filter(
+  #     Hz_system_iir_no_bandpass > 20,
+  #     Hz_system_iir_no_bandpass < 20000,
+  #     is.finite(dB_system_iir_no_bandpass)
+  #   )
   
   # Plot Power Spectral Density of system IIR
   
-  system1000 <- t1 %>% filter(Hz_system_iir > 950,
-                              Hz_system_iir < 1050)
+  # system1000 <- t1 %>% filter(Hz_system_iir > 950,
+  #                             Hz_system_iir < 1050)
   
-  minY = floor(min(system1000$dB_system_iir) / 10) * 10 - 40
+  # minY = floor(min(system1000$dB_system_iir) / 10) * 10 - 40
+  # 
+  # maxY = ceiling(max(c(
+  #   t1$dB_system_iir, t2$dB_system_iir_no_bandpass
+  # )) / 10) * 10 + 10
+  # heightTwo = (maxY - minY) / 13
   
-  maxY = ceiling(max(c(
-    t1$dB_system_iir, t2$dB_system_iir_no_bandpass
-  )) / 10) * 10 + 10
-  heightTwo = (maxY - minY) / 13
-  
-  p2 <- ggplot() +
-    geom_line(
-      data = system_iir,
-      aes(x = Hz_system_iir,
-          y = dB_system_iir,
-          color = "System IIR"),
-      size = .8
-    ) +
-    geom_line(
-      data = system_iir_no_bandpass,
-      aes(x = Hz_system_iir_no_bandpass,
-          y = dB_system_iir_no_bandpass,
-          color = "System IIR (No Bandpass)"),
-      size = .8
-    ) +
-    scale_x_log10(
-      limits = c(20, 20000),
-      breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
-      expand = c(0, 0)
-    ) +
-    scale_y_continuous(
-      limits = c(minY, maxY),
-      breaks = seq(minY, maxY, 10),
-      expand = c(0, 0)
-    ) +
-    ylab("dB") +
-    xlab("Frequency (Hz)") +
-    ggtitle("Power Spectral Density of System IIR") +
-    scale_color_manual(values = c("#3366FF", "red")) +
-    labs(color = "") +
-    theme_bw() +
-    theme(
-      legend.position = c(0.5, 0.9),
-      legend.box = "horizontal",
-      legend.margin = margin(
-        t = 0,
-        b = .0,
-        l = .5,
-        r = .5,
-        unit = "inch"
-      ),
-      legend.background = element_rect(fill = 'transparent', color = 'transparent'),
-      plot.margin = margin(
-        t = .5,
-        b = .5,
-        l = .5,
-        r = 1,
-        unit = "inch"
-      ),
-      axis.line = element_line(colour = "black")
-    ) +
-    add_transducerTable_component(
-      sound_data[[7]],
-      c("left", "bottom"),
-      subtitle =sound_data$subtitle$component,
-      transducerType = sound_data$inputParameters$transducerTypeF
-    ) +
-    sound_theme_display
-  return(list(p1, p2, heightOne, heightTwo))
+  # p2 <- ggplot() +
+  #   geom_line(
+  #     data = system_iir,
+  #     aes(x = Hz_system_iir,
+  #         y = dB_system_iir,
+  #         color = "System IIR"),
+  #     size = .8
+  #   ) +
+  #   geom_line(
+  #     data = system_iir_no_bandpass,
+  #     aes(x = Hz_system_iir_no_bandpass,
+  #         y = dB_system_iir_no_bandpass,
+  #         color = "System IIR (No Bandpass)"),
+  #     size = .8
+  #   ) +
+  #   scale_x_log10(
+  #     limits = c(20, 20000),
+  #     breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
+  #     expand = c(0, 0)
+  #   ) +
+  #   scale_y_continuous(
+  #     limits = c(minY, maxY),
+  #     breaks = seq(minY, maxY, 10),
+  #     expand = c(0, 0)
+  #   ) +
+  #   ylab("dB") +
+  #   xlab("Frequency (Hz)") +
+  #   ggtitle("Power Spectral Density of System IIR") +
+  #   scale_color_manual(values = c("#3366FF", "red")) +
+  #   labs(color = "") +
+  #   theme_bw() +
+  #   theme(
+  #     legend.position = c(0.5, 0.9),
+  #     legend.box = "horizontal",
+  #     legend.margin = margin(
+  #       t = 0,
+  #       b = .0,
+  #       l = .5,
+  #       r = .5,
+  #       unit = "inch"
+  #     ),
+  #     legend.background = element_rect(fill = 'transparent', color = 'transparent'),
+  #     plot.margin = margin(
+  #       t = .5,
+  #       b = .5,
+  #       l = .5,
+  #       r = 1,
+  #       unit = "inch"
+  #     ),
+  #     axis.line = element_line(colour = "black")
+  #   ) +
+  #   add_transducerTable_component(
+  #     sound_data[[7]],
+  #     c("left", "bottom"),
+  #     subtitle =sound_data$subtitle$component,
+  #     transducerType = sound_data$inputParameters$transducerTypeF
+  #   ) +
+  #   sound_theme_display
+  return(list(p1, heightOne))
+  # return(list(p1, p2, heightOne, heightTwo))
 }
 
 get_convolutions <- function(jsonFile) {
-  systemConv <- tibble(
-    freq = jsonFile$Hz_system_convolution,
-    gain = 10 * log10(jsonFile$db_system_convolution),
-    label = "Filtered MLS"
-  )
+  
+  if (is.null(jsonFile$db_system_convolution)) {
+    systemConv <- tibble(freq = c(),
+                            gain = c(),
+                            label = c())
+  } else {
+    systemConv <- tibble(
+      freq = jsonFile$Hz_system_convolution,
+      gain = 10 * log10(jsonFile$db_system_convolution),
+      label = "Filtered MLS"
+    )
+  }
+  
   if (is.null(jsonFile$db_component_convolution)) {
     componentConv <- tibble(freq = c(),
                             gain = c(),

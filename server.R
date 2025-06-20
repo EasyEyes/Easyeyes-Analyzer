@@ -409,9 +409,9 @@ shinyServer(function(input, output, session) {
     return(get_iir_plot(iir(), sound_data()))
   })
   
-  record_freq_system_plot <- reactive({
-    plot_record_freq_system(sound_data())
-  })
+  # record_freq_system_plot <- reactive({
+  #   plot_record_freq_system(sound_data())
+  # })
   
   record_freq_component_plot <- reactive({
     plot_record_freq_component(sound_data())
@@ -3581,19 +3581,19 @@ shinyServer(function(input, output, session) {
     }, deleteFile = TRUE)
     
     
-    output$`record freq plot system` <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = record_freq_system_plot()$plot,
-        height = record_freq_system_plot()$height,
-        width = 8.5,
-        units = "in"
-      )
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "Power Spectral Density")
-    }, deleteFile = TRUE)
+    # output$`record freq plot system` <- renderImage({
+    #   outfile <- tempfile(fileext = '.svg')
+    #   ggsave(
+    #     file = outfile,
+    #     plot = record_freq_system_plot()$plot,
+    #     height = record_freq_system_plot()$height,
+    #     width = 8.5,
+    #     units = "in"
+    #   )
+    #   list(src = outfile,
+    #        contenttype = 'svg',
+    #        alt = "Power Spectral Density")
+    # }, deleteFile = TRUE)
     
     output$`record freq plot component` <- renderImage({
       outfile <- tempfile(fileext = '.svg')
@@ -3758,30 +3758,30 @@ shinyServer(function(input, output, session) {
            alt = "IIR two")
     }, deleteFile = TRUE)
     
-    output$cumSumPowerPlotSystem <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = cumSumPowerPlot()$p_system +
-          add_transducerTable_system(
-            sound_data()[[7]],
-            c("left", "bottom"),
-            subtitle = list(
-              c(
-                subtitleOne(),
-                subtitleTwo()$component,
-                subtitleThree()$component
-              )
-            ),
-            leftShift = 0.02
-          ) + sound_theme_display,
-        height = cumSumPowerPlot()$height_system,
-        unit = "in",
-      )
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "IIR two")
-    }, deleteFile = TRUE)
+    # output$cumSumPowerPlotSystem <- renderImage({
+    #   outfile <- tempfile(fileext = '.svg')
+    #   ggsave(
+    #     file = outfile,
+    #     plot = cumSumPowerPlot()$p_system +
+    #       add_transducerTable_system(
+    #         sound_data()[[7]],
+    #         c("left", "bottom"),
+    #         subtitle = list(
+    #           c(
+    #             subtitleOne(),
+    #             subtitleTwo()$component,
+    #             subtitleThree()$component
+    #           )
+    #         ),
+    #         leftShift = 0.02
+    #       ) + sound_theme_display,
+    #     height = cumSumPowerPlot()$height_system,
+    #     unit = "in",
+    #   )
+    #   list(src = outfile,
+    #        contenttype = 'svg',
+    #        alt = "IIR two")
+    # }, deleteFile = TRUE)
     
     output$cumSumPowerPlotComponent <- renderImage({
       outfile <- tempfile(fileext = '.svg')
@@ -5205,62 +5205,62 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$downloadCumSumPowerPlotSystem <- downloadHandler(
-      filename = paste0(
-        'cumulative-power-of-system-corrected-mls.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = cumSumPowerPlot()$p_system +
-              add_transducerTable_system(
-                sound_data()[[7]],
-                c("left", "bottom"),
-                subtitle = list(
-                  c(
-                    subtitleOne(),
-                    subtitleTwo()$component,
-                    subtitleThree()$component
-                  )
-                ),
-                leftShift = 0.02
-              ),
-            height = cumSumPowerPlot()$height_system,
-            units = "in",
-            device = svglite::svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = cumSumPowerPlot()$p_system +
-              add_transducerTable_system(
-                sound_data()[[7]],
-                c("left", "bottom"),
-                subtitle = list(
-                  c(
-                    subtitleOne(),
-                    subtitleTwo()$component,
-                    subtitleThree()$component
-                  )
-                ),
-                leftShift = 0.02
-              ),
-            height = cumSumPowerPlot()$height_system,
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite::svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
+    # output$downloadCumSumPowerPlotSystem <- downloadHandler(
+    #   filename = paste0(
+    #     'cumulative-power-of-system-corrected-mls.',
+    #     input$fileTypeSound
+    #   ),
+    #   content = function(file) {
+    #     if (input$fileTypeSound == "png") {
+    #       ggsave(
+    #         "tmp.svg",
+    #         plot = cumSumPowerPlot()$p_system +
+    #           add_transducerTable_system(
+    #             sound_data()[[7]],
+    #             c("left", "bottom"),
+    #             subtitle = list(
+    #               c(
+    #                 subtitleOne(),
+    #                 subtitleTwo()$component,
+    #                 subtitleThree()$component
+    #               )
+    #             ),
+    #             leftShift = 0.02
+    #           ),
+    #         height = cumSumPowerPlot()$height_system,
+    #         units = "in",
+    #         device = svglite::svglite
+    #       )
+    #       rsvg::rsvg_png("tmp.svg",
+    #                      file,
+    #                      width = 1800,
+    #                      height = 1800)
+    #     } else {
+    #       ggsave(
+    #         file,
+    #         plot = cumSumPowerPlot()$p_system +
+    #           add_transducerTable_system(
+    #             sound_data()[[7]],
+    #             c("left", "bottom"),
+    #             subtitle = list(
+    #               c(
+    #                 subtitleOne(),
+    #                 subtitleTwo()$component,
+    #                 subtitleThree()$component
+    #               )
+    #             ),
+    #             leftShift = 0.02
+    #           ),
+    #         height = cumSumPowerPlot()$height_system,
+    #         device = ifelse(
+    #           input$fileTypeSound == "svg",
+    #           svglite::svglite,
+    #           input$fileTypeSound
+    #         )
+    #       )
+    #     }
+    #   }
+    # )
     
     output$downloadCumSumPowerPlotcomponent <- downloadHandler(
       filename = paste0(
