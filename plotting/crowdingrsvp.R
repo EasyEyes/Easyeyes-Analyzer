@@ -1,5 +1,4 @@
 library(ggcorrplot) 
-library(plotly)
 library(tidyr)
 source('./constant.R')
 

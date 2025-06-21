@@ -3,7 +3,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function updatePanelVisibility(tabName) {
     const controlPanel = document.getElementById("controlPanel");
-    const thresholdParam = document.getElementById("thresholdParameterSelector");
+    const thresholdParam = document.getElementById(
+      "thresholdParameterSelector",
+    );
 
     // Toggle controlPanel
     if (controlPanel) {

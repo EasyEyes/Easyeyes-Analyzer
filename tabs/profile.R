@@ -1,6 +1,12 @@
 ##### Profiles #####
 profileTab <- tabPanel(
   'Profiles',
+  tags$head(
+    tags$script(src = "https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"),
+    tags$script(src = "https://www.gstatic.com/firebasejs/10.6.0/firebase-firestore-compat.js"),
+    tags$script(src = "https://cdn.jsdelivr.net/npm/chart.js"),
+    tags$script(src = "firestore.js"),
+  ),
   fixedRow(
     column(
       width = 12,
@@ -120,13 +126,6 @@ profileTab <- tabPanel(
                  tableOutput("profileAverage")
                ))),
     
-    
-    # checkbox style selection panel
-    # column(width = 12, align = "center", div(HTML("<p style='font-size: 16px'>Select one model</p> <div id='Model'></div>"))),
-    
-    # column(width = 8, div(id = "microphonePlots")),
-    
-    includeHTML("./www/firestore.html"),
     fixedRow(style = "margin-left:2px;",
              column(tableOutput("summaryStats"), 
                     width = 12, align = "left")),

@@ -14,7 +14,6 @@ library(shiny)
 library(shinytitle)
 library(svglite)
 library(shinycssloaders)
-library(plotly)
 library(shinyjs)
 library(shinyalert)
 shinyUI(

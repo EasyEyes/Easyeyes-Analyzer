@@ -107,10 +107,9 @@ plotsTab <- tabPanel(
       downloadButton("downloadRsvpCrowdingPeripheralGradePlot", "Download"),
       downloadButton("downloadRsvpResidualCrowding", "Download")
     ),
-    
+
     splitLayout(
       cellWidths = c("50%", "50%"),
-      #shinycssloaders::withSpinner(plotlyOutput("rsvpFovealAcuityAgePlot", height = '600px'), type = 4),
       shinycssloaders::withSpinner(
         ggiraph::girafeOutput("rsvpCrowdingFovealGradePlot", height = '100%'),
         type = 4
@@ -122,7 +121,6 @@ plotsTab <- tabPanel(
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      #downloadButton("downloadRsvpFovealAcuityAgePlot", "Download"),
       downloadButton("downloadRsvpCrowdingFovealGradePlot", "Download"),
       downloadButton("downloadRsvpFovealAcuityGradePlot", "Download")
     ),
