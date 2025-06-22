@@ -587,7 +587,7 @@ plot_reading_crowding <- function(allData) {
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade, `Skilled reader?`, block, conditionName) %>%
+    group_by(participant, age, Grade, `Skilled reader?`, conditionName) %>%
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
     ungroup()
   reading <- allData$reading %>% mutate(participant = tolower(participant))

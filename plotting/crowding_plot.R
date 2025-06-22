@@ -370,7 +370,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     ungroup()
   
   if (nrow(t) == 0) {
-    return(NULL)
+    return(list(NULL, NULL))
   } else {
     
     eccs     <- sort(unique(t$targetEccentricityXDeg))

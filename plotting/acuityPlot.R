@@ -644,7 +644,7 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
     p1 <- NULL
     t <- foveal %>%
       rename('foveal' = 'questMeanAtEndOfTrialsLoop') %>%
-      select(foveal, participant, order) %>%
+      select(foveal, participant) %>%
       inner_join(peripheral, by = 'participant') %>%
       rename('peripheral' = 'questMeanAtEndOfTrialsLoop') %>%
       mutate(age = format(age, nsmall = 2),
