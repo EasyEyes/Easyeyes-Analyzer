@@ -3964,6 +3964,7 @@ shinyServer(function(input, output, session) {
       if (length(ggiraph_plots$plotList) > 0) {
         for (i in seq_along(ggiraph_plots$plotList)) {
           print(i)
+          print(ggiraph_plots$fileNames[[i]])
           if (!is.null(ggiraph_plots$plotList[[i]])) {
             plotFileName <- paste0(ggiraph_plots$fileNames[[i]], '.', input$fileType)
             savePlot(ggiraph_plots$plotList[[i]], plotFileName, input$fileType, theme = plt_theme_ggiraph)

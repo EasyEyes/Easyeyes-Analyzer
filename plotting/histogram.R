@@ -169,6 +169,7 @@ get_acuity_hist <- function(acuity) {
 }
 
 get_reading_hist <- function(data) {
+  
   if (nrow(data) > 0) {
     if (data$targetKind[1] == 'rsvpReading') {
       data <- data %>%
@@ -181,7 +182,9 @@ get_reading_hist <- function(data) {
         summarize(log_WPM = mean(log_WPM, na.rm=T))
     }
     data <- data %>% filter(!is.na(log_WPM))
-    
+    if (nrow(data) == 0) {
+      return(NULL)
+    }
     if ('Skilled reader?' %in% names(data)) {
       stats1 <- data %>% filter(`Skilled reader?` != FALSE)
     } else {
