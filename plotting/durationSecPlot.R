@@ -534,6 +534,89 @@ append_hist_list <- function(data_list, plot_list, fileNames, conditionNameInput
               fileNames = fileNames))
 }
 
+append_hist_quality <- function(data_list, plot_list, fileNames, conditionNameInput){
+  
+  params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
+    t <- data_list[[i]] %>% 
+      filter(!is.na(staircaseName)) %>%
+      select(participant,
+             block,
+             block_condition,
+             conditionName,
+             targetMeasuredDurationSec,
+             targetMeasuredLatenessSec,
+             `heapUsedBeforeDrawing (MB)`,
+             `heapTotalBeforeDrawing (MB)`,
+             `heapLimitBeforeDrawing (MB)`,
+             `heapUsedAfterDrawing (MB)`,
+             `heapTotalAfterDrawing (MB)`,
+             `heapLimitAfterDrawing (MB)`,
+             `heapTotalPostLateness (MB)`,
+             `heapTotalPreLateness (MB)`,
+             computeRandomMHz,
+             deviceMemoryGB,
+             cores,
+             fontNominalSizePx,
+             screenWidthPx,
+             screenHeightPx,
+             trialGivenToQuest) %>% 
+      rename(hardwareConcurrency = cores) %>% 
+      mutate(
+        deltaHeapUsedMB = as.numeric(`heapUsedAfterDrawing (MB)`) - as.numeric(`heapUsedBeforeDrawing (MB)`),
+        deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
+        deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`),
+        # screenWidthCm = screenWidthPx / pxPerCm,
+        # screenHeightCm = screenHeightPx / pxPerCm,
+      )
+    
+  }
+  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
+    params <- params %>% filter(conditionName %in% conditionNameInput)
+  } 
+  
+  if (is.character(params$targetMeasuredDurationSec)) {
+    params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
+    params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
+  }
+  
+  
+  
+  blockCondition <- params %>% 
+    group_by(participant, block_condition) %>% 
+    summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
+              badTrials = sum(!trialGivenToQuest, na.rm =T)) %>% 
+    ungroup()
+  
+  blockCondition_vars <- c("goodTrials", 'badTrials')
+  
+  j = length(plot_list) + 1
+  for (var in blockCondition_vars) {
+    if (n_distinct(blockCondition[var]) > 1) {
+      
+      avg <- round(mean(as.numeric(blockCondition[[var]]), na.rm =T),2)
+      sd <- round(sd(as.numeric(blockCondition[[var]]), na.rm =T),2)
+      n = length(blockCondition[!is.na(blockCondition[var]),])
+      
+      plot_list[[j]] <- ggplot(blockCondition, aes(x = .data[[var]])) +
+        geom_histogram(color="black", fill="black") + 
+        ggpp::geom_text_npc(
+          data = NULL,
+          aes(npcx = 'right',
+              npcy = 'top'),
+          label = paste0('N = ', n)
+          
+        ) +
+        theme_bw() +
+        labs(title = paste("Histogram of", var))
+      fileNames[[j]] <- paste0(var,'-histogram')
+      j = j + 1
+    }
+  }
+  
+  return(list(plotList = plot_list,
+              fileNames = fileNames))
+}
+
 append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput){
   print('inside get_dur_param_hist')
   
@@ -590,11 +673,11 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
               heapUsedAfterDrawingAvg = mean( `heapUsedAfterDrawing (MB)`, na.rm =T)) %>% 
     ungroup()
   
-  blockCondition <- params %>% 
-    group_by(participant, block_condition) %>% 
-    summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
-              badTrials = sum(!trialGivenToQuest, na.rm =T)) %>% 
-    ungroup()
+  # blockCondition <- params %>% 
+  #   group_by(participant, block_condition) %>% 
+  #   summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
+  #             badTrials = sum(!trialGivenToQuest, na.rm =T)) %>% 
+  #   ungroup()
   
   params_vars <- c("heapUsedAfterDrawing (MB)", 
                    "heapTotalAfterDrawing (MB)", 
@@ -608,7 +691,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
   
   blockAvg_vars <- c("heapTotalAfterDrawingAvg", "heapUsedAfterDrawingAvg")
   
-  blockCondition_vars <- c("goodTrials", 'badTrials')
+  # blockCondition_vars <- c("goodTrials", 'badTrials')
   
   j = length(plot_list) + 1
   # Loop through params dataset and generate histograms
@@ -721,28 +804,28 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
     }
   }
   
-  for (var in blockCondition_vars) {
-    if (n_distinct(blockCondition[var]) > 1) {
-      
-      avg <- round(mean(as.numeric(blockCondition[[var]]), na.rm =T),2)
-      sd <- round(sd(as.numeric(blockCondition[[var]]), na.rm =T),2)
-      n = length(blockCondition[!is.na(blockCondition[var]),])
-      
-      plot_list[[j]] <- ggplot(blockCondition, aes(x = .data[[var]])) +
-        geom_histogram(color="black", fill="black") + 
-        ggpp::geom_text_npc(
-          data = NULL,
-          aes(npcx = 'right',
-              npcy = 'top'),
-          label = paste0('N = ', n)
-         
-        ) +
-        theme_bw() +
-        labs(title = paste("Histogram of", var))
-      fileNames[[j]] <- paste0(var,'-histogram')
-      j = j + 1
-    }
-  }
+  # for (var in blockCondition_vars) {
+  #   if (n_distinct(blockCondition[var]) > 1) {
+  #     
+  #     avg <- round(mean(as.numeric(blockCondition[[var]]), na.rm =T),2)
+  #     sd <- round(sd(as.numeric(blockCondition[[var]]), na.rm =T),2)
+  #     n = length(blockCondition[!is.na(blockCondition[var]),])
+  #     
+  #     plot_list[[j]] <- ggplot(blockCondition, aes(x = .data[[var]])) +
+  #       geom_histogram(color="black", fill="black") + 
+  #       ggpp::geom_text_npc(
+  #         data = NULL,
+  #         aes(npcx = 'right',
+  #             npcy = 'top'),
+  #         label = paste0('N = ', n)
+  #        
+  #       ) +
+  #       theme_bw() +
+  #       labs(title = paste("Histogram of", var))
+  #     fileNames[[j]] <- paste0(var,'-histogram')
+  #     j = j + 1
+  #   }
+  # }
   print('done timing hist')
   
   return(list(plotList = plot_list,

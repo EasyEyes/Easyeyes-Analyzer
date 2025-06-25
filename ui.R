@@ -8,6 +8,7 @@ source('./tabs/sound.R')
 source('./tabs/profile.R')
 source('./tabs/formSpreeDash.R')
 source('./tabs/timming.R')
+source('./tabs/quality.R')
 
 # packages
 library(shiny)
@@ -32,7 +33,7 @@ shinyUI(
         tags$link(rel = "stylesheet", type = "text/css", href = "ui.css")
       ),
       div(
-        style = "background-color: #e6f2ff;border-radius: 10px;",
+        style = "background-color: #e6f2ff;border-radius: 10px; padding: 3pt; margin-bottom: 3pt;",
         id = "controlPanel",
         useShinyjs(),
         div(
@@ -100,7 +101,7 @@ shinyUI(
           ),
           checkboxGroupInput(
             inputId = "conditionName",
-            label = "conditionName",
+            label = "Include these conditionNames:",
             inline = FALSE,
             choices = NULL,
             selected = NULL
@@ -112,6 +113,7 @@ shinyUI(
     tabPanel("Sessions", value = "Sessions", sessionTab),
     tabPanel("Stats", value = "Stats", statTab),
     tabPanel("Plots", value = "Plots", plotsTab),
+    tabPanel("Quality", value = "Quality", qualityTab),
     tabPanel("Timing", value = 'Timing', timingTab),
     tabPanel("Staircases", value = "Staircases", staircasesTab),
     tabPanel("Sound", value = "Sound", soundTab),

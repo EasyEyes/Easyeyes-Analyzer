@@ -328,22 +328,31 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
   return(
     list(
       scatter = list(
-        plotList = list(p4, p5, p6, p7,p8,p9),
+        plotList = list(p5),
+        fileNames = list(
+          'foveal-crowding-vs-spacingMinDeg'
+        )
+      ),
+      hist = list(
+        plotList = list(p1,p3),
+        fileNames = list('estimatedDevicePixelRatio-hist',  
+                       'spacingMinDeg-hist')
+      ),
+      scatter_quality = list(
+        plotList = list(p4, p6, p7, p8, p9),
         fileNames = list(
           'foveal-acuity-vs-sizeMinDeg',
-          'foveal-crowding-vs-spacingMinDeg',
           'questSD-vs-foveal-crowding',
           'questSD-vs-peripheral-crowding',
           'questSD-vs-foveal-acuity',
           'questSD-vs-peripheral-acuity'
         )
       ),
-      hist = list(
-        plotList = list(p1,p2,p3),
-        fileNames = list('estimatedDevicePixelRatio-hist', 
-                       'sizeMinDeg-hist', 
-                       'spacingMinDeg-hist')
+      hist_quality = list (
+        plotList = list(p2),
+        fileNames = list('sizeMinDeg-hist')
       )
     )
   )
 }
+

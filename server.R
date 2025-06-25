@@ -890,13 +890,37 @@ shinyServer(function(input, output, session) {
     
     print('before appending')
     lists = append_hist_list(data_list(), l, fileNames, conditionNames())
-    lists = add_questsd_hist(df_list()$quest, lists)
-    
+    # lists = add_questsd_hist(df_list()$quest, lists)
+    # 
     minDegHist <-
       get_minDeg_plots(data_list(),
                        df_list()$acuity,
                        df_list()$crowding,
                        df_list()$quest)$hist
+    return(list(
+      plotList = c(lists$plotList, minDegHist$plotList),
+      fileNames = c(lists$fileNames, minDegHist$fileNames)
+    ))
+  })
+
+  histogramsQuality <- reactive({
+    if (is.null(files())) {
+      return(list(plotList = list(),
+                  fileNames = list()))
+    }
+    
+    print('Generating quality histograms')
+    l <- list()
+    fileNames <- list()
+    
+    lists <- append_hist_quality(data_list(), l, fileNames, conditionNames())
+    lists <- add_questsd_hist(df_list()$quest, lists)
+    
+    minDegHist <-
+      get_minDeg_plots(data_list(),
+                       df_list()$acuity,
+                       df_list()$crowding,
+                       df_list()$quest)$hist_quality
     return(list(
       plotList = c(lists$plotList, minDegHist$plotList),
       fileNames = c(lists$fileNames, minDegHist$fileNames)
@@ -952,8 +976,8 @@ shinyServer(function(input, output, session) {
     l <- list()
     fileNames <- list()
     
-    crowdingPlots <-
-      plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
+    # crowdingPlots <-
+    #   plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
     
     t <- plot_distance(files()$data_list)
     
@@ -964,20 +988,20 @@ shinyServer(function(input, output, session) {
     }
     
     # Add foveal plot to the list
-    if (!is.null(crowdingPlots$fovealPlot)) {
-      l[[i]] <- crowdingPlots$fovealPlot + plt_theme
-      fileNames[[i]] <-
-        'foveal-crowding-staircases-threshold-vs-questTrials'
-      i <- i + 1
-    }
-    
-    # Add peripheral plot to the list
-    if (!is.null(crowdingPlots$peripheralPlot)) {
-      l[[i]] <- crowdingPlots$peripheralPlot + plt_theme
-      fileNames[[i]] <-
-        'peripheral-crowding-staircases-threshold-vs-questTrials'
-      i <- i + 1
-    }
+    # if (!is.null(crowdingPlots$fovealPlot)) {
+    #   l[[i]] <- crowdingPlots$fovealPlot + plt_theme
+    #   fileNames[[i]] <-
+    #     'foveal-crowding-staircases-threshold-vs-questTrials'
+    #   i <- i + 1
+    # }
+    # 
+    # # Add peripheral plot to the list
+    # if (!is.null(crowdingPlots$peripheralPlot)) {
+    #   l[[i]] <- crowdingPlots$peripheralPlot + plt_theme
+    #   fileNames[[i]] <-
+    #     'peripheral-crowding-staircases-threshold-vs-questTrials'
+    #   i <- i + 1
+    # }
     
     t <- foveal_crowding_vs_acuity_diag()$foveal
     
@@ -1022,19 +1046,19 @@ shinyServer(function(input, output, session) {
       i = i + 1
     }
     
-    t <- get_quest_diag(df_list()$quest)$grade
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
-      i = i + 1
-    }
+    # t <- get_quest_diag(df_list()$quest)$grade
+    # if (!is.null(t)) {
+    #   l[[i]] = t
+    #   fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
+    #   i = i + 1
+    # }
     
-    t <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
-    if (!is.null(t)) {
-      l[[i]] <- t
-      fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
-      i <- i + 1
-    }
+    # t <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
+    # if (!is.null(t)) {
+    #   l[[i]] <- t
+    #   fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
+    #   i <- i + 1
+    # }
     
     t <- regression_reading_plot(df_list())
     if (!is.null(t$foveal)) {
@@ -1083,6 +1107,58 @@ shinyServer(function(input, output, session) {
     return(list(
       plotList = c(lists$plotList, minDegPlot$plotList),
       fileNames = c(lists$fileNames, minDegPlot$fileNames)
+    ))
+  })
+  
+  scatterQuality <- reactive({
+    if (is.null(input$file) | is.null(files())) {
+      return(list(plotList = list(),
+                  fileNames = list()))
+    }
+    print('inside scatter quality plots')
+    i = 1
+    l <- list()
+    fileNames <- list()
+    
+    crowdingPlots <-
+      plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
+    if (!is.null(crowdingPlots$fovealPlot)) {
+      l[[i]] <- crowdingPlots$fovealPlot + plt_theme
+      fileNames[[i]] <-
+        'foveal-crowding-staircases-threshold-vs-questTrials'
+      i <- i + 1
+    }
+    
+    # Add peripheral plot to the list
+    if (!is.null(crowdingPlots$peripheralPlot)) {
+      l[[i]] <- crowdingPlots$peripheralPlot + plt_theme
+      fileNames[[i]] <-
+        'peripheral-crowding-staircases-threshold-vs-questTrials'
+      i <- i + 1
+    }
+
+    t <- get_quest_diag(df_list()$quest)$grade
+    if (!is.null(t)) {
+      l[[i]] = t
+      fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
+      i = i + 1
+    }
+    
+    t <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
+    if (!is.null(t)) {
+      l[[i]] <- t
+      fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
+      i <- i + 1
+    }
+    
+    minDegPlot <-
+      get_minDeg_plots(data_list(),
+                       df_list()$acuity,
+                       df_list()$crowding,
+                       df_list()$quest)$scatter_quality
+    return(list(
+      plotList = c(l, minDegPlot$plotList),
+      fileNames = c(fileNames, minDegPlot$fileNames)
     ))
   })
   
@@ -2219,6 +2295,182 @@ shinyServer(function(input, output, session) {
     
     return(out)
   })
+
+  output$qualityHistograms <- renderUI({
+    out <- list()
+    i <- 1
+    
+    while (i <= length(histogramsQuality()$plotList) - 3) {
+      # Create a row with 4 histograms
+      out[[i]] <-
+        splitLayout(
+          cellWidths = c("25%", "25%", "25%", "25%"),
+          shinycssloaders::withSpinner(plotOutput(
+            paste0("qualityHist", i),
+            width = "100%",
+            height = "100%"
+          ),
+          type = 4),
+          shinycssloaders::withSpinner(plotOutput(
+            paste0("qualityHist", i + 1),
+            width = "100%",
+            height = "100%"
+          ),
+          type = 4),
+          shinycssloaders::withSpinner(plotOutput(
+            paste0("qualityHist", i + 2),
+            width = "100%",
+            height = "100%"
+          ),
+          type = 4),
+          shinycssloaders::withSpinner(plotOutput(
+            paste0("qualityHist", i + 3),
+            width = "100%",
+            height = "100%"
+          ),
+          type = 4)
+        )
+      # Create a row with 4 download buttons
+      out[[i + 1]] <-
+        splitLayout(
+          cellWidths = c("25%", "25%", "25%", "25%"),
+          downloadButton(paste0("downloadQualityHist", i), 'Download'),
+          downloadButton(paste0("downloadQualityHist", i + 1), 'Download'),
+          downloadButton(paste0("downloadQualityHist", i + 2), 'Download'),
+          downloadButton(paste0("downloadQualityHist", i + 3), 'Download')
+        )
+      i <- i + 4
+    }
+    
+    # Handle any remaining histograms (fewer than 4)
+    remaining <- length(histogramsQuality()$plotList) - i + 1
+    if (remaining > 0) {
+      plotOutputs <- lapply(1:remaining, function(j) {
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("qualityHist", i + j - 1),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4)
+      })
+      downloadButtons <- lapply(1:remaining, function(j) {
+        downloadButton(paste0("downloadQualityHist", i + j - 1), 'Download')
+      })
+      
+      # Fill remaining cells with empty space
+      emptyCells <- 4 - remaining
+      plotOutputs <- c(plotOutputs, rep("", emptyCells))
+      downloadButtons <- c(downloadButtons, rep("", emptyCells))
+      
+      out[[length(out) + 1]] <-
+        do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), plotOutputs))
+      out[[length(out) + 1]] <-
+        do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), downloadButtons))
+    }
+    
+    # Render histograms and download handlers
+    for (j in seq_along(histogramsQuality()$plotList)) {
+      local({
+        ii <- j
+        output[[paste0("qualityHist", ii)]] <- renderImage({
+          tryCatch({
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = histogramsQuality()$plotList[[ii]] + hist_theme,
+              device = svglite,
+              width = 4,
+              # Reduced width
+              height = 3.5,
+              # Reduced height
+              unit = 'in'
+            )
+            list(src = outfile, contenttype = 'svg')
+          }, error = function(e) {
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                color = "red",
+                size = 5,
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              theme_void() +
+              ggtitle(histogramsQuality()$fileNames[[ii]])
+            
+            # Save the error plot to a temp file
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = error_plot,
+              device = svglite,
+              width = 6,
+              height = 4,
+              unit = 'in'
+            )
+            list(
+              src = outfile,
+              contenttype = 'svg',
+              alt = paste0("Error in ", histogramsQuality()$fileNames[[ii]])
+            )
+          })
+          
+        }, deleteFile = TRUE)
+        
+        output[[paste0("downloadQualityHist", ii)]] <-
+          downloadHandler(
+            filename = paste0(
+              experiment_names(),
+              histogramsQuality()$fileNames[[ii]],
+              ii,
+              '.',
+              input$fileType
+            ),
+            content = function(file) {
+              if (input$fileType == "png") {
+                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+                ggsave(
+                  tmp_svg,
+                  plot = histogramsQuality()$plotList[[ii]] + hist_theme,
+                  unit = "in",
+                  width = 4,
+                  # Reduced width
+                  height = 3.5,
+                  # Reduced height
+                  limitsize = F,
+                  device = svglite
+                )
+                rsvg::rsvg_png(tmp_svg,
+                               file,
+                               height = 900,
+                               width = 900)  # Reduced resolution
+              } else {
+                ggsave(
+                  file,
+                  plot = histogramsQuality()$plotList[[ii]] + hist_theme,
+                  width = 4,
+                  # Reduced width
+                  height = 3.5,
+                  # Reduced height
+                  unit = "in",
+                  limitsize = F,
+                  device = ifelse(
+                    input$fileType == "svg",
+                    svglite::svglite,
+                    input$fileType
+                  )
+                )
+              }
+            }
+          )
+      })
+    }
+    
+    return(out)
+  })
   output$timingHistograms <- renderUI({
     out <- list()
     i <- 1
@@ -2930,6 +3182,144 @@ shinyServer(function(input, output, session) {
     return(out)
   })
   
+  output$qualityScatters <- renderUI({
+    out <- list()
+    i = 1
+    while (i <= length(scatterQuality()$plotList) - 1) {
+      out[[i]] <-  splitLayout(
+        cellWidths = c("50%", "50%"),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("qualityScatter", i),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("qualityScatter", i + 1),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4)
+      )
+      out[[i + 1]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        downloadButton(paste0("downloadQualityScatter", i), 'Download'),
+        downloadButton(paste0("downloadQualityScatter", i +
+                                1), 'Download')
+      )
+      i = i + 2
+    }
+    if (i == length(scatterQuality()$plotList)) {
+      out[[i]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("qualityScatter", i),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4)
+      )
+      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                  downloadButton(paste0("downloadQualityScatter", i), 'Download'))
+    }
+    for (j in 1:length(scatterQuality()$plotList)) {
+      local({
+        ii <- j
+        output[[paste0("qualityScatter", ii)]] <- renderImage({
+          tryCatch({
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = scatterQuality()$plotList[[ii]] +
+                plt_theme_scatter +
+                scale_color_manual(values = colorPalette),
+              unit = 'in',
+              limitsize = F,
+              device = svglite
+            )
+            
+            list(src = outfile,
+                 contenttype = 'svg')
+            
+          }, error = function(e) {
+            # Show error in a ggplot-friendly way
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                color = "red",
+                size = 5,
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              theme_void() +
+              ggtitle(scatterQuality()$fileNames[[ii]])
+            
+            # Save the error plot to a temp file
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = error_plot,
+              device = svglite,
+              width = 6,
+              height = 4,
+              unit = 'in'
+            )
+            list(
+              src = outfile,
+              contenttype = 'svg',
+              alt = paste0("Error in ", scatterQuality()$fileNames[[ii]])
+            )
+          })
+          
+        }, deleteFile = TRUE)
+        
+        output[[paste0("downloadQualityScatter", ii)]] <-
+          downloadHandler(
+            filename = paste0(
+              experiment_names(),
+              scatterQuality()$fileNames[[ii]],
+              ii,
+              '.',
+              input$fileType
+            ),
+            content = function(file) {
+              if (input$fileType == "png") {
+                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+                ggsave(
+                  tmp_svg,
+                  plot = scatterQuality()$plotList[[ii]] +
+                    plt_theme_scatter +
+                    scale_color_manual(values = colorPalette),
+                  unit = "in",
+                  limitsize = F,
+                  device = svglite
+                )
+                rsvg::rsvg_png(tmp_svg, file,
+                               width = 1800)
+              } else {
+                ggsave(
+                  file,
+                  plot = scatterQuality()$plotList[[ii]] +
+                    plt_theme_scatter +
+                    scale_color_manual(values = colorPalette),
+                  unit = "in",
+                  limitsize = F,
+                  device = ifelse(
+                    input$fileType == "svg",
+                    svglite::svglite,
+                    input$fileType
+                  )
+                )
+              }
+            }
+          )
+      })
+    }
+    return(out)
+  })
   
   output$scatterTimeParticipant <- renderUI({
     out <- list()
