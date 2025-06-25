@@ -299,7 +299,6 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     distinct()
   
   print("in get_min_deg_plot")
-  print(p_acuity)
   eccs_pa <- sort(unique(p_acuity$targetEccentricityXDeg))
   lbl_pa  <- paste0("EccX = ", paste(as.integer(round(eccs_pa)), collapse=", "), " deg")
   

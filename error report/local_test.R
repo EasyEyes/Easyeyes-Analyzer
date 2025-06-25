@@ -356,34 +356,6 @@ foveal_rsvp <- foveal %>%
 info <- get_info(data_list)
 
 
-
-
-
-
-
-
-
-
-
-
-
-plot_rsvp_crowding_plotly(allData,df)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #### test sound calibration ####
 sound_list <- preprocess_sound_data(data_list)
 all_sound_data <- get_all_sound_data(sound_list)

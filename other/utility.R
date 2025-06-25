@@ -1,3 +1,27 @@
+# Consistent way of saving plot using rsvg_png
+savePlot <- function(plot, filename, fileType, width = 6, height = NULL, theme = NULL) {
+  if (fileType == "png") {
+    ggsave('tmp.svg', plot = plot + theme, width = width, unit = 'in', device = svglite)
+    rsvg::rsvg_png("tmp.svg", filename, height = 1200, width = 1200)
+  } else {
+    ggsave(
+      filename = filename,
+      plot = plot + theme,
+      width = width,
+      unit = 'in',
+      device = ifelse(fileType == "svg", svglite::svglite, fileType)
+    )
+  }
+}
+
+append_plot_list <- function(plotList, fileNames, plot, fname) {
+  if (!is.null(plot)) {
+    plotList[[length(plotList) + 1]] <- plot
+    fileNames[[length(fileNames) + 1]] <- fname
+  }
+  return(list(plotList = plotList, fileNames = fileNames))
+}
+
 get_stats_label <- function(data, needSlope, needCorr) {
   N = nrow(data)
   corr = format(

@@ -18,7 +18,6 @@ library(lubridate)
 library(ggpp)
 library(svglite)
 library(patchwork)
-library(plotly)
 library(grid)
 library(ggnewscale)
 # library(showtext)
@@ -266,81 +265,31 @@ shinyServer(function(input, output, session) {
   # Optional debounced reactive
   conditionNames <- reactive(input$conditionName) %>% debounce(5000)
   
-  
-  # observeEvent(conditionNames(),{
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNameStaircase',
-  #     label = "conditionName",
-  #     choices = sort( df_list()$conditionNames),
-  #     selected = input$conditionNamePlots,
-  #     inline = FALSE
-  #   )
-  #
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNameTiming',
-  #     label = "conditionName",
-  #     choices = sort( df_list()$conditionNames),
-  #     selected = input$conditionNamePlots,
-  #     inline = FALSE
-  #   )
-  # })
-  #
-  # observeEvent(conditionNameTiming(),{
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNamePlots',
-  #     label = "conditionName",
-  #     choices = sort( df_list()$conditionNames),
-  #     selected = input$conditionNameTiming,
-  #     inline = FALSE
-  #   )
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNameStaircase',
-  #     label = "conditionName",
-  #     choices = sort( df_list()$conditionNames),
-  #     selected = input$conditionNameTiming,
-  #     inline = FALSE
-  #   )
-  # })
-  #
-  # observeEvent(conditionNameStaircase(),{
-  #
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNamePlots',
-  #     label = "conditionName",
-  #     choices = sort(df_list()$conditionNames),
-  #     selected = input$conditionNameStaircase,
-  #     inline = FALSE
-  #   )
-  #   updateCheckboxGroupInput(
-  #     session,
-  #     inputId = 'conditionNameTiming',
-  #     label = "conditionName",
-  #     choices = sort(df_list()$conditionNames),
-  #     selected = input$conditionNameStaircase,
-  #     inline = FALSE
-  #   )
-  # })
-  
   df_list <- reactive({
     if (is.null(files())) {
       return(NULL)
     }
+    df_list <- generate_rsvp_reading_crowding_fluency(
+      files()$data_list,
+      summary_list(),
+      files()$pretest,
+      files()$stairs,
+      input$filterInput,
+      minNQuestTrials(),
+      maxQuestSD(),
+      conditionNames()
+    )
+    
+    updateCheckboxGroupInput(
+      session,
+      inputId = 'conditionName',
+      label = "Include these conditionNames:",
+      choices = sort(df_list$conditionNames),
+      selected = df_list$conditionNames,
+      inline = FALSE
+    )
     return(
-      generate_rsvp_reading_crowding_fluency(
-        files()$data_list,
-        summary_list(),
-        files()$pretest,
-        files()$stairs,
-        input$filterInput,
-        minNQuestTrials(),
-        maxQuestSD(),
-        conditionNames()
-      )
+      df_list
     )
   })
   
@@ -409,9 +358,9 @@ shinyServer(function(input, output, session) {
     return(get_iir_plot(iir(), sound_data()))
   })
   
-  record_freq_system_plot <- reactive({
-    plot_record_freq_system(sound_data())
-  })
+  # record_freq_system_plot <- reactive({
+  #   plot_record_freq_system(sound_data())
+  # })
   
   record_freq_component_plot <- reactive({
     plot_record_freq_component(sound_data())
@@ -744,73 +693,34 @@ shinyServer(function(input, output, session) {
   
   agePlots <- reactive({
     if (is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
+      return(list(plotList = list(), fileNames = list()))
     }
     print('inside agePlots')
-    i = 1
+    
     l <- list()
     fileNames <- list()
     
-    t <- get_foveal_crowding_vs_age(df_list()$crowding)
+    plot_calls <- list(
+      list(plot = get_peripheral_crowding_vs_age(df_list()$crowding)[[1]], fname = 'peripheral-crowding-vs-age-by-grade'),
+      list(plot = get_peripheral_crowding_vs_age(df_list()$crowding)[[2]], fname = 'peripheral-crowding-ave-vs-age-by-grade'),
+      list(plot = get_foveal_crowding_vs_age(df_list()$crowding), fname = 'foveal-crowding-vs-age-by-grade'),
+      list(plot = get_repeatedLetter_vs_age(df_list()$repeatedLetters), fname = 'repeated-letter-crowding-vs-age-by-grade'),
+      list(plot = plot_reading_age(df_list()$reading), fname = 'reading-vs-age-by-grade'),
+      list(plot = plot_rsvp_age(df_list()$rsvp), fname = 'rsvp-reading-vs-age-by-grade'),
+      list(plot = get_foveal_acuity_vs_age(df_list()$acuity), fname = 'foveal-acuity-vs-age'),
+      list(plot = get_peripheral_acuity_vs_age(df_list()$acuity), fname = 'peripheral-acuity-vs-age'),
+      list(plot = plot_acuity_vs_age(df_list()), fname = 'acuity-vs-age'),
+      list(plot = plot_crowding_vs_age(df_list()$crowding), fname = 'crowding-vs-age')
+    )
     
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'foveal-crowding-vs-age-by-grade'
-      i = i + 1
-    }
-    t <- get_peripheral_crowding_vs_age(df_list()$crowding)
-    
-    if (!is.null(t)) {
-      l[[i]] = t[[1]]
-      fileNames[[i]] = 'peripheral-crowding-vs-age-by-grade'
-      i = i + 1
-      
-      l[[i]] = t[[2]]
-      fileNames[[i]] = 'peripheral-crowding-ave-vs-age-by-grade'
-      i = i + 1
-    }
-    
-    t <- get_repeatedLetter_vs_age(df_list()$repeatedLetters)
-    
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'repeated-letter-crowding-vs-age-by-grade'
-      i = i + 1
-    }
-    t <- plot_reading_age(df_list()$reading)
-    
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'reading-vs-age-by-grade'
-      i = i + 1
-    }
-    t <- plot_rsvp_age(df_list()$rsvp)
-    
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'rsvp-reading-vs-age-by-grade'
-      i = i + 1
-    }
-    t <- get_foveal_acuity_vs_age(df_list()$acuity)
-    
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'foveal-acuity-vs-age'
-      i = i + 1
-    }
-    
-    t <- get_peripheral_acuity_vs_age(df_list()$acuity)
-    
-    if (!is.null(t)) {
-      l[[i]] = t
-      fileNames[[i]] = 'peripheral-acuity-vs-age'
-      i = i + 1
+    for (call in plot_calls) {
+      res <- append_plot_list(l, fileNames, call$plot, call$fname)
+      l <- res$plotList
+      fileNames <- res$fileNames
     }
     
     print('done age plots')
-    return(list(plotList = l,
-                fileNames = fileNames))
+    return(list(plotList = l, fileNames = fileNames))
   })
   
   histograms <- reactive({
@@ -827,8 +737,7 @@ shinyServer(function(input, output, session) {
     crowding_hist <- get_crowding_hist(df_list()$crowding)
     rsvp_hist <- get_reading_hist(df_list()$rsvp)
     reading_hist <- get_reading_hist(df_list()$reading)
-    repeated_hist <-
-      get_repeatedLetter_hist(df_list()$repeatedLetters)
+    repeated_hist <- get_repeatedLetter_hist(df_list()$repeatedLetters)
     age_hist <- get_age_histogram(df_list()$age)
     grade_hist <- get_grade_histogram(df_list()$age)
     
@@ -976,18 +885,17 @@ shinyServer(function(input, output, session) {
     l <- list()
     fileNames <- list()
     
-    # crowdingPlots <-
-    #   plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
-    
+
     t <- plot_distance(files()$data_list)
     
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'
       i = i + 1
     }
     
     # Add foveal plot to the list
+
     # if (!is.null(crowdingPlots$fovealPlot)) {
     #   l[[i]] <- crowdingPlots$fovealPlot + plt_theme
     #   fileNames[[i]] <-
@@ -1002,50 +910,52 @@ shinyServer(function(input, output, session) {
     #     'peripheral-crowding-staircases-threshold-vs-questTrials'
     #   i <- i + 1
     # }
+
     
     t <- foveal_crowding_vs_acuity_diag()$foveal
     
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'foveal-crowding-vs-foveal-acuity-grade-diagram'
       i = i + 1
     }
     
     t <-  foveal_crowding_vs_acuity_diag()$peripheral
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'foveal-crowding-vs-peripheral-acuity-grade-diagram'
       i = i + 1
     }
     
     t <- get_acuity_foveal_peripheral_diag(df_list()$acuity)
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'foveal-acuity-vs-peripheral-acuity-grade-diagram'
       i = i + 1
     }
     
     t <- foveal_peripheral_diag()$grade
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'foveal-crowding-vs-peripheral-crowding-grade-diagram'
       i = i + 1
     }
     
     t <- peripheral_plot(df_list())
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'
       i = i + 1
     }
     
     t <- crowdingPlot()
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'peripheral_crowding_left_vs_right'
       i = i + 1
     }
     
+
     # t <- get_quest_diag(df_list()$quest)$grade
     # if (!is.null(t)) {
     #   l[[i]] = t
@@ -1068,7 +978,7 @@ shinyServer(function(input, output, session) {
     }
     
     if (!is.null(t$peripheral)) {
-      l[[i]] = t$peripheral
+      l[[i]] = t$peripheral + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'reading-rsvp-reading-vs-peripheral-crowding'
       i = i + 1
     }
@@ -1076,14 +986,14 @@ shinyServer(function(input, output, session) {
     t <- regression_acuity_plot(df_list())
     
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'ordinary-reading-rsvp-reading-vs-acuity'
       i = i + 1
     }
     
     t <- plot_reading_rsvp(df_list()$reading, df_list()$rsvp)
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'reading-vs-RSVP-reading-plot'
       i = i + 1
     }
@@ -1092,7 +1002,7 @@ shinyServer(function(input, output, session) {
                                         df_list()$repeatedLetters)$grade
     
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'crowding-vs-repeated-letters-crowding-grade'
       i = i + 1
     }
@@ -1123,7 +1033,7 @@ shinyServer(function(input, output, session) {
     crowdingPlots <-
       plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
     if (!is.null(crowdingPlots$fovealPlot)) {
-      l[[i]] <- crowdingPlots$fovealPlot + plt_theme
+      l[[i]] <- crowdingPlots$fovealPlot +  scale_color_manual(values = colorPalette)
       fileNames[[i]] <-
         'foveal-crowding-staircases-threshold-vs-questTrials'
       i <- i + 1
@@ -1131,7 +1041,7 @@ shinyServer(function(input, output, session) {
     
     # Add peripheral plot to the list
     if (!is.null(crowdingPlots$peripheralPlot)) {
-      l[[i]] <- crowdingPlots$peripheralPlot + plt_theme
+      l[[i]] <- crowdingPlots$peripheralPlot + scale_color_manual(values = colorPalette)
       fileNames[[i]] <-
         'peripheral-crowding-staircases-threshold-vs-questTrials'
       i <- i + 1
@@ -1139,14 +1049,14 @@ shinyServer(function(input, output, session) {
 
     t <- get_quest_diag(df_list()$quest)$grade
     if (!is.null(t)) {
-      l[[i]] = t
+      l[[i]] = t + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
       i = i + 1
     }
     
     t <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
     if (!is.null(t)) {
-      l[[i]] <- t
+      l[[i]] <- t + scale_color_manual(values = colorPalette)
       fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
       i <- i + 1
     }
@@ -1198,152 +1108,6 @@ shinyServer(function(input, output, session) {
     return(scatter_time_plots)
   })
   
-  #### plotly plots ####
-  rsvpPlotlyPlots <-  reactive({
-    if (is.null(input$file) | is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
-    }
-    print('inside plotly plots')
-    i = 1
-    l <- list()
-    fileNames <- list()
-    
-    repeatedLetter_rsvp <-
-      plot_rsvp_repeated_letter_crowding(df_list())
-    
-    
-    
-    print('plot_rsvp_repeated_letter_crowding')
-    if (!is.null(repeatedLetter_rsvp[[1]])) {
-      l[[i]] <- repeatedLetter_rsvp[[1]] + plt_theme
-      fileNames[[i]] <-
-        'rsvp-foveal-repeated-letter-crowding-grade'
-      i <- i + 1
-    }
-    
-    if (!is.null(repeatedLetter_rsvp[[2]])) {
-      l[[i]] <- repeatedLetter_rsvp[[2]] + plt_theme
-      fileNames[[i]] <-
-        'rsvp-peripheral-repeated-letter-crowding-grade'
-      i <- i + 1
-    }
-    
-    t <- plot_rsvp_crowding(df_list())
-    
-    print('plot_rsvp_crowding')
-    
-    
-    if (!is.null(t[[3]])) {
-      l[[i]] <- t[[3]] + plt_theme
-      fileNames[[i]] <- 'rsvp-vs-peripheral-crowding-by-grade'
-      i <- i + 1
-    }
-    
-    if (!is.null(t[[4]])) {
-      l[[i]] <- t[[4]] + plt_theme
-      fileNames[[i]] <-
-        'residual-rsvp-vs-residual-peripheral-crowding-by-grade'
-      i <- i + 1
-    }
-    if (!is.null(t[[5]])) {
-      l[[i]] <- t[[5]] + plt_theme
-      fileNames[[i]] <- 'rsvp-vs-fovel-crowding-by-grade'
-      i <- i + 1
-    }
-    
-    print('plot_acuity_rsvp')
-    t <-
-      plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp, 'foveal')
-    if (!is.null(t[[2]])) {
-      l[[i]] <- t[[2]] + plt_theme
-      fileNames[[i]] <- 'rsvp-vs-foveal-acuity-by-grade'
-      i <- i + 1
-    }
-    t <-
-      plot_acuity_rsvp(df_list()$acuity, df_list()$rsvp, 'peripheral')
-    if (!is.null(t[[2]])) {
-      l[[i]] <- t[[2]] + plt_theme
-      fileNames[[i]] <- 'rsvp-vs-peripheral-acuity-by-grade'
-      i <- i + 1
-    }
-    
-    # print('factor_out_age_and_plot')
-    # factored_age_plot <- factor_out_age_and_plot(df_list())
-    # if (!is.null(factored_age_plot)) {
-    #   l[[i]] <- factored_age_plot + plt_theme
-    #   fileNames[[i]] <- 'rsvp-vs-crowding-factored-age'
-    #   i <- i + 1
-    # }
-    
-    return(list(plotList = l,
-                fileNames = fileNames))
-  })
-  
-  readingPlotlyPlots <-  reactive({
-    if (is.null(input$file) | is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
-    }
-    print('inside reading plotly plots')
-    i = 1
-    l <- list()
-    fileNames <- list()
-    
-    repeatedLetter_reading <-
-      plot_reading_repeated_letter_crowding(df_list())
-    
-    if (!is.null(repeatedLetter_reading[[1]])) {
-      l[[i]] <- repeatedLetter_reading[[1]] + plt_theme
-      fileNames[[i]] <-
-        'rsvp-foveal-repeated-letter-crowding-grade'
-      i <- i + 1
-    }
-    
-    if (!is.null(repeatedLetter_reading[[2]])) {
-      l[[i]] <- repeatedLetter_reading[[2]] + plt_theme
-      fileNames[[i]] <-
-        'rsvp-peripheral-repeated-letter-crowding-grade'
-      i <- i + 1
-    }
-    
-    print('plot_acuity_reading')
-    t <-
-      plot_acuity_reading(df_list()$acuity, df_list()$reading, 'foveal')[[2]]
-    
-    if (!is.null(t)) {
-      l[[i]] <- t + plt_theme
-      fileNames[[i]] <- 'reading-vs-foveal-acuity-grade'
-      i <- i + 1
-    }
-    
-    t <-
-      plot_acuity_reading(df_list()$acuity, df_list()$reading, 'peripheral')[[2]]
-    
-    if (!is.null(t)) {
-      l[[i]] <- t + plt_theme
-      fileNames[[i]] <- 'reading-vs-peripheral-acuity-grade'
-      i <- i + 1
-    }
-    
-    print('plot_reading_crowding')
-    t <- plot_reading_crowding(df_list())
-    
-    if (!is.null(t[[4]])) {
-      l[[i]] <- t[[4]] + plt_theme
-      fileNames[[i]] <- 'reading-vs-foveal-crowding-by-grade'
-      i <- i + 1
-    }
-    
-    if (!is.null(t[[3]])) {
-      l[[i]] <- t[[3]] + plt_theme
-      fileNames[[i]] <- 'reading-vs-peripheral-crowding-by-grade'
-      i <- i + 1
-    }
-    
-    return(list(plotList = l,
-                fileNames = fileNames))
-  })
   
   gradePlots <- reactive({
     if (is.null(files()) | is.null(df_list())) {
@@ -1385,6 +1149,15 @@ shinyServer(function(input, output, session) {
   output$isCrowding <- reactive({
     if ('crowding' %in% names(df_list())) {
       return(nrow(df_list()$crowding) > 0)
+    } else {
+      return(FALSE)
+    }
+  })
+  
+  
+  output$isGrade <- reactive({
+    if ('quest' %in% names(df_list())) {
+      return(n_distinct(df_list()$quest$Grade) > 1)
     } else {
       return(FALSE)
     }
@@ -1457,6 +1230,7 @@ shinyServer(function(input, output, session) {
   
   outputOptions(output, 'fileUploaded', suspendWhenHidden = FALSE)
   outputOptions(output, 'questData', suspendWhenHidden = FALSE)
+  outputOptions(output, 'isGrade', suspendWhenHidden = FALSE)
   outputOptions(output, 'isPeripheralAcuity', suspendWhenHidden = FALSE)
   outputOptions(output, 'isReading', suspendWhenHidden = FALSE)
   outputOptions(output, 'isRsvp', suspendWhenHidden = FALSE)
@@ -1942,6 +1716,15 @@ shinyServer(function(input, output, session) {
   
   #### rsvp ggiraph ####
   
+  ordinaryAcuityFoveal <- reactive({
+    plot_acuity_reading(df_list()$acuity, df_list()$reading, 'foveal')
+  })
+  
+  ordinaryAcuityPeripheral <- reactive({
+    plot_acuity_reading(df_list()$acuity, df_list()$reading, 'peripheral')
+  })
+  
+  
   output$rsvpCrowdingPeripheralGradePlot <-
     ggiraph::renderGirafe({
       tryCatch({
@@ -1963,7 +1746,7 @@ shinyServer(function(input, output, session) {
         ggiraph::girafe(ggobj = error_plot)
       })
     })
-  
+ 
   output$rsvpResidualCrowding <-
     ggiraph::renderGirafe({
       tryCatch({
@@ -1986,6 +1769,14 @@ shinyServer(function(input, output, session) {
       })
     })
   
+  ordinaryCrowdingPlots <- reactive({
+    plot_reading_crowding(df_list())
+  })
+  
+  readingRepeatedPlots <- reactive({
+    plot_reading_repeated_letter_crowding(df_list())
+  })
+
   output$rsvpCrowdingFovealGradePlot <- ggiraph::renderGirafe({
     ggiraph::girafe(ggobj = rsvpCrowding()[[5]] + plt_theme_ggiraph)
   })
@@ -2003,16 +1794,6 @@ shinyServer(function(input, output, session) {
     ggiraph::girafe(ggobj = rsvp_repeated_letter_crowding()[[2]] + plt_theme_ggiraph)
   })
   
-  #### reading plotlys ####
-  
-  ordinaryAcuityFoveal <- reactive({
-    plot_acuity_reading(df_list()$acuity, df_list()$reading, 'foveal')
-  })
-  
-  ordinaryAcuityPeripheral <- reactive({
-    plot_acuity_reading(df_list()$acuity, df_list()$reading, 'peripheral')
-  })
-  
   output$ordinaryFovealAcuityGradePlot <-
     ggiraph::renderGirafe({
       ggiraph::girafe(ggobj = ordinaryAcuityFoveal()[[2]] + plt_theme_ggiraph)
@@ -2023,19 +1804,10 @@ shinyServer(function(input, output, session) {
       ggiraph::girafe(ggobj = ordinaryAcuityPeripheral()[[2]] + plt_theme_ggiraph)
     })
   
-  ordinaryCrowdingPlots <- reactive({
-    plot_reading_crowding(df_list())
-  })
-  
-  readingRepeatedPlots <- reactive({
-    plot_reading_repeated_letter_crowding(df_list())
-  })
-  
   # Peripheral Crowding Plots
   output$ordinaryPeripheralCrowdingAgePlot <-
     ggiraph::renderGirafe({
       ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[1]] + plt_theme_ggiraph)
-      # Age-based peripheral crowding plot
     })
   
   output$ordinaryPeripheralCrowdingGradePlot <-
@@ -3528,8 +3300,7 @@ shinyServer(function(input, output, session) {
               ggsave(
                 file = outfile,
                 plot = scatterTime()$plotList[[ii]] +
-                  plt_theme_scatter +
-                  scale_color_manual(values = colorPalette),
+                  plt_theme_scatter,
                 unit = 'in',
                 limitsize = F,
               )
@@ -3584,8 +3355,7 @@ shinyServer(function(input, output, session) {
                 ggsave(
                   tmp_svg,
                   plot = scatterTime()$plotList[[ii]] +
-                    plt_theme_scatter +
-                    scale_color_manual(values = colorPalette),
+                    plt_theme_scatter,
                   unit = "in",
                   limitsize = F,
                   device = svglite
@@ -3595,8 +3365,7 @@ shinyServer(function(input, output, session) {
                 ggsave(
                   file,
                   plot = scatterTime()$plotList[[ii]] +
-                    plt_theme_scatter +
-                    scale_color_manual(values = colorPalette),
+                    plt_theme_scatter,
                   unit = "in",
                   limitsize = F,
                   device = ifelse(
@@ -3614,186 +3383,7 @@ shinyServer(function(input, output, session) {
     return(out)
   })
   
-  
-  
-  # output$rsvpPlotlys <- renderUI({
-  #   out <- list()
-  #   i = 1
-  #   while(i <= length(rsvpPlotlyPlots()$plotList)-1) {
-  #     out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
-  #                              shinycssloaders::withSpinner(plotlyOutput(paste0("rsvpPlotly", i), width = "100%", height = "100%"),type=4),
-  #                              shinycssloaders::withSpinner(plotlyOutput(paste0("rsvpPlotly", i+1), width = "100%", height = "100%"),type=4))
-  #     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-  #                                 downloadButton(paste0("downloadRSVPPlotly", i), 'Download'),
-  #                                 downloadButton(paste0("downloadRSVPPlotly", i+1), 'Download'))
-  #     i = i + 2
-  #   }
-  #   if (i == length(rsvpPlotlyPlots()$plotList)){
-  #     out[[i]] <-splitLayout(cellWidths = c("50%", "50%"),
-  #                            shinycssloaders::withSpinner(plotlyOutput(paste0("rsvpPlotly", i), width = "100%", height = "100%"),type=4))
-  #     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-  #                                 downloadButton(paste0("downloadRSVPPlotly", i), 'Download'))
-  #   }
-  #   return(out)
-  # })
-  # for (j in 1:length(rsvpPlotlyPlots()$plotList)) {
-  #
-  #   local({
-  #     ii <- j
-  #     output[[paste0("rsvpPlotly", ii)]] <- renderPlotly({
-  #       rsvpPlotlyPlots()$plotList[[ii]]
-  #     })
-  #
-  #     output[[paste0("downloadRSVPPlotly", ii)]] <- downloadHandler(
-  #       filename = paste0(
-  #         experiment_names(),
-  #         rsvpPlotlyPlots()$fileNames[[ii]],
-  #         ii,
-  #         '.',
-  #         input$fileType
-  #       ),
-  #       content = function(file) {
-  #         if (input$fileType == "png") {
-  #           ggsave(
-  #             "tmp.svg",
-  #             plot = rsvpPlotlyPlots()$plotList[[ii]],
-  #             unit = "in",
-  #             limitsize = F,
-  #             device = svglite
-  #           )
-  #           rsvg::rsvg_png("tmp.svg", file,
-  #                          height = 1800,
-  #                          width = 1800)
-  #         } else {
-  #           ggsave(
-  #             file,
-  #             plot = rsvpPlotlyPlots()$plotList[[ii]],
-  #             unit = "in",
-  #             limitsize = F,
-  #             device = ifelse(
-  #               input$fileType == "svg",
-  #               svglite::svglite,
-  #               input$fileType
-  #             )
-  #           )
-  #         }
-  #       }
-  #     )
-  #   })
-  # }
-  #
-  # output$readingPlotlys <- renderUI({
-  #   out <- list()
-  #   i = 1
-  #   while(i <= length(readingPlotlyPlots()$plotList)-1) {
-  #     out[[i]] <-  splitLayout(cellWidths = c("50%", "50%"),
-  #                              shinycssloaders::withSpinner(plotlyOutput(paste0("readingplotly", i), width = "100%", height = "100%"),type=4),
-  #                              shinycssloaders::withSpinner(plotlyOutput(paste0("readingplotly", i+1), width = "100%", height = "100%"),type=4))
-  #     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-  #                                 downloadButton(paste0("downloadReadingPlotly", i), 'Download'),
-  #                                 downloadButton(paste0("downloadReadingPlotly", i+1), 'Download'))
-  #     i = i + 2
-  #   }
-  #   if (i == length(readingPlotlyPlots()$plotList)){
-  #     out[[i]] <-splitLayout(cellWidths = c("50%", "50%"),
-  #                            shinycssloaders::withSpinner(plotlyOutput(paste0("readingplotly", i), width = "100%", height = "100%"),type=4))
-  #     out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-  #                                 downloadButton(paste0("downloadReadingPlotly", i), 'Download'))
-  #   }
-  #   return(out)
-  # })
-  #
-  # for (j in 1:length(readingPlotlyPlots()$plotList)) {
-  #
-  #   local({
-  #     ii <- j
-  #     output[[paste0("readingplotly", ii)]] <- renderPlotly({
-  #       readingPlotlyPlots()$plotList[[ii]]
-  #     })
-  #
-  #     output[[paste0("downloadReadingPlotly", ii)]] <- downloadHandler(
-  #       filename = paste0(
-  #         experiment_names(),
-  #         readingPlotlyPlots()$fileNames[[ii]],
-  #         ii,
-  #         '.',
-  #         input$fileType
-  #       ),
-  #       content = function(file) {
-  #         if (input$fileType == "png") {
-  #           ggsave(
-  #             "tmp.svg",
-  #             plot = readingPlotlyPlots()$plotList[[ii]],
-  #             unit = "in",
-  #             limitsize = F,
-  #             device = svglite
-  #           )
-  #           rsvg::rsvg_png("tmp.svg", file,
-  #                          height = 1800,
-  #                          width = 1800)
-  #         } else {
-  #           ggsave(
-  #             file,
-  #             plot = readingPlotlyPlots()$plotList[[ii]],
-  #             unit = "in",
-  #             limitsize = F,
-  #             device = ifelse(
-  #               input$fileType == "svg",
-  #               svglite::svglite,
-  #               input$fileType
-  #             )
-  #           )
-  #         }
-  #       }
-  #     )
-  #   })
-  # }
-  
-  
-  
-  #### grade plots
-  
-  output$crowdingAgePlot <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    ggsave(
-      file = outfile,
-      plot =  plot_crowding_vs_age(df_list()$crowding) + plt_theme,
-      width = 6,
-      unit = 'in',
-      device = svglite,
-    )
-    
-    list(src = outfile,
-         contenttype = 'svg')
-  }, deleteFile = TRUE)
-  
-  # output$rsvpGradePlot <- renderImage({
-  #   outfile <- tempfile(fileext = '.svg')
-  #   ggsave(
-  #     file = outfile,
-  #     plot = gradePlots()[[2]] + plt_theme,
-  #     width = 6,
-  #     unit = 'in',
-  #     device = svglite
-  #   )
-  #
-  #   list(src = outfile,
-  #        contenttype = 'svg')
-  # }, deleteFile = TRUE)
-  #
-  output$acuityAgePlot <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    ggsave(
-      file = outfile,
-      plot = plot_acuity_vs_age(df_list()) + plt_theme,
-      width = 6,
-      unit = 'in',
-      device = svglite
-    )
-    list(src = outfile,
-         contenttype = 'svg')
-  }, deleteFile = TRUE)
-  
+
   #### test retest ####
   output$readingTestRetest <- renderImage({
     outfile <- tempfile(fileext = '.svg')
@@ -3961,19 +3551,19 @@ shinyServer(function(input, output, session) {
     }, deleteFile = TRUE)
     
     
-    output$`record freq plot system` <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = record_freq_system_plot()$plot,
-        height = record_freq_system_plot()$height,
-        width = 8.5,
-        units = "in"
-      )
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "Power Spectral Density")
-    }, deleteFile = TRUE)
+    # output$`record freq plot system` <- renderImage({
+    #   outfile <- tempfile(fileext = '.svg')
+    #   ggsave(
+    #     file = outfile,
+    #     plot = record_freq_system_plot()$plot,
+    #     height = record_freq_system_plot()$height,
+    #     width = 8.5,
+    #     units = "in"
+    #   )
+    #   list(src = outfile,
+    #        contenttype = 'svg',
+    #        alt = "Power Spectral Density")
+    # }, deleteFile = TRUE)
     
     output$`record freq plot component` <- renderImage({
       outfile <- tempfile(fileext = '.svg')
@@ -4138,30 +3728,30 @@ shinyServer(function(input, output, session) {
            alt = "IIR two")
     }, deleteFile = TRUE)
     
-    output$cumSumPowerPlotSystem <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = cumSumPowerPlot()$p_system +
-          add_transducerTable_system(
-            sound_data()[[7]],
-            c("left", "bottom"),
-            subtitle = list(
-              c(
-                subtitleOne(),
-                subtitleTwo()$component,
-                subtitleThree()$component
-              )
-            ),
-            leftShift = 0.02
-          ) + sound_theme_display,
-        height = cumSumPowerPlot()$height_system,
-        unit = "in",
-      )
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "IIR two")
-    }, deleteFile = TRUE)
+    # output$cumSumPowerPlotSystem <- renderImage({
+    #   outfile <- tempfile(fileext = '.svg')
+    #   ggsave(
+    #     file = outfile,
+    #     plot = cumSumPowerPlot()$p_system +
+    #       add_transducerTable_system(
+    #         sound_data()[[7]],
+    #         c("left", "bottom"),
+    #         subtitle = list(
+    #           c(
+    #             subtitleOne(),
+    #             subtitleTwo()$component,
+    #             subtitleThree()$component
+    #           )
+    #         ),
+    #         leftShift = 0.02
+    #       ) + sound_theme_display,
+    #     height = cumSumPowerPlot()$height_system,
+    #     unit = "in",
+    #   )
+    #   list(src = outfile,
+    #        contenttype = 'svg',
+    #        alt = "IIR two")
+    # }, deleteFile = TRUE)
     
     output$cumSumPowerPlotComponent <- renderImage({
       outfile <- tempfile(fileext = '.svg')
@@ -4643,36 +4233,7 @@ shinyServer(function(input, output, session) {
                      selected = unique(files()$stairs$thresholdParameter)[1],
                    )
                    
-                   updateCheckboxGroupInput(
-                     session,
-                     inputId = 'conditionNamePlots',
-                     label = "conditionName",
-                     choices = sort(df_list()$conditionNames),
-                     selected = df_list()$conditionNames,
-                     inline = FALSE
-                   )
-                   
-                   updateCheckboxGroupInput(
-                     session,
-                     inputId = 'conditionNameStaircase',
-                     label = "conditionName",
-                     choices = sort(df_list()$conditionNames),
-                     selected = df_list()$conditionNames,
-                     inline = FALSE
-                   )
-                   
-                   updateCheckboxGroupInput(
-                     session,
-                     inputId = 'conditionNameTiming',
-                     label = "conditionName",
-                     choices = sort(df_list()$conditionNames),
-                     selected = df_list()$conditionNames,
-                     inline = FALSE
-                   )
-                   
-                   
                    closeAlert()
-                   
                  }
                })
   
@@ -4683,223 +4244,126 @@ shinyServer(function(input, output, session) {
   output$downloadAll = downloadHandler(
     filename = 'plots.zip',
     content = function(file) {
-      # Set temporary working directory
       owd <- setwd(tempdir())
       on.exit(setwd(owd))
-      fileNames = c()
-      if (input$fileType == "png") {
-        ggsave(
-          "tmp.svg",
-          plot =  corrMatrix()$plot,
-          width = corrMatrix()$width,
-          height = corrMatrix()$height,
-          unit = "in",
-          limitsize = F,
-          device = svglite
-        )
-        rsvg::rsvg_png(
-          "tmp.svg",
-          paste0("correlation-matrix.", input$fileType),
-          height = 1800,
-          width = 1800
-        )
-        ggsave(
-          'tmp.svg',
-          plot =  durationCorrMatrix()$plot,
-          width = durationCorrMatrix()$width,
-          height = durationCorrMatrix()$height,
-          unit = "in",
-          limitsize = F,
-          device = svglite
-        )
-        rsvg::rsvg_png(
-          "tmp.svg",
-          paste0("duration-correlation-matrix.", input$fileType),
-          height = 1800,
-          width = 1800
-        )
-      } else {
-        ggsave(
-          paste0("correlation-matrix.", input$fileType),
-          plot =  corrMatrix()$plot,
-          width = corrMatrix()$width,
-          height = corrMatrix()$height,
-          unit = "in",
-          limitsize = F,
-          device = ifelse(
-            input$fileType == "svg",
-            svglite::svglite,
-            input$fileType
-          )
-        )
-        ggsave(
-          paste0("duration-correlation-matrix.", input$fileType),
-          plot =  durationCorrMatrix()$plot,
-          width = durationCorrMatrix()$width,
-          height = durationCorrMatrix()$height,
-          unit = "in",
-          limitsize = F,
-          device = ifelse(
-            input$fileType == "svg",
-            svglite::svglite,
-            input$fileType
-          )
-        )
-      }
       
-      fileNames = c(
+      fileNames <- c()
+      
+      # Save correlation matrices
+      savePlot(corrMatrix()$plot, 
+               paste0("correlation-matrix.", input$fileType),
+               input$fileType, 
+               width = corrMatrix()$width, 
+               height = corrMatrix()$height)
+      
+      savePlot(durationCorrMatrix()$plot, 
+               paste0("duration-correlation-matrix.", input$fileType),
+               input$fileType, 
+               width = durationCorrMatrix()$width, 
+               height = durationCorrMatrix()$height)
+      
+      fileNames <- c(
         paste0("correlation-matrix.", input$fileType),
         paste0("duration-correlation-matrix.", input$fileType)
       )
       
+      # Save histograms
       if (length(histograms()$plotList) > 0) {
-        for (i in 1:length(histograms()$plotList)) {
-          plotFileName =  paste0(histograms()$fileNames[[i]], '.', input$fileType)
-          if (input$fileType == "png") {
-            ggsave(
-              'tmp.svg',
-              plot = histograms()$plotList[[i]] + plt_theme,
-              width = 6,
-              unit = 'in',
-              device = svglite
-            )
-            rsvg::rsvg_png("tmp.svg",
-                           plotFileName,
-                           height = 1200,
-                           width = 1200)
-          } else {
-            ggsave(
-              filename = plotFileName,
-              plot = histograms()$plotList[[i]] + plt_theme,
-              width = 6,
-              unit = 'in',
-              device = input$fileType
-            )
-          }
-          fileNames = c(fileNames, plotFileName)
+        for (i in seq_along(histograms()$plotList)) {
+          plotFileName <- paste0(histograms()$fileNames[[i]], '.', input$fileType)
+          savePlot(histograms()$plotList[[i]], plotFileName, input$fileType, theme = plt_theme)
+          fileNames <- c(fileNames, plotFileName)
         }
-        print('done histograms')
-      }
-      if (length(scatterDiagrams()$plotList) > 0) {
-        for (i in 1:length(scatterDiagrams()$plotList)) {
-          plotFileName =  paste0(scatterDiagrams()$fileNames[[i]], '.', input$fileType)
-          if (input$fileType == "png") {
-            ggsave(
-              'tmp.svg',
-              plot = scatterDiagrams()$plotList[[i]] +
-                plt_theme_scatter +
-                scale_color_manual(values = colorPalette),
-              width = 6,
-              unit = 'in',
-              device = svglite
-            )
-            rsvg::rsvg_png("tmp.svg",
-                           plotFileName,
-                           height = 1200,
-                           width = 1200)
-          } else {
-            ggsave(
-              filename = plotFileName,
-              plot = scatterDiagrams()$plotList[[i]] +
-                plt_theme_scatter +
-                scale_color_manual(values = colorPalette),
-              width = 6,
-              unit = 'in',
-              device = input$fileType
-            )
-          }
-          fileNames = c(fileNames, plotFileName)
-        }
-        print('done scatterDiagrams')
-      }
-      if (length(agePlots()$plotList) > 0) {
-        for (i in 1:length(agePlots()$plotList)) {
-          plotFileName =  paste0(agePlots()$fileNames[[i]], '.', input$fileType)
-          if (input$fileType == "png") {
-            ggsave(
-              'tmp.svg',
-              plot = agePlots()$plotList[[i]] + plt_theme,
-              width = 6,
-              unit = 'in',
-              device = svglite
-            )
-            rsvg::rsvg_png("tmp.svg",
-                           plotFileName,
-                           height = 1200,
-                           width = 1200)
-          } else {
-            ggsave(
-              filename = plotFileName,
-              plot = agePlots()$plotList[[i]] + plt_theme,
-              width = 6,
-              unit = 'in',
-              device = input$fileType
-            )
-          }
-          fileNames = c(fileNames, plotFileName)
-        }
-        print('done agePlots')
-      }
-      if (length(rsvpPlotlyPlots()$plotList) > 0) {
-        for (i in 1:length(rsvpPlotlyPlots()$plotList)) {
-          plotFileName =  paste0(rsvpPlotlyPlots()$fileNames[[i]], '.', input$fileType)
-          if (input$fileType == "png") {
-            ggsave(
-              'tmp.svg',
-              plot = rsvpPlotlyPlots()$plotList[[i]],
-              width = 6,
-              unit = 'in',
-              device = svglite
-            )
-            rsvg::rsvg_png("tmp.svg",
-                           plotFileName,
-                           height = 1200,
-                           width = 1200)
-          } else {
-            ggsave(
-              filename = plotFileName,
-              plot = rsvpPlotlyPlots()$plotList[[i]],
-              width = 6,
-              unit = 'in',
-              device = input$fileType
-            )
-          }
-          fileNames = c(fileNames, plotFileName)
-        }
-        print('done rsvpPlotlyPlots')
       }
       
-      if (length(readingPlotlyPlots()$plotList) > 0) {
-        for (i in 1:length(readingPlotlyPlots()$plotList)) {
-          plotFileName =  paste0(readingPlotlyPlots()$fileNames[[i]],
-                                 '.',
-                                 input$fileType)
-          if (input$fileType == "png") {
-            ggsave(
-              'tmp.svg',
-              plot = readingPlotlyPlots()$plotList[[i]],
-              width = 6,
-              unit = 'in',
-              device = svglite
-            )
-            rsvg::rsvg_png("tmp.svg",
-                           plotFileName,
-                           height = 1200,
-                           width = 1200)
-          } else {
-            ggsave(
-              filename = plotFileName,
-              plot = readingPlotlyPlots()$plotList[[i]],
-              width = 6,
-              unit = 'in',
-              device = input$fileType
-            )
-          }
-          fileNames = c(fileNames, plotFileName)
+      # Save scatter diagrams
+      if (length(scatterDiagrams()$plotList) > 0) {
+        for (i in seq_along(scatterDiagrams()$plotList)) {
+          plotFileName <- paste0(scatterDiagrams()$fileNames[[i]], '.', input$fileType)
+          savePlot(scatterDiagrams()$plotList[[i]], plotFileName, input$fileType, 
+                   theme = plt_theme_scatter)
+          fileNames <- c(fileNames, plotFileName)
         }
       }
-      print('done readingPlotlyPlots')
-      # Zip them up
+      
+      # Save age plots
+      if (length(agePlots()$plotList) > 0) {
+        for (i in seq_along(agePlots()$plotList)) {
+          plotFileName <- paste0(agePlots()$fileNames[[i]], '.', input$fileType)
+          savePlot(agePlots()$plotList[[i]], plotFileName, input$fileType, theme = plt_theme)
+          fileNames <- c(fileNames, plotFileName)
+        }
+      }
+      
+      # Save ggriaph plots
+      # Create a list with plotList and title sublists
+      ggiraph_plots <- list(
+        plotList = list(
+          # RSVP Crowding plots
+          rsvpCrowding()[[3]],                   
+          rsvpCrowding()[[4]],                   
+          rsvpCrowding()[[5]],                  
+          
+          # RSVP Acuity plots
+          rsvpAcuityFoveal()[[2]],             
+          rsvpAcuityPeripheral()[[2]],         
+          
+          # RSVP Repeated Letter plots
+          rsvp_repeated_letter_crowding()[[2]],  
+          
+          # Ordinary Acuity plots
+          ordinaryAcuityFoveal()[[2]],           
+          ordinaryAcuityPeripheral()[[2]],       
+          
+          # Ordinary Crowding plots
+          ordinaryCrowdingPlots()[[1]],         
+          ordinaryCrowdingPlots()[[2]], 
+          ordinaryCrowdingPlots()[[3]],          
+          ordinaryCrowdingPlots()[[4]],          
+          
+          # Reading Repeated plots
+          readingRepeatedPlots()[[2]]            
+        ),
+        
+        fileNames = list(
+          # RSVP Crowding titles
+          "rsvp-vs-peripheral-crowding-by-grade",
+          "residual-rsvp-vs-residual-peripheral-crowding-by-grade", 
+          "rsvp-vs-foveal-crowding-by-grade",
+          
+          # RSVP Acuity titles
+          "rsvp-foveal-acuity-by-grade",
+          "rsvp-peripheral-acuity-by-grade",
+          
+          # RSVP Repeated Letter titles
+          "rsvp-repeated-letter-by-grade",
+          
+          # Ordinary Acuity titles
+          "ordinary-foveal-acuity-by-grade",
+          "ordinary-peripheral-acuity-by-grade",
+          
+          # Ordinary Crowding titles
+          "ordinary-peripheral-crowding-by-age",
+          "ordinary-peripheral-crowding-by-grade",
+          "ordinary-foveal-crowding-by-age",
+          "ordinary-foveal-crowding-by-grade",
+          
+          # Reading Repeated titles
+          "reading-repeated-letter-by-grade"
+        )
+      )
+      if (length(ggiraph_plots$plotList) > 0) {
+        for (i in seq_along(ggiraph_plots$plotList)) {
+          print(i)
+          print(ggiraph_plots$fileNames[[i]])
+          if (!is.null(ggiraph_plots$plotList[[i]])) {
+            plotFileName <- paste0(ggiraph_plots$fileNames[[i]], '.', input$fileType)
+            savePlot(ggiraph_plots$plotList[[i]], plotFileName, input$fileType, theme = plt_theme_ggiraph)
+            fileNames <- c(fileNames, plotFileName)
+          }
+        }
+      }
+      
       zip(file, fileNames)
     }
   )
@@ -5585,62 +5049,62 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$downloadCumSumPowerPlotSystem <- downloadHandler(
-      filename = paste0(
-        'cumulative-power-of-system-corrected-mls.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = cumSumPowerPlot()$p_system +
-              add_transducerTable_system(
-                sound_data()[[7]],
-                c("left", "bottom"),
-                subtitle = list(
-                  c(
-                    subtitleOne(),
-                    subtitleTwo()$component,
-                    subtitleThree()$component
-                  )
-                ),
-                leftShift = 0.02
-              ),
-            height = cumSumPowerPlot()$height_system,
-            units = "in",
-            device = svglite::svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = cumSumPowerPlot()$p_system +
-              add_transducerTable_system(
-                sound_data()[[7]],
-                c("left", "bottom"),
-                subtitle = list(
-                  c(
-                    subtitleOne(),
-                    subtitleTwo()$component,
-                    subtitleThree()$component
-                  )
-                ),
-                leftShift = 0.02
-              ),
-            height = cumSumPowerPlot()$height_system,
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite::svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
+    # output$downloadCumSumPowerPlotSystem <- downloadHandler(
+    #   filename = paste0(
+    #     'cumulative-power-of-system-corrected-mls.',
+    #     input$fileTypeSound
+    #   ),
+    #   content = function(file) {
+    #     if (input$fileTypeSound == "png") {
+    #       ggsave(
+    #         "tmp.svg",
+    #         plot = cumSumPowerPlot()$p_system +
+    #           add_transducerTable_system(
+    #             sound_data()[[7]],
+    #             c("left", "bottom"),
+    #             subtitle = list(
+    #               c(
+    #                 subtitleOne(),
+    #                 subtitleTwo()$component,
+    #                 subtitleThree()$component
+    #               )
+    #             ),
+    #             leftShift = 0.02
+    #           ),
+    #         height = cumSumPowerPlot()$height_system,
+    #         units = "in",
+    #         device = svglite::svglite
+    #       )
+    #       rsvg::rsvg_png("tmp.svg",
+    #                      file,
+    #                      width = 1800,
+    #                      height = 1800)
+    #     } else {
+    #       ggsave(
+    #         file,
+    #         plot = cumSumPowerPlot()$p_system +
+    #           add_transducerTable_system(
+    #             sound_data()[[7]],
+    #             c("left", "bottom"),
+    #             subtitle = list(
+    #               c(
+    #                 subtitleOne(),
+    #                 subtitleTwo()$component,
+    #                 subtitleThree()$component
+    #               )
+    #             ),
+    #             leftShift = 0.02
+    #           ),
+    #         height = cumSumPowerPlot()$height_system,
+    #         device = ifelse(
+    #           input$fileTypeSound == "svg",
+    #           svglite::svglite,
+    #           input$fileTypeSound
+    #         )
+    #       )
+    #     }
+    #   }
+    # )
     
     output$downloadCumSumPowerPlotcomponent <- downloadHandler(
       filename = paste0(
@@ -6270,8 +5734,7 @@ shinyServer(function(input, output, session) {
                 ggsave(
                   "tmp.svg",
                   plot = scatterDiagrams()$plotList[[ii]] +
-                    plt_theme_scatter +
-                    scale_color_manual(values = colorPalette),
+                    plt_theme_scatter,
                   height = 6,
                   width = 6,
                   unit = "in",
@@ -6286,8 +5749,7 @@ shinyServer(function(input, output, session) {
                 ggsave(
                   file,
                   plot = scatterDiagrams()$plotList[[ii]] +
-                    plt_theme_scatter +
-                    scale_color_manual(values = colorPalette),
+                    plt_theme_scatter,
                   height = 6,
                   width = 6,
                   unit = "in",

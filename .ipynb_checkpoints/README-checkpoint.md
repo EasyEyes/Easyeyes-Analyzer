@@ -3,7 +3,7 @@ This is the Easyeyes dashboard for scientist to monitor their running experiment
 there are three component of the dashboard
  - Error Report: Summarizes all experiment results in a DT datatables, with all the device informations and error/warning messages
  - Threshold: Shows a summary of the PsychoJS produce threshold estimate
- - Plots: Generate plots for analysis, currently under the `ggplot2` framework and transfroming to `plotly`
+ - Plots: Generate plots for analysis, currently under the `ggplot2` framework
 links: 
  - https://easyeyes.app/experiment/ 
  - https://easyeyes.shinyapps.io/easyeyes_app/

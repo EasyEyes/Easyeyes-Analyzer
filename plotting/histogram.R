@@ -169,6 +169,7 @@ get_acuity_hist <- function(acuity) {
 }
 
 get_reading_hist <- function(data) {
+  
   if (nrow(data) > 0) {
     if (data$targetKind[1] == 'rsvpReading') {
       data <- data %>%
@@ -181,7 +182,9 @@ get_reading_hist <- function(data) {
         summarize(log_WPM = mean(log_WPM, na.rm=T))
     }
     data <- data %>% filter(!is.na(log_WPM))
-    
+    if (nrow(data) == 0) {
+      return(NULL)
+    }
     if ('Skilled reader?' %in% names(data)) {
       stats1 <- data %>% filter(`Skilled reader?` != FALSE)
     } else {
@@ -341,7 +344,11 @@ generate_histograms_by_grade <- function(data) {
     "Log RSVP reading speed (w/min)", "RSVP reading"
   )
   
-  peripheral_crowding <- crowding %>% filter(targetEccentricityXDeg != 0)
+  peripheral_crowding <- crowding %>% 
+    filter(targetEccentricityXDeg != 0) %>% 
+    group_by(participant,Grade) %>% 
+    summarise(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T)) %>% 
+    ungroup()
   peripheral_crowding_plot <- create_stacked_histogram(
     peripheral_crowding, "log_crowding_distance_deg", grade_order, 
     "Log peripheral crowding (deg)", "peripheral crowding"

@@ -15,7 +15,6 @@ library(shiny)
 library(shinytitle)
 library(svglite)
 library(shinycssloaders)
-library(plotly)
 library(shinyjs)
 library(shinyalert)
 shinyUI(
@@ -105,6 +104,16 @@ shinyUI(
             inline = FALSE,
             choices = NULL,
             selected = NULL
+          ),
+          div(
+            id = "thresholdParameterSelector",
+            style = "display: none;",
+            selectInput(
+              'thresholdParameter',
+              'thresholdParameter:',
+              choices =  NULL,
+              selected = NULL
+            )
           )
         )
       )

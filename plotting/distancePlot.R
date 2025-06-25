@@ -111,36 +111,6 @@ get_measured_distance_data <- function(data_list) {
   return(df)
 }
 
-
-
-
-
-# plot_distance <- function(data_list) {
-#   print('inside plot_distance')
-#   print(data_list)
-#   distance <- get_measured_distance_data(data_list)
-#   if (nrow(distance) == 0) {
-#     return(NULL)
-#   }
-#   distance <- distance %>% mutate(calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
-#                       calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm))
-#   fit <- lm(calibrateTrackDistanceMeasuredCm~calibrateTrackDistanceRequestedCm, data = distance)
-#   print(fit)
-#   slope <- coef(fit)
-#   slope <- format(round(slope[['calibrateTrackDistanceRequestedCm']],2),nsmall=2)
-#   corr <- cor(distance$calibrateTrackDistanceRequestedCm, distance$calibrateTrackDistanceMeasuredCm)
-#   corr <- format(round(corr,2),nsmall=2)
-#   p <- ggplot(data=distance, aes(x = calibrateTrackDistanceRequestedCm, y = calibrateTrackDistanceMeasuredCm)) + 
-#     geom_point() + 
-#     ggpp::geom_text_npc(aes(npcx="left",
-#                             npcy="top"),
-#                         label = paste0('N=',nrow(distance),'\n',
-#                                        'R=',corr,'\n',
-#                                        'slope=',slope)) + 
-#     geom_smooth(method='lm',se=F) + 
-#     labs(title = 'measured distance (cm) vs requested\ndistance (cm)')
-#   return(p)
-# }
 plot_distance <- function(data_list) {
   print('inside plot_distance')
   distance <- get_measured_distance_data(data_list)
@@ -210,6 +180,3 @@ plot_distance <- function(data_list) {
   
   return(p)
 }
-
-
-
