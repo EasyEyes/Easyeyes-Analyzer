@@ -279,15 +279,6 @@ shinyServer(function(input, output, session) {
       maxQuestSD(),
       conditionNames()
     )
-    
-    updateCheckboxGroupInput(
-      session,
-      inputId = 'conditionName',
-      label = "Include these conditionNames:",
-      choices = sort(df_list$conditionNames),
-      selected = df_list$conditionNames,
-      inline = FALSE
-    )
     return(
       df_list
     )
@@ -4233,6 +4224,15 @@ shinyServer(function(input, output, session) {
                      selected = unique(files()$stairs$thresholdParameter)[1],
                    )
                    
+                   updateCheckboxGroupInput(
+                     session,
+                     inputId = 'conditionName',
+                     label = "Include these conditionNames:",
+                     choices = sort(df_list()$conditionNames),
+                     selected = df_list()$conditionNames,
+                     inline = FALSE
+                   )
+                   
                    closeAlert()
                  }
                })
@@ -4342,7 +4342,7 @@ shinyServer(function(input, output, session) {
           "ordinary-foveal-acuity-by-grade",
           "ordinary-peripheral-acuity-by-grade",
           
-          # Ordinary Crowding titles
+          # Ordinary Crowding title
           "ordinary-peripheral-crowding-by-age",
           "ordinary-peripheral-crowding-by-grade",
           "ordinary-foveal-crowding-by-age",

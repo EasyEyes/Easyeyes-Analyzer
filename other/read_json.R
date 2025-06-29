@@ -2,7 +2,7 @@ require(jsonlite)
 require(dplyr)
 
 # jsonFile <- fromJSON("SoundCalibrationScientistQuick45_BrightSkyDog646_0001_May_25%2C_2025_7_43_PM_UTC-04_00_sound.json", simplifyDataFrame = F)
-
+# sound_data <- preprocessJSON(jsonFile)
 preprocessJSON <- function(jsonFile) {
   #### volume ####
   volume_task <- tibble(
@@ -133,24 +133,15 @@ preprocessJSON <- function(jsonFile) {
   sound_data <- list(
     volume_task = volume_task,
     model = model,
-    #2
     DRCMforDisplay = DRCMforDisplay,
-    #3
     names = names,
-    #4
     dynamic_range_compression_model = dynamic_range_compression_model,
-    #5
     recording_vs_freq = recording_vs_freq,
-    #6
     transducerTable = transducerTable,
     loudspeaker_component_ir = loudspeaker_component_ir,
-    #8
     loudspeaker_system_ir = loudspeaker_system_ir,
-    #9
     noise = noise,
-    #10
     mlsPSD = mlsPSD,
-    #11
     inputParameters = inputParameters,
     #12
     knownGain = knownGain,
@@ -617,17 +608,17 @@ plot_power_variations <- function(jsonFile, sound_data) {
                        " dB")
       )
     ) %>%
-    rbind(
-      tibble(
-        time = jsonFile$recordingChecks$system[[1]]$recT,
-        power = jsonFile$recordingChecks$system[[1]]$recDb,
-        label = paste0(
-          "Loudspeaker+Microphone corrected MLS, SD = ",
-          format(jsonFile$recordingChecks$system[[1]]$sd, nsmall = 1),
-          " dB"
-        )
-      )
-    ) %>%
+    # rbind(
+    #   tibble(
+    #     time = jsonFile$recordingChecks$system[[1]]$recT,
+    #     power = jsonFile$recordingChecks$system[[1]]$recDb,
+    #     label = paste0(
+    #       "Loudspeaker+Microphone corrected MLS, SD = ",
+    #       format(jsonFile$recordingChecks$system[[1]]$sd, nsmall = 1),
+    #       " dB"
+    #     )
+    #   )
+    # ) %>%
     rbind(
       tibble(
         time = jsonFile$recordingChecks$component[[1]]$recT,
@@ -988,14 +979,14 @@ get_autocorrelation_plot <- function(jsonFile, sound_data) {
 }
 
 plot_record_freq_system <- function(sound_data) {
-  noise <- sound_data[[10]]
+  noise <- sound_data$noise
   convolutions <- sound_data$convolutions
   subtitle <- sound_data$subtitle$sytem
   noise <- noise %>%
     mutate(gain = 10 * log10(gain),
            label = "Recording of background")
   
-  t <- sound_data[[6]]$system
+  t <- sound_data$plot_power_variations$system
   
   t <- t %>%
     mutate(gain = 10 * log10(gain))
@@ -1008,7 +999,7 @@ plot_record_freq_system <- function(sound_data) {
            gain,
            label) %>%
     rbind(convolutions$system) %>%
-    rbind(sound_data[[11]])
+    rbind(sound_data$mlsPSD)
   
   tmp <- t %>%
     filter(label == "Recording of MLS") %>%
@@ -1026,17 +1017,17 @@ plot_record_freq_system <- function(sound_data) {
   t <- rbind(t, tmp)
   
   tmp <- t %>%
-    filter(freq >= sound_data[[12]]$calibrateSoundMinHz,
-           freq <= sound_data[[12]]$fMaxHzSystem) %>%
+    filter(freq >= sound_data$inputParameters$calibrateSoundMinHz,
+           freq <= sound_data$inputParameters$fMaxHzSystem) %>%
     group_by(label) %>%
     filter(is.finite(gain)) %>%
     summarize(SD = format(round(sd(gain), 1), nsmall = 1))
   
   range <- paste0(
     " ",
-    sound_data[[12]]$calibrateSoundMinHz,
+    sound_data$inputParameters$calibrateSoundMinHz,
     "<span> – </span>",
-    sound_data[[12]]$fMaxHzSystem,
+    sound_data$inputParameters$fMaxHzSystem,
     " Hz"
   )
 
@@ -1170,11 +1161,11 @@ plot_record_freq_system <- function(sound_data) {
 
 plot_record_freq_component <- function(sound_data) {
   convolutions <- sound_data$convolutions
-  noise <- sound_data[[10]]
+  noise <- sound_data$noise
   noise <- noise %>%
     mutate(gain = 10 * log10(gain),
            label = "Recording of background")
-  t <- sound_data[[6]]$component
+  t <- sound_data$plot_power_variations$component
   
   t <- t %>%
     mutate(gain = 10 * log10(gain))
@@ -1188,7 +1179,7 @@ plot_record_freq_component <- function(sound_data) {
            gain,
            label) %>%
     rbind(convolutions$component) %>%
-    rbind(sound_data[[11]]) %>%
+    rbind(sound_data$mlsPSD) %>%
     rbind(sound_data$knownGain)
   
   tmp <- t %>%
@@ -1202,6 +1193,7 @@ plot_record_freq_component <- function(sound_data) {
     mutate(label = "Expected corr",
            gain = 10 * log10(corrected_p) + gain) %>%
     select(freq, gain, label)
+  print(tmp)
   
   t <- rbind(t, tmp)
   transducerLabel <- unique(sound_data$knownGain$label)
@@ -1273,15 +1265,15 @@ plot_record_freq_component <- function(sound_data) {
     rbind(tmp)
   
   tmp <- t %>%
-    filter(freq >= sound_data[[12]]$calibrateSoundMinHz,
-           freq <= sound_data[[12]]$fMaxHzComponent) %>%
+    filter(freq >= sound_data$inputParameters$calibrateSoundMinHz,
+           freq <= sound_data$inputParameters$fMaxHzComponent) %>%
     group_by(label) %>%
     filter(is.finite(gain)) %>%
     summarize(SD = format(round(sd(gain), 1), nsmall = 1))
   
-  range <- paste0(sound_data[[12]]$calibrateSoundMinHz,
+  range <- paste0(sound_data$inputParameters$calibrateSoundMinHz,
                   " – ",
-                  sound_data[[12]]$fMaxHzComponent,
+                  sound_data$inputParameters$fMaxHzComponent,
                   " Hz")
   
   # tt <- paste0('SD(dB): <span style="color:red;">**- -**',
@@ -1542,7 +1534,7 @@ plot_sound_level <- function(sound_data) {
     DRCMforDisplay[4, 2] = paste(DRCMforDisplay[4, 2] , "dB")
     DRCMforDisplay[5, 2] = paste(DRCMforDisplay[5, 2] , "dB")
     
-    dynamic_range_compression_model <- sound_data[[5]] %>%
+    dynamic_range_compression_model <- sound_data$dynamic_range_compression_model %>%
       select(`T`, W, `1/R`, gainDBSPL, RMSError)
     
     threshold <-dynamic_range_compression_model$`T`
@@ -1622,16 +1614,16 @@ plot_sound_level <- function(sound_data) {
                                    hjust = 0.5),
         plot.title = element_text(size = 12, hjust = 0.5)
       ) +
-      add_transducerTable_system(
-        transducerTable = sound_data$transducerTable,
-        position = c("left", "bottom"),
-        title_text = "",
-        subtitle = sound_data$subtitle$system,
-        leftShift = 0.03,
-        baseSize = 8,
-        fs = 8,
-        shrinkPadding = 0.8
-      ) +
+      # add_transducerTable_system(
+      #   transducerTable = sound_data$transducerTable,
+      #   position = c("left", "bottom"),
+      #   title_text = "",
+      #   subtitle = sound_data$subtitle$system,
+      #   leftShift = 0.03,
+      #   baseSize = 8,
+      #   fs = 8,
+      #   shrinkPadding = 0.8
+      # ) +
       sound_theme_soundLevel +
       ylab("Output level (dB)") +
       xlab("Input level (dB)")
