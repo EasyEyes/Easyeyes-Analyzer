@@ -24,7 +24,7 @@ crowding_by_side <- function(crowding) {
            "log_crowding_distance_deg_Left" = "log_crowding_distance_deg.x",
            "log_crowding_distance_deg_Right" = "log_crowding_distance_deg.y") %>%
     filter(!is.na(log_crowding_distance_deg_Left) & !is.na(log_crowding_distance_deg_Right)) %>% 
-    mutate(conditionName =  paste0('-', XDeg, ' vs ', '+', XDeg)) %>% 
+    mutate(conditionName =  paste0(font, ' -', XDeg, ' vs ', font, ' +', XDeg)) %>% 
   return(crowding_L_R)
 }
 

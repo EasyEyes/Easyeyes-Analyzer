@@ -425,15 +425,12 @@ plot_acuity_reading <- function(acuity, reading, type) {
     
     # Prepare data for stats
     data_for_stat <- data_reading %>%
-      select(log_WPM, questMeanAtEndOfTrialsLoop, X, Y, ageN) %>% 
-      filter(complete.cases(.))
-    if (nrow(data_for_stat) == 0) {
-      return(NULL)
-    }
+      select(log_WPM, questMeanAtEndOfTrialsLoop, X, Y, ageN)
+
     # Calculate correlation and slope
     corr <- data_for_stat %>%
       summarize(
-        correlation = cor(log_WPM, questMeanAtEndOfTrialsLoop, method = "pearson"),
+        correlation = cor(log_WPM, questMeanAtEndOfTrialsLoop, method = "pearson", use = "pairwise.complete.obs"),
         N = n()
       ) %>%
       mutate(correlation = round(correlation, 2))
@@ -442,7 +439,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
     slope <- round(slope, 2)
     
     # Partial correlation excluding age
-    if ("ageN" %in% names(data_for_stat)) {
+    if (n_distinct(data_for_stat$ageN) > 1) {
       print("acuity reading names done")
       corr_without_age <- ppcor::pcor(data_for_stat %>%
                                         select(log_WPM, questMeanAtEndOfTrialsLoop, ageN))$estimate[2, 1]
