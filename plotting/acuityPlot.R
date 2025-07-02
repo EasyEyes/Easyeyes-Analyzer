@@ -230,8 +230,8 @@ get_peripheral_acuity_vs_age <- function(acuity) {
       theme(
         legend.position = ifelse(unique_grades == 1, "none", "top")
       ) + 
-        guides(color = guide_legend(title = 'Grade'),
-               shape = guide_legend(title = '', ncol = 1))
+      guides(color = guide_legend(title = 'Grade'),
+             shape = guide_legend(title = '', ncol = 1))
     
     # Add shapes for Skilled Reader if applicable
     # if (n_distinct(t$`Skilled reader?`) > 1) {
@@ -247,9 +247,12 @@ get_peripheral_acuity_vs_age <- function(acuity) {
 
 plot_acuity_rsvp <- function(acuity, rsvp, type) {
   create_plot <- function(data, type, colorFactor) {
+    if (nrow(data) == 0 || nrow(rsvp) == 0) {
+      return(NULL)
+    }
     # Merge data and calculate WPM and acuity
     data_rsvp <- data %>%
-      select(participant, questMeanAtEndOfTrialsLoop, conditionName) %>%
+      select(participant, questMeanAtEndOfTrialsLoop, font) %>%
       inner_join(rsvp %>% select(-conditionName), by = "participant") %>%
       mutate(
         Y = 10 ^ (block_avg_log_WPM),
@@ -263,6 +266,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       return(NULL)
     }
     
+    print(data_rsvp)
     if ('Skilled reader?' %in% names(data_rsvp)) {
       data_for_stat <- data_rsvp %>%
         filter(`Skilled reader?` != FALSE) %>%
@@ -318,8 +322,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
     unique_colors <- n_distinct(data_rsvp[[colorFactor]])
     p <- ggplot(data_rsvp, aes(x = X, y = Y, color = .data[[colorFactor]])) +
       ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, 
-                                          tooltip = ParticipantCode, 
-                                          shape = conditionName), size = 3) +
+                                          tooltip = ParticipantCode), size = 3) +
       theme_bw() +
       scale_y_log10(
         breaks = y_breaks,
@@ -384,21 +387,21 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, conditionName) %>%
+    group_by(participant, font) %>%
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T)) %>%
     ungroup()
   
   if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
     return(list(NULL, NULL, NULL, NULL))
   }
-  
+  # change p2 p4 to grade plot
   if (type == 'foveal') {
-    p1 <- create_plot(foveal, type, 'Age')
-    p2 <- create_plot(foveal, type, 'Grade')
+    p1 <- create_plot(foveal, type, 'font')
+    p2 <- create_plot(foveal, type, 'font')
     return(list(p1, p2))
   } else {
-    p3 <- create_plot(peripheral, 'peripheral', 'Age')
-    p4 <- create_plot(peripheral, 'peripheral', 'Grade')
+    p3 <- create_plot(peripheral, 'peripheral', 'font')
+    p4 <- create_plot(peripheral, 'peripheral', 'font')
     return(list(p3, p4))
   }
 }
@@ -408,8 +411,8 @@ plot_acuity_reading <- function(acuity, reading, type) {
   create_reading_plot <- function(data, type, colorFactor) {
     # Merge data and calculate WPM and acuity
     data_reading <- data %>%
-      select(participant, questMeanAtEndOfTrialsLoop, conditionName) %>%
-      inner_join(reading %>% select(-conditionName), by = "participant") %>%
+      select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+      inner_join(reading %>% select(-conditionName), by = c("participant", "font")) %>%
       mutate(
         Y = wordPerMin,  # Linear scale
         log_WPM = log10(wordPerMin),  # Convert wordPerMin to log scale
@@ -418,7 +421,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
         ageN = as.numeric(age),
         Grade = as.character(Grade)
       )
-
+    
     if (nrow(data_reading) == 0) {
       return(NULL)
     }
@@ -426,7 +429,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
     # Prepare data for stats
     data_for_stat <- data_reading %>%
       select(log_WPM, questMeanAtEndOfTrialsLoop, X, Y, ageN)
-
+    
     # Calculate correlation and slope
     corr <- data_for_stat %>%
       summarize(
@@ -470,7 +473,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
     
     p <- ggplot(data_reading, aes(x = X, y = Y, color = .data[[colorFactor]])) +
       theme_classic() +
-      ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode, shape = conditionName), size = 3) +
+      ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode), size = 3) +
       scale_x_log10(
         limits = c(xMin, xMax),
         breaks = scales::log_breaks(),
@@ -512,21 +515,21 @@ plot_acuity_reading <- function(acuity, reading, type) {
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, conditionName) %>%
+    group_by(participant, font) %>%
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T), .groups = "keep") %>%
     ungroup()
   
   if (nrow(reading) == 0 | nrow(acuity) == 0) {
     return(list(NULL, NULL, NULL, NULL))
   }
-  
+  # Change to colored by font
   if (type == "foveal") {
-    p1 <- create_reading_plot(foveal, type, "Age")
-    p2 <- create_reading_plot(foveal, type, "Grade")
+    p1 <- create_reading_plot(foveal, type, "font")
+    p2 <- create_reading_plot(foveal, type, "font")
     return(list(p1, p2))
   } else {
-    p3 <- create_reading_plot(peripheral, "peripheral", "Age")
-    p4 <- create_reading_plot(peripheral, "peripheral", "Grade")
+    p3 <- create_reading_plot(peripheral, "peripheral", "font")
+    p4 <- create_reading_plot(peripheral, "peripheral", "font")
     return(list(p3, p4))
   }
 }
@@ -547,13 +550,13 @@ plot_acuity_vs_age <- function(allData){
   peripheral <- acuity %>% filter(questType == "Peripheral acuity")
   
   if (nrow(foveal) > 0) {
-  foveal_stats <- foveal %>% 
-    do(fit = lm(questMeanAtEndOfTrialsLoop ~ ageN, data = .)) %>%
-    transmute(coef = map(fit, tidy)) %>%
-    unnest(coef) %>%
-    filter(term == "ageN") %>%  
-    mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
-    select(slope)
+    foveal_stats <- foveal %>% 
+      do(fit = lm(questMeanAtEndOfTrialsLoop ~ ageN, data = .)) %>%
+      transmute(coef = map(fit, tidy)) %>%
+      unnest(coef) %>%
+      filter(term == "ageN") %>%  
+      mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
+      select(slope)
   } else{
     foveal_stats <- NA
   }
@@ -583,8 +586,8 @@ plot_acuity_vs_age <- function(allData){
   }
   
   p <- ggplot(data = acuity, aes(x = ageN, 
-                              y = 10^(questMeanAtEndOfTrialsLoop),
-                              color = questType
+                                 y = 10^(questMeanAtEndOfTrialsLoop),
+                                 color = questType
   )) + 
     annotation_logticks(
       sides = "l", 
@@ -633,7 +636,7 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade, `Skilled reader?`) %>%
+    group_by(participant, age, Grade, `Skilled reader?`, font) %>%
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T)) %>%
     ungroup()
   
@@ -643,8 +646,8 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
     p1 <- NULL
     t <- foveal %>%
       rename('foveal' = 'questMeanAtEndOfTrialsLoop') %>%
-      select(foveal, participant) %>%
-      inner_join(peripheral, by = 'participant') %>%
+      select(foveal, participant, font) %>%
+      inner_join(peripheral, by = c('participant', 'font')) %>%
       rename('peripheral' = 'questMeanAtEndOfTrialsLoop') %>%
       mutate(age = format(age, nsmall = 2),
              N = paste0('N=', n()))
@@ -654,7 +657,6 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
         mutate(Grade = as.character(Grade))
       
       n_grades <- n_distinct(t$Grade)  # Determine the number of distinct Grade levels
-      
       p1 <- ggplot(t, aes(y = 10^peripheral,
                           x = 10^foveal,
                           color = Grade)) +
@@ -697,24 +699,23 @@ peripheral_plot <- function(allData) {
   }
   
   t <- crowding %>%
-    select(participant, log_crowding_distance_deg) %>%
-    left_join(acuity, by = "participant") %>%
+    select(participant, log_crowding_distance_deg, font) %>%
+    left_join(acuity, by = c("participant", "font")) %>%
     mutate(Grade = as.character(Grade))
-  
   # Calculate the number of unique grades for the color scale
   n_grades <- n_distinct(t$Grade)
   
-  ggplot(data = t, aes(x = 10^(log_crowding_distance_deg),
-                       y = 10^questMeanAtEndOfTrialsLoop,
-                       color = Grade)) +
+  p1 <- ggplot(data = t, aes(x = 10^(log_crowding_distance_deg),
+                             y = 10^questMeanAtEndOfTrialsLoop,
+                             color = Grade)) +
     geom_point(size = 3) +  # Adjust point size for better visibility
-    scale_x_log10(expand = c(0, 0)) +
-    scale_y_log10(expand = c(0, 0)) +
+    scale_x_log10(expand = c(0, 0.1)) +
+    scale_y_log10(expand = c(0, 0.1)) +
     coord_fixed() +
     labs(
       x = 'Peripheral crowding distance (deg)',
       y = 'Peripheral acuity (deg)',
-      title = 'Peripheral acuity vs peripheral crowding\ncolored by grade'
+      title = 'Peripheral acuity vs. peripheral crowding\ncolored by grade'
     ) +
     theme_classic() +
     plt_theme +
@@ -722,6 +723,25 @@ peripheral_plot <- function(allData) {
       legend.position = "top"
     ) +
     color_scale(n = n_grades)  # Dynamically apply the gray-to-black color scale
+  
+  p2<- ggplot(data = t, aes(x = 10^(log_crowding_distance_deg),
+                            y = 10^questMeanAtEndOfTrialsLoop,
+                            color = font)) +
+    geom_point(size = 3) +  # Adjust point size for better visibility
+    scale_x_log10(expand = c(0, 0.1)) +
+    scale_y_log10(expand = c(0, 0.1)) +
+    coord_fixed() +
+    labs(
+      x = 'Peripheral crowding distance (deg)',
+      y = 'Peripheral acuity (deg)',
+      title = 'Peripheral acuity vs. peripheral crowding\ncolored by font'
+    ) +
+    theme_classic() +
+    plt_theme +
+    theme(
+      legend.position = "top"
+    )
+  return(list(grade = p1, font = p2))
 }
 
 

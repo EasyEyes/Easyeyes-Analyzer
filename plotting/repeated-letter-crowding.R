@@ -281,7 +281,7 @@ plot_reading_repeated_letter_crowding <- function(allData) {
         size = 4,
         color = "black"
       ) +
-      rsvpAcuityFoveal +
+      plt_theme_ggiraph +
       color_scale(n = unique_colors) +  # Apply color scale dynamically
       guides(color = guide_legend(title = colorFactor), shape = F) +
       labs(

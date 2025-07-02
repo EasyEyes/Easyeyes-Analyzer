@@ -146,12 +146,12 @@ plot_rsvp_crowding <- function(allData) {
     
     data <- crowding %>%
       filter(targetEccentricityXDeg != 0) %>%
-      group_by(participant,conditionName) %>%
+      group_by(participant,font) %>%
       summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
       ungroup() %>%
-      inner_join(rsvp %>% select(-conditionName), by = "participant") %>%
+      inner_join(rsvp %>% select(-conditionName), by = c("participant", "font")) %>%
       distinct(participant, log_crowding_distance_deg, block_avg_log_WPM, age,
-               Grade, `Skilled reader?`, ParticipantCode, conditionName) %>%
+               Grade, `Skilled reader?`, ParticipantCode, font) %>%
       filter(!is.na(log_crowding_distance_deg), !is.na(block_avg_log_WPM)) %>%
       mutate(
         log_crowding = log_crowding_distance_deg,
@@ -199,7 +199,7 @@ plot_rsvp_crowding <- function(allData) {
     yMax <- max(data$Y, na.rm = TRUE) * 1.5
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
     
-    colorFactor <- "Grade"  # Set the color factor to 'Grade'
+    colorFactor <- "font"  # Set the color factor to 'Grade'
     
     plot <- ggplot(data, aes(x = X, y = Y, color = .data[[colorFactor]])) +
       theme_classic() +
@@ -236,11 +236,11 @@ plot_rsvp_crowding <- function(allData) {
         size = 3,
         color = "black"
       ) +
-      color_scale(n = n_distinct(data[[colorFactor]])) +  # Apply color scale dynamically
+      color_scale(n = n_distinct(data[[colorFactor]])) +
       labs(
         x = "Residual crowding (deg)",
         y = "Residual RSVP reading (w/min)",
-        title = "Residual RSVP vs residual peripheral crowding\ncolored by grade"
+        title = paste0("Residual RSVP vs residual peripheral crowding\ncolored by ", colorFactor)
       ) + 
       plt_theme +
       theme(
@@ -251,7 +251,7 @@ plot_rsvp_crowding <- function(allData) {
       plt_theme_ggiraph  # Ensure plt_theme is included
     
     # Add points to the plot
-    plot <- plot + ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode, shape = conditionName), size = 3)
+    plot <- plot + ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode), size = 3)
     # if (n_distinct(data$`Skilled reader?`) == 1) {
     #   plot <- plot + geom_point(aes(group = ParticipantCode), size = 3)
     # } else {
@@ -265,12 +265,12 @@ plot_rsvp_crowding <- function(allData) {
   
   create_plot <- function(data, condition, colorFactor) {
     data_rsvp <- data %>%
-      select(participant, log_crowding_distance_deg, conditionName) %>%
-      inner_join(rsvp %>% select(-conditionName), by = "participant") %>%
+      select(participant, log_crowding_distance_deg, font) %>%
+      inner_join(rsvp %>% select(-conditionName), by = c("participant", "font")) %>%
       distinct(participant,
                block_avg_log_WPM,
                log_crowding_distance_deg,
-               conditionName,
+               font,
                age,
                Grade,
                `Skilled reader?`,
@@ -338,8 +338,6 @@ plot_rsvp_crowding <- function(allData) {
     # Generate dynamic breaks for the y-axis
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
     
-    
-    
     if (condition == "Peripheral") {
       eccs     <- sort(unique(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg != 0]))
       ecc_label <- paste0("EccX = ", paste(as.integer(round(eccs)), collapse = ", "), " deg")
@@ -397,14 +395,14 @@ plot_rsvp_crowding <- function(allData) {
         y = "RSVP reading (w/min)",
         title = paste("RSVP vs", tolower(condition), "crowding\ncolored by", tolower(colorFactor))
       ) + 
-      plt_theme +
+      plt_theme_ggiraph +
       theme(
         legend.position = ifelse(n_distinct(data_rsvp[[colorFactor]]) == 1, "none", "top")
       ) +
       guides(color = guide_legend(title = colorFactor), 
              shape = guide_legend(title = '',ncol= 1))
     
-    p <- p + ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode, shape = conditionName), size = 3)
+    p <- p + ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode), size = 3)
     # if (n_distinct(data_rsvp$`Skilled reader?`) == 1) {
     #   p <- p + geom_point(aes(group = ParticipantCode), size = 3)
     # } else {
@@ -422,7 +420,7 @@ plot_rsvp_crowding <- function(allData) {
   
   peripheral <- crowding %>% 
     filter(targetEccentricityXDeg != 0) %>% 
-    group_by(participant, conditionName) %>%
+    group_by(participant, font) %>%
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T)) %>% 
     ungroup()
   rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
@@ -432,14 +430,15 @@ plot_rsvp_crowding <- function(allData) {
   }
   
   # Create plots for peripheral and foveal data
-  p1 <- create_plot(peripheral, "Peripheral",'Age')
-  p2 <- create_plot(foveal, "Foveal",'Age')
-  p3 <- create_plot(peripheral, "Peripheral",'Grade')
+  # temporarily chanaged tro color by font
+  p1 <- create_plot(peripheral, "Peripheral",'font')
+  p2 <- create_plot(foveal, "Foveal",'font')
+  p3 <- create_plot(peripheral, "Peripheral",'font')
   p4 <- factor_out_age_and_plot(allData)
-  p5 <- create_plot(foveal, "Foveal",'Grade')
+  p5 <- create_plot(foveal, "Foveal",'font')
   
 
-  return(list(p1, p2, p3,p4, p5))
+  return(list(p1, p2, p3, p4, p5))
 }
 
 getCorrMatrix <- function(allData, pretest) {

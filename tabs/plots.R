@@ -191,6 +191,30 @@ plotsTab <- tabPanel(
     splitLayout(
       cellWidths = c("50%", "50%"),
       conditionalPanel(
+        'output.isPeripheralCrowding',
+        shinycssloaders::withSpinner(
+          ggiraph::girafeOutput("ordinaryPeripheralCrowdingFontPlot", height = '600px'),
+          type = 4
+        )),
+      conditionalPanel(
+        'output.isFovealCrowding',
+        shinycssloaders::withSpinner(
+          ggiraph::girafeOutput("ordinaryFovealCrowdingFontPlot", height = '600px'),
+          type = 4
+        ))
+    ),
+    splitLayout(
+      cellWidths = c("50%", "50%"),
+      conditionalPanel(
+        'output.isPeripheralCrowding',
+        downloadButton("downloadOrdinaryPeripheralCrowdingFontPlot", "Download")),
+      conditionalPanel(
+        'output.isFovealCrowding',
+        downloadButton("downloadOrdinaryFovealCrowdingFontPlot", "Download"))
+    ),
+    splitLayout(
+      cellWidths = c("50%", "50%"),
+      conditionalPanel(
         'output.isFovealAcuity',
       shinycssloaders::withSpinner(
         ggiraph::girafeOutput("ordinaryFovealAcuityGradePlot", height = '600px'),

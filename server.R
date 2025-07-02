@@ -935,9 +935,15 @@ shinyServer(function(input, output, session) {
     }
     
     t <- peripheral_plot(df_list())
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
+    if (!is.null(t$grade)) {
+      l[[i]] = t$grade + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'
+      i = i + 1
+    }
+    
+    if (!is.null(t$font)) {
+      l[[i]] = t$font + scale_color_manual(values = colorPalette)
+      fileNames[[i]] = 'peripheral-acuity-vs-peripheral-crowding-font-diagram'
       i = i + 1
     }
     
@@ -965,7 +971,7 @@ shinyServer(function(input, output, session) {
     
     t <- regression_reading_plot(df_list())
     if (!is.null(t$foveal)) {
-      l[[i]] = t$foveal
+      l[[i]] = t$foveal + scale_color_manual(values = colorPalette)
       fileNames[[i]] = 'reading-rsvp-reading-vs-foveal-crowding'
       i = i + 1
     }
@@ -1798,9 +1804,11 @@ shinyServer(function(input, output, session) {
     })
   
   # Peripheral Crowding Plots
-  output$ordinaryPeripheralCrowdingAgePlot <-
+  output$ordinaryPeripheralCrowdingFontPlot <-
     ggiraph::renderGirafe({
       ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[1]])
+      
+      #temporarily change to colored by font
     })
   
   output$ordinaryPeripheralCrowdingGradePlot <-
@@ -1809,8 +1817,9 @@ shinyServer(function(input, output, session) {
     })
   
   # Foveal Crowding Plots
-  output$ordinaryFovealCrowdingAgePlot <-
+  output$ordinaryFovealCrowdingFontPlot <-
     ggiraph::renderGirafe({
+      #temporarily change to colored by font
       ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[2]]) # Age-based foveal crowding plot
     })
   
@@ -6086,6 +6095,38 @@ shinyServer(function(input, output, session) {
           }
         }
       )
+    output$downloadOrdinaryFovealCrowdingFontPlot <-
+      downloadHandler(
+        filename = function() {
+          paste0(
+            experiment_names(),
+            "ordinary-reading-vs-foveal-crowding-by-font.",
+            input$fileType
+          )
+        },
+        content = function(file) {
+          if (input$fileType == "png") {
+            ggsave(
+              "tmp.svg",
+              plot = ordinaryCrowdingPlots()[[2]] + plt_theme,
+              width = 8,
+              height = 6,
+              device = svglite,
+              limitsize = FALSE
+            )
+            rsvg::rsvg_png("tmp.svg", file,
+                           width = 1800)
+          } else {
+            ggsave(
+              file = file,
+              plot =  ordinaryCrowdingPlots()[[2]] + plt_theme,
+              device = svg,
+              width = 6,
+            )
+          }
+        }
+      )
+    
     
     output$downloadOrdinaryFovealCrowdingGradePlot <-
       downloadHandler(
@@ -6114,6 +6155,43 @@ shinyServer(function(input, output, session) {
               plot =  ordinaryCrowdingPlots()[[4]] + plt_theme,
               device = svg,
               width = 6,
+            )
+          }
+        }
+      )
+    
+    output$downloadOrdinaryPeripheralCrowdingFontPlot <-
+      downloadHandler(
+        filename = function() {
+          paste0(
+            experiment_names(),
+            "ordinary-reading-vs-peripheral-crowding-by-grade.",
+            input$fileType
+          )
+        },
+        content = function(file) {
+          if (input$fileType == "png") {
+            ggsave(
+              "tmp.svg",
+              plot = ordinaryCrowdingPlots()[[1]] +
+                plt_theme,
+              width = 8,
+              height = 6,
+              device = svglite,
+              limitsize = FALSE
+            )
+            rsvg::rsvg_png("tmp.svg",
+                           file,
+                           width = 2400,
+                           height = 1800)
+          } else {
+            ggsave(
+              file = file,
+              plot =  ordinaryCrowdingPlots()[[1]] +
+                plt_theme,
+              device = svg,
+              width = 8,
+              height = 6,
             )
           }
         }

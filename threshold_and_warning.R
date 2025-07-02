@@ -96,7 +96,7 @@ generate_rsvp_reading_crowding_fluency <-
     t <- data_list[[i]] %>% 
       select(block_condition, participant, conditionName, font, readingPageWords, readingPageDurationOnsetToOffsetSec,
              targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
-      group_by(participant, block_condition) %>%
+      group_by(participant, block_condition, conditionName, font) %>%
       mutate(trial = row_number()) %>% 
       ungroup() %>% 
       mutate(wordPerMin = ifelse(trial < 3 & tolower(participant) %in% englishChild$participant,

@@ -428,12 +428,12 @@ plot_reading_crowding <- function(allData) {
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition, colorFactor) {
     data_reading <- data %>%
-      select(participant, log_crowding_distance_deg, conditionName) %>%
-      inner_join(reading %>% select(-conditionName), by = "participant") %>%
+      select(participant, log_crowding_distance_deg, font) %>%
+      inner_join(reading %>% select(-conditionName), by = c("participant", "font")) %>%
       distinct(
         participant, 
+        font,
         wordPerMin, 
-        conditionName,
         log_crowding_distance_deg,
         age,
         Grade,
@@ -543,7 +543,7 @@ plot_reading_crowding <- function(allData) {
         ),
         hjust = 0,
         vjust = 0,
-        size = 4,
+        size = 3,
         color = "black"
       ) +
       color_scale(n = length(unique(data_reading[[colorFactor]]))) + # Apply color_scale directly
@@ -554,16 +554,15 @@ plot_reading_crowding <- function(allData) {
         y = 'Ordinary reading speed (w/min)',
         title = paste('Ordinary reading vs', tolower(condition), 'crowding\ncolored by', tolower(colorFactor))
       ) + 
-      plt_theme
+      plt_theme_ggiraph
     
-    p <- p + geom_point(
-      data = data_reading,
-      aes(x = X, 
-          y = Y, 
-          group = ParticipantCode,
-          color = .data[[colorFactor]],
-          shape = conditionName)
-    )
+    p <- p + ggiraph::geom_point_interactive(data = data_reading,
+                                        aes(x = X,
+                                            y = Y,
+                                          data_id = ParticipantCode, 
+                                             tooltip = ParticipantCode,
+                                             color = .data[[colorFactor]]), size = 3)
+      
     # if (n_distinct(data_reading$`Skilled reader?`) == 1) {
     #   p <- p + geom_point(
     #     data = data_reading,
@@ -587,7 +586,7 @@ plot_reading_crowding <- function(allData) {
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>%
     filter(targetEccentricityXDeg != 0) %>%
-    group_by(participant, age, Grade, `Skilled reader?`, conditionName) %>%
+    group_by(participant, age, Grade, `Skilled reader?`, font) %>%
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
     ungroup()
   reading <- allData$reading %>% mutate(participant = tolower(participant))
@@ -597,8 +596,8 @@ plot_reading_crowding <- function(allData) {
   }
   
   # Create plots for peripheral and foveal data
-  p1 <- create_plot(peripheral, "Peripheral", 'Age') + labs(subtitle = "Geometric average of left and right thresholds")
-  p2 <- create_plot(foveal, "Foveal", 'Age')
+  p1 <- create_plot(peripheral, "Peripheral", 'font') + labs(subtitle = "Geometric average of left and right thresholds")
+  p2 <- create_plot(foveal, "Foveal", 'font')
   p3 <- create_plot(peripheral, "Peripheral", 'Grade') + labs(subtitle = "Geometric average of left and right thresholds")
   p4 <- create_plot(foveal, "Foveal", 'Grade')
   
