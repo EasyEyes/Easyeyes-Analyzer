@@ -264,6 +264,7 @@ shinyServer(function(input, output, session) {
   
   # Optional debounced reactive
   conditionNames <- reactive(input$conditionName) %>% debounce(5000)
+  maxReadingSpeed <- reactive(input$maxReadingSpeed) %>% debounce(2000)
   
   df_list <- reactive({
     if (is.null(files())) {
@@ -277,7 +278,8 @@ shinyServer(function(input, output, session) {
       input$filterInput,
       minNQuestTrials(),
       maxQuestSD(),
-      conditionNames()
+      conditionNames(),
+      maxReadingSpeed()
     )
     return(
       df_list
@@ -1719,7 +1721,7 @@ shinyServer(function(input, output, session) {
   output$rsvpCrowdingPeripheralGradePlot <-
     ggiraph::renderGirafe({
       tryCatch({
-        ggiraph::girafe(ggobj = rsvpCrowding()[[3]] + plt_theme_ggiraph)
+        ggiraph::girafe(ggobj = rsvpCrowding()[[3]])
       }, error = function(e) {
         error_plot <- ggplot() +
           annotate(
@@ -1741,7 +1743,7 @@ shinyServer(function(input, output, session) {
   output$rsvpResidualCrowding <-
     ggiraph::renderGirafe({
       tryCatch({
-        ggiraph::girafe(ggobj = rsvpCrowding()[[4]] + plt_theme_ggiraph)
+        ggiraph::girafe(ggobj = rsvpCrowding()[[4]])
       }, error = function(e) {
         error_plot <- ggplot() +
           annotate(
@@ -1769,56 +1771,56 @@ shinyServer(function(input, output, session) {
   })
 
   output$rsvpCrowdingFovealGradePlot <- ggiraph::renderGirafe({
-    ggiraph::girafe(ggobj = rsvpCrowding()[[5]] + plt_theme_ggiraph)
+    ggiraph::girafe(ggobj = rsvpCrowding()[[5]])
   })
   
   output$rsvpFovealAcuityGradePlot <- ggiraph::renderGirafe({
-    ggiraph::girafe(ggobj = rsvpAcuityFoveal()[[2]] + plt_theme_ggiraph)
+    ggiraph::girafe(ggobj = rsvpAcuityFoveal()[[2]])
   })
   
   output$rsvpPeripheralAcuityGradePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = rsvpAcuityPeripheral()[[2]] + plt_theme_ggiraph)
+      ggiraph::girafe(ggobj = rsvpAcuityPeripheral()[[2]])
     })
   
   output$rsvpRepeatedGradePlot <- ggiraph::renderGirafe({
-    ggiraph::girafe(ggobj = rsvp_repeated_letter_crowding()[[2]] + plt_theme_ggiraph)
+    ggiraph::girafe(ggobj = rsvp_repeated_letter_crowding()[[2]])
   })
   
   output$ordinaryFovealAcuityGradePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryAcuityFoveal()[[2]] + plt_theme_ggiraph)
+      ggiraph::girafe(ggobj = ordinaryAcuityFoveal()[[2]])
     })
   
   output$ordinaryPeripheralAcuityGradePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryAcuityPeripheral()[[2]] + plt_theme_ggiraph)
+      ggiraph::girafe(ggobj = ordinaryAcuityPeripheral()[[2]])
     })
   
   # Peripheral Crowding Plots
   output$ordinaryPeripheralCrowdingAgePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[1]] + plt_theme_ggiraph)
+      ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[1]])
     })
   
   output$ordinaryPeripheralCrowdingGradePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj =  ordinaryCrowdingPlots()[[3]] + plt_theme_ggiraph)  # Grade-based peripheral crowding plot
+      ggiraph::girafe(ggobj =  ordinaryCrowdingPlots()[[3]])  # Grade-based peripheral crowding plot
     })
   
   # Foveal Crowding Plots
   output$ordinaryFovealCrowdingAgePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[2]] + plt_theme_ggiraph) # Age-based foveal crowding plot
+      ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[2]]) # Age-based foveal crowding plot
     })
   
   output$ordinaryFovealCrowdingGradePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[4]] + plt_theme_ggiraph)  # Grade-based foveal crowding plot
+      ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[4]])  # Grade-based foveal crowding plot
     })
   
   output$readingRepeatedGradePlot <- ggiraph::renderGirafe({
-    ggiraph::girafe(ggobj = readingRepeatedPlots()[[2]] + plt_theme_ggiraph)
+    ggiraph::girafe(ggobj = readingRepeatedPlots()[[2]])
   })
   
   #### age plots ####
@@ -3516,13 +3518,13 @@ shinyServer(function(input, output, session) {
   
   observeEvent(input$fileJSON, {
     #### sound calibration server side####
-    output$`sound table` <- renderTable(sound_data()[[1]],
+    output$`sound table` <- renderTable(sound_data()$volume_task,
                                         digits = 1)
     output$`Dynamic Range Compression Model` <-
       renderTable(
-        expr = sound_data()[[3]],
-        rownames = FALSE,
-        colnames = TRUE,
+        expr = sound_data()$DRCMforDisplay,
+        rownames = TRUE,
+        colnames = FALSE,
         digits = 1
       )
     

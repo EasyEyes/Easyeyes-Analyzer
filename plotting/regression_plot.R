@@ -63,7 +63,7 @@ prepare_regression_data <- function(df_list){
 
 prepare_regression_acuity <- function(df_list){
   reading <- df_list$reading 
-  acuity <- df_list$acuity
+  acuity <- df_list$acuity %>%  filter(targetEccentricityXDeg == 0)
   rsvp_speed <- df_list$rsvp
   if ((nrow(reading) == 0 & nrow(rsvp_speed) == 0) | nrow(acuity) == 0) {
     return(tibble())
@@ -82,7 +82,6 @@ prepare_regression_acuity <- function(df_list){
   
     
   acuity <- acuity %>%
-    filter(targetEccentricityXDeg == 0) %>% 
     mutate(participant = tolower(participant)) %>% 
     select(participant, questMeanAtEndOfTrialsLoop, conditionName)
   

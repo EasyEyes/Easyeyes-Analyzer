@@ -320,7 +320,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, 
                                           tooltip = ParticipantCode, 
                                           shape = conditionName), size = 3) +
-      theme_classic() +
+      theme_bw() +
       scale_y_log10(
         breaks = y_breaks,
         limits = c(yMin/1.5, yMax*1.5),
@@ -362,7 +362,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
         y = 'RSVP reading speed (w/min)',
         title = paste('RSVP vs', type, 'acuity\ncolored by', tolower(colorFactor), '\n')
       ) +
-      plt_theme +
+      plt_theme_ggiraph +
       theme(
         legend.position = ifelse(unique_colors == 1, 'none', 'top')
       )
@@ -425,9 +425,11 @@ plot_acuity_reading <- function(acuity, reading, type) {
     
     # Prepare data for stats
     data_for_stat <- data_reading %>%
-      filter(complete.cases(.)) %>%
-      select(log_WPM, questMeanAtEndOfTrialsLoop, X, Y, ageN)
-    
+      select(log_WPM, questMeanAtEndOfTrialsLoop, X, Y, ageN) %>% 
+      filter(complete.cases(.))
+    if (nrow(data_for_stat) == 0) {
+      return(NULL)
+    }
     # Calculate correlation and slope
     corr <- data_for_stat %>%
       summarize(
@@ -499,7 +501,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
         y = "Ordinary reading speed (w/min)",
         title = paste("Ordinary reading vs", type, "acuity\ncolored by", tolower(colorFactor))
       ) +
-      plt_theme + 
+      plt_theme_ggiraph + 
       guides(color = guide_legend(title = colorFactor), 
              shape = guide_legend(title = '',
                                   ncol = 1))
@@ -696,8 +698,7 @@ peripheral_plot <- function(allData) {
   if (nrow(crowding) == 0 | nrow(acuity) == 0) {
     return(NULL)
   }
-  print(crowding)
-  print(acuity)
+  
   t <- crowding %>%
     select(participant, log_crowding_distance_deg) %>%
     left_join(acuity, by = "participant") %>%

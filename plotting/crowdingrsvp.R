@@ -152,7 +152,7 @@ plot_rsvp_crowding <- function(allData) {
       inner_join(rsvp %>% select(-conditionName), by = "participant") %>%
       distinct(participant, log_crowding_distance_deg, block_avg_log_WPM, age,
                Grade, `Skilled reader?`, ParticipantCode, conditionName) %>%
-      filter(!is.na(log_crowding_distance_deg), !is.na(block_avg_log_WPM), !is.na(age)) %>%
+      filter(!is.na(log_crowding_distance_deg), !is.na(block_avg_log_WPM)) %>%
       mutate(
         log_crowding = log_crowding_distance_deg,
         log_rsvp = block_avg_log_WPM,
@@ -167,14 +167,25 @@ plot_rsvp_crowding <- function(allData) {
     }
     
     # Compute residuals after factoring out age
-    residuals <- compute_residuals(data, "log_crowding", "log_rsvp", "age")
-    data <- data %>%
-      mutate(
-        residual_log_crowding = residuals$residual_x,
-        residual_log_rsvp = residuals$residual_y,
-        X = 10^residuals$residual_x,
-        Y = 10^residuals$residual_y
-      )
+    if (n_distinct(data$age) > 1) {
+      residuals <- compute_residuals(data, "log_crowding", "log_rsvp", "age")
+      data <- data %>%
+        mutate(
+          residual_log_crowding = residuals$residual_x,
+          residual_log_rsvp = residuals$residual_y,
+          X = 10^residuals$residual_x,
+          Y = 10^residuals$residual_y
+        )
+    } else {
+      data <- data %>%
+        mutate(
+          residual_log_crowding = log_crowding,
+          residual_log_rsvp = log_rsvp,
+          X = 10^log_crowding,
+          Y = 10^log_rsvp
+        )
+    }
+   
     
     # Compute correlation and slope
     correlation <- cor(data$residual_log_crowding, data$residual_log_rsvp, method = "pearson")
@@ -237,7 +248,7 @@ plot_rsvp_crowding <- function(allData) {
       ) +
       guides(color = guide_legend(title = "Grade"), 
              shape = guide_legend(title = "", ncol = 1)) +
-      plt_theme  # Ensure plt_theme is included
+      plt_theme_ggiraph  # Ensure plt_theme is included
     
     # Add points to the plot
     plot <- plot + ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode, shape = conditionName), size = 3)

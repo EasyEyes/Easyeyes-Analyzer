@@ -5,7 +5,9 @@ library(stringr)
 englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
   mutate(participant = tolower(ID))
 
-generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pretest, stairs, filterInput, minNQuestTrials, maxQuestSD, conditionNameInput) {
+generate_rsvp_reading_crowding_fluency <- 
+  function(data_list, summary_list, pretest, stairs, filterInput, minNQuestTrials, 
+           maxQuestSD, conditionNameInput, maxReadingSpeed) {
 
   print('inside threshold warning')
   print(paste0('length of data list: ', length(data_list)))
@@ -122,6 +124,8 @@ generate_rsvp_reading_crowding_fluency <- function(data_list, summary_list, pret
              log_WPM = log10(`OMT_words read`)) %>% 
       rename(wordPerMin = `OMT_words read`)
   }
+  
+  reading <- reading %>% filter(wordPerMin <= maxReadingSpeed)
   
   if (nrow(pretest) > 0) {
     reading <- reading %>% 

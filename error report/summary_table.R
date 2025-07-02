@@ -422,7 +422,12 @@ generate_summary_table <- function(data_list, stairs) {
         )
       }
       t <- cbind(t, info)
-      t$ok <- emoji("construction")
+      if (t$participant[1] %in% error$participant) {
+        t$ok <- emoji("x")
+      } else {
+        t$ok <- emoji("construction")
+      }
+     
       incomplete <- rbind(incomplete, t)
     }
   }
@@ -539,13 +544,7 @@ generate_summary_table <- function(data_list, stairs) {
   
   summary_df <- sessions %>%
     left_join(error, by = 'participant') %>%
-    left_join(warnings, by = 'participant') %>%
-    mutate(ok = ifelse(error != "", emoji("x"), ok)) %>% 
-    # mutate(ok = factor(ok, levels = c(emoji("x"),
-    #                                   emoji("construction"),
-    #                                   emoji("large_orange_diamond"),
-    #                                   emoji("white_check_mark")
-    # ))) %>%
+    left_join(warnings, by = 'participant') %>% 
     mutate(ok = factor(ok, levels = c(
       emoji("x"),
       emoji("construction"),

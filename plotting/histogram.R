@@ -179,7 +179,8 @@ get_reading_hist <- function(data) {
     } else {
       data <- data %>%
         group_by(participant, targetKind, `Skilled reader?`) %>% 
-        summarize(log_WPM = mean(log_WPM, na.rm=T))
+        summarize(log_WPM = mean(log_WPM, na.rm=T)) %>% 
+        ungroup()
     }
     data <- data %>% filter(!is.na(log_WPM))
     if (nrow(data) == 0) {
@@ -194,6 +195,7 @@ get_reading_hist <- function(data) {
     stats1 <- stats1 %>% summarize(mean = round(mean(log_WPM),2), 
                                    sd = round(sd(log_WPM),2),
                                    N = n())
+    stats1 = stats1[1,]
     p1 <- ggplot(data) + 
       geom_histogram(aes(x = log_WPM),color="black", fill="black") +
       scale_x_continuous(expand = c(0, 0)) + 
@@ -392,11 +394,8 @@ generate_histograms_by_grade <- function(data) {
 }
 
 get_age_histogram <- function(data) {
-  if (is.null(data) || n_distinct(data$age) == 1) return(NULL)
-  
-  # Remove negative ages
   data <- data %>% filter(age >= 0)
- 
+  if (is.null(data) || n_distinct(data$age) == 1) return(NULL)
   # Calculate summary statistics
   stats <- data %>%
     summarize(

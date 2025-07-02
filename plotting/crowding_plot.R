@@ -90,6 +90,7 @@ crowding_scatter_plot <- function(crowding_L_R){
                                x = 10^(log_crowding_distance_deg_Right),
                                color = conditionName)) + 
     geom_point(size = 1) + 
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") + 
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     scale_y_log10(limits = c(10^(minXY), 
                              10^(maxXY)),
@@ -129,8 +130,7 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
   t <- crowding_L_R %>% group_by(conditionName) %>% summarize(avg_left_deg = mean(log_crowding_distance_deg_Left),
                                                      avg_right_deg = mean(log_crowding_distance_deg_Right))
   corrrelation <- ifelse(nrow(t) > 1, cor(t$avg_left_deg, t$avg_right_deg), NA)
-  print("Correlation in corwding mean")
-  print(corrrelation)
+
   ggplot(t, aes(x = avg_left_deg, y = avg_right_deg, color = conditionName)) + 
     geom_point(size = 2) +
     geom_smooth(method = "lm",formula = y ~ x, se=F) + 
@@ -920,7 +920,7 @@ get_foveal_peripheral_diag <- function(crowding) {
     r_value <- cor(t$foveal_y, t$peripheral_x, use = "complete.obs")
     N <- nrow(t)
     
-    if ("age" %in% colnames(t) && any(!is.na(t$age))) {
+    if ("age" %in% colnames(t) & n_distinct(t$age) > 1) {
       pcor <- ppcor::pcor(t %>% select(foveal_y, peripheral_x, age))
       R_factor_out_age <- round(pcor$estimate[2, 1], 2)
     } else {

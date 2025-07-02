@@ -1,7 +1,8 @@
 require(jsonlite)
 require(dplyr)
 
-# jsonFile <- fromJSON("SoundCalibrationScientistQuick45_BrightSkyDog646_0001_May_25%2C_2025_7_43_PM_UTC-04_00_sound.json", simplifyDataFrame = F)
+# setwd("~/Downloads/data")
+# jsonFile <- fromJSON("SoundCalibrationScientistQuick36_LoudGreenGoose726_0001_May_13%2C_2025_2_15_PM_UTC-04_00_sound.json", simplifyDataFrame = F)
 # sound_data <- preprocessJSON(jsonFile)
 preprocessJSON <- function(jsonFile) {
   #### volume ####
@@ -336,9 +337,7 @@ CompressorDb <- function(inDb, `T`, R, W) {
   return (outDb)
 }
 
-get_sound_model <-
-  function(volume_task,
-           dynamic_range_compression_model) {
+get_sound_model <- function(volume_task, dynamic_range_compression_model) {
     minX = min(volume_task$`in (dB)`)
     maxX = max(volume_task$`in (dB)`)
     x = seq(minX, maxX, 0.1)
@@ -475,8 +474,7 @@ plotComponentIIR <- function(jsonFile, sound_data) {
   ))
 }
 
-plotComponentIRPSD <-
-  function(jsonFile, sound_data) {
+plotComponentIRPSD <- function(jsonFile, sound_data) {
     subtitle <- sound_data$subtitle$component
     transducerTable <- sound_data$transducerTable
     if ("Loudspeaker Component IR" %in% names(jsonFile)) {
@@ -696,7 +694,7 @@ plot_power_variations <- function(jsonFile, sound_data) {
     ) +
     scale_x_continuous(
       limits = c(0, maxX),
-      breaks = seq(0, maxX, 0.5),
+      breaks = scales::pretty_breaks(n=10),
       expand = c(0, 0)
     ) +
     scale_y_continuous(
@@ -762,7 +760,6 @@ plot_power_variations <- function(jsonFile, sound_data) {
   height = (maxY - minY) / 16 + 1
   return(list(plot = p, height = height))
 }
-
 
 plot_volume_power_variations <- function(jsonFile, sound_data) {
   transducerTable <- sound_data$transducerTable
@@ -843,7 +840,7 @@ plot_volume_power_variations <- function(jsonFile, sound_data) {
     ) +
     scale_x_continuous(
       limits = c(0, maxX),
-      breaks = seq(0, maxX, 0.5),
+      breaks = scales::pretty_breaks(n=10),
       expand = c(0, 0)
     ) +
     scale_y_continuous(
@@ -1165,7 +1162,7 @@ plot_record_freq_component <- function(sound_data) {
   noise <- noise %>%
     mutate(gain = 10 * log10(gain),
            label = "Recording of background")
-  t <- sound_data$plot_power_variations$component
+  t <- sound_data$recording_vs_freq$component
   
   t <- t %>%
     mutate(gain = 10 * log10(gain))
@@ -1193,7 +1190,6 @@ plot_record_freq_component <- function(sound_data) {
     mutate(label = "Expected corr",
            gain = 10 * log10(corrected_p) + gain) %>%
     select(freq, gain, label)
-  print(tmp)
   
   t <- rbind(t, tmp)
   transducerLabel <- unique(sound_data$knownGain$label)
@@ -1210,59 +1206,18 @@ plot_record_freq_component <- function(sound_data) {
     )
   )
   
-  #subtract component gain Recording of filtered MLS
-  
-  tmp <- t %>%
-    filter(label == "Recording of filtered MLS")
-  interpolated_values <-
-    approx(sound_data$knownGain$freq, sound_data$knownGain$gain, xout = tmp$freq)$y
-  
-  tmp$transducergain = interpolated_values
-  tmp <- tmp %>% mutate(gain = gain - transducergain) %>%
+  #subtract component gain
+  t <- t %>%
+    mutate(transducergain = approx(sound_data$knownGain$freq, sound_data$knownGain$gain, xout = freq)$y) %>% 
+    mutate(gain = ifelse(label %in% c( "Recording of background",
+                                       "Recording of MLS",
+                                       "Recording of filtered MLS",
+                                       "Expected corr"),
+                         gain - transducergain,
+                         gain)) %>%
     select(freq,
            gain,
            label)
-  t <- t %>% filter(label != "Recording of filtered MLS") %>%
-    rbind(tmp)
-  
-  
-  #subtract component gain Recording of MLS
-  tmp <- t %>%
-    filter(label == "Recording of MLS")
-  
-  tmp$transducergain = interpolated_values
-  tmp <- tmp %>% mutate(gain = gain - transducergain) %>%
-    select(freq,
-           gain,
-           label)
-  t <- t %>% filter(label != "Recording of MLS") %>%
-    rbind(tmp)
-  
-  
-  #subtract component gain Recording of background
-  backgroud <- t %>%
-    filter(label == "Recording of background")
-  if(nrow(tmp) > 0) {
-    backgroud$transducergain = interpolated_values
-    backgroud <- backgroud %>% mutate(gain = gain - transducergain) %>%
-      select(freq,
-             gain,
-             label)
-    t <- t %>% filter(label != "Recording of background") %>%
-      rbind(backgroud)
-  }
-  
-  #subtract component gain Expectation
-  expected_corr <- t %>%
-    filter(label == "Expected corr")
-  
-  tmp$transducergain = interpolated_values
-  tmp <- tmp %>% mutate(gain = gain - transducergain) %>%
-    select(freq,
-           gain,
-           label)
-  t <- t %>% filter(label != "Expected corr") %>%
-    rbind(tmp)
   
   tmp <- t %>%
     filter(freq >= sound_data$inputParameters$calibrateSoundMinHz,
@@ -1310,6 +1265,30 @@ plot_record_freq_component <- function(sound_data) {
   maxY <- round(max(tmp$gain) / 10) * 10 + 10
   tmp <- t %>% filter(freq <= 1050, freq >= 950, is.finite(gain))
   minY <- floor(min(tmp$gain) / 10) * 10 - 50
+  
+  t <- t %>% 
+    mutate(
+      colors = case_when(
+      label == "Recording of background" ~ "#CCCCCC",
+      label == "Recording of MLS" ~ "red",
+      label == "Recording of filtered MLS" ~ "#3366FF",
+      label == "MLS" ~ "red",
+      label == "Filtered MLS" ~ "#3366FF",
+      label == "Expected corr" ~ "#9900CC",
+      label == transducerLabel ~ "black"),
+    linetypes = case_when(
+      label == "Recording of background" ~ 1,
+      label == "Recording of MLS" ~ 1,
+      label == "Recording of filtered MLS" ~ 1,
+      label == "MLS" ~ 2,
+      label == "Filtered MLS" ~ 2,
+      label == "Expected corr" ~ 2,
+      label == transducerLabel ~ 2)
+    )
+  
+  legends <- t %>% distinct(label,colors,linetypes) %>% arrange(label)
+  
+  
   p1 <- ggplot(t) +
     geom_line(aes(
       x = freq,
@@ -1326,17 +1305,9 @@ plot_record_freq_component <- function(sound_data) {
       breaks = seq(minY, maxY, 10),
       limits = c(minY, maxY),
       expand = c(0, 0)
-    ) +
-    scale_color_manual(values = c(
-      "#CCCCCC",
-      "red",
-      "#3366FF",
-      "red",
-      "#3366FF",
-      "#9900CC",
-      "black"
-    )) +
-    scale_linetype_manual(values = c(1, 1, 1, 2, 2, 2, 2)) +
+    ) + 
+    scale_color_manual(values = legends$colors) +
+    scale_linetype_manual(values = legends$linetypes) + 
     theme_bw() +
     theme(
       legend.position = c(0.4, 0.99),
@@ -1390,6 +1361,7 @@ plot_record_freq_component <- function(sound_data) {
       color = NULL,
       linetype = NULL
     )
+  
   if (transducerLabel == "microphone gain") {
     p1 <-
       p1 + add_transducerTable_component(
@@ -1522,9 +1494,9 @@ getCumSumPowerPlot <- function(jsonFile) {
 plot_sound_level <- function(sound_data) {
     # add <- plot here
     volume_task <- sound_data$volume_task
-    
+
     DRCMforDisplay <- data.frame(sound_data$DRCMforDisplay)
-    
+
     DRCMforDisplay <- cbind(rownames(DRCMforDisplay), DRCMforDisplay)
     colnames(DRCMforDisplay) <- NULL
     rownames(DRCMforDisplay) <- NULL
@@ -1533,39 +1505,39 @@ plot_sound_level <- function(sound_data) {
     DRCMforDisplay[2, 2] = paste(DRCMforDisplay[2, 2] , "dB")
     DRCMforDisplay[4, 2] = paste(DRCMforDisplay[4, 2] , "dB")
     DRCMforDisplay[5, 2] = paste(DRCMforDisplay[5, 2] , "dB")
-    
+
     dynamic_range_compression_model <- sound_data$dynamic_range_compression_model %>%
       select(`T`, W, `1/R`, gainDBSPL, RMSError)
-    
+
     threshold <-dynamic_range_compression_model$`T`
-    
+
     model <- sound_data$model
-    
+
     micGainDBSPL <-
       as.numeric(unlist(strsplit(sound_data$transducerTable[1, 2], " "))[1])
-    
+
     minY = floor(min(volume_task$`out (dB SPL)`) / 10) * 10
     maxY = ceiling(max(volume_task$`out (dB SPL)`) / 10) * 10
     maxY = ceiling(max(maxY, model$y)/ 10) * 10
     minX = floor(min(volume_task$`in (dB)`)/10) * 10
     maxX = max(volume_task$`in (dB)`)
-    
+
     # DEBUG
     print(paste0("threshold: ", threshold))
     print(paste0("minY: ", minY))
     print(paste0("maxY: ", maxY))
     print(paste0("minX: ", minX))
     print(paste0("maxX: ", maxX))
-    
+
     thd_data <- filter(volume_task, `in (dB)` > -45)
     thdMax <- ceiling(max(thd_data$`THD (%)`) / 0.5) * 0.5
     # thdMax = 1
-    
+
     p <- ggplot() +
       geom_point(data = volume_task, aes(x = `in (dB)`, y = `out (dB SPL)`), size = 3) +
       geom_vline(xintercept = threshold, color = "red") +
       geom_line(data = model, aes(x = x, y = y), size = 0.8) +
-      geom_rect(aes(xmin = threshold, xmax = maxX, 
+      geom_rect(aes(xmin = threshold, xmax = maxX,
                     ymin = minY, ymax = maxY), alpha = 0.1, fill = "red") +
       add_parameters_table(
         parametersTable = DRCMforDisplay,
@@ -1602,7 +1574,7 @@ plot_sound_level <- function(sound_data) {
         panel.border = element_rect(colour = "black", fill=NA, size=0.2),
         legend.box = "horizontal",
         plot.margin = margin(
-          t = -4.38 + thdMax * 0.4,
+          t = -4.35 + thdMax * 0.4,
           b = 0,
           l = 0,
           r = 0,
@@ -1627,13 +1599,13 @@ plot_sound_level <- function(sound_data) {
       sound_theme_soundLevel +
       ylab("Output level (dB)") +
       xlab("Input level (dB)")
-    
-   
+
+
     thd <- ggplot() +
       geom_line(data = thd_data, aes(y = `THD (%)`, x = `in (dB)`), size = 0.8) +
       geom_point(data = thd_data, aes(y = `THD (%)`, x = `in (dB)`), size = 3) +
       geom_vline(xintercept = threshold, color = "red") +
-      geom_rect(aes(xmin = threshold, xmax = maxX, 
+      geom_rect(aes(xmin = threshold, xmax = maxX,
                     ymin = 0, ymax = ceiling(max(
                       thd_data$`THD (%)`
                     ) / 0.5) * 0.5), alpha = 0.1, fill = "red") +
@@ -1657,7 +1629,7 @@ plot_sound_level <- function(sound_data) {
       theme(
         plot.background = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.title.x = element_blank(), 
+        axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         legend.position = "none",
         axis.ticks.length = unit(-0.2, "line"),
@@ -1690,6 +1662,110 @@ plot_sound_level <- function(sound_data) {
       height = height
     ))
   }
+
+
+# plot_sound_level <- function(sound_data) {
+#   volume_task <- sound_data$volume_task
+#   model <- sound_data$model
+#   threshold <- sound_data$dynamic_range_compression_model$`T`
+#   
+#   # Shared x-axis limits
+#   minX <- floor(min(volume_task$`in (dB)`) / 10) * 10
+#   maxX <- ceiling(max(volume_task$`in (dB)`) / 10) * 10
+#   
+#   # Prepare THD data
+#   thd_data <- volume_task %>%
+#     filter(`in (dB)` > -45)
+#   thdMax <- ceiling(max(thd_data$`THD (%)`) / 0.5) * 0.5
+#   
+#   # Plot 1: THD
+#   p_thd <- ggplot(thd_data, aes(x = `in (dB)`, y = `THD (%)`)) +
+#     geom_point(size = 3) +
+#     geom_line(size = 0.8) +
+#     geom_vline(xintercept = threshold, color = "red") +
+#     geom_rect(aes(xmin = threshold, xmax = maxX, ymin = 0, ymax = thdMax),
+#               alpha = 0.1, fill = "red") +
+#     scale_y_continuous(breaks = seq(0.5, thdMax, 0.5),
+#                        limits = c(0, thdMax),
+#                        expand = c(0, 0)) +
+#     scale_x_continuous(
+#       limits = c(minX, maxX),
+#       breaks = seq(minX, maxX, 10),
+#       expand = c(0, 0)
+#     ) +
+#     # coord_fixed(ratio = 1, clip = "off") +
+#     theme_bw() +
+#     labs(y = "THD (%)", x = NULL) +
+#     theme(
+#       axis.text.x = element_blank(),
+#       axis.title.x = element_blank(),
+#       axis.ticks.x = element_blank(),  
+#       plot.margin = margin(t = 5, r = 20, b = -0, l = 10),
+#       panel.spacing = unit(0, "pt")
+#     )
+#   minY = min(volume_task$`out (dB SPL)`)
+#   maxY = max(volume_task$`out (dB SPL)`)
+#   # Plot 2: Output Level
+#   p_spl <- ggplot(volume_task, aes(x = `in (dB)`, y = `out (dB SPL)`)) +
+#     geom_point(size = 3) +
+#     geom_line(data = model, aes(x = x, y = y), size = 0.8, inherit.aes = FALSE) +
+#     geom_vline(xintercept = threshold, color = "red") +
+#     geom_rect(aes(xmin = threshold, xmax = maxX,
+#                   ymin = floor(min(`out (dB SPL)`) / 10) * 10,
+#                   ymax = ceiling(max(`out (dB SPL)`) / 10) * 10),
+#               alpha = 0.1, fill = "red") +
+#     scale_y_continuous(breaks = seq(floor(minY / 10) * 10, 
+#                                     ceiling(maxY / 10) * 10,
+#                                     10),
+#                        limits = c(floor(minY / 10) * 10,
+#                                   ceiling(maxY / 10) * 10),
+#                        expand = c(0, 0)) +
+#     scale_x_continuous(
+#       limits = c(minX, maxX),
+#       breaks = seq(minX, maxX, 10),
+#       expand = c(0, 0)
+#     ) +
+#     coord_fixed(ratio = 1, clip = "off") +
+#     theme_bw() +
+#     labs(y = "Output Level (dB SPL)", x = "Input Level (dB)") +
+#     theme(
+#       plot.margin = margin(t = 0, r = 20, b = 0, l = 10),
+#       panel.spacing = unit(0, "pt"),
+#       axis.text.y = element_text(
+#         vjust = 1.2,      # nudge down a bit if needed
+#         margin = margin(t = 2, r = 0, b = 0, l = 0)
+#       )
+#     )
+#   
+#   g1 <- ggplotGrob(p_spl)
+#   g2 <- ggplotGrob(p_thd)
+#   
+#   panel_col1 <- which(g1$layout$name == "panel")
+#   panel_col2 <- which(g2$layout$name == "panel")
+#   
+#   max_panel_width <- grid::unit.pmax(g1$widths[panel_col1], g2$widths[panel_col2])
+#   g1$widths[panel_col1] <- max_panel_width
+#   g2$widths[panel_col2] <- max_panel_width
+#   
+#   combined <- gtable::gtable_stack(list(g2, g1))
+#   
+#   # Set relative heights of panels (you can adjust ratio_thd as needed)
+#   ratio_thd <- 5
+#   panels <- combined$layout$name == "panel"
+#   combined$heights[panels] <- unit(c(ratio_thd, 1), "null")
+#   
+#   grid.newpage()
+#   grid.draw(combined)
+#   
+# 
+#   return(list(
+#     plot = g,
+#     width = (maxX - minX) / 8 + 2,
+#     height = 5 + thdMax / 2
+#   ))
+# }
+
+
 
 get_ir_plots <- function(jsonFile, sound_data) {
   
@@ -2350,3 +2426,4 @@ sound_theme_soundLevel <-  theme(
 
 margin_theme <-
   theme(plot.margin = unit(c(5.5,16,5.5,5.5), "pt"))
+

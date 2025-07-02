@@ -93,36 +93,42 @@ plotsTab <- tabPanel(
     'output.isRsvp',
     splitLayout(
       cellWidths = c("50%", "50%"),
-      shinycssloaders::withSpinner(
+      conditionalPanel('output.isPeripheralCrowding',
+        shinycssloaders::withSpinner(
         ggiraph::girafeOutput("rsvpCrowdingPeripheralGradePlot", height = '100%'),
         type = 4
-      ),
+      )),
+      conditionalPanel('output.isCrowding',
       shinycssloaders::withSpinner(
         ggiraph::girafeOutput("rsvpResidualCrowding", height = '100%'),
         type = 4
       )
-    ),
+    )),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      downloadButton("downloadRsvpCrowdingPeripheralGradePlot", "Download"),
-      downloadButton("downloadRsvpResidualCrowding", "Download")
+      conditionalPanel('output.isPeripheralCrowding',downloadButton("downloadRsvpCrowdingPeripheralGradePlot", "Download")),
+      conditionalPanel('output.isCrowding',downloadButton("downloadRsvpResidualCrowding", "Download"))
     ),
 
     splitLayout(
       cellWidths = c("50%", "50%"),
-      shinycssloaders::withSpinner(
+      conditionalPanel('output.isFovealCrowding',
+                       shinycssloaders::withSpinner(
         ggiraph::girafeOutput("rsvpCrowdingFovealGradePlot", height = '100%'),
         type = 4
-      ),
-      shinycssloaders::withSpinner(
+      )),
+      conditionalPanel('output.isFovealAcuity',
+                       shinycssloaders::withSpinner(
         ggiraph::girafeOutput("rsvpFovealAcuityGradePlot", height = '100%'),
         type = 4
-      )
+      ))
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      downloadButton("downloadRsvpCrowdingFovealGradePlot", "Download"),
-      downloadButton("downloadRsvpFovealAcuityGradePlot", "Download")
+      conditionalPanel('output.isFovealCrowding',
+                       downloadButton("downloadRsvpCrowdingFovealGradePlot", "Download")),
+      conditionalPanel('output.isFovealAcuity',
+                       downloadButton("downloadRsvpFovealAcuityGradePlot", "Download"))
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
@@ -160,26 +166,36 @@ plotsTab <- tabPanel(
     'output.isReading',
     splitLayout(
       cellWidths = c("50%", "50%"),
+      conditionalPanel(
+        'output.isPeripheralCrowding',
       shinycssloaders::withSpinner(
         ggiraph::girafeOutput("ordinaryPeripheralCrowdingGradePlot", height = '600px'),
         type = 4
-      ),
+      )),
+      conditionalPanel(
+        'output.isFovealCrowding',
       shinycssloaders::withSpinner(
         ggiraph::girafeOutput("ordinaryFovealCrowdingGradePlot", height = '600px'),
         type = 4
-      )
+      ))
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      downloadButton("downloadOrdinaryPeripheralCrowdingGradePlot", "Download"),
-      downloadButton("downloadOrdinaryFovealCrowdingGradePlot", "Download")
+      conditionalPanel(
+        'output.isPeripheralCrowding',
+      downloadButton("downloadOrdinaryPeripheralCrowdingGradePlot", "Download")),
+      conditionalPanel(
+        'output.isFovealCrowding',
+      downloadButton("downloadOrdinaryFovealCrowdingGradePlot", "Download"))
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
+      conditionalPanel(
+        'output.isFovealAcuity',
       shinycssloaders::withSpinner(
         ggiraph::girafeOutput("ordinaryFovealAcuityGradePlot", height = '600px'),
         type = 4
-      ),
+      )),
       conditionalPanel(
         'output.isPeripheralAcuity',
         shinycssloaders::withSpinner(
@@ -190,7 +206,9 @@ plotsTab <- tabPanel(
     ),
     splitLayout(
       cellWidths = c("50%", "50%"),
-      downloadButton("downloadOrdinaryFovealAcuityGradePlot", "Download"),
+      conditionalPanel(
+        'output.isFovealAcuity',
+      downloadButton("downloadOrdinaryFovealAcuityGradePlot", "Download")),
       conditionalPanel(
         'output.isPeripheralAcuity',
         downloadButton("downloadOrdinaryPeripheralAcuityGradePlot", "Download")
