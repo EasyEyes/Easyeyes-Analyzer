@@ -6,8 +6,10 @@ englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
   mutate(participant = tolower(ID))
 
 generate_rsvp_reading_crowding_fluency <- 
+
   function(data_list, summary_list, pretest, stairs, filterInput, skillFilter,minNQuestTrials, 
-           maxQuestSD, conditionNameInput, maxReadingSpeed) {
+           minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed) {
+
   print('inside threshold warning')
   print(paste0('length of data list: ', length(data_list)))
   print(paste0('length of summary list: ', length(summary_list)))
@@ -19,15 +21,21 @@ generate_rsvp_reading_crowding_fluency <-
   }
 
   NQuestTrials <- stairs %>%
-    arrange(participant, staircaseName) %>%
     group_by(participant, staircaseName, thresholdParameter) %>%
     summarize(questTrials = sum(trialGivenToQuest,na.rm = T)) %>% 
+    ungroup() %>% 
     filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | questTrials >= minNQuestTrials) %>% 
     mutate(block_condition = as.character(staircaseName)) %>% 
     distinct(participant, block_condition, questTrials)
 
-  # I think we should merge the reading data and threshold data with the Grade and Skilled reader column
-  # in pretest data here so that we don't need to merge it every time we want to use the pretest data.
+  wrongTrials <- stairs %>%
+    group_by(participant, staircaseName) %>%
+    summarize(NWrongTrial = sum(!`key_resp.corr`,na.rm = T)) %>% 
+    ungroup() %>% 
+    filter(NWrongTrial >= minWrongTrials) %>% 
+    mutate(block_condition = as.character(staircaseName)) %>% 
+    distinct(participant, block_condition)
+  
   if (nrow(pretest) > 0) {
     if (!'Grade' %in% names(pretest)) {
       pretest$Grade = -1
@@ -153,7 +161,8 @@ generate_rsvp_reading_crowding_fluency <-
   # apply questSD filter
   all_summary <- all_summary %>% 
     left_join(NQuestTrials, by = c('participant', 'block_condition')) %>% 
-    filter(questSDAtEndOfTrialsLoop <= maxQuestSD)
+    filter(questSDAtEndOfTrialsLoop <= maxQuestSD) %>% 
+    inner_join(wrongTrials, by = c('participant', 'block_condition'))
   
   
   if (nrow(pretest) > 0) {
@@ -486,7 +495,9 @@ generate_rsvp_reading_crowding_fluency <-
               conditionNames = conditionNames))
 }
 
-generate_threshold <- function(data_list, summary_list, pretest, stairs, df, minNQuestTrials, maxQuestSD, conditionNameInput){
+generate_threshold <- function(data_list, summary_list, pretest, stairs, df, 
+                               minNQuestTrials, minWrongTrials, maxQuestSD, 
+                               conditionNameInput, maxReadingSpeed){
   print('inside generate_threshold')
   if (nrow(pretest) > 0) {
     if (!'Grade' %in% names(pretest)) {
@@ -513,16 +524,27 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df, min
               BadTrials = sum(!trialGivenToQuest)) %>% 
     filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | TrialsSentToQuest >= minNQuestTrials)
   
+  wrongTrials <- stairs %>%
+    group_by(participant, staircaseName) %>%
+    summarize(NWrongTrial = sum(!`key_resp.corr`,na.rm = T)) %>% 
+    ungroup() %>% 
+    filter(NWrongTrial >= minWrongTrials) %>% 
+    mutate(block_condition = as.character(staircaseName)) %>% 
+    distinct(participant, block_condition)
+  
   all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
     summary_list[[i]]
   } %>% 
     filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
     inner_join(stairs_summary %>% select(participant, block_condition)) %>% 
-    filter(questSDAtEndOfTrialsLoop <= maxQuestSD)
+    filter(questSDAtEndOfTrialsLoop <= maxQuestSD) %>% 
+    inner_join(wrongTrials, by = c("participant", "block_condition"))
   
   if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
     all_summary <- all_summary %>% filter(conditionName %in% conditionNameInput)
   } 
+  
+
   
   
   crowding <- all_summary %>% 
@@ -570,6 +592,8 @@ reading <- rbind(reading, t)
              thresholdParameter = as.character(thresholdParameter))
   } 
   
+  reading <- reading %>% filter(wordPerMin <= maxReadingSpeed)
+  
   
   reading_each <- reading %>% 
     group_by(font, participant, block_condition, thresholdParameter) %>%
@@ -594,7 +618,6 @@ reading <- rbind(reading, t)
                   sep = " "))
   }
   reading_valid <- reading_each %>% 
-    filter(!participant %in% reading_exceed_1500$participant) %>% 
     mutate(targetKind = "reading")
   
   threshold_all <- all_summary %>%

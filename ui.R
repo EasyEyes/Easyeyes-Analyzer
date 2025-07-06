@@ -98,6 +98,18 @@ shinyUI(
             tags$span("good trials.")
           ),
           div(
+            style = "display: flex; align-items: center; flex-wrap: wrap; gap: 5px;",
+            tags$span("Exclude thresholds with fewer than"),
+            numericInput(
+              'NWrongTrials',
+              NULL,
+              value = 0,
+              min = 0,
+              width = '60px'
+            ),
+            tags$span("wrong trials.")
+          ),
+          div(
             style = "display: flex; align-items: center; gap: 5px;",
             tags$span("Exclude thresholds with QUEST SD >"),
             numericInput(
@@ -137,7 +149,12 @@ shinyUI(
               choices =  NULL,
               selected = NULL
             )
-          )
+          ),
+          HTML("In all plots, unless otherwise indicated: <br> 
+     <ul>
+         <li>Each point represents all the relevant data for one participant.</li>
+         <li>Each font (and language) is represented by a different color.</li>
+     </ul>")
         )
       )
     ),

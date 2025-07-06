@@ -432,91 +432,32 @@ get_histogram_duration_lateness <- function(duration){
   ))
 }
 
-append_hist_list <- function(data_list, plot_list, fileNames, conditionNameInput){
+append_hist_list <- function(data_list, plot_list, fileNames){
   
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
       filter(!is.na(staircaseName)) %>%
-      select(participant,
-             block,
-             conditionName,
-             targetMeasuredDurationSec,
-             targetMeasuredLatenessSec,
-             `heapUsedBeforeDrawing (MB)`,
-             `heapTotalBeforeDrawing (MB)`,
-             `heapLimitBeforeDrawing (MB)`,
-             `heapUsedAfterDrawing (MB)`,
-             `heapTotalAfterDrawing (MB)`,
-             `heapLimitAfterDrawing (MB)`,
-             `heapTotalPostLateness (MB)`,
-             `heapTotalPreLateness (MB)`,
-             computeRandomMHz,
+      distinct(participant,
              deviceMemoryGB,
-             cores,
-             fontNominalSizePx,
-             fontPadding,
-             heap100MBAllocSec,
-             fontRenderSec,
-             targetMeasuredPreRenderSec,
              screenWidthPx,
-             screenHeightPx,
-             pxPerCm,
-             trialGivenToQuest) %>% 
-      rename(hardwareConcurrency = cores) %>% 
+             pxPerCm) %>% 
       mutate(
-        deltaHeapUsedMB = as.numeric(`heapUsedAfterDrawing (MB)`) - as.numeric(`heapUsedBeforeDrawing (MB)`),
-        deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
-        deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`),
-        screenWidthCm = ifelse(is.na(pxPerCm) | pxPerCm <= 0, NA, screenWidthPx / pxPerCm),
-        # screenWidthCm = screenWidthPx / pxPerCm,
-        #s creenHeightCm = screenHeightPx / pxPerCm,
+        screenWidthCm = ifelse(is.na(pxPerCm) | pxPerCm <= 0, NA, screenWidthPx / pxPerCm)
       )
-    
   }
   
-  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
-    params <- params %>% filter(conditionName %in% conditionNameInput)
-  } 
+  vars <- c("screenWidthPx", "screenWidthCm", "deviceMemoryGB")
   
-  
-  if (is.character(params$targetMeasuredDurationSec)) {
-    params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
-    params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
-  }
-  
-  webGL <- get_webGL(data_list)
-  summary <- params %>%
-    group_by(participant,computeRandomMHz, screenWidthPx, screenWidthCm, hardwareConcurrency, deviceMemoryGB) %>% 
-    summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
-              badTrials = sum(!trialGivenToQuest, na.rm =T)) %>% 
-    ungroup()
-  
-  blockAvg <- params %>% 
-    group_by(participant, block) %>% 
-    summarize(heapTotalAfterDrawingAvg = mean( `heapTotalAfterDrawing (MB)`, na.rm =T),
-              heapUsedAfterDrawingAvg = mean( `heapUsedAfterDrawing (MB)`, na.rm =T)) %>% 
-    ungroup()
-  
-  
-  params_vars <- c( "heapLimitAfterDrawing (MB)", "deltaHeapTotalMB", "fontPadding", "heap100MBAllocSec",
-                    "fontRenderSec", "targetMeasuredPreRenderSec")
-  
-  
-  #webGL_vars <- c("maxTextureSize", "maxViewportSize")
-  
-  summary_vars <- c("screenWidthPx", "screenWidthCm", "deviceMemoryGB")
-  
-  #blockAvg_vars <- c("heapTotalAfterDrawingAvg", "heapUsedAfterDrawingAvg")
   
   j = length(plot_list) + 1
   # Loop through summary dataset and generate histograms
-  for (var in summary_vars) {
-    if (n_distinct(summary[var]) > 1) {
+  for (var in vars) {
+    if (n_distinct(params[var]) > 1) {
       
-      avg <- round(mean(as.numeric(summary[[var]]), na.rm =T),2)
-      sd <- round(sd(as.numeric(summary[[var]]), na.rm =T),2)
-      n = length(summary[!is.na(summary[var]),])
-      plot_list[[j]] <- ggplot(summary, aes(x = .data[[var]])) +
+      avg <- round(mean(as.numeric(params[[var]]), na.rm =T),2)
+      sd <- round(sd(as.numeric(params[[var]]), na.rm =T),2)
+      n = length(params[!is.na(params[var]),])
+      p <- ggplot(params, aes(x = .data[[var]])) +
         geom_histogram(color="black", fill="black") + 
         theme_bw() +
         ggpp::geom_text_npc(
@@ -525,6 +466,12 @@ append_hist_list <- function(data_list, plot_list, fileNames, conditionNameInput
           label = paste0('mean = ', avg, '\n sd = ', sd, '\n N = ', n)
         ) +
         labs(title = paste("Histogram of", var))
+      
+      if (var == "deviceMemoryGB") {
+        p <- p + scale_x_continuous(limits = c(min(params[[var]],na.rm=T) - 4,
+                                              max(params[[var]],na.rm=T) + 4))
+      }
+      plot_list[[j]] <- p
       fileNames[[j]] <- paste0(var,'-histogram')
       j = j + 1
     }
