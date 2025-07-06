@@ -1,17 +1,63 @@
 # Consistent way of saving plot using rsvg_png
-savePlot <- function(plot, filename, fileType, width = 6, height = NULL, theme = NULL) {
+savePlot <- function(plot, filename, fileType, width = 8, height = 6) {
   if (fileType == "png") {
-    ggsave('tmp.svg', plot = plot + theme, width = width, unit = 'in', device = svglite)
-    rsvg::rsvg_png("tmp.svg", filename, height = 1200, width = 1200)
+    ggsave('tmp.svg', plot = plot, width = width, unit = 'in', device = svglite)
+    rsvg::rsvg_png("tmp.svg", filename, width = width*300, height = height*300)
   } else {
     ggsave(
       filename = filename,
-      plot = plot + theme,
+      plot = plot,
       width = width,
+      height = height,
       unit = 'in',
       device = ifelse(fileType == "svg", svglite::svglite, fileType)
     )
   }
+}
+
+safely_plot <- function(f, plotTitle, parameters) {
+  # f: function
+  # parameters: list of parameters
+  p <- tryCatch({
+    # Try to call the function with parameters
+    do.call(f, parameters)
+    
+  }, error = function(e) {
+    # If an error occurs, return a plot with the error message
+    print(e)
+    ggplot() +
+      annotate(
+        "text",
+        x = 0.5,
+        y = 0.6,
+        label = paste("Error:", e$message),
+        color = "red",
+        size = 5,
+        hjust = 0.5,
+        vjust = 0.5
+      ) +
+      theme_void() +
+      ggtitle(plotTitle)
+  })
+  
+  return(p)
+}
+
+safely_execute <- function(expression, error_message = "Error occurred", return_value = NULL) {
+  result <- tryCatch({
+    # Evaluate the expression
+    eval(expression)
+    
+  }, error = function(e) {
+    # If an error occurs, print the error and return specified value
+    message("Error: ", e$message)
+    if (!is.null(error_message)) {
+      message("Context: ", error_message)
+    }
+    return_value
+  })
+  
+  return(result)
 }
 
 append_plot_list <- function(plotList, fileNames, plot, fname) {

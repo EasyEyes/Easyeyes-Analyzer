@@ -395,7 +395,7 @@ generate_histograms_by_grade <- function(data) {
 
 get_age_histogram <- function(data) {
   data <- data %>% filter(age >= 0)
-  if (is.null(data) || n_distinct(data$age) == 1) return(NULL)
+  if (nrow(data) == 0 || n_distinct(data$age) == 1) return(NULL)
   # Calculate summary statistics
   stats <- data %>%
     summarize(

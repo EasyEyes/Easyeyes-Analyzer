@@ -195,21 +195,24 @@ extractRSVP <- function(df) {
 # }
 
 
-extractCrowdingStaircases <- function(df, info) {
+extractStaircases <- function(df, info) {
   if (!'levelProposedByQUEST' %in% names(df)) {
     df$levelProposedByQUEST = NA
   }
-  
   if (!'trialGivenToQuest' %in% names(df)) {
     df$trialGivenToQuest = NA
+  }
+  if (!'key_resp.corr' %in% names(df)) {
+    df$`key_resp.corr` = NA
   }
   
   stairdf <- df %>%
     filter(!is.na(staircaseName)) %>%
     select(
-      "staircaseName",
-      "levelProposedByQUEST",
-      "trialGivenToQuest"
+      staircaseName,
+      levelProposedByQUEST,
+      trialGivenToQuest,
+      `key_resp.corr`
     ) %>% 
     inner_join(info, by = 'staircaseName') %>% 
     mutate(questType = case_when(

@@ -33,7 +33,15 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
 
 
   params <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% distinct(participant, conditionName,targetMinimumPix, targetMinPhysicalPx, pxPerCm,viewingDistanceCm,spacingOverSizeRatio)
+    data_list[[i]] %>%
+      distinct(participant, 
+               conditionName,
+               targetMinimumPix,
+               targetMinPhysicalPx,
+               devicePixelRatio,
+               pxPerCm,
+               viewingDistanceCm,
+               spacingOverSizeRatio)
   } %>% filter(!is.na(targetMinPhysicalPx)) %>% 
     mutate(targetMinimumPix = as.numeric(targetMinimumPix), 
            targetMinPhysicalPx = as.numeric(targetMinPhysicalPx),
@@ -41,29 +49,17 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
            viewingDistanceCm = as.numeric(viewingDistanceCm),
            spacingOverSizeRatio = as.numeric(spacingOverSizeRatio))
   
-  estimatedDevicePixelRatio <- minDeg %>%
-    left_join(params, by = c('participant', 'conditionName')) %>% 
-    filter(thresholdParameter == 'targetSizeDeg' | thresholdParameter == 'spacingDeg')
+  # histogram of devicePixelRatio 
+  devicePixelRatio <- params %>% 
+    filter(!is.na(devicePixelRatio)) %>% 
+    distinct()
   
-  estimatedDevicePixelRatio <- minDeg %>%
-    left_join(params, by = c('participant', 'conditionName')) %>% 
-    filter(thresholdParameter == 'targetSizeDeg' | thresholdParameter == 'spacingDeg') %>% 
-    group_by(participant, conditionName, thresholdParameter) %>% 
-    summarize(estimatedDevicePixelRatio = case_when(thresholdParameter == 'targetSizeDeg' ~ targetMinPhysicalPx/(tan(minDeg * pi / 180) * pxPerCm * viewingDistanceCm),
-                                                    thresholdParameter == 'spacingDeg' ~ targetMinPhysicalPx/(tan((minDeg/spacingOverSizeRatio) * pi / 180) * pxPerCm * viewingDistanceCm)
-    )) %>% 
-    filter(!is.na(estimatedDevicePixelRatio)) %>% 
-    ungroup()
-
-  
-  # histogram of estimatedDevicePixelRatio 
-  stats <- estimatedDevicePixelRatio %>%
-    filter(!is.na(estimatedDevicePixelRatio)) %>%
-    summarise(mean = round(mean(estimatedDevicePixelRatio),2),
-              sd = round(sd(estimatedDevicePixelRatio),2),
+  stats <- devicePixelRatio %>%
+    summarise(mean = round(mean(devicePixelRatio),2),
+              sd = round(sd(devicePixelRatio),2),
               N = n())
-  p1 <- ggplot(estimatedDevicePixelRatio) + 
-    geom_histogram(aes(x = estimatedDevicePixelRatio),
+  p1 <- ggplot(devicePixelRatio) + 
+    geom_histogram(aes(x = devicePixelRatio),
                    color = "black", fill = "black") +
     scale_x_log10(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
@@ -74,9 +70,9 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
       hjust = 1, vjust = 1
     ) +
     labs(
-      x     = 'estimatedDevicePixelRatio',
+      x     = 'devicePixelRatio',
       y     = 'Count',
-      title = 'Histogram of estimatedDevicePixelRatio'
+      title = 'Histogram of devicePixelRatio'
     )
   
   # histogram of sizeMinDeg (log-x, no ticks)

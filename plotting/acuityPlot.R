@@ -244,16 +244,26 @@ get_peripheral_acuity_vs_age <- function(acuity) {
   }
 }
 
-
 plot_acuity_rsvp <- function(acuity, rsvp, type) {
   create_plot <- function(data, type, colorFactor) {
     if (nrow(data) == 0 || nrow(rsvp) == 0) {
       return(NULL)
     }
+   
     # Merge data and calculate WPM and acuity
-    data_rsvp <- data %>%
-      select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-      inner_join(rsvp %>% select(-conditionName), by = "participant") %>%
+    if ( setequal(data$font, rsvp$font)) {
+      data_rsvp <- data %>%
+        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+        inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
+    } else {
+      data_rsvp <- data %>%
+        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+        inner_join(rsvp %>% select(-conditionName), by = c("participant")) %>% 
+        mutate(font = paste0(font.x, " vs ", font.y))
+    }
+  
+    
+    data_rsvp <- data_rsvp %>% 
       mutate(
         Y = 10 ^ (block_avg_log_WPM),
         X = 10 ^ (questMeanAtEndOfTrialsLoop),
@@ -266,7 +276,6 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       return(NULL)
     }
     
-    print(data_rsvp)
     if ('Skilled reader?' %in% names(data_rsvp)) {
       data_for_stat <- data_rsvp %>%
         filter(`Skilled reader?` != FALSE) %>%
@@ -369,16 +378,6 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       theme(
         legend.position = ifelse(unique_colors == 1, 'none', 'top')
       )
-    
-    # if (n_distinct(data_rsvp$`Skilled reader?`) > 1) {
-    #   p <- p + geom_point(
-    #     aes(shape = `Skilled reader?`, group = ParticipantCode)
-    #   ) +
-    #     scale_shape_manual(values = c(4, 19,1))
-    # } else {
-    #   p <- p + geom_point(aes(group = ParticipantCode))
-    # }
-    # 
     return(p)
   }
   
@@ -397,22 +396,30 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
   # change p2 p4 to grade plot
   if (type == 'foveal') {
     p1 <- create_plot(foveal, type, 'font')
-    p2 <- create_plot(foveal, type, 'font')
-    return(list(p1, p2))
+    p2 <- create_plot(foveal, type, 'Grade')
   } else {
-    p3 <- create_plot(peripheral, 'peripheral', 'font')
-    p4 <- create_plot(peripheral, 'peripheral', 'font')
-    return(list(p3, p4))
+    p1 <- create_plot(peripheral, 'peripheral', 'font')
+    p2 <- create_plot(peripheral, 'peripheral', 'Grade')
   }
+  return(list(font = p1, grade = p2))
 }
-
 
 plot_acuity_reading <- function(acuity, reading, type) {
   create_reading_plot <- function(data, type, colorFactor) {
     # Merge data and calculate WPM and acuity
-    data_reading <- data %>%
-      select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-      inner_join(reading %>% select(-conditionName), by = c("participant", "font")) %>%
+    
+    if (setequal(data$font, reading$font)) {
+      data_reading <- data %>%
+        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+        inner_join(reading %>% select(-conditionName), by = c("participant", "font"))
+    } else {
+      data_reading <- data %>%
+        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+        inner_join(reading %>% select(-conditionName), by = c("participant")) %>% 
+        mutate(font = paste0(font.x, " vs ", font.y))
+    }
+    
+    data_reading <- data_reading %>%
       mutate(
         Y = wordPerMin,  # Linear scale
         log_WPM = log10(wordPerMin),  # Convert wordPerMin to log scale
@@ -524,14 +531,13 @@ plot_acuity_reading <- function(acuity, reading, type) {
   }
   # Change to colored by font
   if (type == "foveal") {
-    p1 <- create_reading_plot(foveal, type, "font")
+    p1 <- create_reading_plot(foveal, type, "Grade")
     p2 <- create_reading_plot(foveal, type, "font")
-    return(list(p1, p2))
   } else {
-    p3 <- create_reading_plot(peripheral, "peripheral", "font")
-    p4 <- create_reading_plot(peripheral, "peripheral", "font")
-    return(list(p3, p4))
+    p1 <- create_reading_plot(peripheral, "peripheral", "Grade")
+    p2 <- create_reading_plot(peripheral, "peripheral", "font")
   }
+  return(list(grade = p1, font = p2))
 }
 
 plot_acuity_vs_age <- function(allData){

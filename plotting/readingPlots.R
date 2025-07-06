@@ -427,9 +427,20 @@ plot_reading_rsvp <- function(reading, rsvp) {
 plot_reading_crowding <- function(allData) {
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition, colorFactor) {
-    data_reading <- data %>%
-      select(participant, log_crowding_distance_deg, font) %>%
-      inner_join(reading %>% select(-conditionName), by = c("participant", "font")) %>%
+
+    if ( setequal(data$font, reading$font)) {
+      data_reading <- data %>%
+        select(participant, log_crowding_distance_deg, font) %>%
+        inner_join(reading %>% select(-conditionName), by = c("participant", "font"))
+      
+    } else {
+      data_reading <- data %>%
+        select(participant, log_crowding_distance_deg, font) %>%
+        inner_join(reading %>% select(-conditionName), by = c("participant")) %>% 
+        mutate(font = paste0(font.x, " vs ", font.y))
+    }
+    
+    data_reading <- data_reading %>%
       distinct(
         participant, 
         font,
@@ -562,22 +573,6 @@ plot_reading_crowding <- function(allData) {
                                           data_id = ParticipantCode, 
                                              tooltip = ParticipantCode,
                                              color = .data[[colorFactor]]), size = 3)
-      
-    # if (n_distinct(data_reading$`Skilled reader?`) == 1) {
-    #   p <- p + geom_point(
-    #     data = data_reading,
-    #     aes(x = X, y = Y, group = ParticipantCode, color = .data[[colorFactor]])
-    #   )
-    # } else {
-    #   p <- p + geom_point(
-    #     data = data_reading,
-    #     aes(
-    #       x = X, y = Y, group = ParticipantCode,
-    #       color = .data[[colorFactor]], shape = `Skilled reader?`
-    #     )
-    #   ) +
-    #     scale_shape_manual(values = c(4, 19,1 ))
-    # }
     
     return(p)
   }
