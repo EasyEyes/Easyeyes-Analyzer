@@ -74,6 +74,17 @@ shinyUI(
             inline = TRUE,
             selected = "all"
           ),
+          radioButtons(
+            "skillFilter",
+            "Select participants by skill level:",
+            c(
+              "all participants"    = "all",
+              "only skilled readers"   = "skilled",
+              "only unskilled readers" = "unskilled"
+            ),
+            inline = TRUE,
+            selected = "all"
+          ),
           div(
             style = "display: flex; align-items: center; flex-wrap: wrap; gap: 5px;",
             tags$span("Exclude spacingDeg thresholds with fewer than"),

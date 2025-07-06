@@ -276,6 +276,7 @@ shinyServer(function(input, output, session) {
       files()$pretest,
       files()$stairs,
       input$filterInput,
+      input$skillFilter,
       minNQuestTrials(),
       maxQuestSD(),
       conditionNames(),

@@ -6,9 +6,8 @@ englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
   mutate(participant = tolower(ID))
 
 generate_rsvp_reading_crowding_fluency <- 
-  function(data_list, summary_list, pretest, stairs, filterInput, minNQuestTrials, 
+  function(data_list, summary_list, pretest, stairs, filterInput, skillFilter,minNQuestTrials, 
            maxQuestSD, conditionNameInput, maxReadingSpeed) {
-
   print('inside threshold warning')
   print(paste0('length of data list: ', length(data_list)))
   print(paste0('length of summary list: ', length(summary_list)))
@@ -170,6 +169,16 @@ generate_rsvp_reading_crowding_fluency <-
       mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
       mutate(`Skilled reader?` = ifelse(is.na(`Skilled reader?`), 'unkown', `Skilled reader?`))
     
+   
+    if (skillFilter == "skilled") {
+      all_summary <- all_summary %>% 
+        filter(`Skilled reader?` == "TRUE")
+    } else if (skillFilter == "unskilled") {
+      all_summary <- all_summary %>% 
+        filter(`Skilled reader?` == "FALSE")
+    }
+    print('done skill filter')
+    
     if (!'ParticipantCode' %in% names(all_summary)) {
       all_summary$ParticipantCode = all_summary$participant
     }
@@ -179,6 +188,10 @@ generate_rsvp_reading_crowding_fluency <-
                Grade = -1,
                `Skilled reader?` = 'unkown')
   }
+
+  
+  
+
   
   print('done combine threshlod')
   
@@ -225,6 +238,8 @@ generate_rsvp_reading_crowding_fluency <-
     all_summary <- all_summary%>% filter(!tolower(participant) %in% tolower(slowest$participant))
   }
   print('done filter input')
+  
+  
 
   eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
     t <- data_list[[i]] %>%
