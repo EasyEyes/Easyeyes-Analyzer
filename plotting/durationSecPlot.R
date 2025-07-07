@@ -440,10 +440,8 @@ append_hist_list <- function(data_list, plot_list, fileNames){
       distinct(participant,
              deviceMemoryGB,
              screenWidthPx,
-             pxPerCm) %>% 
-      mutate(
-        screenWidthCm = ifelse(is.na(pxPerCm) | pxPerCm <= 0, NA, screenWidthPx / pxPerCm)
-      )
+             pxPerCm,
+             screenWidthCm)
   }
   
   vars <- c("screenWidthPx", "screenWidthCm", "deviceMemoryGB")

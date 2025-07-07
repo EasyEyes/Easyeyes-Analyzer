@@ -4,9 +4,9 @@ source('./other/utility.R')
 # Each time update the summary table, the rmd report need to be updated accordingly.
 
 data_table_call_back = "
-  table.column(31).nodes().to$().css({cursor: 'pointer'});
+  table.column(33).nodes().to$().css({cursor: 'pointer'});
     var format8 = function(d) {
-      return '<p>' + d[31] + '</p>';
+      return '<p>' + d[33] + '</p>';
     };
     table.on('click', 'td.computer51Deg', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -17,9 +17,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(16).nodes().to$().css({cursor: 'pointer'});
+    table.column(17).nodes().to$().css({cursor: 'pointer'});
     var format1 = function(d) {
-      return '<p>' + d[16] + '</p>';
+      return '<p>' + d[17] + '</p>';
     };
     table.on('click', 'td.errorC-control', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -30,9 +30,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(17).nodes().to$().css({cursor: 'pointer'});
+    table.column(18).nodes().to$().css({cursor: 'pointer'});
     var format2 = function(d) {
-      return '<p>' + d[17] + '</p>';
+      return '<p>' + d[18] + '</p>';
     };
     table.on('click', 'td.warnC-control', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -43,9 +43,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(32).nodes().to$().css({cursor: 'pointer'});
+    table.column(34).nodes().to$().css({cursor: 'pointer'});
     var format6 = function(d) {
-      return '<p>' + d[32] + '</p>';
+      return '<p>' + d[34] + '</p>';
     };
     table.on('click', 'td.loudspeakerSurvey', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -56,9 +56,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(33).nodes().to$().css({cursor: 'pointer'});
+    table.column(35).nodes().to$().css({cursor: 'pointer'});
     var format5 = function(d) {
-      return '<p>' + d[33] + '</p>';
+      return '<p>' + d[35] + '</p>';
     };
     table.on('click', 'td.microphoneSurvey', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -220,6 +220,7 @@ generate_summary_table <- function(data_list, stairs) {
         deviceSystemFamily,
         browser,
         resolution,
+        screenWidthCm,
         rows,
         cols,
         kb,
@@ -278,6 +279,7 @@ generate_summary_table <- function(data_list, stairs) {
         deviceSystemFamily,
         browser,
         resolution,
+        screenWidthCm,
         rows,
         cols,
         kb,
@@ -331,8 +333,10 @@ generate_summary_table <- function(data_list, stairs) {
   incomplete = tibble()
   for (i in 1:length(data_list)) {
     if (nrow(data_list[[i]] >=  1)) {
-      experimentCompleteBool = 
-        any(data_list[[i]]$experimentCompleteBool[sapply(data_list[[i]]$experimentCompleteBool, length) > 0])
+      experimentCompleteBool = ifelse(is.na(data_list[[i]]$experimentCompleteBool[1]) || 
+                                        length(data_list[[i]]$experimentCompleteBool[1]) == 0,
+                                      F,
+                                      data_list[[i]]$experimentCompleteBool[1])
       if (!experimentCompleteBool) {
         t <- data_list[[i]] %>%
           distinct(
@@ -344,6 +348,7 @@ generate_summary_table <- function(data_list, stairs) {
             deviceSystemFamily,
             browser,
             resolution,
+            screenWidthCm,
             rows,
             cols,
             kb,
@@ -391,6 +396,7 @@ generate_summary_table <- function(data_list, stairs) {
             deviceSystemFamily,
             browser,
             resolution,
+            screenWidthCm,
             rows,
             cols,
             kb,
@@ -445,8 +451,10 @@ generate_summary_table <- function(data_list, stairs) {
   sessions = incomplete
   for (i in 1:length(data_list)) {
     if (nrow(data_list[[i]] >=  1)) {
-      experimentCompleteBool = 
-        any(data_list[[i]]$experimentCompleteBool[sapply(data_list[[i]]$experimentCompleteBool, length) > 0])
+      experimentCompleteBool = ifelse(is.na(data_list[[i]]$experimentCompleteBool[1]) || 
+                                        length(data_list[[i]]$experimentCompleteBool[1]) == 0,
+                                      F,
+                                      data_list[[i]]$experimentCompleteBool[1])
       if (experimentCompleteBool) {
         t <- data_list[[i]] %>%
           distinct(
@@ -458,6 +466,7 @@ generate_summary_table <- function(data_list, stairs) {
             deviceSystemFamily,
             browser,
             resolution,
+            screenWidthCm,
             rows,
             cols,
             kb,
@@ -506,6 +515,7 @@ generate_summary_table <- function(data_list, stairs) {
             deviceSystemFamily,
             browser,
             resolution,
+            screenWidthCm,
             rows,
             cols,
             kb,
@@ -585,6 +595,7 @@ generate_summary_table <- function(data_list, stairs) {
       system,
       browser,
       resolution,
+      screenWidthCm,
       QRConnect,
       date,
       ok,
@@ -641,7 +652,8 @@ generate_summary_table <- function(data_list, stairs) {
     mutate(`threshold parameter` = as.character(`threshold parameter`)) %>%
     left_join(logFont, by = 'Pavlovia session ID') %>%
     left_join(webGL, by = 'Pavlovia session ID') %>%
-    left_join(params, by = 'Pavlovia session ID')
+    left_join(params, by = 'Pavlovia session ID') %>%
+    rename("GB" = "deviceMemoryGB")
   print('done summary_df')
   return(summary_df)
 }
@@ -794,7 +806,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
       language = list(info = 'Showing _TOTAL_ entries',
                       infoFiltered =  "(filtered from _MAX_ entries)"),
       columnDefs = list(
-        list(visible = FALSE, targets = c(0, 53)),
+        list(visible = FALSE, targets = c(0, 54)),
         list(
           targets = width_col,
           visible = FALSE
@@ -804,7 +816,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
           orderData = width_col
         ),
         list(
-          targets = c(16),
+          targets = c(17),
           width = '100px',
           className = 'errorC-control',
           render = JS(
@@ -815,7 +827,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
           )
         ),
         list(
-          targets = c(17),
+          targets = c(18),
           width = '100px',
           className = 'warnC-control',
           render = JS(
@@ -826,7 +838,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
           )
         ),
         list(
-          targets = c(31),
+          targets = c(33),
           width = '50px',
           className = 'computer51Deg',
           render = JS(
@@ -837,7 +849,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
           )
         ),
         list(
-          targets = c(32),
+          targets = c(34),
           width = '50px',
           className = 'loudspeakerSurvey',
           render = JS(
@@ -848,7 +860,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
           )
         ),
         list(
-          targets = c(33),
+          targets = c(35),
           width = '50px',
           className = 'microphoneSurvey',
           render = JS(

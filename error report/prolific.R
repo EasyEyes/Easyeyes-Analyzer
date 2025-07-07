@@ -137,13 +137,13 @@ combineProlific <- function(prolificData, summary_table, pretest){
                 select(`Pavlovia session ID`, `Participant ID`),
               by = 'Pavlovia session ID') %>% 
     distinct(`Participant ID`,`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
-             `device type`, system,browser, resolution, `Phone QR connect`, date, `Prolific min`,
-             `Prolific status`,`Completion code`, ok, unmetNeeds, error, warning, cores,
+             `device type`, system, browser, resolution, screenWidthCm, `Phone QR connect`, date, `Prolific min`,
+             `Prolific status`,`Completion code`, ok, unmetNeeds, error, warning, cores, GB,
              `Lateness ms`, `Duration ms`, KB, rows, cols,block,condition, trial, `condition name`,
              `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
              Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
              fontMaxPx, viewingDistanceCm, fontRenderMaxPx, heapLimitAfterDrawing, heapTotalAvgMB,
-             deviceMemoryGB, mustTrackSec, goodTrials, badTrials, WebGLVersion, 
+             mustTrackSec, goodTrials, badTrials, WebGLVersion, 
              maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order) %>% 
     filter(date != '', !is.na(date))
   print('done combine prolific')

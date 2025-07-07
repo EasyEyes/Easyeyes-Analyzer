@@ -161,9 +161,13 @@ ensure_columns <- function(t, file_name = NULL) {
   }
   
   t <- t %>% 
-    mutate(experimentCompleteBool = ifelse(is.na(experimentCompleteBool), FALSE, experimentCompleteBool),
-           system = str_replace_all(deviceSystem, "OS X","macOS"),
-           deviceSystemFamily = str_replace_all(deviceSystemFamily, "OS X","macOS"))
+    mutate(system = str_replace_all(deviceSystem, "OS X","macOS"),
+           deviceSystemFamily = str_replace_all(deviceSystemFamily, "OS X","macOS"),
+           screenWidthCm = ifelse(is.na(pxPerCm) | pxPerCm <= 0, NA, round(screenWidthPx / pxPerCm,2)))
+  
+  t$deviceMemoryGB = sort(t$deviceMemoryGB)[1]
+  t$screenWidthCm = sort(t$screenWidthCm)[1]
+  t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
   t <- impute_column(t, 'block',0)
   t <- impute_column(t, 'thresholdParameter', '')
   t <- impute_column(t, 'targetTask', '')
