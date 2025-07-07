@@ -773,6 +773,11 @@ generate_summary_table <- function(data_list, stairs) {
 #                 backgroundColor = styleEqual(prolific_id, random_rgb(length(prolific_id))))
 # }
 render_summary_datatable <- function(dt, participants, prolific_id) {
+  dt$resolution_width <- as.integer(sub("^\\s*([0-9]+).*", "\\1", dt$resolution))
+  
+  # compute one‐based indices for DataTables
+  res_col   <- which(names(dt) == "resolution")
+  width_col <- which(names(dt) == "resolution_width")
   datatable(
     dt,
     class = list(stripe = FALSE, 'compact'),
@@ -790,6 +795,14 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
                       infoFiltered =  "(filtered from _MAX_ entries)"),
       columnDefs = list(
         list(visible = FALSE, targets = c(0, 53)),
+        list(
+          targets = width_col,
+          visible = FALSE
+        ),
+        list(
+          targets   = res_col,
+          orderData = width_col
+        ),
         list(
           targets = c(16),
           width = '100px',
