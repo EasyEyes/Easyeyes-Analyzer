@@ -1901,140 +1901,98 @@ shinyServer(function(input, output, session) {
     return(out)
   })
   
-  
-  
   output$histograms <- renderUI({
-    out <- list()
-    i <- 1
+    out    <- list()
+    plots  <- histograms()$plotList
+    files  <- histograms()$fileNames
+    n      <- length(plots)
+    nPerRow <- 6
     
-    while (i <= length(histograms()$plotList) - 3) {
-      # Create a row with 4 histograms
-      out[[i]] <-
-        splitLayout(
-          cellWidths = c("25%", "25%", "25%", "25%"),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("hist", i),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("hist", i + 1),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("hist", i + 2),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("hist", i + 3),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4)
+    for (i in seq(1, n, by = nPerRow)) {
+      idx <- i:min(i + nPerRow - 1, n)
+      
+      # --- row of plots ---
+      plot_cells <- lapply(idx, function(j) {
+        shinycssloaders::withSpinner(
+          plotOutput(paste0("hist", j),
+                     width  = "100%",
+                     height = "100%"),
+          type = 4
         )
-      # Create a row with 4 download buttons
-      out[[i + 1]] <-
-        splitLayout(
-          cellWidths = c("25%", "25%", "25%", "25%"),
-          downloadButton(paste0("downloadHist", i), 'Download'),
-          downloadButton(paste0("downloadHist", i + 1), 'Download'),
-          downloadButton(paste0("downloadHist", i + 2), 'Download'),
-          downloadButton(paste0("downloadHist", i + 3), 'Download')
-        )
-      i <- i + 4
-    }
-    
-    # Handle any remaining histograms (fewer than 4)
-    remaining <- length(histograms()$plotList) - i + 1
-    if (remaining > 0) {
-      plotOutputs <- lapply(1:remaining, function(j) {
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("hist", i + j - 1),
-          width = "100%",
-          height = "100%"
+      })
+      # pad out any missing cells so splitLayout stays stable
+      if (length(plot_cells) < nPerRow)
+        plot_cells <- c(plot_cells, rep("", nPerRow - length(plot_cells)))
+      
+      out[[length(out) + 1]] <- do.call(splitLayout, c(
+        list(
+          cellWidths = rep("16.66%", nPerRow),
+          style      = "overflow-x: hidden; white-space: nowrap;"
         ),
-        type = 4)
-      })
-      downloadButtons <- lapply(1:remaining, function(j) {
-        downloadButton(paste0("downloadHist", i + j - 1), 'Download')
-      })
+        plot_cells
+      ))
       
-      # Fill remaining cells with empty space
-      emptyCells <- 4 - remaining
-      plotOutputs <- c(plotOutputs, rep("", emptyCells))
-      downloadButtons <- c(downloadButtons, rep("", emptyCells))
+      # --- row of download buttons ---
+      dl_cells <- lapply(idx, function(j) {
+        downloadButton(paste0("downloadHist", j), "Download")
+      })
+      if (length(dl_cells) < nPerRow)
+        dl_cells <- c(dl_cells, rep("", nPerRow - length(dl_cells)))
       
-      out[[length(out) + 1]] <-
-        do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), plotOutputs))
-      out[[length(out) + 1]] <-
-        do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), downloadButtons))
+      out[[length(out) + 1]] <- do.call(splitLayout, c(
+        list(
+          cellWidths = rep("16.66%", nPerRow),
+          style      = "overflow-x: hidden; white-space: nowrap;"
+        ),
+        dl_cells
+      ))
     }
     
-    # Render histograms and download handlers
-    for (j in seq_along(histograms()$plotList)) {
+    # register each renderImage & downloadHandler (unchanged)
+    for (j in seq_along(plots)) {
       local({
-        ii <- j
-        output[[paste0("hist", ii)]] <- renderImage({
-          outfile <- tempfile(fileext = '.svg')
+        jj <- j
+        output[[paste0("hist", jj)]] <- renderImage({
+          outfile <- tempfile(fileext = ".svg")
           ggsave(
-            file = outfile,
-            plot = histograms()$plotList[[ii]] + hist_theme,
-            device = svglite,
-            width = 4,
-            # Reduced width
-            height = 3.5,
-            # Reduced height
-            unit = 'in'
+            filename = outfile,
+            plot     = plots[[jj]] + hist_theme,
+            device   = svglite,
+            width    = 2.5,
+            height   = 2.5,
+            unit     = "in"
           )
-          list(src = outfile, contenttype = 'svg')
+          list(src = outfile, contentType = "image/svg+xml")
         }, deleteFile = TRUE)
         
-        output[[paste0("downloadHist", ii)]] <- downloadHandler(
+        output[[paste0("downloadHist", jj)]] <- downloadHandler(
           filename = paste0(
             experiment_names(),
-            histograms()$fileNames[[ii]],
-            ii,
-            '.',
-            input$fileType
+            files[[jj]],
+            jj, ".", input$fileType
           ),
           content = function(file) {
             if (input$fileType == "png") {
-              tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-              ggsave(
-                tmp_svg,
-                plot = histograms()$plotList[[ii]] + hist_theme,
-                unit = "in",
-                width = 4,
-                # Reduced width
-                height = 3.5,
-                # Reduced height
-                limitsize = F,
-                device = svglite
-              )
-              rsvg::rsvg_png(tmp_svg,
-                             file,
-                             height = 900,
-                             width = 900)  # Reduced resolution
+              tmp_svg <- tempfile(fileext = ".svg")
+              ggsave(tmp_svg,
+                     plot   = plots[[jj]] + hist_theme,
+                     device = svglite,
+                     width  = 2.5,
+                     height = 2.5,
+                     unit   = "in",
+                     limitsize = FALSE)
+              rsvg::rsvg_png(tmp_svg, file,
+                             width  = 900 * 3/4,
+                             height = 900 * 2.5/4)
             } else {
               ggsave(
                 file,
-                plot = histograms()$plotList[[ii]] + hist_theme,
-                width = 4,
-                # Reduced width
-                height = 3.5,
-                # Reduced height
-                unit = "in",
-                limitsize = F,
-                device = ifelse(
-                  input$fileType == "svg",
-                  svglite::svglite,
-                  input$fileType
-                )
+                plot   = plots[[jj]] + hist_theme,
+                width  = 2.5,
+                height = 2.5,
+                unit   = "in",
+                limitsize = FALSE,
+                device   = if (input$fileType == "svg") svglite::svglite else input$fileType
               )
             }
           }
@@ -2044,6 +2002,150 @@ shinyServer(function(input, output, session) {
     
     return(out)
   })
+  
+  
+  
+  # output$histograms <- renderUI({
+  #   out <- list()
+  #   i <- 1
+  #   
+  #   while (i <= length(histograms()$plotList) - 3) {
+  #     # Create a row with 4 histograms
+  #     out[[i]] <-
+  #       splitLayout(
+  #         cellWidths = c("25%", "25%", "25%", "25%"),
+  #         shinycssloaders::withSpinner(plotOutput(
+  #           paste0("hist", i),
+  #           width = "100%",
+  #           height = "100%"
+  #         ),
+  #         type = 4),
+  #         shinycssloaders::withSpinner(plotOutput(
+  #           paste0("hist", i + 1),
+  #           width = "100%",
+  #           height = "100%"
+  #         ),
+  #         type = 4),
+  #         shinycssloaders::withSpinner(plotOutput(
+  #           paste0("hist", i + 2),
+  #           width = "100%",
+  #           height = "100%"
+  #         ),
+  #         type = 4),
+  #         shinycssloaders::withSpinner(plotOutput(
+  #           paste0("hist", i + 3),
+  #           width = "100%",
+  #           height = "100%"
+  #         ),
+  #         type = 4)
+  #       )
+  #     # Create a row with 4 download buttons
+  #     out[[i + 1]] <-
+  #       splitLayout(
+  #         cellWidths = c("25%", "25%", "25%", "25%"),
+  #         downloadButton(paste0("downloadHist", i), 'Download'),
+  #         downloadButton(paste0("downloadHist", i + 1), 'Download'),
+  #         downloadButton(paste0("downloadHist", i + 2), 'Download'),
+  #         downloadButton(paste0("downloadHist", i + 3), 'Download')
+  #       )
+  #     i <- i + 4
+  #   }
+  #   
+  #   # Handle any remaining histograms (fewer than 4)
+  #   remaining <- length(histograms()$plotList) - i + 1
+  #   if (remaining > 0) {
+  #     plotOutputs <- lapply(1:remaining, function(j) {
+  #       shinycssloaders::withSpinner(plotOutput(
+  #         paste0("hist", i + j - 1),
+  #         width = "100%",
+  #         height = "100%"
+  #       ),
+  #       type = 4)
+  #     })
+  #     downloadButtons <- lapply(1:remaining, function(j) {
+  #       downloadButton(paste0("downloadHist", i + j - 1), 'Download')
+  #     })
+  #     
+  #     # Fill remaining cells with empty space
+  #     emptyCells <- 4 - remaining
+  #     plotOutputs <- c(plotOutputs, rep("", emptyCells))
+  #     downloadButtons <- c(downloadButtons, rep("", emptyCells))
+  #     
+  #     out[[length(out) + 1]] <-
+  #       do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), plotOutputs))
+  #     out[[length(out) + 1]] <-
+  #       do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), downloadButtons))
+  #   }
+  #   
+  #   # Render histograms and download handlers
+  #   for (j in seq_along(histograms()$plotList)) {
+  #     local({
+  #       ii <- j
+  #       output[[paste0("hist", ii)]] <- renderImage({
+  #         outfile <- tempfile(fileext = '.svg')
+  #         ggsave(
+  #           file = outfile,
+  #           plot = histograms()$plotList[[ii]] + hist_theme,
+  #           device = svglite,
+  #           width = 4,
+  #           # Reduced width
+  #           height = 3.5,
+  #           # Reduced height
+  #           unit = 'in'
+  #         )
+  #         list(src = outfile, contenttype = 'svg')
+  #       }, deleteFile = TRUE)
+  #       
+  #       output[[paste0("downloadHist", ii)]] <- downloadHandler(
+  #         filename = paste0(
+  #           experiment_names(),
+  #           histograms()$fileNames[[ii]],
+  #           ii,
+  #           '.',
+  #           input$fileType
+  #         ),
+  #         content = function(file) {
+  #           if (input$fileType == "png") {
+  #             tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+  #             ggsave(
+  #               tmp_svg,
+  #               plot = histograms()$plotList[[ii]] + hist_theme,
+  #               unit = "in",
+  #               width = 4,
+  #               # Reduced width
+  #               height = 3.5,
+  #               # Reduced height
+  #               limitsize = F,
+  #               device = svglite
+  #             )
+  #             rsvg::rsvg_png(tmp_svg,
+  #                            file,
+  #                            height = 900,
+  #                            width = 900)  # Reduced resolution
+  #           } else {
+  #             ggsave(
+  #               file,
+  #               plot = histograms()$plotList[[ii]] + hist_theme,
+  #               width = 4,
+  #               # Reduced width
+  #               height = 3.5,
+  #               # Reduced height
+  #               unit = "in",
+  #               limitsize = F,
+  #               device = ifelse(
+  #                 input$fileType == "svg",
+  #                 svglite::svglite,
+  #                 input$fileType
+  #               )
+  #             )
+  #           }
+  #         }
+  #       )
+  #     })
+  #   }
+  #   
+  #   return(out)
+  # })
 
   output$qualityHistograms <- renderUI({
     out <- list()

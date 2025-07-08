@@ -394,7 +394,7 @@ get_histogram_duration_lateness <- function(duration){
     group_by(deviceSystemFamily) %>% 
     mutate(N= paste0('N=',n()))
   p1 <- ggplot(data = t1) +  
-    geom_histogram(aes(x = targetMeasuredDurationSec),color="black", fill="black") + 
+    geom_histogram(aes(x = targetMeasuredDurationSec),color="black", fill="gray80") + 
     theme_bw()+
     plt_theme+
     facet_wrap(~deviceSystemFamily) +
@@ -410,7 +410,7 @@ get_histogram_duration_lateness <- function(duration){
     mutate(N= paste0('N=',n()))
   
   p2 <- ggplot(data = t2) +  
-    geom_histogram(aes(x = targetMeasuredLatenessSec), color="black", fill="black") + 
+    geom_histogram(aes(x = targetMeasuredLatenessSec), color="black", fill="gray80") + 
     theme_bw() +
     plt_theme +
     facet_wrap(~deviceSystemFamily) +
@@ -496,7 +496,7 @@ append_hist_quality <- function(data_list, plot_list, fileNames, conditionNameIn
       n = length(blockCondition[!is.na(blockCondition[var]),])
       
       plot_list[[j]] <- ggplot(blockCondition, aes(x = .data[[var]])) +
-        geom_histogram(color="black", fill="black") + 
+        geom_histogram(color="black", fill="gray80") + 
         ggpp::geom_text_npc(
           data = NULL,
           aes(npcx = 'right',
@@ -578,7 +578,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
       label = paste0('N = ', n)
 
       plot_list[[j]] <- ggplot(data, aes(x = .data[[var]])) +
-        geom_histogram(color="black", fill="black") + 
+        geom_histogram(color="black", fill="gray80") + 
         ggpp::geom_text_npc(
           aes(npcx = 'right',
               npcy = 'top'),
@@ -621,7 +621,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
       
       label = paste0('N = ', n)
       plot_list[[j]] <- ggplot(webGL, aes(x = .data[[var]])) +
-        geom_histogram(color="black", fill="black") +
+        geom_histogram(color="black", fill="gray80") +
         ggpp::geom_text_npc(
           data = NULL,
           aes(npcx = 'right',
@@ -643,7 +643,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
       n = length(blockAvg[!is.na(blockAvg[var]),])
       
       plot_list[[j]] <- ggplot(blockAvg, aes(x = .data[[var]])) +
-        geom_histogram(color="black", fill="black") + 
+        geom_histogram(color="black", fill="gray80") + 
         ggpp::geom_text_npc(
           data = NULL,
           aes(npcx = 'right',
@@ -652,7 +652,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
           
         ) +
         theme_bw() +
-        labs(title = paste("Histogram of", var))
+        labs(title = paste("Histogram of\n", var))
       fileNames[[j]] <- paste0(var,'-histogram')
       j = j + 1
     }

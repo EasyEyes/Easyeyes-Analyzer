@@ -57,7 +57,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
               N = n())
   p2 <- ggplot(minDeg %>% filter(thresholdParameter == 'targetSizeDeg')) + 
     geom_histogram(aes(x = minDeg),
-                   color = "black", fill = "black") +
+                   color = "black", fill = "gray80") +
     scale_x_log10(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
     ggpp::geom_text_npc(
