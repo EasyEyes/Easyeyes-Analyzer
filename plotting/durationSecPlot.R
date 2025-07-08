@@ -432,53 +432,6 @@ get_histogram_duration_lateness <- function(duration){
   ))
 }
 
-append_hist_list <- function(data_list, plot_list, fileNames){
-  
-  params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
-    t <- data_list[[i]] %>% 
-      filter(!is.na(staircaseName)) %>%
-      distinct(participant,
-             deviceMemoryGB,
-             screenWidthPx,
-             pxPerCm,
-             screenWidthCm)
-  }
-  
-  vars <- c("screenWidthPx", "screenWidthCm", "deviceMemoryGB")
-  
-  
-  j = length(plot_list) + 1
-  # Loop through summary dataset and generate histograms
-  for (var in vars) {
-    if (n_distinct(params[var]) > 1) {
-      
-      avg <- round(mean(as.numeric(params[[var]]), na.rm =T),2)
-      sd <- round(sd(as.numeric(params[[var]]), na.rm =T),2)
-      n = length(params[!is.na(params[var]),])
-      p <- ggplot(params, aes(x = .data[[var]])) +
-        geom_histogram(color="black", fill="black") + 
-        theme_bw() +
-        ggpp::geom_text_npc(
-          aes(npcx = 'right',
-              npcy = 'top'),
-          label = paste0('mean = ', avg, '\n sd = ', sd, '\n N = ', n)
-        ) +
-        labs(title = paste("Histogram of", var))
-      
-      if (var == "deviceMemoryGB") {
-        p <- p + scale_x_continuous(limits = c(min(params[[var]],na.rm=T) - 4,
-                                              max(params[[var]],na.rm=T) + 4))
-      }
-      plot_list[[j]] <- p
-      fileNames[[j]] <- paste0(var,'-histogram')
-      j = j + 1
-    }
-  }
-  
-  return(list(plotList = plot_list,
-              fileNames = fileNames))
-}
-
 append_hist_quality <- function(data_list, plot_list, fileNames, conditionNameInput){
   
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
@@ -563,8 +516,7 @@ append_hist_quality <- function(data_list, plot_list, fileNames, conditionNameIn
 }
 
 append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput){
-  print('inside get_dur_param_hist')
-  
+
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
       filter(!is.na(staircaseName)) %>%
@@ -572,8 +524,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
              block,
              block_condition,
              conditionName,
-             targetMeasuredDurationSec,
-             targetMeasuredLatenessSec,
+             computeRandomMHz,
              `heapUsedBeforeDrawing (MB)`,
              `heapTotalBeforeDrawing (MB)`,
              `heapLimitBeforeDrawing (MB)`,
@@ -581,21 +532,11 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
              `heapTotalAfterDrawing (MB)`,
              `heapLimitAfterDrawing (MB)`,
              `heapTotalPostLateness (MB)`,
-             `heapTotalPreLateness (MB)`,
-             computeRandomMHz,
-             deviceMemoryGB,
-             cores,
-             fontNominalSizePx,
-             screenWidthPx,
-             screenHeightPx,
-             trialGivenToQuest) %>% 
-      rename(hardwareConcurrency = cores) %>% 
+             `heapTotalPreLateness (MB)`) %>% 
       mutate(
         deltaHeapUsedMB = as.numeric(`heapUsedAfterDrawing (MB)`) - as.numeric(`heapUsedBeforeDrawing (MB)`),
         deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
         deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`),
-        # screenWidthCm = screenWidthPx / pxPerCm,
-        # screenHeightCm = screenHeightPx / pxPerCm,
       )
     
   }
@@ -603,14 +544,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
     params <- params %>% filter(conditionName %in% conditionNameInput)
   } 
   
-  if (is.character(params$targetMeasuredDurationSec)) {
-    params <- params %>%  separate_rows(targetMeasuredDurationSec,sep=',')
-    params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
-  }
-  
   webGL <- get_webGL(data_list)
-  summary <- params %>%
-    distinct(participant,computeRandomMHz, screenWidthPx, hardwareConcurrency, deviceMemoryGB)
   
   blockAvg <- params %>% 
     group_by(participant, block) %>% 
@@ -618,57 +552,32 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
               heapUsedAfterDrawingAvg = mean( `heapUsedAfterDrawing (MB)`, na.rm =T)) %>% 
     ungroup()
   
-  # blockCondition <- params %>% 
-  #   group_by(participant, block_condition) %>% 
-  #   summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
-  #             badTrials = sum(!trialGivenToQuest, na.rm =T)) %>% 
-  #   ungroup()
-  
   params_vars <- c("heapUsedAfterDrawing (MB)", 
                    "heapTotalAfterDrawing (MB)", 
                    "heapLimitAfterDrawing (MB)", 
                    "deltaHeapTotalMB", 
-                   "deltaHeapUsedMB")
+                   "deltaHeapUsedMB",               
+                   "computeRandomMHz")
   
   webGL_vars <- c("maxTextureSize", "maxViewportSize")
   
-  summary_vars <- c("computeRandomMHz",   "hardwareConcurrency", "deviceMemoryGB")
-  
   blockAvg_vars <- c("heapTotalAfterDrawingAvg", "heapUsedAfterDrawingAvg")
-  
-  # blockCondition_vars <- c("goodTrials", 'badTrials')
   
   j = length(plot_list) + 1
   # Loop through params dataset and generate histograms
   
-  for (var in summary_vars) {
-    if (n_distinct(summary[var]) > 1) {
-      avg <- round(mean(as.numeric(summary[[var]]), na.rm =T),2)
-      sd <- round(sd(as.numeric(summary[[var]]), na.rm =T),2)
-      n <- length(summary[!is.na(summary[var]),])
-      label = paste0('N = ', n)
-      plot_list[[j]] <- ggplot(summary, aes(x = .data[[var]])) +
-        geom_histogram(color="black", fill="black") + 
-        ggpp::geom_text_npc(
-          aes(npcx = 'right',
-              npcy = 'top'),
-          label = label
-        ) +
-        theme_bw() +
-        labs(title = paste("Histogram of", var))
-      fileNames[[j]] <- paste0(var,'-histogram')
-      j = j + 1
-    }
-  }
-  
   for (var in params_vars) {
-    if (n_distinct(params[var]) > 1) {
-      avg <- round(mean(as.numeric(params[[var]]), na.rm =T),2)
-      sd <- round(sd(as.numeric(params[[var]]), na.rm =T),2)
-      n = length(params[!is.na(params[var]),])
+     data <- params %>% select("participant", all_of(var)) %>% 
+       filter(!is.na(var)) %>%
+       distinct()
+     
+    if (nrow(data) >0) {
+      # avg <- round(mean(as.numeric(data[[var]]), na.rm =T),2)
+      # sd <- round(sd(as.numeric(data[[var]]), na.rm =T),2)
+      n = nrow(data)
       label = paste0('N = ', n)
 
-      plot_list[[j]] <- ggplot(params, aes(x = .data[[var]])) +
+      plot_list[[j]] <- ggplot(data, aes(x = .data[[var]])) +
         geom_histogram(color="black", fill="black") + 
         ggpp::geom_text_npc(
           aes(npcx = 'right',
@@ -706,8 +615,8 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
   for (var in webGL_vars) {
     if (n_distinct(webGL[var]) > 1) {
       
-      avg <- round(mean(as.numeric(webGL[[var]]), na.rm =T),2)
-      sd <- round(sd(as.numeric(webGL[[var]]), na.rm =T),2)
+      # avg <- round(mean(as.numeric(webGL[[var]]), na.rm =T),2)
+      # sd <- round(sd(as.numeric(webGL[[var]]), na.rm =T),2)
       n = length(webGL[!is.na(webGL[var]),])
       
       label = paste0('N = ', n)
@@ -729,8 +638,8 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
   
   for (var in blockAvg_vars) {
     if (n_distinct(blockAvg[var]) > 1) {
-      avg <- round(mean(blockAvg[[var]], na.rm =T),2)
-      sd <- round(sd(blockAvg[[var]], na.rm =T),2)
+      # avg <- round(mean(blockAvg[[var]], na.rm =T),2)
+      # sd <- round(sd(blockAvg[[var]], na.rm =T),2)
       n = length(blockAvg[!is.na(blockAvg[var]),])
       
       plot_list[[j]] <- ggplot(blockAvg, aes(x = .data[[var]])) +
@@ -749,28 +658,6 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
     }
   }
   
-  # for (var in blockCondition_vars) {
-  #   if (n_distinct(blockCondition[var]) > 1) {
-  #     
-  #     avg <- round(mean(as.numeric(blockCondition[[var]]), na.rm =T),2)
-  #     sd <- round(sd(as.numeric(blockCondition[[var]]), na.rm =T),2)
-  #     n = length(blockCondition[!is.na(blockCondition[var]),])
-  #     
-  #     plot_list[[j]] <- ggplot(blockCondition, aes(x = .data[[var]])) +
-  #       geom_histogram(color="black", fill="black") + 
-  #       ggpp::geom_text_npc(
-  #         data = NULL,
-  #         aes(npcx = 'right',
-  #             npcy = 'top'),
-  #         label = paste0('N = ', n)
-  #        
-  #       ) +
-  #       theme_bw() +
-  #       labs(title = paste("Histogram of", var))
-  #     fileNames[[j]] <- paste0(var,'-histogram')
-  #     j = j + 1
-  #   }
-  # }
   print('done timing hist')
   
   return(list(plotList = plot_list,
@@ -2129,7 +2016,6 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
   if (n_distinct(params$targetMeasuredLatenessSec) > 1) {
     filtered_params <- params %>% filter(!is.na(hardwareConcurrency), !is.na(targetMeasuredLatenessSec), !is.na(font))
     n = nrow(filtered_params)
-    print(n)
     plot_list[[j]] <- ggplot() +
       geom_jitter(data=filtered_params, 
                   aes(x=hardwareConcurrency, 
@@ -2173,7 +2059,6 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
     y_max <- max(filtered_params$targetMeasuredLatenessSec, na.rm = TRUE)
     y_padding <- (y_max - y_min) * 0.1
     n = nrow(filtered_params)
-    print(n)
     plot_list[[j]] <- ggplot() +
       geom_jitter(data=filtered_params, 
                   aes(x=mustTrackSec,
@@ -2194,7 +2079,6 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
   
   if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$targetMeasuredDurationSec) > 1) {
     n = nrow(params %>% filter(!is.na(fontNominalSizePx), !is.na(fontPadding), !is.na(targetMeasuredDurationSec)))
-    print(n)
     plot_list[[j]] <- ggplot() +
       geom_jitter(data=params, aes(x=fontNominalSizePx*(1+fontPadding),
                                    y=targetMeasuredDurationSec,

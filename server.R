@@ -789,15 +789,9 @@ shinyServer(function(input, output, session) {
     
     print('before appending')
     lists = append_hist_list(data_list(), l, fileNames)
-
-    minDegHist <-
-      get_minDeg_plots(data_list(),
-                       df_list()$acuity,
-                       df_list()$crowding,
-                       df_list()$quest)$hist
     return(list(
-      plotList = c(lists$plotList, minDegHist$plotList),
-      fileNames = c(lists$fileNames, minDegHist$fileNames)
+      plotList = lists$plotList,
+      fileNames = lists$fileNames
     ))
   })
 
@@ -2317,6 +2311,7 @@ shinyServer(function(input, output, session) {
             )
             list(src = outfile, contenttype = 'svg')
           }, error = function(e) {
+            message(e)
             error_plot <- ggplot() +
               annotate(
                 "text",

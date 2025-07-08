@@ -498,8 +498,116 @@ add_questsd_hist <- function(quest, lists) {
               fileNames = fileNames))
 }
 
-
-
+append_hist_list <- function(data_list, plot_list, fileNames){
+  
+  params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
+    t <- data_list[[i]] %>% 
+      filter(!is.na(staircaseName)) %>%
+      distinct(participant,
+               cores,
+               deviceMemoryGB,
+               devicePixelRatio,
+               screenWidthPx,
+               pxPerCm,
+               screenWidthCm,
+               conditionName,
+               thresholdParameter, 
+               targetEccentricityXDeg, 
+               targetEccentricityYDeg, 
+               spacingOverSizeRatio, 
+               viewingDistanceCm, 
+               fontNominalSizePt, 
+               level,
+               font)
+  }
+  
+  
+  # the conversion formula from fontNominalSizePt to level only true when font is Sloan.woff2
+  minDeg <- params %>% 
+    filter(targetEccentricityXDeg == 0 & targetEccentricityYDeg == 0) %>% 
+    filter(!grepl("practice",conditionName, ignore.case = T)) %>% 
+    mutate(spacingOverSizeRatio = as.numeric(spacingOverSizeRatio),
+           viewingDistanceCm = as.numeric(viewingDistanceCm),
+           fontNominalSizePt = as.numeric(fontNominalSizePt),
+           level = as.numeric(level),
+           fontNominalSizeDeg = (180/pi) * atan2(fontNominalSizePt*2.54/72, viewingDistanceCm)) %>% 
+    group_by(participant, conditionName, 
+             thresholdParameter, font) %>%
+    # minDeg = spacingMinDeg when thresholdParameter = spacingDeg, minDeg = sizeMinDeg when tresholdParameter = targetSizeDeg
+    summarize(minDeg = case_when(!is.na(level) ~ 10^min(level),
+                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'targetSizeDeg' & font == 'Sloan.woff2' ~ min(fontNominalSizeDeg),
+                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'spacingDeg' & font == 'Sloan.woff2'  ~ min(fontNominalSizeDeg) * spacingOverSizeRatio,
+                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'targetSizeDeg' & font == 'Pelli.woff2' ~ min(fontNominalSizeDeg) / 5,
+                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'spacingDeg' & font == 'Pelli.woff2'  ~ min(fontNominalSizeDeg) * spacingOverSizeRatio / 5
+    )) %>% 
+    filter(thresholdParameter == 'targetSizeDeg' | thresholdParameter == 'spacingDeg') %>% 
+    distinct() %>% 
+    filter(!is.na(minDeg)) %>% 
+    ungroup()
+  
+  vars <- c("screenWidthPx", "screenWidthCm", "deviceMemoryGB", 
+            "devicePixelRatio","cores")
+  
+  
+  j = length(plot_list) + 1
+  # Loop through summary dataset and generate histograms
+  for (var in vars) {
+    if (n_distinct(params[var]) > 1) {
+      data <- params %>% select("participant", all_of(var)) %>% distinct()
+      avg <- round(mean(as.numeric(data[[var]]), na.rm =T),2)
+      sd <- round(sd(as.numeric(data[[var]]), na.rm =T),2)
+      n = length(data[!is.na(data[var]),])
+      p <- ggplot(data, aes(x = .data[[var]])) +
+        geom_histogram(color="black", fill="black") + 
+        theme_bw() +
+        ggpp::geom_text_npc(
+          aes(npcx = 'right',
+              npcy = 'top'),
+          label = paste0('mean = ', avg, '\n sd = ', sd, '\n N = ', n)
+        ) +
+        labs(title = paste("Histogram of", var))
+      
+      if (var == "deviceMemoryGB") {
+        p <- p + scale_x_continuous(limits = c(min(data[[var]],na.rm=T) - 4,
+                                               max(data[[var]],na.rm=T) + 4))
+      }
+      plot_list[[j]] <- p
+      fileNames[[j]] <- paste0(var,'-histogram')
+      j = j + 1
+    }
+  }
+  if (nrow(minDeg) > 0) {
+    # histogram of spacingMinDeg (log-x, no ticks)
+    stats <- minDeg %>%
+      filter(thresholdParameter == 'spacingDeg',
+             !is.na(minDeg)) %>%
+      summarize(mean = round(mean(minDeg),2),
+                sd = round(sd(minDeg),2),
+                N = n())
+    p <- ggplot(minDeg %>% filter(thresholdParameter == 'spacingDeg')) + 
+      geom_histogram(aes(x = minDeg),
+                     color = "black", fill = "black") +
+      ggpp::geom_text_npc(
+        aes(npcx = 'right',
+            npcy = 'top'),
+        label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N)
+      ) +
+      scale_x_log10(expand = c(0, 0)) +
+      scale_y_continuous(expand = c(0, 0)) +
+      labs(
+        x     = 'spacingMinDeg',
+        y     = 'Count',
+        title = 'Histogram of spacingMinDeg'
+      )
+    plot_list[[j]] <- p
+    fileNames[[j]] <- "spacingMinDeg-histogram"
+    j = j + 1
+  }
+ 
+  
+  return(list(plotList = plot_list,
+              fileNames = fileNames))
+}
 
 
 

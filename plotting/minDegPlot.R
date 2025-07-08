@@ -38,7 +38,6 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
                conditionName,
                targetMinimumPix,
                targetMinPhysicalPx,
-               devicePixelRatio,
                pxPerCm,
                viewingDistanceCm,
                spacingOverSizeRatio)
@@ -48,32 +47,6 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
            pxPerCm = as.numeric(pxPerCm),
            viewingDistanceCm = as.numeric(viewingDistanceCm),
            spacingOverSizeRatio = as.numeric(spacingOverSizeRatio))
-  
-  # histogram of devicePixelRatio 
-  devicePixelRatio <- params %>% 
-    filter(!is.na(devicePixelRatio)) %>% 
-    distinct()
-  
-  stats <- devicePixelRatio %>%
-    summarise(mean = round(mean(devicePixelRatio),2),
-              sd = round(sd(devicePixelRatio),2),
-              N = n())
-  p1 <- ggplot(devicePixelRatio) + 
-    geom_histogram(aes(x = devicePixelRatio),
-                   color = "black", fill = "black") +
-    scale_x_log10(expand = c(0, 0)) +
-    scale_y_continuous(expand = c(0, 0)) +
-    ggpp::geom_text_npc(
-      aes(npcx = 'right',
-          npcy = 'top'),
-      label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N),
-      hjust = 1, vjust = 1
-    ) +
-    labs(
-      x     = 'devicePixelRatio',
-      y     = 'Count',
-      title = 'Histogram of devicePixelRatio'
-    )
   
   # histogram of sizeMinDeg (log-x, no ticks)
   stats <- minDeg %>%
@@ -96,29 +69,6 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
       x = 'sizeMinDeg',
       y = 'Count',
       title = 'Histogram of sizeMinDeg'
-    )
-  
-  # histogram of spacingMinDeg (log-x, no ticks)
-  stats <- minDeg %>%
-    filter(thresholdParameter == 'spacingDeg',
-           !is.na(minDeg)) %>%
-    summarize(mean = round(mean(minDeg),2),
-              sd = round(sd(minDeg),2),
-              N = n())
-  p3 <- ggplot(minDeg %>% filter(thresholdParameter == 'spacingDeg')) + 
-    geom_histogram(aes(x = minDeg),
-                   color = "black", fill = "black") +
-    ggpp::geom_text_npc(
-      aes(npcx = 'right',
-          npcy = 'top'),
-      label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N)
-    ) +
-    scale_x_log10(expand = c(0, 0)) +
-    scale_y_continuous(expand = c(0, 0)) +
-    labs(
-      x     = 'spacingMinDeg',
-      y     = 'Count',
-      title = 'Histogram of spacingMinDeg'
     )
   
   
@@ -327,11 +277,6 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
         fileNames = list(
           'foveal-crowding-vs-spacingMinDeg'
         )
-      ),
-      hist = list(
-        plotList = list(p1,p3),
-        fileNames = list('estimatedDevicePixelRatio-hist',  
-                       'spacingMinDeg-hist')
       ),
       scatter_quality = list(
         plotList = list(p4, p6, p7, p8, p9),
