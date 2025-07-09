@@ -370,7 +370,7 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
       )
     } else {
       # Peripheral → include EccX on top
-      ecc_label   <- paste0("EccX = ", paste(eccs_int, collapse = ", "), " deg")
+      ecc_label   <- paste0("X ecc = ", paste(eccs_int, collapse = ", "), " deg")
       stats_label <- paste0(
         "R_factor_out_age = ", R_factor_out_age,  "\n",
         ecc_label,                                "\n",

@@ -191,7 +191,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
   
 
   eccs_pc  <- sort(unique(p_crowding$targetEccentricityXDeg))
-  lbl_pc   <- paste0("EccX = ", paste(as.integer(round(eccs_pc)), collapse=", "), " deg")
+  lbl_pc   <- paste0("X ecc = ", paste(as.integer(round(eccs_pc)), collapse=", "), " deg")
   p7 <- ggplot(p_crowding, aes(
     x = questSDAtEndOfTrialsLoop,
     y = 10^(log_crowding_distance_deg)
@@ -246,7 +246,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
   
   print("in get_min_deg_plot")
   eccs_pa <- sort(unique(p_acuity$targetEccentricityXDeg))
-  lbl_pa  <- paste0("EccX = ", paste(as.integer(round(eccs_pa)), collapse=", "), " deg")
+  lbl_pa  <- paste0("X ecc = ", paste(as.integer(round(eccs_pa)), collapse=", "), " deg")
   
   p9 <- ggplot(p_acuity, aes(
     x = questSDAtEndOfTrialsLoop,

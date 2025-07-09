@@ -127,7 +127,7 @@ plot_rsvp_crowding <- function(allData) {
   factor_out_age_and_plot <- function(allData) {
     # Helper function to compute residuals after factoring out age
     eccs     <- sort(unique(allData$crowding$targetEccentricityXDeg[allData$crowding$targetEccentricityXDeg != 0]))
-    ecc_label <- paste0("EccX = ", paste(as.integer(round(eccs)), collapse = ", "), " deg")
+    ecc_label <- paste0("X ecc = ", paste(as.integer(round(eccs)), collapse = ", "), " deg")
     
     compute_residuals <- function(data, x_var, y_var, age_var) {
       regression_y <- lm(paste0(y_var, " ~ ", age_var), data = data)
@@ -354,7 +354,7 @@ plot_rsvp_crowding <- function(allData) {
     
     if (condition == "Peripheral") {
       eccs     <- sort(unique(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg != 0]))
-      ecc_label <- paste0("EccX = ", paste(as.integer(round(eccs)), collapse = ", "), " deg")
+      ecc_label <- paste0("X ecc = ", paste(as.integer(round(eccs)), collapse = ", "), " deg")
       label_text <- paste0(
         "N = ", corr$N, "\n",
         "R = ", corr$correlation, "\n",

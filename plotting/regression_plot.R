@@ -82,95 +82,196 @@ prepare_regression_acuity <- function(df_list){
     left_join(acuity, by = c('participant', "font"))
   return(dt)
 }
-
 regression_reading_plot <- function(df_list){
   t <- prepare_regression_data(df_list)
-  # plot for the regression
   
+  # Foveal subset (unchanged)
   foveal <- t %>%
-    # mutate(targetKind = paste0(targetKind, ", ", font ,", R = ", correlation)) %>%
-    mutate(targetKind = paste0(targetKind,  ", R = ", correlation)) %>%
     filter(type == 'Foveal')
   
-  peripheral <- t %>% 
-    mutate(targetKind = paste0(targetKind,  ", R = ", correlation)) %>%
-    # mutate(targetKind = paste0(targetKind, ", ", font ,", R = ", correlation)) %>%
-    filter(type == 'Peripheral')
-
   p1 <- NULL
-  p2 <- NULL
-  
   if (nrow(foveal) > 0) {
-    p1 <- ggplot(foveal,aes(x = crowding_distance, y = 10^(avg_log_WPM))) + 
-      geom_point(aes(color = font, shape = targetKind)) +
-      geom_smooth(method = "lm",formula = y ~ x, se=F) + 
-      scale_x_log10() + 
+    p1 <- ggplot(foveal, aes(x = crowding_distance, y = 10^(avg_log_WPM), color = font)) +
+      geom_point() +
+      geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+      scale_x_log10() +
       scale_y_log10() +
-      coord_fixed(ratio = 1) + 
-      labs(x="Foveal crowding (deg)", 
-           y = "Reading speed (w/min)",
-           title = "Reading vs foveal crowding") +
-      theme_bw() + 
-      annotation_logticks(
-      sides = "bl", 
-      short = unit(2, "pt"), 
-      mid   = unit(2, "pt"), 
-      long  = unit(7, "pt")
-    ) +
-      ggpp::geom_text_npc(aes(
-        npcx = "left",
-        npcy = "top",
-        label = paste0('N=', nrow(foveal))
-      )) + 
-      guides(color=guide_legend(ncol = 1,
-                                title = '')) + 
+      coord_fixed(ratio = 1) +
+      labs(
+        x     = "Foveal crowding (deg)",
+        y     = "Reading speed (w/min)",
+        title = "Reading vs foveal crowding"
+      ) +
+      annotation_logticks(sides = "bl") +
+      ggpp::geom_text_npc(
+        aes(npcx = "left", npcy = "top"),
+        label = paste0("N=", nrow(foveal)),
+        inherit.aes = FALSE
+      ) +
+      guides(color = guide_legend(ncol = 1, title = "")) +
+      theme_bw() +
       theme(
-        axis.text.x = element_text(angle = 45, hjust = 1),# Rotate x-axis labels
-        plot.margin = margin(10, 10, 10, 10) 
-      ) 
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.margin     = margin(10, 10, 10, 10)
+      )
   }
   
+  # Peripheral subset with new legend + subtitle
+  peripheral <- t %>%
+    filter(type == 'Peripheral')
+  
+  p2 <- NULL
   if (nrow(peripheral) > 0) {
-    print("in regression_reading_plot peripheral")
-
+    # 1) compute N & R per font
+    stats_font <- peripheral %>%
+      group_by(font) %>%
+      summarize(
+        N = n(),
+        # correlate on log-log scale
+        R = cor(log10(crowding_distance),
+                avg_log_WPM,
+                use = "complete.obs"),
+        .groups = "drop"
+      ) %>%
+      mutate(
+        label = paste0(font, ", N=", N, ", R=", sprintf("%.2f", R))
+      )
+    
+    # 2) rename font factor to include N & R
+    peripheral <- peripheral %>%
+      mutate(
+        font_label = factor(font,
+                            levels = stats_font$font,
+                            labels = stats_font$label)
+      )
+    
+    # 3) build Ecc caption
     eccs     <- sort(unique(peripheral$targetEccentricityXDeg))
     eccs_int <- as.integer(round(eccs))
-    ecc_label <- paste0("EccX = ", paste(eccs_int, collapse = ", "), " deg")
+    ecc_label <- paste0("X ecc = ", paste(eccs_int, collapse = ", "), " deg")
     
-    p2 <- ggplot(peripheral, aes(x = crowding_distance, y = 10^(avg_log_WPM))) + 
-      geom_point(aes(color = font, shape = targetKind)) +
-      geom_smooth(method = "lm",formula = y ~ x, se=F) + 
-      scale_x_log10() + 
+    p2 <- ggplot(peripheral,
+                 aes(
+                   x     = crowding_distance,
+                   y     = 10^(avg_log_WPM),
+                   color = font_label
+                 )) +
+      geom_point() +
+      # one regression per font because color is mapped globally
+      geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+      scale_x_log10() +
       scale_y_log10() +
-      coord_fixed(ratio = 1) + 
-      labs(x="Peripheral crowding (deg)", 
-           y = "Reading speed (w/min)",
-           title = "Reading vs peripheral crowding") +
-      theme_bw() + 
-      annotation_logticks(
-        sides = "bl", 
-        short = unit(2, "pt"), 
-        mid   = unit(2, "pt"), 
-        long  = unit(7, "pt")
+      coord_fixed(ratio = 1) +
+      labs(
+        x        = "Peripheral crowding (deg)",
+        y        = "Reading speed (w/min)",
+        title    = "Reading vs peripheral crowding",
+        subtitle = "Geometric mean of left and right."
       ) +
-      ggpp::geom_text_npc(aes(
-        npcx = "left",
-        npcy = "top",
-        label = paste0(ecc_label, "\n", "N=", nrow(peripheral))
-      )) + 
-      guides(color=guide_legend(nrow=2, byrow=TRUE,
-                                title = ''),
-             shape = guide_legend(ncol=1,
-                                  title = '')) +
+      annotation_logticks(sides = "bl") +
+      ggpp::geom_text_npc(
+        aes(npcx = "left", npcy = "top"),
+        label = paste0(ecc_label, "\nN=", nrow(peripheral)),
+        inherit.aes = FALSE
+      ) +
+      guides(color = guide_legend(ncol = 1, title = "")) +
+      theme_bw() +
       theme(
-        axis.text.x = element_text(angle = 45, hjust = 1),# Rotate x-axis labels
-        plot.margin = margin(10, 10, 10, 10) 
-      ) 
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.margin     = margin(10, 10, 10, 10)
+      )
   }
-
+  
   return(list(foveal = p1, peripheral = p2))
-
 }
+# regression_reading_plot <- function(df_list){
+#   t <- prepare_regression_data(df_list)
+#   # plot for the regression
+#   
+#   foveal <- t %>%
+#     # mutate(targetKind = paste0(targetKind, ", ", font ,", R = ", correlation)) %>%
+#     mutate(targetKind = paste0(targetKind,  ", R = ", correlation)) %>%
+#     filter(type == 'Foveal')
+#   
+#   peripheral <- t %>% 
+#     mutate(targetKind = paste0(targetKind,  ", R = ", correlation)) %>%
+#     # mutate(targetKind = paste0(targetKind, ", ", font ,", R = ", correlation)) %>%
+#     filter(type == 'Peripheral')
+# 
+#   p1 <- NULL
+#   p2 <- NULL
+#   
+#   if (nrow(foveal) > 0) {
+#     p1 <- ggplot(foveal,aes(x = crowding_distance, y = 10^(avg_log_WPM))) + 
+#       geom_point(aes(color = font, shape = targetKind)) +
+#       geom_smooth(method = "lm",formula = y ~ x, se=F) + 
+#       scale_x_log10() + 
+#       scale_y_log10() +
+#       coord_fixed(ratio = 1) + 
+#       labs(x="Foveal crowding (deg)", 
+#            y = "Reading speed (w/min)",
+#            title = "Reading vs foveal crowding") +
+#       theme_bw() + 
+#       annotation_logticks(
+#       sides = "bl", 
+#       short = unit(2, "pt"), 
+#       mid   = unit(2, "pt"), 
+#       long  = unit(7, "pt")
+#     ) +
+#       ggpp::geom_text_npc(aes(
+#         npcx = "left",
+#         npcy = "top",
+#         label = paste0('N=', nrow(foveal))
+#       )) + 
+#       guides(color=guide_legend(ncol = 1,
+#                                 title = '')) + 
+#       theme(
+#         axis.text.x = element_text(angle = 45, hjust = 1),# Rotate x-axis labels
+#         plot.margin = margin(10, 10, 10, 10) 
+#       ) 
+#   }
+#   
+#   if (nrow(peripheral) > 0) {
+#     print("in regression_reading_plot peripheral")
+# 
+#     eccs     <- sort(unique(peripheral$targetEccentricityXDeg))
+#     eccs_int <- as.integer(round(eccs))
+#     ecc_label <- paste0("EccX = ", paste(eccs_int, collapse = ", "), " deg")
+#     
+#     p2 <- ggplot(peripheral, aes(x = crowding_distance, y = 10^(avg_log_WPM))) + 
+#       geom_point(aes(color = font, shape = targetKind)) +
+#       geom_smooth(method = "lm",formula = y ~ x, se=F) + 
+#       scale_x_log10() + 
+#       scale_y_log10() +
+#       coord_fixed(ratio = 1) + 
+#       labs(x="Peripheral crowding (deg)", 
+#            y = "Reading speed (w/min)",
+#            title = "Reading vs peripheral crowding") +
+#       theme_bw() + 
+#       annotation_logticks(
+#         sides = "bl", 
+#         short = unit(2, "pt"), 
+#         mid   = unit(2, "pt"), 
+#         long  = unit(7, "pt")
+#       ) +
+#       ggpp::geom_text_npc(aes(
+#         npcx = "left",
+#         npcy = "top",
+#         label = paste0(ecc_label, "\n", "N=", nrow(peripheral))
+#       )) + 
+#       guides(color=guide_legend(nrow=2, byrow=TRUE,
+#                                 title = ''),
+#              shape = guide_legend(ncol=1,
+#                                   title = '')) +
+#       theme(
+#         axis.text.x = element_text(angle = 45, hjust = 1),# Rotate x-axis labels
+#         plot.margin = margin(10, 10, 10, 10) 
+#       ) 
+#   }
+# 
+#   return(list(foveal = p1, peripheral = p2))
+# 
+# }
 
 regression_acuity_plot <- function(df_list){
   t <- prepare_regression_acuity(df_list)
