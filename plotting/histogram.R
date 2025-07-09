@@ -1,8 +1,5 @@
 library(patchwork)
 
-
-
-
 get_fluency_histogram <- function(fluency){
   
   if(nrow(fluency) == 0) {
@@ -496,6 +493,27 @@ add_questsd_hist <- function(quest, lists) {
   
   return(list(plotList = plotList,
               fileNames = fileNames))
+}
+
+get_wrong_trials_frac_hist <- function(quest) {
+  quest <- quest %>% filter(is.finite(frac))
+  stats <- quest %>% summarize(mean = mean(frac),
+                               sd=sd(frac),
+                               N=n())
+  if (nrow(quest) == 0) return(NULL)
+  p <-p <- ggplot(quest, aes(x = frac)) +
+    geom_histogram(color = "black", fill = "black") +
+    scale_x_continuous(expand = c(0, 0)) + 
+    scale_y_continuous(expand = c(0, 0)) + 
+    ggpp::geom_text_npc(
+      aes(npcx = 'right',
+          npcy = 'top',
+          label = paste0('mean=', stats$mean, '\n sd=', stats$sd, '\n N=', stats$N))
+    ) +
+    labs(x = 'Grade',
+         y = 'Count',
+         title = 'Histogram of fraction of trials wrong') +
+    theme_minimal()
 }
 
 append_hist_list <- function(data_list, plot_list, fileNames){

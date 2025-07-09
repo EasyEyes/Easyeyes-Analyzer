@@ -15,32 +15,55 @@ savePlot <- function(plot, filename, fileType, width = 8, height = 6) {
   }
 }
 
-safely_plot <- function(f, plotTitle, parameters) {
-  # f: function
-  # parameters: list of parameters
-  p <- tryCatch({
-    # Try to call the function with parameters
-    do.call(f, parameters)
-    
+save_plot_with_error_handling <- function(plot, filename, 
+                                          width = 6, height = 4,
+                                          size = 5,
+                                          unit = 'in', theme = NULL, 
+                                          colorPalette = NULL, plotTitle = "") {
+  tryCatch({
+    # Apply theme and colorPalette if provided
+    if (!is.null(theme)) plot <- plot + theme
+    if (!is.null(colorPalette)) plot <- plot + scale_color_manual(values = colorPalette)
+    ggsave(
+      file = filename,
+      plot = plot,
+      device = svglite,
+      width = width,
+      height = height,
+      unit = unit,
+      limitsize = FALSE
+    )
+    list(src = filename, contenttype = 'svg')
   }, error = function(e) {
-    # If an error occurs, return a plot with the error message
-    print(e)
-    ggplot() +
+    # Show error in a ggplot-friendly way
+    error_plot <- ggplot() +
       annotate(
         "text",
         x = 0.5,
-        y = 0.6,
+        y = 0.5,
         label = paste("Error:", e$message),
         color = "red",
-        size = 5,
+        size = size,
         hjust = 0.5,
         vjust = 0.5
       ) +
       theme_void() +
       ggtitle(plotTitle)
+    # Save the error plot to a temp file
+    ggsave(
+      file = filename,
+      plot = error_plot,
+      device = svglite,
+      width = width,
+      height = height,
+      unit = unit
+    )
+    list(
+      src = filename,
+      contenttype = 'svg',
+      alt = paste0("Error in ", plotTitle)
+    )
   })
-  
-  return(p)
 }
 
 safely_execute <- function(expression, error_message = "Error occurred", return_value = NULL) {
