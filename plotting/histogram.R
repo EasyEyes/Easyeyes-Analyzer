@@ -521,10 +521,10 @@ append_hist_list <- function(data_list, plot_list, fileNames){
                font)
   }
   
+ 
   
-  # the conversion formula from fontNominalSizePt to level only true when font is Sloan.woff2
+
   minDeg <- params %>% 
-    filter(targetEccentricityXDeg == 0 & targetEccentricityYDeg == 0) %>% 
     filter(!grepl("practice",conditionName, ignore.case = T)) %>% 
     mutate(spacingOverSizeRatio = as.numeric(spacingOverSizeRatio),
            viewingDistanceCm = as.numeric(viewingDistanceCm),
@@ -544,7 +544,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
     distinct() %>% 
     filter(!is.na(minDeg)) %>% 
     ungroup()
-  
+    
   vars <- c("screenWidthPx", "screenWidthCm", "deviceMemoryGB", 
             "devicePixelRatio","cores")
   
@@ -568,8 +568,10 @@ append_hist_list <- function(data_list, plot_list, fileNames){
         labs(title = paste("Histogram of\n", var))
       
       if (var == "deviceMemoryGB") {
-        p <- p + scale_x_continuous(limits = c(min(data[[var]],na.rm=T) - 4,
-                                               max(data[[var]],na.rm=T) + 4))
+        p <- p + scale_x_continuous(limits = c(1,9),  
+                                    breaks = seq(2, 8, by = 2), 
+                                    expand = expansion(add = 0)) 
+        
       }
       plot_list[[j]] <- p
       fileNames[[j]] <- paste0(var,'-histogram')

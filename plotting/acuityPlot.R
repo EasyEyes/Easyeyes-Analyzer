@@ -697,57 +697,68 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
 }
 
 peripheral_plot <- function(allData) {
-  crowding <- allData$crowding %>% filter(targetEccentricityXDeg != 0)
-  acuity <- allData$acuity %>% filter(targetEccentricityXDeg != 0)
-  
-  if (nrow(crowding) == 0 | nrow(acuity) == 0) {
-    return(NULL)
-  }
-  
-  t <- crowding %>%
-    select(participant, log_crowding_distance_deg, font) %>%
-    left_join(acuity, by = c("participant", "font")) %>%
-    mutate(Grade = as.character(Grade))
-  # Calculate the number of unique grades for the color scale
-  n_grades <- n_distinct(t$Grade)
-  
-  p1 <- ggplot(data = t, aes(x = 10^(log_crowding_distance_deg),
-                             y = 10^questMeanAtEndOfTrialsLoop,
-                             color = Grade)) +
-    geom_point(size = 3) +  # Adjust point size for better visibility
-    scale_x_log10(expand = c(0, 0.1)) +
-    scale_y_log10(expand = c(0, 0.1)) +
-    coord_fixed() +
-    labs(
-      x = 'Peripheral crowding distance (deg)',
-      y = 'Peripheral acuity (deg)',
-      title = 'Peripheral acuity vs. peripheral crowding\ncolored by grade'
-    ) +
-    theme_classic() +
-    plt_theme +
-    theme(
-      legend.position = "top"
-    ) +
-    color_scale(n = n_grades)  # Dynamically apply the gray-to-black color scale
-  
-  p2<- ggplot(data = t, aes(x = 10^(log_crowding_distance_deg),
-                            y = 10^questMeanAtEndOfTrialsLoop,
-                            color = font)) +
-    geom_point(size = 3) +  # Adjust point size for better visibility
-    scale_x_log10(expand = c(0, 0.1)) +
-    scale_y_log10(expand = c(0, 0.1)) +
-    coord_fixed() +
-    labs(
-      x = 'Peripheral crowding distance (deg)',
-      y = 'Peripheral acuity (deg)',
-      title = 'Peripheral acuity vs. peripheral crowding\ncolored by font'
-    ) +
-    theme_classic() +
-    plt_theme +
-    theme(
-      legend.position = "top"
+  # filter to peripheral & compute absEcc
+  crowding_p <- allData$crowding %>%
+    filter(targetEccentricityXDeg != 0) %>%
+    mutate(absEcc = abs(targetEccentricityXDeg))
+
+  acuity_p <- allData$acuity %>%
+    filter(targetEccentricityXDeg != 0) %>%
+    mutate(absEcc = abs(targetEccentricityXDeg))
+
+  # compute geometric‐mean summaries
+  crowd_summary <- crowding_p %>%
+    group_by(participant, font, Grade, absEcc) %>%
+    summarize(
+      crowding_gmean = 10^(mean(log_crowding_distance_deg, na.rm=TRUE)),
+      .groups = "drop"
     )
+
+  acuity_summary <- acuity_p %>%
+    group_by(participant, font, Grade, absEcc) %>%
+    summarize(
+      acuity_gmean = 10^(mean(questMeanAtEndOfTrialsLoop, na.rm=TRUE)),
+      .groups = "drop"
+    )
+
+  # join & plot 
+  t <- inner_join(crowd_summary, acuity_summary,
+                  by = c("participant","font","Grade","absEcc")) %>%
+    mutate(Grade = factor(Grade))
+
+  n_grades <- n_distinct(t$Grade)
+
+  p1 <- ggplot(t, aes(x = crowding_gmean, y = acuity_gmean, color = Grade)) +
+    geom_point(size = 3) +
+    scale_x_log10(expand = c(0,0.1)) +
+    scale_y_log10(expand = c(0,0.1)) +
+    coord_fixed() +
+    labs(
+      title    = 'Peripheral acuity vs. peripheral crowding\ncolored by grade',
+      subtitle = 'Geometric mean of left and right measurements',
+      x        = 'Peripheral crowding distance (deg)',
+      y        = 'Peripheral acuity (deg)'
+    ) +
+    theme_classic() + plt_theme +
+    theme(legend.position = "top") +
+    color_scale(n = n_grades)
+
+  p2 <- ggplot(t, aes(x = crowding_gmean, y = acuity_gmean, color = font)) +
+    geom_point(size = 3) +
+    scale_x_log10(expand = c(0,0.1)) +
+    scale_y_log10(expand = c(0,0.1)) +
+    coord_fixed() +
+    labs(
+      title    = 'Peripheral acuity vs. peripheral crowding\ncolored by font',
+      subtitle = 'Geometric mean of left and right measurements',
+      x        = 'Peripheral crowding distance (deg)',
+      y        = 'Peripheral acuity (deg)'
+    ) +
+    theme_classic() + plt_theme +
+    theme(legend.position = "top")
+
   return(list(grade = p1, font = p2))
 }
+
 
 
