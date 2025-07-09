@@ -30,11 +30,13 @@ generate_rsvp_reading_crowding_fluency <-
 
   wrongTrials <- stairs %>%
     group_by(participant, staircaseName) %>%
-    summarize(NWrongTrial = sum(!`key_resp.corr`,na.rm = T)) %>% 
+    summarize(NWrongTrial = sum((!`key_resp.corr`) & trialGivenToQuest, na.rm = T),
+              NCorrectTrial = sum((`key_resp.corr`) & trialGivenToQuest, na.rm = T),
+              frac = sum((!`key_resp.corr`) & trialGivenToQuest, na.rm = T) / sum((`key_resp.corr`) & trialGivenToQuest, na.rm = T)) %>% 
     ungroup() %>% 
     filter(NWrongTrial >= minWrongTrials) %>% 
     mutate(block_condition = as.character(staircaseName)) %>% 
-    distinct(participant, block_condition)
+    distinct(participant, block_condition, NWrongTrial,NCorrectTrial,frac)
   
   if (nrow(pretest) > 0) {
     if (!'Grade' %in% names(pretest)) {
@@ -292,7 +294,9 @@ generate_rsvp_reading_crowding_fluency <-
   }
   quest <- all_summary %>% 
     select(participant, block_condition, thresholdParameter, conditionName, font, 
-           questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade, `Skilled reader?`, ParticipantCode, questTrials) %>% 
+           questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade,
+           `Skilled reader?`, ParticipantCode, questTrials, NWrongTrial,NCorrectTrial,frac
+           ) %>% 
     left_join(eccentricityDeg, by = c('participant', 'conditionName'))
   
   if (nrow(pretest) > 0) {

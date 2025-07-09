@@ -686,14 +686,14 @@ shinyServer(function(input, output, session) {
       return(list(plotList = list(), fileNames = list()))
     }
     print('inside agePlots')
-    
+
     l <- list()
     fileNames <- list()
-    
+
     plot_calls <- list(
       list(plot = get_peripheral_crowding_vs_age(df_list()$crowding)[[1]], fname = 'peripheral-crowding-vs-age-by-grade'),
       list(plot = get_peripheral_crowding_vs_age(df_list()$crowding)[[2]], fname = 'peripheral-crowding-ave-vs-age-by-grade'),
-      list(plot = get_foveal_crowding_vs_age(df_list()$crowding), fname = 'foveal-crowding-vs-age-by-grade'),
+      list(plot = get_foveal_crowding_vs_age(df_list()$crowding), 'foveal-crowding-vs-age-by-grade'),
       list(plot = get_repeatedLetter_vs_age(df_list()$repeatedLetters), fname = 'repeated-letter-crowding-vs-age-by-grade'),
       list(plot = plot_reading_age(df_list()$reading), fname = 'reading-vs-age-by-grade'),
       list(plot = plot_rsvp_age(df_list()$rsvp), fname = 'rsvp-reading-vs-age-by-grade'),
@@ -702,91 +702,47 @@ shinyServer(function(input, output, session) {
       list(plot = plot_acuity_vs_age(df_list()), fname = 'acuity-vs-age'),
       list(plot = plot_crowding_vs_age(df_list()$crowding), fname = 'crowding-vs-age')
     )
-    
+
     for (call in plot_calls) {
-      res <- append_plot_list(l, fileNames, call$plot, call$fname)
+      p <- call$plot
+      res <- append_plot_list(l, fileNames, p + plt_theme, call$fname)
       l <- res$plotList
       fileNames <- res$fileNames
     }
-    
+
     print('done age plots')
     return(list(plotList = l, fileNames = fileNames))
   })
-  
+
   histograms <- reactive({
     if (is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
+      return(list(plotList = list(), fileNames = list()))
     }
     print('inside histograms')
-    i = 1
+
     l <- list()
     fileNames <- list()
-    
-    acuity_hist <- get_acuity_hist(df_list()$acuity)
-    crowding_hist <- get_crowding_hist(df_list()$crowding)
-    rsvp_hist <- get_reading_hist(df_list()$rsvp)
-    reading_hist <- get_reading_hist(df_list()$reading)
-    repeated_hist <- get_repeatedLetter_hist(df_list()$repeatedLetters)
-    age_hist <- get_age_histogram(df_list()$age)
-    grade_hist <- get_grade_histogram(df_list()$age)
-    
-    if (!is.null(acuity_hist[[1]])) {
-      l[[i]] =  acuity_hist[[1]]
-      fileNames[[i]] = 'foveal-acuity-histogram'
-      i = i + 1
+
+    plot_calls <- list(
+      list(plot = get_acuity_hist(df_list()$acuity)[[1]], fname = 'foveal-acuity-histogram'),
+      list(plot = get_acuity_hist(df_list()$acuity)[[2]], fname = 'peripheral-acuity-histogram'),
+      list(plot = get_crowding_hist(df_list()$crowding)$foveal, fname = 'foveal-crowding-histogram'),
+      list(plot = get_crowding_hist(df_list()$crowding)$peripheral, fname = 'peripheral-crowding-histogram'),
+      list(plot = get_reading_hist(df_list()$rsvp), fname = 'rsvp-reading-speed-histogram'),
+      list(plot = get_reading_hist(df_list()$reading), fname = 'reading-speed-histogram'),
+      list(plot = get_repeatedLetter_hist(df_list()$repeatedLetters), fname = 'repeated-letter-crowding-histogram'),
+      list(plot = get_age_histogram(df_list()$age), fname = 'age-histogram'),
+      list(plot = get_grade_histogram(df_list()$age), fname = 'grade-histogram'),
+      list(plot = get_wrong_trials_frac_hist(df_list()$quest_all_thresholds), fname = 'wrong-trial-frac-histogram')
+    )
+
+    for (call in plot_calls) {
+      p <- call$plot
+      res <- append_plot_list(l, fileNames, p + hist_theme, call$fname)
+      l <- res$plotList
+      fileNames <- res$fileNames
     }
-    
-    if (!is.null(acuity_hist[[2]])) {
-      l[[i]] = acuity_hist[[2]]
-      fileNames[[i]] = 'peripheral-acuity-histogram'
-      i = i + 1
-    }
-    
-    
-    if (!is.null(crowding_hist$foveal)) {
-      l[[i]] = crowding_hist$foveal
-      fileNames[[i]] = 'foveal-crowding-histogram'
-      i = i + 1
-    }
-    
-    if (!is.null(crowding_hist$peripheral)) {
-      l[[i]] = crowding_hist$peripheral
-      fileNames[[i]] = 'peripheral-crowding-histogram'
-      i = i + 1
-    }
-    
-    
-    if (!is.null(rsvp_hist)) {
-      l[[i]] = rsvp_hist
-      fileNames[[i]] = 'rsvp-reading-speed-histogram'
-      i = i + 1
-    }
-    
-    if (!is.null(reading_hist)) {
-      l[[i]] = reading_hist
-      fileNames[[i]] = 'reading-speed-histogram'
-      i = i + 1
-    }
-    
-    if (!is.null(repeated_hist)) {
-      l[[i]] = repeated_hist
-      fileNames[[i]] = 'repeated-letter-crowding-histogram'
-      i = i + 1
-    }
-    
-    if (!is.null(age_hist)) {
-      l[[i]] = age_hist
-      fileNames[[i]] = 'age-histogram'
-      i = i + 1
-    }
-    
-    if (!is.null(grade_hist)) {
-      l[[i]] = grade_hist
-      fileNames[[i]] = 'grade-histogram'
-      i = i + 1
-    }
-    
+
     print('before appending')
     lists = append_hist_list(data_list(), l, fileNames)
     return(list(
@@ -794,7 +750,7 @@ shinyServer(function(input, output, session) {
       fileNames = lists$fileNames
     ))
   })
-
+  
   histogramsQuality <- reactive({
     if (is.null(files())) {
       return(list(plotList = list(),
@@ -860,149 +816,45 @@ shinyServer(function(input, output, session) {
   
   scatterDiagrams <- reactive({
     if (is.null(input$file) | is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
+      return(list(plotList = list(), fileNames = list()))
     }
     print('inside scatter plots')
-    i = 1
     l <- list()
     fileNames <- list()
-    
 
-    t <- plot_distance(files()$data_list)
-    
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'
-      i = i + 1
-    }
-    
-    # Add foveal plot to the list
+    plot_calls <- list(
+      list(plot = plot_distance(files()$data_list), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = foveal_crowding_vs_acuity_diag()$foveal, fname = 'foveal-crowding-vs-foveal-acuity-grade-diagram'),
+      list(plot = foveal_crowding_vs_acuity_diag()$peripheral, fname = 'foveal-crowding-vs-peripheral-acuity-grade-diagram'),
+      list(plot = get_acuity_foveal_peripheral_diag(df_list()$acuity), fname = 'foveal-acuity-vs-peripheral-acuity-grade-diagram'),
+      list(plot = foveal_peripheral_diag()$grade, fname = 'foveal-crowding-vs-peripheral-crowding-grade-diagram'),
+      list(plot = peripheral_plot(df_list())$grade, fname = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'),
+      list(plot = peripheral_plot(df_list())$font, fname = 'peripheral-acuity-vs-peripheral-crowding-font-diagram'),
+      list(plot = crowdingPlot(), fname = 'peripheral_crowding_left_vs_right'),
+      list(plot = regression_reading_plot(df_list())$foveal, fname = 'reading-rsvp-reading-vs-foveal-crowding'),
+      list(plot = regression_reading_plot(df_list())$peripheral, fname = 'reading-rsvp-reading-vs-peripheral-crowding'),
+      list(plot = regression_acuity_plot(df_list()), fname = 'ordinary-reading-rsvp-reading-vs-acuity'),
+      list(plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp), fname = 'reading-vs-RSVP-reading-plot'),
+      list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade')
+    )
 
-    # if (!is.null(crowdingPlots$fovealPlot)) {
-    #   l[[i]] <- crowdingPlots$fovealPlot + plt_theme
-    #   fileNames[[i]] <-
-    #     'foveal-crowding-staircases-threshold-vs-questTrials'
-    #   i <- i + 1
-    # }
-    # 
-    # # Add peripheral plot to the list
-    # if (!is.null(crowdingPlots$peripheralPlot)) {
-    #   l[[i]] <- crowdingPlots$peripheralPlot + plt_theme
-    #   fileNames[[i]] <-
-    #     'peripheral-crowding-staircases-threshold-vs-questTrials'
-    #   i <- i + 1
-    # }
+    for (call in plot_calls) {
+      plot <- call$plot
+      if (!is.null(plot)) {
+        plot <- plot + scale_color_manual(values = colorPalette)
+      }
+      res <- append_plot_list(l, fileNames, plot, call$fname)
+      l <- res$plotList
+      fileNames <- res$fileNames
+    }
 
-    
-    t <- foveal_crowding_vs_acuity_diag()$foveal
-    
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'foveal-crowding-vs-foveal-acuity-grade-diagram'
-      i = i + 1
-    }
-    
-    t <-  foveal_crowding_vs_acuity_diag()$peripheral
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'foveal-crowding-vs-peripheral-acuity-grade-diagram'
-      i = i + 1
-    }
-    
-    t <- get_acuity_foveal_peripheral_diag(df_list()$acuity)
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'foveal-acuity-vs-peripheral-acuity-grade-diagram'
-      i = i + 1
-    }
-    
-    t <- foveal_peripheral_diag()$grade
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'foveal-crowding-vs-peripheral-crowding-grade-diagram'
-      i = i + 1
-    }
-    
-    t <- peripheral_plot(df_list())
-    if (!is.null(t$grade)) {
-      l[[i]] = t$grade + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'
-      i = i + 1
-    }
-    
-    if (!is.null(t$font)) {
-      l[[i]] = t$font + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'peripheral-acuity-vs-peripheral-crowding-font-diagram'
-      i = i + 1
-    }
-    
-    t <- crowdingPlot()
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'peripheral_crowding_left_vs_right'
-      i = i + 1
-    }
-    
-
-    # t <- get_quest_diag(df_list()$quest)$grade
-    # if (!is.null(t)) {
-    #   l[[i]] = t
-    #   fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
-    #   i = i + 1
-    # }
-    
-    # t <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
-    # if (!is.null(t)) {
-    #   l[[i]] <- t
-    #   fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
-    #   i <- i + 1
-    # }
-    
-    t <- regression_reading_plot(df_list())
-    if (!is.null(t$foveal)) {
-      l[[i]] = t$foveal + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'reading-rsvp-reading-vs-foveal-crowding'
-      i = i + 1
-    }
-    
-    if (!is.null(t$peripheral)) {
-      l[[i]] = t$peripheral + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'reading-rsvp-reading-vs-peripheral-crowding'
-      i = i + 1
-    }
-    
-    t <- regression_acuity_plot(df_list())
-    
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'ordinary-reading-rsvp-reading-vs-acuity'
-      i = i + 1
-    }
-    
-    t <- plot_reading_rsvp(df_list()$reading, df_list()$rsvp)
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'reading-vs-RSVP-reading-plot'
-      i = i + 1
-    }
-    
-    t <- get_crowding_vs_repeatedLetter(df_list()$crowding,
-                                        df_list()$repeatedLetters)$grade
-    
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
-      fileNames[[i]] = 'crowding-vs-repeated-letters-crowding-grade'
-      i = i + 1
-    }
-    
     lists = append_scatter_list(data_list(), l, fileNames, conditionNames())
     minDegPlot <-
       get_minDeg_plots(data_list(),
                        df_list()$acuity,
                        df_list()$crowding,
                        df_list()$quest)$scatter
-    
+
     return(list(
       plotList = c(lists$plotList, minDegPlot$plotList),
       fileNames = c(lists$fileNames, minDegPlot$fileNames)
@@ -1100,7 +952,7 @@ shinyServer(function(input, output, session) {
   
   gradePlots <- reactive({
     if (is.null(files()) | is.null(df_list())) {
-      return(NULL)
+      return(histograms <NULL)
     }
     plot_rsvp_crowding_acuity(df_list())
   })
@@ -1954,15 +1806,15 @@ shinyServer(function(input, output, session) {
         jj <- j
         output[[paste0("hist", jj)]] <- renderImage({
           outfile <- tempfile(fileext = ".svg")
-          ggsave(
+          save_plot_with_error_handling(
+            plot = plots[[jj]] + hist_theme,
             filename = outfile,
-            plot     = plots[[jj]] + hist_theme,
-            device   = svglite,
-            width    = 2.5,
-            height   = 2.5,
-            unit     = "in"
+            width = 2.5,
+            height = 2.5,
+            size = 3,
+            unit = "in",
+            plotTitle = files[[jj]]
           )
-          list(src = outfile, contentType = "image/svg+xml")
         }, deleteFile = TRUE)
         
         output[[paste0("downloadHist", jj)]] <- downloadHandler(
@@ -2002,150 +1854,6 @@ shinyServer(function(input, output, session) {
     
     return(out)
   })
-  
-  
-  
-  # output$histograms <- renderUI({
-  #   out <- list()
-  #   i <- 1
-  #   
-  #   while (i <= length(histograms()$plotList) - 3) {
-  #     # Create a row with 4 histograms
-  #     out[[i]] <-
-  #       splitLayout(
-  #         cellWidths = c("25%", "25%", "25%", "25%"),
-  #         shinycssloaders::withSpinner(plotOutput(
-  #           paste0("hist", i),
-  #           width = "100%",
-  #           height = "100%"
-  #         ),
-  #         type = 4),
-  #         shinycssloaders::withSpinner(plotOutput(
-  #           paste0("hist", i + 1),
-  #           width = "100%",
-  #           height = "100%"
-  #         ),
-  #         type = 4),
-  #         shinycssloaders::withSpinner(plotOutput(
-  #           paste0("hist", i + 2),
-  #           width = "100%",
-  #           height = "100%"
-  #         ),
-  #         type = 4),
-  #         shinycssloaders::withSpinner(plotOutput(
-  #           paste0("hist", i + 3),
-  #           width = "100%",
-  #           height = "100%"
-  #         ),
-  #         type = 4)
-  #       )
-  #     # Create a row with 4 download buttons
-  #     out[[i + 1]] <-
-  #       splitLayout(
-  #         cellWidths = c("25%", "25%", "25%", "25%"),
-  #         downloadButton(paste0("downloadHist", i), 'Download'),
-  #         downloadButton(paste0("downloadHist", i + 1), 'Download'),
-  #         downloadButton(paste0("downloadHist", i + 2), 'Download'),
-  #         downloadButton(paste0("downloadHist", i + 3), 'Download')
-  #       )
-  #     i <- i + 4
-  #   }
-  #   
-  #   # Handle any remaining histograms (fewer than 4)
-  #   remaining <- length(histograms()$plotList) - i + 1
-  #   if (remaining > 0) {
-  #     plotOutputs <- lapply(1:remaining, function(j) {
-  #       shinycssloaders::withSpinner(plotOutput(
-  #         paste0("hist", i + j - 1),
-  #         width = "100%",
-  #         height = "100%"
-  #       ),
-  #       type = 4)
-  #     })
-  #     downloadButtons <- lapply(1:remaining, function(j) {
-  #       downloadButton(paste0("downloadHist", i + j - 1), 'Download')
-  #     })
-  #     
-  #     # Fill remaining cells with empty space
-  #     emptyCells <- 4 - remaining
-  #     plotOutputs <- c(plotOutputs, rep("", emptyCells))
-  #     downloadButtons <- c(downloadButtons, rep("", emptyCells))
-  #     
-  #     out[[length(out) + 1]] <-
-  #       do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), plotOutputs))
-  #     out[[length(out) + 1]] <-
-  #       do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), downloadButtons))
-  #   }
-  #   
-  #   # Render histograms and download handlers
-  #   for (j in seq_along(histograms()$plotList)) {
-  #     local({
-  #       ii <- j
-  #       output[[paste0("hist", ii)]] <- renderImage({
-  #         outfile <- tempfile(fileext = '.svg')
-  #         ggsave(
-  #           file = outfile,
-  #           plot = histograms()$plotList[[ii]] + hist_theme,
-  #           device = svglite,
-  #           width = 4,
-  #           # Reduced width
-  #           height = 3.5,
-  #           # Reduced height
-  #           unit = 'in'
-  #         )
-  #         list(src = outfile, contenttype = 'svg')
-  #       }, deleteFile = TRUE)
-  #       
-  #       output[[paste0("downloadHist", ii)]] <- downloadHandler(
-  #         filename = paste0(
-  #           experiment_names(),
-  #           histograms()$fileNames[[ii]],
-  #           ii,
-  #           '.',
-  #           input$fileType
-  #         ),
-  #         content = function(file) {
-  #           if (input$fileType == "png") {
-  #             tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-  #             ggsave(
-  #               tmp_svg,
-  #               plot = histograms()$plotList[[ii]] + hist_theme,
-  #               unit = "in",
-  #               width = 4,
-  #               # Reduced width
-  #               height = 3.5,
-  #               # Reduced height
-  #               limitsize = F,
-  #               device = svglite
-  #             )
-  #             rsvg::rsvg_png(tmp_svg,
-  #                            file,
-  #                            height = 900,
-  #                            width = 900)  # Reduced resolution
-  #           } else {
-  #             ggsave(
-  #               file,
-  #               plot = histograms()$plotList[[ii]] + hist_theme,
-  #               width = 4,
-  #               # Reduced width
-  #               height = 3.5,
-  #               # Reduced height
-  #               unit = "in",
-  #               limitsize = F,
-  #               device = ifelse(
-  #                 input$fileType == "svg",
-  #                 svglite::svglite,
-  #                 input$fileType
-  #               )
-  #             )
-  #           }
-  #         }
-  #       )
-  #     })
-  #   }
-  #   
-  #   return(out)
-  # })
 
   output$qualityHistograms <- renderUI({
     out <- list()
@@ -2939,56 +2647,18 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("scatter", ii)]] <- renderImage({
-          tryCatch({
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = scatterDiagrams()$plotList[[ii]] +
-                plt_theme_scatter +
-                scale_color_manual(values = colorPalette),
-              unit = 'in',
-              limitsize = F,
-              device = svglite
-            )
-            
-            list(src = outfile,
-                 contenttype = 'svg')
-            
-          }, error = function(e) {
-            # Show error in a ggplot-friendly way
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 5,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void() +
-              ggtitle(scatterDiagrams()$fileNames[[ii]])
-            
-            # Save the error plot to a temp file
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = error_plot,
-              device = svglite,
-              width = 6,
-              height = 4,
-              unit = 'in'
-            )
-            list(
-              src = outfile,
-              contenttype = 'svg',
-              alt = paste0("Error in ", scatterDiagrams()$fileNames[[ii]])
-            )
-          })
-          
+          outfile <- tempfile(fileext = '.svg')
+          save_plot_with_error_handling(
+            plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+            filename = outfile,
+            width = 6,
+            height = 6,
+            size = 5,
+            unit = 'in',
+            colorPalette = colorPalette,
+            plotTitle = scatterDiagrams()$fileNames[[ii]]
+          )
         }, deleteFile = TRUE)
-        
         output[[paste0("downloadScatter", ii)]] <-
           downloadHandler(
             filename = paste0(
@@ -3078,56 +2748,18 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("qualityScatter", ii)]] <- renderImage({
-          tryCatch({
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = scatterQuality()$plotList[[ii]] +
-                plt_theme_scatter +
-                scale_color_manual(values = colorPalette),
-              unit = 'in',
-              limitsize = F,
-              device = svglite
-            )
-            
-            list(src = outfile,
-                 contenttype = 'svg')
-            
-          }, error = function(e) {
-            # Show error in a ggplot-friendly way
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 5,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void() +
-              ggtitle(scatterQuality()$fileNames[[ii]])
-            
-            # Save the error plot to a temp file
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = error_plot,
-              device = svglite,
-              width = 6,
-              height = 4,
-              unit = 'in'
-            )
-            list(
-              src = outfile,
-              contenttype = 'svg',
-              alt = paste0("Error in ", scatterQuality()$fileNames[[ii]])
-            )
-          })
-          
+          outfile <- tempfile(fileext = '.svg')
+          save_plot_with_error_handling(
+            plot = scatterQuality()$plotList[[ii]] + plt_theme_scatter,
+            filename = outfile,
+            width = 6,
+            height = 6,
+            size = 5,
+            unit = 'in',
+            colorPalette = colorPalette,
+            plotTitle = scatterQuality()$fileNames[[ii]]
+          )
         }, deleteFile = TRUE)
-        
         output[[paste0("downloadQualityScatter", ii)]] <-
           downloadHandler(
             filename = paste0(
