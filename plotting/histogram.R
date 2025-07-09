@@ -46,7 +46,7 @@ get_crowding_hist <- function(crowding) {
                                    sd = round(sd(log_crowding_distance_deg),2),
                                    N = n())
     p1 <- ggplot(foveal) + 
-      geom_histogram(aes(x = log_crowding_distance_deg),color="black", fill="gray80") +
+      geom_histogram(aes(x = log_crowding_distance_deg),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
@@ -77,7 +77,7 @@ get_crowding_hist <- function(crowding) {
                N = n())
 
    p2 <- ggplot(peripheral) + 
-    geom_histogram(aes(x = log_crowding_distance_deg),color="black", fill="gray80") +
+    geom_histogram(aes(x = log_crowding_distance_deg),color=NA, fill="gray80") +
    scale_x_continuous(expand = c(0, 0)) + 
    scale_y_continuous(expand = c(0, 0)) + 
    ggpp::geom_text_npc(
@@ -120,7 +120,7 @@ get_acuity_hist <- function(acuity) {
                 N = n())
     
     p1 <-  ggplot(foveal) + 
-      geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color="black", fill="gray80") +
+      geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
@@ -147,7 +147,7 @@ get_acuity_hist <- function(acuity) {
                 N = n())
     
     p2 <-  ggplot(peripheral) + 
-      geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color="black", fill="gray80") +
+      geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
@@ -194,7 +194,7 @@ get_reading_hist <- function(data) {
                                    N = n())
     stats1 = stats1[1,]
     p1 <- ggplot(data) + 
-      geom_histogram(aes(x = log_WPM),color="black", fill="gray80") +
+      geom_histogram(aes(x = log_WPM),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
@@ -231,7 +231,7 @@ get_repeatedLetter_hist <- function(repeated) {
                                    sd = round(sd(log_crowding_distance_deg),2),
                                    N = n())
     p1 <- ggplot(repeated) + 
-      geom_histogram(aes(x = log_crowding_distance_deg),color="black", fill="gray80") +
+      geom_histogram(aes(x = log_crowding_distance_deg),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
@@ -277,7 +277,7 @@ generate_histograms_by_grade <- function(data) {
           )
         
         plot <- ggplot(grade_subset, aes_string(x = variable)) +
-          geom_histogram(breaks = x_range, color = "black", fill = "gray80") +
+          geom_histogram(breaks = x_range, color = NA, fill = "gray80") +
           labs(
             x = NULL,  # No x-axis label for individual plots
             y = "Count",
@@ -404,7 +404,7 @@ get_age_histogram <- function(data) {
   # Generate histogram
   
   p <- ggplot(data) + 
-    geom_histogram(aes(x = age), color = "black", fill = "gray80") +
+    geom_histogram(aes(x = age), color = NA, fill = "gray80") +
     scale_x_continuous(expand = c(0, 0)) + 
     scale_y_continuous(expand = c(0, 0)) + 
     ggpp::geom_text_npc(
@@ -437,7 +437,7 @@ get_grade_histogram <- function(age) {
   
   # Generate histogram
   p <- ggplot(grade_data, aes(x = Grade)) +
-    geom_histogram(color = "black", fill = "gray80") +
+    geom_histogram(color = NA, fill = "gray80") +
     scale_x_continuous(expand = c(0, 0)) + 
     scale_y_continuous(expand = c(0, 0)) + 
     ggpp::geom_text_npc(
@@ -471,7 +471,7 @@ add_questsd_hist <- function(quest, lists) {
                 N = n())
     
     p <- ggplot(t, aes(x = questSDAtEndOfTrialsLoop)) +
-      geom_histogram(color = "black", fill = "gray80", bins = 30) +
+      geom_histogram(color = NA, fill = "gray80", bins = 30) +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
       ggpp::geom_text_npc(
@@ -495,26 +495,57 @@ add_questsd_hist <- function(quest, lists) {
               fileNames = fileNames))
 }
 
-get_wrong_trials_frac_hist <- function(quest) {
-  quest <- quest %>% filter(is.finite(frac))
-  stats <- quest %>% summarize(mean = mean(frac),
-                               sd=sd(frac),
-                               N=n())
+get_prop_correct_hist_list <- function(quest) {
+  quest <- quest %>% 
+    filter(is.finite(frac)) %>% 
+    mutate(prop_correct = 1 - frac)
+  
   if (nrow(quest) == 0) return(NULL)
-  p <-p <- ggplot(quest, aes(x = frac)) +
-    geom_histogram(color = "black", fill = "black") +
-    scale_x_continuous(expand = c(0, 0)) + 
-    scale_y_continuous(expand = c(0, 0)) + 
-    ggpp::geom_text_npc(
-      aes(npcx = 'right',
-          npcy = 'top',
-          label = paste0('mean=', stats$mean, '\n sd=', stats$sd, '\n N=', stats$N))
-    ) +
-    labs(x = 'Grade',
-         y = 'Count',
-         title = 'Histogram of fraction of trials wrong') +
-    theme_minimal()
+  
+  # split into a list by conditionName
+  quest_list <- split(quest, quest$conditionName)
+  
+  # precompute stats per condition
+  stats_df <- quest %>% 
+    group_by(conditionName) %>% 
+    summarize(
+      mean   = mean(prop_correct),
+      sd     = sd(prop_correct),
+      N      = n(),
+      .groups = "drop"
+    )
+  
+  # generate one histogram per condition
+  hist_list <- lapply(names(quest_list), function(cond) {
+    data_sub <- quest_list[[cond]]
+    stats_sub <- stats_df %>% filter(conditionName == cond)
+    
+    ggplot(data_sub, aes(x = prop_correct)) +
+      geom_histogram(color = NA, fill = "gray80") +
+      scale_x_continuous(name = "Proportion correct", expand = c(0, 0)) +
+      scale_y_continuous(name = "Count",            expand = c(0, 0)) +
+      ggtitle(paste("Histogram of proportion\ncorrect\n", cond)) +
+      geom_text(
+        data = stats_sub,
+        aes(
+          x = Inf, y = Inf,
+          label = paste0(
+            "mean=", round(mean, 2),
+            "\n sd=",   round(sd,   2),
+            "\n N=",    N
+          )
+        ),
+        inherit.aes = FALSE,
+        hjust = 1, vjust = 1
+      ) +
+      theme_minimal()
+  })
+  
+  names(hist_list) <- names(quest_list)
+  return(hist_list)
 }
+
+
 
 append_hist_list <- function(data_list, plot_list, fileNames){
   
@@ -562,7 +593,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
     distinct() %>% 
     filter(!is.na(minDeg)) %>% 
     ungroup()
-    
+
   vars <- c("screenWidthPx", "screenWidthCm", "deviceMemoryGB", 
             "devicePixelRatio","cores")
   
@@ -576,7 +607,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
       sd <- round(sd(as.numeric(data[[var]]), na.rm =T),2)
       n = length(data[!is.na(data[var]),])
       p <- ggplot(data, aes(x = .data[[var]])) +
-        geom_histogram(color="black", fill="gray80") + 
+        geom_histogram(color=NA, fill="gray80") + 
         theme_bw() +
         ggpp::geom_text_npc(
           aes(npcx = 'right',
@@ -606,7 +637,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
                 N = n())
     p <- ggplot(minDeg %>% filter(thresholdParameter == 'spacingDeg')) + 
       geom_histogram(aes(x = minDeg),
-                     color = "black", fill = "gray80") +
+                     color = NA, fill = "gray80") +
       ggpp::geom_text_npc(
         aes(npcx = 'right',
             npcy = 'top'),

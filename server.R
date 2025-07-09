@@ -714,42 +714,58 @@ shinyServer(function(input, output, session) {
     return(list(plotList = l, fileNames = fileNames))
   })
 
+ 
   histograms <- reactive({
-    if (is.null(files())) {
-      return(list(plotList = list(), fileNames = list()))
-    }
-    print('inside histograms')
+  if (is.null(files())) {
+    return(list(plotList = list(), fileNames = list()))
+  }
+  print('inside histograms')
 
-    l <- list()
-    fileNames <- list()
+  l         <- list()
+  fileNames <- list()
 
-    plot_calls <- list(
-      list(plot = get_acuity_hist(df_list()$acuity)[[1]], fname = 'foveal-acuity-histogram'),
-      list(plot = get_acuity_hist(df_list()$acuity)[[2]], fname = 'peripheral-acuity-histogram'),
-      list(plot = get_crowding_hist(df_list()$crowding)$foveal, fname = 'foveal-crowding-histogram'),
-      list(plot = get_crowding_hist(df_list()$crowding)$peripheral, fname = 'peripheral-crowding-histogram'),
-      list(plot = get_reading_hist(df_list()$rsvp), fname = 'rsvp-reading-speed-histogram'),
-      list(plot = get_reading_hist(df_list()$reading), fname = 'reading-speed-histogram'),
-      list(plot = get_repeatedLetter_hist(df_list()$repeatedLetters), fname = 'repeated-letter-crowding-histogram'),
-      list(plot = get_age_histogram(df_list()$age), fname = 'age-histogram'),
-      list(plot = get_grade_histogram(df_list()$age), fname = 'grade-histogram'),
-      list(plot = get_wrong_trials_frac_hist(df_list()$quest_all_thresholds), fname = 'wrong-trial-frac-histogram')
+  static_calls <- list(
+    list(plot = get_acuity_hist(df_list()$acuity)[[1]],            fname = 'foveal-acuity-histogram'),
+    list(plot = get_acuity_hist(df_list()$acuity)[[2]],            fname = 'peripheral-acuity-histogram'),
+    list(plot = get_crowding_hist(df_list()$crowding)$foveal,     fname = 'foveal-crowding-histogram'),
+    list(plot = get_crowding_hist(df_list()$crowding)$peripheral, fname = 'peripheral-crowding-histogram'),
+    list(plot = get_reading_hist(df_list()$rsvp),                  fname = 'rsvp-reading-speed-histogram'),
+    list(plot = get_reading_hist(df_list()$reading),               fname = 'reading-speed-histogram'),
+    list(plot = get_repeatedLetter_hist(df_list()$repeatedLetters),fname = 'repeated-letter-crowding-histogram'),
+    list(plot = get_age_histogram(df_list()$age),                  fname = 'age-histogram'),
+    list(plot = get_grade_histogram(df_list()$age),                fname = 'grade-histogram')
+  )
+
+ 
+  prop_hists <- get_prop_correct_hist_list(df_list()$quest_all_thresholds)
+  prop_calls <- lapply(names(prop_hists), function(cond) {
+    list(
+      plot  = prop_hists[[cond]],
+      fname = paste0('correct-trial-frac-histogram-', cond)
     )
-
-    for (call in plot_calls) {
-      p <- call$plot
-      res <- append_plot_list(l, fileNames, p + hist_theme, call$fname)
-      l <- res$plotList
-      fileNames <- res$fileNames
-    }
-
-    print('before appending')
-    lists = append_hist_list(data_list(), l, fileNames)
-    return(list(
-      plotList = lists$plotList,
-      fileNames = lists$fileNames
-    ))
   })
+
+
+  all_calls <- c(static_calls, prop_calls)
+  for (call in all_calls) {
+    res <- append_plot_list(
+      l, fileNames,
+      call$plot + hist_theme,
+      call$fname
+    )
+    l         <- res$plotList
+    fileNames <- res$fileNames
+  }
+
+  print('before appending')
+  lists <- append_hist_list(data_list(), l, fileNames)
+
+  list(
+    plotList  = lists$plotList,
+    fileNames = lists$fileNames
+  )
+})
+
   
   histogramsQuality <- reactive({
     if (is.null(files())) {
