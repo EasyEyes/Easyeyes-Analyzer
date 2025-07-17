@@ -4,35 +4,45 @@ source('./other/formSpree.R')
 
 find_prolific_from_files <- function(file) {
   file_list <- file$data
-  n = length(file$data)
+  file_names <- file$name
   prolificDT <- tibble()
-  for (k in 1:length(file_list)) {
-    if (grepl(".zip", file_list[k])) {
-      file_names <- unzip(file_list[k], list = TRUE)$Name
-      all_csv <- file_names[grepl(".csv", file_names)]
-      all_csv <- all_csv[!grepl("__MACOSX", all_csv)]
-      prolificDT <- foreach(u=1:length(all_csv), .combine = 'rbind') %do% {
-        prolific <- read_prolific(unzip(file_list[k], all_csv[u]))
-      }
-      return(prolificDT)
-    }
-  }
   
-  for (k in 1:length(file_list)) {
-    if (grepl("\\.csv$", file_list[k], ignore.case = TRUE)) {  # Check for CSV files
-      temp_data <- read_prolific(file_list[k])
+  for (i in 1: length(file_list)) {
+    # Handle ZIP files
+    if (grepl("\\.zip$", file_list[[i]], ignore.case = TRUE)) {
+      zip_file_names <- unzip(file_list[[i]], list = TRUE)$Name
+      
+      # Only keep files that end with prolific.csv and are not __MACOSX
+      prolific_csvs <- zip_file_names[grepl("prolific\\.csv$", zip_file_names, ignore.case = TRUE)]
+      prolific_csvs <- prolific_csvs[!grepl("__MACOSX", prolific_csvs)]
+      
+      # Extract and read each prolific.csv from the ZIP
+      if (length(prolific_csvs) > 0) {
+        temp_dir <- tempdir()
+        unzip(f, files = prolific_csvs, exdir = temp_dir, overwrite = TRUE)
+        
+        for (csv_file in prolific_csvs) {
+          full_path <- file.path(temp_dir, csv_file)
+          temp_data <- read_prolific(full_path)
+          if (nrow(temp_data) > 0) {
+            prolificDT <- bind_rows(prolificDT, temp_data)
+          }
+        }
+      }
+    }
+    
+    # Handle standalone prolific.csv files
+    if (grepl("prolific\\.csv$", file_names[[i]], ignore.case = TRUE)) {
+      temp_data <- read_prolific( file_list[[i]])
       if (nrow(temp_data) > 0) {
         prolificDT <- bind_rows(prolificDT, temp_data)
       }
     }
   }
+  
   print('done find prolific')
-
   return(prolificDT)
 }
-
-
-
 
 read_prolific <- function(fileProlific) {
   t <- tibble()
@@ -46,7 +56,7 @@ read_prolific <- function(fileProlific) {
                              .default = ''),
              Age = ifelse(Age == 'CONSENT_REVOKED', '', Age),
              Nationality = ifelse(Nationality == 'CONSENT_REVOKED', '', Nationality)) %>% 
-      rename("prolificSessionID" = "Submission.id",
+      rename("ProlificSessionID" = "Submission.id",
              "Prolific participant ID" = "Participant.id",
              "ProlificStatus" = "Status",
              "prolificMin" = "Time.taken",
@@ -77,36 +87,31 @@ combineProlific <- function(prolificData, summary_table, pretest){
                                   Nationality = NA)
     formSpree <- tibble()
   } else {
-    # formSpree temporarily problematic
-    # formSpree <- getFormSpree() %>% filter(`prolificSessionID` %in% unique(prolificData$prolificSessionID),
-    #                                         !`prolificSessionID` %in% unique(summary_table$prolificSessionID))
-    formSpree <- tibble()
-    tmp <- prolificData %>%
-      filter(prolificSessionID %in% unique(summary_table$prolificSessionID))
-    t <- summary_table %>% 
-      group_by(prolificSessionID) %>% 
-      arrange(desc(date)) %>% 
-      slice(1) %>% 
-      left_join(tmp, by = c('Prolific participant ID', 'prolificSessionID'))
-    t2 <-  summary_table %>%
-      filter(!`Pavlovia session ID` %in% unique(t$`Pavlovia session ID`)) %>% 
-      left_join(tmp, by = c('Prolific participant ID', 'prolificSessionID')) %>% 
-      mutate(ProlificStatus= 'TRIED AGAIN',
-             prolificMin = '',
-             `Completion code` = 'TRIED AGAIN')
-     tmp <- prolificData %>% 
-       filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
-    # formSpree <- tmp %>% 
-    # full_join(formSpree, by = c('Prolific participant ID', 'prolificSessionID'))
+    # Get most recent logs from fromSpree 
+    formSpree <- getFormSpree() 
+    if (is.null(formSpree)) {
+      formSpree <- tibble()
+    } else {
+      formSpree <- formSpree %>% filter(`ProlificSessionID` %in% unique(prolificData$prolificSessionID),
+                                        !`ProlificSessionID` %in% unique(summary_table$prolificSessionID))
+    }
 
+    t <- summary_table %>% 
+      left_join(prolificData, by = c('Prolific participant ID', 'ProlificSessionID')) %>% 
+      mutate(`Completion code` = ifelse(`Completion code` == "" & `ProlificSessionID` %in% unique(prolificData$prolificSessionID), 'TRIED AGAIN', `Completion code`))
+    
+    # tmp <- prolificData %>% 
+    #    filter(!prolificSessionID %in% unique(summary_table$ProlificSessionID))
+    # formSpree <- tmp %>%
+    # full_join(formSpree, by = c('Prolific participant ID', 'ProlificSessionID'))
+    # 
     # print('formSpree')
     # print(summary(formSpree))
-    # t <- rbind(t, t2, formSpree) 
-    t <- rbind(t, t2) 
+    # t <- rbind(t, t2, formSpree)
   }
   
   t <- t %>%
-    rename('Prolific session ID' = 'prolificSessionID',
+    rename('Prolific session ID' = 'ProlificSessionID',
            'Computer 51 deg' = 'computer51Deg',
            'Phone QR connect'='QRConnect',
            'Prolific min' = 'prolificMin',
@@ -160,13 +165,13 @@ get_prolific_file_counts <- function(prolificData, summary_table) {
     0
   }
   
-  print(paste("DEBUG: Count of unique prolificSessionID in summary_table: ", length(unique(summary_table$prolificSessionID))))
+  print(paste("DEBUG: Count of unique ProlificSessionID in summary_table: ", length(unique(summary_table$ProlificSessionID))))
  # Should be 169
   
   formSpree_count <- 0
   if (!is.null(prolificData) && nrow(prolificData) > 0) {
     tmp <- prolificData %>%
-      filter(!prolificSessionID %in% unique(summary_table$prolificSessionID))
+      filter(!ProlificSessionID %in% unique(summary_table$ProlificSessionID))
     formSpree_count <- nrow(tmp)
   }
   

@@ -28,7 +28,7 @@
 #   Microphone: NA
 #   threshold parameter: NA
 #   order: NA
-#   prolificSessionID: NA
+#   ProlificSessionID: NA
 #   block: NA
 #   comment: NA
 #   block_new: NA

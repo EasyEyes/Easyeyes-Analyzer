@@ -208,7 +208,7 @@ generate_summary_table <- function(data_list, stairs) {
       distinct(
         ProlificParticipantID,
         participant,
-        prolificSessionID,
+        ProlificSessionID,
         block,
         block_condition,
         conditionName,
@@ -267,7 +267,7 @@ generate_summary_table <- function(data_list, stairs) {
       distinct(
         ProlificParticipantID,
         participant,
-        prolificSessionID,
+        ProlificSessionID,
         block,
         block_condition,
         conditionName,
@@ -342,7 +342,7 @@ generate_summary_table <- function(data_list, stairs) {
           distinct(
             ProlificParticipantID,
             participant,
-            prolificSessionID,
+            ProlificSessionID,
             deviceType,
             cores,
             deviceSystemFamily,
@@ -390,7 +390,7 @@ generate_summary_table <- function(data_list, stairs) {
           distinct(
             ProlificParticipantID,
             participant,
-            prolificSessionID,
+            ProlificSessionID,
             deviceType,
             cores,
             deviceSystemFamily,
@@ -460,7 +460,7 @@ generate_summary_table <- function(data_list, stairs) {
           distinct(
             ProlificParticipantID,
             participant,
-            prolificSessionID,
+            ProlificSessionID,
             deviceType,
             cores,
             deviceSystemFamily,
@@ -509,7 +509,7 @@ generate_summary_table <- function(data_list, stairs) {
           distinct(
             ProlificParticipantID,
             participant,
-            prolificSessionID,
+            ProlificSessionID,
             deviceType,
             cores,
             deviceSystemFamily,
@@ -590,7 +590,7 @@ generate_summary_table <- function(data_list, stairs) {
     distinct(
       `Prolific participant ID`,
       `Pavlovia session ID`,
-      prolificSessionID,
+      ProlificSessionID,
       `device type`,
       system,
       browser,
@@ -655,6 +655,7 @@ generate_summary_table <- function(data_list, stairs) {
     left_join(params, by = 'Pavlovia session ID') %>%
     rename("GB" = "deviceMemoryGB")
   print('done summary_df')
+  print(summary_df)
   return(summary_df)
 }
 

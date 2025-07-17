@@ -681,7 +681,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
       data <- params %>% select("participant", all_of(var)) %>% distinct()
       avg <- round(mean(as.numeric(data[[var]]), na.rm =T),2)
       sd <- round(sd(as.numeric(data[[var]]), na.rm =T),2)
-      n = length(data[!is.na(data[var]),])
+      n = nrow(data)
       p <- ggplot(data, aes(x = .data[[var]])) +
         geom_histogram(color=NA, fill="gray80") + 
         theme_bw() +

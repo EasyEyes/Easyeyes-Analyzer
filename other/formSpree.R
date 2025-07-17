@@ -3,14 +3,18 @@ getFormSpree <- function(){
   response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9"))
   if (httr::status_code(response)) {
     content <- httr::content(response, as = "text", encoding='UTF-8')
-    t <- jsonlite::fromJSON(content)$submissions %>% 
-      filter(prolificParticipantID != '',
-             prolificSession != '') %>% 
+    print(jsonlite::fromJSON(content)$submissions)
+    t <- jsonlite::fromJSON(content)$submissions 
+    if (!"prolificParticipantID" %in% names(t)) {
+      return(NULL)
+    }
+    t <- t %>% 
+      filter(prolificParticipantID != '') %>% 
       rename('system' = 'OS',
              "device type" = "deviceType",
             'Pavlovia session ID' = 'pavloviaID',
             "Prolific participant ID" = "prolificParticipantID",
-            'prolificSessionID' = 'prolificSession') %>% 
+            'ProlificSessionID' = 'prolificSessionID') %>% 
       mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS'))) %>% 
       mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
       func = function(x) {str_split(x,'[.]')[[1]][1]}

@@ -68,12 +68,9 @@ ensure_columns <- function(t, file_name = NULL) {
   required_cols <- list(
     participant = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][1] else "",
     ProlificParticipantID = "",
+    ProlificSessionID = "",
     experiment = "",
     error = "",
-    rows = 0,
-    cols = 0,
-    ProlificSessionID = "",
-    prolificSessionID = "",
     questionAndAnswerResponse = "",
     warning = "",
     readingCorpus = "",
@@ -153,8 +150,7 @@ ensure_columns <- function(t, file_name = NULL) {
     viewingDistanceCm = NA,
     level = NA,
     spacingOverSizeRatio = NA,
-    `key_resp.corr` = NA,
-    kb = NA
+    `key_resp.corr` = NA
   )
   for (col in names(required_cols)) {
     t <- add_col(t, col, required_cols[[col]])
@@ -163,16 +159,18 @@ ensure_columns <- function(t, file_name = NULL) {
   t <- t %>% 
     mutate(system = str_replace_all(deviceSystem, "OS X","macOS"),
            deviceSystemFamily = str_replace_all(deviceSystemFamily, "OS X","macOS"),
-           screenWidthCm = ifelse(is.na(pxPerCm) | pxPerCm <= 0, NA, round(screenWidthPx / pxPerCm,2)))
-  
+           screenWidthCm = ifelse(is.na(pxPerCm) | pxPerCm <= 0, NA, round(screenWidthPx / pxPerCm,2))
+           )
+  t$rows = nrow(t)
+  t$cols = ncol(t)
   t$deviceMemoryGB = sort(t$deviceMemoryGB)[1]
   t$screenWidthCm = sort(t$screenWidthCm)[1]
   t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
+
   t <- impute_column(t, 'block',0)
   t <- impute_column(t, 'thresholdParameter', '')
   t <- impute_column(t, 'targetTask', '')
   t <- impute_column(t, 'targetKind', '')
-  
 
   screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
                         unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 

@@ -51,9 +51,9 @@ for (i in 1 : n) {
         t$ProlificParticipantID <- ""
       }
       if (!('ProlificSessionID' %in% colnames(t))) {
-        t$prolificSessionID <- ''
+        t$ProlificSessionID <- ''
       } else {
-        t$prolificSessionID <-  t$ProlificSessionID
+        t$ProlificSessionID <-  t$ProlificSessionID
       }
       if (!('error' %in% colnames(t))) {
         t$error <- ""
