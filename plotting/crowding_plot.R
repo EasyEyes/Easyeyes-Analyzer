@@ -356,7 +356,7 @@ get_foveal_crowding_vs_age <- function(crowding) {
         )),
         size = 4, color = "black"
       ) +
-      scale_y_log10(limits = c(0.05, 2)) +
+      scale_y_log10() +
       #scale_x_continuous(breaks = 3: ceiling(max(t$age))) + 
       annotation_logticks(
       sides = "l", 
@@ -475,7 +475,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         x = "Age",
         y = "Peripheral crowding (deg)"
       ) +
-      scale_y_log10(limits = c(0.05, 2)) +
+      scale_y_log10() +
       #scale_x_continuous(breaks = floor(xMin): ceiling(xMax)) + 
       annotation_logticks(
         sides = "l", 
@@ -563,7 +563,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
         x = "Age",
         y = "Peripheral crowding (deg)"
       ) +
-      scale_y_log10(limits = c(0.05, 2)) +
+      scale_y_log10() +
       #scale_x_continuous(breaks = floor(xMin): ceiling(xMax)) + 
       annotation_logticks(
         sides = "l", 
@@ -1094,117 +1094,193 @@ get_foveal_peripheral_diag <- function(crowding) {
 }
 
 plot_crowding_vs_age <- function(crowding){
-
+  
+  # 1. parse age
   crowding <- crowding %>%
     mutate(ageN = as.numeric(age)) %>% 
     filter(!is.na(ageN))
-
-  if (nrow(crowding) == 0) {
-    return(NULL)
-  } 
   
-  eccs_periph <- sort(unique(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg > 0]))
-  eccs_int    <- as.integer(round(eccs_periph))
-  ecc_label   <- paste0("X ecc = ", paste(eccs_int, collapse = ", "), " deg")
+  if (nrow(crowding) == 0) return(NULL)
   
+  # 2. build your two summaries
   foveal <- crowding %>% 
-    filter(questType == 'Foveal crowding') %>% 
-    select(participant, questType, ageN,log_crowding_distance_deg)
-  # Only right visual field
+    filter(questType == "Foveal crowding") %>% 
+    group_by(participant, questType, ageN) %>% 
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE),
+              .groups = "drop")
+  
   peripheral <- crowding %>% 
     filter(targetEccentricityXDeg > 0) %>% 
     group_by(participant, questType, ageN) %>% 
-    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm =T))
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE),
+              .groups = "drop")
   
-  age_values <- seq(4, 10, by = 0.1)
-  log_crowding_distance_deg <- 0.0535 + 1.5294 * (age_values^-1.9438)
-
-  foveal_curve <- data.frame(ageN = age_values, log_crowding_distance_deg = log_crowding_distance_deg)
-  if (nrow(foveal) > 0) {
-    foveal_stats <- foveal %>% 
-      do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
-      transmute(coef = map(fit, tidy)) %>%
-      unnest(coef) %>%
-      filter(term == "ageN") %>%  
-      mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
-      select(slope)
-    foveal_slope <- foveal_stats$slope[1]
-    # calculate correlation foveal data
-    foveal_corr <- foveal %>% 
-      summarize(cor = format(round(cor(ageN,log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)) %>% 
-      select(cor)
-    foveal_corr <- foveal_corr$cor[1]
-  } else {
-    foveal_slope = NA
-    foveal_corr = NA
-  }
- 
+  # 3. slam them together for plotting & stats
+  t <- bind_rows(foveal, peripheral)
   
-  # calculate slope peripheral data
-  if (nrow(peripheral) > 0) {
-    model <- lm(log_crowding_distance_deg ~ ageN, data = peripheral)
-    p_slope <- tidy(model) %>%
-      filter(term == "ageN") %>%
-      mutate(slope = format(round(estimate, 2), nsmall = 2)) %>%
-      select(slope)
-    # calculate correlation peripheral data
-    peripheral_corr <- format(round(cor(peripheral$ageN, peripheral$log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)
-  } else {
-    p_slope = tibble(slope = NA)
-    peripheral_corr = NA
-  }
+  # 4. compute slopes, R, N, ecc label
+  eccs_int  <- round(unique(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg > 0]))
+  ecc_label <- paste0("X ecc = ", paste(eccs_int, collapse = ", "), " deg")
+  N_f <- nrow(foveal); N_p <- nrow(peripheral)
   
- label = paste0('Foveal: slope=', foveal_slope, ', R=', foveal_corr, ', N=', nrow(foveal), '\n',
-                'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr,  ', N=', nrow(peripheral), ', ' , ecc_label)
- t <- rbind(foveal, peripheral)
-  p <- ggplot(data = crowding, aes(x = ageN, 
-                              y = 10^(log_crowding_distance_deg),
-                              color = questType
-                              )) + 
-    annotation_logticks(
-      sides = "l", 
-      short = unit(2, "pt"), 
-      mid   = unit(2, "pt"), 
-      long  = unit(7, "pt")
+  fit_f <- lm(log_crowding_distance_deg ~ ageN, data = foveal)
+  fit_p <- lm(log_crowding_distance_deg ~ ageN, data = peripheral)
+  slope_f <- round(coef(fit_f)["ageN"], 2)
+  slope_p <- round(coef(fit_p)["ageN"], 2)
+  R_f     <- round(cor(foveal$ageN, foveal$log_crowding_distance_deg), 2)
+  R_p     <- round(cor(peripheral$ageN, peripheral$log_crowding_distance_deg), 2)
+  
+  label <- paste0(
+    "Foveal: slope=", slope_f, ", R=", R_f, ", N=", N_f, "\n",
+    "Peripheral: slope=", slope_p, ", R=", R_p, ", N=", N_p, ", ", ecc_label
+  )
+  
+  # 5. plot *only* the summary frame t
+  p <- ggplot(t, aes(x = ageN, y = 10^(log_crowding_distance_deg), color = questType)) +
+    annotation_logticks(sides="l", short=unit(2,"pt"), mid=unit(2,"pt"), long=unit(7,"pt")) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE) +
+    ggpp::geom_text_npc(aes(npcx="right", npcy="top", label = label), size = 12/.pt) +
+    scale_y_log10(expand = expansion(mult = c(0.05, 0.05))) +
+    labs(
+      title    = "Foveal and peripheral\ncrowding vs age",
+      subtitle = "Geometric average of left and right thresholds",
+      x        = "Age",
+      y        = "Crowding distance (deg)",
+      color    = ""
     ) +
-    geom_point()+ 
-    geom_smooth(method='lm', se=F) + 
-    ggpp::geom_text_npc(
-      size = 12/.pt,
-      aes(npcx = "right",
-          npcy = "top",
-          label = label)) +
-    scale_y_log10() + 
-    # scale_x_continuous(breaks = c(seq(2,18,2), seq(20 , 50, 10))) + 
-    
-    guides(color=guide_legend(title = ''),
-           shape=guide_legend(title = '',
-                              ncol=1)) + 
-    labs(x = 'Age',
-         y = 'Crowding distance (deg)',
-         subtitle = 'Geometric average of left and right thresholds',
-         title = 'Foveal and peripheral\ncrowding vs age')
+    guides(shape = guide_none())
   
-  uniq <- n_distinct(crowding$ageN)
+  # 6. nice x‑axis breaks & angle
+  uniq <- n_distinct(t$ageN)
   if (uniq > 1) {
-    p <- p + scale_x_continuous(
-      breaks = scales::pretty_breaks(n = 5),
-      expand = expansion(mult = c(0.05, 0.05))
-    ) +
-      theme(
-        axis.text.x = element_text(
-          angle = ifelse(uniq > 4, 45, 0),
-          hjust = ifelse(uniq > 4, 1, 0.5)
-        )
-      )
+    p <- p + scale_x_continuous(breaks = scales::pretty_breaks(n=5),
+                                expand = expansion(mult = c(0.05,0.05))) +
+      theme(axis.text.x = element_text(
+        angle = ifelse(uniq>4,45,0),
+        hjust  = ifelse(uniq>4,1,0.5)
+      ))
   } else {
-    a <- unique(crowding$ageN)
-    p <- p + scale_x_continuous(
-      breaks = a,
-      limits = a + c(-1, 1),
-      expand = c(0, 0)
-    )
+    a <- unique(t$ageN)
+    p <- p + scale_x_continuous(breaks = a, limits = a + c(-1,1), expand = c(0,0))
   }
+  
   return(p)
 }
+
+
+# plot_crowding_vs_age <- function(crowding){
+# 
+#   crowding <- crowding %>%
+#     mutate(ageN = as.numeric(age)) %>% 
+#     filter(!is.na(ageN))
+# 
+#   if (nrow(crowding) == 0) {
+#     return(NULL)
+#   } 
+#   
+#   eccs_periph <- sort(unique(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg > 0]))
+#   eccs_int    <- as.integer(round(eccs_periph))
+#   ecc_label   <- paste0("X ecc = ", paste(eccs_int, collapse = ", "), " deg")
+#   
+#   foveal <- crowding %>% 
+#     filter(questType == 'Foveal crowding') %>% 
+#     select(participant, questType, ageN,log_crowding_distance_deg)
+#   # Only right visual field
+#   peripheral <- crowding %>% 
+#     filter(targetEccentricityXDeg > 0) %>% 
+#     group_by(participant, questType, ageN) %>% 
+#     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm =T))
+#   
+#   age_values <- seq(4, 10, by = 0.1)
+#   log_crowding_distance_deg <- 0.0535 + 1.5294 * (age_values^-1.9438)
+# 
+#   foveal_curve <- data.frame(ageN = age_values, log_crowding_distance_deg = log_crowding_distance_deg)
+#   if (nrow(foveal) > 0) {
+#     foveal_stats <- foveal %>% 
+#       do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
+#       transmute(coef = map(fit, tidy)) %>%
+#       unnest(coef) %>%
+#       filter(term == "ageN") %>%  
+#       mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
+#       select(slope)
+#     foveal_slope <- foveal_stats$slope[1]
+#     # calculate correlation foveal data
+#     foveal_corr <- foveal %>% 
+#       summarize(cor = format(round(cor(ageN,log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)) %>% 
+#       select(cor)
+#     foveal_corr <- foveal_corr$cor[1]
+#   } else {
+#     foveal_slope = NA
+#     foveal_corr = NA
+#   }
+#  
+#   
+#   # calculate slope peripheral data
+#   if (nrow(peripheral) > 0) {
+#     model <- lm(log_crowding_distance_deg ~ ageN, data = peripheral)
+#     p_slope <- tidy(model) %>%
+#       filter(term == "ageN") %>%
+#       mutate(slope = format(round(estimate, 2), nsmall = 2)) %>%
+#       select(slope)
+#     # calculate correlation peripheral data
+#     peripheral_corr <- format(round(cor(peripheral$ageN, peripheral$log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)
+#   } else {
+#     p_slope = tibble(slope = NA)
+#     peripheral_corr = NA
+#   }
+#   
+#  label = paste0('Foveal: slope=', foveal_slope, ', R=', foveal_corr, ', N=', nrow(foveal), '\n',
+#                 'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr,  ', N=', nrow(peripheral), ', ' , ecc_label)
+#  t <- rbind(foveal, peripheral)
+#   p <- ggplot(data = crowding, aes(x = ageN, 
+#                               y = 10^(log_crowding_distance_deg),
+#                               color = questType
+#                               )) + 
+#     annotation_logticks(
+#       sides = "l", 
+#       short = unit(2, "pt"), 
+#       mid   = unit(2, "pt"), 
+#       long  = unit(7, "pt")
+#     ) +
+#     geom_point()+ 
+#     geom_smooth(method='lm', se=F) + 
+#     ggpp::geom_text_npc(
+#       size = 12/.pt,
+#       aes(npcx = "right",
+#           npcy = "top",
+#           label = label)) +
+#     scale_y_log10() + 
+#     # scale_x_continuous(breaks = c(seq(2,18,2), seq(20 , 50, 10))) + 
+#     
+#     guides(color=guide_legend(title = ''),
+#            shape=guide_legend(title = '',
+#                               ncol=1)) + 
+#     labs(x = 'Age',
+#          y = 'Crowding distance (deg)',
+#          subtitle = 'Geometric average of left and right thresholds',
+#          title = 'Foveal and peripheral\ncrowding vs age')
+#   
+#   uniq <- n_distinct(crowding$ageN)
+#   if (uniq > 1) {
+#     p <- p + scale_x_continuous(
+#       breaks = scales::pretty_breaks(n = 5),
+#       expand = expansion(mult = c(0.05, 0.05))
+#     ) +
+#       theme(
+#         axis.text.x = element_text(
+#           angle = ifelse(uniq > 4, 45, 0),
+#           hjust = ifelse(uniq > 4, 1, 0.5)
+#         )
+#       )
+#   } else {
+#     a <- unique(crowding$ageN)
+#     p <- p + scale_x_continuous(
+#       breaks = a,
+#       limits = a + c(-1, 1),
+#       expand = c(0, 0)
+#     )
+#   }
+#   return(p)
+# }
 
