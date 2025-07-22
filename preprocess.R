@@ -150,7 +150,8 @@ ensure_columns <- function(t, file_name = NULL) {
     viewingDistanceCm = NA,
     level = NA,
     spacingOverSizeRatio = NA,
-    `key_resp.corr` = NA
+    `key_resp.corr` = NA,
+    rsvpReadingResponseCorrectBool = NA
   )
   for (col in names(required_cols)) {
     t <- add_col(t, col, required_cols[[col]])
@@ -284,7 +285,7 @@ read_files <- function(file){
         info <- t %>% 
           dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
           distinct(experiment, participant, block, block_condition, staircaseName, conditionName, 
-                   targetKind, font, experiment, thresholdParameter)
+                   targetKind, font, thresholdParameter)
         
         summaries <- t %>% 
           dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
@@ -340,7 +341,7 @@ read_files <- function(file){
           info <- t %>% 
             dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
             distinct(experiment,participant, block, block_condition, staircaseName, conditionName, 
-                     targetKind, font, experiment, thresholdParameter)
+                     targetKind, font, thresholdParameter)
           
           summaries <- t %>% 
             dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 

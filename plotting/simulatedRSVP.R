@@ -212,6 +212,7 @@ extractStaircases <- function(df, info) {
       staircaseName,
       levelProposedByQUEST,
       trialGivenToQuest,
+      rsvpReadingResponseCorrectBool,
       `key_resp.corr`
     ) %>% 
     inner_join(info, by = 'staircaseName') %>% 
@@ -234,7 +235,23 @@ extractStaircases <- function(df, info) {
       .default = 'unknown'
     )) %>% 
     drop_na(levelProposedByQUEST) %>% 
-    mutate(thresholdParameter = ifelse(is.na(thresholdParameter), 'unknown', thresholdParameter))
+    mutate(thresholdParameter = ifelse(is.na(thresholdParameter), 'unknown', thresholdParameter)) %>% 
+    tidyr::separate_rows(rsvpReadingResponseCorrectBool,sep=',') %>% 
+    # use rsvpReadingResponseCorrectBool to determine quest trial right or wrong for RSVP
+    mutate(`key_resp.corr` = ifelse(targetKind == "rsvpReading", rsvpReadingResponseCorrectBool == "TRUE", `key_resp.corr` )) %>% 
+    group_by(experiment, 
+             participant, 
+             block, 
+             block_condition, 
+             staircaseName, 
+             conditionName, 
+             targetKind, 
+             font, 
+             thresholdParameter,
+             levelProposedByQUEST,
+             trialGivenToQuest) %>% 
+    summarize(`key_resp.corr` = sum(`key_resp.corr`)) %>% 
+    ungroup()
   # "questMeanBeforeThisTrialResponse", "", "targetMeasuredLatenessSec",
   # "targetMeasuredDurationSec", "targetDurationSec", "key_resp.corr", "level", "heightPx", "targetDurationSec", "markingOffsetBeforeTargetOnsetSecs")#, "targetSpacingPx")
 }
