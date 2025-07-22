@@ -259,6 +259,8 @@ get_subtitle <- function(inputParameters) {
       " dB atten."
     )
   )
+  print("Subtitle Two")
+  print(subtitleTwo)
   
   subtitleThree <- list(
     # system = paste0(
@@ -965,9 +967,9 @@ get_autocorrelation_plot <- function(jsonFile, sound_data) {
     theme_bw() +
     add_transducerTable_component(
       transducerTable = sound_data$transducerTable,
-      position = c(2, 1.2),
+      position = c(0.01, 1.2),
       title_text = "",
-      leftShift = -0.14,
+      leftShift = 0,
       subtitle = sound_data$subtitle$component,
       transducerType = sound_data$inputParameters$transducerTypeF
     ) +
@@ -1406,25 +1408,25 @@ getCumSumPowerPlot <- function(jsonFile) {
       label = "banpass filtered and corrected mls"
     )
   )
-  system <- rbind(
-    tibble(
-      x = jsonFile$filtered_mls_nbp_system$x,
-      y = jsonFile$filtered_mls_nbp_system$y,
-      label = "corrected mls"
-    ),
-    tibble(
-      x = jsonFile$Hz_system_convolution,
-      y = jsonFile$db_system_convolution,
-      label = "banpass filtered and corrected mls"
-    )
-  )
+  # system <- rbind(
+  #   tibble(
+  #     x = jsonFile$filtered_mls_nbp_system$x,
+  #     y = jsonFile$filtered_mls_nbp_system$y,
+  #     label = "corrected mls"
+  #   ),
+  #   tibble(
+  #     x = jsonFile$Hz_system_convolution,
+  #     y = jsonFile$db_system_convolution,
+  #     label = "banpass filtered and corrected mls"
+  #   )
+  # )
   component <- component %>%
     group_by(label) %>%
     mutate(power = 10 * log10(cumsum(y))) %>% 
     filter(x > 20, x < 20000)
   maxY <- ceiling(max(component$power / 10)) * 10
   minY <- floor(min(component$power / 10)) * 10
-  height_component <- (maxY - minY)/14
+  height_component <- (maxY - minY)/8
   p_component <- ggplot(component, aes(x = x, y = power, color = label)) +
     geom_line() +
     scale_x_log10(
@@ -1451,43 +1453,43 @@ getCumSumPowerPlot <- function(jsonFile) {
          y = "Cumulative power (dB)",
          title = "Cumulative power of component corrected mls",
          color = "")
-  system <- system %>%
-    group_by(label) %>%
-    mutate(power = 10 * log10(cumsum(y))) %>% 
-    filter(x > 20, x < 20000)
-  maxY <- ceiling(max(system$power / 10)) * 10
-  minY <- floor(min(system$power / 10)) * 10
-  height_system <- (maxY - minY)/14
-  p_system <- ggplot(system, aes(x = x, y = power, color = label)) +
-    geom_line() +
-    scale_x_log10(
-      limits = c(20, 20000),
-      breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
-      expand = c(0, 0)
-    ) +
-    scale_y_continuous(limits = c(minY, maxY),
-                       breaks = seq(minY, maxY, 10),
-                       expand = c(0,0)) + 
-    theme_bw() +
-    sound_theme_display +
-    theme(legend.position = c(0.5,0.9),
-          legend.direction = "vertical",
-          legend.background = element_rect(fill = 'transparent', color = 'transparent'),
-          plot.margin = margin(
-            t = 0,
-            b = 0,
-            l = 0,
-            r = 0.5,
-            unit = "inch"
-          )) +
-    labs(x = "Frequency (Hz)",
-         y = "Cumulative power (dB)",
-         title = "Cumulative power of system corrected mls",
-         color = "")
+  # system <- system %>%
+  #   group_by(label) %>%
+  #   mutate(power = 10 * log10(cumsum(y))) %>% 
+  #   filter(x > 20, x < 20000)
+  # maxY <- ceiling(max(system$power / 10)) * 10
+  # minY <- floor(min(system$power / 10)) * 10
+  # height_system <- (maxY - minY)/14
+  # p_system <- ggplot(system, aes(x = x, y = power, color = label)) +
+  #   geom_line() +
+  #   scale_x_log10(
+  #     limits = c(20, 20000),
+  #     breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
+  #     expand = c(0, 0)
+  #   ) +
+  #   scale_y_continuous(limits = c(minY, maxY),
+  #                      breaks = seq(minY, maxY, 10),
+  #                      expand = c(0,0)) + 
+  #   theme_bw() +
+  #   sound_theme_display +
+  #   theme(legend.position = c(0.5,0.9),
+  #         legend.direction = "vertical",
+  #         legend.background = element_rect(fill = 'transparent', color = 'transparent'),
+  #         plot.margin = margin(
+  #           t = 0,
+  #           b = 0,
+  #           l = 0,
+  #           r = 0.5,
+  #           unit = "inch"
+  #         )) +
+  #   labs(x = "Frequency (Hz)",
+  #        y = "Cumulative power (dB)",
+  #        title = "Cumulative power of system corrected mls",
+  #        color = "")
   return(list(p_component = p_component,
-              height_component = height_component,
-              p_system = p_system,
-              height_system = height_system
+              height_component = height_component
+              # p_system = p_system,
+              # height_system = height_system
               ))
 }
 
@@ -1501,7 +1503,7 @@ plot_sound_level <- function(sound_data) {
     colnames(DRCMforDisplay) <- NULL
     rownames(DRCMforDisplay) <- NULL
     DRCMforDisplay[3, 1] = "Q = 1/R"
-    DRCMforDisplay[1, 2] = paste(DRCMforDisplay[1, 2] , "dB                                    ")
+    DRCMforDisplay[1, 2] = paste(DRCMforDisplay[1, 2] , "dB")
     DRCMforDisplay[2, 2] = paste(DRCMforDisplay[2, 2] , "dB")
     DRCMforDisplay[4, 2] = paste(DRCMforDisplay[4, 2] , "dB")
     DRCMforDisplay[5, 2] = paste(DRCMforDisplay[5, 2] , "dB")
@@ -1599,7 +1601,16 @@ plot_sound_level <- function(sound_data) {
       sound_theme_soundLevel +
       ylab("Output level (dB)") +
       xlab("Input level (dB)")
-
+      
+      p <- p + theme(
+        plot.margin = margin(
+          t = 0.1,    # was: -4.35 + thdMax * 0.4
+          b = 0,
+          l = 0,
+          r = 0,
+          unit = "inch"
+        )
+      )
 
     thd <- ggplot() +
       geom_line(data = thd_data, aes(y = `THD (%)`, x = `in (dB)`), size = 0.8) +
@@ -1619,7 +1630,7 @@ plot_sound_level <- function(sound_data) {
         breaks = seq(minX, maxX, 10),
         expand = c(0, 0)
       ) +
-      coord_fixed(ratio = 6, clip = "off") +
+      coord_cartesian(clip = "off") +
       guides(color = guide_legend(
         order = 1,
         nrow = 2,
@@ -1635,7 +1646,7 @@ plot_sound_level <- function(sound_data) {
         axis.ticks.length = unit(-0.2, "line"),
         plot.margin = margin(
           t = 0,
-          b = 0.1,
+          b = 0,
           l = 1.7,
           r = 2.3,
           unit = "inch"
@@ -1645,15 +1656,14 @@ plot_sound_level <- function(sound_data) {
       sound_theme_soundLevel +
       ggtitle("Sound Level at 1000 Hz") +
       labs(x = NULL, y = "THD (%)         ")
-    height = (maxY - minY) / 10 + 2 + ceiling(thdMax /
-                                                6)
+    height = (maxY - minY) / 10 + 2 + ceiling(thdMax / 6)
     width = (maxX - minX) / 8 + 2
     g = ggarrange(
       thd,
       p,
       nrow = 2,
       widths = width,
-      heights = height,
+      heights = c(2, 3),
       align = "v"
     )
     return(list(

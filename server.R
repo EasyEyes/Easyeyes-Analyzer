@@ -415,29 +415,29 @@ shinyServer(function(input, output, session) {
   subtitleTwo <- reactive({
     inputParameters <- sound_data()[[12]]
     return(list(
-      system =  paste0(
-        "Filtered MLS: ",
-        format(
-          round(
-            inputParameters$calibrateSoundAttenuationSpeakerAndMicDb,
-            1
-          ),
-          nsmall = 1
-        ),
-        " dB, ampl. ",
-        round(inputParameters$filteredMLSMaxAbsSystem, 1),
-        ", ",
-        inputParameters$calibrateSoundMinHz,
-        " – ",
-        inputParameters$fMaxHzSystem,
-        " Hz, ",
-        format(round(
-          inputParameters$attenuatorDBSystem,
-          1
-        ),
-        nsmall = 1),
-        " dB atten."
-      ),
+      # system =  paste0(
+      #   "Filtered MLS: ",
+      #   format(
+      #     round(
+      #       inputParameters$calibrateSoundAttenuationComponentDb,
+      #       1
+      #     ),
+      #     nsmall = 1
+      #   ),
+      #   " dB, ampl. ",
+      #   round(inputParameters$filteredMLSMaxAbsSystem, 1),
+      #   ", ",
+      #   inputParameters$calibrateSoundMinHz,
+      #   " – ",
+      #   inputParameters$fMaxHzSystem,
+      #   " Hz, ",
+      #   format(round(
+      #     inputParameters$attenuatorDBSystem,
+      #     1
+      #   ),
+      #   nsmall = 1),
+      #   " dB atten."
+      # ),
       component = paste0(
         "Filtered MLS: ",
         (
@@ -489,7 +489,8 @@ shinyServer(function(input, output, session) {
   })
   
   output$jsonUploaded <- reactive({
-    req(input$file)
+    print("Json File uplaoded")
+    print(!is.null(input$fileJSON))
     return(!is.null(input$fileJSON))
   })
   
@@ -1098,6 +1099,7 @@ shinyServer(function(input, output, session) {
   outputOptions(output, 'isAcuity', suspendWhenHidden = FALSE)
   outputOptions(output, 'isFovealAcuity', suspendWhenHidden = FALSE)
   outputOptions(output, 'isDuration', suspendWhenHidden = FALSE)
+  outputOptions(output, 'jsonUploaded', suspendWhenHidden = FALSE)
   
   #### plots ####
   
@@ -3230,20 +3232,32 @@ shinyServer(function(input, output, session) {
   
   
   #### IR and IIR json ####
+  showAC <- reactiveVal(FALSE)
   observeEvent(input$do, {
-    output$autocorrelation <- renderImage({
-      showModal(modalDialog("Generating plot", footer = NULL))
-      file_list <- input$fileJSON$data
-      jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
-      p <- get_autocorrelation_plot(jsonFile, sound_data())
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(file = outfile,
-             plot = p)
-      removeModal()
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "autocorrelation")
-    }, deleteFile = TRUE)
+    if (!showAC()) {
+      showModal(modalDialog("Generating plot…", footer = NULL))
+
+      output$autocorrelation <- renderImage({
+        file_list <- input$fileJSON$data
+        jsonFile  <- fromJSON(file_list[1], simplifyDataFrame = FALSE)
+        p         <- get_autocorrelation_plot(jsonFile, sound_data())
+        outfile   <- tempfile(fileext = ".svg")
+        ggsave(file = outfile, plot = p)
+        removeModal()
+        list(src = outfile, contentType = "image/svg+xml", alt = "autocorrelation")
+      }, deleteFile = TRUE)
+
+      # flip flag, update button
+      showAC(TRUE)
+      updateActionButton(session, "do", label = "Hide autocorrelation")
+
+    }
+    else {
+      output$autocorrelation <- NULL
+
+      showAC(FALSE)
+      updateActionButton(session, "do", label = "Plot autocorrelation")
+    }
     
   })
   
@@ -3253,8 +3267,10 @@ shinyServer(function(input, output, session) {
   
   observeEvent(input$fileJSON, {
     #### sound calibration server side####
+    
     output$`sound table` <- renderTable(sound_data()$volume_task,
                                         digits = 1)
+    
     output$`Dynamic Range Compression Model` <-
       renderTable(
         expr = sound_data()$DRCMforDisplay,
@@ -3263,7 +3279,7 @@ shinyServer(function(input, output, session) {
         digits = 1
       )
     
-    output$`sound level plot` <- renderImage({
+    output$sound_level_plot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
       ggsave(
         file = outfile,
@@ -3339,25 +3355,25 @@ shinyServer(function(input, output, session) {
     
     
     #### IIR ####
-    output$IRtmpFour <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(file = outfile,
-             plot = iirPlots()[[1]],
-             height = iirPlots()[[3]])
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "IIR one")
-    }, deleteFile = TRUE)
-    
-    output$IRtmpFive <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(file = outfile,
-             plot = iirPlots()[[2]],
-             height = iirPlots()[[4]])
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "IIR two")
-    }, deleteFile = TRUE)
+    # output$IRtmpFour <- renderImage({
+    #   outfile <- tempfile(fileext = '.svg')
+    #   ggsave(file = outfile,
+    #          plot = iirPlots()[[1]],
+    #          height = iirPlots()[[3]])
+    #   list(src = outfile,
+    #        contenttype = 'svg',
+    #        alt = "IIR one")
+    # }, deleteFile = TRUE)
+    # 
+    # output$IRtmpFive <- renderImage({
+    #   outfile <- tempfile(fileext = '.svg')
+    #   ggsave(file = outfile,
+    #          plot = iirPlots()[[2]],
+    #          height = iirPlots()[[4]])
+    #   list(src = outfile,
+    #        contenttype = 'svg',
+    #        alt = "IIR two")
+    # }, deleteFile = TRUE)
     
     output$componentIIR0To10 <- renderImage({
       outfile <- tempfile(fileext = '.svg')
@@ -3507,7 +3523,7 @@ shinyServer(function(input, output, session) {
            alt = "IIR two")
     }, deleteFile = TRUE)
     
-    outputOptions(output, 'jsonUploaded', suspendWhenHidden = FALSE)
+    
   })
   
   observeEvent(input$toShinyOptions, {
@@ -4458,72 +4474,72 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$downloadIRtmpFour <- downloadHandler(
-      filename = paste0(
-        'power-spectral-density-of-system-iir.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = iirPlots()[[1]],
-            height = iirPlots()[[3]],
-            units = "in",
-            device = svglite::svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = iirPlots()[[1]],
-            height = iirPlots()[[3]],
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite::svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadIRtmpFive <- downloadHandler(
-      filename = paste0(
-        'power-spectral-density-of-',
-        sound_data()[[12]]$transducerTypeF,
-        "-iir.",
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = iirPlots()[[2]],
-            height = iirPlots()[[4]],
-            device = svglite::svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = iirPlots()[[2]],
-            height = iirPlots()[[4]],
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite::svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
+    # output$downloadIRtmpFour <- downloadHandler(
+    #   filename = paste0(
+    #     'power-spectral-density-of-system-iir.',
+    #     input$fileTypeSound
+    #   ),
+    #   content = function(file) {
+    #     if (input$fileTypeSound == "png") {
+    #       ggsave(
+    #         "tmp.svg",
+    #         plot = iirPlots()[[1]],
+    #         height = iirPlots()[[3]],
+    #         units = "in",
+    #         device = svglite::svglite
+    #       )
+    #       rsvg::rsvg_png("tmp.svg",
+    #                      file,
+    #                      width = 1800,
+    #                      height = 1800)
+    #     } else {
+    #       ggsave(
+    #         file,
+    #         plot = iirPlots()[[1]],
+    #         height = iirPlots()[[3]],
+    #         device = ifelse(
+    #           input$fileTypeSound == "svg",
+    #           svglite::svglite,
+    #           input$fileTypeSound
+    #         )
+    #       )
+    #     }
+    #   }
+    # )
+    # 
+    # output$downloadIRtmpFive <- downloadHandler(
+    #   filename = paste0(
+    #     'power-spectral-density-of-',
+    #     sound_data()[[12]]$transducerTypeF,
+    #     "-iir.",
+    #     input$fileTypeSound
+    #   ),
+    #   content = function(file) {
+    #     if (input$fileTypeSound == "png") {
+    #       ggsave(
+    #         "tmp.svg",
+    #         plot = iirPlots()[[2]],
+    #         height = iirPlots()[[4]],
+    #         device = svglite::svglite
+    #       )
+    #       rsvg::rsvg_png("tmp.svg",
+    #                      file,
+    #                      width = 1800,
+    #                      height = 1800)
+    #     } else {
+    #       ggsave(
+    #         file,
+    #         plot = iirPlots()[[2]],
+    #         height = iirPlots()[[4]],
+    #         device = ifelse(
+    #           input$fileTypeSound == "svg",
+    #           svglite::svglite,
+    #           input$fileTypeSound
+    #         )
+    #       )
+    #     }
+    #   }
+    # )
     
     output$downloadComponentIIR0To10 <- downloadHandler(
       filename = paste0(
@@ -4978,35 +4994,48 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadAutocorrelation <- downloadHandler(
-      filename = paste0('autocorrelation.', input$fileTypeSound),
+      # (1) make filename a function so the “.png” or “.svg” is applied at click‑time
+      filename = function() {
+        paste0("autocorrelation.", input$fileTypeSound)
+      },
+      # (2) explicitly tell the browser what it’s getting
+      contentType = switch(
+        input$fileTypeSound,
+        png = "image/png",
+        svg = "image/svg+xml"
+      ),
       content = function(file) {
-        file_list <- input$fileJSON$data
-        jsonFile <-
-          fromJSON(file_list[1], simplifyDataFrame = F)
+        # generate the plot
+        files  <- input$fileJSON$data
+        json   <- fromJSON(files[1], simplifyDataFrame = FALSE)
+        plotAC <- get_autocorrelation_plot(json, sound_data())
+        
         if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = get_autocorrelation_plot(jsonFile, sound_data()),
-            dpi = 100,
-            device = svglite
+          # direct PNG raster device (avoids huge SVG → rsvg limits)
+          png(
+            filename = file,
+            width    = 8*300,  # 8 inches × 300 DPI
+            height   = 8*300,
+            res      = 300
           )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
+          print(plotAC)
+          dev.off()
         } else {
+          # vector (SVG)
           ggsave(
-            file,
-            plot = get_autocorrelation_plot(jsonFile, sound_data()),
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
+            filename = file,
+            plot     = plotAC,
+            device   = "svg",
+            width    = 8,
+            height   = 8,
+            units    = "in"
           )
         }
       }
     )
+    
+    
+    
     
   })
   

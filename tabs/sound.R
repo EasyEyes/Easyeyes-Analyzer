@@ -48,37 +48,37 @@ soundTab <- tabPanel(
     tableOutput('Dynamic Range Compression Model')
   )),      #### sound condition ####
   conditionalPanel(
-    condition = "output.jsonUploaded",
-    fixedRow(
-      column(
-        width = 6,
-        align = "center",
-        shinycssloaders::withSpinner(plotOutput(
-          "IRtmpFour", width = "100%", height = "95%"
-        ),
-        type = 4)
-      ),
-      column(
-        width = 6,
-        align = "center",
-        shinycssloaders::withSpinner(plotOutput(
-          "IRtmpFive", width = "100%", height = "95%"
-        ),
-        type = 4)
-      )
-    ),
-    fixedRow(
-      column(
-        width = 6,
-        align = "center",
-        downloadButton("downloadIRtmpFour", "Download")
-      ),
-      column(
-        width = 6,
-        align = "center",
-        downloadButton("downloadIRtmpFive", "Download")
-      )
-    ),
+  condition = "output.jsonUploaded",
+  #   fixedRow(
+  #     column(
+  #       width = 6,
+  #       align = "center",
+  #       shinycssloaders::withSpinner(plotOutput(
+  #         "IRtmpFour", width = "100%", height = "95%"
+  #       ),
+  #       type = 4)
+  #     ),
+  #     column(
+  #       width = 6,
+  #       align = "center",
+  #       shinycssloaders::withSpinner(plotOutput(
+  #         "IRtmpFive", width = "100%", height = "95%"
+  #       ),
+  #       type = 4)
+  #     )
+  #   ),
+    # fixedRow(
+    #   column(
+    #     width = 6,
+    #     align = "center",
+    #     downloadButton("downloadIRtmpFour", "Download")
+    #   ),
+    #   column(
+    #     width = 6,
+    #     align = "center",
+    #     downloadButton("downloadIRtmpFive", "Download")
+    #   )
+    # ),
     fixedRow(
       column(
         width = 6,
@@ -122,25 +122,27 @@ soundTab <- tabPanel(
       align = "center",
       downloadButton("downloadComponentIIR0To400", "Download")
     )),
-    fixedRow(
-      column(
-        width = 6,
-        align = "center",
-        shinycssloaders::withSpinner(
-          plotOutput("componentIRPSD", height = "100%", width = "100%"),
-          type = 4
-        )
-      ),
-      column(
-        width = 6,
-        align = "center",
-        shinycssloaders::withSpinner(
-          plotOutput("componentIR0To6", height = "100%", width = "100%"),
-          type = 4
-        )
+    conditionalPanel(
+    condition = "output.jsonUploaded",
+      fixedRow(
+        column(
+          width = 6,
+          align = "center",
+          shinycssloaders::withSpinner(
+            plotOutput("componentIRPSD", height = "100%", width = "100%"),
+            type = 4
+          )
+        ),
+        column(
+          width = 6,
+          align = "center",
+          shinycssloaders::withSpinner(
+            plotOutput("componentIR0To6", height = "100%", width = "100%"),
+            type = 4
+          )
+        ),
       ),
     ),
-    
     fixedRow(
       column(
         width = 6,
@@ -184,6 +186,7 @@ soundTab <- tabPanel(
       )
     ),
     fixedRow(
+      style = "margin-top:10px; margin-bottom:10px;",
       # column(
       #   width = 6,
       #   align = "center",
@@ -216,20 +219,23 @@ soundTab <- tabPanel(
   ),
   
   ####  sound all ####
-  fixedRow(
-    column(
-      width = 6,
-      align = "center",
-      shinycssloaders::withSpinner(
-        imageOutput("sound level plot", width = "100%", height = "100%"),
-        type = 4
-      )
-    ),
-    column(width = 6, tags$div(
-      h6(eq1_text, style = "padding-top:100px;"),
-      # HTML("Based on Eq. 4 of Giannoulis et al. (2012)."),
-      tags$a(href = reference, reference)
-    )),
+  conditionalPanel(
+    condition = "output.jsonUploaded",
+    fixedRow(
+      style = "margin-top:20px; margin-bottom:0px;",
+      column(
+        width = 6, align = "center",
+        shinycssloaders::withSpinner(
+          imageOutput("sound_level_plot", height = "100%", width = "100%"),
+          type = 4
+        )
+      ),
+      column(width = 6, tags$div(
+        h6(eq1_text, style = "padding-top:100px;"),
+        # HTML("Based on Eq. 4 of Giannoulis et al. (2012)."),
+        tags$a(href = reference, reference)
+      )),
+    )
   ),
   fixedRow(column(
     width = 6,
@@ -298,6 +304,7 @@ soundTab <- tabPanel(
     align = "center",
     downloadButton("downloadAutocorrelation", "Download")
   )
+  
 )
 
   
