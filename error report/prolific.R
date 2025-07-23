@@ -99,15 +99,7 @@ combineProlific <- function(prolificData, summary_table, pretest){
     t <- summary_table %>% 
       left_join(prolificData, by = c('Prolific participant ID', 'ProlificSessionID')) %>% 
       mutate(`Completion code` = ifelse(`Completion code` == "" & `ProlificSessionID` %in% unique(prolificData$prolificSessionID), 'TRIED AGAIN', `Completion code`))
-    
-    # tmp <- prolificData %>% 
-    #    filter(!prolificSessionID %in% unique(summary_table$ProlificSessionID))
-    # formSpree <- tmp %>%
-    # full_join(formSpree, by = c('Prolific participant ID', 'ProlificSessionID'))
-    # 
-    # print('formSpree')
-    # print(summary(formSpree))
-    # t <- rbind(t, t2, formSpree)
+  
   }
   
   t <- t %>%
@@ -123,14 +115,11 @@ combineProlific <- function(prolificData, summary_table, pretest){
   if (TRUE %in% summary_table$`_logFontBool`) {
     fontParameters <- get_font_parameters_from_formSpree(summary_table$`Pavlovia session ID`)
     t <- t %>%
+      select(-c(fontSizePx, fontMaxPx, viewingDistanceCm, fontRenderMaxPx)) %>% 
       left_join(fontParameters, by = 'Pavlovia session ID')
   } else {
     t <- t %>%
-      mutate(fontSizePx = '',
-             fixationXYPx = '',
-             fontMaxPx = '',
-             viewingDistanceCm = '',
-             fontRenderMaxPx = '')
+      mutate(fixationXYPx = '')
   } 
   if( nrow(pretest) == 0){
     pretest <- tibble(participant = t$`Pavlovia session ID`,

@@ -159,6 +159,20 @@ get_lateness_and_duration <- function(all_files) {
 
 generate_summary_table <- function(data_list, stairs) {
   all_files <- tibble()
+  
+  
+  fontParams <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
+    t <- data_list[[i]] %>%
+      mutate(block_condition = as.character(staircaseName)) %>% 
+      filter(block_condition != "") %>% 
+      group_by(participant,
+               block_condition,
+               fontRenderMaxPx,
+               fontMaxPx) %>% 
+      summarize(fontSizePx = round(mean(fontSizePx,rm.na=T),1),
+                viewingDistanceCm = round(mean(viewingDistanceCm,rm.na=T),1))
+  }
+  
   params <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
     t <- data_list[[i]] %>%
       filter(!is.na(staircaseName)) %>%
@@ -182,7 +196,7 @@ generate_summary_table <- function(data_list, stairs) {
     group_by(participant) %>%
     summarize(goodTrials = format(round(mean(goodTrials), 2), nsmall = 2),
               badTrials = format(round(mean(badTrials), 2), nsmall = 2))
-  
+
   params <- params %>%
     group_by(participant,
              deviceMemoryGB) %>%
@@ -264,12 +278,16 @@ generate_summary_table <- function(data_list, stairs) {
           questionAndAnswerResponse
         )
       ) %>%
+      group_by(participant, block_condition) %>% 
+      mutate(trial = max(row_number())) %>% 
+      ungroup() %>% 
       distinct(
         ProlificParticipantID,
         participant,
         ProlificSessionID,
         block,
         block_condition,
+        trial,
         conditionName,
         targetTask,
         targetKind,
@@ -306,7 +324,7 @@ generate_summary_table <- function(data_list, stairs) {
   }
   
   print('done all files')
-  trial <- all_files %>% group_by(participant, block_condition) %>% count()
+  trial <- all_files %>% select(participant, block_condition, trial)
   lateness_duration <- get_lateness_and_duration(all_files)
   
   #### errors ####
@@ -569,6 +587,7 @@ generate_summary_table <- function(data_list, stairs) {
     ))) %>%
     left_join(lateness_duration, by = "participant") %>%
     left_join(trial, by = c("participant", 'block_condition')) %>%
+    left_join(fontParams, by = c("participant", 'block_condition')) %>% 
     rename(
       "Prolific participant ID" = "ProlificParticipantID",
       "Pavlovia session ID" = "participant",
@@ -579,7 +598,6 @@ generate_summary_table <- function(data_list, stairs) {
       "device type" = "deviceType",
       "block condition" = "block_condition",
       "system" = "deviceSystemFamily",
-      "trial" = "n",
       'KB' = 'kb',
       "unmetNeeds" = '_needsUnmet',
       "computer51Deg" = "ComputerInfoFrom51Degrees",
@@ -616,6 +634,10 @@ generate_summary_table <- function(data_list, stairs) {
       `target task`,
       `threshold parameter`,
       `target kind`,
+      fontRenderMaxPx,
+      fontSizePx,
+      viewingDistanceCm,
+      fontMaxPx,
       Loudspeaker,
       Microphone,
       comment
