@@ -1116,6 +1116,19 @@ shinyServer(function(input, output, session) {
          contenttype = 'svg')
   }, deleteFile = TRUE)
   
+  output$nMatrixPlot <- renderImage({
+    outfile <- tempfile(fileext = '.svg')
+    ggsave(
+      file   = outfile,
+      plot   = corrMatrix()$n_plot,   
+      device = svglite,
+      width  = corrMatrix()$width,
+      height = corrMatrix()$height
+    )
+    list(src = outfile,
+         contenttype = 'svg')
+  }, deleteFile = TRUE)
+  
   output$durationCorrMatrixPlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
     ggsave(
@@ -6071,6 +6084,35 @@ shinyServer(function(input, output, session) {
         }
       }
     )
+    
+    output$downloadNMatrixPlot <- downloadHandler(
+      filename = function() paste0("n-matrix.", input$fileType),
+      content = function(file) {
+        if (input$fileType == "png") {
+          ggsave("tmp.svg",
+                 plot   = corrMatrix()$n_plot,
+                 width  = corrMatrix()$width,
+                 height = corrMatrix()$height,
+                 unit   = "in",
+                 limitsize = FALSE,
+                 device = svglite)
+          rsvg::rsvg_png("tmp.svg", file,
+                         width  = 1800,
+                         height = 1800)
+        } else {
+          ggsave(
+            file,
+            plot       = corrMatrix()$n_plot,
+            width      = corrMatrix()$width,
+            height     = corrMatrix()$height,
+            unit       = "in",
+            limitsize  = FALSE,
+            device     = if (input$fileType=="svg") svglite::svglite else input$fileType
+          )
+        }
+      }
+    )
+    
     
     output$downloadDurationCorrMatrixPlot <- downloadHandler(
       filename = paste0('duration-correlation-matrix',

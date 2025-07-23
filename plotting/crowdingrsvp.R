@@ -528,41 +528,115 @@ getCorrMatrix <- function(allData, pretest) {
     ungroup() %>% 
     select_if(is.numeric) %>% 
     select(where(~sum(!is.na(.)) > 0))
-  c <- colnames(crowdingW)
+  # c <- colnames(crowdingW)
 
-  t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
-  colnames(t) <- c
-  t <- t %>% mutate(across(everything(), round, 3))
+  # t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
+  # colnames(t) <- c
+  # t <- t %>% mutate(across(everything(), round, 3))
   # print(paste('nrow of reading:', nrow(reading)))
   # print(paste('nrow of crowding:', nrow(crowding)))
   # print(paste('nrow of rsvp_speed:', nrow(rsvp_speed)))
   # print(paste('nrow of acuity:', nrow(acuity)))
   
-  corplot <- ggcorrplot(t,
-                        show.legend = FALSE,
-                        show.diag = T,
-                        type = "lower",
-                        colors= c('white'),
-                        lab = T) + 
+  cor_mat <- cor(crowdingW, use = "pairwise.complete.obs")
+  cor_mat <- round(cor_mat, 3)
+  
+  vars <- colnames(crowdingW)
+  n_mat <- matrix(NA_integer_, nrow = length(vars), ncol = length(vars),
+                  dimnames = list(vars, vars))
+
+  for (i in seq_along(vars)) {
+    for (j in seq_along(vars)) {
+      n_mat[i, j] <- sum(
+        !is.na(crowdingW[[ vars[i] ]]) &
+        !is.na(crowdingW[[ vars[j] ]])
+      )
+    }
+  }
+
+  # corplot <- ggcorrplot(t,
+  #                       show.legend = FALSE,
+  #                       show.diag = T,
+  #                       type = "lower",
+  #                       colors= c('white'),
+  #                       lab = T) + 
+  #   theme_bw() +
+  #   labs(x = '', 
+  #        y = '',
+  #        title = 'Correlation table') + 
+  #   ggpp::geom_text_npc(aes(npcx = 'left', npcy = 'top', label = paste0('N=', nrow(crowdingW[complete.cases(crowdingW),])))) +
+  #   plt_theme +
+  #   theme(legend.position = 'none',
+  #         axis.text.x = element_text(size = 14,
+  #                                    angle = 30,
+  #                                    vjust = 1,
+  #                                    hjust=1),
+  #         plot.title = element_text(size=18,
+  #                                   hjust = 1),
+  #         plot.subtitle = element_text(size=18,
+  #                                      hjust = 1))
+    # 3a) Correlation plot
+  corplot <- ggcorrplot(
+    cor_mat,
+    show.legend = FALSE,
+    show.diag   = TRUE,
+    type        = "lower",
+    lab         = TRUE,
+    lab_size    = 4,
+    colors      = c("white")
+  ) +
     theme_bw() +
-    labs(x = '', 
-         y = '',
-         title = 'Correlation table') + 
-    ggpp::geom_text_npc(aes(npcx = 'left', npcy = 'top', label = paste0('N=', nrow(crowdingW[complete.cases(crowdingW),])))) +
-    plt_theme +
-    theme(legend.position = 'none',
-          axis.text.x = element_text(size = 14,
-                                     angle = 30,
-                                     vjust = 1,
-                                     hjust=1),
-          plot.title = element_text(size=18,
-                                    hjust = 1),
-          plot.subtitle = element_text(size=18,
-                                       hjust = 1))
+    labs(title = "Correlations", x = NULL, y = NULL) +
+    ggpp::geom_text_npc(
+      aes(npcx = "left", npcy = "top",
+          label = paste0("N=", max(n_mat))),
+      size = 3
+    ) +
+    theme(
+      legend.position = "none",
+      axis.text.x     = element_text(angle = 30, vjust = 1, hjust = 1),
+      plot.title      = element_text(hjust = 1, size = 16)
+    )
+
+  # 3b) N‑counts plot
+  nplot <- ggcorrplot(
+    n_mat,
+    show.legend = FALSE,
+    show.diag   = TRUE,
+    type        = "lower",
+    lab         = TRUE,
+    lab_size    = 4,
+    colors      = c("white")
+  ) +
+  scale_fill_gradient2(
+    low      = "white",
+    mid      = "white",
+    high     = "white",
+    midpoint = 0,
+    na.value = "white"
+  ) +
+    theme_bw() +
+    labs(title = "N (Non-missing Pairs)", x = NULL, y = NULL) +
+    theme(
+      legend.position = "none",
+      axis.text.x     = element_text(angle = 30, vjust = 1, hjust = 1),
+      plot.title      = element_text(hjust = 1, size = 16)
+    )
+
+  # return(list(
+  #   plot = corplot,
+  #   width = 2.5 + ncol(t) * 0.38,
+  #   height = 2.5 + ncol(t) * 0.38
+  # ))
+  nc <- ncol(cor_mat)  # number of variables
+  w  <- 2.5 + nc * 0.38
+  h  <- 2.5 + nc * 0.38
+
   return(list(
     plot = corplot,
-    width = 2.5 + ncol(t) * 0.38,
-    height = 2.5 + ncol(t) * 0.38
+    width    = w,
+    height   = h,
+    n_plot   = nplot
   ))
 }
 

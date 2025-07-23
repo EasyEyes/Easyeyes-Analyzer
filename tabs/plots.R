@@ -1,10 +1,23 @@
 plotsTab <- tabPanel(
   'Plots',
-  fixedRow(shinycssloaders::withSpinner(
-    plotOutput("corrMatrixPlot", width = "100%", height = "100%"),
-    type = 4
-  )),
-  downloadButton("downloadCorrMatrixPlot", "Download"),
+  fixedRow(
+    column(
+      width = 6,
+      shinycssloaders::withSpinner(
+        plotOutput("corrMatrixPlot", width = "100%", height = "100%"),
+        type = 4
+      ),
+      downloadButton("downloadCorrMatrixPlot", "Download")
+    ),
+    column(
+      width = 6,
+      shinycssloaders::withSpinner(
+        plotOutput("nMatrixPlot", width = "100%", height = "100%"),
+        type = 4
+      ),
+      downloadButton("downloadNMatrixPlot", "Download")
+    )
+  ),
   #### histogram ####
   h2("Histograms"),
   shinycssloaders::withSpinner(uiOutput('histograms'), type = 4),

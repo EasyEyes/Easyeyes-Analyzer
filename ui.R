@@ -95,7 +95,7 @@ shinyUI(
               min = 1,
               width = '60px'
             ),
-            tags$span("good trials.")
+            tags$span("good Quest trials.")
           ),
           div(
             style = "display: flex; align-items: center; flex-wrap: wrap; gap: 5px;",
@@ -107,7 +107,7 @@ shinyUI(
               min = 0,
               width = '60px'
             ),
-            tags$span("wrong trials.")
+            tags$span("wrong Quest trials.")
           ),
           div(
             style = "display: flex; align-items: center; gap: 5px;",
