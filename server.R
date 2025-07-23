@@ -1606,6 +1606,29 @@ shinyServer(function(input, output, session) {
         ggiraph::girafe(ggobj = error_plot)
       })
     })
+  
+  output$rsvpCrowdingPeripheralFontPlot <-
+    ggiraph::renderGirafe({
+      tryCatch({
+        ggiraph::girafe(ggobj = rsvpCrowding()$p_font)
+      }, error = function(e) {
+        print(e)
+        error_plot <- ggplot() +
+          annotate(
+            "text",
+            x = 0.5,
+            y = 0.5,
+            label = paste("Error:", e$message),
+            color = "red",
+            size = 5,
+            hjust = 0.5,
+            vjust = 0.5
+          ) +
+          theme_void() +
+          ggtitle('rsvp-vs-peripheral-crowding-by-grade')
+        ggiraph::girafe(ggobj = error_plot)
+      })
+    })
  
   output$rsvpResidualCrowding <-
     ggiraph::renderGirafe({
@@ -5543,6 +5566,24 @@ shinyServer(function(input, output, session) {
       ),
       content = function(file) {
         plot <- rsvpCrowding()$p_grade + plt_theme
+        savePlot(
+          plot = plot,
+          filename = file,
+          fileType = input$fileType,
+          width = 8,
+          height = 6
+        )
+      }
+    )
+    
+    output$downloadRsvpCrowdingPeripheralFontPlot <- downloadHandler(
+      filename = paste(
+        app_title$default,
+        paste0('rsvp-vs-peripheral-crowding-by-font', input$fileType),
+        sep = "-"
+      ),
+      content = function(file) {
+        plot <- rsvpCrowding()$p_font + plt_theme
         savePlot(
           plot = plot,
           filename = file,

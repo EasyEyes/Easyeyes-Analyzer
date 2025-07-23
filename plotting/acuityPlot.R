@@ -724,10 +724,12 @@ peripheral_plot <- function(allData) {
   # join & plot 
   t <- inner_join(crowd_summary, acuity_summary,
                   by = c("participant","font","Grade","absEcc")) %>%
-    mutate(Grade = factor(Grade))
+    mutate(Grade = factor(Grade)) %>% 
+    filter(!is.na(crowding_gmean), !is.na(acuity_gmean))
+  
+  if (nrow(t) == 0) return(list(grade = NULL, font = NULL))
 
   n_grades <- n_distinct(t$Grade)
-
   p1 <- ggplot(t, aes(x = crowding_gmean, y = acuity_gmean, color = Grade)) +
     geom_point(size = 3) +
     scale_x_log10(expand = c(0,0.1)) +

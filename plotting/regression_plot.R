@@ -78,8 +78,16 @@ prepare_regression_acuity <- function(df_list){
               avg_wordPerMin = 10^mean(block_avg_log_WPM)) %>% 
     mutate(targetKind = as.character(targetKind))
   
-  dt <- rbind(reading,rsvp_speed) %>% 
-    left_join(acuity, by = c('participant', "font"))
+  dt <- rbind(reading,rsvp_speed)
+  if (setequal(dt$font, acuity$font)) {
+    dt <- dt %>% 
+      left_join(acuity, by = c('participant', "font"))
+  } else {
+    dt <- dt %>% 
+      left_join(acuity, by = c('participant')) %>% 
+      mutate(font = paste0(font.x, 'vs ', font.y))
+  }
+  
   return(dt)
 }
 regression_reading_plot <- function(df_list){

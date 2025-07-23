@@ -98,16 +98,27 @@ plotsTab <- tabPanel(
                          ggiraph::girafeOutput("rsvpCrowdingPeripheralGradePlot", height = '100%'),
                          type = 4
                        )),
-      conditionalPanel('output.isCrowding',
+      conditionalPanel('output.isPeripheralCrowding',
                        shinycssloaders::withSpinner(
-                         ggiraph::girafeOutput("rsvpResidualCrowding", height = '100%'),
+                         ggiraph::girafeOutput("rsvpCrowdingPeripheralFontPlot", height = '100%'),
                          type = 4
-                       )
-      )),
+                       ))
+      ),
     splitLayout(
       cellWidths = c("50%", "50%"),
       conditionalPanel('output.isPeripheralCrowding',downloadButton("downloadRsvpCrowdingPeripheralGradePlot", "Download")),
-      conditionalPanel('output.isCrowding',downloadButton("downloadRsvpResidualCrowding", "Download"))
+      conditionalPanel('output.isPeripheralCrowding',downloadButton("downloadRsvpCrowdingPeripheralFontPlot", "Download")),
+    ),
+    conditionalPanel('output.isCrowding',
+                     splitLayout(
+                       cellWidths = c("50%", "50%"),
+                     shinycssloaders::withSpinner(
+                       ggiraph::girafeOutput("rsvpResidualCrowding", height = '100%'),
+                       type = 4
+                     )),
+                     splitLayout(
+                       cellWidths = c("50%", "50%"), 
+                       downloadButton("downloadRsvpResidualCrowding", "Download"))
     ),
     conditionalPanel('output.isFovealCrowding',
                      splitLayout(

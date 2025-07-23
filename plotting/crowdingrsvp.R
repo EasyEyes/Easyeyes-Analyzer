@@ -230,7 +230,7 @@ plot_rsvp_crowding <- function(allData) {
         mid   = unit(2, "pt"), 
         long  = unit(7, "pt")
       )+
-      geom_smooth(method = "lm", se = FALSE, color = "black") +  # Black regression line
+      geom_smooth(method = "lm", se = FALSE) + 
       coord_cartesian(xlim = c(xMin, xMax), ylim = c(yMin, yMax)) +  # Set exact limits
       annotate(
         "text",
@@ -251,7 +251,8 @@ plot_rsvp_crowding <- function(allData) {
       labs(
         x = "Residual crowding (deg)",
         y = "Residual RSVP reading (w/min)",
-        title = paste0("Residual RSVP vs residual peripheral crowding\ncolored by ", colorFactor)
+        title = paste0("Residual RSVP vs residual peripheral crowding\ncolored by ", colorFactor),
+        subtitle = 'Geometric mean of left and right measurements'
       ) + 
       plt_theme +
       theme(
@@ -385,7 +386,6 @@ plot_rsvp_crowding <- function(allData) {
         limits = c(xMin, xMax),
         expand = c(0, 0)
       ) +
-      geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +  # Black regression line
       annotation_logticks(
         sides = "bl", 
         short = unit(2, "pt"), 
@@ -415,6 +415,15 @@ plot_rsvp_crowding <- function(allData) {
       ) +
       guides(color = guide_legend(title = colorFactor), 
              shape = guide_legend(title = '',ncol= 1))
+    if (colorFactor == 'Grade') {
+      p <- p + geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") # Black regression line
+    } else {
+      p <- p + geom_smooth(method = "lm", formula = y ~ x, se = FALSE) 
+    }
+    
+    if (condition == "Peripheral") {
+      p <- p + labs(subtitle = 'Geometric mean of left and right measurements')
+    }
     
     p <- p + ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode), size = 3)
     
