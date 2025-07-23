@@ -154,19 +154,19 @@ get_prolific_file_counts <- function(prolificData, summary_table) {
     0
   }
   
-  print(paste("DEBUG: Count of unique ProlificSessionID in summary_table: ", length(unique(summary_table$ProlificSessionID))))
- # Should be 169
-  
+  formSpree <- getFormSpree()
   formSpree_count <- 0
-  if (!is.null(prolificData) && nrow(prolificData) > 0) {
-    tmp <- prolificData %>%
-      filter(!ProlificSessionID %in% unique(summary_table$ProlificSessionID))
-    formSpree_count <- nrow(tmp)
+  if (!is.null(formSpree) && nrow(formSpree) > 0) {
+    formSpree <- formSpree %>%
+      filter(`ProlificSessionID` %in% unique(prolificData$prolificSessionID),
+             !`ProlificSessionID` %in% unique(summary_table$ProlificSessionID))
+    formSpree_count <- nrow(formSpree)
   }
-  
+
   print(paste("DEBUG: Prolific Count:", prolific_count))
   print(paste("DEBUG: FormSpree Count:", formSpree_count))
   
   return(list(prolific_count = prolific_count, formSpree_count = formSpree_count))
 }
+
 

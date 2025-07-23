@@ -153,6 +153,7 @@ shinyServer(function(input, output, session) {
     if (!is.null(files())) {
       prolific_counts <-
         get_prolific_file_counts(prolific(), summary_table())
+      prolific_file_count <- if (prolific_counts$prolific_count > 0) 1 else 0
       HTML(
         paste0(
           'Analyzed ',
@@ -161,17 +162,14 @@ shinyServer(function(input, output, session) {
           ifelse(nrow(files()$pretest) > 0, 1, 0),
           ' pretest file.<br>',
           'Read ',
-          prolific_counts$prolific_count,
-          ' prolific records.<br>',
+          prolific_file_count,
+          ' prolific record.<br>',
           'Read ',
           prolific_counts$formSpree_count,
           ' formSpree records.'
         )
       )
     }
-    
-    
-    
   })
   
   prolific <- reactive({
