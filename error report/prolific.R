@@ -19,7 +19,7 @@ find_prolific_from_files <- function(file) {
       # Extract and read each prolific.csv from the ZIP
       if (length(prolific_csvs) > 0) {
         temp_dir <- tempdir()
-        unzip(f, files = prolific_csvs, exdir = temp_dir, overwrite = TRUE)
+        unzip(file_list[[i]], files = prolific_csvs, exdir = temp_dir, overwrite = TRUE)
         
         for (csv_file in prolific_csvs) {
           full_path <- file.path(temp_dir, csv_file)
@@ -33,7 +33,7 @@ find_prolific_from_files <- function(file) {
     
     # Handle standalone prolific.csv files
     if (grepl("prolific\\.csv$", file_names[[i]], ignore.case = TRUE)) {
-      temp_data <- read_prolific( file_list[[i]])
+      temp_data <- read_prolific(file_list[[i]])
       if (nrow(temp_data) > 0) {
         prolificDT <- bind_rows(prolificDT, temp_data)
       }
@@ -138,8 +138,7 @@ combineProlific <- function(prolificData, summary_table, pretest){
              Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
              fontMaxPx, viewingDistanceCm, fontRenderMaxPx, heapLimitAfterDrawing, heapTotalAvgMB,
              mustTrackSec, goodTrials, badTrials, WebGLVersion, 
-             maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order) %>% 
-    filter(date != '', !is.na(date))
+             maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order)
   print('done combine prolific')
   return(list(t, formSpree))
 }

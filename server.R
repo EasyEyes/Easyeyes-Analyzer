@@ -320,28 +320,42 @@ shinyServer(function(input, output, session) {
     get_duration_data(files()$data_list, conditionNames())
   })
   
+  # OPTIMIZATION: Shared expensive computation across multiple reactive expressions
+  # get_minDeg_plots is called in histogramsQuality, scatterDiagrams, and scatterQuality
+  # with identical parameters - compute once, reuse everywhere
+  minDegPlots <- reactive({
+    if (is.null(files()) || is.null(df_list())) {
+      return(NULL)
+    }
+    get_minDeg_plots(data_list(),
+                     df_list()$acuity,
+                     df_list()$crowding,
+                     df_list()$quest)
+  })
+  
   ##### SOUND CALIBRATION ####
   
-  irPlots <- reactive({
+  # OPTIMIZATION: Parse JSON once, reuse across all sound calibration reactives
+  # This eliminates 8+ redundant JSON parsing operations
+  parsed_json <- reactive({
+    if (is.null(input$fileJSON)) return(NULL)
     file_list <- input$fileJSON$data
-    jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
-    get_ir_plots(jsonFile, sound_data())
+    fromJSON(file_list[1], simplifyDataFrame = F)
+  })
+  
+  irPlots <- reactive({
+    req(parsed_json())
+    get_ir_plots(parsed_json(), sound_data())
   })
   
   sound_data <- reactive({
-    if (is.null(input$fileJSON))
-      return(NULL)
-    file_list <- input$fileJSON$data
-    jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
-    return(preprocessJSON(jsonFile))
+    req(parsed_json())
+    preprocessJSON(parsed_json())
   })
   
   iir <- reactive({
-    if (is.null(input$fileJSON))
-      return(NULL)
-    file_list <- input$fileJSON$data
-    jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
-    return(read_iir_JSON(jsonFile))
+    req(parsed_json())
+    read_iir_JSON(parsed_json())
   })
   
   iirPlots <- reactive({
@@ -357,34 +371,28 @@ shinyServer(function(input, output, session) {
   })
   
   componentIIRPlots <- reactive({
-    file_list <- input$fileJSON$data
-    jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
-    plotComponentIIR(jsonFile, sound_data())
+    req(parsed_json())
+    plotComponentIIR(parsed_json(), sound_data())
   })
   
-  
   cumSumPowerPlot <- reactive({
-    file_list <- input$fileJSON$data
-    jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
-    getCumSumPowerPlot(jsonFile)
+    req(parsed_json())
+    getCumSumPowerPlot(parsed_json())
   })
   
   componentIR_PSD_plot <- reactive({
-    file_list <- input$fileJSON$data
-    jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
-    plotComponentIRPSD(jsonFile, sound_data())
+    req(parsed_json())
+    plotComponentIRPSD(parsed_json(), sound_data())
   })
   
   recording_variation <- reactive({
-    file_list <- input$fileJSON$data
-    jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
-    plot_power_variations(jsonFile, sound_data())
+    req(parsed_json())
+    plot_power_variations(parsed_json(), sound_data())
   })
   
   volume_power_variation <- reactive({
-    file_list <- input$fileJSON$data
-    jsonFile <- fromJSON(file_list[1], simplifyDataFrame = F)
-    plot_volume_power_variations(jsonFile, sound_data())
+    req(parsed_json())
+    plot_volume_power_variations(parsed_json(), sound_data())
   })
   
   subtitleOne <- reactive({
@@ -689,9 +697,12 @@ shinyServer(function(input, output, session) {
     l <- list()
     fileNames <- list()
 
+    # OPTIMIZATION: Compute expensive function once, use results multiple times
+    peripheral_crowding_age_plots <- get_peripheral_crowding_vs_age(df_list()$crowding)
+
     plot_calls <- list(
-      list(plot = get_peripheral_crowding_vs_age(df_list()$crowding)[[1]], fname = 'peripheral-crowding-vs-age-by-grade'),
-      list(plot = get_peripheral_crowding_vs_age(df_list()$crowding)[[2]], fname = 'peripheral-crowding-ave-vs-age-by-grade'),
+      list(plot = peripheral_crowding_age_plots[[1]], fname = 'peripheral-crowding-vs-age-by-grade'),
+      list(plot = peripheral_crowding_age_plots[[2]], fname = 'peripheral-crowding-ave-vs-age-by-grade'),
       list(plot = get_foveal_crowding_vs_age(df_list()$crowding), 'foveal-crowding-vs-age-by-grade'),
       list(plot = get_repeatedLetter_vs_age(df_list()$repeatedLetters), fname = 'repeated-letter-crowding-vs-age-by-grade'),
       list(plot = plot_reading_age(df_list()$reading), fname = 'reading-vs-age-by-grade'),
@@ -723,11 +734,15 @@ shinyServer(function(input, output, session) {
   l         <- list()
   fileNames <- list()
 
+  # OPTIMIZATION: Compute expensive functions once, use results multiple times
+  acuity_hists <- get_acuity_hist(df_list()$acuity)      # Single function call
+  crowding_hists <- get_crowding_hist(df_list()$crowding) # Single function call
+
   static_calls <- list(
-    list(plot = get_acuity_hist(df_list()$acuity)[[1]],            fname = 'foveal-acuity-histogram'),
-    list(plot = get_acuity_hist(df_list()$acuity)[[2]],            fname = 'peripheral-acuity-histogram'),
-    list(plot = get_crowding_hist(df_list()$crowding)$foveal,     fname = 'foveal-crowding-histogram'),
-    list(plot = get_crowding_hist(df_list()$crowding)$peripheral, fname = 'peripheral-crowding-histogram'),
+    list(plot = acuity_hists[[1]],      fname = 'foveal-acuity-histogram'),
+    list(plot = acuity_hists[[2]],      fname = 'peripheral-acuity-histogram'),
+    list(plot = crowding_hists$foveal,  fname = 'foveal-crowding-histogram'),
+    list(plot = crowding_hists$peripheral, fname = 'peripheral-crowding-histogram'),
     list(plot = get_reading_hist(df_list()$rsvp),                  fname = 'rsvp-reading-speed-histogram'),
     list(plot = get_reading_hist(df_list()$reading),               fname = 'reading-speed-histogram'),
     list(plot = get_repeatedLetter_hist(df_list()$repeatedLetters),fname = 'repeated-letter-crowding-histogram'),
@@ -779,11 +794,7 @@ shinyServer(function(input, output, session) {
     lists <- append_hist_quality(data_list(), l, fileNames, conditionNames())
     lists <- add_questsd_hist(df_list()$quest, lists)
     
-    minDegHist <-
-      get_minDeg_plots(data_list(),
-                       df_list()$acuity,
-                       df_list()$crowding,
-                       df_list()$quest)$hist_quality
+    minDegHist <- minDegPlots()$hist_quality
     return(list(
       plotList = c(lists$plotList, minDegHist$plotList),
       fileNames = c(lists$fileNames, minDegHist$fileNames)
@@ -837,17 +848,22 @@ shinyServer(function(input, output, session) {
     l <- list()
     fileNames <- list()
 
+    # OPTIMIZATION: Compute expensive functions once, use results multiple times
+    foveal_crowding_acuity_plots <- foveal_crowding_vs_acuity_diag()
+    peripheral_plots <- peripheral_plot(df_list())
+    regression_plots <- regression_reading_plot(df_list())
+
     plot_calls <- list(
       list(plot = plot_distance(files()$data_list), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = foveal_crowding_vs_acuity_diag()$foveal, fname = 'foveal-crowding-vs-foveal-acuity-grade-diagram'),
-      list(plot = foveal_crowding_vs_acuity_diag()$peripheral, fname = 'foveal-crowding-vs-peripheral-acuity-grade-diagram'),
+      list(plot = foveal_crowding_acuity_plots$foveal, fname = 'foveal-crowding-vs-foveal-acuity-grade-diagram'),
+      list(plot = foveal_crowding_acuity_plots$peripheral, fname = 'foveal-crowding-vs-peripheral-acuity-grade-diagram'),
       list(plot = get_acuity_foveal_peripheral_diag(df_list()$acuity), fname = 'foveal-acuity-vs-peripheral-acuity-grade-diagram'),
       list(plot = foveal_peripheral_diag()$grade, fname = 'foveal-crowding-vs-peripheral-crowding-grade-diagram'),
-      list(plot = peripheral_plot(df_list())$grade, fname = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'),
-      list(plot = peripheral_plot(df_list())$font, fname = 'peripheral-acuity-vs-peripheral-crowding-font-diagram'),
+      list(plot = peripheral_plots$grade, fname = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'),
+      list(plot = peripheral_plots$font, fname = 'peripheral-acuity-vs-peripheral-crowding-font-diagram'),
       list(plot = crowdingPlot(), fname = 'peripheral_crowding_left_vs_right'),
-      list(plot = regression_reading_plot(df_list())$foveal, fname = 'reading-rsvp-reading-vs-foveal-crowding'),
-      list(plot = regression_reading_plot(df_list())$peripheral, fname = 'reading-rsvp-reading-vs-peripheral-crowding'),
+      list(plot = regression_plots$foveal, fname = 'reading-rsvp-reading-vs-foveal-crowding'),
+      list(plot = regression_plots$peripheral, fname = 'reading-rsvp-reading-vs-peripheral-crowding'),
       list(plot = regression_acuity_plot(df_list()), fname = 'ordinary-reading-rsvp-reading-vs-acuity'),
       list(plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp), fname = 'reading-vs-RSVP-reading-plot'),
       list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade')
@@ -864,11 +880,7 @@ shinyServer(function(input, output, session) {
     }
 
     lists = append_scatter_list(data_list(), l, fileNames, conditionNames())
-    minDegPlot <-
-      get_minDeg_plots(data_list(),
-                       df_list()$acuity,
-                       df_list()$crowding,
-                       df_list()$quest)$scatter
+    minDegPlot <- minDegPlots()$scatter
 
     return(list(
       plotList = c(lists$plotList, minDegPlot$plotList),
@@ -917,11 +929,7 @@ shinyServer(function(input, output, session) {
       i <- i + 1
     }
     
-    minDegPlot <-
-      get_minDeg_plots(data_list(),
-                       df_list()$acuity,
-                       df_list()$crowding,
-                       df_list()$quest)$scatter_quality
+    minDegPlot <- minDegPlots()$scatter_quality
     return(list(
       plotList = c(l, minDegPlot$plotList),
       fileNames = c(fileNames, minDegPlot$fileNames)
@@ -4144,7 +4152,7 @@ shinyServer(function(input, output, session) {
       )
       if (length(ggiraph_plots$plotList) > 0) {
         for (i in seq_along(ggiraph_plots$plotList)) {
-          print(i)
+
           print(ggiraph_plots$fileNames[[i]])
           if (!is.null(ggiraph_plots$plotList[[i]])) {
             plotFileName <- paste0(ggiraph_plots$fileNames[[i]], '.', input$fileType)

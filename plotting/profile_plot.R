@@ -94,8 +94,10 @@ plot_profiles_avg <- function(dt) {
 
 plot_profiles <- function(dt, plotTitle) {
   dt <- dt %>% filter(is.finite(gain), freq >= 20, freq <= 20000) %>% arrange(label)
-  tmp <- dt %>% group_by(label) %>% summarize(gain1000 = approx(x = freq, y = gain, xout = 1000)$y)
-  t <- tmp %>% ungroup() %>% summarize(sd = format(round(sd(gain1000) ,1), nsmall = 1))
+  tmp <- dt %>% group_by(label) %>% summarize(gain1000 = approx(x = freq, y = gain, xout = 1000)$y,
+                                              .groups="drop")
+  t <- tmp %>% ungroup() %>% summarize(sd = format(round(sd(gain1000) ,1), nsmall = 1),
+                                       .groups="drop")
   # t <- dt %>% filter(freq == 1000) %>% summarize(sd = round(sd(gain),1))
   legendRows <- ceiling(n_distinct(dt$label)/2)
   maxY <- ceiling(max(dt$gain) /10) * 10

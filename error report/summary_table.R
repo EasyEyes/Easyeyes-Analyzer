@@ -140,7 +140,7 @@ get_lateness_and_duration <- function(all_files) {
       targetMeasuredLatenessSDSec = sd(targetMeasuredLatenessSec, na.rm = TRUE) * 1000,
       targetMeasuredDurationMeanSec = mean(targetMeasuredDurationSec - targetDurationSec, na.rm = TRUE) * 1000,
       targetMeasuredDurationSDSec = sd(targetMeasuredDurationSec - targetDurationSec, na.rm = TRUE) * 1000,
-      .groups = "keep"
+      .groups = "drop"
     ) %>%
     mutate(
       tardyMs = round(targetMeasuredLatenessMeanSec),
@@ -170,7 +170,8 @@ generate_summary_table <- function(data_list, stairs) {
                fontRenderMaxPx,
                fontMaxPx) %>% 
       summarize(fontSizePx = round(mean(fontSizePx,rm.na=T),1),
-                viewingDistanceCm = round(mean(viewingDistanceCm,rm.na=T),1))
+                viewingDistanceCm = round(mean(viewingDistanceCm,rm.na=T),1),
+                .groups="drop")
   }
   
   params <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
@@ -190,12 +191,13 @@ generate_summary_table <- function(data_list, stairs) {
     group_by(participant, staircaseName) %>%
     summarize(
       goodTrials = sum(trialGivenToQuest, na.rm = T),
-      badTrials = sum(!trialGivenToQuest, na.rm = T)
+      badTrials = sum(!trialGivenToQuest, na.rm = T),
+      .groups="drop"
     ) %>%
-    ungroup() %>%
     group_by(participant) %>%
     summarize(goodTrials = format(round(mean(goodTrials), 2), nsmall = 2),
-              badTrials = format(round(mean(badTrials), 2), nsmall = 2))
+              badTrials = format(round(mean(badTrials), 2), nsmall = 2),
+              .groups="drop")
 
   params <- params %>%
     group_by(participant,
@@ -209,7 +211,8 @@ generate_summary_table <- function(data_list, stairs) {
       ), nsmall = 2),
       heapTotalAvgMB = format(round(
         mean(`heapTotalAfterDrawing (MB)`, na.rm = T), 2
-      ), nsmall = 2)
+      ), nsmall = 2),
+      .groups="drop"
     ) %>%
     left_join(NQuestTrials, by = 'participant') %>%
     rename("Pavlovia session ID" = "participant")
@@ -331,7 +334,7 @@ generate_summary_table <- function(data_list, stairs) {
   error <- all_files %>%
     dplyr::filter(error != "" & error != "Incomplete") %>%
     group_by(participant) %>%
-    summarise(error = paste(error, collapse = "<br>"),
+    summarize(error = paste(error, collapse = "<br>"),
               .groups = "drop")
   # mutate(warning = "") %>%
   # mutate(ok = paste(emoji("x")))
@@ -341,7 +344,7 @@ generate_summary_table <- function(data_list, stairs) {
   warnings <- all_files %>%
     dplyr::filter(warning != "") %>%
     group_by(participant) %>%
-    summarise(warning = paste(warning, collapse = "<br>"),
+    summarize(warning = paste(warning, collapse = "<br>"),
               .groups = "drop")
   # mutate(error = "") %>%
   # mutate(ok = emoji("large_orange_diamond"))
@@ -350,6 +353,7 @@ generate_summary_table <- function(data_list, stairs) {
   #### incomplete files ####
   incomplete = tibble()
   for (i in 1:length(data_list)) {
+    print(data_list[[i]]$experimentCompleteBool[1])
     if (nrow(data_list[[i]] >=  1)) {
       experimentCompleteBool = ifelse(is.na(data_list[[i]]$experimentCompleteBool[1]) || 
                                         length(data_list[[i]]$experimentCompleteBool[1]) == 0,
@@ -462,6 +466,7 @@ generate_summary_table <- function(data_list, stairs) {
   incomplete_participant <- c()
   if (nrow(incomplete) > 0) {
     incomplete_participant <- incomplete_participant$participant
+    print(paste0('number of incomplete:', nrow(incomplete) ))
   }
   
   print('done noerror_fails')
@@ -677,7 +682,6 @@ generate_summary_table <- function(data_list, stairs) {
     left_join(params, by = 'Pavlovia session ID') %>%
     rename("GB" = "deviceMemoryGB")
   print('done summary_df')
-  print(summary_df)
   return(summary_df)
 }
 

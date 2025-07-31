@@ -145,8 +145,8 @@ plot_rsvp_crowding <- function(allData) {
       mutate(participant = tolower(participant)) %>% 
       filter(targetEccentricityXDeg != 0) %>%
       group_by(participant,font) %>%
-      summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
-      ungroup()
+      summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE),
+                .groups="drop")
     
     rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
     
@@ -321,7 +321,8 @@ plot_rsvp_crowding <- function(allData) {
     corr <- data_for_stat %>%
       summarize(
         correlation = cor(block_avg_log_WPM, log_crowding_distance_deg, method = "pearson"),
-        N = n()
+        N = n(),
+        .groups="drop"
       ) %>%
       mutate(correlation = round(correlation, 2))
 
@@ -438,8 +439,8 @@ plot_rsvp_crowding <- function(allData) {
   peripheral <- crowding %>% 
     filter(targetEccentricityXDeg != 0) %>% 
     group_by(participant, font) %>%
-    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T)) %>% 
-    ungroup()
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T),
+              .groups="drop") 
   rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
   
   if (nrow(allData$rsvp) == 0 | nrow(allData$crowding) == 0) {
@@ -488,7 +489,8 @@ getCorrMatrix <- function(allData, pretest) {
     participant = tolower(participant)
     ) %>% 
     group_by(participant, type) %>% 
-    summarize(log_acuity = mean(log_acuity)) %>% 
+    summarize(log_acuity = mean(log_acuity),
+              .groups="drop") %>% 
     pivot_wider(names_from=type, values_from = log_acuity)
  
   
@@ -499,13 +501,15 @@ getCorrMatrix <- function(allData, pretest) {
   ),
   participant = tolower(participant)) %>% 
     group_by(participant,type) %>% 
-    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg)) %>% 
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg),
+              .groups="drop") %>% 
     pivot_wider(names_from=type, values_from = log_crowding_distance_deg)
   
   reading <- allData$reading %>%
     mutate(participant = tolower(participant)) %>%
     group_by(participant, block_condition) %>% 
-    summarize(log_WPM = mean(log_WPM,na.rm=T)) %>% 
+    summarize(log_WPM = mean(log_WPM,na.rm=T),
+              .groups="drop") %>% 
     rename('log reading' = 'log_WPM' ) %>% 
     select(participant, `log reading`)
   
@@ -525,7 +529,6 @@ getCorrMatrix <- function(allData, pretest) {
   
   crowdingW <- crowdingW %>% 
     rename('log rsvp' = 'block_avg_log_WPM') %>% 
-    ungroup() %>% 
     select_if(is.numeric) %>% 
     select(where(~sum(!is.na(.)) > 0))
   # c <- colnames(crowdingW)

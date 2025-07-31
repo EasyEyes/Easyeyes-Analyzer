@@ -157,8 +157,8 @@ get_peripheral_acuity_vs_age <- function(acuity) {
   t <- acuity %>% 
     filter(!is.na(age), targetEccentricityXDeg != 0) %>%
     group_by(participant, age, Grade, `Skilled reader?`, conditionName) %>% 
-    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T)) %>% 
-    ungroup() %>% 
+    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T),
+              .groups="drop") %>% 
     mutate(N = paste0('N = ', n()))
   
   if (nrow(t) == 0) {
@@ -302,7 +302,8 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
     corr <- data_for_stat %>%
       summarize(
         correlation = cor(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, method = "pearson"),
-        N = n()
+        N = n(),
+        .groups="drop"
       ) %>%
       mutate(correlation = round(correlation, 2))
     
@@ -387,8 +388,9 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
     group_by(participant, font) %>%
-    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T)) %>%
-    ungroup()
+    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T),
+  .groups="drop")
+
   
   if (nrow(rsvp) == 0 | nrow(acuity) == 0) {
     return(list(NULL, NULL, NULL, NULL))
@@ -441,7 +443,8 @@ plot_acuity_reading <- function(acuity, reading, type) {
     corr <- data_for_stat %>%
       summarize(
         correlation = cor(log_WPM, questMeanAtEndOfTrialsLoop, method = "pearson", use = "pairwise.complete.obs"),
-        N = n()
+        N = n(),
+        .groups="drop"
       ) %>%
       mutate(correlation = round(correlation, 2))
     
@@ -523,8 +526,8 @@ plot_acuity_reading <- function(acuity, reading, type) {
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
     group_by(participant, font) %>%
-    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T), .groups = "keep") %>%
-    ungroup()
+    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T), .groups = "drop")
+
   
   if (nrow(reading) == 0 | nrow(acuity) == 0) {
     return(list(NULL, NULL, NULL, NULL))
@@ -643,8 +646,8 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
     group_by(participant, age, Grade, `Skilled reader?`, font) %>%
-    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T)) %>%
-    ungroup()
+    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm = T),
+              .groups="drop")
   
   if (nrow(foveal) == 0 | nrow(peripheral) == 0) {
     return(NULL)

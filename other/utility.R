@@ -174,7 +174,8 @@ get_N_text <- function(data) {
   text = c()
   t <- data %>%
     group_by(conditionName) %>%
-    summarise(n = n()) %>%
+    summarize(n = n(),
+              .groups = "drop") %>%
     mutate(text = paste0(conditionName, ': N=', n))
   return(paste0(unique(t$text), collapse='\n'))
 }

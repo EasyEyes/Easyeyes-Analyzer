@@ -7,8 +7,8 @@ get_test_retest_reading <- function(reading){
   # prepare data
   reading_each <- reading %>% 
     group_by(font, participant, block_condition, conditionName) %>%
-    summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
-    ungroup(participant, block_condition)
+    summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "drop")
+  
   conditionNames <- unique(reading_each$conditionName)
   if (!n_distinct(conditionNames) == 2) {
     return(ggplot() + theme_bw() + ggtitle('test retest reading plot'))

@@ -71,7 +71,8 @@ get_duration_corr <- function(data_list, conditionNameInput) {
   summary <- params %>%
     group_by(participant, block) %>% 
     summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
-              badTrials = sum(!trialGivenToQuest, na.rm =T))
+              badTrials = sum(!trialGivenToQuest, na.rm =T),
+              .groups="drop")
   
   params <- params %>% 
     select(-trialGivenToQuest) %>% 
@@ -482,8 +483,8 @@ append_hist_quality <- function(data_list, plot_list, fileNames, conditionNameIn
   blockCondition <- params %>% 
     group_by(participant, block_condition) %>% 
     summarize(goodTrials = sum(trialGivenToQuest, na.rm =T),
-              badTrials = sum(!trialGivenToQuest, na.rm =T)) %>% 
-    ungroup()
+              badTrials = sum(!trialGivenToQuest, na.rm =T),
+              .groups="drop")
   
   blockCondition_vars <- c("goodTrials", 'badTrials')
   
@@ -549,8 +550,8 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
   blockAvg <- params %>% 
     group_by(participant, block) %>% 
     summarize(heapTotalAfterDrawingAvg = mean( `heapTotalAfterDrawing (MB)`, na.rm =T),
-              heapUsedAfterDrawingAvg = mean( `heapUsedAfterDrawing (MB)`, na.rm =T)) %>% 
-    ungroup()
+              heapUsedAfterDrawingAvg = mean( `heapUsedAfterDrawing (MB)`, na.rm =T),
+              .groups="drop")
   
   params_vars <- c("heapUsedAfterDrawing (MB)", 
                    "heapTotalAfterDrawing (MB)", 
@@ -725,7 +726,8 @@ append_scatter_list <- function(data_list, plot_list, fileNames, conditionNameIn
     summarize(heapTotalAfterDrawingAvg = mean(`heapTotalAfterDrawing (MB)`, na.rm =T),
               heapUsedAfterDrawingAvg = mean(`heapUsedAfterDrawing (MB)`, na.rm =T),
               badLatenessTrials = sum(targetMeasuredLatenessSec > thresholdAllowedLatenessSec),
-              badDurationTrials = sum(targetMeasuredDurationSec > upper | targetMeasuredDurationSec < lower)) %>% 
+              badDurationTrials = sum(targetMeasuredDurationSec > upper | targetMeasuredDurationSec < lower),
+              .groups="drop") %>% 
     arrange(hardwareConcurrency) %>% 
     mutate(hardwareConcurrency = as.factor(hardwareConcurrency))
   
@@ -1114,11 +1116,11 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
       heapTotalAfterDrawingAvg = mean(`heapTotalAfterDrawing (MB)`, na.rm =T),
       heapUsedAfterDrawingAvg  = mean(`heapUsedAfterDrawing (MB)`,  na.rm =T),
       badLatenessTrials        = sum(targetMeasuredLatenessSec > thresholdAllowedLatenessSec),
-      badDurationTrials        = sum(targetMeasuredDurationSec > upper | targetMeasuredDurationSec < lower)
+      badDurationTrials        = sum(targetMeasuredDurationSec > upper | targetMeasuredDurationSec < lower),
+      .groups="drop"
     ) %>%
     arrange(hardwareConcurrency) %>%
-    mutate(hardwareConcurrency = as.factor(hardwareConcurrency)) %>% 
-    ungroup()
+    mutate(hardwareConcurrency = as.factor(hardwareConcurrency))
   
   j = length(plot_list) + 1
   
@@ -1135,7 +1137,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
     y_padding <- (y_max - y_min) * 0.1
     
     n = nrow(filtered_params)
-    print(n)
+
     plot_list[[j]] <- ggplot() +
       geom_jitter(data=filtered_params, 
                   aes(x=deltaHeapTotalMB, 
@@ -1216,7 +1218,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
     y_max <- max(filtered_params$targetMeasuredDurationSec, na.rm = TRUE)
     y_padding <- (y_max - y_min) * 0.1
     n = nrow(filtered_params)
-    print(n)
+
     plot_list[[j]] <- ggplot(data=filtered_params, aes(x=longTaskDurationSec, y=targetMeasuredDurationSec, color = participant)) +
       geom_jitter() +
       # ggpp::geom_text_npc(aes(npcx = 'left',
@@ -2098,7 +2100,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
       filter(!is.na(fontNominalSizePx), !is.na(fontPadding), !is.na(deltaHeapUsedMB))
     
     n = nrow(filtered_params)
-    print(n)
+
     plot_list[[j]] <- ggplot() +
       geom_jitter(data=filtered_params, 
                   aes(x=fontNominalSizePx*(1+fontPadding),

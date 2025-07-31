@@ -8,7 +8,8 @@ crowding_by_side <- function(crowding) {
            XDeg = abs(targetEccentricityXDeg)) %>% 
     group_by(participant, side, XDeg, font) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T),
-              bouma_factor = mean(bouma_factor, na.rm=T))
+              bouma_factor = mean(bouma_factor, na.rm=T),
+              .groups="drop")
   
   crowding_L <- crowding %>%
     filter(side == "L") %>%
@@ -100,7 +101,8 @@ crowding_scatter_plot <- function(crowding_L_R){
       mean_right     = mean(log_crowding_distance_deg_Right, na.rm = TRUE),
       sd_right       = sd(log_crowding_distance_deg_Right,   na.rm = TRUE),
       mean_avg       = mean(log_mean,  na.rm = TRUE),
-      sd_avg         = sd(log_mean,    na.rm = TRUE)
+      sd_avg         = sd(log_mean,    na.rm = TRUE),
+      .groups="drop"
     )
   sdTestRetest <- stats_all$sd_log_delta / sqrt(2)
   sdIndividual <- sqrt(stats_all$sd_avg^2 - 0.5 * sdTestRetest^2)
@@ -175,7 +177,8 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
   }
   
   t <- crowding_L_R %>% group_by(conditionName) %>% summarize(avg_left_deg = mean(log_crowding_distance_deg_Left),
-                                                     avg_right_deg = mean(log_crowding_distance_deg_Right))
+                                                     avg_right_deg = mean(log_crowding_distance_deg_Right),
+                                                     .groups="drop")
   corrrelation <- ifelse(nrow(t) > 1, cor(t$avg_left_deg, t$avg_right_deg), NA)
 
   ggplot(t, aes(x = avg_left_deg, y = avg_right_deg, color = conditionName)) + 
@@ -231,7 +234,8 @@ get_two_fonts_plots <- function(crowding) {
     group_by(participant, font, order) %>% 
     summarize(
       MEAN = mean(log10(bouma_factor), na.rm = TRUE),
-      SD = sd(log10(bouma_factor), na.rm = TRUE)
+      SD = sd(log10(bouma_factor), na.rm = TRUE),
+      .groups="drop"
     ) %>% 
     mutate(
       MEAN = round(MEAN, 2),
@@ -413,8 +417,8 @@ get_peripheral_crowding_vs_age <- function(crowding) {
   t <- crowding %>%
     filter(!is.na(age), targetEccentricityXDeg != 0) %>%
     group_by(participant, age, Grade, `Skilled reader?`,conditionName, targetEccentricityXDeg) %>%
-    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
-    ungroup()
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE),
+              .groups="drop")
   
   if (nrow(t) == 0) {
     return(list(NULL, NULL))
@@ -524,7 +528,8 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     
     t <- t %>% 
       group_by(participant, age, Grade, `Skilled reader?`) %>%
-      summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>% 
+      summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE),
+                .groups="drop") %>% 
       mutate(Y = 10^(log_crowding_distance_deg)) %>% 
       filter(!is.na(Y))
     
@@ -669,8 +674,8 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
   peripheral <- crowding %>% 
     filter(targetEccentricityXDeg != 0) %>% 
     group_by(participant, age, Grade, `Skilled reader?`, conditionName) %>% 
-    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>% 
-    ungroup()
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE),
+              .groups="drop")
   
   foveal_vs_repeatedLetters <- repeatedLetters %>%
     rename('repeatedLetters' = 'log_crowding_distance_deg') %>% 
@@ -934,8 +939,8 @@ get_foveal_peripheral_diag <- function(crowding) {
   peripheral <- crowding %>%
     filter(targetEccentricityXDeg != 0) %>%
     group_by(participant, age, Grade, `Skilled reader?`) %>%
-    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
-    ungroup()
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE),
+              .groups="drop")
   
   if (nrow(foveal) == 0 | nrow(peripheral) == 0) {
     return(list(age = NULL, grade = NULL))

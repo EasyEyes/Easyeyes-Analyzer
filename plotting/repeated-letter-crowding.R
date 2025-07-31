@@ -41,7 +41,8 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
     corr <- data_for_stat %>%
       summarize(
         correlation = cor(block_avg_log_WPM, log_crowding_distance_deg, method = "pearson"),
-        N = n()
+        N = n(),
+        .groups="drop"
       ) %>%
       mutate(correlation = round(correlation, 2))
     
@@ -212,7 +213,8 @@ plot_reading_repeated_letter_crowding <- function(allData) {
     corr <- data_for_stat %>%
       summarize(
         correlation = cor(log_wpm, log_crowding_distance_deg, method = "pearson"),
-        N = n()
+        N = n(),
+        .groups="drop"
       ) %>%
       mutate(correlation = round(correlation, 2))
     

@@ -25,7 +25,8 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
                                  !is.na(fontNominalSizeDeg) & thresholdParameter == 'spacingDeg' & font == 'Sloan.woff2'  ~ min(fontNominalSizeDeg) * spacingOverSizeRatio,
                                  !is.na(fontNominalSizeDeg) & thresholdParameter == 'targetSizeDeg' & font == 'Pelli.woff2' ~ min(fontNominalSizeDeg) / 5,
                                  !is.na(fontNominalSizeDeg) & thresholdParameter == 'spacingDeg' & font == 'Pelli.woff2'  ~ min(fontNominalSizeDeg) * spacingOverSizeRatio / 5
-                                 )) %>% 
+                                 ),
+              .groups="drop") %>% 
   filter(thresholdParameter == 'targetSizeDeg' | thresholdParameter == 'spacingDeg') %>% 
   distinct() %>% 
     filter(!is.na(minDeg)) %>% 
@@ -54,7 +55,8 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
            !is.na(minDeg)) %>%
     summarize(mean = round(mean(minDeg),2),
               sd = round(sd(minDeg),2),
-              N = n())
+              N = n(),
+              .groups="drop")
   p2 <- ggplot(minDeg %>% filter(thresholdParameter == 'targetSizeDeg')) + 
     geom_histogram(aes(x = minDeg),
                    color = NA, fill = "gray80") +

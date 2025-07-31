@@ -259,8 +259,7 @@ get_subtitle <- function(inputParameters) {
       " dB atten."
     )
   )
-  print("Subtitle Two")
-  print(subtitleTwo)
+
   
   subtitleThree <- list(
     # system = paste0(
@@ -1020,7 +1019,8 @@ plot_record_freq_system <- function(sound_data) {
            freq <= sound_data$inputParameters$fMaxHzSystem) %>%
     group_by(label) %>%
     filter(is.finite(gain)) %>%
-    summarize(SD = format(round(sd(gain), 1), nsmall = 1))
+    summarize(SD = format(round(sd(gain), 1), nsmall = 1),
+              .groups="drop")
   
   range <- paste0(
     " ",
@@ -1226,7 +1226,8 @@ plot_record_freq_component <- function(sound_data) {
            freq <= sound_data$inputParameters$fMaxHzComponent) %>%
     group_by(label) %>%
     filter(is.finite(gain)) %>%
-    summarize(SD = format(round(sd(gain), 1), nsmall = 1))
+    summarize(SD = format(round(sd(gain), 1), nsmall = 1),
+              .groups="drop")
   
   range <- paste0(sound_data$inputParameters$calibrateSoundMinHz,
                   " – ",

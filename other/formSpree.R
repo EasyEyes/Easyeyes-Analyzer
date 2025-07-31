@@ -3,7 +3,6 @@ getFormSpree <- function(){
   response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9"))
   if (httr::status_code(response)) {
     content <- httr::content(response, as = "text", encoding='UTF-8')
-    print(jsonlite::fromJSON(content)$submissions)
     t <- jsonlite::fromJSON(content)$submissions 
     if (!"prolificParticipantID" %in% names(t)) {
       return(NULL)

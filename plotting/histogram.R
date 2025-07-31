@@ -33,8 +33,8 @@ get_crowding_hist <- function(crowding) {
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
   peripheral <- crowding %>% filter(targetEccentricityXDeg != 0) %>% 
     group_by(participant, `Skilled reader?`) %>% 
-    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = T)) %>% 
-    ungroup()
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = T),
+              .groups="drop")
 
   if (nrow(foveal) > 0) {
     if ('Skilled reader?' %in% names(foveal)) {
@@ -44,7 +44,8 @@ get_crowding_hist <- function(crowding) {
     }
     stats1 <- stats1 %>% summarize(mean = round(mean(log_crowding_distance_deg),2), 
                                    sd = round(sd(log_crowding_distance_deg),2),
-                                   N = n())
+                                   N = n(),
+                                   .groups="drop")
     p1 <- ggplot(foveal) + 
       geom_histogram(aes(x = log_crowding_distance_deg),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
@@ -74,7 +75,8 @@ get_crowding_hist <- function(crowding) {
    stats2 <- stats2 %>% 
      summarize(mean = round(mean(log_crowding_distance_deg),2),
                sd = round(sd(log_crowding_distance_deg),2),
-               N = n())
+               N = n(),
+               .groups="drop")
 
    p2 <- ggplot(peripheral) + 
     geom_histogram(aes(x = log_crowding_distance_deg),color=NA, fill="gray80") +
@@ -104,8 +106,8 @@ get_acuity_hist <- function(acuity) {
   peripheral <- acuity %>%
     filter(targetEccentricityXDeg != 0) %>%
     group_by(participant, `Skilled reader?`) %>% 
-    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop)) %>% 
-    ungroup()
+    summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop),
+              .groups="drop")
   
   
   if (nrow(foveal) > 0) {
@@ -117,7 +119,8 @@ get_acuity_hist <- function(acuity) {
     stats1 <- stats1 %>% 
       summarize(mean = round(mean(questMeanAtEndOfTrialsLoop),2),
                 sd = round(sd(questMeanAtEndOfTrialsLoop),2),
-                N = n())
+                N = n(),
+                .groups="drop")
     
     p1 <-  ggplot(foveal) + 
       geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color=NA, fill="gray80") +
@@ -144,7 +147,8 @@ get_acuity_hist <- function(acuity) {
     stats2 <- stats2 %>% 
       summarize(mean = round(mean(questMeanAtEndOfTrialsLoop),2),
                 sd = round(sd(questMeanAtEndOfTrialsLoop),2),
-                N = n())
+                N = n(),
+                .groups="drop")
     
     p2 <-  ggplot(peripheral) + 
       geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color=NA, fill="gray80") +
@@ -171,13 +175,13 @@ get_reading_hist <- function(data) {
     if (data$targetKind[1] == 'rsvpReading') {
       data <- data %>%
         group_by(participant, targetKind, `Skilled reader?`) %>% 
-        summarize(log_WPM = mean(block_avg_log_WPM, na.rm=T)) %>% 
-        ungroup()
+        summarize(log_WPM = mean(block_avg_log_WPM, na.rm=T),
+                  .groups="drop")
     } else {
       data <- data %>%
         group_by(participant, targetKind, `Skilled reader?`) %>% 
-        summarize(log_WPM = mean(log_WPM, na.rm=T)) %>% 
-        ungroup()
+        summarize(log_WPM = mean(log_WPM, na.rm=T),
+                  .groups="drop")
     }
     data <- data %>% filter(!is.na(log_WPM))
     if (nrow(data) == 0) {
@@ -191,7 +195,8 @@ get_reading_hist <- function(data) {
     
     stats1 <- stats1 %>% summarize(mean = round(mean(log_WPM),2), 
                                    sd = round(sd(log_WPM),2),
-                                   N = n())
+                                   N = n(),
+                                   .groups="drop")
     stats1 = stats1[1,]
     p1 <- ggplot(data) + 
       geom_histogram(aes(x = log_WPM),color=NA, fill="gray80") +
@@ -229,7 +234,8 @@ get_repeatedLetter_hist <- function(repeated) {
 
     stats1 <- stats1 %>% summarize(mean = round(mean(log_crowding_distance_deg),2), 
                                    sd = round(sd(log_crowding_distance_deg),2),
-                                   N = n())
+                                   N = n(),
+                                   .groups="drop")
     p1 <- ggplot(repeated) + 
       geom_histogram(aes(x = log_crowding_distance_deg),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
@@ -273,7 +279,8 @@ generate_histograms_by_grade <- function(data) {
           summarize(
             mean = round(mean(!!sym(variable), na.rm = TRUE), 2),
             sd = round(sd(!!sym(variable), na.rm = TRUE), 2),
-            N = n()
+            N = n(),
+            .groups="drop"
           )
         
         plot <- ggplot(grade_subset, aes_string(x = variable)) +
@@ -346,8 +353,8 @@ generate_histograms_by_grade <- function(data) {
   peripheral_crowding <- crowding %>% 
     filter(targetEccentricityXDeg != 0) %>% 
     group_by(participant,Grade) %>% 
-    summarise(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T)) %>% 
-    ungroup()
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm=T),
+              .groups = "drop")
   peripheral_crowding_plot <- create_stacked_histogram(
     peripheral_crowding, "log_crowding_distance_deg", grade_order, 
     "Log peripheral crowding (deg)", "peripheral crowding"
@@ -398,7 +405,8 @@ get_age_histogram <- function(data) {
     summarize(
       mean = round(mean(age, na.rm = TRUE), 2),
       sd = round(sd(age, na.rm = TRUE), 2),
-      N = n()
+      N = n(),
+      .groups="drop"
     )
   
   # Generate histogram
@@ -432,7 +440,8 @@ get_grade_histogram <- function(age) {
     summarize(
       mean = round(mean(Grade, na.rm = TRUE), 2),
       sd = round(sd(Grade, na.rm = TRUE), 2),
-      N = n()
+      N = n(),
+      .groups="drop"
     )
   
   # Generate histogram
@@ -466,9 +475,10 @@ add_questsd_hist <- function(quest, lists) {
     }
 
     stats <- t %>%
-      summarise(mean = round(mean(questSDAtEndOfTrialsLoop, na.rm = TRUE), 2),
+      summarize(mean = round(mean(questSDAtEndOfTrialsLoop, na.rm = TRUE), 2),
                 sd = round(sd(questSDAtEndOfTrialsLoop, na.rm = TRUE), 2),
-                N = n())
+                N = n(),
+                .groups = "drop")
     
     p <- ggplot(t, aes(x = questSDAtEndOfTrialsLoop)) +
       geom_histogram(color = NA, fill = "gray80", bins = 30) +
@@ -664,7 +674,8 @@ append_hist_list <- function(data_list, plot_list, fileNames){
                                  !is.na(fontNominalSizeDeg) & thresholdParameter == 'spacingDeg' & font == 'Sloan.woff2'  ~ min(fontNominalSizeDeg) * spacingOverSizeRatio,
                                  !is.na(fontNominalSizeDeg) & thresholdParameter == 'targetSizeDeg' & font == 'Pelli.woff2' ~ min(fontNominalSizeDeg) / 5,
                                  !is.na(fontNominalSizeDeg) & thresholdParameter == 'spacingDeg' & font == 'Pelli.woff2'  ~ min(fontNominalSizeDeg) * spacingOverSizeRatio / 5
-    )) %>% 
+    ),
+    .groups="drop") %>% 
     filter(thresholdParameter == 'targetSizeDeg' | thresholdParameter == 'spacingDeg') %>% 
     distinct() %>% 
     filter(!is.na(minDeg)) %>% 
@@ -710,7 +721,8 @@ append_hist_list <- function(data_list, plot_list, fileNames){
              !is.na(minDeg)) %>%
       summarize(mean = round(mean(minDeg),2),
                 sd = round(sd(minDeg),2),
-                N = n())
+                N = n(),
+                .groups="drop")
     p <- ggplot(minDeg %>% filter(thresholdParameter == 'spacingDeg')) + 
       geom_histogram(aes(x = minDeg),
                      color = NA, fill = "gray80") +

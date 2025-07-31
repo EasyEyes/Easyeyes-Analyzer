@@ -10,26 +10,28 @@ prepare_regression_data <- function(df_list){
 
   reading_each <- reading %>% 
     group_by(participant, font) %>%
-    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
-    ungroup()
+    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)),
+                     .groups = "drop")
   
 
   crowding_summary <- crowding %>% 
     mutate(type = ifelse(targetEccentricityXDeg == 0,'Foveal', 'Peripheral')) %>% 
     group_by(participant, type, conditionName, targetEccentricityXDeg, font) %>% 
-    summarize(crowding_distance = 10^(mean(log_crowding_distance_deg))) %>% 
-    ungroup()
+    summarize(crowding_distance = 10^(mean(log_crowding_distance_deg)),
+              .groups="drop")
   
   reading_crowding <- reading_each %>% 
     group_by(participant, font) %>% 
-    summarize(avg_log_WPM = mean(log10(avg_wordPerMin))) %>% 
+    summarize(avg_log_WPM = mean(log10(avg_wordPerMin)),
+              .groups="drop") %>% 
     ungroup() %>% 
     left_join(crowding_summary, by = c("participant", "font")) %>% 
     mutate(targetKind = "reading")
   
   crowding_vs_rsvp <- rsvp_speed %>% 
     group_by(participant, font) %>% 
-    summarize(avg_log_WPM = mean(block_avg_log_WPM)) %>% 
+    summarize(avg_log_WPM = mean(block_avg_log_WPM),
+              .groups="drop") %>% 
     left_join(crowding_summary, by = c("participant", "font"))
     
 
@@ -41,7 +43,8 @@ prepare_regression_data <- function(df_list){
     corr <- t %>% group_by(targetKind, type) %>% 
       summarize(correlation = round(cor(log10(crowding_distance),avg_log_WPM, 
                                         use = "pairwise.complete.obs",
-                                        method = "pearson"),2)) %>% 
+                                        method = "pearson"),2),
+                .groups="drop") %>% 
       ungroup()
     t <- t %>% left_join(corr, by = c("targetKind", "type"))
   } else {
@@ -62,9 +65,9 @@ prepare_regression_acuity <- function(df_list){
     mutate(participant = tolower(participant)) %>% 
     group_by(participant, conditionName, targetKind, font) %>%
     dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)),
-                     avg_log_WPM = mean(log10(wordPerMin), na.rm = T)) %>% 
-    mutate(targetKind = as.character(targetKind)) %>% 
-    ungroup()
+                     avg_log_WPM = mean(log10(wordPerMin), na.rm = T),
+                     .groups="drop") %>% 
+    mutate(targetKind = as.character(targetKind))
     
   
   acuity <- acuity %>%
@@ -75,7 +78,8 @@ prepare_regression_acuity <- function(df_list){
     mutate(participant = tolower(participant)) %>% 
     group_by(participant, targetKind, font) %>% 
     summarize(avg_log_WPM = mean(block_avg_log_WPM),
-              avg_wordPerMin = 10^mean(block_avg_log_WPM)) %>% 
+              avg_wordPerMin = 10^mean(block_avg_log_WPM),
+              .groups="drop") %>% 
     mutate(targetKind = as.character(targetKind))
   
   dt <- rbind(reading,rsvp_speed)
@@ -287,7 +291,8 @@ regression_acuity_plot <- function(df_list){
     corr <- t %>% group_by(targetKind) %>% 
       summarize(correlation = round(cor(questMeanAtEndOfTrialsLoop,avg_log_WPM, 
                                         use = "pairwise.complete.obs",
-                                        method = "pearson"),2))
+                                        method = "pearson"),2),
+                .groups="drop")
     t <- t %>% left_join(corr, by = "targetKind")
   } else {
     return(NULL)
@@ -325,7 +330,8 @@ regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
   corr_means <- rsvp_vs_ordinary_vs_crowding %>% 
     group_by(targetKind) %>% 
     summarize(correlation = cor(avg_log_SpeedWPM, mean_bouma_factor, 
-                                method = "pearson")) %>% 
+                                method = "pearson"),
+              .groups="drop") %>% 
     mutate(correlation = round(correlation,2))
   
   counts = t %>% group_by(font, targetKind) %>% summarize(N = n())
@@ -408,7 +414,8 @@ regression_font <- function(df_list, reading_rsvp_crowding_df){
   corr_means <- rsvp_vs_ordinary_vs_crowding %>% 
     group_by(targetKind) %>% 
     summarize(correlation = cor(avg_log_SpeedWPM, mean_bouma_factor, 
-                                method = "pearson")) %>% 
+                                method = "pearson"),
+              .groups="drop") %>% 
     mutate(correlation = round(correlation,2))
   
   counts = t %>% group_by(font, targetKind) %>% summarize(N = n())
@@ -478,7 +485,8 @@ regression_font_with_label <- function(df_list, reading_rsvp_crowding_df){
   corr_means <- rsvp_vs_ordinary_vs_crowding %>% 
     group_by(targetKind) %>% 
     summarize(correlation = cor(avg_log_SpeedWPM, mean_bouma_factor, 
-                                method = "pearson")) %>% 
+                                method = "pearson"),
+              .groups="drop") %>% 
     mutate(correlation = round(correlation,2))
   
   counts = t %>% group_by(font, targetKind) %>% summarize(N = n())

@@ -12,8 +12,8 @@ plot_rsvp_vs_x_height <- function(rsvp_speed){
     group_by(participant, conditionName, viewingDistanceDesiredCm) %>%
     dplyr::summarize(
       pm = mean(log_duration_s_RSVP),
-      sd = sd(log_duration_s_RSVP)) %>% 
-    ungroup() 
+      sd = sd(log_duration_s_RSVP),
+      .groups="drop")
   
   rsvp_summary <- rsvp_summary %>% 
     group_by(conditionName, viewingDistanceDesiredCm) %>% 
@@ -21,7 +21,8 @@ plot_rsvp_vs_x_height <- function(rsvp_speed){
       m = mean(pm, na.rm = T),
       se = sd(pm)/sqrt(n()), 
       N = n(),
-      parameter = "threshold")
+      parameter = "threshold",
+      .groups="drop")
   
   rsvp_summary$x_height <- NA
   rsvp_summary$x_height <- ifelse(str_detect(rsvp_summary$conditionName, "1.2 mm"), 
@@ -80,8 +81,8 @@ get_60cm_data <- function(rsvp_speed){
     group_by(participant, conditionName, viewingDistanceDesiredCm, age) %>%
     dplyr::summarize(
       pm = mean(log_duration_s_RSVP),
-      sd = sd(log_duration_s_RSVP)) %>% 
-    ungroup() 
+      sd = sd(log_duration_s_RSVP),
+      .groups="drop")
   
   rsvp_speed$x_height <-  NA
   rsvp_speed$x_height <- ifelse(str_detect(rsvp_speed$conditionName, "1.2 mm"), 
@@ -125,8 +126,8 @@ get_30cm_scatter <- function(rsvp_speed) {
   rsvp_speed <- rsvp_speed %>% group_by(participant, conditionName, viewingDistanceDesiredCm) %>%
     dplyr::summarize(
       pm = mean(log_duration_s_RSVP),
-      sd = sd(log_duration_s_RSVP)) %>% 
-    ungroup() 
+      sd = sd(log_duration_s_RSVP),
+      .groups="drop")
   
   rsvp_speed$x_height <-  NA
   rsvp_speed$x_height <- ifelse(str_detect(rsvp_speed$conditionName, "1.2 mm"), 
@@ -344,21 +345,19 @@ plot_reading_rsvp <- function(reading, rsvp) {
     summarize(
       avg_log_WPM = mean(block_avg_log_WPM, na.rm = TRUE), 
       age = first(age),  # Include age in the summarized data
-      .groups = "keep"
+      .groups = "drop"
     )
   
   # Preprocess Reading data and join with RSVP data
   t <- reading %>%
     mutate(participant = tolower(participant)) %>% 
     group_by(participant, block_condition, targetKind) %>%
-    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = TRUE)), .groups = "keep") %>% 
-    ungroup() %>% 
+    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = TRUE)), .groups = "drop") %>% 
     mutate(log_WPM = log10(avg_wordPerMin)) %>% 
     group_by(participant, targetKind) %>% 
-    summarize(avg_log_WPM = mean(log10(avg_wordPerMin), na.rm = TRUE), .groups = "keep") %>% 
+    summarize(avg_log_WPM = mean(log10(avg_wordPerMin), na.rm = TRUE), .groups = "drop") %>% 
     left_join(rsvp, by = 'participant') %>% 
     filter(!is.na(age)) %>%  # Drop rows with NA age
-    ungroup() %>% 
     mutate(
       N = paste0('N = ', n()),
       Grade = as.character(Grade),
@@ -483,7 +482,8 @@ plot_reading_crowding <- function(allData) {
     corr <- data_for_stat %>%
       summarize(
         correlation = cor(log_WPM, log_crowding_distance_deg, method = "pearson"),
-        N = n()
+        N = n(),
+        .groups="drop"
       ) %>%
       mutate(correlation = round(correlation, 2))
     
@@ -582,8 +582,8 @@ plot_reading_crowding <- function(allData) {
   peripheral <- crowding %>%
     filter(targetEccentricityXDeg != 0) %>%
     group_by(participant, age, Grade, `Skilled reader?`, font) %>%
-    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE)) %>%
-    ungroup()
+    summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE),
+              .groups="drop")
   reading <- allData$reading %>% mutate(participant = tolower(participant))
   
   if (nrow(allData$reading) == 0 | nrow(allData$crowding) == 0) {

@@ -6,7 +6,7 @@ reading_speed_vs_retention <- function(reading){
                        conditionName,
                        font,
                        accuracy) %>% 
-    summarize(wordPerMin = 10^(mean(log_WPM)), .groups = "keep")
+    summarize(wordPerMin = 10^(mean(log_WPM)), .groups = "drop")
   ggplot(t) + 
     geom_point(aes(x = accuracy, y = wordPerMin)) +
     annotation_logticks(

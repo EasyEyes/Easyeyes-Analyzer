@@ -250,8 +250,8 @@ extractStaircases <- function(df, info) {
              thresholdParameter,
              levelProposedByQUEST,
              trialGivenToQuest) %>% 
-    summarize(`key_resp.corr` = sum(`key_resp.corr`)) %>% 
-    ungroup()
+    summarize(`key_resp.corr` = sum(`key_resp.corr`),
+              .groups="drop")
   # "questMeanBeforeThisTrialResponse", "", "targetMeasuredLatenessSec",
   # "targetMeasuredDurationSec", "targetDurationSec", "key_resp.corr", "level", "heightPx", "targetDurationSec", "markingOffsetBeforeTargetOnsetSecs")#, "targetSpacingPx")
 }
@@ -322,8 +322,8 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
   stairdf <- stairs %>%
     drop_na(levelProposedByQUEST) %>%
     group_by(participant, staircaseName) %>%
-    summarize(questTrials = sum(trialGivenToQuest, na.rm = TRUE)) %>%
-    ungroup()
+    summarize(questTrials = sum(trialGivenToQuest, na.rm = TRUE),
+              .groups="drop")
 
   crowding <- df_list$quest_all_thresholds %>%
     filter(grepl('crowding', questType)) %>% 

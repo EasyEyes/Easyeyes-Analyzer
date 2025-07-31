@@ -73,7 +73,8 @@ get_bits <- function(prob){
 }
 
 get_bits_each <- function(prob){
-  I <- prob %>% group_by(block_condition, conditionName) %>% summarize(`I(X|Y)` = sum(`I(x,y)`))
+  I <- prob %>% group_by(block_condition, conditionName) %>% summarize(`I(X|Y)` = sum(`I(x,y)`),
+                                                                       .groups="drop")
   return(I)
 }
 

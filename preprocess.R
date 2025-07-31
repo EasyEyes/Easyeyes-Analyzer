@@ -67,9 +67,9 @@ ensure_columns <- function(t, file_name = NULL) {
   # List of columns and their default values
   required_cols <- list(
     participant = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][1] else "",
-    ProlificParticipantID = "",
+    ProlificParticipantID = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][2] else "",
     ProlificSessionID = "",
-    experiment = "",
+    experiment = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][3] else "",
     error = "",
     questionAndAnswerResponse = "",
     warning = "",
@@ -166,7 +166,8 @@ ensure_columns <- function(t, file_name = NULL) {
            screenWidthCm = ifelse(is.na(pxPerCm) | pxPerCm <= 0, NA, round(screenWidthPx / pxPerCm,2))
            )
   t$rows = nrow(t)
-  t$cols = ncol(t)
+  t$cols = ifelse('placeholder' %in% names(t), 1, ncol(t))
+  t$date = t$date[t$date != "" & !is.na(t$date)][1]
   t$deviceMemoryGB = sort(t$deviceMemoryGB)[1]
   t$screenWidthCm = sort(t$screenWidthCm)[1]
   t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
@@ -220,8 +221,9 @@ read_files <- function(file){
   readingCorpus <- c()
   j = 1
   pretest <- tibble()
+
   for (i in 1 : n) {
-    t <- tibble()
+    t <- tibble(placeholder = "")
     
     if (grepl("pretest.xlsx", file_names[i]) | grepl("pretest.csv", file_names[i])) {
       if (grepl("pretest.xlsx", file_names[i])) {
@@ -277,9 +279,12 @@ read_files <- function(file){
         pretest$Age <- as.numeric(pretest$Age)
       }
     }
+
     if (grepl(".csv", file_names[i]) & !grepl("pretest.csv", file_names[i])){ 
       try({t <- readr::read_csv(file_list[i],show_col_types = FALSE)}, silent = TRUE)
-      
+      if(nrow(t) == 0) {
+        t <- tibble(placeholder = "")
+      }
       if (!'Submission id' %in% names(t)){
         inf <- file.info(file_list[i])
         t <- ensure_columns(t, file_names[i])
@@ -308,6 +313,7 @@ read_files <- function(file){
           summaries <- merge(info, summaries, by = ("staircaseName"))
         }
         # for stair plots
+
         if (nrow(t) > 0)  {
           stairdf <- extractStaircases(t, info)
           summary_list[[j]] <- summaries
@@ -333,9 +339,11 @@ read_files <- function(file){
       tmp <- tempdir()
       unzip(file_list[i], exdir = tmp)
       for (k in 1 : m) {
-        t <- tibble()
         file_path <- file.path(tmp,all_csv[k])
         try({t <- readr::read_csv(file_path,show_col_types = FALSE)}, silent = TRUE)
+        if(nrow(t) == 0) {
+          t <- tibble(placeholder = "")
+        }
         if (!'Submission id' %in% names(t)) {
           t <- ensure_columns(t, all_csv[k])
           inf <- file.info(file_path)
@@ -484,7 +492,7 @@ read_files <- function(file){
       data_list[[i]]$BirthMonthYear = ''
       data_list[[i]]$age = NA
       if (length(unique_BirthYear) > 1 & length(unique_Birthdate) == 1 ) {
-        data_list[[i]]$BirthYear = unique(data_list[[i]]$BirthYear[!is.na(data_list[[i]]$BirthYear)])
+        data_list[[i]]$BirthYear = max(as.numeric(data_list[[i]]$BirthYear), na.rm = T)
         data_list[[i]]$age = year(data_list[[i]]$date[1]) - data_list[[i]]$BirthYear[1]
       } else {
         data_list[[i]]$BirthYear = ''

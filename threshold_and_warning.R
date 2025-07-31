@@ -22,8 +22,8 @@ generate_rsvp_reading_crowding_fluency <-
 
   NQuestTrials <- stairs %>%
     group_by(participant, staircaseName, thresholdParameter) %>%
-    summarize(questTrials = sum(trialGivenToQuest,na.rm = T)) %>% 
-    ungroup() %>% 
+    summarize(questTrials = sum(trialGivenToQuest,na.rm = T),
+              .groups="drop") %>% 
     filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | questTrials >= minNQuestTrials) %>% 
     mutate(block_condition = as.character(staircaseName)) %>% 
     distinct(participant, block_condition, questTrials)
@@ -32,8 +32,8 @@ generate_rsvp_reading_crowding_fluency <-
     group_by(participant, staircaseName) %>%
     summarize(NWrongTrial = sum((!`key_resp.corr`) & trialGivenToQuest, na.rm = T),
               NCorrectTrial = sum((`key_resp.corr`) & trialGivenToQuest, na.rm = T),
-              frac = sum((!`key_resp.corr`) & trialGivenToQuest, na.rm = T) / sum((`key_resp.corr`) & trialGivenToQuest, na.rm = T)) %>% 
-    ungroup() %>% 
+              frac = sum((!`key_resp.corr`) & trialGivenToQuest, na.rm = T) / sum((`key_resp.corr`) & trialGivenToQuest, na.rm = T),
+              .groups="drop") %>% 
     filter(NWrongTrial >= minWrongTrials) %>% 
     mutate(block_condition = as.character(staircaseName)) %>% 
     distinct(participant, block_condition, NWrongTrial,NCorrectTrial,frac)
@@ -208,7 +208,10 @@ generate_rsvp_reading_crowding_fluency <-
   
   #### calculate cut-off start here ####
   
-  reading_avg <- reading %>% group_by(participant) %>% summarize(avg = mean(wordPerMin))
+  reading_avg <- reading %>%
+    group_by(participant) %>%
+    summarize(avg = mean(wordPerMin),
+              .groups="drop")
 
   threshold <- ifelse(nrow(reading_avg) != 0, quantile(reading_avg$avg, 0.25, na.rm = T), 0)
   slowest = tibble()
@@ -365,9 +368,8 @@ generate_rsvp_reading_crowding_fluency <-
     group_by(participant, conditionName, font, questType,age, Grade,
              `Skilled reader?`, targetDurationSec, targetEccentricityXDeg, targetEccentricityYDeg, ParticipantCode) %>% 
     summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm=T),
-              questSDAtEndOfTrialsLoop = mean(questSDAtEndOfTrialsLoop, na.rm=T)) %>% 
-    ungroup()
-  
+              questSDAtEndOfTrialsLoop = mean(questSDAtEndOfTrialsLoop, na.rm=T),
+              .groups="drop")
   
   ########################### CROWDING ############################
   crowding <- quest %>% 
@@ -443,7 +445,8 @@ generate_rsvp_reading_crowding_fluency <-
   if (nrow(reading_accuracy) > 0) {
     reading_accuracy <- reading_accuracy %>% 
       group_by(participant, block_condition) %>% 
-      summarize(accuracy = mean(readWordIdentifiedBool))
+      summarize(accuracy = mean(readWordIdentifiedBool),
+                .groups="drop")
     reading <- reading %>% left_join(reading_accuracy, by = c("participant", "block_condition") )
     reading$accuracy = factor(reading$accuracy, levels = c(0,0.2,0.4,0.6,0.8,1))
   }
@@ -459,7 +462,8 @@ generate_rsvp_reading_crowding_fluency <-
   if (nrow(fluency) > 0) {
     fluency <- fluency %>% 
       group_by(participant) %>% 
-      summarize(accuracy = mean(questionAndAnswerResponse == questionAndAnswerCorrectAnswer))
+      summarize(accuracy = mean(questionAndAnswerResponse == questionAndAnswerCorrectAnswer),
+                .groups="drop")
   } else {
     fluency = tibble()
   }
@@ -525,7 +529,8 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df,
   stairs_summary <- stairs %>%
     group_by(participant, thresholdParameter, block_condition, conditionName) %>% 
     summarize(TrialsSentToQuest = sum(trialGivenToQuest),
-              BadTrials = sum(!trialGivenToQuest)) %>% 
+              BadTrials = sum(!trialGivenToQuest),
+              .groups="drop") %>% 
     filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | TrialsSentToQuest >= minNQuestTrials)
   
   wrongTrials <- stairs %>%
@@ -601,8 +606,8 @@ reading <- rbind(reading, t)
   
   reading_each <- reading %>% 
     group_by(font, participant, block_condition, thresholdParameter) %>%
-    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
-    ungroup()
+    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)),
+                     .groups = "drop")
   
   
   reading_exceed_1500 <- reading_each %>% 
@@ -625,35 +630,34 @@ reading <- rbind(reading, t)
     mutate(targetKind = "reading")
   
   threshold_all <- all_summary %>%
-    group_by(participant, experiment, conditionName) %>%
+    group_by(participant, experiment, conditionName, thresholdParameter) %>%
     dplyr::summarize(
       pm = mean(questMeanAtEndOfTrialsLoop),
-      sd = sd(questMeanAtEndOfTrialsLoop)) %>% 
-    mutate(parameter = "threshold") %>% 
-    ungroup()
+      sd = sd(questMeanAtEndOfTrialsLoop),
+      .groups="drop") %>% 
+    rename(parameter = thresholdParameter)
   
-  print(unique(threshold_all$conditionName))
   threshold_summary <- threshold_all %>% 
     mutate(variance = sd^2) %>% 
-    group_by(conditionName, experiment) %>% 
+    group_by(conditionName, experiment, parameter) %>% 
     dplyr::summarize(
       m = mean(pm, na.rm = T),
       `se across participants` = sd(pm)/sqrt(n()), 
       `sd across participants` = sd(pm),
       `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
       N = n(),
-      parameter = "threshold")
+      .groups="drop")
   
   wpm_all <- reading %>% 
     filter(!participant %in% reading_exceed_1500$participant) %>%
     filter(conditionName != "") %>% 
     group_by(conditionName, participant, experiment) %>%
     dplyr::summarize(pm = mean(wordPerMin, na.rm =T),
-                     sd = sd(wordPerMin, na.rm =T)) %>% 
+                     sd = sd(wordPerMin, na.rm =T),
+                     parameter = "word per minute",
+                     .groups="drop") %>% 
     filter(!is.na(pm)) %>% 
-    mutate(parameter = "word per minute") %>% 
-    ungroup()
-  
+
   wpm_summary <- wpm_all %>% 
     mutate(variance = sd^2) %>% 
     group_by(conditionName, experiment) %>% 
@@ -663,7 +667,8 @@ reading <- rbind(reading, t)
       `sd across participants` = sd(pm),
       `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
       N = n(),
-      parameter = "word per minute") %>% 
+      parameter = "word per minute",
+      .groups="drop") %>% 
     mutate(conditionName = as.character(conditionName))
   
   df <- df %>%
@@ -698,7 +703,7 @@ reading <- rbind(reading, t)
   all_summary <- all_summary %>% 
     left_join(stairs_summary, by = c('participant', 'block_condition', 'conditionName')) %>% 
     rename(pavloviaSessionID = participant) %>% 
-    mutate(condition = str_split(block_condition,'_')[[1]][2]) %>% 
+    mutate(condition = ifelse(length(str_split(block_condition,'_')[[1]])==2, str_split(block_condition,'_')[[1]][2], 0))%>% 
     left_join(df, by = 'pavloviaSessionID') %>% 
     left_join(grade, by = 'pavloviaSessionID') %>% 
     mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 

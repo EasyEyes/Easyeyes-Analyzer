@@ -6,8 +6,7 @@ get_mean_median_df <- function(df_list){
   rsvp_speed <- df_list[[3]]
   reading_each <- reading %>% 
     group_by(font, participant, block_condition, thresholdParameter) %>%
-    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "keep") %>% 
-    ungroup()
+    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "drop")
   
   reading_exceed_1500 <- reading_each %>% 
     filter(avg_wordPerMin > 1500) %>% 
@@ -31,9 +30,10 @@ get_mean_median_df <- function(df_list){
   
   reading_byfont <- reading_valid %>% 
     group_by(font) %>% 
-    summarise(avg_log_SpeedWPM = mean(log10(avg_wordPerMin), na.rm = T), 
+    summarize(avg_log_SpeedWPM = mean(log10(avg_wordPerMin), na.rm = T), 
               median_log_SpeedWPM = median(log10(avg_wordPerMin), na.rm = T),
-              se = sd(log10(avg_wordPerMin), na.rm = T)/sqrt(n()))
+              se = sd(log10(avg_wordPerMin), na.rm = T)/sqrt(n()),
+              .groups = "drop")
   # average log crowding distance degree by font
   crowding_byfont <- crowding %>% 
     group_by(font) %>% 
@@ -42,13 +42,15 @@ get_mean_median_df <- function(df_list){
               se_crowding = sd(log_crowding_distance_deg, na.rm = T)/sqrt(n()),
               mean_bouma_factor = mean(bouma_factor, na.rm = T),
               median_bouma_factor = median(bouma_factor, na.rm = T),
-              se_bouma_factor = sd(bouma_factor, na.rm = T)/sqrt(n()))
+              se_bouma_factor = sd(bouma_factor, na.rm = T)/sqrt(n()),
+              .groups = "drop")
   # average log rsvp reading wpm by font
   rsvp_byfont <- rsvp_speed%>% 
     group_by(font) %>% 
     summarize(avg_log_SpeedWPM = mean(block_avg_log_WPM),
               median_log_SpeedWPM = median(block_avg_log_WPM),
-              se = sd(block_avg_log_WPM)/sqrt(n()))
+              se = sd(block_avg_log_WPM)/sqrt(n()),
+              .groups = "drop")
   reading_vs_crowding <- merge(reading_byfont,crowding_byfont, by = "font") %>% 
     mutate(targetKind = "reading") 
   
