@@ -353,7 +353,6 @@ generate_summary_table <- function(data_list, stairs) {
   #### incomplete files ####
   incomplete = tibble()
   for (i in 1:length(data_list)) {
-    print(data_list[[i]]$experimentCompleteBool[1])
     if (nrow(data_list[[i]] >=  1)) {
       experimentCompleteBool = ifelse(is.na(data_list[[i]]$experimentCompleteBool[1]) || 
                                         length(data_list[[i]]$experimentCompleteBool[1]) == 0,

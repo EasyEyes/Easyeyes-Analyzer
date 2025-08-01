@@ -1115,6 +1115,7 @@ plot_crowding_vs_age <- function(crowding){
               .groups = "drop")
   
   peripheral <- crowding %>% 
+    # Why only right peripheral?
     filter(targetEccentricityXDeg > 0) %>% 
     group_by(participant, questType, ageN) %>% 
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE),
@@ -1128,17 +1129,24 @@ plot_crowding_vs_age <- function(crowding){
   ecc_label <- paste0("X ecc = ", paste(eccs_int, collapse = ", "), " deg")
   N_f <- nrow(foveal); N_p <- nrow(peripheral)
   
-  fit_f <- lm(log_crowding_distance_deg ~ ageN, data = foveal)
-  fit_p <- lm(log_crowding_distance_deg ~ ageN, data = peripheral)
-  slope_f <- round(coef(fit_f)["ageN"], 2)
-  slope_p <- round(coef(fit_p)["ageN"], 2)
-  R_f     <- round(cor(foveal$ageN, foveal$log_crowding_distance_deg), 2)
-  R_p     <- round(cor(peripheral$ageN, peripheral$log_crowding_distance_deg), 2)
+  label = ""
+  if (nrow(foveal) > 0) {
+    fit_f <- lm(log_crowding_distance_deg ~ ageN, data = foveal)
+    slope_f <- round(coef(fit_f)["ageN"], 2)
+    R_f     <- round(cor(foveal$ageN, foveal$log_crowding_distance_deg), 2)
+    label =  paste0("Foveal: slope=", slope_f, ", R=", R_f, ", N=", N_f)
+  }
+ 
+  if (nrow(peripheral) > 0) {
+    fit_p <- lm(log_crowding_distance_deg ~ ageN, data = peripheral)
+    slope_p <- round(coef(fit_p)["ageN"], 2)
+    R_p     <- round(cor(peripheral$ageN, peripheral$log_crowding_distance_deg), 2)
+    label <- paste0(
+      ifelse(label=="", "", paste0(label, "\n")),
+      "Peripheral: slope=", slope_p, ", R=", R_p, ", N=", N_p, ", ", ecc_label
+    )
+  }
   
-  label <- paste0(
-    "Foveal: slope=", slope_f, ", R=", R_f, ", N=", N_f, "\n",
-    "Peripheral: slope=", slope_p, ", R=", R_p, ", N=", N_p, ", ", ecc_label
-  )
   
   # 5. plot *only* the summary frame t
   p <- ggplot(t, aes(x = ageN, y = 10^(log_crowding_distance_deg), color = questType)) +

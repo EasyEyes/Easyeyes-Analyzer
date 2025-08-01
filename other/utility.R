@@ -66,6 +66,8 @@ save_plot_with_error_handling <- function(plot, filename,
   })
 }
 
+
+
 safely_execute <- function(expression, error_message = "Error occurred", return_value = NULL) {
   result <- tryCatch({
     # Evaluate the expression

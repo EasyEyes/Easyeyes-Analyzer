@@ -3,6 +3,13 @@ library(stringr)
 library(readr)
 source('./plotting/simulatedRSVP.R')
 
+arabic_to_western <- function(x) {
+  chartr("٠١٢٣٤٥٦٧٨٩", "0123456789", x)
+}
+
+# Example
+arabic_to_western("١٢٣٤")  # Output: "1234"
+
 
 pxToPt <- function(px, pxPerCm) {
   return ((px / pxPerCm) * 72) / 2.54
@@ -492,7 +499,7 @@ read_files <- function(file){
       data_list[[i]]$BirthMonthYear = ''
       data_list[[i]]$age = NA
       if (length(unique_BirthYear) > 1 & length(unique_Birthdate) == 1 ) {
-        data_list[[i]]$BirthYear = max(as.numeric(data_list[[i]]$BirthYear), na.rm = T)
+        data_list[[i]]$BirthYear = max(as.numeric(arabic_to_western(data_list[[i]]$BirthYear)), na.rm = T)
         data_list[[i]]$age = year(data_list[[i]]$date[1]) - data_list[[i]]$BirthYear[1]
       } else {
         data_list[[i]]$BirthYear = ''

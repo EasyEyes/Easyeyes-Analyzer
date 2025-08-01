@@ -697,7 +697,6 @@ shinyServer(function(input, output, session) {
     l <- list()
     fileNames <- list()
 
-    # OPTIMIZATION: Compute expensive function once, use results multiple times
     peripheral_crowding_age_plots <- get_peripheral_crowding_vs_age(df_list()$crowding)
 
     plot_calls <- list(
@@ -1782,17 +1781,61 @@ shinyServer(function(input, output, session) {
       }
     }
     
-    lapply(seq_len(n), function(ii) {
+    for (j in 1:length( plotList)) {
       local({
-        i <- ii
-        output[[paste0("p", i)]] <- renderImage({
-          outfile <- tempfile(fileext = '.svg')
-          ggsave(outfile,
-                 plot = plotList[[i]] + plt_theme,
-                 width = 6, height = 6,
-                 unit = 'in', device = svglite)
-          list(src = outfile, contentType = 'image/svg+xml')
-        }, deleteFile = TRUE)
+        i <- j
+        output[[paste0("p", i)]] <-
+          renderImage({
+          tryCatch({
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = plotList[[i]] + plt_theme,
+              width = 6,
+              height = 6,
+              unit = 'in',
+              limitsize = F,
+              device = svglite
+            )
+            
+            list(src = outfile,
+                 contenttype = 'svg')
+            
+          }, error = function(e) {
+            # Show error in a ggplot-friendly way
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                color = "red",
+                size = 5,
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              theme_void() +
+              ggtitle(fileNames[[i]])
+            
+            # Save the error plot to a temp file
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = error_plot,
+              device = svglite,
+              width = 6,
+              height = 4,
+              unit = 'in'
+            )
+            list(
+              src = outfile,
+              contenttype = 'svg',
+              alt = paste0("Error in ", fileNames[[i]])
+            )
+          })
+        
+      }, deleteFile = TRUE)
+
         
         output[[paste0("downloadP", i)]] <- downloadHandler(
           filename = paste0(experiment_names(), fileNames[[i]], i, ".", input$fileType),
@@ -1808,7 +1851,7 @@ shinyServer(function(input, output, session) {
           }
         )
       })
-    })
+    }
     
     return(out)
   })
@@ -2707,17 +2750,54 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("scatter", ii)]] <- renderImage({
-          outfile <- tempfile(fileext = '.svg')
-          save_plot_with_error_handling(
-            plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-            filename = outfile,
-            width = 6,
-            height = 6,
-            size = 5,
-            unit = 'in',
-            colorPalette = colorPalette,
-            plotTitle = scatterDiagrams()$fileNames[[ii]]
-          )
+          tryCatch({
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = scatterDiagrams()$plotList[[ii]] +
+                plt_theme_scatter +
+                scale_color_manual(values = colorPalette),
+              unit = 'in',
+              limitsize = F,
+              device = svglite
+            )
+            
+            list(src = outfile,
+                 contenttype = 'svg')
+            
+          }, error = function(e) {
+            # Show error in a ggplot-friendly way
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                color = "red",
+                size = 5,
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              theme_void() +
+              ggtitle(scatterDiagrams()$fileNames[[ii]])
+            
+            # Save the error plot to a temp file
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = error_plot,
+              device = svglite,
+              width = 6,
+              height = 4,
+              unit = 'in'
+            )
+            list(
+              src = outfile,
+              contenttype = 'svg',
+              alt = paste0("Error in ", scatterDiagrams()$fileNames[[ii]])
+            )
+          })
+          
         }, deleteFile = TRUE)
         output[[paste0("downloadScatter", ii)]] <-
           downloadHandler(
