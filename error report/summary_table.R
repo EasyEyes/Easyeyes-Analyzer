@@ -163,14 +163,14 @@ generate_summary_table <- function(data_list, stairs) {
   
   fontParams <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
     t <- data_list[[i]] %>%
-      mutate(block_condition = as.character(staircaseName)) %>% 
-      filter(block_condition != "") %>% 
-      group_by(participant,
-               block_condition,
-               fontRenderMaxPx,
-               fontMaxPx) %>% 
-      summarize(fontSizePx = round(mean(fontSizePx,rm.na=T),1),
-                viewingDistanceCm = round(mean(viewingDistanceCm,rm.na=T),1),
+      mutate(block_condition = ifelse(block_condition == "", as.character(staircaseName), block_condition)) %>% 
+      filter(!is.na(fontSizePx) | !is.na(viewingDistanceCm)) %>% 
+      select(participant, block_condition,fontSizePx,viewingDistanceCm,fontRenderMaxPx,fontMaxPx)
+      t <- t %>% group_by(participant, block_condition) %>% 
+      summarize(fontSizePx = round(mean(as.numeric(fontSizePx),rm.na=T),1),
+                viewingDistanceCm = round(mean(as.numeric(viewingDistanceCm),rm.na=T),1),
+                fontRenderMaxPx = mean(as.numeric(fontRenderMaxPx),rm.na=T),
+                fontMaxPx = mean(as.numeric(fontMaxPx),rm.na=T),
                 .groups="drop")
   }
   
