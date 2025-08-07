@@ -178,7 +178,31 @@ ensure_columns <- function(t, file_name = NULL) {
   t$deviceMemoryGB = sort(t$deviceMemoryGB)[1]
   t$screenWidthCm = sort(t$screenWidthCm)[1]
   t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
-
+  
+  t$hardwareConcurrency = ifelse(length(unique(t$hardwareConcurrency)) > 1,
+                           unique(t$hardwareConcurrency[!is.na(t$hardwareConcurrency)]), 
+                           "")
+  
+  t$deviceBrowser = ifelse(length(unique(t$deviceBrowser)) > 1,
+                                  unique(t$deviceBrowser[!is.na(t$deviceBrowser)]), 
+                                  "")
+  
+  t$deviceBrowserVersion = ifelse(length(unique(t$deviceBrowserVersion)) > 1,
+                                  unique(t$deviceBrowserVersion[!is.na(t$deviceBrowserVersion)]), 
+                                  "")
+   
+  t$deviceSystemFamily =  ifelse(length(unique(t$deviceSystemFamily)) > 1,
+                                 unique(t$deviceSystemFamily[!is.na(t$deviceSystemFamily)]), 
+                                "")
+  
+  t$deviceSystem =  ifelse(length(unique(t$deviceSystem)) > 1,
+                                 unique(t$deviceSystem[!is.na(t$deviceSystem)]), 
+                                 "")
+  
+  t$deviceType = ifelse(length(unique(t$deviceType)) > 1,
+                        unique(t$deviceType[!is.na(t$deviceType)]), 
+                        "")
+  
   t <- impute_column(t, 'block',0)
   t <- impute_column(t, 'thresholdParameter', '')
   t <- impute_column(t, 'targetTask', '')
@@ -190,11 +214,13 @@ ensure_columns <- function(t, file_name = NULL) {
   screenHeight <- ifelse(length(unique(t$screenHeightPx)) > 1,
                          unique(t$screenHeightPx)[!is.na(unique(t$screenHeightPx))] , 
                          NA)
+  
   t <- t %>% mutate(screenWidthPx = screenWidth,
                     screenHeightPx = screenHeight,
-                    browser = ifelse(deviceBrowser == "", "", paste0(deviceBrowser, 
-                                                                     " ", 
-                                                                     str_split(deviceBrowserVersion, "[.]")[[1]][1])),
+                    browser = case_when(deviceBrowser == "" ~ "",
+                                        is.na(deviceBrowserVersion) & deviceBrowser != "" ~ paste(deviceBrowser, 
+                                                                                                  str_split(deviceBrowserVersion, "[.]")[[1]][1]),
+                                        .default = ""),
                     resolution = paste0(screenWidthPx, " x ", screenHeightPx),
                     block_condition = ifelse(block_condition == "",staircaseName, block_condition))
   
@@ -211,6 +237,7 @@ ensure_columns <- function(t, file_name = NULL) {
 
   t <- t %>% 
     rename("cores" = "hardwareConcurrency")
+
   t
 }
 

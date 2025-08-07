@@ -133,7 +133,7 @@ get_webGL <- function(data_list) {
   webGL <- tibble()
   for (i in 1:length(data_list)) {
     if ('WebGL_Report' %in% names(data_list[[i]])) {
-      t <- fromJSON(data_list[[i]]$WebGL_Report[1])
+      t <- fromJSON(unique(data_list[[i]]$WebGL_Report[!is.na(data_list[[i]]$WebGL_Report)]))
       if ('maxTextureSize' %in% names(t)) {
         df <- data.frame(
           participant = data_list[[i]]$participant[1],
@@ -144,10 +144,10 @@ get_webGL <- function(data_list) {
       } else {
         df <- data.frame(
           participant = data_list[[i]]$participant[1],
-          WebGLVersion = t$WebGL_Version,
-          maxTextureSize = t$Max_Texture_Size,
-          maxViewportSize = max(unlist(t$Max_Viewport_Dims)),
-          WebGLUnmaskedRenderer = t$Unmasked_Renderer)
+          WebGLVersion = ifelse("WebGL_Version" %in% names(t), t$WebGL_Version,""),
+          maxTextureSize = ifelse("Max_Texture_Size" %in% names(t), t$Max_Texture_Size,""),
+          maxViewportSize = ifelse("Max_Viewport_Dims" %in% names(t), max(unlist(t$Max_Viewport_Dims)),""),
+          WebGLUnmaskedRenderer = ifelse("Unmasked_Renderer" %in% names(t), max(unlist(t$Unmasked_Renderer)),""))
       }
       webGL = rbind(webGL, df)
     }

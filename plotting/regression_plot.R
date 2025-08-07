@@ -96,7 +96,6 @@ prepare_regression_acuity <- function(df_list){
 }
 regression_reading_plot <- function(df_list){
   t <- prepare_regression_data(df_list)
-  print(t)
   # Foveal subset (unchanged)
   foveal <- t %>%
     filter(type == 'Foveal')

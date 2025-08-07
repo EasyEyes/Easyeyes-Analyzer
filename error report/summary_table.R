@@ -124,7 +124,8 @@ get_lateness_and_duration <- function(all_files) {
     mutate(
       targetDurationSec = as.numeric(targetDurationSec),
       targetMeasuredLatenessSec = as.numeric(targetMeasuredLatenessSec)
-    )
+    ) %>% 
+    filter(!is.na(date))
   
   if (is.character(t$targetMeasuredDurationSec)) {
     t <- t %>% separate_rows(targetMeasuredDurationSec, sep = ',')
@@ -173,10 +174,10 @@ generate_summary_table <- function(data_list, stairs) {
                 fontMaxPx = mean(as.numeric(fontMaxPx),rm.na=T),
                 .groups="drop")
   }
-  
+  print(fontParams)
   params <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
     t <- data_list[[i]] %>%
-      filter(!is.na(staircaseName)) %>%
+      filter(!is.na(staircaseName) & staircaseName != "") %>%
       select(
         participant,
         `heapTotalAfterDrawing (MB)`,
@@ -282,7 +283,7 @@ generate_summary_table <- function(data_list, stairs) {
         )
       ) %>%
       group_by(participant, block_condition) %>% 
-      mutate(trial = max(row_number())) %>% 
+      mutate(trial = n()) %>% 
       ungroup() %>% 
       distinct(
         ProlificParticipantID,
@@ -319,7 +320,7 @@ generate_summary_table <- function(data_list, stairs) {
       )
     all_files <- rbind(all_files, t)
   }
-  
+
   logFont <- foreach(i = 1:length(data_list), .combine = "rbind") %do% {
     data_list[[i]] %>% distinct(participant, `_logFontBool`) %>%
       filter(`_logFontBool` == TRUE) %>%
@@ -327,7 +328,7 @@ generate_summary_table <- function(data_list, stairs) {
   }
   
   print('done all files')
-  trial <- all_files %>% select(participant, block_condition, trial)
+  trial <- all_files %>% select(participant, block_condition, trial) %>% filter(block_condition != "")
   lateness_duration <- get_lateness_and_duration(all_files)
   
   #### errors ####
@@ -381,6 +382,8 @@ generate_summary_table <- function(data_list, stairs) {
             questionAndAnswerResponse
           ) %>%
           arrange(`Loudspeaker survey`)
+        print('distinct row')
+        print(nrow(t))
         loudspeakerSurvey <-
           t[t$`Loudspeaker survey` != "", ]$`Loudspeaker survey`
         micSurvey <-
@@ -462,6 +465,7 @@ generate_summary_table <- function(data_list, stairs) {
     }
    
   }
+  print(incomplete)
   incomplete_participant <- c()
   if (nrow(incomplete) > 0) {
     incomplete_participant <- incomplete_participant$participant
@@ -576,7 +580,9 @@ generate_summary_table <- function(data_list, stairs) {
       }
     }
   }
-  
+  print(sessions)
+  print(lateness_duration)
+  print(fontParams)
   # completes$warning <- ""
   # completes$error <- ""
   print('done completes')
