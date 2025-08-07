@@ -239,7 +239,7 @@ extractStaircases <- function(df, info) {
     tidyr::separate_rows(rsvpReadingResponseCorrectBool,sep=',') %>% 
     # use rsvpReadingResponseCorrectBool to determine quest trial right or wrong for RSVP
     mutate(`key_resp.corr` = ifelse(targetKind == "rsvpReading", rsvpReadingResponseCorrectBool == "TRUE", `key_resp.corr` )) %>% 
-    group_by(experiment, 
+    select(experiment, 
              participant, 
              block, 
              block_condition, 
@@ -249,9 +249,9 @@ extractStaircases <- function(df, info) {
              font, 
              thresholdParameter,
              levelProposedByQUEST,
-             trialGivenToQuest) %>% 
-    summarize(`key_resp.corr` = sum(`key_resp.corr`),
-              .groups="drop")
+             trialGivenToQuest,
+           `key_resp.corr` )
+
   # "questMeanBeforeThisTrialResponse", "", "targetMeasuredLatenessSec",
   # "targetMeasuredDurationSec", "targetDurationSec", "key_resp.corr", "level", "heightPx", "targetDurationSec", "markingOffsetBeforeTargetOnsetSecs")#, "targetSpacingPx")
 }

@@ -24,7 +24,6 @@ prepare_regression_data <- function(df_list){
     group_by(participant, font) %>% 
     summarize(avg_log_WPM = mean(log10(avg_wordPerMin)),
               .groups="drop") %>% 
-    ungroup() %>% 
     left_join(crowding_summary, by = c("participant", "font")) %>% 
     mutate(targetKind = "reading")
   
@@ -50,6 +49,7 @@ prepare_regression_data <- function(df_list){
   } else {
     t$correlation = NA
   }
+  t <- t %>% filter(!is.na(avg_log_WPM),!is.na(crowding_distance))
   return(t)
 }
 
@@ -96,14 +96,17 @@ prepare_regression_acuity <- function(df_list){
 }
 regression_reading_plot <- function(df_list){
   t <- prepare_regression_data(df_list)
-  
+  print(t)
   # Foveal subset (unchanged)
   foveal <- t %>%
     filter(type == 'Foveal')
   
   p1 <- NULL
   if (nrow(foveal) > 0) {
-    p1 <- ggplot(foveal, aes(x = crowding_distance, y = 10^(avg_log_WPM), color = font)) +
+    p1 <- ggplot(foveal, aes(x = crowding_distance, 
+                             y = 10^(avg_log_WPM), 
+                             color = paste(targetKind, font),
+                             shape = targetKind)) +
       geom_point() +
       geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
       scale_x_log10() +
@@ -164,9 +167,10 @@ regression_reading_plot <- function(df_list){
     
     p2 <- ggplot(peripheral,
                  aes(
-                   x     = crowding_distance,
-                   y     = 10^(avg_log_WPM),
-                   color = font_label
+                   x = crowding_distance,
+                   y = 10^(avg_log_WPM),
+                   color = paste(targetKind, font_label),
+                   shape = targetKind
                  )) +
       geom_point() +
       # one regression per font because color is mapped globally

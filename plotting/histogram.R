@@ -546,7 +546,7 @@ get_prop_correct_hist_list <- function(quest, max_chars_per_line = 25) {
   
   hist_list <- lapply(names(quest_list), function(cond) {
     # build & wrap the full title 
-    full_title    <- paste("Histogram of proportion", cond)
+    full_title    <- paste("Histogram of proportion correct", cond)
     wrapped_title <- wrap_words(full_title, max_chars_per_line)
     
     data_sub  <- quest_list[[cond]]

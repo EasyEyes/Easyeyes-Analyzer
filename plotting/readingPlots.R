@@ -436,7 +436,7 @@ plot_reading_crowding <- function(allData) {
       data_reading <- data %>%
         select(participant, log_crowding_distance_deg, font) %>%
         inner_join(reading %>% select(-conditionName), by = c("participant")) %>% 
-        mutate(font = paste0(font.x, " vs ", font.y))
+        mutate(font = paste0(font.y, " vs ", font.x))
     }
     
     data_reading <- data_reading %>%

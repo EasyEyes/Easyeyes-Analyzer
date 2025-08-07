@@ -32,11 +32,12 @@ generate_rsvp_reading_crowding_fluency <-
       group_by(participant, staircaseName) %>%
       summarize(NWrongTrial = sum((!`key_resp.corr`) & trialGivenToQuest, na.rm = T),
                 NCorrectTrial = sum((`key_resp.corr`) & trialGivenToQuest, na.rm = T),
-                frac = sum((!`key_resp.corr`) & trialGivenToQuest, na.rm = T) / sum((`key_resp.corr`) & trialGivenToQuest, na.rm = T),
+                frac = sum((!`key_resp.corr`) & trialGivenToQuest, na.rm = T) / sum(trialGivenToQuest, na.rm = T),
                 .groups="drop") %>% 
       filter(NWrongTrial >= minWrongTrials) %>% 
       mutate(block_condition = as.character(staircaseName)) %>% 
       distinct(participant, block_condition, NWrongTrial,NCorrectTrial,frac)
+    
     
     if (nrow(pretest) > 0) {
       if (!'Grade' %in% names(pretest)) {
@@ -158,7 +159,9 @@ generate_rsvp_reading_crowding_fluency <-
     all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
       summary_list[[i]] %>% mutate(order = i)
     } %>% 
-      filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
+      filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
+      mutate(participant = as.character(participant),
+             block_condition = as.character(block_condition))
     
     # apply questSD filter
     all_summary <- all_summary %>% 
@@ -177,7 +180,7 @@ generate_rsvp_reading_crowding_fluency <-
         mutate(lowerCaseParticipant = tolower(participant)) %>% 
         left_join(select(pretest, Grade, `Skilled reader?`, lowerCaseParticipant), by = 'lowerCaseParticipant') %>% 
         select(-lowerCaseParticipant) %>% 
-        mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
+        mutate(Grade = ifelse(is.na(Grade), -1, Grade), block_condition = as.character(block_condition)) %>% 
         mutate(`Skilled reader?` = ifelse(is.na(`Skilled reader?`), 'unkown', `Skilled reader?`))
       
       
@@ -531,6 +534,7 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df,
     summarize(TrialsSentToQuest = sum(trialGivenToQuest),
               BadTrials = sum(!trialGivenToQuest),
               .groups="drop") %>% 
+    mutate(block_condition = as.character(block_condition)) %>% 
     filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | TrialsSentToQuest >= minNQuestTrials)
   
   wrongTrials <- stairs %>%
@@ -545,10 +549,14 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df,
     summary_list[[i]]
   } %>% 
     filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
+    mutate(participant = as.character(participant),
+           block_condition = as.character(block_condition)) %>% 
     inner_join(stairs_summary %>% select(participant, block_condition)) %>% 
     filter(questSDAtEndOfTrialsLoop <= maxQuestSD) %>% 
     inner_join(wrongTrials, by = c("participant", "block_condition"))
   
+  
+  print(all_summary)
   if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
     all_summary <- all_summary %>% filter(conditionName %in% conditionNameInput)
   } 
@@ -700,7 +708,7 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df,
            `sd across participants` = round(`sd across participants`,3),
            `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
     select(experiment,conditionName,m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
-  print(all_summary)
+
   all_summary <- all_summary %>% 
     left_join(stairs_summary, by = c('participant', 'block_condition', 'conditionName')) %>% 
     rename(pavloviaSessionID = participant) %>% 
