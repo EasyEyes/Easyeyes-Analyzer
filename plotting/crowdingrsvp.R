@@ -150,15 +150,18 @@ plot_rsvp_crowding <- function(allData) {
     
     rsvp <- allData$rsvp %>% mutate(participant = tolower(participant))
     
-    if (setequal(crowding$font, rsvp$font)) {
-      data <- crowding %>%
-        inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
-      
-    } else {
-      data <- crowding %>%
-        inner_join(rsvp %>% select(-conditionName), by = c("participant")) %>% 
-        mutate(font = paste0(font.x, " vs ", font.y))
-    }
+    data <- crowding %>%
+      inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
+    
+    # if (setequal(crowding$font, rsvp$font)) {
+    #   data <- crowding %>%
+    #     inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
+    #   
+    # } else {
+    #   data <- crowding %>%
+    #     inner_join(rsvp %>% select(-conditionName), by = c("participant")) %>% 
+    #     mutate(font = paste0(font.x, " vs ", font.y))
+    # }
     
     data <- data %>% 
       distinct(participant, log_crowding_distance_deg, block_avg_log_WPM, age,
@@ -269,17 +272,20 @@ plot_rsvp_crowding <- function(allData) {
   
   create_plot <- function(data, condition, colorFactor) {
     
-    if (setequal(data$font, rsvp$font)) {
-      data_rsvp <- data %>%
-        select(participant, log_crowding_distance_deg, font) %>%
-        inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
-      
-    } else {
-      data_rsvp <- data %>%
-        select(participant, log_crowding_distance_deg, font) %>%
-        inner_join(rsvp %>% select(-conditionName), by = c("participant")) %>% 
-        mutate(font = paste0(font.x, " vs ", font.y))
-    }
+    data_rsvp <- data %>%
+      select(participant, log_crowding_distance_deg, font) %>%
+      inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
+    # if (setequal(data$font, rsvp$font)) {
+    #   data_rsvp <- data %>%
+    #     select(participant, log_crowding_distance_deg, font) %>%
+    #     inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
+    #   
+    # } else {
+    #   data_rsvp <- data %>%
+    #     select(participant, log_crowding_distance_deg, font) %>%
+    #     inner_join(rsvp %>% select(-conditionName), by = c("participant")) %>% 
+    #     mutate(font = paste0(font.x, " vs ", font.y))
+    # }
     
     data_rsvp <- data_rsvp %>%
       distinct(participant,

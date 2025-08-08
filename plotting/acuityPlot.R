@@ -251,16 +251,20 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
     }
    
     # Merge data and calculate WPM and acuity
-    if ( setequal(data$font, rsvp$font)) {
-      data_rsvp <- data %>%
-        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-        inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
-    } else {
-      data_rsvp <- data %>%
-        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-        inner_join(rsvp %>% select(-conditionName), by = c("participant")) %>% 
-        mutate(font = paste0(font.x, " vs ", font.y))
-    }
+    data_rsvp <- data %>%
+      select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+      inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
+    
+    # if ( setequal(data$font, rsvp$font)) {
+    #   data_rsvp <- data %>%
+    #     select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+    #     inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
+    # } else {
+    #   data_rsvp <- data %>%
+    #     select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+    #     inner_join(rsvp %>% select(-conditionName), by = c("participant")) %>% 
+    #     mutate(font = paste0(font.x, " vs ", font.y))
+    # }
   
     
     data_rsvp <- data_rsvp %>% 
@@ -352,7 +356,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
         long  = unit(7, "pt")
       ) +
       color_scale(n = unique_colors) +  # Dynamic color scale
-      guides(color = guide_legend(title = colorFactor), 
+      guides(color = guide_legend(title = colorFactor, ncol = 2), 
              shape = guide_legend(title = '',
                                   ncol = 1)) +
       annotate(
@@ -410,16 +414,19 @@ plot_acuity_reading <- function(acuity, reading, type) {
   create_reading_plot <- function(data, type, colorFactor) {
     # Merge data and calculate WPM and acuity
     
-    if (setequal(data$font, reading$font)) {
-      data_reading <- data %>%
-        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-        inner_join(reading %>% select(-conditionName), by = c("participant", "font"))
-    } else {
-      data_reading <- data %>%
-        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-        inner_join(reading %>% select(-conditionName), by = c("participant")) %>% 
-        mutate(font = paste0(font.x, " vs ", font.y))
-    }
+    data_reading <- data %>%
+      select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+      inner_join(reading, by = c("participant", "font"))
+    # if (setequal(data$font, reading$font)) {
+    #   data_reading <- data %>%
+    #     select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+    #     inner_join(reading %>% select(-conditionName), by = c("participant", "font"))
+    # } else {
+    #   data_reading <- data %>%
+    #     select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+    #     inner_join(reading %>% select(-conditionName), by = c("participant")) %>% 
+    #     mutate(font = paste0(font.x, " vs ", font.y))
+    # }
     
     data_reading <- data_reading %>%
       mutate(
@@ -520,7 +527,11 @@ plot_acuity_reading <- function(acuity, reading, type) {
   }
   
   acuity <- acuity %>% mutate(participant = tolower(participant))
-  reading <- reading %>% mutate(participant = tolower(participant))
+  reading <- reading %>%
+    mutate(participant = tolower(participant)) %>% 
+    group_by(participant, ParticipantCode, Grade, age, font,`Skilled reader?`) %>% 
+    summarize(wordPerMin = mean(wordPerMin, na.rm = T),
+              .groups = 'drop')
   
   foveal <- acuity %>% filter(targetEccentricityXDeg == 0)
   peripheral <- acuity %>%

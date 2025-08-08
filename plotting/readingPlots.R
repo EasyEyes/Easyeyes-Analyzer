@@ -427,17 +427,21 @@ plot_reading_crowding <- function(allData) {
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition, colorFactor) {
 
-    if ( setequal(data$font, reading$font)) {
-      data_reading <- data %>%
-        select(participant, log_crowding_distance_deg, font) %>%
-        inner_join(reading %>% select(-conditionName), by = c("participant", "font"))
-      
-    } else {
-      data_reading <- data %>%
-        select(participant, log_crowding_distance_deg, font) %>%
-        inner_join(reading %>% select(-conditionName), by = c("participant")) %>% 
-        mutate(font = paste0(font.y, " vs ", font.x))
-    }
+    data_reading <- data %>%
+      select(participant, log_crowding_distance_deg, font) %>%
+      inner_join(reading, by = c("participant", "font"))
+    
+    # if ( setequal(data$font, reading$font)) {
+    #   data_reading <- data %>%
+    #     select(participant, log_crowding_distance_deg, font) %>%
+    #     inner_join(reading %>% select(-conditionName), by = c("participant", "font"))
+    #   
+    # } else {
+    #   data_reading <- data %>%
+    #     select(participant, log_crowding_distance_deg, font) %>%
+    #     inner_join(reading %>% select(-conditionName), by = c("participant")) %>% 
+    #     mutate(font = paste0(font.y, " vs ", font.x))
+    # }
     
     data_reading <- data_reading %>%
       distinct(
@@ -533,7 +537,7 @@ plot_reading_crowding <- function(allData) {
         aes(x = X, y = Y),
         method = 'lm',
         se = FALSE,
-        color = "black"  # Regression line in black
+        color = "black"
       ) +
       annotation_logticks(
         sides = "bl", 
@@ -578,13 +582,20 @@ plot_reading_crowding <- function(allData) {
   }
   
   crowding <- allData$crowding %>% mutate(participant = tolower(participant))
+  
   foveal <- crowding %>% filter(targetEccentricityXDeg == 0)
+  
   peripheral <- crowding %>%
     filter(targetEccentricityXDeg != 0) %>%
     group_by(participant, age, Grade, `Skilled reader?`, font) %>%
     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm = TRUE),
               .groups="drop")
-  reading <- allData$reading %>% mutate(participant = tolower(participant))
+  
+  reading <- allData$reading %>%
+    mutate(participant = tolower(participant)) %>% 
+    group_by(participant, ParticipantCode, Grade, age, font,`Skilled reader?`) %>% 
+    summarize(wordPerMin = mean(wordPerMin, na.rm = T),
+              .group = "drop")
   
   if (nrow(allData$reading) == 0 | nrow(allData$crowding) == 0) {
     return(list(NULL, NULL, NULL, NULL))

@@ -4,7 +4,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
   create_plot <- function(data, condition, colorFactor) {
     data_rsvp <- data %>%
       select(participant, log_crowding_distance_deg) %>%
-      inner_join(rsvp, by = "participant") %>%
+      inner_join(rsvp, by = c("participant", "font")) %>%
       distinct(participant, 
                block_avg_log_WPM, 
                log_crowding_distance_deg,

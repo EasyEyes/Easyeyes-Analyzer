@@ -174,7 +174,7 @@ generate_summary_table <- function(data_list, stairs) {
                 fontMaxPx = mean(as.numeric(fontMaxPx),rm.na=T),
                 .groups="drop")
   }
-  print(fontParams)
+
   params <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
     t <- data_list[[i]] %>%
       filter(!is.na(staircaseName) & staircaseName != "") %>%
@@ -382,8 +382,7 @@ generate_summary_table <- function(data_list, stairs) {
             questionAndAnswerResponse
           ) %>%
           arrange(`Loudspeaker survey`)
-        print('distinct row')
-        print(nrow(t))
+
         loudspeakerSurvey <-
           t[t$`Loudspeaker survey` != "", ]$`Loudspeaker survey`
         micSurvey <-
@@ -465,11 +464,10 @@ generate_summary_table <- function(data_list, stairs) {
     }
    
   }
-  print(incomplete)
+
   incomplete_participant <- c()
   if (nrow(incomplete) > 0) {
     incomplete_participant <- incomplete_participant$participant
-    print(paste0('number of incomplete:', nrow(incomplete) ))
   }
   
   print('done noerror_fails')
@@ -580,11 +578,8 @@ generate_summary_table <- function(data_list, stairs) {
       }
     }
   }
-  print(sessions)
-  print(lateness_duration)
-  print(fontParams)
-  # completes$warning <- ""
-  # completes$error <- ""
+
+
   print('done completes')
   
   summary_df <- sessions %>%
