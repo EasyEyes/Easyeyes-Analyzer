@@ -250,21 +250,18 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       return(NULL)
     }
    
-    # Merge data and calculate WPM and acuity
-    data_rsvp <- data %>%
-      select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-      inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
     
     # if ( setequal(data$font, rsvp$font)) {
-    #   data_rsvp <- data %>%
-    #     select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-    #     inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
-    # } else {
-    #   data_rsvp <- data %>%
-    #     select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-    #     inner_join(rsvp %>% select(-conditionName), by = c("participant")) %>% 
-    #     mutate(font = paste0(font.x, " vs ", font.y))
-    # }
+    if ( n_distinct(data$font) > 1 || n_distinct(rsvp$font) > 1) {
+      data_rsvp <- data %>%
+        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+        inner_join(rsvp %>% select(-conditionName), by = c("participant", "font"))
+    } else {
+      data_rsvp <- data %>%
+        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+        inner_join(rsvp %>% select(-conditionName), by = c("participant")) %>%
+        mutate(font = paste0(font.x, " vs ", font.y))
+    }
   
     
     data_rsvp <- data_rsvp %>% 
@@ -414,19 +411,18 @@ plot_acuity_reading <- function(acuity, reading, type) {
   create_reading_plot <- function(data, type, colorFactor) {
     # Merge data and calculate WPM and acuity
     
-    data_reading <- data %>%
-      select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-      inner_join(reading, by = c("participant", "font"))
+
     # if (setequal(data$font, reading$font)) {
-    #   data_reading <- data %>%
-    #     select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-    #     inner_join(reading %>% select(-conditionName), by = c("participant", "font"))
-    # } else {
-    #   data_reading <- data %>%
-    #     select(participant, questMeanAtEndOfTrialsLoop, font) %>%
-    #     inner_join(reading %>% select(-conditionName), by = c("participant")) %>% 
-    #     mutate(font = paste0(font.x, " vs ", font.y))
-    # }
+    if ( n_distinct(data$font) > 1 || n_distinct(reading$font) > 1) {
+      data_reading <- data %>%
+        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+        inner_join(reading, by = c("participant", "font"))
+    } else {
+      data_reading <- data %>%
+        select(participant, questMeanAtEndOfTrialsLoop, font) %>%
+        inner_join(reading, by = c("participant")) %>%
+        mutate(font = paste0(font.x, " vs ", font.y))
+    }
     
     data_reading <- data_reading %>%
       mutate(

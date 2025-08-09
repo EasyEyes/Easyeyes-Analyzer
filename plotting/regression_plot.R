@@ -83,7 +83,9 @@ prepare_regression_acuity <- function(df_list){
     mutate(targetKind = as.character(targetKind))
   
   dt <- rbind(reading,rsvp_speed)
-  if (setequal(dt$font, acuity$font)) {
+  
+  # if (setequal(dt$font, acuity$font)) {
+  if ( n_distinct(dt$font) > 1 || n_distinct(acuity$font) > 1) {
     dt <- dt %>% 
       left_join(acuity, by = c('participant', "font"))
   } else {

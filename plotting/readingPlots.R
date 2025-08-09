@@ -427,21 +427,18 @@ plot_reading_crowding <- function(allData) {
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition, colorFactor) {
 
-    data_reading <- data %>%
-      select(participant, log_crowding_distance_deg, font) %>%
-      inner_join(reading, by = c("participant", "font"))
-    
     # if ( setequal(data$font, reading$font)) {
-    #   data_reading <- data %>%
-    #     select(participant, log_crowding_distance_deg, font) %>%
-    #     inner_join(reading %>% select(-conditionName), by = c("participant", "font"))
-    #   
-    # } else {
-    #   data_reading <- data %>%
-    #     select(participant, log_crowding_distance_deg, font) %>%
-    #     inner_join(reading %>% select(-conditionName), by = c("participant")) %>% 
-    #     mutate(font = paste0(font.y, " vs ", font.x))
-    # }
+    if ( n_distinct(data$font) > 1 || n_distinct(reading$font) > 1) {
+      data_reading <- data %>%
+        select(participant, log_crowding_distance_deg, font) %>%
+        inner_join(reading, by = c("participant", "font"))
+
+    } else {
+      data_reading <- data %>%
+        select(participant, log_crowding_distance_deg, font) %>%
+        inner_join(reading, by = c("participant")) %>%
+        mutate(font = paste0(font.y, " vs ", font.x))
+    }
     
     data_reading <- data_reading %>%
       distinct(
