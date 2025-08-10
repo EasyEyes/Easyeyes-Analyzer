@@ -375,8 +375,13 @@ plot_reading_rsvp <- function(reading, rsvp) {
   slope <- coef(lm_fit)[["X"]]
   
   # Compute R_factor_out_age
-  pcor <- ppcor::pcor(t %>% select(X, Y, age))
-  R_factor_out_age <- round(pcor$estimate[2, 1], 2)
+  if (nrow(t) > 1) {
+    pcor <- ppcor::pcor(t %>% select(X, Y, age))
+    R_factor_out_age <- round(pcor$estimate[2, 1], 2)
+  } else {
+    R_factor_out_age <-  NA
+  }
+ 
   
   
   minXY = min(t$X, t$Y, na.rm = T) * 0.95
