@@ -376,14 +376,26 @@ plot_reading_rsvp <- function(reading, rsvp) {
   
   # Compute R_factor_out_age
   if (nrow(t) > 1) {
-    pcor <- ppcor::pcor(t %>% select(X, Y, age))
-    R_factor_out_age <- round(pcor$estimate[2, 1], 2)
+    print("compute R_factor_out_age")
+    print(t)
+    vars <- t %>% dplyr::select(X, Y, age)
+    print(vars)
+    
+    cor_mat <- cor(vars, use = "pairwise.complete.obs")
+    
+    if (det(cor_mat) < .Machine$double.eps) {
+      warning("Correlation matrix is singular or nearly singular in production")
+      print(cor_mat)
+      R_factor_out_age <- NA
+    } else {
+      pcor <- ppcor::pcor(vars)
+      R_factor_out_age <- round(pcor$estimate[2, 1], 2)
+    }
   } else {
-    R_factor_out_age <-  NA
+    R_factor_out_age <- NA
   }
+  
  
-  
-  
   minXY = min(t$X, t$Y, na.rm = T) * 0.95
   maxXY = max(t$X, t$Y, na.rm = T) * 1.05
   # Generate the plot

@@ -59,9 +59,14 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
       select(slope)
     
     if ('ageN' %in% names(data_for_stat)) {
-      corr_without_age <- ppcor::pcor(data_for_stat %>%
-                                        select(block_avg_log_WPM, log_crowding_distance_deg, ageN))$estimate[2, 1]
-      corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
+      if (nrow(data_for_stat) > 1) {
+        corr_without_age <- ppcor::pcor(data_for_stat %>%
+                                          select(block_avg_log_WPM, log_crowding_distance_deg, ageN))$estimate[2, 1]
+        corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
+      } else {
+        corr_without_age <- NA
+      }
+      
     } else {
       corr_without_age <- NA
     }
@@ -231,7 +236,7 @@ plot_reading_repeated_letter_crowding <- function(allData) {
       mutate(slope = round(estimate, 2)) %>%
       select(slope)
     
-    if ('ageN' %in% names(data_for_stat)) {
+    if ('ageN' %in% names(data_for_stat) & nrow(data_for_stat) > 1) {
       corr_without_age <- ppcor::pcor(data_for_stat %>%
                                         select(log_wpm, log_crowding_distance_deg, ageN))$estimate[2, 1]
       corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
