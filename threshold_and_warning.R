@@ -113,7 +113,7 @@ generate_rsvp_reading_crowding_fluency <-
                                    9.5 / as.numeric(readingPageDurationOnsetToOffsetSec) * 60, 
                                    as.numeric(readingPageWords)/ as.numeric(readingPageDurationOnsetToOffsetSec) * 60)) %>% 
         mutate(log_WPM = log10(wordPerMin)) %>% 
-        filter(targetKind == "reading" & font !="")
+        filter(targetKind == "reading" & font !="" & trial > 1)
       
       reading <- rbind(reading, t)
     }
@@ -596,7 +596,7 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df,
                       9.5 / as.numeric(readingPageDurationOnsetToOffsetSec) * 60, 
                       as.numeric(readingPageWords)/ as.numeric(readingPageDurationOnsetToOffsetSec) * 60)) %>% 
       mutate(log_WPM = log10(wordPerMin)) %>% 
-      filter(targetKind == "reading" & font !="") %>% 
+      filter(targetKind == "reading" & font !="" & trial > 1) %>% 
       ungroup()
     
     reading <- rbind(reading, t)
