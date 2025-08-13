@@ -141,42 +141,64 @@ plot_distance <- function(data_list) {
     return(NULL)
   }
   
-  # Perform regression
-  fit <- lm(log10(calibrateTrackDistanceMeasuredCm) ~ log10(calibrateTrackDistanceRequestedCm), data = distance)
+  # Average Measured Distance per Participant per Requested Distance
+  distance_avg <- distance %>%
+    group_by(participant, calibrateTrackDistanceRequestedCm) %>%
+    summarize(
+      avg_measured = mean(calibrateTrackDistanceMeasuredCm, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # Perform regression on averaged data
+  fit <- lm(log10(avg_measured) ~ log10(calibrateTrackDistanceRequestedCm), data = distance_avg)
 
   # Calculate slope and correlation
   slope <- coef(fit)
   slope <- format(round(slope[['log10(calibrateTrackDistanceRequestedCm)']], 2), nsmall=2)
-  corr <- cor(log10(distance$calibrateTrackDistanceRequestedCm), log10(distance$calibrateTrackDistanceMeasuredCm))
+  corr <- cor(log10(distance_avg$calibrateTrackDistanceRequestedCm), log10(distance_avg$avg_measured))
   corr <- format(round(corr,2), nsmall=2)
   
   # Determine identical scale limits for both axes
-  min_val <- min(c(distance$calibrateTrackDistanceRequestedCm, distance$calibrateTrackDistanceMeasuredCm))
-  max_val <- max(c(distance$calibrateTrackDistanceRequestedCm, distance$calibrateTrackDistanceMeasuredCm))
+  min_val <- min(c(distance_avg$calibrateTrackDistanceRequestedCm, distance_avg$avg_measured))
+  max_val <- max(c(distance_avg$calibrateTrackDistanceRequestedCm, distance_avg$avg_measured))
   
   # Logarithmic plot with identical scales
-  p <- ggplot(data=distance, 
+  p <- ggplot(data=distance_avg, 
               aes(x = calibrateTrackDistanceRequestedCm, 
-                  y = calibrateTrackDistanceMeasuredCm)) + 
-    geom_point(aes(color =participant)) + 
+                  y = avg_measured)) + 
+    # Connect points for each participant with lines
+    geom_line(aes(color = participant, group = participant), alpha = 0.7) +
+    geom_point(aes(color = participant), size = 2) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
-                        label = paste0('N=', n_distinct(distance$participant), '\n',
+                        label = paste0('N=', n_distinct(distance_avg$participant), '\n',
                                        'R=', corr, '\n',
                                        'slope=', slope)) + 
-    geom_smooth(method='lm', se=F, formula=y~x) + 
+    # Remove regression line, keep R and slope statistics 
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") + # y=x line
     scale_x_log10(limits = c(min_val, max_val)) +  # Log scale for X-axis
     scale_y_log10(limits = c(min_val, max_val)) +  # Log scale for Y-axis (identical to X)
     scale_color_manual(values= colorPalette) + 
     guides(color = guide_legend(
-      nrow = 3,
-      title = ""
+      ncol = 4,  # More columns to fit more participants horizontally
+      title = "",
+      # Reduce legend text size to fit more participants
+      override.aes = list(size = 2),  # Smaller points in legend
+      keywidth = unit(1.2, "lines"),  # Reduce key width
+      keyheight = unit(0.8, "lines")  # Reduce key height
     )) +
     coord_fixed() +  
-    labs(title = 'Measured vs requested Distance',
-         x = 'Requested Distance (cm)',
-         y = 'Measured Distance (cm)')
+    labs(title = 'Measured vs requested distance',
+         x = 'Requested distance (cm)',
+         y = 'Measured distance (cm)') +
+    # Reduce font sizes to create more space for legend
+    theme(
+      legend.text = element_text(size = 7),        # Smaller legend text (was default ~10-12)
+      legend.title = element_text(size = 8),       # Smaller legend title
+      axis.title = element_text(size = 10),        # Smaller axis titles (was default ~12-14)
+      axis.text = element_text(size = 9),          # Smaller axis text (was default ~10-12)
+      plot.title = element_text(size = 12)         # Smaller plot title (was default ~14-16)
+    )
   
   return(p)
 }
