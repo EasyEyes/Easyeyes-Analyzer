@@ -633,7 +633,7 @@ get_prop_correct_hist_list <- function(quest, max_chars_per_line = 25) {
 
 
 
-append_hist_list <- function(data_list, plot_list, fileNames){
+append_hist_list <- function(data_list, plot_list, fileNames, experimentNames){
   
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
@@ -709,6 +709,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
                                     expand = expansion(add = 0)) 
         
       }
+      p <-  add_experiment_footnote(p, experimentNames)
       plot_list[[j]] <- p
       fileNames[[j]] <- paste0(var,'-histogram')
       j = j + 1
@@ -738,6 +739,7 @@ append_hist_list <- function(data_list, plot_list, fileNames){
         y     = 'Count',
         title = 'Histogram of\nspacingMinDeg'
       )
+    p <-  add_experiment_footnote(p, experimentNames)
     plot_list[[j]] <- p
     fileNames[[j]] <- "spacingMinDeg-histogram"
     j = j + 1

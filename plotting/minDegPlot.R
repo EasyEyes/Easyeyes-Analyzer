@@ -126,36 +126,40 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
   x_max <- max(foveal_crowding$minDeg, na.rm = TRUE)
   xlim_p5 <- c(0.8 * x_min, 1.2 * x_max)
   
-  p5 <- ggplot(foveal_crowding) + 
-    # equality line (y = x)
-    geom_abline(slope = 1, intercept = 0, linetype = "solid") +
-    geom_point(aes(x = minDeg, y = 10^(log_crowding_distance_deg)),
-               color = "black", fill = "black") +
-    scale_x_log10(
-      limits = xlim_p5,
-      breaks = scales::log_breaks(base = 10),
-    ) +
-    scale_y_log10(
-      breaks = scales::log_breaks(base = 10),
-    ) + 
-    coord_fixed() + 
-    annotation_logticks(
-      sides = "bl", 
-      short = unit(2, "pt"), 
-      mid   = unit(2, "pt"), 
-      long  = unit(7, "pt")
-    ) + 
-    ggpp::geom_text_npc(aes(
-      npcx = "left",
-      npcy = "top",
-      label = paste0('N=', nrow(foveal_crowding))
-    )) + 
-    labs(
-      x = 'spacingMinDeg',
-      y = 'Crowding distance (deg)',
-      title = 'Foveal crowding vs. spacingMinDeg'
-    )
-  
+  if (nrow(foveal_crowding) > 0) {
+    p5 <- ggplot(foveal_crowding) + 
+      # equality line (y = x)
+      geom_abline(slope = 1, intercept = 0, linetype = "solid") +
+      geom_point(aes(x = minDeg, y = 10^(log_crowding_distance_deg)),
+                 color = "black", fill = "black") +
+      scale_x_log10(
+        limits = xlim_p5,
+        breaks = scales::log_breaks(base = 10),
+      ) +
+      scale_y_log10(
+        breaks = scales::log_breaks(base = 10),
+      ) + 
+      coord_fixed() + 
+      annotation_logticks(
+        sides = "bl", 
+        short = unit(2, "pt"), 
+        mid   = unit(2, "pt"), 
+        long  = unit(7, "pt")
+      ) + 
+      ggpp::geom_text_npc(aes(
+        npcx = "left",
+        npcy = "top",
+        label = paste0('N=', nrow(foveal_crowding))
+      )) + 
+      labs(
+        x = 'spacingMinDeg',
+        y = 'Crowding distance (deg)',
+        title = 'Foveal crowding vs. spacingMinDeg'
+      )
+  } else {
+    p5 <- NULL
+  }
+ 
   quest_subset <- quest %>%
     select(participant, conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, targetEccentricityXDeg)
   
@@ -274,12 +278,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
   
   return(
     list(
-      scatter = list(
-        plotList = list(p5),
-        fileNames = list(
-          'foveal-crowding-vs-spacingMinDeg'
-        )
-      ),
+      scatter = 95,
       scatter_quality = list(
         plotList = list(p4, p6, p7, p8, p9),
         fileNames = list(

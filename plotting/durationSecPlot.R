@@ -665,46 +665,36 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
               fileNames = fileNames))
 }
 
-append_scatter_list <- function(data_list, plot_list, fileNames, conditionNameInput) {
+plot_badLatenessTrials_vs_memory <- function(data_list,conditionNameInput) {
   print('inside append_scatter_list')
+  info <-  foreach(i=1:length(data_list), .combine='rbind') %do% {
+    t <- data_list[[i]] %>% 
+      filter(!is.na(block_condition) & block_condition != "") %>%
+      distinct(participant,
+             block_condition,
+             conditionName)
+  }
+  
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
       filter(!is.na(staircaseName)) %>%
       select(participant,
-             block,
-             conditionName,
+             staircaseName,
              targetMeasuredDurationSec,
              targetMeasuredLatenessSec,
              targetDurationSec,
-             mustTrackSec,
              thresholdAllowedDurationRatio,
              thresholdAllowedLatenessSec,
-             `heapUsedBeforeDrawing (MB)`,
-             `heapTotalBeforeDrawing (MB)`,
-             `heapLimitBeforeDrawing (MB)`,
-             `heapUsedAfterDrawing (MB)`,
-             `heapTotalAfterDrawing (MB)`,
-             `heapLimitAfterDrawing (MB)`,
-             `heapTotalPostLateness (MB)`,
-             `heapTotalPreLateness (MB)`,
-             computeRandomMHz,
-             deviceMemoryGB,
-             cores,
-             font,
-             fontNominalSizePx,
-             screenWidthPx,
-             fontPadding,
-             trialGivenToQuest,
-             longTaskDurationSec,
-             deviceSystemFamily) %>% 
-      rename(hardwareConcurrency = cores) %>% 
-      mutate(deltaHeapUsedMB = as.numeric(`heapUsedAfterDrawing (MB)`) - as.numeric(`heapUsedBeforeDrawing (MB)`),
-             deltaHeapTotalMB = as.numeric(`heapTotalAfterDrawing (MB)`) - as.numeric(`heapTotalBeforeDrawing (MB)`),
-             deltaHeapLatenessMB = as.numeric(`heapTotalPostLateness (MB)`) - as.numeric(`heapTotalPreLateness (MB)`))
+             deviceMemoryGB
+        ) %>% 
+      drop_na() %>% 
+    mutate(block_condition = staircaseName)
   }
   
   if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
-    params <- params %>% filter(conditionName %in% conditionNameInput)
+    params <- params %>%
+      left_join(info, by = c("participant", "block_condition")) %>% 
+      filter(conditionName %in% conditionNameInput)
   } 
   
   if (is.character(params$targetMeasuredDurationSec)) {
@@ -712,44 +702,34 @@ append_scatter_list <- function(data_list, plot_list, fileNames, conditionNameIn
     params$targetMeasuredDurationSec <- as.numeric(params$targetMeasuredDurationSec)
   }
   
-  webGL <- get_webGL(data_list)
-  params <- params %>%
-    filter(!is.na(font)) %>% 
-    left_join(webGL, by = 'participant') %>% 
-    arrange(hardwareConcurrency) %>% 
-    mutate(hardwareConcurrency = as.factor(hardwareConcurrency))
-  
-  blockAvg <- params %>% 
-    group_by(participant, block, hardwareConcurrency, deviceSystemFamily, font) %>% 
+ 
+  params <- params %>% 
+    group_by(participant) %>% 
     mutate(upper = max(thresholdAllowedDurationRatio, 1/thresholdAllowedDurationRatio) * targetDurationSec,
            lower = targetDurationSec / max(thresholdAllowedDurationRatio, 1/thresholdAllowedDurationRatio)) %>% 
-    summarize(heapTotalAfterDrawingAvg = mean(`heapTotalAfterDrawing (MB)`, na.rm =T),
-              heapUsedAfterDrawingAvg = mean(`heapUsedAfterDrawing (MB)`, na.rm =T),
-              badLatenessTrials = sum(targetMeasuredLatenessSec > thresholdAllowedLatenessSec),
+    summarize(badLatenessTrials = sum(targetMeasuredLatenessSec > thresholdAllowedLatenessSec),
               badDurationTrials = sum(targetMeasuredDurationSec > upper | targetMeasuredDurationSec < lower),
-              .groups="drop") %>% 
-    arrange(hardwareConcurrency) %>% 
-    mutate(hardwareConcurrency = as.factor(hardwareConcurrency))
-  
-  j = length(plot_list) + 1
+              .groups="drop")
   
   
-  if (n_distinct(blockAvg$deviceMemoryGB) > 1 & n_distinct(blockAvg$badLatenessTrials) > 1) {
-    n = nrow(blockAvg %>% filter(!is.na(deviceMemoryGB), !is.na(badLatenessTrials)))
-    plot_list[[j]] <- ggplot(data=blockAvg, aes(x=deviceMemoryGB,y=badLatenessTrials, color = participant)) +
+  
+  if (n_distinct(params$deviceMemoryGB) > 1 & n_distinct(params$badLatenessTrials) > 1) {
+    n = nrow(params %>% filter(!is.na(deviceMemoryGB), !is.na(badLatenessTrials)))
+    p <- ggplot(data=params, aes(x=deviceMemoryGB,y=badLatenessTrials, color = participant)) +
       geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
       labs(title = 'badLatenessTrials vs. deviceMemoryGB\ncolored by participant',
-           caption = 'Points jittered to avoid occlusion.')
-    fileNames[[j]] <- 'badLatenessTrials-vs-deviceMemoryGB-by-participant'
-    j = j + 1
+           caption = 'Points jittered to avoid occlusion.') + 
+      ggpp::geom_text_npc(aes(npcx = 'left',
+                             npcy = 'top',
+                             label = paste0('N=', n)))
+      
+  } else {
+    p <- NULL
   }
   
   
-  return(list(
-    plotList = plot_list,
-    fileNames=fileNames
-  ))
+  return(p)
 }
 
 append_scatter_time_participant <- function(data_list, plot_list, fileNames, conditionNameInput) {

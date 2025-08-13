@@ -617,23 +617,22 @@ shinyServer(function(input, output, session) {
   
   regressionFontPlot <- reactive({
     req(input$file)
-    regression_font(df_list(), reading_rsvp_crowding_df()) +
-      labs(title = experiment_names(),
-           subtitle = "Reading vs crowding")
+    base_plot <- regression_font(df_list(), reading_rsvp_crowding_df()) +
+      labs(title = "Reading vs crowding")
+    add_experiment_footnote(base_plot, experiment_names())
   })
   
   regressionFontPlotWithLabel <- reactive({
     req(input$file)
-    regression_font_with_label(df_list(), reading_rsvp_crowding_df()) +
-      labs(title = experiment_names(),
-           subtitle = "Reading vs crowding")
+    base_plot <- regression_font_with_label(df_list(), reading_rsvp_crowding_df()) +
+      labs(title = "Reading vs crowding")
+    add_experiment_footnote(base_plot, experiment_names())
   })
   
   readingTestRetest <- reactive({
     req(input$file)
-    get_test_retest_reading(df_list()[[1]]) +
-      labs(title = experiment_names(),
-           subtitle = "Test retest of reading") +
+    base_plot <- get_test_retest_reading(df_list()[[1]]) +
+      labs(title = "Test retest of reading") +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "bottom",
@@ -642,12 +641,12 @@ shinyServer(function(input, output, session) {
         )))
       ),
       parse = T)
+    add_experiment_footnote(base_plot, experiment_names())
   })
   crowdingTestRetest <- reactive({
     req(input$file)
-    get_test_retest_crowding(df_list()[[2]]) +
-      labs(title = experiment_names(),
-           subtitle = "Test retest of crowding") +
+    base_plot <- get_test_retest_crowding(df_list()[[2]]) +
+      labs(title = "Test retest of crowding") +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "bottom",
@@ -656,13 +655,13 @@ shinyServer(function(input, output, session) {
         )))
       ),
       parse = T)
+    add_experiment_footnote(base_plot, experiment_names())
   })
   
   rsvpReadingTestRetest <- reactive({
     req(input$file)
-    get_test_retest_rsvp(df_list()[[3]])  +
-      labs(title = experiment_names(),
-           subtitle = "Test retest of rsvp reading") +
+    base_plot <- get_test_retest_rsvp(df_list()[[3]])  +
+      labs(title = "Test retest of rsvp reading") +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "bottom",
@@ -671,13 +670,13 @@ shinyServer(function(input, output, session) {
         )))
       ),
       parse = T)
+    add_experiment_footnote(base_plot, experiment_names())
   })
   
   readingSpeedRetention <- reactive({
     req(input$file)
-    reading_speed_vs_retention(df_list()[[1]]) +
-      labs(title = experiment_names(),
-           subtitle = "Reading vs retention") +
+    base_plot <- reading_speed_vs_retention(df_list()[[1]]) +
+      labs(title = "Reading vs retention") +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "bottom",
@@ -686,6 +685,7 @@ shinyServer(function(input, output, session) {
         )))
       ),
       parse = T)
+    add_experiment_footnote(base_plot, experiment_names())
   })
   
   agePlots <- reactive({
@@ -714,7 +714,13 @@ shinyServer(function(input, output, session) {
 
     for (call in plot_calls) {
       p <- call$plot
-      res <- append_plot_list(l, fileNames, p + plt_theme, call$fname)
+      if (!is.null(p)) {
+        p_with_theme <- p + plt_theme
+        p_with_footnote <- add_experiment_footnote(p_with_theme, experiment_names())
+      } else {
+        p_with_footnote <- p
+      }
+      res <- append_plot_list(l, fileNames, p_with_footnote, call$fname)
       l <- res$plotList
       fileNames <- res$fileNames
     }
@@ -761,9 +767,11 @@ shinyServer(function(input, output, session) {
 
   all_calls <- c(static_calls, prop_calls)
   for (call in all_calls) {
+    plot_with_theme <- call$plot + hist_theme
+    plot_with_footnote <- add_experiment_footnote(plot_with_theme, experiment_names())
     res <- append_plot_list(
       l, fileNames,
-      call$plot + hist_theme,
+      plot_with_footnote,
       call$fname
     )
     l         <- res$plotList
@@ -771,7 +779,7 @@ shinyServer(function(input, output, session) {
   }
 
   print('before appending')
-  lists <- append_hist_list(data_list(), l, fileNames)
+  lists <- append_hist_list(data_list(), l, fileNames, experiment_names())
 
   list(
     plotList  = lists$plotList,
@@ -865,25 +873,25 @@ shinyServer(function(input, output, session) {
       list(plot = regression_plots$peripheral, fname = 'reading-rsvp-reading-vs-peripheral-crowding'),
       list(plot = regression_acuity_plot(df_list()), fname = 'ordinary-reading-rsvp-reading-vs-acuity'),
       list(plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp), fname = 'reading-vs-RSVP-reading-plot'),
-      list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade')
+      list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade'),
+      list(plot = plot_badLatenessTrials_vs_memory(data_list(),conditionNames()), fname="badLatenessTrials-vs-deviceMemoryGB-by-participant"),
+      list(plot = minDegPlots()$scatter, fname="foveal-crowding-vs-spacingMinDeg")
     )
 
     for (call in plot_calls) {
       plot <- call$plot
       if (!is.null(plot)) {
         plot <- plot + scale_color_manual(values = colorPalette)
+        plot <- add_experiment_footnote(plot, experiment_names())
       }
       res <- append_plot_list(l, fileNames, plot, call$fname)
       l <- res$plotList
       fileNames <- res$fileNames
     }
 
-    lists = append_scatter_list(data_list(), l, fileNames, conditionNames())
-    minDegPlot <- minDegPlots()$scatter
-
     return(list(
-      plotList = c(lists$plotList, minDegPlot$plotList),
-      fileNames = c(lists$fileNames, minDegPlot$fileNames)
+      plotList = l,
+      fileNames = fileNames
     ))
   })
   
@@ -901,6 +909,7 @@ shinyServer(function(input, output, session) {
       plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
     if (!is.null(crowdingPlots$fovealPlot)) {
       l[[i]] <- crowdingPlots$fovealPlot +  scale_color_manual(values = colorPalette)
+      l[[i]] <- add_experiment_footnote(l[[i]], experiment_names())
       fileNames[[i]] <-
         'foveal-crowding-staircases-threshold-vs-questTrials'
       i <- i + 1
@@ -909,6 +918,7 @@ shinyServer(function(input, output, session) {
     # Add peripheral plot to the list
     if (!is.null(crowdingPlots$peripheralPlot)) {
       l[[i]] <- crowdingPlots$peripheralPlot + scale_color_manual(values = colorPalette)
+      l[[i]] <- add_experiment_footnote(l[[i]], experiment_names())
       fileNames[[i]] <-
         'peripheral-crowding-staircases-threshold-vs-questTrials'
       i <- i + 1
@@ -917,6 +927,7 @@ shinyServer(function(input, output, session) {
     t <- get_quest_diag(df_list()$quest)$grade
     if (!is.null(t)) {
       l[[i]] = t + scale_color_manual(values = colorPalette)
+      l[[i]] <- add_experiment_footnote(l[[i]], experiment_names())
       fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
       i = i + 1
     }
@@ -924,6 +935,7 @@ shinyServer(function(input, output, session) {
     t <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
     if (!is.null(t)) {
       l[[i]] <- t + scale_color_manual(values = colorPalette)
+      l[[i]] <- add_experiment_footnote(l[[i]], experiment_names())
       fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
       i <- i + 1
     }
@@ -1110,9 +1122,10 @@ shinyServer(function(input, output, session) {
   
   output$corrMatrixPlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
+    plot_with_footnote <- add_experiment_footnote(corrMatrix()$plot, experiment_names())
     ggsave(
       file = outfile,
-      plot =  corrMatrix()$plot,
+      plot = plot_with_footnote,
       device = svglite,
       width = corrMatrix()$width,
       height = corrMatrix()$height
@@ -1123,9 +1136,10 @@ shinyServer(function(input, output, session) {
   
   output$nMatrixPlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
+    plot_with_footnote <- add_experiment_footnote(corrMatrix()$n_plot, experiment_names())
     ggsave(
       file   = outfile,
-      plot   = corrMatrix()$n_plot,   
+      plot   = plot_with_footnote,   
       device = svglite,
       width  = corrMatrix()$width,
       height = corrMatrix()$height
@@ -1136,9 +1150,10 @@ shinyServer(function(input, output, session) {
   
   output$durationCorrMatrixPlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
+    plot_with_footnote <- add_experiment_footnote(durationCorrMatrix()$plot, experiment_names())
     ggsave(
       file = outfile,
-      plot =  durationCorrMatrix()$plot,
+      plot = plot_with_footnote,
       device = svg,
       width = durationCorrMatrix()$width,
       height = durationCorrMatrix()$height
@@ -2315,30 +2330,32 @@ shinyServer(function(input, output, session) {
     # RSVP
     output$stackedRsvpPlot <- renderImage({
       outfile <- tempfile(fileext = '.svg')
+      base_plot <- stackedPlots()$rsvp_plot +
+        plt_theme +
+        theme(
+          axis.text.x = element_text(),
+          axis.ticks.x = element_line(),
+          plot.title = element_text(size = 14, margin = margin(b = 1)),
+          plot.margin = margin(
+            t = 2,
+            r = 5,
+            b = 2,
+            l = 5
+          )
+        ) +
+        theme(
+          legend.position = "top",
+          legend.key.size = unit(2, "mm"),
+          legend.title = element_text(size = 8),
+          legend.text = element_text(size = 8),
+          axis.text = element_text(size = 11),
+          plot.title = element_text(size = 12, margin = margin(b = 2)),
+          plot.margin = margin(5, 5, 5, 5, "pt")
+        )
+      plot_with_footnote <- add_experiment_footnote(base_plot, experiment_names())
       ggsave(
         filename = outfile,
-        plot = stackedPlots()$rsvp_plot +
-          plt_theme +
-          theme(
-            axis.text.x = element_text(),
-            axis.ticks.x = element_line(),
-            plot.title = element_text(size = 14, margin = margin(b = 1)),
-            plot.margin = margin(
-              t = 2,
-              r = 5,
-              b = 2,
-              l = 5
-            )
-          ) +
-          theme(
-            legend.position = "top",
-            legend.key.size = unit(2, "mm"),
-            legend.title = element_text(size = 8),
-            legend.text = element_text(size = 8),
-            axis.text = element_text(size = 11),
-            plot.title = element_text(size = 12, margin = margin(b = 2)),
-            plot.margin = margin(5, 5, 5, 5, "pt")
-          ),
+        plot = plot_with_footnote,
         width = 6,
         height = 8,
         unit = "in",

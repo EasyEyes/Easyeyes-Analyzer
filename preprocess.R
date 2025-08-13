@@ -7,9 +7,6 @@ arabic_to_western <- function(x) {
   chartr("٠١٢٣٤٥٦٧٨٩", "0123456789", x)
 }
 
-# Example
-arabic_to_western("١٢٣٤")  # Output: "1234"
-
 
 pxToPt <- function(px, pxPerCm) {
   return ((px / pxPerCm) * 72) / 2.54
@@ -72,11 +69,15 @@ ensure_columns <- function(t, file_name = NULL) {
     df
   }
   # List of columns and their default values
+  breaked_fileName = str_split(file_name, "[_]")[[1]]
+
   required_cols <- list(
     participant = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][1] else "",
     ProlificParticipantID = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][2] else "",
     ProlificSessionID = "",
-    experiment = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][3] else "",
+    experiment = case_when(!is.null(file_name) & length(breaked_fileName) == 6 ~breaked_fileName[2],
+                           is.null(file_name) & length(breaked_fileName) == 7 ~breaked_fileName[3],
+                           .default = ""),
     error = "",
     questionAndAnswerResponse = "",
     warning = "",
