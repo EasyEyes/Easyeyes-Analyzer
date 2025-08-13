@@ -270,7 +270,7 @@ generate_summary_table <- function(data_list, stairs) {
         `Loudspeaker survey` = ifelse(length(loudspeakerSurvey) == 0, '', loudspeakerSurvey),
         `_needsUnmet` = ifelse(length(needsUnmet) == 0, '', needsUnmet),
         `Microphone survey` = ifelse(length(micSurvey) == 0, '', micSurvey),
-        QRConnect = ifelse(length(QRConnect) == 0, '', needsUnmet),
+        QRConnect = ifelse(length(QRConnect) == 0, '', QRConnect),
         `ComputerInfoFrom51Degrees` = ifelse(
           length(ComputerInfoFrom51Degrees) == 0,
           '',
@@ -398,7 +398,7 @@ generate_summary_table <- function(data_list, stairs) {
             `Loudspeaker survey` = ifelse(length(loudspeakerSurvey) == 0, '', loudspeakerSurvey),
             `_needsUnmet` = ifelse(length(needsUnmet) == 0, '', needsUnmet),
             `Microphone survey` = ifelse(length(micSurvey) == 0, '', micSurvey),
-            QRConnect = ifelse(length(QRConnect) == 0, '', needsUnmet),
+            QRConnect = ifelse(length(QRConnect) == 0, '', QRConnect),
             `ComputerInfoFrom51Degrees` = ifelse(
               length(ComputerInfoFrom51Degrees) == 0,
               '',
@@ -518,7 +518,7 @@ generate_summary_table <- function(data_list, stairs) {
             `Loudspeaker survey` = ifelse(length(loudspeakerSurvey) == 0, '', loudspeakerSurvey),
             `_needsUnmet` = ifelse(length(needsUnmet) == 0, '', needsUnmet),
             `Microphone survey` = ifelse(length(micSurvey) == 0, '', micSurvey),
-            QRConnect = ifelse(length(QRConnect) == 0, '', needsUnmet),
+            QRConnect = ifelse(length(QRConnect) == 0, '', QRConnect),
             `ComputerInfoFrom51Degrees` = ifelse(
               length(ComputerInfoFrom51Degrees) == 0,
               '',
