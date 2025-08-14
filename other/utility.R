@@ -1,3 +1,39 @@
+arabic_to_western <- function(x) {
+  chartr("٠١٢٣٤٥٦٧٨٩", "0123456789", x)
+}
+
+
+pxToPt <- function(px, pxPerCm) {
+  return ((px / pxPerCm) * 72) / 2.54
+}
+
+ptToPx <- function(pt, pxPerCm) {
+  return ((2.54 * pt) / 72) * pxPerCm
+}
+
+# Helper function to add experiment name to plot title
+add_experiment_title <- function(plot, experiment_name) {
+  if (is.null(plot) || is.null(experiment_name) || experiment_name == "") {
+    return(plot)
+  }
+  
+  # Get the current title
+  original_title <- plot$labels$title
+  
+  # If there's no original title, use empty string
+  if (is.null(original_title)) {
+    original_title <- ""
+  }
+  
+  # Create new title with experiment name and line break
+  new_title <- paste0(experiment_name, "\n", original_title)
+  
+  # Update the plot title
+  plot <- plot + labs(title = new_title)
+  
+  return(plot)
+}
+
 # Consistent way of saving plot using rsvg_png
 savePlot <- function(plot, filename, fileType, width = 8, height = 6) {
   if (fileType == "png") {

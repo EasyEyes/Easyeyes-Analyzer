@@ -78,7 +78,7 @@ plt_theme_scatter <- theme(
                             hjust = 0),
   plot.title.position = "plot",
   plot.subtitle = element_text(size=18),
-  plot.caption = element_text(size=10, hjust = 0),
+  plot.caption = element_text(size=10),
   plot.margin = margin(
     t = 0.1,
     r = 0.9,
@@ -143,7 +143,7 @@ plt_theme <- theme(legend.position = "top",
                    plot.title.position = "plot",
                    plot.subtitle = element_text(size=18,
                                                 hjust = 0),
-                   plot.caption = element_text(size=10, hjust = 0),
+                   plot.caption = element_text(size=10),
                    plot.margin = margin(
                      t = 0.1,
                      r = 0.1,
@@ -171,7 +171,7 @@ plt_theme_ggiraph <- theme(legend.position = "top",
                    plot.title.position = "plot",
                    plot.subtitle = element_text(size=12,
                                                 hjust = 0),
-                   plot.caption = element_text(size=10, hjust = 0),
+                   plot.caption = element_text(size=10),
                    plot.margin = margin(
                      t = 0.1,
                      r = 0.1,
@@ -201,7 +201,7 @@ hist_theme <- theme(legend.position = "top",
                    plot.title.position = "plot",
                    plot.subtitle = element_text(size=12,
                                                 hjust = 0),
-                   plot.caption = element_text(size=10, hjust = 0),
+                   plot.caption = element_text(size=10),
                    plot.margin = margin(
                      t = 0.1,
                      r = 0.5,
@@ -220,7 +220,7 @@ stacked_theme <- theme(
   legend.text = element_text(size = 8),
   axis.text = element_text(size = 11),
   plot.title = element_text(size = 12, margin = margin(b = 2)),
-  plot.caption = element_text(size=10, hjust = 0),
+  plot.caption = element_text(size=10),
   plot.margin = margin(5, 5, 5, 5, "pt")
 )
 
@@ -237,17 +237,6 @@ scale_family <- function(...) {
   discrete_scale("family", "family_d", function(n)namesfamily[(1:n)%%nfamily+1])
 }
 
-# Helper function to add experiment name as footnote to plots
-add_experiment_footnote <- function(plot, experiment_name) {
-  if (is.null(plot) || is.null(experiment_name) || experiment_name == "") {
-    return(plot)
-  }
-  
-  # Add experiment name as caption (footnote) to the plot
-  plot <- plot + labs(caption = experiment_name)
-  
-  return(plot)
-}
 
 # eq1_text <- "\\(totalDBSPL = 10 \\text{log}_{10}(10 ^ {\\frac{backgroundDbSpl}{10}} + 10 ^ {\\frac{(gainDbSpl + inDb)}{10}}) \\\\  
 # outDB = \\begin{cases} T + \\frac{(totalDBSPL - T)}{R} & \\text{if} \\ \\ totalDBSPL > T + \\frac{W}{2} \\\\

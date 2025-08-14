@@ -3,18 +3,6 @@ library(stringr)
 library(readr)
 source('./plotting/simulatedRSVP.R')
 
-arabic_to_western <- function(x) {
-  chartr("٠١٢٣٤٥٦٧٨٩", "0123456789", x)
-}
-
-
-pxToPt <- function(px, pxPerCm) {
-  return ((px / pxPerCm) * 72) / 2.54
-}
-
-ptToPx <- function(pt, pxPerCm) {
-  return ((2.54 * pt) / 72) * pxPerCm
-}
 impute_column <- function(df, colname, preceding_value) {
   col <- df[[colname]]
   
@@ -80,11 +68,15 @@ ensure_columns <- function(t, file_name = NULL) {
                            .default = ""),
     error = "",
     questionAndAnswerResponse = "",
+    questionAndAnswerQuestion = "", 
+    questionAndAnswerNickname = "",
+    questionAndAnswerCorrectAnswer = "",
     warning = "",
     readingCorpus = "",
     viewingDistanceDesiredCm = NA,
     readingLinesPerPage = NA,
     readingPageDurationOnsetToOffsetSec = NA,
+    readingPages = NA,
     readingPageWords = NA,
     readingNumberOfQuestions = NA,
     key_resp.keys = NA,
@@ -127,6 +119,7 @@ ensure_columns <- function(t, file_name = NULL) {
     fontNominalSizePt = NA,
     fontNominalSizePx = NA,
     fontMaxPx = NA,
+    `trials.thisN` = NA,
     thresholdAllowedDurationRatio = NaN,
     thresholdAllowedLatenessSec = NaN,
     targetDurationSec = NaN,
@@ -180,28 +173,28 @@ ensure_columns <- function(t, file_name = NULL) {
   t$screenWidthCm = sort(t$screenWidthCm)[1]
   t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
   
-  t$hardwareConcurrency = ifelse(length(unique(t$hardwareConcurrency)) > 1,
-                           unique(t$hardwareConcurrency[!is.na(t$hardwareConcurrency)]), 
-                           "")
-  
-  t$deviceBrowser = ifelse(length(unique(t$deviceBrowser)) > 1,
-                                  unique(t$deviceBrowser[!is.na(t$deviceBrowser)]), 
-                                  "")
-  
-  t$deviceBrowserVersion = ifelse(length(unique(t$deviceBrowserVersion)) > 1,
-                                  unique(t$deviceBrowserVersion[!is.na(t$deviceBrowserVersion)]), 
-                                  "")
-   
-  t$deviceSystemFamily =  ifelse(length(unique(t$deviceSystemFamily)) > 1,
-                                 unique(t$deviceSystemFamily[!is.na(t$deviceSystemFamily)]), 
-                                "")
-  
-  t$deviceSystem =  ifelse(length(unique(t$deviceSystem)) > 1,
-                                 unique(t$deviceSystem[!is.na(t$deviceSystem)]), 
+  t$hardwareConcurrency = ifelse(sum(!is.na(t$hardwareConcurrency)) >= 1,
+                                 unique(t$hardwareConcurrency[!is.na(t$hardwareConcurrency)& t$hardwareConcurrency != ""]), 
                                  "")
   
-  t$deviceType = ifelse(length(unique(t$deviceType)) > 1,
-                        unique(t$deviceType[!is.na(t$deviceType)]), 
+  t$deviceBrowser = ifelse(sum(!is.na(t$deviceBrowser)) >= 1,
+                           unique(t$deviceBrowser[!is.na(t$deviceBrowser)& t$deviceBrowser != ""]), 
+                           "")
+  
+  t$deviceBrowserVersion = ifelse(sum(!is.na(t$deviceBrowserVersion)) >= 1,
+                                  unique(t$deviceBrowserVersion[!is.na(t$deviceBrowserVersion)& t$deviceBrowserVersion != ""]), 
+                                  "")
+   
+  t$deviceSystemFamily =  ifelse(sum(!is.na(t$deviceSystemFamily)) >= 1,
+                                 unique(t$deviceSystemFamily[!is.na(t$deviceSystemFamily)& t$deviceSystemFamily != ""]), 
+                                 "")
+  
+  t$deviceSystem =  ifelse(sum(!is.na(t$deviceSystem)) >= 1,
+                                 unique(t$deviceSystem[!is.na(t$deviceSystem) & t$deviceSystem != ""]), 
+                                 "")
+  
+  t$deviceType = ifelse(sum(!is.na(t$deviceType)) >= 1,
+                        unique(t$deviceType[!is.na(t$deviceType)& t$deviceType != ""]), 
                         "")
   
   t <- impute_column(t, 'block',0)

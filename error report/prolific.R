@@ -63,12 +63,13 @@ read_prolific <- function(fileProlific) {
              "Completion code" = "Completion.code") %>% 
       mutate(`prolificMin` =format(
         round(
-          prolificMin/60,
+          as.numeric(prolificMin)/60,
           1
         ),
-        nsmall = 1
-      ),
-      `Completion code` = as.character(`Completion code`))
+        nsmall = 1)
+      ) %>%
+      # Force all columns to character to ensure compatibility with bind_rows
+      mutate(across(everything(), as.character))
     return(t)
   } else {
     return(tibble())
@@ -95,11 +96,11 @@ combineProlific <- function(prolificData, summary_table, pretest){
       formSpree <- formSpree %>% filter(`ProlificSessionID` %in% unique(prolificData$prolificSessionID),
                                         !`ProlificSessionID` %in% unique(summary_table$prolificSessionID))
     }
-
+    
     t <- summary_table %>% 
       left_join(prolificData, by = c('Prolific participant ID', 'ProlificSessionID')) %>% 
       mutate(`Completion code` = ifelse(`Completion code` == "" & `ProlificSessionID` %in% unique(prolificData$prolificSessionID), 'TRIED AGAIN', `Completion code`))
-  
+    
   }
   
   t <- t %>%
@@ -161,7 +162,7 @@ get_prolific_file_counts <- function(prolificData, summary_table) {
              !`ProlificSessionID` %in% unique(summary_table$ProlificSessionID))
     formSpree_count <- nrow(formSpree)
   }
-
+  
   print(paste("DEBUG: Prolific Count:", prolific_count))
   print(paste("DEBUG: FormSpree Count:", formSpree_count))
   

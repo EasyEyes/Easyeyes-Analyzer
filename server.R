@@ -201,15 +201,9 @@ shinyServer(function(input, output, session) {
     }
     exp_names <-
       trimws(files()[[3]])  # Extract and trim whitespace
-    
-    # Split names based on hyphen (-)
     name_list <- unlist(strsplit(exp_names, "-"))
     
-    if (length(name_list) > 1) {
-      return(paste(name_list[1], "Etc. "))
-    } else {
-      return(name_list)
-    }
+    return(name_list[1])
   })
   
   
@@ -235,26 +229,6 @@ shinyServer(function(input, output, session) {
     generate_summary_table(files()$data_list, files()$stairs)
   })
   
-  threshold_and_warnings <- reactive({
-    if (is.null(files())) {
-      return(NULL)
-    }
-    return(
-      generate_threshold(
-        files()$data_list,
-        summary_list(),
-        files()$pretest,
-        files()$stairs,
-        files()$df,
-        minNQuestTrials(),
-        minWrongTrials(),
-        maxQuestSD(),
-        conditionNames(),
-        maxReadingSpeed()
-      )
-    )
-  })
-  
   minNQuestTrials <-reactive({input$NQuestTrials}) %>% debounce(1000)
   maxQuestSD <- reactive({input$maxQuestSD}) %>% debounce(1000)
   conditionNames <- reactive(input$conditionName) %>% debounce(5000)
@@ -268,6 +242,7 @@ shinyServer(function(input, output, session) {
     df_list <- generate_rsvp_reading_crowding_fluency(
       files()$data_list,
       summary_list(),
+      files()$df,
       files()$pretest,
       files()$stairs,
       input$filterInput,
@@ -619,14 +594,14 @@ shinyServer(function(input, output, session) {
     req(input$file)
     base_plot <- regression_font(df_list(), reading_rsvp_crowding_df()) +
       labs(title = "Reading vs crowding")
-    add_experiment_footnote(base_plot, experiment_names())
+    add_experiment_title(base_plot, experiment_names())
   })
   
   regressionFontPlotWithLabel <- reactive({
     req(input$file)
     base_plot <- regression_font_with_label(df_list(), reading_rsvp_crowding_df()) +
       labs(title = "Reading vs crowding")
-    add_experiment_footnote(base_plot, experiment_names())
+    add_experiment_title(base_plot, experiment_names())
   })
   
   readingTestRetest <- reactive({
@@ -641,7 +616,7 @@ shinyServer(function(input, output, session) {
         )))
       ),
       parse = T)
-    add_experiment_footnote(base_plot, experiment_names())
+    add_experiment_title(base_plot, experiment_names())
   })
   crowdingTestRetest <- reactive({
     req(input$file)
@@ -655,7 +630,7 @@ shinyServer(function(input, output, session) {
         )))
       ),
       parse = T)
-    add_experiment_footnote(base_plot, experiment_names())
+    add_experiment_title(base_plot, experiment_names())
   })
   
   rsvpReadingTestRetest <- reactive({
@@ -670,7 +645,7 @@ shinyServer(function(input, output, session) {
         )))
       ),
       parse = T)
-    add_experiment_footnote(base_plot, experiment_names())
+    add_experiment_title(base_plot, experiment_names())
   })
   
   readingSpeedRetention <- reactive({
@@ -685,7 +660,7 @@ shinyServer(function(input, output, session) {
         )))
       ),
       parse = T)
-    add_experiment_footnote(base_plot, experiment_names())
+    add_experiment_title(base_plot, experiment_names())
   })
   
   agePlots <- reactive({
@@ -716,7 +691,7 @@ shinyServer(function(input, output, session) {
       p <- call$plot
       if (!is.null(p)) {
         p_with_theme <- p + plt_theme
-        p_with_footnote <- add_experiment_footnote(p_with_theme, experiment_names())
+        p_with_footnote <- add_experiment_title(p_with_theme, experiment_names())
       } else {
         p_with_footnote <- p
       }
@@ -768,7 +743,7 @@ shinyServer(function(input, output, session) {
   all_calls <- c(static_calls, prop_calls)
   for (call in all_calls) {
     plot_with_theme <- call$plot + hist_theme
-    plot_with_footnote <- add_experiment_footnote(plot_with_theme, experiment_names())
+    plot_with_footnote <- add_experiment_title(plot_with_theme, experiment_names())
     res <- append_plot_list(
       l, fileNames,
       plot_with_footnote,
@@ -882,7 +857,7 @@ shinyServer(function(input, output, session) {
       plot <- call$plot
       if (!is.null(plot)) {
         plot <- plot + scale_color_manual(values = colorPalette)
-        plot <- add_experiment_footnote(plot, experiment_names())
+        plot <- add_experiment_title(plot, experiment_names())
       }
       res <- append_plot_list(l, fileNames, plot, call$fname)
       l <- res$plotList
@@ -909,7 +884,7 @@ shinyServer(function(input, output, session) {
       plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
     if (!is.null(crowdingPlots$fovealPlot)) {
       l[[i]] <- crowdingPlots$fovealPlot +  scale_color_manual(values = colorPalette)
-      l[[i]] <- add_experiment_footnote(l[[i]], experiment_names())
+      l[[i]] <- add_experiment_title(l[[i]], experiment_names())
       fileNames[[i]] <-
         'foveal-crowding-staircases-threshold-vs-questTrials'
       i <- i + 1
@@ -918,7 +893,7 @@ shinyServer(function(input, output, session) {
     # Add peripheral plot to the list
     if (!is.null(crowdingPlots$peripheralPlot)) {
       l[[i]] <- crowdingPlots$peripheralPlot + scale_color_manual(values = colorPalette)
-      l[[i]] <- add_experiment_footnote(l[[i]], experiment_names())
+      l[[i]] <- add_experiment_title(l[[i]], experiment_names())
       fileNames[[i]] <-
         'peripheral-crowding-staircases-threshold-vs-questTrials'
       i <- i + 1
@@ -927,7 +902,7 @@ shinyServer(function(input, output, session) {
     t <- get_quest_diag(df_list()$quest)$grade
     if (!is.null(t)) {
       l[[i]] = t + scale_color_manual(values = colorPalette)
-      l[[i]] <- add_experiment_footnote(l[[i]], experiment_names())
+      l[[i]] <- add_experiment_title(l[[i]], experiment_names())
       fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
       i = i + 1
     }
@@ -935,7 +910,7 @@ shinyServer(function(input, output, session) {
     t <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
     if (!is.null(t)) {
       l[[i]] <- t + scale_color_manual(values = colorPalette)
-      l[[i]] <- add_experiment_footnote(l[[i]], experiment_names())
+      l[[i]] <- add_experiment_title(l[[i]], experiment_names())
       fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
       i <- i + 1
     }
@@ -1122,7 +1097,7 @@ shinyServer(function(input, output, session) {
   
   output$corrMatrixPlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
-    plot_with_footnote <- add_experiment_footnote(corrMatrix()$plot, experiment_names())
+    plot_with_footnote <- add_experiment_title(corrMatrix()$plot, experiment_names())
     ggsave(
       file = outfile,
       plot = plot_with_footnote,
@@ -1136,7 +1111,7 @@ shinyServer(function(input, output, session) {
   
   output$nMatrixPlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
-    plot_with_footnote <- add_experiment_footnote(corrMatrix()$n_plot, experiment_names())
+    plot_with_footnote <- add_experiment_title(corrMatrix()$n_plot, experiment_names())
     ggsave(
       file   = outfile,
       plot   = plot_with_footnote,   
@@ -1150,7 +1125,7 @@ shinyServer(function(input, output, session) {
   
   output$durationCorrMatrixPlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
-    plot_with_footnote <- add_experiment_footnote(durationCorrMatrix()$plot, experiment_names())
+    plot_with_footnote <- add_experiment_title(durationCorrMatrix()$plot, experiment_names())
     ggsave(
       file = outfile,
       plot = plot_with_footnote,
@@ -1620,7 +1595,8 @@ shinyServer(function(input, output, session) {
   output$rsvpCrowdingPeripheralGradePlot <-
     ggiraph::renderGirafe({
       tryCatch({
-        ggiraph::girafe(ggobj = rsvpCrowding()$p_grade)
+        plot_with_title <- add_experiment_title(rsvpCrowding()$p_grade, experiment_names())
+        ggiraph::girafe(ggobj = plot_with_title)
       }, error = function(e) {
         print(e)
         error_plot <- ggplot() +
@@ -1643,7 +1619,8 @@ shinyServer(function(input, output, session) {
   output$rsvpCrowdingPeripheralFontPlot <-
     ggiraph::renderGirafe({
       tryCatch({
-        ggiraph::girafe(ggobj = rsvpCrowding()$p_font)
+        plot_with_title <- add_experiment_title(rsvpCrowding()$p_font, experiment_names())
+        ggiraph::girafe(ggobj = plot_with_title)
       }, error = function(e) {
         print(e)
         error_plot <- ggplot() +
@@ -1666,7 +1643,8 @@ shinyServer(function(input, output, session) {
   output$rsvpResidualCrowding <-
     ggiraph::renderGirafe({
       tryCatch({
-        ggiraph::girafe(ggobj = rsvpCrowding()$residual)
+        plot_with_title <- add_experiment_title(rsvpCrowding()$residual, experiment_names())
+        ggiraph::girafe(ggobj = plot_with_title)
       }, error = function(e) {
         print(e)
         error_plot <- ggplot() +
@@ -1695,69 +1673,82 @@ shinyServer(function(input, output, session) {
   })
 
   output$rsvpCrowdingFovealGradePlot <- ggiraph::renderGirafe({
-    ggiraph::girafe(ggobj = rsvpCrowding()$f_grade)
+    plot_with_title <- add_experiment_title(rsvpCrowding()$f_grade, experiment_names())
+    ggiraph::girafe(ggobj = plot_with_title)
   })
   
   output$rsvpFovealAcuityGradePlot <- ggiraph::renderGirafe({
-    ggiraph::girafe(ggobj = rsvpAcuityFoveal()[[2]])
+    plot_with_title <- add_experiment_title(rsvpAcuityFoveal()[[2]], experiment_names())
+    ggiraph::girafe(ggobj = plot_with_title)
   })
   
   output$rsvpPeripheralAcuityGradePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = rsvpAcuityPeripheral()$grade)
+      plot_with_title <- add_experiment_title(rsvpAcuityPeripheral()$grade, experiment_names())
+      ggiraph::girafe(ggobj = plot_with_title)
     })
   
   output$rsvpPeripheralAcuityFontPlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = rsvpAcuityPeripheral()$font)
+      plot_with_title <- add_experiment_title(rsvpAcuityPeripheral()$font, experiment_names())
+      ggiraph::girafe(ggobj = plot_with_title)
     })
   
   output$rsvpRepeatedGradePlot <- ggiraph::renderGirafe({
-    ggiraph::girafe(ggobj = rsvp_repeated_letter_crowding()[[2]])
+    plot_with_title <- add_experiment_title(rsvp_repeated_letter_crowding()[[2]], experiment_names())
+    ggiraph::girafe(ggobj = plot_with_title)
   })
   
   output$ordinaryFovealAcuityGradePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryAcuityFoveal()[[2]])
+      plot_with_title <- add_experiment_title(ordinaryAcuityFoveal()[[2]], experiment_names())
+      ggiraph::girafe(ggobj = plot_with_title)
     })
   
   output$ordinaryPeripheralAcuityGradePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryAcuityPeripheral()$grade)
+      plot_with_title <- add_experiment_title(ordinaryAcuityPeripheral()$grade, experiment_names())
+      ggiraph::girafe(ggobj = plot_with_title)
     })
   
   output$ordinaryPeripheralAcuityFontPlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryAcuityPeripheral()$font)
+      plot_with_title <- add_experiment_title(ordinaryAcuityPeripheral()$font, experiment_names())
+      ggiraph::girafe(ggobj = plot_with_title)
     })
   
   # Peripheral Crowding Plots
   output$ordinaryPeripheralCrowdingFontPlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[1]])
+      plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[1]], experiment_names())
+      ggiraph::girafe(ggobj = plot_with_title)
       
       #temporarily change to colored by font
     })
   
   output$ordinaryPeripheralCrowdingGradePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj =  ordinaryCrowdingPlots()[[3]])  
+      plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[3]], experiment_names())
+      ggiraph::girafe(ggobj = plot_with_title)
     })
   
   # Foveal Crowding Plots
   output$ordinaryFovealCrowdingFontPlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[2]]) 
+      plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[2]], experiment_names())
+      ggiraph::girafe(ggobj = plot_with_title)
     })
   
   output$ordinaryFovealCrowdingGradePlot <-
     ggiraph::renderGirafe({
-      ggiraph::girafe(ggobj = ordinaryCrowdingPlots()[[4]])  
+      plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[4]], experiment_names())
+      ggiraph::girafe(ggobj = plot_with_title)
     })
   
   
   output$readingRepeatedGradePlot <- ggiraph::renderGirafe({
-    ggiraph::girafe(ggobj = readingRepeatedPlots()[[2]])
+    plot_with_title <- add_experiment_title(readingRepeatedPlots()[[2]], experiment_names())
+    ggiraph::girafe(ggobj = plot_with_title)
   })
   
   #### age plots ####
@@ -1878,6 +1869,10 @@ shinyServer(function(input, output, session) {
     n      <- length(plots)
     nPerRow <- 6
     
+    if (n == 0) {
+      return(out)
+    }
+    
     for (i in seq(1, n, by = nPerRow)) {
       idx <- i:min(i + nPerRow - 1, n)
       
@@ -1922,17 +1917,51 @@ shinyServer(function(input, output, session) {
     for (j in seq_along(plots)) {
       local({
         jj <- j
-        output[[paste0("hist", jj)]] <- renderImage({
-          outfile <- tempfile(fileext = ".svg")
-          save_plot_with_error_handling(
-            plot = plots[[jj]] + hist_theme,
-            filename = outfile,
-            width = 2.5,
-            height = 2.5,
-            size = 3,
-            unit = "in",
-            plotTitle = files[[jj]]
-          )
+       
+      output[[paste0("hist", jj)]] <- renderImage({
+          tryCatch({
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot =  plots[[jj]] + hist_theme,
+              device = svglite,
+              width = 2.5,
+              height = 2.5,
+              unit = 'in'
+            )
+            list(src = outfile, contenttype = 'svg')
+          }, error = function(e) {
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                color = "red",
+                size = 5,
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              theme_void() +
+              ggtitle( files[[jj]])
+            
+            # Save the error plot to a temp file
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = error_plot,
+              device = svglite,
+              width = 2.5,
+              height = 2.5,
+              unit = 'in'
+            )
+            list(
+              src = outfile,
+              contenttype = 'svg',
+              alt = paste0("Error in ", files[[jj]])
+            )
+          })
+          
         }, deleteFile = TRUE)
         
         output[[paste0("downloadHist", jj)]] <- downloadHandler(
@@ -2352,7 +2381,7 @@ shinyServer(function(input, output, session) {
           plot.title = element_text(size = 12, margin = margin(b = 2)),
           plot.margin = margin(5, 5, 5, 5, "pt")
         )
-      plot_with_footnote <- add_experiment_footnote(base_plot, experiment_names())
+      plot_with_footnote <- add_experiment_title(base_plot, experiment_names())
       ggsave(
         filename = outfile,
         plot = plot_with_footnote,
@@ -2375,30 +2404,32 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         if (input$fileType == "png") {
           tmp_svg <- tempfile(fileext = ".svg")
+          base_plot <- stackedPlots()$rsvp_plot +
+            plt_theme +
+            theme(
+              axis.text.x = element_text(),
+              axis.ticks.x = element_line(),
+              plot.title = element_text(size = 14, margin = margin(b = 1)),
+              plot.margin = margin(
+                t = 2,
+                r = 5,
+                b = 2,
+                l = 5
+              )
+            ) +
+            theme(
+              legend.position = "top",
+              legend.key.size = unit(2, "mm"),
+              legend.title = element_text(size = 8),
+              legend.text = element_text(size = 8),
+              axis.text = element_text(size = 11),
+              plot.title = element_text(size = 12, margin = margin(b = 2)),
+              plot.margin = margin(5, 5, 5, 5, "pt")
+            )
+          plot_with_title <- add_experiment_title(base_plot, experiment_names())
           ggsave(
             filename = tmp_svg,
-            plot = stackedPlots()$rsvp_plot +
-              plt_theme +
-              theme(
-                axis.text.x = element_text(),
-                axis.ticks.x = element_line(),
-                plot.title = element_text(size = 14, margin = margin(b = 1)),
-                plot.margin = margin(
-                  t = 2,
-                  r = 5,
-                  b = 2,
-                  l = 5
-                )
-              ) +
-              theme(
-                legend.position = "top",
-                legend.key.size = unit(2, "mm"),
-                legend.title = element_text(size = 8),
-                legend.text = element_text(size = 8),
-                axis.text = element_text(size = 11),
-                plot.title = element_text(size = 12, margin = margin(b = 2)),
-                plot.margin = margin(5, 5, 5, 5, "pt")
-              ),
+            plot = plot_with_title,
             device = svglite,
             width = 6,
             height = 8,
@@ -2406,30 +2437,32 @@ shinyServer(function(input, output, session) {
           )
           rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
         } else {
+          base_plot <- stackedPlots()$rsvp_plot +
+            plt_theme +
+            theme(
+              axis.text.x = element_text(),
+              axis.ticks.x = element_line(),
+              plot.title = element_text(size = 14, margin = margin(b = 1)),
+              plot.margin = margin(
+                t = 2,
+                r = 5,
+                b = 2,
+                l = 5
+              )
+            ) +
+            theme(
+              legend.position = "top",
+              legend.key.size = unit(2, "mm"),
+              legend.title = element_text(size = 8),
+              legend.text = element_text(size = 8),
+              axis.text = element_text(size = 11),
+              plot.title = element_text(size = 12, margin = margin(b = 2)),
+              plot.margin = margin(5, 5, 5, 5, "pt")
+            )
+          plot_with_title <- add_experiment_title(base_plot, experiment_names())
           ggsave(
             filename = file,
-            plot = stackedPlots()$rsvp_plot +
-              plt_theme +
-              theme(
-                axis.text.x = element_text(),
-                axis.ticks.x = element_line(),
-                plot.title = element_text(size = 14, margin = margin(b = 1)),
-                plot.margin = margin(
-                  t = 2,
-                  r = 5,
-                  b = 2,
-                  l = 5
-                )
-              ) +
-              theme(
-                legend.position = "top",
-                legend.key.size = unit(2, "mm"),
-                legend.title = element_text(size = 8),
-                legend.text = element_text(size = 8),
-                axis.text = element_text(size = 11),
-                plot.title = element_text(size = 12, margin = margin(b = 2)),
-                plot.margin = margin(5, 5, 5, 5, "pt")
-              ),
+            plot = plot_with_title,
             device = ifelse(
               input$fileType == "svg",
               svglite::svglite,
@@ -2471,11 +2504,13 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         if (input$fileType == "png") {
           tmp_svg <- tempfile(fileext = ".svg")
+          base_plot <- stackedPlots()$crowding_plot +
+            plt_theme +
+            stacked_theme
+          plot_with_title <- add_experiment_title(base_plot, experiment_names())
           ggsave(
             filename = tmp_svg,
-            plot = stackedPlots()$crowding_plot +
-              plt_theme +
-              stacked_theme,
+            plot = plot_with_title,
             device = svglite,
             width = 6,
             height = 8,
@@ -2483,10 +2518,12 @@ shinyServer(function(input, output, session) {
           )
           rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
         } else {
+          base_plot <- stackedPlots()$crowding_plot +
+            plt_theme + stacked_theme
+          plot_with_title <- add_experiment_title(base_plot, experiment_names())
           ggsave(
             filename = file,
-            plot = stackedPlots()$crowding_plot +
-              plt_theme + stacked_theme,
+            plot = plot_with_title,
             device = ifelse(
               input$fileType == "svg",
               svglite::svglite,
@@ -2527,10 +2564,12 @@ shinyServer(function(input, output, session) {
       content = function(file) {
         if (input$fileType == "png") {
           tmp_svg <- tempfile(fileext = ".svg")
+          base_plot <- stackedPlots()$foveal_acuity_plot +
+            plt_theme + stacked_theme
+          plot_with_title <- add_experiment_title(base_plot, experiment_names())
           ggsave(
             filename = tmp_svg,
-            plot = stackedPlots()$foveal_acuity_plot +
-              plt_theme + stacked_theme,
+            plot = plot_with_title,
             device = svglite,
             width = 6,
             height = 8,
@@ -2538,10 +2577,12 @@ shinyServer(function(input, output, session) {
           )
           rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
         } else {
+          base_plot <- stackedPlots()$foveal_acuity_plot +
+            plt_theme + stacked_theme
+          plot_with_title <- add_experiment_title(base_plot, experiment_names())
           ggsave(
             filename = file,
-            plot = stackedPlots()$foveal_acuity_plot +
-              plt_theme + stacked_theme,
+            plot = plot_with_title,
             device = ifelse(
               input$fileType == "svg",
               svglite::svglite,
@@ -4098,16 +4139,14 @@ shinyServer(function(input, output, session) {
                    })
                    
                    #### stats page ####
-                   output$ex2 <-
-                     renderTable(threshold_and_warnings()[[2]])
-                   output$ex3 <-
-                     renderTable(if (nrow(threshold_and_warnings()[[1]]) > 0) {
-                       threshold_and_warnings()[[1]]
-                     } else {
-                       tibble()
-                     })
-                   output$ex4 <-
-                     renderTable(threshold_and_warnings()[[3]])
+                   output$thresholdSummary <-
+                     renderTable(df_list()$threshold)
+                   output$thresholdAll <-
+                     renderTable(df_list()$threshold_each)
+                   output$QA <-
+                     DT::renderDataTable(df_list()$QA)
+                   output$ratings <-
+                     renderTable(df_list()$ratings)
                    
                    updateSelectInput(
                      session,
@@ -4315,7 +4354,7 @@ shinyServer(function(input, output, session) {
       )
     },
     content = function(filename) {
-      openxlsx::write.xlsx(threshold_and_warnings()[[2]], file = filename)  # Using openxlsx
+      openxlsx::write.xlsx(df_list()$threshold, file = filename)  # Using openxlsx
     }
   )
   
@@ -4328,7 +4367,7 @@ shinyServer(function(input, output, session) {
       )
     },
     content = function(filename) {
-      openxlsx::write.xlsx(threshold_and_warnings()[[3]], file = filename)  # Using openxlsx
+      openxlsx::write.xlsx(df_list()$threshold_each, file = filename)  # Using openxlsx
     }
   )
   
@@ -4341,7 +4380,7 @@ shinyServer(function(input, output, session) {
       )
     },
     content = function(filename) {
-      openxlsx::write.xlsx(threshold_and_warnings()[[4]], file = filename)  # Using openxlsx
+      openxlsx::write.xlsx(df_list()$all_summary, file = filename)  # Using openxlsx
     }
   )
   
@@ -5681,9 +5720,10 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        plot <- rsvpCrowding()$p_grade + plt_theme
+        base_plot <- rsvpCrowding()$p_grade + plt_theme
+        plot_with_title <- add_experiment_title(base_plot, experiment_names())
         savePlot(
-          plot = plot,
+          plot = plot_with_title,
           filename = file,
           fileType = input$fileType,
           width = 8,
@@ -5699,9 +5739,10 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        plot <- rsvpCrowding()$p_font + plt_theme
+        base_plot <- rsvpCrowding()$p_font + plt_theme
+        plot_with_title <- add_experiment_title(base_plot, experiment_names())
         savePlot(
-          plot = plot,
+          plot = plot_with_title,
           filename = file,
           fileType = input$fileType,
           width = 8,
@@ -5720,9 +5761,10 @@ shinyServer(function(input, output, session) {
         sep = "-"
       ),
       content = function(file) {
-        plot <- rsvpCrowding()$residual + plt_theme
+        base_plot <- rsvpCrowding()$residual + plt_theme
+        plot_with_title <- add_experiment_title(base_plot, experiment_names())
         savePlot(
-          plot = plot,
+          plot = plot_with_title,
           filename = file,
           fileType = input$fileType,
           width = 8,
@@ -5759,10 +5801,11 @@ shinyServer(function(input, output, session) {
       },
       content = function(file) {
         if (input$fileType == "png") {
+          base_plot <- rsvpAcuityFoveal()[[2]] + plt_theme
+          plot_with_title <- add_experiment_title(base_plot, experiment_names())
           ggsave(
             "tmp.svg",
-            plot = rsvpAcuityFoveal()[[2]] +
-              plt_theme,
+            plot = plot_with_title,
             width = 8,
             height = 6,
             device = svglite,
@@ -5773,10 +5816,11 @@ shinyServer(function(input, output, session) {
                          width = 2400,
                          height = 1800)
         } else {
+          base_plot <- rsvpAcuityFoveal()[[2]] + plt_theme
+          plot_with_title <- add_experiment_title(base_plot, experiment_names())
           ggsave(
             file = file,
-            plot = rsvpAcuityFoveal()[[2]] +
-              plt_theme,
+            plot = plot_with_title,
             device = svg,
             width = 8,
             height = 6,
@@ -5827,8 +5871,10 @@ shinyServer(function(input, output, session) {
                  input$fileType)
         },
         content = function(file) {
-          savePlot(plot = rsvpAcuityPeripheral()$grade + plt_theme,
-                   fileName = file,
+          base_plot <- rsvpAcuityPeripheral()$grade + plt_theme
+          plot_with_title <- add_experiment_title(base_plot, experiment_names())
+          savePlot(plot = plot_with_title,
+                   filename = file,
                    fileType = input$fileType,
                    width = 8,
                    height = 6
@@ -5845,10 +5891,11 @@ shinyServer(function(input, output, session) {
         },
         content = function(file) {
           if (input$fileType == "png") {
+            base_plot <- rsvpAcuityPeripheral()$font + plt_theme
+            plot_with_title <- add_experiment_title(base_plot, experiment_names())
             ggsave(
               "tmp.svg",
-              plot = rsvpAcuityPeripheral()$font +
-                plt_theme,
+              plot = plot_with_title,
               width = 8,
               height = 6,
               device = svglite,
@@ -5859,10 +5906,11 @@ shinyServer(function(input, output, session) {
                            width = 2400,
                            height = 1800)
           } else {
+            base_plot <- rsvpAcuityPeripheral()$font + plt_theme
+            plot_with_title <- add_experiment_title(base_plot, experiment_names())
             ggsave(
               file = file,
-              plot = rsvpAcuityPeripheral()$font +
-                plt_theme,
+              plot = plot_with_title,
               device = svg,
               width = 8,
               height = 6,
@@ -6020,9 +6068,11 @@ shinyServer(function(input, output, session) {
         },
         content = function(file) {
           if (input$fileType == "png") {
+            base_plot <- ordinaryCrowdingPlots()[[4]] + plt_theme
+            plot_with_title <- add_experiment_title(base_plot, experiment_names())
             ggsave(
               "tmp.svg",
-              plot = ordinaryCrowdingPlots()[[4]] + plt_theme,
+              plot = plot_with_title,
               width = 8,
               height = 6,
               device = svglite,
@@ -6031,9 +6081,11 @@ shinyServer(function(input, output, session) {
             rsvg::rsvg_png("tmp.svg", file,
                            width = 1800)
           } else {
+            base_plot <- ordinaryCrowdingPlots()[[4]] + plt_theme
+            plot_with_title <- add_experiment_title(base_plot, experiment_names())
             ggsave(
               file = file,
-              plot =  ordinaryCrowdingPlots()[[4]] + plt_theme,
+              plot = plot_with_title,
               device = svg,
               width = 6,
             )
@@ -6052,10 +6104,11 @@ shinyServer(function(input, output, session) {
         },
         content = function(file) {
           if (input$fileType == "png") {
+            base_plot <- ordinaryCrowdingPlots()[[1]] + plt_theme
+            plot_with_title <- add_experiment_title(base_plot, experiment_names())
             ggsave(
               "tmp.svg",
-              plot = ordinaryCrowdingPlots()[[1]] +
-                plt_theme,
+              plot = plot_with_title,
               width = 8,
               height = 6,
               device = svglite,
@@ -6066,10 +6119,11 @@ shinyServer(function(input, output, session) {
                            width = 2400,
                            height = 1800)
           } else {
+            base_plot <- ordinaryCrowdingPlots()[[1]] + plt_theme
+            plot_with_title <- add_experiment_title(base_plot, experiment_names())
             ggsave(
               file = file,
-              plot =  ordinaryCrowdingPlots()[[1]] +
-                plt_theme,
+              plot = plot_with_title,
               device = svg,
               width = 8,
               height = 6,

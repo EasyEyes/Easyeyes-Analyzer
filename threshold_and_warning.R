@@ -7,7 +7,7 @@ englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
 
 generate_rsvp_reading_crowding_fluency <- 
   
-  function(data_list, summary_list, pretest, stairs, filterInput, skillFilter,minNQuestTrials, 
+  function(data_list, summary_list, df, pretest, stairs, filterInput, skillFilter,minNQuestTrials, 
            minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed) {
     
     print('inside threshold warning')
@@ -20,6 +20,21 @@ generate_rsvp_reading_crowding_fluency <-
       return(list())
     }
     
+    #### age ####
+    age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+      data_list[[i]] %>% 
+        select(participant, age) %>% 
+        filter(!is.na(age)) %>% 
+        distinct()
+    }
+    
+    #### experiment name ####
+    experiment <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+      data_list[[i]] %>% 
+        distinct(participant, experiment) %>% 
+        filter(!is.na(experiment), !is.na(participant))
+    }
+    #### NQuestTrials ####
     NQuestTrials <- stairs %>%
       group_by(participant, staircaseName, thresholdParameter) %>%
       summarize(questTrials = sum(trialGivenToQuest,na.rm = T),
@@ -28,6 +43,7 @@ generate_rsvp_reading_crowding_fluency <-
       mutate(block_condition = as.character(staircaseName)) %>% 
       distinct(participant, block_condition, questTrials)
     
+    #### wrongTrials ####
     wrongTrials <- stairs %>%
       group_by(participant, staircaseName) %>%
       summarize(NWrongTrial = sum((!`key_resp.corr`) & trialGivenToQuest, na.rm = T),
@@ -101,11 +117,15 @@ generate_rsvp_reading_crowding_fluency <-
       basicExclude <- tibble(lowerCaseParticipant = '')
     }
     
+    
+    ################################ READING #######################################
+    
     reading <- tibble()
     for (i in 1:length(data_list)) {
       t <- data_list[[i]] %>% 
-        select(block_condition, participant, conditionName, font, readingPageWords, readingPageDurationOnsetToOffsetSec,
+        select(block_condition, participant, conditionName, font, readingPages, readingPageWords, readingPageDurationOnsetToOffsetSec,
                targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
+        filter(readingPages > 1) %>% 
         group_by(participant, block_condition, conditionName, font) %>%
         mutate(trial = row_number()) %>% 
         ungroup() %>% 
@@ -113,7 +133,7 @@ generate_rsvp_reading_crowding_fluency <-
                                    9.5 / as.numeric(readingPageDurationOnsetToOffsetSec) * 60, 
                                    as.numeric(readingPageWords)/ as.numeric(readingPageDurationOnsetToOffsetSec) * 60)) %>% 
         mutate(log_WPM = log10(wordPerMin)) %>% 
-        filter(targetKind == "reading" & font !="" & trial > 1)
+        filter(targetKind == "reading" & font !="")
       
       reading <- rbind(reading, t)
     }
@@ -137,6 +157,7 @@ generate_rsvp_reading_crowding_fluency <-
     
     reading <- reading %>% filter(wordPerMin <= maxReadingSpeed)
     
+    
     if (nrow(pretest) > 0) {
       reading <- reading %>% 
         mutate(lowerCaseParticipant = tolower(participant)) %>% 
@@ -153,18 +174,17 @@ generate_rsvp_reading_crowding_fluency <-
       reading$Grade = -1
       reading$`Skilled reader?` = 'unkown'
     }
+
     
-    # combine all thresholds
+    #### combine all thresholds #####
     
     all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
       summary_list[[i]] %>% mutate(order = i)
     } %>% 
       filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
       mutate(participant = as.character(participant),
-             block_condition = as.character(block_condition))
-    
+             block_condition = as.character(block_condition)) %>% 
     # apply questSD filter
-    all_summary <- all_summary %>% 
       left_join(NQuestTrials, by = c('participant', 'block_condition')) %>% 
       filter(questSDAtEndOfTrialsLoop <= maxQuestSD) %>% 
       inner_join(wrongTrials, by = c('participant', 'block_condition'))
@@ -172,7 +192,8 @@ generate_rsvp_reading_crowding_fluency <-
     
     if (nrow(pretest) > 0) {
       if ('Include' %in% names(pretest)) {
-        all_summary <- all_summary %>% left_join(pretest %>% select(participant, Include), by = 'participant') %>% 
+        all_summary <- all_summary %>% 
+          left_join(pretest %>% select(participant, Include), by = 'participant') %>% 
           filter(Include == 'yes')
       }
       
@@ -202,9 +223,6 @@ generate_rsvp_reading_crowding_fluency <-
                Grade = -1,
                `Skilled reader?` = 'unkown')
     }
-    
-    
-    
     
     
     print('done combine threshlod')
@@ -257,6 +275,19 @@ generate_rsvp_reading_crowding_fluency <-
     print('done filter input')
     
     
+    if (ncol(reading) > 1) {
+      reading <- reading %>% 
+        left_join(age, by = "participant") %>% 
+        filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
+      if ('Include' %in% names(pretest)) {
+        reading <- reading %>% filter(!participant %in% (pretest %>% filter(Include == 'no') %>% select(participant)))
+      }
+    }
+    # After filter, compute reading each block
+    reading_each <- reading %>% 
+      group_by(font, participant, block_condition, thresholdParameter) %>%
+      dplyr::summarize(avg_wordPerMin = 10^(mean(log_WPM, na.rm = T)),
+                       .groups = "drop")
     
     eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
       t <- data_list[[i]] %>%
@@ -324,13 +355,6 @@ generate_rsvp_reading_crowding_fluency <-
       select(-thresholdParameter)
     
     
-    age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-      data_list[[i]] %>% 
-        select(participant, age) %>% 
-        filter(!is.na(age)) %>% 
-        distinct()
-    }
-    
     targetDurationSecs <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
       data_list[[i]] %>% 
         select(participant, conditionName, targetDurationSec) %>% 
@@ -392,17 +416,7 @@ generate_rsvp_reading_crowding_fluency <-
       mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP,
              targetKind = 'rsvpReading') 
     
-    ################################ READING #######################################
-    
-    if (ncol(reading) > 1) {
-      reading <- reading %>% 
-        left_join(age, by = "participant") %>% 
-        filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
-      if ('Include' %in% names(pretest)) {
-        reading <- reading %>% filter(!participant %in% (pretest %>% filter(Include == 'no') %>% select(participant)))
-      }
-    }
-    
+
     ################################ REPEAT LETTER #######################################
     repeatedLetters <- quest %>% 
       filter(questType == "Repeated letters") %>% 
@@ -410,6 +424,9 @@ generate_rsvp_reading_crowding_fluency <-
              bouma_factor = 10^(questMeanAtEndOfTrialsLoop)/sqrt(targetEccentricityXDeg^2+targetEccentricityYDeg^2)) %>% 
       select(-questMeanAtEndOfTrialsLoop)
     
+    #### acuity ####
+    acuity <- quest %>% 
+      filter(questType == 'Foveal acuity' | questType == 'Peripheral acuity')
     
     #### get viewing distance and font size####
     
@@ -457,7 +474,7 @@ generate_rsvp_reading_crowding_fluency <-
     fluency <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
       if("questionAndAnswerCorrectAnswer" %in% colnames(data_list[[i]])) {
         data_list[[i]] %>% filter(grepl("fluency", conditionName, fixed=TRUE) ) %>% 
-          select(block, participant, conditionName, questionAndAnswerResponse, trials.thisN,
+          select(block, participant, conditionName, questionAndAnswerResponse, `trials.thisN`,
                  questionAndAnswerNickname, questionAndAnswerQuestion, targetKind, questionAndAnswerCorrectAnswer)
       }
     }
@@ -470,11 +487,6 @@ generate_rsvp_reading_crowding_fluency <-
     } else {
       fluency = tibble()
     }
-    
-    
-    #### acuity ####
-    acuity <- quest %>% 
-      filter(questType == 'Foveal acuity' | questType == 'Peripheral acuity')
     
     if ('Grade' %in% names(pretest)) {
       age <- age %>%
@@ -494,21 +506,8 @@ generate_rsvp_reading_crowding_fluency <-
     print(paste('nrow of repeatedLetters:', nrow(repeatedLetters)))
     print(paste('nrow of age:', nrow(age)))
     
-    return(list(reading = reading, 
-                crowding = crowding,
-                rsvp = rsvp_speed,
-                fluency = fluency,
-                acuity = acuity,
-                repeatedLetters = repeatedLetters,
-                quest = quest, # threshold averaged by participant, conditionName
-                quest_all_thresholds = quest_all_thresholds, # include all threshold estimate
-                age = age,
-                conditionNames = conditionNames))
-  }
 
-generate_threshold <- function(data_list, summary_list, pretest, stairs, df, 
-                               minNQuestTrials, minWrongTrials, maxQuestSD, 
-                               conditionNameInput, maxReadingSpeed){
+  #### previous code from generate_threshold ####
   print('inside generate_threshold')
   if (nrow(pretest) > 0) {
     if (!'Grade' %in% names(pretest)) {
@@ -556,92 +555,41 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df,
     inner_join(wrongTrials, by = c("participant", "block_condition"))
   
   
-  print(all_summary)
-  if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
-    all_summary <- all_summary %>% filter(conditionName %in% conditionNameInput)
-  } 
+  #### beauty and comfort ####
+  QA <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
+    data_list[[i]] %>% 
+      distinct(participant,
+               block,
+               block_condition, 
+               conditionName, 
+               questionAndAnswerQuestion, 
+               questionAndAnswerNickname, 
+               questionAndAnswerResponse,
+               questionAndAnswerCorrectAnswer) %>%
+      filter(!is.na(questionAndAnswerNickname),
+             !is.na(questionAndAnswerQuestion),
+             questionAndAnswerNickname != "", 
+             questionAndAnswerQuestion != ""
+             ) %>% 
+      mutate(correct = (questionAndAnswerResponse == questionAndAnswerCorrectAnswer))
+  } %>% 
+    arrange(participant, block, block_condition)
   
-  
-  
-  
-  crowding <- all_summary %>% 
-    filter(thresholdParameter != "targetSizeDeg",
-           thresholdParameter != 'size',
-           targetKind == "letter", 
-           !grepl("practice",conditionName),
-           !grepl("Practice",conditionName)) %>% 
-    select(participant, conditionName, questMeanAtEndOfTrialsLoop, font) %>%
-    dplyr::rename(log_crowding_distance_deg = questMeanAtEndOfTrialsLoop)
-  
-  ########################### RSVP READING ############################
-  
-  rsvp_speed <- all_summary %>% 
-    filter(targetKind == "rsvpReading") %>% 
-    select(block_condition, participant, conditionName, questMeanAtEndOfTrialsLoop, font, targetKind, thresholdParameter) %>%
-    dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
-    mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP) 
-  
-  
-  ################################ READING #######################################
-  reading <- tibble()
-  for (i in 1:length(data_list)) {
-    t <- data_list[[i]] %>% 
-      select(block_condition, experiment, participant, conditionName, font, readingPageWords, readingPageDurationOnsetToOffsetSec,
-             targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
-      group_by(participant, block_condition) %>%
-      mutate(trial = row_number()) %>% 
-      ungroup() %>% 
-      mutate(wordPerMin = 
-               ifelse(trial < 3 & tolower(participant) %in%englishChild$participant,
-                      9.5 / as.numeric(readingPageDurationOnsetToOffsetSec) * 60, 
-                      as.numeric(readingPageWords)/ as.numeric(readingPageDurationOnsetToOffsetSec) * 60)) %>% 
-      mutate(log_WPM = log10(wordPerMin)) %>% 
-      filter(targetKind == "reading" & font !="" & trial > 1) %>% 
-      ungroup()
-    
-    reading <- rbind(reading, t)
-  }
-  if (tolower(reading$participant[1]) %in% englishChild$participant) {
-    reading <- reading %>% filter(trial>= 2) %>% 
-      mutate(font = as.character(font), 
-             participant = as.character(participant), 
-             block_condition = as.character(block_condition), 
-             thresholdParameter = as.character(thresholdParameter))
-  } 
-  
-  reading <- reading %>% filter(wordPerMin <= maxReadingSpeed)
-  
-  
-  reading_each <- reading %>% 
-    group_by(font, participant, block_condition, thresholdParameter) %>%
-    dplyr::summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)),
-                     .groups = "drop")
-  
-  
-  reading_exceed_1500 <- reading_each %>% 
-    filter(avg_wordPerMin > 1500) %>% 
-    mutate(warning =  paste("Participant:",
-                            participant,
-                            "reading speeds removed due to excessive max speed",
-                            round(avg_wordPerMin,2),
-                            "> 1500 word/min",
-                            sep = " "))
-  for (i in 1 : nrow(reading_exceed_1500)) {
-    warning(paste("Participant:",
-                  reading_exceed_1500$participant[i],
-                  "reading speeds removed due to excessive max speed",
-                  round(reading_exceed_1500$avg_wordPerMin[i],2),
-                  "> 1500 word/min",
-                  sep = " "))
-  }
-  reading_valid <- reading_each %>% 
-    mutate(targetKind = "reading")
+
+  ratings <- QA %>% 
+    select(-c(questionAndAnswerQuestion,questionAndAnswerCorrectAnswer)) %>% 
+    mutate(questionAndAnswerResponse = as.numeric(arabic_to_western(questionAndAnswerResponse))) %>% 
+    filter(!is.na(questionAndAnswerResponse)) %>% 
+    group_by(block,block_condition, conditionName, questionAndAnswerNickname) %>% 
+    summarize(`mean rating` = mean(questionAndAnswerResponse, rm.na = T), .groups = "drop") %>% 
+    arrange(block, block_condition) %>% 
+    select(-block)
   
   threshold_all <- all_summary %>%
     group_by(participant, experiment, conditionName, thresholdParameter) %>%
     dplyr::summarize(
-      pm = mean(questMeanAtEndOfTrialsLoop),
-      sd = sd(questMeanAtEndOfTrialsLoop),
+      pm = mean(questMeanAtEndOfTrialsLoop, na.rm =T),
+      sd = sd(questMeanAtEndOfTrialsLoop, na.rm =T),
       .groups="drop") %>% 
     rename(parameter = thresholdParameter)
   
@@ -650,14 +598,14 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df,
     group_by(conditionName, experiment, parameter) %>% 
     dplyr::summarize(
       m = mean(pm, na.rm = T),
-      `se across participants` = sd(pm)/sqrt(n()), 
-      `sd across participants` = sd(pm),
+      `se across participants` = sd(pm, na.rm =T)/sqrt(n()), 
+      `sd across participants` = sd(pm, na.rm =T),
       `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
       N = n(),
       .groups="drop")
   
   wpm_all <- reading %>% 
-    filter(!participant %in% reading_exceed_1500$participant) %>%
+    left_join(experiment, by = "participant") %>% 
     filter(conditionName != "") %>% 
     group_by(conditionName, participant, experiment) %>%
     dplyr::summarize(pm = mean(wordPerMin, na.rm =T),
@@ -679,27 +627,18 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df,
       .groups="drop") %>% 
     mutate(conditionName = as.character(conditionName))
   
-  df <- df %>%
-    rename(pavloviaSessionID = participant,
-           participantID = ParticipantCode) %>% 
-    select(-BirthMonthYear)
-  if (nrow(pretest) > 0) {
-    grade <- pretest %>% 
-      select(participant, Grade) %>% 
-      rename(pavloviaSessionID = participant)
-  } else {
-    grade = tibble(pavloviaSessionID = unique(all_summary$participant), 
-                   Grade = NA)
-  }
   
+  df <- df %>%
+    rename(participantID = ParticipantCode) %>% 
+    distinct(participant,participantID )
   
   threshold_each <- rbind(threshold_all, wpm_all) %>% 
     mutate(m = round(pm,3),
            sd = round(sd,3)) %>% 
-    rename(pavloviaSessionID = participant) %>% 
-    left_join(df, by = 'pavloviaSessionID') %>% 
-    left_join(grade, by = 'pavloviaSessionID') %>% 
+    left_join(age, by = 'participant') %>% 
+    left_join(df, by = 'participant') %>% 
     mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
+    rename(pavloviaSessionID = participant) %>% 
     select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, m, sd, parameter)
   
   threshold <- rbind(threshold_summary, wpm_summary) %>% 
@@ -707,23 +646,38 @@ generate_threshold <- function(data_list, summary_list, pretest, stairs, df,
            `se across participants` = round(`se across participants`,3),
            `sd across participants` = round(`sd across participants`,3),
            `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
-    select(experiment,conditionName,m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
+    select(experiment,conditionName, m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
 
   all_summary <- all_summary %>% 
     left_join(stairs_summary, by = c('participant', 'block_condition', 'conditionName')) %>% 
-    rename(pavloviaSessionID = participant) %>% 
-    left_join(df, by = 'pavloviaSessionID') %>% 
-    left_join(grade, by = 'pavloviaSessionID')
+    left_join(age, by = 'participant') %>% 
+    left_join(df, by = 'participant') %>% 
+    rename(pavloviaSessionID = participant)
+    
   
   all_summary <- all_summary %>% 
-    mutate(Grade = ifelse(is.na(Grade), -1, Grade),
-           condition = ifelse(length(str_split(block_condition,'_')) == 0,
+    mutate(condition = ifelse(length(str_split(block_condition,'_')) == 0,
                               NA,
                               str_split(block_condition,'_')[[1]][2])) %>% 
     select(experiment, pavloviaSessionID, participantID, 
            age, Grade, conditionName, block, condition, 
            conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,
            questSDAtEndOfTrialsLoop, TrialsSentToQuest, BadTrials)
-  
-  return(list(reading_exceed_1500 %>% select(warning), threshold, threshold_each, all_summary))
-}
+
+  return(list(reading = reading, 
+              crowding = crowding,
+              rsvp = rsvp_speed,
+              fluency = fluency,
+              acuity = acuity,
+              repeatedLetters = repeatedLetters,
+              quest = quest, # threshold averaged by participant, conditionName
+              quest_all_thresholds = quest_all_thresholds, # include all threshold estimate
+              age = age,
+              conditionNames = conditionNames,
+              threshold = threshold, 
+              threshold_each = threshold_each, 
+              all_summary = all_summary,
+              ratings = ratings,
+              QA = QA %>% select(-block)
+              ))
+  }
