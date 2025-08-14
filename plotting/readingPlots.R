@@ -575,7 +575,7 @@ plot_reading_crowding <- function(allData) {
         size = 3,
         color = "black"
       ) +
-      color_scale(n = length(unique(data_reading[[colorFactor]]))) + # Apply color_scale directly
+      (if (colorFactor == "font") scale_color_manual(values = font_color_palette(unique(data_reading$font))) else color_scale(n = length(unique(data_reading[[colorFactor]])))) + # Apply color_scale directly
       guides(color = guide_legend(title = colorFactor), 
              shape = guide_legend(title = '', ncol = 1)) +
       labs(

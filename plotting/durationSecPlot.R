@@ -170,7 +170,7 @@ plot_duraction_sec <- function(df) {
   p1 <- p1 + 
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
-    scale_color_manual(values = colorPalette) + 
+    scale_color_manual(values = font_color_palette(unique(df$font))) + 
     guides(color=guide_legend(ncol=3, title = '')) + 
     theme_bw() +
     plt_theme_scatter +
@@ -292,7 +292,7 @@ plot_Lateness_sec <- function(df) {
   p1 <- p1 + 
     scale_x_log10(expand=c(0,.1)) +
     scale_y_log10(expand=c(0,.1)) + 
-    scale_color(df$font) +  
+    scale_color_manual(values = font_color_palette(unique(df$font))) +  
     facet_wrap(~intervention) + 
     guides(color=guide_legend(ncol=3, title = '')) + 
     annotation_logticks(
@@ -1676,6 +1676,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
       ggpp::geom_text_npc(aes(npcx = 'left',
                               npcy = 'top'),
                           label = paste0('N=', n)) +
+      scale_color_manual(values = font_color_palette(unique(filtered_block$font))) +
       guides(color=guide_legend(ncol=3, title = '')) +
       labs(title = 'badLatenessTrials vs hardwareConcurrency\ncolored by font',
            caption = 'Points jittered to avoid occlusion.')
@@ -1695,6 +1696,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
       ggpp::geom_text_npc(aes(npcx = 'left',
                               npcy = 'top'),
                           label = paste0('N=', n)) +
+      scale_color_manual(values = font_color_palette(unique(filtered_block$font))) +
       guides(color=guide_legend(ncol=3, title = '')) +
       labs(title = 'badDurationTrials vs hardwareConcurrency\ncolored by font',
            caption = 'Points jittered to avoid occlusion.')
@@ -1715,6 +1717,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
       ggpp::geom_text_npc(aes(npcx = 'left',
                               npcy = 'top'),
                           label = paste0('N=', n)) +
+      scale_color_manual(values = font_color_palette(unique(filtered_params$font))) +
       guides(color=guide_legend(ncol=3, title = '')) +
       labs(title = ' targetMeasuredLatenessSec vs hardwareConcurrency\ncolored by font',
            caption = 'Points jittered to avoid occlusion.')
@@ -1731,6 +1734,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
                       y=targetMeasuredDurationSec, 
                       color = font),
                   position=position_jitter(width=0.1, height=0.1)) +
+      scale_color_manual(values = font_color_palette(unique(filtered_params$font))) +
       # ggpp::geom_text_npc(aes(npcx = 'left',
       #                         npcy = 'top'),
       #                     label = paste0('N=', n)) +
@@ -1797,6 +1801,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
       ggpp::geom_text_npc(aes(npcx = 'left',
                           npcy = 'top'),
                           label = paste0('N=', n)) +
+      scale_color_manual(values = font_color_palette(unique(filtered_params$font))) +
       guides(color=guide_legend(ncol=3, title = '')) +
       scale_x_log10() +
       scale_y_log10() +

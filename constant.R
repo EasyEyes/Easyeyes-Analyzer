@@ -124,6 +124,26 @@ scale_color <- function(list) {
   }
 }
 
+# Font color palette function
+font_color_palette <- function(fonts) {
+  # Sort fonts alphabetically for consistent color assignment
+  sorted_fonts <- sort(unique(fonts))
+  
+  # Create a named vector mapping each font to a color from the existing colorPalette
+  font_colors <- setNames(
+    colorPalette[1:length(sorted_fonts)], 
+    sorted_fonts
+  )
+  
+  return(font_colors)
+}
+
+# Function to get scale_color_manual for fonts
+scale_color_font <- function(fonts) {
+  palette <- font_color_palette(fonts)
+  scale_color_manual(values = palette)
+}
+
 
 plt_theme <- theme(legend.position = "top", 
                    legend.box = "vertical", 

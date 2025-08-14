@@ -249,7 +249,7 @@ plot_rsvp_crowding <- function(allData) {
         size = 3,
         color = "black"
       ) +
-      color_scale(n = n_distinct(data[[colorFactor]])) +
+      (if (colorFactor == "font") scale_color_manual(values = font_color_palette(unique(data$font))) else color_scale(n = n_distinct(data[[colorFactor]]))) +
       labs(
         x = "Residual crowding (deg)",
         y = "Residual RSVP reading (w/min)",
@@ -407,7 +407,7 @@ plot_rsvp_crowding <- function(allData) {
         size = 3,
         color = "black"
       ) +
-      color_scale(n = n_distinct(data_rsvp[[colorFactor]])) +  # Apply color scale dynamically
+      (if (colorFactor == "font") scale_color_manual(values = font_color_palette(unique(data_rsvp$font))) else color_scale(n = n_distinct(data_rsvp[[colorFactor]]))) +  # Apply color scale dynamically
       labs(
         x = paste(condition, "crowding (deg)"),
         y = "RSVP reading (w/min)",

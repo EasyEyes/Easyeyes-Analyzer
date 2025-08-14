@@ -119,7 +119,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
         color = "black"
       ) +
       plt_theme +
-      color_scale(n = unique_colors) +  # Apply dynamic color scale
+      (if (colorFactor == "font") scale_color_manual(values = font_color_palette(unique(data_rsvp$font))) else color_scale(n = unique_colors)) +  # Apply dynamic color scale
       theme(legend.position = ifelse(unique_colors == 1, 'none', 'top')) +
       guides(color = guide_legend(title = colorFactor), shape = F) +
       labs(
@@ -289,7 +289,7 @@ plot_reading_repeated_letter_crowding <- function(allData) {
         color = "black"
       ) +
       plt_theme_ggiraph +
-      color_scale(n = unique_colors) +  # Apply color scale dynamically
+      (if (colorFactor == "font") scale_color_manual(values = font_color_palette(unique(data_reading$font))) else color_scale(n = unique_colors)) +  # Apply color scale dynamically
       guides(color = guide_legend(title = colorFactor), shape = F) +
       labs(
         x = paste('Repeated-letter crowding (deg)'),

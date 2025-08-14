@@ -155,6 +155,17 @@ crowding_scatter_plot <- function(crowding_L_R){
     annotation_logticks(sides = "bl") +
     coord_fixed() +
     theme_bw() +
+    scale_color_manual(values = {
+      # Create mapping from shortConditionName to font colors
+      # Extract font names from conditionName (used to create shortConditionName)
+      font_names <- sapply(levels(df$shortConditionName), function(x) {
+        # Extract font name from the short format: "eccs deg, fontName, N=X, R=Y"
+        # Split by comma and take the second part (fontName), then trim whitespace
+        trimws(strsplit(x, ",")[[1]][2])
+      })
+      font_palette <- font_color_palette(unique(font_names))
+      setNames(font_palette[font_names], levels(df$shortConditionName))
+    }) +
     guides(color = guide_legend(title = NULL, ncol = 1)) +
     labs(
       title   = "Left vs right peripheral crowding",

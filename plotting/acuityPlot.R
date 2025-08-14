@@ -352,7 +352,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
         mid   = unit(2, "pt"), 
         long  = unit(7, "pt")
       ) +
-      color_scale(n = unique_colors) +  # Dynamic color scale
+      (if (colorFactor == "font") scale_color_manual(values = font_color_palette(unique(data_rsvp$font))) else color_scale(n = unique_colors)) +  # Dynamic color scale
       guides(color = guide_legend(title = colorFactor, ncol = 2), 
              shape = guide_legend(title = '',
                                   ncol = 1)) +
@@ -476,7 +476,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
     unique_levels <- unique(data_reading[[colorFactor]])
     
     # Dynamic color scale directly applied in ggplot
-    color_scale <- color_scale(n = length(unique_levels))
+    color_scale <- if (colorFactor == "font") scale_color_manual(values = font_color_palette(unique(data_reading$font))) else color_scale(n = length(unique_levels))
     
     # Plot
     xMin <- min(data_reading$X, na.rm = TRUE) / 1.5
@@ -767,7 +767,8 @@ peripheral_plot <- function(allData) {
       y        = 'Peripheral acuity (deg)'
     ) +
     theme_classic() + plt_theme +
-    theme(legend.position = "top")
+    theme(legend.position = "top") +
+    scale_color_manual(values = font_color_palette(unique(t$font)))
 
   return(list(grade = p1, font = p2))
 }
