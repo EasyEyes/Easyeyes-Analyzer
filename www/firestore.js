@@ -18,16 +18,6 @@ document.addEventListener("DOMContentLoaded", async function () {
   let checkBoxs = [];
   document.getElementById("profilePlot").innerHTML =
     "<p style = 'font-size:20px'> Retrieving database menu <p> <br> <div class='loader-profile'></div>";
-  const firebaseConfig = {
-    apiKey: "AIzaSyDZopCl6jqND4sFYCSiB1GpCXreXd6-Q9s",
-    authDomain: "speaker-calibration.firebaseapp.com",
-    databaseURL: "https://speaker-calibration-default-rtdb.firebaseio.com",
-    projectId: "speaker-calibration",
-    storageBucket: "speaker-calibration.appspot.com",
-    messagingSenderId: "322038930574",
-    appId: "1:322038930574:web:d10ca9e7d60b6da9bafddf",
-    measurementId: "G-3724GD92R6",
-  };
   const app = firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 

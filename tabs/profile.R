@@ -5,6 +5,7 @@ profileTab <- tabPanel(
     tags$script(src = "https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"),
     tags$script(src = "https://www.gstatic.com/firebasejs/10.6.0/firebase-firestore-compat.js"),
     tags$script(src = "https://cdn.jsdelivr.net/npm/chart.js"),
+    tags$script(src = "firebase-config.js"),
     tags$script(src = "firestore.js"),
   ),
   fixedRow(

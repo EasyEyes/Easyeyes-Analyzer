@@ -6,7 +6,7 @@ on:
     branches:
       - main
 
-  # run on request (via button in actions menu)
+  # run on request (via button in Actions menu)
   workflow_dispatch:
       
 jobs:
@@ -14,6 +14,15 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+      FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+      FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+      FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+      FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+      FIREBASE_MEASUREMENT_ID: ${{ secrets.FIREBASE_MEASUREMENT_ID }}
+      
     steps:
       - uses: actions/checkout@v4
 
@@ -26,8 +35,27 @@ jobs:
 
       - uses: r-lib/actions/setup-renv@v2
           
-      # Step 2: Install R packages
-      - name: install everything and deploy
+      # Step 1: Generate firebase-config.js
+      - name: Generate firebase-config.js
+        run: |
+          mkdir -p www
+          cat > www/firebase-config.js <<EOL
+          const firebaseConfig = {
+            apiKey: "$FIREBASE_API_KEY",
+            authDomain: "$FIREBASE_AUTH_DOMAIN",
+            databaseURL: "$FIREBASE_DATABASE_URL",
+            projectId: "$FIREBASE_PROJECT_ID",
+            storageBucket: "$FIREBASE_STORAGE_BUCKET",
+            messagingSenderId: "$FIREBASE_MESSAGING_SENDER_ID",
+            appId: "$FIREBASE_APP_ID",
+            measurementId: "$FIREBASE_MEASUREMENT_ID"
+          };
+          EOL
+          echo "firebase-config.js generated."
+        shell: bash
+
+      # Step 2: Install R packages and deploy
+      - name: Install packages and deploy
         env:
           RS_TOKEN: ${{ secrets.TOKEN }}
           RS_SECRET: ${{ secrets.SECRET }}
@@ -35,5 +63,3 @@ jobs:
           rsconnect::setAccountInfo(name='easyeyes', token=Sys.getenv('RS_TOKEN'), secret=Sys.getenv('RS_SECRET'))
           rsconnect::deployApp(appName = 'easyeyes_app', forceUpdate = TRUE)
         shell: Rscript {0}
-          
-    
