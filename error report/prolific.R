@@ -96,9 +96,16 @@ combineProlific <- function(prolificData, summary_table, pretest){
       formSpree <- formSpree %>% filter(`ProlificSessionID` %in% unique(prolificData$prolificSessionID),
                                         !`ProlificSessionID` %in% unique(summary_table$prolificSessionID))
     }
+    # join prolific data to only latest session
+    latest_per_participant <- summary_table %>%
+      group_by(`Prolific participant ID`, ProlificSessionID) %>%
+      slice_max(order_by = date, n = 1, with_ties = FALSE) %>%
+      ungroup() %>%
+        select(`Prolific participant ID`, ProlificSessionID, date) %>%
+      left_join(prolificData, by = c("Prolific participant ID","ProlificSessionID"))
     
-    t <- summary_table %>% 
-      left_join(prolificData, by = c('Prolific participant ID', 'ProlificSessionID')) %>% 
+    t <- summary_table %>%
+      left_join(latest_per_participant, by = c("Prolific participant ID","ProlificSessionID", "date")) %>% 
       mutate(`Completion code` = ifelse(`Completion code` == "" & `ProlificSessionID` %in% unique(prolificData$prolificSessionID), 'TRIED AGAIN', `Completion code`))
     
   }
