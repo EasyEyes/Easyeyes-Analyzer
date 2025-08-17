@@ -185,6 +185,7 @@ get_webGL <- function(data_list) {
           maxViewportSize = ifelse("Max_Viewport_Dims" %in% names(t), max(unlist(t$Max_Viewport_Dims)),""),
           WebGLUnmaskedRenderer = ifelse("Unmasked_Renderer" %in% names(t), max(unlist(t$Unmasked_Renderer)),""))
       }
+      df$date = data_list[[i]]$date[1]
       webGL = rbind(webGL, df)
     }
   }
@@ -194,10 +195,12 @@ get_webGL <- function(data_list) {
       WebGLVersion = NA,
       maxTextureSize = NA,
       maxViewportSize = NA,
-      WebGLUnmaskedRenderer = NA)
+      WebGLUnmaskedRenderer = NA,
+      date=NA)
   } else {
     webGL = tibble(
       participant = webGL$participant,
+      date = webGL$date,
       WebGLVersion = webGL$WebGLVersion,
       maxTextureSize = as.numeric(webGL$maxTextureSize),
       maxViewportSize = as.numeric(webGL$maxViewportSize),

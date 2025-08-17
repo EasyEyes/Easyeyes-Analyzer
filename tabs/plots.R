@@ -99,8 +99,9 @@ plotsTab <- tabPanel(
       )
     )
   ),
+  h2("Violin Plots"),
+  shinycssloaders::withSpinner(uiOutput('violinPlots'), type = 4),
   h2("Scatter diagrams"),
-  
   shinycssloaders::withSpinner(uiOutput('scatters'), type = 4),
   conditionalPanel(
     'output.isRsvp',

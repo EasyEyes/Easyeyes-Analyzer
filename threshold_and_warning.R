@@ -5,8 +5,7 @@ library(stringr)
 englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
   mutate(participant = tolower(ID))
 
-generate_rsvp_reading_crowding_fluency <- 
-  
+generate_threshold <- 
   function(data_list, summary_list, df, pretest, stairs, filterInput, skillFilter,minNQuestTrials, 
            minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed) {
     
@@ -38,10 +37,11 @@ generate_rsvp_reading_crowding_fluency <-
     NQuestTrials <- stairs %>%
       group_by(participant, staircaseName, thresholdParameter) %>%
       summarize(questTrials = sum(trialGivenToQuest,na.rm = T),
+                badTrials = sum(!trialGivenToQuest,na.rm = T),
                 .groups="drop") %>% 
       filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | questTrials >= minNQuestTrials) %>% 
       mutate(block_condition = as.character(staircaseName)) %>% 
-      distinct(participant, block_condition, questTrials)
+      distinct(participant, block_condition, questTrials, badTrials)
     
     #### wrongTrials ####
     wrongTrials <- stairs %>%
@@ -261,7 +261,8 @@ generate_rsvp_reading_crowding_fluency <-
       print(paste('number of rows in reading', nrow(reading)))
       print(paste('number of rows all_summary', nrow(all_summary)))
       reading <- reading %>% filter(tolower(participant) %in% tolower(slowest$participant))
-      all_summary <- all_summary %>%  filter(tolower(participant) %in% tolower(slowest$participant))
+      all_summary <- all_summary %>% 
+        filter(tolower(participant) %in% tolower(slowest$participant))
       print('after filtering')
       print(paste('unique pavloviaSessionID in reading', n_distinct(reading$participant)))
       print(paste('unique pavloviaSessionID in threshold', n_distinct(all_summary$participant)))
@@ -270,7 +271,8 @@ generate_rsvp_reading_crowding_fluency <-
     } 
     if (filterInput == 'fastest' & nrow(slowest) > 0) {
       reading <- reading%>% filter(!tolower(participant) %in% tolower(slowest$participant))
-      all_summary <- all_summary%>% filter(!tolower(participant) %in% tolower(slowest$participant))
+      all_summary <- all_summary %>%
+        filter(!tolower(participant) %in% tolower(slowest$participant))
     }
     print('done filter input')
     
@@ -330,7 +332,7 @@ generate_rsvp_reading_crowding_fluency <-
         select(-lowerCaseParticipant)
     }
     quest <- all_summary %>% 
-      select(participant, block_condition, thresholdParameter, conditionName, font, 
+      select(experiment, participant, block_condition, thresholdParameter, conditionName, font, 
              questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade,
              `Skilled reader?`, ParticipantCode, questTrials, NWrongTrial,NCorrectTrial,frac
       ) %>% 
@@ -392,7 +394,7 @@ generate_rsvp_reading_crowding_fluency <-
     age <- age %>% filter(participant %in% valid_ids)
     
     quest <- quest %>% 
-      group_by(participant, conditionName, font, questType,age, Grade,
+      group_by(experiment, participant, conditionName, font, questType, age, Grade,
                `Skilled reader?`, targetDurationSec, targetEccentricityXDeg, targetEccentricityYDeg, ParticipantCode) %>% 
       summarize(questMeanAtEndOfTrialsLoop = mean(questMeanAtEndOfTrialsLoop, na.rm=T),
                 questSDAtEndOfTrialsLoop = mean(questSDAtEndOfTrialsLoop, na.rm=T),
@@ -528,63 +530,6 @@ generate_rsvp_reading_crowding_fluency <-
     basicExclude <- tibble(participant = '')
   }
   
-  stairs_summary <- stairs %>%
-    group_by(participant, thresholdParameter, block_condition, conditionName) %>% 
-    summarize(TrialsSentToQuest = sum(trialGivenToQuest),
-              BadTrials = sum(!trialGivenToQuest),
-              .groups="drop") %>% 
-    mutate(block_condition = as.character(block_condition)) %>% 
-    filter((thresholdParameter != 'spacingDeg'  & thresholdParameter != 'spacing') | TrialsSentToQuest >= minNQuestTrials)
-  
-  wrongTrials <- stairs %>%
-    group_by(participant, staircaseName) %>%
-    summarize(NWrongTrial = sum(!`key_resp.corr`,na.rm = T)) %>% 
-    ungroup() %>% 
-    filter(NWrongTrial >= minWrongTrials) %>% 
-    mutate(block_condition = as.character(staircaseName)) %>% 
-    distinct(participant, block_condition)
-  
-  all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
-    summary_list[[i]]
-  } %>% 
-    filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
-    mutate(participant = as.character(participant),
-           block_condition = as.character(block_condition)) %>% 
-    inner_join(stairs_summary %>% select(participant, block_condition)) %>% 
-    filter(questSDAtEndOfTrialsLoop <= maxQuestSD) %>% 
-    inner_join(wrongTrials, by = c("participant", "block_condition"))
-  
-  
-  #### beauty and comfort ####
-  QA <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% 
-      distinct(participant,
-               block,
-               block_condition, 
-               conditionName, 
-               questionAndAnswerQuestion, 
-               questionAndAnswerNickname, 
-               questionAndAnswerResponse,
-               questionAndAnswerCorrectAnswer) %>%
-      filter(!is.na(questionAndAnswerNickname),
-             !is.na(questionAndAnswerQuestion),
-             questionAndAnswerNickname != "", 
-             questionAndAnswerQuestion != ""
-             ) %>% 
-      mutate(correct = (questionAndAnswerResponse == questionAndAnswerCorrectAnswer))
-  } %>% 
-    arrange(participant, block, block_condition)
-  
-
-  ratings <- QA %>% 
-    select(-c(questionAndAnswerQuestion,questionAndAnswerCorrectAnswer)) %>% 
-    mutate(questionAndAnswerResponse = as.numeric(arabic_to_western(questionAndAnswerResponse))) %>% 
-    filter(!is.na(questionAndAnswerResponse)) %>% 
-    group_by(block,block_condition, conditionName, questionAndAnswerNickname) %>% 
-    summarize(`mean rating` = mean(questionAndAnswerResponse, rm.na = T), .groups = "drop") %>% 
-    arrange(block, block_condition) %>% 
-    select(-block)
-  
   threshold_all <- all_summary %>%
     group_by(participant, experiment, conditionName, thresholdParameter) %>%
     dplyr::summarize(
@@ -648,21 +593,52 @@ generate_rsvp_reading_crowding_fluency <-
            `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
     select(experiment,conditionName, m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
 
-  all_summary <- all_summary %>% 
-    left_join(stairs_summary, by = c('participant', 'block_condition', 'conditionName')) %>% 
-    left_join(age, by = 'participant') %>% 
-    left_join(df, by = 'participant') %>% 
-    rename(pavloviaSessionID = participant)
-    
+  
+  #### beauty and comfort ####
+  QA <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
+    data_list[[i]] %>% 
+      distinct(participant,
+               block,
+               block_condition, 
+               conditionName, 
+               questionAndAnswerQuestion, 
+               questionAndAnswerNickname, 
+               questionAndAnswerResponse,
+               questionAndAnswerCorrectAnswer) %>%
+      filter(!is.na(questionAndAnswerNickname),
+             !is.na(questionAndAnswerQuestion),
+             questionAndAnswerNickname != "", 
+             questionAndAnswerQuestion != ""
+      ) %>% 
+      mutate(correct = (questionAndAnswerResponse == questionAndAnswerCorrectAnswer))
+  } %>% 
+    arrange(participant, block, block_condition)
+  
+
+  ratings <- QA %>% 
+    select(-c(questionAndAnswerQuestion,questionAndAnswerCorrectAnswer)) %>% 
+    mutate(questionAndAnswerResponse = as.numeric(arabic_to_western(questionAndAnswerResponse))) %>% 
+    filter(!is.na(questionAndAnswerResponse)) %>% 
+    group_by(block, block_condition, conditionName, questionAndAnswerNickname) %>% 
+    summarize(`mean rating` = mean(questionAndAnswerResponse, rm.na = T), .groups = "drop") %>% 
+    mutate(`mean rating` = ifelse(questionAndAnswerNickname == 'BirthYear', year(today()) - `mean rating`,`mean rating`)) %>% 
+    arrange(block, block_condition) %>% 
+    select(-block)
+  
   
   all_summary <- all_summary %>% 
+    select(-Grade) %>% 
+    left_join(df, by = "participant") %>% 
+    left_join(age, by = "participant") %>% 
+    rename(pavloviaSessionID = participant,
+           TrialsSentToQuest = questTrials) %>% 
     mutate(condition = ifelse(length(str_split(block_condition,'_')) == 0,
                               NA,
                               str_split(block_condition,'_')[[1]][2])) %>% 
     select(experiment, pavloviaSessionID, participantID, 
            age, Grade, conditionName, block, condition, 
            conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,
-           questSDAtEndOfTrialsLoop, TrialsSentToQuest, BadTrials)
+           questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials)
 
   return(list(reading = reading, 
               crowding = crowding,

@@ -344,7 +344,7 @@ read_files <- function(file){
 
         if (nrow(t) > 0)  {
           stairdf <- extractStaircases(t, info)
-          summary_list[[j]] <- summaries
+          summary_list[[j]] <- summaries 
           data_list[[j]] <- t
           stair_list[[j]] <-  stairdf 
           t$experiment <- trimws(t$experiment[1])

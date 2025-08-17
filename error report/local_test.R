@@ -306,7 +306,7 @@ plotCrowdingStaircases(stairAll) + plt_theme
 generate_threshold(data_list, summary_list)
 
 ####### crowding rsvp #######
-df_list <- generate_rsvp_reading_crowding_fluency(data_list,summary_list, pretest, stairs,'all', 10)
+df_list <- generate_threshold(data_list,summary_list, pretest, stairs,'all', 10)
 rsvp_speed <- allData$rsvp
 crowding <- allData$crowding
 acuity <- allData$acuity %>% rename('log_acuity'='questMeanAtEndOfTrialsLoop')

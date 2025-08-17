@@ -52,6 +52,7 @@ source('./plotting/repeated-letter-crowding.R')
 source('./plotting/durationSecPlot.R')
 source('./plotting/distancePlot.R')
 source('./plotting/minDegPlot.R')
+source('./plotting/violin_plot.R')
 
 source("./other/getBits.R")
 source("./other/sound_plots.R")
@@ -239,7 +240,7 @@ shinyServer(function(input, output, session) {
     if (is.null(files())) {
       return(NULL)
     }
-    df_list <- generate_rsvp_reading_crowding_fluency(
+    df_list <- generate_threshold(
       files()$data_list,
       summary_list(),
       files()$df,
@@ -477,23 +478,7 @@ shinyServer(function(input, output, session) {
   
   
   #### reactive plots #####
-  
-  # reading_vs_font_size <- reactive({
-  #   plot_rsvp_vs_x_height(df_list()[[3]])
-  # })
-  #
-  # reading_60cm_1.2mm_vs_1.4mm <- reactive({
-  #   get_60cm_scatter(df_list()[[3]])
-  # })
-  #
-  # reading_30cm_1.2mm_vs_1.4mm <- reactive({
-  #   get_30cm_scatter(df_list()[[3]])
-  # })
-  #
-  # reading_diff_60cm_vs_age <- reactive({
-  #   plot_60cm_speed_diff_vs_age(df_list()[[3]])
-  # })
-  
+
   meanPlot <- reactive({
     req(input$file)
     mean_plot(reading_rsvp_crowding_df()) +
@@ -820,6 +805,42 @@ shinyServer(function(input, output, session) {
     )
   })
   
+  
+  #### voilin plots ####
+  
+  violinPlots <- reactive({
+    if (is.null(input$file) | is.null(files())) {
+      return(list(plotList = list(), fileNames = list()))
+    }
+    print('inside violin plots')
+    l <- list()
+    fileNames <- list()
+    violins <- plot_violins(df_list())
+    plot_calls <- list(
+      list(plot = violins$reading, fname = 'reading-violin-by-font-plot'),
+      list(plot = violins$rsvp, fname = 'rsvp-violin-by-font-plot'),
+      list(plot = violins$crowding, fname = 'crowding-violin-by-font-plot'),
+      list(plot = violins$acuity, fname = 'acuity-violin-by-font-plot'),
+      list(plot = violins$beauty, fname = 'beauty-violin-by-font-plot'),
+      list(plot = violins$cmfrt, fname = 'comfort-violin-by-font-plot')
+    )
+    
+    for (call in plot_calls) {
+      plot <- call$plot
+      if (!is.null(plot)) {
+        plot <- plot + scale_color_manual(values = colorPalette)
+        plot <- add_experiment_title(plot, experiment_names())
+      }
+      res <- append_plot_list(l, fileNames, plot, call$fname)
+      l <- res$plotList
+      fileNames <- res$fileNames
+    }
+    
+    return(list(
+      plotList = l,
+      fileNames = fileNames
+    ))
+  })
   #### scatterDiagrams ####
   
   scatterDiagrams <- reactive({
@@ -876,48 +897,45 @@ shinyServer(function(input, output, session) {
                   fileNames = list()))
     }
     print('inside scatter quality plots')
-    i = 1
     l <- list()
     fileNames <- list()
     
-    crowdingPlots <-
-      plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
-    if (!is.null(crowdingPlots$fovealPlot)) {
-      l[[i]] <- crowdingPlots$fovealPlot +  scale_color_manual(values = colorPalette)
-      l[[i]] <- add_experiment_title(l[[i]], experiment_names())
-      fileNames[[i]] <-
-        'foveal-crowding-staircases-threshold-vs-questTrials'
-      i <- i + 1
-    }
+    # OPTIMIZATION: Compute expensive functions once, use results multiple times
+    crowdingPlots <- plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
+    quest_diag <- get_quest_diag(df_list()$quest)
+    quest_sd_trials <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
     
-    # Add peripheral plot to the list
-    if (!is.null(crowdingPlots$peripheralPlot)) {
-      l[[i]] <- crowdingPlots$peripheralPlot + scale_color_manual(values = colorPalette)
-      l[[i]] <- add_experiment_title(l[[i]], experiment_names())
-      fileNames[[i]] <-
-        'peripheral-crowding-staircases-threshold-vs-questTrials'
-      i <- i + 1
-    }
-
-    t <- get_quest_diag(df_list()$quest)$grade
-    if (!is.null(t)) {
-      l[[i]] = t + scale_color_manual(values = colorPalette)
-      l[[i]] <- add_experiment_title(l[[i]], experiment_names())
-      fileNames[[i]] = 'quest-sd-vs-mean-grade-diagram'
-      i = i + 1
-    }
+    plot_calls <- list(
+      list(plot = crowdingPlots$fovealPlot, fname = 'foveal-crowding-staircases-threshold-vs-questTrials'),
+      list(plot = crowdingPlots$peripheralPlot, fname = 'peripheral-crowding-staircases-threshold-vs-questTrials'),
+      list(plot = quest_diag$grade, fname = 'quest-sd-vs-mean-grade-diagram'),
+      list(plot = quest_sd_trials, fname = 'quest-sd-vs-quest-trials-grade-diagram')
+    )
     
-    t <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
-    if (!is.null(t)) {
-      l[[i]] <- t + scale_color_manual(values = colorPalette)
-      l[[i]] <- add_experiment_title(l[[i]], experiment_names())
-      fileNames[[i]] <- 'quest-sd-vs-quest-trials-grade-diagram'
-      i <- i + 1
+    for (call in plot_calls) {
+      plot <- call$plot
+      if (!is.null(plot)) {
+        plot <- plot + scale_color_manual(values = colorPalette)
+        plot <- add_experiment_title(plot, experiment_names())
+      }
+      res <- append_plot_list(l, fileNames, plot, call$fname)
+      l <- res$plotList
+      fileNames <- res$fileNames
     }
     
     minDegPlot <- minDegPlots()$scatter_quality
+    
+    # Apply experiment title to minDegPlot plots
+    minDegPlot_updated <- lapply(minDegPlot$plotList, function(plot) {
+      if (!is.null(plot)) {
+        plot <- plot + scale_color_manual(values = colorPalette)
+        plot <- add_experiment_title(plot, experiment_names())
+      }
+      return(plot)
+    })
+    
     return(list(
-      plotList = c(l, minDegPlot$plotList),
+      plotList = c(l, minDegPlot_updated),
       fileNames = c(fileNames, minDegPlot$fileNames)
     ))
   })
@@ -929,7 +947,6 @@ shinyServer(function(input, output, session) {
     }
     
     print("inside ScatterTime")
-    i <- 1
     l <- list()
     fileNames <- list()
     
@@ -937,7 +954,19 @@ shinyServer(function(input, output, session) {
     scatter_time_plots <-
       append_scatter_time(data_list(), l, fileNames, conditionNames())
     
-    return(scatter_time_plots)
+    # Apply experiment title to all plots
+    updated_plots <- lapply(scatter_time_plots$plotList, function(plot) {
+      if (!is.null(plot)) {
+        plot <- plot + scale_color_manual(values = colorPalette)
+        plot <- add_experiment_title(plot, experiment_names())
+      }
+      return(plot)
+    })
+    
+    return(list(
+      plotList = updated_plots,
+      fileNames = scatter_time_plots$fileNames
+    ))
   })
   
   scatterTimeParticipant <- reactive({
@@ -947,7 +976,6 @@ shinyServer(function(input, output, session) {
     }
     
     print("inside ScatterTimeParticipant")
-    i <- 1
     l <- list()
     fileNames <- list()
     
@@ -955,7 +983,19 @@ shinyServer(function(input, output, session) {
     scatter_time_plots <-
       append_scatter_time_participant(data_list(), l, fileNames, conditionNames())
     
-    return(scatter_time_plots)
+    # Apply experiment title to all plots
+    updated_plots <- lapply(scatter_time_plots$plotList, function(plot) {
+      if (!is.null(plot)) {
+        plot <- plot + scale_color_manual(values = colorPalette)
+        plot <- add_experiment_title(plot, experiment_names())
+      }
+      return(plot)
+    })
+    
+    return(list(
+      plotList = updated_plots,
+      fileNames = scatter_time_plots$fileNames
+    ))
   })
   
   
@@ -2815,6 +2855,8 @@ shinyServer(function(input, output, session) {
               plot = scatterDiagrams()$plotList[[ii]] +
                 plt_theme_scatter +
                 scale_color_manual(values = colorPalette),
+              width = 8,
+              height = 8,
               unit = 'in',
               limitsize = F,
               device = svglite
@@ -2899,6 +2941,148 @@ shinyServer(function(input, output, session) {
           )
       })
     }
+    return(out)
+  })
+  
+  output$violinPlots <- renderUI({
+    out <- list()
+    i = 1
+    while (i <= length(violinPlots()$plotList) - 1) {
+      out[[i]] <-  splitLayout(
+        cellWidths = c("50%", "50%"),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("violin", i),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("violin", i + 1),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4)
+      )
+      out[[i + 1]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        downloadButton(paste0("downloadViolin", i), 'Download'),
+        downloadButton(paste0("downloadViolin", i +
+                                1), 'Download')
+      )
+      i = i + 2
+    }
+    if (i == length(violinPlots()$plotList)) {
+      out[[i]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("violin", i),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4)
+      )
+      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                  downloadButton(paste0("downloadViolin", i), 'Download'))
+    }
+    
+    # Generate the plots and download handlers
+    for (j in 1:length(violinPlots()$plotList)) {
+      local({
+        ii <- j
+        output[[paste0("violin", ii)]] <- renderImage({
+          tryCatch({
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = violinPlots()$plotList[[ii]] +
+                plt_theme,
+              width = 8,
+              height = 6,
+              unit = 'in',
+              device = svglite,
+              limitsize = FALSE
+            )
+            list(src = outfile, contenttype = 'svg')
+          }, error = function(e) {
+            # Show error in a ggplot-friendly way
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                color = "red",
+                size = 5,
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              theme_void() +
+              ggtitle(violinPlots()$fileNames[[ii]])
+            
+            # Save the error plot to a temp file
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = error_plot,
+              device = svglite,
+              width = 6,
+              height = 4,
+              unit = 'in'
+            )
+            list(
+              src = outfile,
+              contenttype = 'svg',
+              alt = paste0("Error in ", violinPlots()$fileNames[[ii]])
+            )
+          })
+        }, deleteFile = TRUE)
+        
+        output[[paste0("downloadViolin", ii)]] <-
+          downloadHandler(
+            filename = paste0(
+              experiment_names(),
+              violinPlots()$fileNames[[ii]],
+              '.',
+              input$fileType
+            ),
+            content = function(file) {
+              if (input$fileType == "png") {
+                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+                ggsave(
+                  tmp_svg,
+                  plot = violinPlots()$plotList[[ii]] +
+                    plt_theme,
+                  width = 8,
+                  height = 6,
+                  unit = "in",
+                  limitsize = F,
+                  device = svglite
+                )
+                rsvg::rsvg_png(tmp_svg,
+                               file,
+                               width = 1800,
+                               height = 1350)
+              } else {
+                ggsave(
+                  file,
+                  plot = violinPlots()$plotList[[ii]] +
+                    plt_theme,
+                  width = 8,
+                  height = 6,
+                  unit = "in",
+                  limitsize = F,
+                  device = ifelse(
+                    input$fileType == "svg",
+                    svglite::svglite,
+                    input$fileType
+                  )
+                )
+              }
+            }
+          )
+      })
+    }
+    
     return(out)
   })
   

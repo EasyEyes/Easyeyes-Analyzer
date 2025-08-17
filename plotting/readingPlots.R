@@ -376,16 +376,12 @@ plot_reading_rsvp <- function(reading, rsvp) {
   
   # Compute R_factor_out_age
   if (nrow(t) > 1) {
-    print("compute R_factor_out_age")
-    print(t)
     vars <- t %>% dplyr::select(X, Y, age)
-    print(vars)
     
     cor_mat <- cor(vars, use = "pairwise.complete.obs")
     
     if (det(cor_mat) < .Machine$double.eps) {
       warning("Correlation matrix is singular or nearly singular in production")
-      print(cor_mat)
       R_factor_out_age <- NA
     } else {
       pcor <- ppcor::pcor(vars)

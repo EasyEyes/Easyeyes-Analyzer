@@ -150,10 +150,6 @@ get_lateness_and_duration <- function(all_files) {
     select(
       -targetMeasuredLatenessMeanSec,-targetMeasuredLatenessSDSec,-targetMeasuredDurationMeanSec,-targetMeasuredDurationSDSec
     )
-  t <- t %>%
-    mutate(date = str_remove(date, " UTC[+-]\\d+")) %>%
-    mutate(date = parse_date_time(date, orders = c('ymdHMS', 'mdyHMS'))) %>%
-    mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
   
   return(t)
 }
@@ -166,8 +162,8 @@ generate_summary_table <- function(data_list, stairs) {
     t <- data_list[[i]] %>%
       mutate(block_condition = ifelse(block_condition == "", as.character(staircaseName), block_condition)) %>% 
       filter(!is.na(fontSizePx) | !is.na(viewingDistanceCm)) %>% 
-      select(participant, block_condition,fontSizePx,viewingDistanceCm,fontRenderMaxPx,fontMaxPx)
-      t <- t %>% group_by(participant, block_condition) %>% 
+      select(participant, date, block_condition,fontSizePx,viewingDistanceCm,fontRenderMaxPx,fontMaxPx)
+      t <- t %>% group_by(participant, date, block_condition) %>% 
       summarize(fontSizePx = round(mean(as.numeric(fontSizePx),rm.na=T),1),
                 viewingDistanceCm = round(mean(as.numeric(viewingDistanceCm),rm.na=T),1),
                 fontRenderMaxPx = mean(as.numeric(fontRenderMaxPx),rm.na=T),
@@ -180,6 +176,7 @@ generate_summary_table <- function(data_list, stairs) {
       filter(!is.na(staircaseName) & staircaseName != "") %>%
       select(
         participant,
+        date,
         `heapTotalAfterDrawing (MB)`,
         `heapLimitAfterDrawing (MB)`,
         deviceMemoryGB,
@@ -188,21 +185,22 @@ generate_summary_table <- function(data_list, stairs) {
   }
   
   NQuestTrials <- stairs %>%
-    arrange(participant, staircaseName) %>%
-    group_by(participant, staircaseName) %>%
+    arrange(participant, date, staircaseName) %>%
+    group_by(participant, date, staircaseName) %>%
     summarize(
       goodTrials = sum(trialGivenToQuest, na.rm = T),
       badTrials = sum(!trialGivenToQuest, na.rm = T),
       .groups="drop"
     ) %>%
-    group_by(participant) %>%
+    group_by(participant, date) %>%
     summarize(goodTrials = format(round(mean(goodTrials), 2), nsmall = 2),
               badTrials = format(round(mean(badTrials), 2), nsmall = 2),
               .groups="drop")
 
   params <- params %>%
     group_by(participant,
-             deviceMemoryGB) %>%
+             deviceMemoryGB, 
+             date) %>%
     summarize(
       mustTrackSec = format(round(mean(
         mustTrackSec, na.rm = T
@@ -215,7 +213,7 @@ generate_summary_table <- function(data_list, stairs) {
       ), nsmall = 2),
       .groups="drop"
     ) %>%
-    left_join(NQuestTrials, by = 'participant') %>%
+    left_join(NQuestTrials, by = c('participant', 'date')) %>%
     rename("Pavlovia session ID" = "participant")
   
   webGL <-
@@ -328,13 +326,13 @@ generate_summary_table <- function(data_list, stairs) {
   }
   
   print('done all files')
-  trial <- all_files %>% select(participant, block_condition, trial) %>% filter(block_condition != "")
+  trial <- all_files %>% select(participant, date, block_condition, trial) %>% filter(block_condition != "")
   lateness_duration <- get_lateness_and_duration(all_files)
   
   #### errors ####
   error <- all_files %>%
     dplyr::filter(error != "" & error != "Incomplete") %>%
-    group_by(participant) %>%
+    group_by(participant,date) %>%
     summarize(error = paste(error, collapse = "<br>"),
               .groups = "drop")
   # mutate(warning = "") %>%
@@ -344,7 +342,7 @@ generate_summary_table <- function(data_list, stairs) {
   #### warnings ####
   warnings <- all_files %>%
     dplyr::filter(warning != "") %>%
-    group_by(participant) %>%
+    group_by(participant,date) %>%
     summarize(warning = paste(warning, collapse = "<br>"),
               .groups = "drop")
   # mutate(error = "") %>%
@@ -365,6 +363,7 @@ generate_summary_table <- function(data_list, stairs) {
             ProlificParticipantID,
             participant,
             ProlificSessionID,
+            date,
             deviceType,
             cores,
             deviceSystemFamily,
@@ -414,6 +413,7 @@ generate_summary_table <- function(data_list, stairs) {
             ProlificParticipantID,
             participant,
             ProlificSessionID,
+            date,
             deviceType,
             cores,
             deviceSystemFamily,
@@ -485,6 +485,7 @@ generate_summary_table <- function(data_list, stairs) {
             ProlificParticipantID,
             participant,
             ProlificSessionID,
+            date,
             deviceType,
             cores,
             deviceSystemFamily,
@@ -534,6 +535,7 @@ generate_summary_table <- function(data_list, stairs) {
             ProlificParticipantID,
             participant,
             ProlificSessionID,
+            date,
             deviceType,
             cores,
             deviceSystemFamily,
@@ -579,20 +581,18 @@ generate_summary_table <- function(data_list, stairs) {
     }
   }
 
-
-  print('done completes')
-  
   summary_df <- sessions %>%
-    left_join(error, by = 'participant') %>%
-    left_join(warnings, by = 'participant') %>% 
+    distinct() %>% 
+    left_join(error, by = c('participant','date')) %>%
+    left_join(warnings, by = c('participant','date')) %>% 
     mutate(ok = factor(ok, levels = c(
       emoji("x"),
       emoji("construction"),
       emoji("white_check_mark")
     ))) %>%
-    left_join(lateness_duration, by = "participant") %>%
-    left_join(trial, by = c("participant", 'block_condition')) %>%
-    left_join(fontParams, by = c("participant", 'block_condition')) %>% 
+    left_join(lateness_duration, by = c("participant", "date")) %>%
+    left_join(trial, by = c("participant", 'date','block_condition')) %>%
+    left_join(fontParams, by = c("participant", 'date', 'block_condition')) %>% 
     rename(
       "Prolific participant ID" = "ProlificParticipantID",
       "Pavlovia session ID" = "participant",
@@ -677,10 +677,14 @@ generate_summary_table <- function(data_list, stairs) {
     left_join(block_condition_order, by = c("block", "condition")) %>%
     select(-`block condition`) %>%
     mutate(`threshold parameter` = as.character(`threshold parameter`)) %>%
-    left_join(logFont, by = 'Pavlovia session ID') %>%
-    left_join(webGL, by = 'Pavlovia session ID') %>%
-    left_join(params, by = 'Pavlovia session ID') %>%
-    rename("GB" = "deviceMemoryGB")
+    left_join(logFont, by = c('Pavlovia session ID')) %>%
+    left_join(webGL, by = c('Pavlovia session ID','date')) %>%
+    left_join(params, by = c('Pavlovia session ID', 'date')) %>%
+    rename("GB" = "deviceMemoryGB") %>% 
+    mutate(date = parse_date_time(str_remove(date, " UTC[+-]\\d+"),
+                                  orders = c('ymdHMS', 'mdyHMS'))) %>%
+    mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
+  
   print('done summary_df')
   return(summary_df)
 }
