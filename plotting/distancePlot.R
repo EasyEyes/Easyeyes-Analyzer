@@ -238,7 +238,9 @@ plot_distance <- function(data_list) {
       legend.title = element_text(size = 8),       # Smaller legend title
       axis.title = element_text(size = 10),        # Smaller axis titles (was default ~12-14)
       axis.text = element_text(size = 9),          # Smaller axis text (was default ~10-12)
-      plot.title = element_text(size = 12)         # Smaller plot title (was default ~14-16)
+      plot.title = element_text(size = 12),        # Smaller plot title (was default ~14-16)
+      legend.position = "bottom",                   # Move legend to bottom to prevent right cutoff
+      legend.box = "horizontal"                     # Ensure horizontal layout
     )
   
   return(p)

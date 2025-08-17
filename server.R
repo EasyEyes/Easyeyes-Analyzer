@@ -2933,7 +2933,7 @@ shinyServer(function(input, output, session) {
               plot = scatterDiagrams()$plotList[[ii]] +
                 plt_theme_scatter +
                 scale_color_manual(values = colorPalette),
-              width = 8,
+              width = 9,
               height = 8,
               unit = 'in',
               limitsize = F,
@@ -2995,18 +2995,23 @@ shinyServer(function(input, output, session) {
                   plot = scatterDiagrams()$plotList[[ii]] +
                     plt_theme_scatter +
                     scale_color_manual(values = colorPalette),
+                  width = 12,
+                  height = 8,
                   unit = "in",
                   limitsize = F,
                   device = svglite
                 )
                 rsvg::rsvg_png(tmp_svg, file,
-                               width = 1800)
+                               width = 2400,
+                               height = 1600)
               } else {
                 ggsave(
                   file,
                   plot = scatterDiagrams()$plotList[[ii]] +
                     plt_theme_scatter +
                     scale_color_manual(values = colorPalette),
+                  width = 12,
+                  height = 8,
                   unit = "in",
                   limitsize = F,
                   device = ifelse(
@@ -5945,23 +5950,23 @@ shinyServer(function(input, output, session) {
                   "tmp.svg",
                   plot = scatterDiagrams()$plotList[[ii]] +
                     plt_theme_scatter,
-                  height = 6,
-                  width = 6,
+                  height = 8,
+                  width = 12,
                   unit = "in",
                   limitsize = F,
                   device = svglite
                 )
                 rsvg::rsvg_png("tmp.svg",
                                file,
-                               height = 1800,
-                               width = 1800)
+                               height = 1600,
+                               width = 2400)
               } else {
                 ggsave(
                   file,
                   plot = scatterDiagrams()$plotList[[ii]] +
                     plt_theme_scatter,
-                  height = 6,
-                  width = 6,
+                  height = 8,
+                  width = 12,
                   unit = "in",
                   limitsize = F,
                   device = ifelse(
