@@ -341,10 +341,9 @@ plot_reading_rsvp <- function(reading, rsvp) {
   # Preprocess RSVP data
   rsvp <- rsvp %>% 
     mutate(participant = tolower(participant)) %>% 
-    group_by(participant, targetKind, Grade) %>% 
+    group_by(participant, targetKind, age, Grade) %>% 
     summarize(
       avg_log_WPM = mean(block_avg_log_WPM, na.rm = TRUE), 
-      age = first(age),  # Include age in the summarized data
       .groups = "drop"
     )
   
@@ -363,7 +362,7 @@ plot_reading_rsvp <- function(reading, rsvp) {
       Grade = as.character(Grade),
       age = as.numeric(age)  # Ensure age is numeric
     ) %>% 
-    filter(!is.na(avg_log_WPM.y), !is.na(avg_log_WPM.x))
+    filter(is.finite(avg_log_WPM.y), is.finite(avg_log_WPM.x))
   
   if (nrow(t) == 0) {
     return(NULL)
@@ -493,8 +492,8 @@ plot_reading_crowding <- function(allData) {
     if (sum(!is.na(data_for_stat$ageN)) == 0) {
       data_for_stat <- data_for_stat %>% select(-ageN)
     }
-    
-    data_for_stat <- data_for_stat %>% filter(!is.na(X), !is.na(Y))
+    print( data_for_stat %>% filter(!is.finite(X) | !is.finite(Y)))
+    data_for_stat <- data_for_stat %>% filter(is.finite(X), is.finite(Y))
     if (nrow(data_for_stat) == 0) {
       return(NULL)
     }
@@ -507,6 +506,7 @@ plot_reading_crowding <- function(allData) {
       ) %>%
       mutate(correlation = round(correlation, 2))
     print(data_for_stat)
+    
     slope <- data_for_stat %>%
       mutate(
         log_X = log10(X),

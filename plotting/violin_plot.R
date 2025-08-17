@@ -3,14 +3,32 @@ plot_violins <- function(df_list) {
   rsvp = df_list$rsvp %>% mutate(y = block_avg_log_WPM)
   reading = df_list$reading %>% mutate(y = log_WPM)
   acuity = df_list$acuity %>% mutate(y = questMeanAtEndOfTrialsLoop)
-  beauty = df_list$ratings %>%
-    filter(questionAndAnswerNickname == 'Bty') %>%
-    mutate(y = `mean rating`,
-           font = conditionName)
-  cmfrt = df_list$ratings %>% 
+  beauty = df_list$QA %>%
+    filter(grepl('bty', tolower(questionAndAnswerNickname))) %>%
+    mutate(y = as.numeric(arabic_to_western(questionAndAnswerResponse)),
+           font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
+                            conditionName=="beauty-majalla" ~"majalla.ttf",
+                            conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+           )) %>% 
+    filter(!is.na(y))
+  
+  print(beauty)
+  cmfrt = df_list$QA %>% 
     filter(grepl('CMFRT',questionAndAnswerNickname)) %>%
-    mutate(y = `mean rating`,
-           font = questionAndAnswerNickname)
+    mutate(y = as.numeric(arabic_to_western(questionAndAnswerResponse)),
+           font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
+                            questionAndAnswerNickname=="CMFRTAmareddine" ~"Amareddine",
+                            questionAndAnswerNickname=="CMFRTMakdessi" ~"Makdessi",
+                            questionAndAnswerNickname=="CMFRTKafa" ~"Kafa",
+                            questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+           ))
   print("inside plot_violins")
   create_plot <- function(data, ylabel, title) {
     p <- NULL
