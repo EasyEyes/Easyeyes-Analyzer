@@ -909,7 +909,11 @@ shinyServer(function(input, output, session) {
       list(plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp), fname = 'reading-vs-RSVP-reading-plot'),
       list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade'),
       list(plot = plot_badLatenessTrials_vs_memory(data_list(),conditionNames()), fname="badLatenessTrials-vs-deviceMemoryGB-by-participant"),
-      list(plot = minDegPlots()$scatter, fname="foveal-crowding-vs-spacingMinDeg")
+      list(plot = minDegPlots()$scatter, fname="foveal-crowding-vs-spacingMinDeg"),
+      # New beauty/comfort scatter plots
+      list(plot = comfort_vs_crowding_scatter(df_list()), fname = 'comfort-vs-crowding-scatter'),
+      list(plot = beauty_vs_crowding_scatter(df_list()), fname = 'beauty-vs-crowding-scatter'),
+      list(plot = beauty_vs_comfort_scatter(df_list()), fname = 'beauty-vs-comfort-scatter')
     )
 
     for (call in plot_calls) {
