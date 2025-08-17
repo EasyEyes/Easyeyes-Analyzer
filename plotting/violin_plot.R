@@ -15,15 +15,14 @@ plot_violins <- function(df_list) {
            )) %>% 
     filter(!is.na(y))
   
-  print(beauty)
   cmfrt = df_list$QA %>% 
     filter(grepl('CMFRT',questionAndAnswerNickname)) %>%
     mutate(y = as.numeric(arabic_to_western(questionAndAnswerResponse)),
            font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
                             questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
-                            questionAndAnswerNickname=="CMFRTAmareddine" ~"Amareddine",
-                            questionAndAnswerNickname=="CMFRTMakdessi" ~"Makdessi",
-                            questionAndAnswerNickname=="CMFRTKafa" ~"Kafa",
+                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.ttf",
                             questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.ttf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.ttf",
