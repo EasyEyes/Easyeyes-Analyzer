@@ -53,6 +53,7 @@ source('./plotting/durationSecPlot.R')
 source('./plotting/distancePlot.R')
 source('./plotting/minDegPlot.R')
 source('./plotting/violin_plot.R')
+source('./plotting/font_comparision_plots.R')
 
 source("./other/getBits.R")
 source("./other/sound_plots.R")
@@ -841,6 +842,42 @@ shinyServer(function(input, output, session) {
       fileNames = fileNames
     ))
   })
+  
+  #### fontComparisonPlots ####
+  
+  fontComparisonPlots <- reactive({
+    if (is.null(input$file) | is.null(files())) {
+      return(list(plotList = list(), fileNames = list()))
+    }
+    print('inside font comparison plots')
+    l <- list()
+    fileNames <- list()
+    font_comparisons <- plot_font_comparison(df_list())
+    plot_calls <- list(
+      list(plot = font_comparisons$reading, fname = 'reading-font-comparison-plot'),
+      list(plot = font_comparisons$rsvp, fname = 'rsvp-font-comparison-plot'),
+      list(plot = font_comparisons$crowding, fname = 'crowding-font-comparison-plot'),
+      list(plot = font_comparisons$comfort, fname = 'comfort-font-comparison-plot'),
+      list(plot = font_comparisons$beauty, fname = 'beauty-font-comparison-plot')
+    )
+    
+    for (call in plot_calls) {
+      plot <- call$plot
+      if (!is.null(plot)) {
+        # Don't add color scale for font comparison plots since they use fill, not color
+        plot <- add_experiment_title(plot, experiment_names())
+      }
+      res <- append_plot_list(l, fileNames, plot, call$fname)
+      l <- res$plotList
+      fileNames <- res$fileNames
+    }
+    
+    return(list(
+      plotList = l,
+      fileNames = fileNames
+    ))
+  })
+  
   #### scatterDiagrams ####
   
   scatterDiagrams <- reactive({
@@ -3150,6 +3187,147 @@ shinyServer(function(input, output, session) {
                 ggsave(
                   file,
                   plot = violinPlots()$plotList[[ii]] +
+                    plt_theme,
+                  width = 8,
+                  height = 6,
+                  unit = "in",
+                  limitsize = F,
+                  device = ifelse(
+                    input$fileType == "svg",
+                    svglite::svglite,
+                    input$fileType
+                  )
+                )
+              }
+            }
+          )
+      })
+    }
+    
+    return(out)
+  })
+  
+  output$fontComparisonPlots <- renderUI({
+    out <- list()
+    i = 1
+    while (i <= length(fontComparisonPlots()$plotList) - 1) {
+      out[[i]] <-  splitLayout(
+        cellWidths = c("50%", "50%"),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("fontComparison", i),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("fontComparison", i + 1),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4)
+      )
+      out[[i + 1]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        downloadButton(paste0("downloadFontComparison", i), 'Download'),
+        downloadButton(paste0("downloadFontComparison", i + 1), 'Download')
+      )
+      i = i + 2
+    }
+    if (i == length(fontComparisonPlots()$plotList)) {
+      out[[i]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("fontComparison", i),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4)
+      )
+      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                  downloadButton(paste0("downloadFontComparison", i), 'Download'))
+    }
+    
+    # Generate the plots and download handlers
+    for (j in 1:length(fontComparisonPlots()$plotList)) {
+      local({
+        ii <- j
+        output[[paste0("fontComparison", ii)]] <- renderImage({
+          tryCatch({
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = fontComparisonPlots()$plotList[[ii]] +
+                plt_theme,
+              width = 8,
+              height = 6,
+              unit = 'in',
+              device = svglite,
+              limitsize = FALSE
+            )
+            list(src = outfile, contenttype = 'svg')
+          }, error = function(e) {
+            # Show error in a ggplot-friendly way
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                color = "red",
+                size = 5,
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              theme_void() +
+              labs(subtitle=fontComparisonPlots()$fileNames[[ii]])
+            
+            # Save the error plot to a temp file
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = error_plot,
+              device = svglite,
+              width = 6,
+              height = 4,
+              unit = 'in'
+            )
+            list(
+              src = outfile,
+              contenttype = 'svg',
+              alt = paste0("Error in ", fontComparisonPlots()$fileNames[[ii]])
+            )
+          })
+        }, deleteFile = TRUE)
+        
+        output[[paste0("downloadFontComparison", ii)]] <-
+          downloadHandler(
+            filename = paste0(
+              experiment_names(),
+              fontComparisonPlots()$fileNames[[ii]],
+              '.',
+              input$fileType
+            ),
+            content = function(file) {
+              if (input$fileType == "png") {
+                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+                ggsave(
+                  tmp_svg,
+                  plot = fontComparisonPlots()$plotList[[ii]] +
+                    plt_theme,
+                  width = 8,
+                  height = 6,
+                  unit = "in",
+                  limitsize = F,
+                  device = svglite
+                )
+                rsvg::rsvg_png(tmp_svg,
+                               file,
+                               width = 1800,
+                               height = 1350)
+              } else {
+                ggsave(
+                  file,
+                  plot = fontComparisonPlots()$plotList[[ii]] +
                     plt_theme,
                   width = 8,
                   height = 6,
