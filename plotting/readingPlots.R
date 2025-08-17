@@ -380,8 +380,10 @@ plot_reading_rsvp <- function(reading, rsvp) {
     vars <- t %>% dplyr::select(X, Y, age)
     
     cor_mat <- cor(vars, use = "pairwise.complete.obs")
-    
-    if (det(cor_mat) < .Machine$double.eps) {
+    print("cor_mat")
+    if (is.na(det(cor_mat))) {
+      R_factor_out_age <- NA
+    } else if (det(cor_mat) < .Machine$double.eps) {
       warning("Correlation matrix is singular or nearly singular in production")
       R_factor_out_age <- NA
     } else {
@@ -492,10 +494,11 @@ plot_reading_crowding <- function(allData) {
       data_for_stat <- data_for_stat %>% select(-ageN)
     }
     
-    data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
+    data_for_stat <- data_for_stat %>% filter(!is.na(X), !is.na(Y))
     if (nrow(data_for_stat) == 0) {
       return(NULL)
     }
+
     corr <- data_for_stat %>%
       summarize(
         correlation = cor(log_WPM, log_crowding_distance_deg, method = "pearson"),
@@ -503,7 +506,7 @@ plot_reading_crowding <- function(allData) {
         .groups="drop"
       ) %>%
       mutate(correlation = round(correlation, 2))
-    
+    print(data_for_stat)
     slope <- data_for_stat %>%
       mutate(
         log_X = log10(X),
