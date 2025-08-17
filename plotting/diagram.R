@@ -25,7 +25,7 @@ get_quest_diag <- function(quest) {
         theme_bw() +
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top", label = N)) +
         labs(
-          title = 'Quest SD vs mean colored by grade',
+          subtitle = 'Quest SD vs mean colored by grade',
           x = 'Quest mean',
           y = 'Quest SD'
         ) +
@@ -57,7 +57,7 @@ get_quest_diag <- function(quest) {
       scale_x_log10() + 
       theme_bw() +
       labs(
-        title = 'Quest SD vs mean by age\ncolored by age',
+        subtitle = 'Quest SD vs mean by age\ncolored by age',
         x = 'Quest mean',
         y = 'Quest SD'
       ) +
@@ -104,7 +104,7 @@ get_quest_sd_vs_trials <- function(quest) {
     theme_bw() +
     ggpp::geom_text_npc(aes(npcx = "left", npcy = 'top', label = N)) +
     labs(
-      title = 'Quest SD vs good trials colored by grade',
+      subtitle = 'Quest SD vs good trials colored by grade',
       x = 'Good trials',
       y = 'Quest SD'
     ) +

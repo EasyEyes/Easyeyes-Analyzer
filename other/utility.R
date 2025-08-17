@@ -84,7 +84,7 @@ save_plot_with_error_handling <- function(plot, filename,
         vjust = 0.5
       ) +
       theme_void() +
-      ggtitle(plotTitle)
+      labs(subtitle=plotTitle)
     # Save the error plot to a temp file
     ggsave(
       file = filename,

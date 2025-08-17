@@ -11,7 +11,7 @@ get_test_retest_reading <- function(reading){
   
   conditionNames <- unique(reading_each$conditionName)
   if (!n_distinct(conditionNames) == 2) {
-    return(ggplot() + theme_bw() + ggtitle('test retest reading plot'))
+    return(ggplot() + theme_bw() + labs(subtitle='test retest reading plot'))
   }
   reading_test_retest <- tibble()
   for (i in 1:length(conditionNames)){
@@ -69,7 +69,7 @@ get_test_retest_crowding <- function(crowding){
   conditionNames <- unique(crowding$conditionName)
   crowding_test_retest <- tibble()
   if (!n_distinct(conditionNames) == 2) {
-    return(ggplot() + theme_bw() + ggtitle('test retest crowding plot'))
+    return(ggplot() + theme_bw() + labs(subtitle='test retest crowding plot'))
   }
   for (i in 1:length(conditionNames)){
     tmp <- crowding %>% 
@@ -126,7 +126,7 @@ get_test_retest_rsvp <- function(rsvp_speed){
   rsvp_speed <- rsvp_speed %>% select(-log_duration_s_RSVP, -targetKind,-thresholdParameter)
   conditionNames <- unique(rsvp_speed$conditionName)
   if (!n_distinct(conditionNames) == 2) {
-    return(ggplot() + theme_bw() + ggtitle('test retest rsvp reading plot'))
+    return(ggplot() + theme_bw() + labs(subtitle='test retest rsvp reading plot'))
   }
   rsvp_test_retest <- tibble()
   for (i in 1:length(conditionNames)){
@@ -162,7 +162,7 @@ get_test_retest_rsvp <- function(rsvp_speed){
           plot.subtitle = element_text(size = 16)) +
     xlab("RSVP reading (w/min)") +
     ylab("Retest RSVP reading (w/min)") + 
-    ggtitle("RSVP Reading") + 
+    labs(subtitle="RSVP Reading") + 
     annotate("text", x = 10^(max(rsvp_test_retest$test)*0.9), 
              y = 10^(min(rsvp_test_retest$retest)*0.9), 
              label = paste("italic(n)==",length(unique(rsvp_test_retest$participant))), 

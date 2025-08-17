@@ -116,7 +116,7 @@ regression_reading_plot <- function(df_list){
       labs(
         x     = "Foveal crowding (deg)",
         y     = "Reading speed (w/min)",
-        title = "Reading vs foveal crowding"
+        subtitle = "Reading vs foveal crowding"
       ) +
       annotation_logticks(sides = "bl") +
       ggpp::geom_text_npc(
@@ -182,8 +182,7 @@ regression_reading_plot <- function(df_list){
       labs(
         x        = "Peripheral crowding (deg)",
         y        = "Reading speed (w/min)",
-        title    = "Reading vs peripheral crowding",
-        subtitle = "Geometric mean of left and right."
+        subtitle    = "Reading vs peripheral crowding\nGeometric mean of left and right."
       ) +
       annotation_logticks(sides = "bl") +
       ggpp::geom_text_npc(
@@ -310,7 +309,7 @@ regression_acuity_plot <- function(df_list){
     scale_y_log10(breaks=c(30,100,300,1000)) +
     labs(x="Foveal acuity (deg)",
          y = "Reading speed (w/min)",
-         title = 'Ordinary and RSVP reading vs\nfoveal acuity') +
+         subtitle = 'Ordinary and RSVP reading vs\nfoveal acuity') +
     theme_bw() + 
     coord_fixed() + 
     annotation_logticks(
@@ -393,7 +392,8 @@ regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
     scale_y_log10(limits = c(100, 2000)) +
     scale_x_log10() + 
     coord_fixed(ratio = 1) +
-    labs(x="Bouma factor", y = "Reading speed (w/min)") +
+    labs(x="Bouma factor", 
+         y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks(
       sides = "bl", 
@@ -463,7 +463,8 @@ regression_font <- function(df_list, reading_rsvp_crowding_df){
     scale_y_log10() +
     scale_x_log10(limits = c(0.1,1)) + 
     coord_fixed(ratio = 1) +
-    labs(x="Bouma factor", y = "Reading speed (w/min)") +
+    labs(x="Bouma factor", 
+         y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks(
       sides = "bl", 
@@ -560,7 +561,8 @@ regression_font_with_label <- function(df_list, reading_rsvp_crowding_df){
     scale_y_log10() +
     scale_x_log10(limits = c(0.1,1)) + 
     coord_fixed(ratio = 1) +
-    labs(x="Bouma factor", y = "Reading speed (w/min)") +
+    labs(x="Bouma factor", 
+         y = "Reading speed (w/min)") +
     theme_bw() + 
     annotation_logticks(
       sides = "bl", 

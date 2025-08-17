@@ -125,7 +125,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
       labs(
         x = paste('Repeated-letter crowding (deg)'),
         y = 'RSVP reading (w/min)',
-        title = paste('RSVP vs repeated-letter crowding\ncolored by', tolower(colorFactor))
+        subtitle = paste('RSVP vs repeated-letter crowding\ncolored by', tolower(colorFactor))
       ) +
       theme(
         plot.title = element_text(margin = margin(b = 10), size = 17),
@@ -294,7 +294,7 @@ plot_reading_repeated_letter_crowding <- function(allData) {
       labs(
         x = paste('Repeated-letter crowding (deg)'),
         y = 'Reading (w/min)',
-        title = paste('Reading vs repeated-letter crowding\ncolored by', tolower(colorFactor), '\n')
+        subtitle = paste('Reading vs repeated-letter crowding\ncolored by', tolower(colorFactor), '\n')
       ) +
       theme(
         legend.position = ifelse(unique_colors == 1, 'none', 'top'),

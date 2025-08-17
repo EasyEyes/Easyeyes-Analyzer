@@ -22,7 +22,7 @@ plot_violins <- function(df_list) {
         coord_flip() +
         theme_minimal(base_size = 14) +
         labs(
-          title = title,
+          subtitle = title,
           x = "Font",
           y = ylabel
         )

@@ -168,7 +168,7 @@ crowding_scatter_plot <- function(crowding_L_R){
     }) +
     guides(color = guide_legend(title = NULL, ncol = 1)) +
     labs(
-      title   = "Left vs right peripheral crowding",
+      subtitle   = "Left vs right peripheral crowding",
       caption = paste0(ecc_label, "\n", summ_label)
     ) +
     theme(plot.caption = element_text(hjust = 0, size = 12))
@@ -281,7 +281,8 @@ get_two_fonts_plots <- function(crowding) {
     geom_smooth(method = "lm", formula = y ~ x, se = FALSE) + 
     theme_bw() + 
     coord_fixed(ratio = 1) + 
-    labs(x = paste0(font1, " Bouma Factor"), y = paste0(font2, " Bouma Factor")) +
+    labs(x = paste0(font1, " Bouma Factor"), 
+         y = paste0(font2, " Bouma Factor")) +
     ggpp::geom_text_npc(
       aes(npcx = "left", npcy = "bottom", label = paste0("italic('N=')~", n)), 
       parse = TRUE
@@ -302,7 +303,8 @@ get_two_fonts_plots <- function(crowding) {
     geom_smooth(method = "lm", formula = y ~ x, se = FALSE) + 
     theme_bw() + 
     coord_fixed(ratio = 1) + 
-    labs(x = paste0(font1, " Bouma Factor"), y = paste0(font2, " Bouma Factor")) +
+    labs(x = paste0(font1, " Bouma Factor"), 
+         y = paste0(font2, " Bouma Factor")) +
     ggpp::geom_text_npc(
       aes(npcx = "left", npcy = "bottom", label = paste0("italic('N=')~", n)), 
       parse = TRUE
@@ -381,7 +383,7 @@ get_foveal_crowding_vs_age <- function(crowding) {
     ) +
       theme_bw() +
       labs(
-        title = 'Foveal crowding vs age\ncolored by grade',
+        subtitle = 'Foveal crowding vs age\ncolored by grade',
         x = 'Age',
         y = 'Foveal crowding (deg)'
       ) +
@@ -486,7 +488,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
       theme_bw() +
       # color_scale(n = n_grades) +  # Apply the gray-to-black color scale
       labs(
-        title = "Peripheral crowding vs age\ncolored by grade",
+        subtitle = "Peripheral crowding vs age\ncolored by grade",
         x = "Age",
         y = "Peripheral crowding (deg)"
       ) +
@@ -574,8 +576,7 @@ get_peripheral_crowding_vs_age <- function(crowding) {
       theme_bw() +
       # color_scale(n = n_grades) +  # Apply the gray-to-black color scale
       labs(
-        subtitle = "Geometric average of left and right thresholds",
-        title = "Peripheral crowding vs age\ncolored by grade",
+        subtitle = "Peripheral crowding vs age\ncolored by grade\nGeometric average of left and right thresholds",
         x = "Age",
         y = "Peripheral crowding (deg)"
       ) +
@@ -661,7 +662,7 @@ get_repeatedLetter_vs_age <- function(repeatedLetters) {
       theme_bw() +
       color_scale(n = n_grades) +  # Apply the gray-to-black color scale
       labs(
-        title = 'Repeated-letter crowding vs age\ncolored by grade',
+        subtitle = 'Repeated-letter crowding vs age\ncolored by grade',
         x = 'Age',
         y = 'Repeated-letter crowding (deg)'
       ) +
@@ -720,7 +721,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
         theme_bw() +
         coord_fixed() + 
         color_scale(n = n_grades) +  # Apply the color_scale function with n_grades
-        labs(title = 'Repeated-letter crowding vs foveal crowding\ncolored by grade',
+        labs(subtitle = 'Repeated-letter crowding vs foveal crowding\ncolored by grade',
              x = 'Foveal crowding (deg)',
              y = 'Repeated-letter crowding (deg)')
     }
@@ -742,7 +743,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
           long  = unit(7, "pt")
         ) +
         theme_bw() +
-        labs(title = 'Repeated-letter crowding vs foveal crowding\ncolored by age',
+        labs(subtitle = 'Repeated-letter crowding vs foveal crowding\ncolored by age',
              x = 'Foveal crowding (deg)',
              y = 'Repeated-letter crowding (deg)')
     } else {
@@ -759,7 +760,7 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
           long  = unit(7, "pt")
         ) +
         theme_bw() +
-        labs(title = 'Repeated-letter crowding vs foveal crowding\ncolored by age',
+        labs(subtitle = 'Repeated-letter crowding vs foveal crowding\ncolored by age',
              x = 'Foveal crowding (deg)',
              y = 'Repeated-letter crowding (deg)')
     }
@@ -863,7 +864,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
           long  = unit(7, "pt")
         ) +
         labs(
-          title = 'Foveal acuity vs foveal crowding\ncolored by grade',
+          subtitle = 'Foveal acuity vs foveal crowding\ncolored by grade',
           x = 'Foveal crowding (deg)',
           y = 'Foveal acuity (deg)'
         ) +
@@ -922,7 +923,7 @@ get_foveal_acuity_diag <- function(crowding, acuity) {
           long  = unit(7, "pt")
         ) +
         labs(
-          title = 'Peripheral acuity vs foveal crowding',
+          subtitle = 'Peripheral acuity vs foveal crowding',
           x = 'Foveal crowding (deg)',
           y = 'Peripheral acuity (deg)'
         ) +
@@ -1021,8 +1022,7 @@ get_foveal_peripheral_diag <- function(crowding) {
         labs(
           y = "Peripheral crowding (deg)",
           x = "Foveal crowding (deg)",
-          title = "Peripheral crowding vs foveal crowding\ncolored by grade",
-          subtitle = "Geometric average of left and right thresholds"
+          subtitle = "Peripheral crowding vs foveal crowding\ncolored by grade\nGeometric average of left and right thresholds"
         ) +
         coord_fixed() +
         color_scale(n = n_grades) +  # Apply color scale
@@ -1073,8 +1073,7 @@ get_foveal_peripheral_diag <- function(crowding) {
       labs(
         y = "Foveal crowding (deg)",
         x = "Peripheral crowding (deg)",
-        title = "Foveal vs peripheral crowding colored by age",
-        subtitle = "Geometric average of left and right thresholds",
+        subtitle = "Foveal vs peripheral crowding colored by age\nGeometric average of left and right thresholds",
       ) +
       coord_fixed() +
       annotate(
@@ -1167,8 +1166,7 @@ plot_crowding_vs_age <- function(crowding){
     ggpp::geom_text_npc(aes(npcx="right", npcy="top", label = label), size = 12/.pt) +
     scale_y_log10(expand = expansion(mult = c(0.05, 0.05))) +
     labs(
-      title    = "Foveal and peripheral\ncrowding vs age",
-      subtitle = "Geometric average of left and right thresholds",
+      subtitle    = "Foveal and peripheral\ncrowding vs age\nGeometric average of left and right thresholds",
       x        = "Age",
       y        = "Crowding distance (deg)",
       color    = ""

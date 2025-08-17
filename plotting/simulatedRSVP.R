@@ -139,7 +139,8 @@ plotStaircases <- function(Staircases, thresholdParameterSelected, conditionName
       theme_minimal() +
       # facet_grid(rows = vars(thresholdParameter),
       #            cols = vars(conditionName))
-      labs(x = 'trials', y  = thresholdParameterSelected) + 
+      labs(x = 'trials', 
+           y = thresholdParameterSelected) + 
       facet_wrap(~conditionName + participant + thresholdParameter + questTrials,
                  ncol = 2, 
                  axes = 'all', 
@@ -262,7 +263,7 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
       labs(
         x = "Good trials",
         y = "Crowding distance (deg)",
-        title = title
+        subtitle = title
       ) +
       theme_classic() + 
       plt_theme +

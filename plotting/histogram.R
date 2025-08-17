@@ -13,7 +13,7 @@ get_fluency_histogram <- function(fluency){
     geom_bar(stat = "identity") + 
     labs(x = "fluency (proportion correct)",
          y = "Count",
-         title = "English fluency histogram")
+         subtitle = "English fluency histogram")
 
 }
 
@@ -25,7 +25,7 @@ get_reading_retention_histogram <- function(reading) {
   ggplot(data = counts) + geom_bar(aes(x = accuracy, y = n), stat = "identity") + 
     labs(x = "Reading retention (proportion correct)",
          y = "Count",
-         title = "Reading retention histogram")
+         subtitle = "Reading retention histogram")
 }
 
 get_crowding_hist <- function(crowding) {
@@ -57,7 +57,7 @@ get_crowding_hist <- function(crowding) {
       ) +
       labs(x = 'Log foveal crowding (deg)',
            y = 'Count',
-           title ='Histogram of foveal\ncrowding') + 
+           subtitle ='Histogram of foveal\ncrowding') + 
       theme(
         plot.title = element_text(size = rel(0.5)),  # Scale down title size
         axis.title = element_text(size = rel(0.5)),  # Scale down axis title size
@@ -89,7 +89,7 @@ get_crowding_hist <- function(crowding) {
    ) + 
     labs(x = 'Log peripheral crowding (deg)',
          y = 'Count',
-         title ='Histogram of peripheral\ncrowding',
+         subtitle ='Histogram of peripheral\ncrowding',
          caption = 'Geometric average of the left and right thresholds')
  } else {
    p2 <- NULL
@@ -133,7 +133,7 @@ get_acuity_hist <- function(acuity) {
       ) +
       labs(x = 'Log acuity (deg)',
            y = 'Count',
-           title ='Histogram of foveal\nacuity')
+           subtitle ='Histogram of foveal\nacuity')
   } else {
     p1 <-  NULL
   }
@@ -161,8 +161,7 @@ get_acuity_hist <- function(acuity) {
       ) +
       labs(x = 'Log acuity (deg)',
            y = 'Count',
-           title ='Histogram of peripheral\nacuity',
-           subtitle = "Geometric average of left \nand right thresholds")
+           subtitle ="Histogram of peripheral\nacuity\nGeometric average of left \nand right thresholds")
   } else {
     p2 <- NULL
   }
@@ -211,12 +210,12 @@ get_reading_hist <- function(data) {
       p1 <- p1 + 
         labs(x = 'Log RSVP reading speed (w/min)',
              y = 'Count',
-             title ='Histogram of RSVP\nreading speed')
+             subtitle ='Histogram of RSVP\nreading speed')
     } else {
       p1 <- p1 + 
         labs(x = 'Log reading speed (w/min)',
              y = 'Count',
-             title ='Histogram of\nreading speed')
+             subtitle ='Histogram of\nreading speed')
     }
   } else {
     p1 <- NULL
@@ -247,7 +246,7 @@ get_repeatedLetter_hist <- function(repeated) {
       ) +
       labs(x = 'Log repeated-letter crowding (deg)',
            y = 'Count',
-           title ='Histogram of\nrepeated-letter crowding')
+           subtitle ='Histogram of\nrepeated-letter crowding')
   } else {
     p1 <- NULL
   }
@@ -288,7 +287,7 @@ generate_histograms_by_grade <- function(data) {
           labs(
             x = NULL,  # No x-axis label for individual plots
             y = "Count",
-            title = paste("Grade", grade)
+            subtitle = paste("Grade", grade)
           ) +
           scale_x_continuous(
             limits = c(global_min, global_max), 
@@ -422,7 +421,7 @@ get_age_histogram <- function(data) {
     ) +
     labs(x = 'Age',
          y = 'Count',
-         title = 'Histogram of age')
+         subtitle = 'Histogram of age')
   
   return(p)
 }
@@ -456,7 +455,7 @@ get_grade_histogram <- function(age) {
     ) +
     labs(x = 'Grade',
          y = 'Count',
-         title = 'Histogram of grades') +
+         subtitle = 'Histogram of grades') +
     theme_minimal()  # Consistent minimal theme
   
   return(p)
@@ -493,7 +492,7 @@ add_questsd_hist <- function(quest, lists) {
       labs(
         x = 'Quest SD',
         y = 'Count',
-        title = paste0('Histogram of quest SD, ', tolower(qt))
+        subtitle = paste0('Histogram of quest SD, ', tolower(qt))
       )
     
     plotList[[i]] <- p
@@ -556,7 +555,7 @@ get_prop_correct_hist_list <- function(quest, max_chars_per_line = 25) {
       geom_histogram(color = NA, fill = "gray80") +
       scale_x_continuous(name = "Proportion correct", expand = c(0, 0)) +
       scale_y_continuous(name = "Count",            expand = c(0, 0)) +
-      labs(title = wrapped_title) +
+      labs(subtitle = wrapped_title) +
       geom_text(
         data = stats_sub,
         aes(
@@ -701,7 +700,7 @@ append_hist_list <- function(data_list, plot_list, fileNames, experimentNames){
               npcy = 'top'),
           label = paste0('mean = ', avg, '\n sd = ', sd, '\n N = ', n)
         ) +
-        labs(title = paste("Histogram of\n", var))
+        labs(subtitle = paste("Histogram of\n", var))
       
       if (var == "deviceMemoryGB") {
         p <- p + scale_x_continuous(limits = c(1,9),  
@@ -737,7 +736,7 @@ append_hist_list <- function(data_list, plot_list, fileNames, experimentNames){
       labs(
         x     = 'spacingMinDeg',
         y     = 'Count',
-        title = 'Histogram of\nspacingMinDeg'
+        subtitle = 'Histogram of\nspacingMinDeg'
       )
     p <-  add_experiment_title(p, experimentNames)
     plot_list[[j]] <- p

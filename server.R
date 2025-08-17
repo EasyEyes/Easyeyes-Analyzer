@@ -202,9 +202,9 @@ shinyServer(function(input, output, session) {
     }
     exp_names <-
       trimws(files()[[3]])  # Extract and trim whitespace
-    name_list <- unlist(strsplit(exp_names, "-"))
+    # name_list <- unlist(strsplit(exp_names, "-"))
     
-    return(name_list[1])
+    return(exp_names)
   })
   
   
@@ -482,7 +482,7 @@ shinyServer(function(input, output, session) {
   meanPlot <- reactive({
     req(input$file)
     mean_plot(reading_rsvp_crowding_df()) +
-      labs(title = paste(c(
+      labs(subtitle = paste(c(
         experiment_names(),
         "Reading Speed, mean"
       ), collapse = "\n")) +
@@ -578,21 +578,21 @@ shinyServer(function(input, output, session) {
   regressionFontPlot <- reactive({
     req(input$file)
     base_plot <- regression_font(df_list(), reading_rsvp_crowding_df()) +
-      labs(title = "Reading vs crowding")
+      labs(subtitle = "Reading vs crowding")
     add_experiment_title(base_plot, experiment_names())
   })
   
   regressionFontPlotWithLabel <- reactive({
     req(input$file)
     base_plot <- regression_font_with_label(df_list(), reading_rsvp_crowding_df()) +
-      labs(title = "Reading vs crowding")
+      labs(subtitle = "Reading vs crowding")
     add_experiment_title(base_plot, experiment_names())
   })
   
   readingTestRetest <- reactive({
     req(input$file)
     base_plot <- get_test_retest_reading(df_list()[[1]]) +
-      labs(title = "Test retest of reading") +
+      labs(subtitle = "Test retest of reading") +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "bottom",
@@ -606,7 +606,7 @@ shinyServer(function(input, output, session) {
   crowdingTestRetest <- reactive({
     req(input$file)
     base_plot <- get_test_retest_crowding(df_list()[[2]]) +
-      labs(title = "Test retest of crowding") +
+      labs(subtitle = "Test retest of crowding") +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "bottom",
@@ -621,7 +621,7 @@ shinyServer(function(input, output, session) {
   rsvpReadingTestRetest <- reactive({
     req(input$file)
     base_plot <- get_test_retest_rsvp(df_list()[[3]])  +
-      labs(title = "Test retest of rsvp reading") +
+      labs(subtitle = "Test retest of rsvp reading") +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "bottom",
@@ -636,7 +636,7 @@ shinyServer(function(input, output, session) {
   readingSpeedRetention <- reactive({
     req(input$file)
     base_plot <- reading_speed_vs_retention(df_list()[[1]]) +
-      labs(title = "Reading vs retention") +
+      labs(subtitle = "Reading vs retention") +
       ggpp::geom_text_npc(aes(
         npcx = "left",
         npcy = "bottom",
@@ -1210,8 +1210,9 @@ shinyServer(function(input, output, session) {
           size = 4,
           fontface = "italic"
         ) +
-        theme_void() +
-        ggtitle('targetMeasuredDurationSec by os histogram')
+        plt_theme + 
+        labs(title = experiment_names(),
+             subtitle = 'targetMeasuredDurationSec by os histogram')
       
       # Save the error plot to a temp file
       outfile <- tempfile(fileext = '.svg')
@@ -1265,7 +1266,8 @@ shinyServer(function(input, output, session) {
           fontface = "italic"
         ) +
         theme_void() +
-        ggtitle('targetMeasuredLatenessSec by os histogram')
+        labs(title = experiment_names(),
+          subtitle =  'targetMeasuredLatenessSec by os histogram')
       
       # Save the error plot to a temp file
       outfile <- tempfile(fileext = '.svg')
@@ -1321,8 +1323,7 @@ shinyServer(function(input, output, session) {
           vjust = 0.5
         ) +
         theme_void() +
-        ggtitle(
-          'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant'
+        labs(subtitle =  'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant'
         )
       
       # Save the error plot to a temp file
@@ -1366,7 +1367,7 @@ shinyServer(function(input, output, session) {
           vjust = 0.5
         ) +
         theme_void() +
-        ggtitle(
+        labs(subtitle =  
           'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by font'
         )
       
@@ -1411,7 +1412,7 @@ shinyServer(function(input, output, session) {
           vjust = 0.5
         ) +
         theme_void() +
-        ggtitle(
+        labs(subtitle =  
           'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding'
         )
       
@@ -1456,7 +1457,7 @@ shinyServer(function(input, output, session) {
           vjust = 0.5
         ) +
         theme_void() +
-        ggtitle(
+        labs(subtitle =  
           'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant'
         )
       
@@ -1501,7 +1502,7 @@ shinyServer(function(input, output, session) {
           vjust = 0.5
         ) +
         theme_void() +
-        ggtitle(
+        labs(subtitle =  
           'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by font'
         )
       
@@ -1546,9 +1547,7 @@ shinyServer(function(input, output, session) {
           vjust = 0.5
         ) +
         theme_void() +
-        ggtitle(
-          'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding'
-        )
+        labs(subtitle = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding')
       
       # Save the error plot to a temp file
       outfile <- tempfile(fileext = '.svg')
@@ -1651,7 +1650,7 @@ shinyServer(function(input, output, session) {
             vjust = 0.5
           ) +
           theme_void() +
-          ggtitle('rsvp-vs-peripheral-crowding-by-grade')
+          labs(subtitle='rsvp-vs-peripheral-crowding-by-grade')
         ggiraph::girafe(ggobj = error_plot)
       })
     })
@@ -1675,7 +1674,7 @@ shinyServer(function(input, output, session) {
             vjust = 0.5
           ) +
           theme_void() +
-          ggtitle('rsvp-vs-peripheral-crowding-by-grade')
+          labs(subtitle='rsvp-vs-peripheral-crowding-by-grade')
         ggiraph::girafe(ggobj = error_plot)
       })
     })
@@ -1699,7 +1698,7 @@ shinyServer(function(input, output, session) {
             vjust = 0.5
           ) +
           theme_void() +
-          ggtitle('residual-rsvp-vs-residual-peripheral-crowding-by-grade')
+          labs(subtitle='residual-rsvp-vs-residual-peripheral-crowding-by-grade')
         ggiraph::girafe(ggobj = error_plot)
       })
     })
@@ -1861,7 +1860,7 @@ shinyServer(function(input, output, session) {
                 vjust = 0.5
               ) +
               theme_void() +
-              ggtitle(fileNames[[i]])
+              labs(subtitle=fileNames[[i]])
             
             # Save the error plot to a temp file
             outfile <- tempfile(fileext = '.svg')
@@ -1983,7 +1982,7 @@ shinyServer(function(input, output, session) {
                 vjust = 0.5
               ) +
               theme_void() +
-              ggtitle( files[[jj]])
+              labs(subtitle=files[[jj]])
             
             # Save the error plot to a temp file
             outfile <- tempfile(fileext = '.svg')
@@ -2145,7 +2144,7 @@ shinyServer(function(input, output, session) {
                 vjust = 0.5
               ) +
               theme_void() +
-              ggtitle(histogramsQuality()$fileNames[[ii]])
+              labs(subtitle=histogramsQuality()$fileNames[[ii]])
             
             # Save the error plot to a temp file
             outfile <- tempfile(fileext = '.svg')
@@ -2321,7 +2320,7 @@ shinyServer(function(input, output, session) {
                 vjust = 0.5
               ) +
               theme_void() +
-              ggtitle(timingHistograms()$fileNames[[ii]])
+              labs(subtitle=timingHistograms()$fileNames[[ii]])
             
             # Save the error plot to a temp file
             outfile <- tempfile(fileext = '.svg')
@@ -2879,7 +2878,7 @@ shinyServer(function(input, output, session) {
                 vjust = 0.5
               ) +
               theme_void() +
-              ggtitle(scatterDiagrams()$fileNames[[ii]])
+              labs(subtitle=scatterDiagrams()$fileNames[[ii]])
             
             # Save the error plot to a temp file
             outfile <- tempfile(fileext = '.svg')
@@ -3017,7 +3016,7 @@ shinyServer(function(input, output, session) {
                 vjust = 0.5
               ) +
               theme_void() +
-              ggtitle(violinPlots()$fileNames[[ii]])
+              labs(subtitle=violinPlots()$fileNames[[ii]])
             
             # Save the error plot to a temp file
             outfile <- tempfile(fileext = '.svg')
@@ -3275,7 +3274,7 @@ shinyServer(function(input, output, session) {
                   vjust = 0.5
                 ) +
                 theme_void() +
-                ggtitle(scatterTimeParticipant()$fileNames[[ii]])
+                labs(subtitle=scatterTimeParticipant()$fileNames[[ii]])
               
               # Save the error plot to a temp file
               outfile <- tempfile(fileext = '.svg')
@@ -3413,7 +3412,7 @@ shinyServer(function(input, output, session) {
                   vjust = 0.5
                 ) +
                 theme_void() +
-                ggtitle(scatterTime()$fileNames[[ii]])
+                labs(subtitle=scatterTime()$fileNames[[ii]])
               
               # Save the error plot to a temp file
               outfile <- tempfile(fileext = '.svg')

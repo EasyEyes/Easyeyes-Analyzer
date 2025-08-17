@@ -70,7 +70,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     labs(
       x = 'sizeMinDeg',
       y = 'Count',
-      title = 'Histogram of sizeMinDeg'
+      subtitle = 'Histogram of sizeMinDeg'
     )
   
   
@@ -112,7 +112,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     labs(
       x = 'sizeMinDeg',
       y= 'Acuity (deg)',
-      title = 'Foveal acuity vs. sizeMinDeg'
+      subtitle = 'Foveal acuity vs. sizeMinDeg'
     )
   
   # scatter diagram of foveal crowding (deg) vs. spacingMinDeg
@@ -154,7 +154,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
       labs(
         x = 'spacingMinDeg',
         y = 'Crowding distance (deg)',
-        title = 'Foveal crowding vs. spacingMinDeg'
+        subtitle = 'Foveal crowding vs. spacingMinDeg'
       )
   } else {
     p5 <- NULL
@@ -187,7 +187,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     labs(
       x = "Quest SD",
       y = "Crowding distance (deg)",
-      title = "Foveal crowding vs. Quest SD"
+      subtitle = "Foveal crowding vs. Quest SD"
     )
   
   p_crowding <- quest_subset %>%
@@ -216,7 +216,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     labs(
       x = "Quest SD",
       y = "Crowding distance (deg)",
-      title = "Peripheral crowding vs. Quest SD"
+      subtitle = "Peripheral crowding vs. Quest SD"
     )
   
   
@@ -243,7 +243,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     labs(
       x = "Quest SD",
       y = "Acuity (deg)",
-      title = "Foveal acuity vs. Quest SD"
+      subtitle = "Foveal acuity vs. Quest SD"
     )
   
   p_acuity <- quest_subset %>%
@@ -272,7 +272,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
     labs(
       x = "Quest SD",
       y = "Acuity (deg)",
-      title = "Peripheral acuity vs. Quest SD"
+      subtitle = "Peripheral acuity vs. Quest SD"
     )
    
   

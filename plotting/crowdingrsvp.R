@@ -54,7 +54,7 @@ plot_rsvp_crowding_acuity <- function(allData) {
       mid   = unit(2, "pt"), 
       long  = unit(7, "pt")
      ) +
-      labs(title = 'Foveal crowding vs grade colored by font',
+      labs(subtitle = 'Foveal crowding vs grade colored by font',
            y = 'Foveal crowding (deg)')
   }
   
@@ -75,7 +75,7 @@ plot_rsvp_crowding_acuity <- function(allData) {
         ) +
         guides(shape =guide_legend(title = '', ncol = 1),
                color = guide_legend(title = 'Age')) +
-        labs(title = 'RSVP vs grade',
+        labs(subtitle = 'RSVP vs grade',
              y = 'RSVP reading speed (w/min)')
   }
   
@@ -96,7 +96,7 @@ plot_rsvp_crowding_acuity <- function(allData) {
     ) +
      guides(shape =guide_legend(title = '', ncol = 1),
             color = guide_legend(title = 'Age')) +
-     labs(title = 'Foveal acuity vs grade',
+     labs(subtitle = 'Foveal acuity vs grade',
           y = ' Foveal acuity (deg)')
   }
 
@@ -253,8 +253,7 @@ plot_rsvp_crowding <- function(allData) {
       labs(
         x = "Residual crowding (deg)",
         y = "Residual RSVP reading (w/min)",
-        title = paste0("Residual RSVP vs residual peripheral crowding\ncolored by ", colorFactor),
-        subtitle = 'Geometric mean of left and right measurements'
+        subtitle = paste0("Residual RSVP vs residual peripheral crowding\ncolored by ", colorFactor,"\nGeometric mean of left and right measurements"),
       ) + 
       plt_theme +
       theme(
@@ -410,8 +409,7 @@ plot_rsvp_crowding <- function(allData) {
       (if (colorFactor == "font") scale_color_manual(values = font_color_palette(unique(data_rsvp$font))) else color_scale(n = n_distinct(data_rsvp[[colorFactor]]))) +  # Apply color scale dynamically
       labs(
         x = paste(condition, "crowding (deg)"),
-        y = "RSVP reading (w/min)",
-        title = paste("RSVP vs", tolower(condition), "crowding\ncolored by", tolower(colorFactor))
+        y = "RSVP reading (w/min)"
       ) + 
       plt_theme_ggiraph +
       theme(
@@ -426,7 +424,9 @@ plot_rsvp_crowding <- function(allData) {
     }
     
     if (condition == "Peripheral") {
-      p <- p + labs(subtitle = 'Geometric mean of left and right measurements')
+      p <- p + labs(subtitle = paste("RSVP vs", tolower(condition), "crowding\ncolored by", tolower(colorFactor),'Geometric mean of left and right measurements'))
+    } else {
+      p <- p + labs(subtitle = paste("RSVP vs", tolower(condition), "crowding\ncolored by", tolower(colorFactor)))
     }
     
     p <- p + ggiraph::geom_point_interactive(aes(data_id = ParticipantCode, tooltip = ParticipantCode), size = 3)
@@ -592,7 +592,7 @@ getCorrMatrix <- function(allData, pretest) {
     colors      = c("white")
   ) +
     theme_bw() +
-    labs(title = "Correlations", x = NULL, y = NULL) +
+    labs(subtitle = "Correlations", x = NULL, y = NULL) +
     ggpp::geom_text_npc(
       aes(npcx = "left", npcy = "top",
           label = paste0("N=", max(n_mat))),
@@ -601,7 +601,8 @@ getCorrMatrix <- function(allData, pretest) {
     theme(
       legend.position = "none",
       axis.text.x     = element_text(angle = 30, vjust = 1, hjust = 1),
-      plot.title      = element_text(hjust = 1, size = 16)
+      plot.title      = element_text(hjust = 1, size = 9),
+      plot.subtitle      = element_text(hjust = 1, size = 16)
     )
 
   # 3b) N‑counts plot
@@ -622,11 +623,12 @@ getCorrMatrix <- function(allData, pretest) {
     na.value = "white"
   ) +
     theme_bw() +
-    labs(title = "N (Non-missing Pairs)", x = NULL, y = NULL) +
+    labs(subtitle = "N (Non-missing Pairs)", x = NULL, y = NULL) +
     theme(
       legend.position = "none",
       axis.text.x     = element_text(angle = 30, vjust = 1, hjust = 1),
-      plot.title      = element_text(hjust = 1, size = 16)
+      plot.subtitle      = element_text(hjust = 1, size = 16),
+      plot.title      = element_text(hjust = 1, size = 9)
     )
 
   # return(list(

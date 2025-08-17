@@ -116,7 +116,7 @@ get_duration_corr <- function(data_list, conditionNameInput) {
     theme_bw() +
     labs(x = '', 
          y = '',
-         title = 'Timing Correlation Table') +
+         subtitle = 'Timing Correlation Table') +
     plt_theme + 
     ggpp::geom_text_npc(aes(npcx = 'left',
                             npcy = 'top',
@@ -181,7 +181,7 @@ plot_duraction_sec <- function(df) {
       mid   = unit(2, "pt"), 
       long  = unit(7, "pt")
     ) +
-    labs(title = 'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by font',
+    labs(subtitle = 'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by font',
          caption = 'Dashed lines are limits set by thresholdAllowedDurationRatio and fontMaxPx')
   
   p2 <- ggplot() +
@@ -211,7 +211,7 @@ plot_duraction_sec <- function(df) {
     facet_wrap(~intervention) +
     theme_bw()+
     plt_theme_scatter+
-    labs(title = 'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant',
+    labs(subtitle = 'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant',
          caption = 'Dashed lines are limits set by thresholdAllowedDurationRatio and fontMaxPx')
   
   if(n_distinct(df$participant) <= 20) {
@@ -248,7 +248,7 @@ plot_duraction_sec <- function(df) {
     facet_wrap(~intervention) +
     theme_bw()+
     plt_theme_scatter + 
-    labs(title = 'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
+    labs(subtitle = 'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
          caption = 'Dashed lines are limits set by thresholdAllowedDurationRatio and fontMaxPx')
   
   return(list(font = p1,
@@ -301,7 +301,7 @@ plot_Lateness_sec <- function(df) {
       mid   = unit(2, "pt"), 
       long  = unit(7, "pt")
     ) + 
-    labs(title = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by font',
+    labs(subtitle = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by font',
          caption = 'Dashed lines are limits set by thresholdAllowedLatenessSec and fontMaxPx') + 
     theme_bw()+
     plt_theme_scatter
@@ -336,7 +336,7 @@ plot_Lateness_sec <- function(df) {
       mid   = unit(2, "pt"), 
       long  = unit(7, "pt")
     ) +
-    labs(title = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant',
+    labs(subtitle = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant',
          caption = 'Dashed lines are limits set by thresholdAllowedLatenessSec and fontMaxPx') +
     theme_bw()+
     plt_theme_scatter
@@ -377,7 +377,7 @@ plot_Lateness_sec <- function(df) {
       mid   = unit(2, "pt"), 
       long  = unit(7, "pt")
     ) +
-    labs(title = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
+    labs(subtitle = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
          caption = 'Dashed lines are limits set by thresholdAllowedLatenessSec and fontMaxPx') +
     theme_bw()+
     plt_theme_scatter
@@ -506,7 +506,7 @@ append_hist_quality <- function(data_list, plot_list, fileNames, conditionNameIn
           
         ) +
         theme_bw() +
-        labs(title = paste("Histogram of", var))
+        labs(subtitle = paste("Histogram of", var))
       fileNames[[j]] <- paste0(var,'-histogram')
       j = j + 1
     }
@@ -586,7 +586,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
           label = label
         ) +
         theme_bw() +
-        labs(title = paste("Histogram of", var))
+        labs(subtitle = paste("Histogram of", var))
       fileNames[[j]] <- paste0(var,'-histogram')
       j = j + 1
     }
@@ -603,7 +603,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
         label = paste0('N = ', n_distinct(webGL['WebGLVersion']))
       ) +
       theme_bw() +
-      labs(title = paste("Histogram of", 'WebGLVersion')) +
+      labs(subtitle = paste("Histogram of", 'WebGLVersion')) +
       theme(axis.text.x = element_text(size = 10,
                                        angle = 10,
                                        vjust = 0.5,
@@ -631,7 +631,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
           
         ) +
         theme_bw() +
-        labs(title = paste("Histogram of", var))
+        labs(subtitle = paste("Histogram of", var))
       fileNames[[j]] <- paste0(var,'-histogram')
       j = j + 1
     }
@@ -653,7 +653,7 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
           
         ) +
         theme_bw() +
-        labs(title = paste("Histogram of\n", var))
+        labs(subtitle = paste("Histogram of\n", var))
       fileNames[[j]] <- paste0(var,'-histogram')
       j = j + 1
     }
@@ -718,7 +718,7 @@ plot_badLatenessTrials_vs_memory <- function(data_list,conditionNameInput) {
     p <- ggplot(data=params, aes(x=deviceMemoryGB,y=badLatenessTrials, color = participant)) +
       geom_jitter() +
       guides(color=guide_legend(ncol=2, title = '')) + 
-      labs(title = 'badLatenessTrials vs. deviceMemoryGB\ncolored by participant',
+      labs(subtitle = 'badLatenessTrials vs. deviceMemoryGB\ncolored by participant',
            caption = 'Points jittered to avoid occlusion.') + 
       ggpp::geom_text_npc(aes(npcx = 'left',
                              npcy = 'top',
@@ -845,7 +845,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'targetMeasuredLatenessSec vs. deltaHeapTotalMB\ncolored by participant',
+        subtitle   = 'targetMeasuredLatenessSec vs. deltaHeapTotalMB\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -885,7 +885,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'targetMeasuredLatenessSec vs. longTaskDurationSec\ncolored by participant',
+        subtitle   = 'targetMeasuredLatenessSec vs. longTaskDurationSec\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -923,7 +923,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'targetMeasuredDurationSec vs. longTaskDurationSec\ncolored by participant',
+        subtitle   = 'targetMeasuredDurationSec vs. longTaskDurationSec\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -963,7 +963,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'longTaskDurationSec vs. fontNominalSizePx*(1+fontPadding)\ncolored by participant',
+        subtitle   = 'longTaskDurationSec vs. fontNominalSizePx*(1+fontPadding)\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1004,7 +1004,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'deltaHeapUsedMB vs. longTaskDurationSec\ncolored by participant',
+        subtitle   = 'deltaHeapUsedMB vs. longTaskDurationSec\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1045,7 +1045,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
       )) +
       theme(legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))) +
       labs(
-        title   = 'targetMeasuredDurationSec vs. targetMeasuredLatenessSec\ncolored by participant',
+        subtitle   = 'targetMeasuredDurationSec vs. targetMeasuredLatenessSec\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1085,7 +1085,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'badDurationTrials vs. badLatenessTrials\ncolored by participant',
+        subtitle   = 'badDurationTrials vs. badLatenessTrials\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1126,7 +1126,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'badLatenessTrials vs. heapLimitAfterDrawing\ncolored by participant',
+        subtitle   = 'badLatenessTrials vs. heapLimitAfterDrawing\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1169,7 +1169,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'badLatenessTrials vs. hardwareConcurrency\ncolored by participant',
+        subtitle   = 'badLatenessTrials vs. hardwareConcurrency\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1210,7 +1210,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'badDurationTrials vs. hardwareConcurrency\ncolored by participant',
+        subtitle   = 'badDurationTrials vs. hardwareConcurrency\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1253,7 +1253,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'badLatenessTrials vs. heapUsedAfterDrawingAvg\ncolored by participant',
+        subtitle   = 'badLatenessTrials vs. heapUsedAfterDrawingAvg\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1293,7 +1293,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'badLatenessTrials vs. heapTotalAfterDrawingAvg\ncolored by participant',
+        subtitle   = 'badLatenessTrials vs. heapTotalAfterDrawingAvg\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1333,7 +1333,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'targetMeasuredDurationSec vs. deltaHeapLatenessMB\ncolored by participant',
+        subtitle   = 'targetMeasuredDurationSec vs. deltaHeapLatenessMB\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1376,7 +1376,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
       ) +
       scale_x_continuous(limits = c(min(params$maxTextureSize)-5, max(params$maxTextureSize) + 5)) +
       labs(
-        title   = 'targetMeasuredLatenessSec vs maxTextureSize\ncolored by participant',
+        subtitle   = 'targetMeasuredLatenessSec vs maxTextureSize\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1417,7 +1417,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
       ) +
       scale_x_continuous(limits = c(min(params$maxViewportSize)-5, max(params$maxViewportSize)+5)) +
       labs(
-        title   = 'targetMeasuredLatenessSec vs maxViewportSize\ncolored by participant',
+        subtitle   = 'targetMeasuredLatenessSec vs maxViewportSize\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1457,7 +1457,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'targetMeasuredLatenessSec vs. deltaHeapLatenessMB\ncolored by participant',
+        subtitle   = 'targetMeasuredLatenessSec vs. deltaHeapLatenessMB\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1497,7 +1497,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'deltaHeapTotalMB vs. heapUsedBeforeDrawing\ncolored by participant',
+        subtitle   = 'deltaHeapTotalMB vs. heapUsedBeforeDrawing\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1537,7 +1537,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'deltaHeapUsedMB vs. deltaHeapTotalMB\ncolored by participant',
+        subtitle   = 'deltaHeapUsedMB vs. deltaHeapTotalMB\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1579,7 +1579,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
         legend.text = element_text(size = ifelse(num_legend_items > 20, 9, 14))
       ) +
       labs(
-        title   = 'deltaHeapTotalMB vs. heapLimitAfterDrawing\ncolored by participant',
+        subtitle   = 'deltaHeapTotalMB vs. heapLimitAfterDrawing\ncolored by participant',
         caption = 'Points jittered to avoid occlusion.'
       ) +
       coord_cartesian(ylim = c(y_min, y_max + y_padding))
@@ -1678,7 +1678,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
                           label = paste0('N=', n)) +
       scale_color_manual(values = font_color_palette(unique(filtered_block$font))) +
       guides(color=guide_legend(ncol=3, title = '')) +
-      labs(title = 'badLatenessTrials vs hardwareConcurrency\ncolored by font',
+      labs(subtitle = 'badLatenessTrials vs hardwareConcurrency\ncolored by font',
            caption = 'Points jittered to avoid occlusion.')
     fileNames[[j]] <- 'badLatenessTrials-vs-hardwareConcurrency-by-font'
     j = j + 1
@@ -1698,7 +1698,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
                           label = paste0('N=', n)) +
       scale_color_manual(values = font_color_palette(unique(filtered_block$font))) +
       guides(color=guide_legend(ncol=3, title = '')) +
-      labs(title = 'badDurationTrials vs hardwareConcurrency\ncolored by font',
+      labs(subtitle = 'badDurationTrials vs hardwareConcurrency\ncolored by font',
            caption = 'Points jittered to avoid occlusion.')
     fileNames[[j]] <- 'badDurationTrials-vs-hardwareConcurrency-by-font'
     j = j + 1
@@ -1719,7 +1719,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
                           label = paste0('N=', n)) +
       scale_color_manual(values = font_color_palette(unique(filtered_params$font))) +
       guides(color=guide_legend(ncol=3, title = '')) +
-      labs(title = ' targetMeasuredLatenessSec vs hardwareConcurrency\ncolored by font',
+      labs(subtitle = ' targetMeasuredLatenessSec vs hardwareConcurrency\ncolored by font',
            caption = 'Points jittered to avoid occlusion.')
     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-hardwareConcurrency-by-font'
     j = j + 1
@@ -1739,7 +1739,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
       #                         npcy = 'top'),
       #                     label = paste0('N=', n)) +
       # guides(color=guide_legend(ncol=3, title = '')) +
-      labs(title = 'targetMeasuredDurationSec vs hardwareConcurrency\ncolored by font',
+      labs(subtitle = 'targetMeasuredDurationSec vs hardwareConcurrency\ncolored by font',
            caption = 'Points jittered to avoid occlusion.')
     fileNames[[j]] <- 'targetMeasuredDurationSec-vs-hardwareConcurrency-by-font'
     j = j + 1
@@ -1765,7 +1765,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
       scale_x_continuous(limits = c(min(params$mustTrackSec) - 2,max(params$mustTrackSec) + 2)) +
       scale_y_continuous(limits =  c(y_min, y_max + y_padding)) +
       guides(color=guide_legend(ncol=3, title = 'OS')) +
-      labs(title = 'targetMeasuredLatenessSec vs mustTrackSec\ncolored by OS',
+      labs(subtitle = 'targetMeasuredLatenessSec vs mustTrackSec\ncolored by OS',
            caption = 'Points jittered to avoid occlusion.')
     fileNames[[j]] <- 'targetMeasuredLatenessSec-vs-mustTrackSec-by-OS'
     j = j + 1
@@ -1782,7 +1782,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
                               npcy = 'top'),
                           label = paste0('N=', n)) +
       guides(color=guide_legend(ncol=3, title='')) +
-      labs(title = 'targetMeasuredDurationSec vs. fontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
+      labs(subtitle = 'targetMeasuredDurationSec vs. fontNominalSizePx*(1+fontPadding)\ncolored by fontPadding',
            caption = 'Points jittered to avoid occlusion.')
     fileNames[[j]] <- 'targetMeasuredDurationSec-vs-fontNominalSizePx-by-fontPadding'
     j = j + 1
@@ -1806,7 +1806,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
       scale_x_log10() +
       scale_y_log10() +
       coord_fixed() +
-      labs(title = 'deltaHeapUsedMB vs.fontNominalSizePx*(1+fontPadding)\ncolored by font',
+      labs(subtitle = 'deltaHeapUsedMB vs.fontNominalSizePx*(1+fontPadding)\ncolored by font',
            caption = 'Points jittered to avoid occlusion.')
     fileNames[[j]] <- 'deltaHeapUsedMB-vs-fontNominalSizePx-by-font'
     j = j + 1

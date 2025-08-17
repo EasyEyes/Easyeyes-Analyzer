@@ -102,7 +102,7 @@ get_foveal_acuity_vs_age <- function(acuity) {
     geom_smooth(method="lm", se=FALSE, color="black") +
     geom_point(size=3) +
     theme_bw() +
-    labs(title="Foveal acuity vs age\ncolored by grade",
+    labs(subtitle="Foveal acuity vs age\ncolored by grade",
          x="Age", y="Foveal acuity (deg)") +
     scale_y_log10() +
     annotation_logticks(sides="l") +
@@ -206,8 +206,7 @@ get_peripheral_acuity_vs_age <- function(acuity) {
       )) +
       theme_bw() +
       labs(
-        title = "Peripheral acuity vs age\ncolored by Grade",
-        subtitle = "Geometric average of left \nand right thresholds",
+        subtitle = "Peripheral acuity vs age\ncolored by Grade\nGeometric average of left \nand right thresholds",
         x = "Age",
         y = "Peripheral acuity (deg)"
       ) +
@@ -374,7 +373,7 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       labs(
         x = paste0(toupper(substr(type, 1, 1)), substr(type, 2, nchar(type)), ' acuity (deg)'),
         y = 'RSVP reading speed (w/min)',
-        title = paste('RSVP vs', type, 'acuity\ncolored by', tolower(colorFactor), '\n')
+        subtitle = paste('RSVP vs', type, 'acuity\ncolored by', tolower(colorFactor), '\n')
       ) +
       plt_theme_ggiraph +
       theme(
@@ -512,7 +511,7 @@ plot_acuity_reading <- function(acuity, reading, type) {
       labs(
         x = paste0(toupper(substr(type, 1, 1)), substr(type, 2, nchar(type)), " acuity (deg)"),
         y = "Ordinary reading speed (w/min)",
-        title = paste("Ordinary reading vs", type, "acuity\ncolored by", tolower(colorFactor))
+        subtitle = paste("Ordinary reading vs", type, "acuity\ncolored by", tolower(colorFactor))
       ) +
       plt_theme_ggiraph + 
       guides(color = guide_legend(title = colorFactor), 
@@ -623,7 +622,7 @@ plot_acuity_vs_age <- function(allData){
     guides(color=guide_legend(title = '')) + 
     labs(x = 'Age',
          y = 'Acuity (deg)',
-         title = 'Foveal and peripheral acuity vs age') 
+         subtitle = 'Foveal and peripheral acuity vs age') 
   
   uniq <- n_distinct(acuity$ageN)
   if (uniq > 1) {
@@ -690,7 +689,7 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
         ) +
         labs(y = 'Peripheral acuity (deg)',
              x = 'Foveal acuity (deg)',
-             title = 'Peripheral acuity vs foveal acuity\ncolored by grade') +
+             subtitle = 'Peripheral acuity vs foveal acuity\ncolored by grade') +
         coord_fixed() +
         color_scale(n = n_grades)  # Pass the dynamic number of grades
     } 
@@ -746,8 +745,7 @@ peripheral_plot <- function(allData) {
     scale_y_log10(expand = c(0,0.1)) +
     coord_fixed() +
     labs(
-      title    = 'Peripheral acuity vs. peripheral crowding\ncolored by grade',
-      subtitle = 'Geometric mean of left and right measurements',
+      subtitle = 'Peripheral acuity vs. peripheral crowding\ncolored by grade\nGeometric mean of left and right measurements',
       x        = 'Peripheral crowding distance (deg)',
       y        = 'Peripheral acuity (deg)'
     ) +
@@ -761,8 +759,7 @@ peripheral_plot <- function(allData) {
     scale_y_log10(expand = c(0,0.1)) +
     coord_fixed() +
     labs(
-      title    = 'Peripheral acuity vs. peripheral crowding\ncolored by font',
-      subtitle = 'Geometric mean of left and right measurements',
+      subtitle = 'Peripheral acuity vs. peripheral crowding\ncolored by font\nGeometric mean of left and right measurements',
       x        = 'Peripheral crowding distance (deg)',
       y        = 'Peripheral acuity (deg)'
     ) +

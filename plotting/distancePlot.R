@@ -188,7 +188,7 @@ plot_distance <- function(data_list) {
       keyheight = unit(0.8, "lines")  # Reduce key height
     )) +
     coord_fixed() +  
-    labs(title = 'Measured vs requested distance',
+    labs(subtitle = 'Measured vs requested distance',
          x = 'Requested distance (cm)',
          y = 'Measured distance (cm)') +
     # Reduce font sizes to create more space for legend

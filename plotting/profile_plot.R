@@ -74,7 +74,7 @@ plot_profiles_avg <- function(dt) {
     sound_theme_display +
     labs(x = 'Frequency (Hz)',
          y = 'Gain (dB)',
-         title = 'Average of profiles')
+         subtitle = 'Average of profiles')
   height = ceiling((maxY - minY) / 15) + 0.3
   tb <- dt %>%
     filter(freq %in% c(50, 100, 300, 1000, 3000,6000)) %>%
@@ -165,7 +165,7 @@ plot_profiles <- function(dt, plotTitle) {
       sound_theme_display +
       guides(color=guide_legend(byrow=TRUE, ncol = 2,
                                 keyheight=0.3, unit = "inch")) +
-      labs(title = plotTitle,
+      labs(subtitle = plotTitle,
            x = "Frequency (Hz)",
            y = "Gain (dB)",
            color = "",

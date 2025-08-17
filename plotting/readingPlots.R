@@ -209,7 +209,7 @@ plot_reading_age <- function(reading) {
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
       theme_bw() +
       labs(
-        title = "Reading vs age\ncolored by grade",
+        subtitle = "Reading vs age\ncolored by grade",
         x = "Age",
         y = "Reading speed (w/min)"
       ) +
@@ -285,7 +285,7 @@ plot_rsvp_age <- function(rsvp) {
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
       theme_bw() +
       labs(
-        title = "RSVP reading vs age\ncolored by grade",
+        subtitle = "RSVP reading vs age\ncolored by grade",
         x = "Age",
         y = "RSVP reading speed (w/min)"
       ) +
@@ -362,7 +362,8 @@ plot_reading_rsvp <- function(reading, rsvp) {
       N = paste0('N = ', n()),
       Grade = as.character(Grade),
       age = as.numeric(age)  # Ensure age is numeric
-    )
+    ) %>% 
+    filter(!is.na(avg_log_WPM.y), !is.na(avg_log_WPM.x))
   
   if (nrow(t) == 0) {
     return(NULL)
@@ -411,7 +412,7 @@ plot_reading_rsvp <- function(reading, rsvp) {
     labs(
       x = "RSVP reading (w/min)",
       y = "Reading (w/min)",
-      title = 'Reading vs RSVP reading\ncolored by grade'
+      subtitle = 'Reading vs RSVP reading\ncolored by grade'
     ) +
     coord_fixed() + 
     theme_bw() +
@@ -492,7 +493,9 @@ plot_reading_crowding <- function(allData) {
     }
     
     data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
-    
+    if (nrow(data_for_stat) == 0) {
+      return(NULL)
+    }
     corr <- data_for_stat %>%
       summarize(
         correlation = cor(log_WPM, log_crowding_distance_deg, method = "pearson"),
@@ -530,6 +533,10 @@ plot_reading_crowding <- function(allData) {
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
     
     # Create the plot
+    title_text =  paste('Ordinary reading vs', tolower(condition), 'crowding\ncolored by', tolower(colorFactor))
+    if (tolower(condition) == 'peripheral') {
+      title_text = paste0(title_text, '\nGeometric average of left and right thresholds')
+    }
     p <- ggplot() +
       theme_classic() +
       scale_y_log10(
@@ -577,7 +584,7 @@ plot_reading_crowding <- function(allData) {
       labs(
         x = paste(condition, 'crowding (deg)'),
         y = 'Ordinary reading speed (w/min)',
-        title = paste('Ordinary reading vs', tolower(condition), 'crowding\ncolored by', tolower(colorFactor))
+        subtitle =title_text
       ) + 
       plt_theme_ggiraph
     
@@ -612,9 +619,9 @@ plot_reading_crowding <- function(allData) {
   }
   
   # Create plots for peripheral and foveal data
-  p1 <- create_plot(peripheral, "Peripheral", 'font') + labs(subtitle = "Geometric average of left and right thresholds")
+  p1 <- create_plot(peripheral, "Peripheral", 'font') 
   p2 <- create_plot(foveal, "Foveal", 'font')
-  p3 <- create_plot(peripheral, "Peripheral", 'Grade') + labs(subtitle = "Geometric average of left and right thresholds")
+  p3 <- create_plot(peripheral, "Peripheral", 'Grade')
   p4 <- create_plot(foveal, "Foveal", 'Grade')
   
   return(list(p1, p2, p3, p4))
