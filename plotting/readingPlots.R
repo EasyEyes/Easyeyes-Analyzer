@@ -281,7 +281,7 @@ plot_rsvp_age <- function(rsvp) {
     
     # Plot with regression line and annotated statistics
     p <- p +
-     
+      
       geom_smooth(method = "lm", se = FALSE, color = "black") +  # Regression line in black
       theme_bw() +
       labs(
@@ -393,7 +393,7 @@ plot_reading_rsvp <- function(reading, rsvp) {
     R_factor_out_age <- NA
   }
   
- 
+  
   minXY = min(t$X, t$Y, na.rm = T) * 0.95
   maxXY = max(t$X, t$Y, na.rm = T) * 1.05
   # Generate the plot
@@ -441,13 +441,13 @@ plot_reading_rsvp <- function(reading, rsvp) {
 plot_reading_crowding <- function(allData) {
   # Helper function to compute correlation, slope, and plot
   create_plot <- function(data, condition, colorFactor) {
-
+    
     # if ( setequal(data$font, reading$font)) {
     if ( n_distinct(data$font) > 1 || n_distinct(reading$font) > 1) {
       data_reading <- data %>%
         select(participant, log_crowding_distance_deg, font) %>%
         inner_join(reading, by = c("participant", "font"))
-
+      
     } else {
       data_reading <- data %>%
         select(participant, log_crowding_distance_deg, font) %>%
@@ -475,7 +475,11 @@ plot_reading_crowding <- function(allData) {
         Y = wordPerMin,                      # Linear scale for reading speed
         Grade = as.character(Grade)
       ) %>%
-      filter(!is.na(Grade)) # Drop rows with NA in Grade
+      filter(!is.na(Grade),
+             is.finite(X),
+             is.finite(Y),
+             is.finite(log_WPM), 
+             is.finite(log_crowding_distance_deg))
     
     if (nrow(data_reading) == 0) {
       return(NULL)
@@ -492,12 +496,16 @@ plot_reading_crowding <- function(allData) {
     if (sum(!is.na(data_for_stat$ageN)) == 0) {
       data_for_stat <- data_for_stat %>% select(-ageN)
     }
-    print( data_for_stat %>% filter(!is.finite(X) | !is.finite(Y)))
-    data_for_stat <- data_for_stat %>% filter(is.finite(X), is.finite(Y))
+    
+    data_for_stat <- data_for_stat %>% filter(is.finite(X),
+                                              is.finite(Y),
+                                              is.finite(log_WPM), 
+                                              is.finite(log_crowding_distance_deg))
+    
     if (nrow(data_for_stat) == 0) {
       return(NULL)
     }
-
+    
     corr <- data_for_stat %>%
       summarize(
         correlation = cor(log_WPM, log_crowding_distance_deg, method = "pearson"),
@@ -505,12 +513,11 @@ plot_reading_crowding <- function(allData) {
         .groups="drop"
       ) %>%
       mutate(correlation = round(correlation, 2))
-    print(data_for_stat)
     
     slope <- data_for_stat %>%
       mutate(
-        log_X = log10(X),
-        log_Y = log10(Y)
+        log_X = log_crowding_distance_deg,
+        log_Y = log_WPM
       ) %>%
       do(fit = lm(log_Y ~ log_X, data = .)) %>%
       transmute(coef = map(fit, tidy)) %>%
@@ -521,6 +528,7 @@ plot_reading_crowding <- function(allData) {
     
     if ('ageN' %in% names(data_for_stat)) {
       corr_without_age <- ppcor::pcor(data_for_stat %>%
+                                        filter(!is.na(ageN)) %>% 
                                         select(log_WPM, log_crowding_distance_deg, ageN))$estimate[2, 1]
       corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
     } else {
@@ -592,11 +600,11 @@ plot_reading_crowding <- function(allData) {
       plt_theme_ggiraph
     
     p <- p + ggiraph::geom_point_interactive(data = data_reading,
-                                        aes(x = X,
-                                            y = Y,
-                                          data_id = ParticipantCode, 
-                                             tooltip = ParticipantCode,
-                                             color = .data[[colorFactor]]), size = 3)
+                                             aes(x = X,
+                                                 y = Y,
+                                                 data_id = ParticipantCode, 
+                                                 tooltip = ParticipantCode,
+                                                 color = .data[[colorFactor]]), size = 3)
     
     return(p)
   }

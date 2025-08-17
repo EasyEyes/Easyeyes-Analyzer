@@ -174,7 +174,7 @@ generate_threshold <-
       reading$Grade = -1
       reading$`Skilled reader?` = 'unkown'
     }
-
+    
     
     #### combine all thresholds #####
     
@@ -184,7 +184,7 @@ generate_threshold <-
       filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
       mutate(participant = as.character(participant),
              block_condition = as.character(block_condition)) %>% 
-    # apply questSD filter
+      # apply questSD filter
       left_join(NQuestTrials, by = c('participant', 'block_condition')) %>% 
       filter(questSDAtEndOfTrialsLoop <= maxQuestSD) %>% 
       inner_join(wrongTrials, by = c('participant', 'block_condition'))
@@ -418,7 +418,7 @@ generate_threshold <-
       mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP,
              targetKind = 'rsvpReading') 
     
-
+    
     ################################ REPEAT LETTER #######################################
     repeatedLetters <- quest %>% 
       filter(questType == "Repeated letters") %>% 
@@ -508,152 +508,158 @@ generate_threshold <-
     print(paste('nrow of repeatedLetters:', nrow(repeatedLetters)))
     print(paste('nrow of age:', nrow(age)))
     
-
-  #### previous code from generate_threshold ####
-  print('inside generate_threshold')
-  if (nrow(pretest) > 0) {
-    if (!'Grade' %in% names(pretest)) {
-      pretest$Grade = -1
-    }
-    if (!'Skilled reader?' %in% names(pretest)) {
-      pretest$`Skilled reader?` = 'unkown'
-    }
-    pretest <- pretest %>%
-      mutate(lowerCaseParticipant = tolower(participant))
-    if ('Exclude?' %in% names(pretest)) {
-      basicExclude <-pretest %>% 
-        filter(`Exclude?` == TRUE)
+    
+    #### previous code from generate_threshold ####
+    print('inside generate_threshold')
+    if (nrow(pretest) > 0) {
+      if (!'Grade' %in% names(pretest)) {
+        pretest$Grade = -1
+      }
+      if (!'Skilled reader?' %in% names(pretest)) {
+        pretest$`Skilled reader?` = 'unkown'
+      }
+      pretest <- pretest %>%
+        mutate(lowerCaseParticipant = tolower(participant))
+      if ('Exclude?' %in% names(pretest)) {
+        basicExclude <-pretest %>% 
+          filter(`Exclude?` == TRUE)
+      } else {
+        basicExclude <- tibble(participant = '')
+      }
     } else {
       basicExclude <- tibble(participant = '')
     }
-  } else {
-    basicExclude <- tibble(participant = '')
-  }
-  
-  threshold_all <- all_summary %>%
-    group_by(participant, experiment, conditionName, thresholdParameter) %>%
-    dplyr::summarize(
-      pm = mean(questMeanAtEndOfTrialsLoop, na.rm =T),
-      sd = sd(questMeanAtEndOfTrialsLoop, na.rm =T),
-      .groups="drop") %>% 
-    rename(parameter = thresholdParameter)
-  
-  threshold_summary <- threshold_all %>% 
-    mutate(variance = sd^2) %>% 
-    group_by(conditionName, experiment, parameter) %>% 
-    dplyr::summarize(
-      m = mean(pm, na.rm = T),
-      `se across participants` = sd(pm, na.rm =T)/sqrt(n()), 
-      `sd across participants` = sd(pm, na.rm =T),
-      `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
-      N = n(),
-      .groups="drop")
-  
-  wpm_all <- reading %>% 
-    left_join(experiment, by = "participant") %>% 
-    filter(conditionName != "") %>% 
-    group_by(conditionName, participant, experiment) %>%
-    dplyr::summarize(pm = mean(wordPerMin, na.rm =T),
-                     sd = sd(wordPerMin, na.rm =T),
-                     parameter = "word per minute",
-                     .groups="drop") %>% 
-    filter(!is.na(pm))
-  
-  wpm_summary <- wpm_all %>% 
-    mutate(variance = sd^2) %>% 
-    group_by(conditionName, experiment) %>% 
-    dplyr::summarize(
-      m = mean(pm),
-      `se across participants` = sd(pm)/sqrt(n()), 
-      `sd across participants` = sd(pm),
-      `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
-      N = n(),
-      parameter = "word per minute",
-      .groups="drop") %>% 
-    mutate(conditionName = as.character(conditionName))
-  
-  
-  df <- df %>%
-    rename(participantID = ParticipantCode) %>% 
-    distinct(participant,participantID )
-  
-  threshold_each <- rbind(threshold_all, wpm_all) %>% 
-    mutate(m = round(pm,3),
-           sd = round(sd,3)) %>% 
-    left_join(age, by = 'participant') %>% 
-    left_join(df, by = 'participant') %>% 
-    mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
-    rename(pavloviaSessionID = participant) %>% 
-    select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, m, sd, parameter)
-  
-  threshold <- rbind(threshold_summary, wpm_summary) %>% 
-    mutate(m = round(m,3),
-           `se across participants` = round(`se across participants`,3),
-           `sd across participants` = round(`sd across participants`,3),
-           `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
-    select(experiment,conditionName, m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
-
-  
-  #### beauty and comfort ####
-  QA <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% 
-      distinct(participant,
-               block,
-               block_condition, 
-               conditionName, 
-               questionAndAnswerQuestion, 
-               questionAndAnswerNickname, 
-               questionAndAnswerResponse,
-               questionAndAnswerCorrectAnswer) %>%
-      filter(!is.na(questionAndAnswerNickname),
-             !is.na(questionAndAnswerQuestion),
-             questionAndAnswerNickname != "", 
-             questionAndAnswerQuestion != ""
-      ) %>% 
-      mutate(correct = (questionAndAnswerResponse == questionAndAnswerCorrectAnswer))
-  } %>% 
-    arrange(participant, block, block_condition)
-  
-
-  ratings <- QA %>% 
-    select(-c(questionAndAnswerQuestion,questionAndAnswerCorrectAnswer)) %>% 
-    mutate(questionAndAnswerResponse = as.numeric(arabic_to_western(questionAndAnswerResponse))) %>% 
-    filter(!is.na(questionAndAnswerResponse)) %>% 
-    group_by(block, block_condition, conditionName, questionAndAnswerNickname) %>% 
-    summarize(`mean rating` = mean(questionAndAnswerResponse, rm.na = T), .groups = "drop") %>% 
-    mutate(`mean rating` = ifelse(questionAndAnswerNickname == 'BirthYear', year(today()) - `mean rating`,`mean rating`)) %>% 
-    arrange(block, block_condition) %>% 
-    select(-block)
-  
-  
-  all_summary <- all_summary %>% 
-    select(-Grade) %>% 
-    left_join(df, by = "participant") %>% 
-    left_join(age, by = "participant") %>% 
-    rename(pavloviaSessionID = participant,
-           TrialsSentToQuest = questTrials) %>% 
-    mutate(condition = ifelse(length(str_split(block_condition,'_')) == 0,
-                              NA,
-                              str_split(block_condition,'_')[[1]][2])) %>% 
-    select(experiment, pavloviaSessionID, participantID, 
-           age, Grade, conditionName, block, condition, 
-           conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,
-           questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials)
-
-  return(list(reading = reading, 
-              crowding = crowding,
-              rsvp = rsvp_speed,
-              fluency = fluency,
-              acuity = acuity,
-              repeatedLetters = repeatedLetters,
-              quest = quest, # threshold averaged by participant, conditionName
-              quest_all_thresholds = quest_all_thresholds, # include all threshold estimate
-              age = age,
-              conditionNames = conditionNames,
-              threshold = threshold, 
-              threshold_each = threshold_each, 
-              all_summary = all_summary,
-              ratings = ratings,
-              QA = QA %>% select(-block)
-              ))
+    
+    threshold_all <- all_summary %>%
+      group_by(participant, experiment, conditionName, thresholdParameter) %>%
+      dplyr::summarize(
+        pm = mean(questMeanAtEndOfTrialsLoop, na.rm =T),
+        sd = sd(questMeanAtEndOfTrialsLoop, na.rm =T),
+        .groups="drop") %>% 
+      rename(parameter = thresholdParameter)
+    
+    threshold_summary <- threshold_all %>% 
+      mutate(variance = sd^2) %>% 
+      group_by(conditionName, experiment, parameter) %>% 
+      dplyr::summarize(
+        m = mean(pm, na.rm = T),
+        `se across participants` = sd(pm, na.rm =T)/sqrt(n()), 
+        `sd across participants` = sd(pm, na.rm =T),
+        `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
+        N = n(),
+        .groups="drop")
+    
+    wpm_all <- reading %>% 
+      left_join(experiment, by = "participant") %>% 
+      filter(conditionName != "") %>% 
+      group_by(conditionName, participant, experiment) %>%
+      dplyr::summarize(pm = mean(wordPerMin, na.rm =T),
+                       sd = sd(wordPerMin, na.rm =T),
+                       parameter = "word per minute",
+                       .groups="drop") %>% 
+      filter(!is.na(pm))
+    
+    wpm_summary <- wpm_all %>% 
+      mutate(variance = sd^2) %>% 
+      group_by(conditionName, experiment) %>% 
+      dplyr::summarize(
+        m = mean(pm),
+        `se across participants` = sd(pm)/sqrt(n()), 
+        `sd across participants` = sd(pm),
+        `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
+        N = n(),
+        parameter = "word per minute",
+        .groups="drop") %>% 
+      mutate(conditionName = as.character(conditionName))
+    
+    
+    df <- df %>%
+      rename(participantID = ParticipantCode) %>% 
+      distinct(participant,participantID )
+    
+    threshold_each <- rbind(threshold_all, wpm_all) %>% 
+      mutate(m = round(pm,3),
+             sd = round(sd,3)) %>% 
+      left_join(age, by = 'participant') %>% 
+      left_join(df, by = 'participant') %>% 
+      mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
+      rename(pavloviaSessionID = participant) %>% 
+      select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, m, sd, parameter)
+    
+    threshold <- rbind(threshold_summary, wpm_summary) %>% 
+      mutate(m = round(m,3),
+             `se across participants` = round(`se across participants`,3),
+             `sd across participants` = round(`sd across participants`,3),
+             `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
+      select(experiment,conditionName, m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
+    
+    
+    #### beauty and comfort ####
+    QA <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
+      data_list[[i]] %>% 
+        distinct(participant,
+                 block,
+                 block_condition, 
+                 conditionName, 
+                 blockShuffleGroups2,
+                 questionAndAnswerQuestion, 
+                 questionAndAnswerNickname, 
+                 questionAndAnswerResponse,
+                 questionAndAnswerCorrectAnswer) %>%
+        filter(!is.na(questionAndAnswerNickname),
+               !is.na(questionAndAnswerQuestion),
+               questionAndAnswerNickname != "", 
+               questionAndAnswerQuestion != ""
+        ) %>% 
+        mutate(correct = (questionAndAnswerResponse == questionAndAnswerCorrectAnswer),
+               questionAndAnswerNickname = case_when(questionAndAnswerNickname=="CMFRTAmareddine" ~"CMFRTSaudiTextv1",
+                                                     questionAndAnswerNickname=="CMFRTMakdessi" ~"CMFRTSaudiTextv2",
+                                                     questionAndAnswerNickname=="CMFRTKafa" ~"CMFRTSaudiTextv3",
+                                                     .default = questionAndAnswerNickname))
+    } %>% 
+      filter(!blockShuffleGroups2=="readin5") %>% 
+      arrange(participant, block, block_condition)
+    
+    
+    ratings <- QA %>% 
+      select(-c(questionAndAnswerQuestion,questionAndAnswerCorrectAnswer)) %>% 
+      mutate(questionAndAnswerResponse = as.numeric(arabic_to_western(questionAndAnswerResponse))) %>% 
+      filter(!is.na(questionAndAnswerResponse)) %>% 
+      group_by(block, block_condition, conditionName, questionAndAnswerNickname) %>% 
+      summarize(`mean rating` = mean(questionAndAnswerResponse, rm.na = T), .groups = "drop") %>% 
+      mutate(`mean rating` = ifelse(questionAndAnswerNickname == 'BirthYear', year(today()) - `mean rating`,`mean rating`)) %>% 
+      arrange(block, block_condition) %>% 
+      select(-block)
+    
+    
+    all_summary <- all_summary %>% 
+      select(-Grade) %>% 
+      left_join(df, by = "participant") %>% 
+      left_join(age, by = "participant") %>% 
+      rename(pavloviaSessionID = participant,
+             TrialsSentToQuest = questTrials) %>% 
+      mutate(condition = ifelse(length(str_split(block_condition,'_')) == 0,
+                                NA,
+                                str_split(block_condition,'_')[[1]][2])) %>% 
+      select(experiment, pavloviaSessionID, participantID, 
+             age, Grade, conditionName, block, condition, 
+             conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,
+             questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials)
+    
+    return(list(reading = reading, 
+                crowding = crowding,
+                rsvp = rsvp_speed,
+                fluency = fluency,
+                acuity = acuity,
+                repeatedLetters = repeatedLetters,
+                quest = quest, # threshold averaged by participant, conditionName
+                quest_all_thresholds = quest_all_thresholds, # include all threshold estimate
+                age = age,
+                conditionNames = conditionNames,
+                threshold = threshold, 
+                threshold_each = threshold_each, 
+                all_summary = all_summary,
+                ratings = ratings,
+                QA = QA %>% select(-block)
+    ))
   }
