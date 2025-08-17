@@ -672,7 +672,8 @@ plot_badLatenessTrials_vs_memory <- function(data_list,conditionNameInput) {
       filter(!is.na(block_condition) & block_condition != "") %>%
       distinct(participant,
              block_condition,
-             conditionName)
+             conditionName) %>% 
+      mutate(block_condition = as.character(block_condition))
   }
   
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
@@ -688,7 +689,7 @@ plot_badLatenessTrials_vs_memory <- function(data_list,conditionNameInput) {
              deviceMemoryGB
         ) %>% 
       drop_na() %>% 
-    mutate(block_condition = staircaseName)
+    mutate(block_condition = as.character(staircaseName))
   }
   
   if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {

@@ -857,6 +857,7 @@ shinyServer(function(input, output, session) {
     regression_plots <- regression_reading_plot(df_list())
 
     plot_calls <- list(
+      list(plot = plot_sizeCheck(files()$data_list), fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
       list(plot = plot_distance(files()$data_list), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = foveal_crowding_acuity_plots$foveal, fname = 'foveal-crowding-vs-foveal-acuity-grade-diagram'),
       list(plot = foveal_crowding_acuity_plots$peripheral, fname = 'foveal-crowding-vs-peripheral-acuity-grade-diagram'),
@@ -1136,31 +1137,109 @@ shinyServer(function(input, output, session) {
   #### plots ####
   
   output$corrMatrixPlot <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    plot_with_footnote <- add_experiment_title(corrMatrix()$plot, experiment_names())
-    ggsave(
-      file = outfile,
-      plot = plot_with_footnote,
-      device = svglite,
-      width = corrMatrix()$width,
-      height = corrMatrix()$height
-    )
-    list(src = outfile,
-         contenttype = 'svg')
+    tryCatch({
+      outfile <- tempfile(fileext = '.svg')
+      plot_with_footnote <- add_experiment_title(corrMatrix()$plot, experiment_names())
+      ggsave(
+        file = outfile,
+        plot = plot_with_footnote,
+        device = svglite,
+        width = corrMatrix()$width,
+        height = corrMatrix()$height
+      )
+      list(src = outfile,
+           contenttype = 'svg')
+    }, error = function(e) {
+      error_plot <- ggplot() +
+        annotate(
+          "text",
+          x = 0.5,
+          y = 0.6,
+          label = paste("Error:", e$message),
+          color = "red",
+          size = 5,
+          hjust = 0.5,
+          vjust = 0.5
+        ) +
+        annotate(
+          "text",
+          x = 0.5,
+          y = 0.4,
+          label = "Plot ID: corrMatrixPlot",
+          size = 4,
+          fontface = "italic"
+        ) +
+        plt_theme + 
+        labs(title = experiment_names(),
+             subtitle = 'Correlation Matrix Plot')
+      
+      # Save the error plot to a temp file
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot = error_plot,
+        device = svglite,
+        width = 6,
+        height = 6
+      )
+      
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = paste0("Error in corrMatrixPlot: ", e$message))
+    })
   }, deleteFile = TRUE)
   
   output$nMatrixPlot <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    plot_with_footnote <- add_experiment_title(corrMatrix()$n_plot, experiment_names())
-    ggsave(
-      file   = outfile,
-      plot   = plot_with_footnote,   
-      device = svglite,
-      width  = corrMatrix()$width,
-      height = corrMatrix()$height
-    )
-    list(src = outfile,
-         contenttype = 'svg')
+    tryCatch({
+      outfile <- tempfile(fileext = '.svg')
+      plot_with_footnote <- add_experiment_title(corrMatrix()$n_plot, experiment_names())
+      ggsave(
+        file   = outfile,
+        plot   = plot_with_footnote,   
+        device = svglite,
+        width  = corrMatrix()$width,
+        height = corrMatrix()$height
+      )
+      list(src = outfile,
+           contenttype = 'svg')
+    }, error = function(e) {
+      error_plot <- ggplot() +
+        annotate(
+          "text",
+          x = 0.5,
+          y = 0.6,
+          label = paste("Error:", e$message),
+          color = "red",
+          size = 5,
+          hjust = 0.5,
+          vjust = 0.5
+        ) +
+        annotate(
+          "text",
+          x = 0.5,
+          y = 0.4,
+          label = "Plot ID: nMatrixPlot",
+          size = 4,
+          fontface = "italic"
+        ) +
+        plt_theme + 
+        labs(title = experiment_names(),
+             subtitle = 'N Matrix Plot')
+      
+      # Save the error plot to a temp file
+      outfile <- tempfile(fileext = '.svg')
+      ggsave(
+        file = outfile,
+        plot = error_plot,
+        device = svglite,
+        width = 6,
+        height = 6
+      )
+      
+      list(src = outfile,
+           contenttype = 'svg',
+           alt = paste0("Error in nMatrixPlot: ", e$message))
+    })
   }, deleteFile = TRUE)
   
   output$durationCorrMatrixPlot <- renderImage({
@@ -2866,6 +2945,7 @@ shinyServer(function(input, output, session) {
             
           }, error = function(e) {
             # Show error in a ggplot-friendly way
+            e
             error_plot <- ggplot() +
               annotate(
                 "text",
