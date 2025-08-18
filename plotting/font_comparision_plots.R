@@ -211,6 +211,10 @@ plot_font_comparison <- function(df_list) {
       if (!is.null(y_limits)) {
         p <- p + coord_cartesian(ylim = y_limits)
       }
+      p <- p + annotation_logticks(sides = "l",
+                        short = unit(2, "pt"),
+                        mid   = unit(2, "pt"),
+                        long  = unit(7, "pt")) 
     } else if (!is.null(y_limits)) {
       p <- p + coord_cartesian(ylim = y_limits)
     }

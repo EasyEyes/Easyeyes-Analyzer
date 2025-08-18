@@ -4,12 +4,12 @@ plot_violins <- function(df_list) {
   reading = df_list$reading %>% mutate(y = log_WPM)
   
   # Debug reading data
-  print("Reading data for violin plot:")
-  print(paste("Number of reading rows:", nrow(reading)))
-  print("Reading y values summary:")
-  print(summary(reading$y))
-  print("Any NA values in reading y:")
-  print(sum(is.na(reading$y)))
+  # print("Reading data for violin plot:")
+  # print(paste("Number of reading rows:", nrow(reading)))
+  # print("Reading y values summary:")
+  # print(summary(reading$y))
+  # print("Any NA values in reading y:")
+  # print(sum(is.na(reading$y)))
   acuity = df_list$acuity %>% mutate(y = questMeanAtEndOfTrialsLoop)
   beauty = df_list$QA %>%
     filter(grepl('bty', tolower(questionAndAnswerNickname))) %>%
@@ -39,20 +39,20 @@ plot_violins <- function(df_list) {
   print("inside plot_violins")
   create_plot <- function(data, ylabel, title) {
     p <- NULL
-    print(paste("Creating plot for:", title))
-    print(paste("Data rows:", nrow(data)))
+    # print(paste("Creating plot for:", title))
+    # print(paste("Data rows:", nrow(data)))
     
     if (nrow(data) > 0) {
       # Debug: Check if this is reading data and print more details
-      if (grepl("Reading", title)) {
-        print("Reading plot debug:")
-        print("Font counts:")
-        print(table(data$font))
-        print("Y value summary:")
-        print(summary(data$y))
-        print("Any infinite values:")
-        print(sum(is.infinite(data$y)))
-      }
+      # if (grepl("Reading", title)) {
+      #   print("Reading plot debug:")
+      #   print("Font counts:")
+      #   print(table(data$font))
+      #   print("Y value summary:")
+      #   print(summary(data$y))
+      #   print("Any infinite values:")
+      #   print(sum(is.infinite(data$y)))
+      # }
       # Calculate participant count by font
       participant_counts <- data %>%
         group_by(font) %>%
@@ -74,12 +74,12 @@ plot_violins <- function(df_list) {
         summarise(mean_y = mean(y, na.rm = TRUE), .groups = "drop")
       
       # Debug mean calculation for reading plot
-      if (grepl("Reading", title)) {
-        print("Mean data for reading plot:")
-        print(mean_data)
-        print("Any NA means:")
-        print(sum(is.na(mean_data$mean_y)))
-      }
+      # if (grepl("Reading", title)) {
+      #   print("Mean data for reading plot:")
+      #   print(mean_data)
+      #   print("Any NA means:")
+      #   print(sum(is.na(mean_data$mean_y)))
+      # }
       
       p <- ggplot(plot_data, aes(x = font_label, y = y)) +
         geom_violin(trim = FALSE, alpha = 0.5) +
@@ -92,11 +92,26 @@ plot_violins <- function(df_list) {
                      color = "red", size = 1, alpha = 0.8) +
         coord_flip() +
         theme_minimal(base_size = 14) +
+        theme(
+          plot.background = element_rect(fill = "white", color = NA),
+          panel.background = element_rect(fill = "white", color = NA)
+        ) +
         labs(
           subtitle = title,
           x = "Font",
           y = ylabel
         )
+      
+              # Apply log scaling to y-axis for specific plot types (becomes x-axis after coord_flip)
+        if (grepl("Reading|RSVP|Crowding", title)) {
+          print("Applying log scaling to y-axis")
+          print(paste("Plot type:", title))
+          p <- p + scale_y_log10() +
+            annotation_logticks(sides = "b",
+                        short = unit(2, "pt"),
+                        mid   = unit(2, "pt"),
+                        long  = unit(7, "pt")) 
+        }
     }
     return(p)
   }
