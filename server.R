@@ -4629,27 +4629,37 @@ shinyServer(function(input, output, session) {
       fileNames <- c()
       
       # Save correlation matrices
+      short_exp_name <- get_short_experiment_name(experiment_names())
+      
       savePlot(corrMatrix()$plot, 
-               paste0("correlation-matrix.", input$fileType),
+               paste0(short_exp_name, "correlation-matrix.", input$fileType),
                input$fileType, 
                width = corrMatrix()$width, 
                height = corrMatrix()$height)
       
       savePlot(durationCorrMatrix()$plot, 
-               paste0("duration-correlation-matrix.", input$fileType),
+               paste0(short_exp_name, "duration-correlation-matrix.", input$fileType),
                input$fileType, 
                width = durationCorrMatrix()$width, 
                height = durationCorrMatrix()$height)
       
+      # Add N correlation matrix
+      savePlot(corrMatrix()$n_plot, 
+               paste0(short_exp_name, "n-matrix.", input$fileType),
+               input$fileType, 
+               width = corrMatrix()$width, 
+               height = corrMatrix()$height)
+      
       fileNames <- c(
-        paste0("correlation-matrix.", input$fileType),
-        paste0("duration-correlation-matrix.", input$fileType)
+        paste0(short_exp_name, "correlation-matrix.", input$fileType),
+        paste0(short_exp_name, "duration-correlation-matrix.", input$fileType),
+        paste0(short_exp_name, "n-matrix.", input$fileType)
       )
       
       # Save histograms
       if (length(histograms()$plotList) > 0) {
         for (i in seq_along(histograms()$plotList)) {
-          plotFileName <- paste0(histograms()$fileNames[[i]], '.', input$fileType)
+          plotFileName <- paste0(short_exp_name, histograms()$fileNames[[i]], '.', input$fileType)
           savePlot(histograms()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
           fileNames <- c(fileNames, plotFileName)
         }
@@ -4658,7 +4668,7 @@ shinyServer(function(input, output, session) {
       # Save scatter diagrams
       if (length(scatterDiagrams()$plotList) > 0) {
         for (i in seq_along(scatterDiagrams()$plotList)) {
-          plotFileName <- paste0(scatterDiagrams()$fileNames[[i]], '.', input$fileType)
+          plotFileName <- paste0(short_exp_name, scatterDiagrams()$fileNames[[i]], '.', input$fileType)
           savePlot(scatterDiagrams()$plotList[[i]] + plt_theme_scatter, plotFileName, input$fileType)
           fileNames <- c(fileNames, plotFileName)
         }
@@ -4667,7 +4677,7 @@ shinyServer(function(input, output, session) {
       # Save age plots
       if (length(agePlots()$plotList) > 0) {
         for (i in seq_along(agePlots()$plotList)) {
-          plotFileName <- paste0(agePlots()$fileNames[[i]], '.', input$fileType)
+          plotFileName <- paste0(short_exp_name, agePlots()$fileNames[[i]], '.', input$fileType)
           savePlot(agePlots()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
           fileNames <- c(fileNames, plotFileName)
         }
@@ -4739,10 +4749,28 @@ shinyServer(function(input, output, session) {
 
           print(ggiraph_plots$fileNames[[i]])
           if (!is.null(ggiraph_plots$plotList[[i]])) {
-            plotFileName <- paste0(ggiraph_plots$fileNames[[i]], '.', input$fileType)
-            savePlot(ggiraph_plots$plotList[[i]], plotFileName, input$fileType, theme = plt_theme_ggiraph)
+            plotFileName <- paste0(short_exp_name, ggiraph_plots$fileNames[[i]], '.', input$fileType)
+            savePlot(ggiraph_plots$plotList[[i]] + plt_theme_ggiraph, plotFileName, input$fileType)
             fileNames <- c(fileNames, plotFileName)
           }
+        }
+      }
+      
+      # Save violin plots
+      if (length(violinPlots()$plotList) > 0) {
+        for (i in seq_along(violinPlots()$plotList)) {
+          plotFileName <- paste0(short_exp_name, violinPlots()$fileNames[[i]], '.', input$fileType)
+          savePlot(violinPlots()$plotList[[i]], plotFileName, input$fileType)
+          fileNames <- c(fileNames, plotFileName)
+        }
+      }
+      
+      # Save font comparison plots
+      if (length(fontComparisonPlots()$plotList) > 0) {
+        for (i in seq_along(fontComparisonPlots()$plotList)) {
+          plotFileName <- paste0(short_exp_name, fontComparisonPlots()$fileNames[[i]], '.', input$fileType)
+          savePlot(fontComparisonPlots()$plotList[[i]], plotFileName, input$fileType)
+          fileNames <- c(fileNames, plotFileName)
         }
       }
       
