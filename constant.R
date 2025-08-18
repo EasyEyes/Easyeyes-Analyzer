@@ -81,7 +81,7 @@ plt_theme_scatter <- theme(
   plot.caption = element_text(size=10),
   plot.margin = margin(
     t = 0.1,
-    r = 0.9,
+    r = 0.1,
     b = 0.1,
     l = 0.1,
     "inch"

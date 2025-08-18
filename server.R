@@ -35,6 +35,7 @@ source("./error report/random_rgb.R")
 source("./error report/summary_table.R")
 source("./error report/prolific.R")
 
+
 source("./plotting/mean_median_plot.R")
 source("./plotting/regression_plot.R")
 source("./plotting/histogram.R")
@@ -182,21 +183,6 @@ shinyServer(function(input, output, session) {
     return(t)
   })
   
-  data_list <- reactive({
-    if (is.null(files())) {
-      return(NULL)
-    }
-    t <- files()[[1]]
-    return(t)
-  })
-  
-  summary_list <- reactive({
-    if (is.null(files())) {
-      return(NULL)
-    }
-    t <- files()[[2]]
-    return(t)
-  })
   experiment_names <- reactive({
     if (is.null(files())) {
       return(NULL)
@@ -207,8 +193,6 @@ shinyServer(function(input, output, session) {
     
     return(exp_names)
   })
-  
-  
   
   readingCorpus <- reactive({
     if (is.null(files())) {
@@ -243,7 +227,7 @@ shinyServer(function(input, output, session) {
     }
     df_list <- generate_threshold(
       files()$data_list,
-      summary_list(),
+      files()$summary_list,
       files()$df,
       files()$pretest,
       files()$stairs,
@@ -304,7 +288,7 @@ shinyServer(function(input, output, session) {
     if (is.null(files()) || is.null(df_list())) {
       return(NULL)
     }
-    get_minDeg_plots(data_list(),
+    get_minDeg_plots(files()$data_list,
                      df_list()$acuity,
                      df_list()$crowding,
                      df_list()$quest)
@@ -477,64 +461,13 @@ shinyServer(function(input, output, session) {
     return(!is.null(input$fileJSON))
   })
   
-  
   #### reactive plots #####
-
-  meanPlot <- reactive({
-    req(input$file)
-    mean_plot(reading_rsvp_crowding_df()) +
-      labs(subtitle = paste(c(
-        experiment_names(),
-        "Reading Speed, mean"
-      ), collapse = "\n")) +
-      ggpp::geom_text_npc(aes(
-        npcx = "left",
-        npcy = "bottom",
-        label = paste0("italic('N=')~", length(unique(
-          df_list()[[1]]$participant
-        )))
-      ),
-      parse = T)
-  })
-  
-  medianPlot <- reactive({
-    if (is.null(reading_rsvp_crowding_df())) {
-      return(NULL)
-    }
-    median_plot(reading_rsvp_crowding_df()) +
-      labs(title = paste(c(
-        experiment_names(),
-        "Reading Speed, median"
-      ),
-      collapse = "\n")) +
-      ggpp::geom_text_npc(aes(
-        npcx = "left",
-        npcy = "bottom",
-        label = paste0("italic('N=')~", length(unique(
-          df_list()[[1]]$participant
-        )))
-      ),
-      parse = T)
-  })
   
   crowdingPlot <- reactive({
     if (is.null(crowdingBySide())) {
       return(NULL)
     }
     crowding_scatter_plot(crowdingBySide())
-  })
-  
-  crowdingAvgPlot <- reactive({
-    if (is.null(crowdingBySide())) {
-      return(NULL)
-    }
-    crowding_mean_scatter_plot(crowdingBySide())  +
-      coord_fixed(ratio = 1) +
-      labs(title = paste(
-        c(experiment_names(),
-          "Crowding, left vs. right, by font"),
-        collapse = "\n"
-      ))
   })
   
   #### rsvpCrowding reactive ####
@@ -559,12 +492,6 @@ shinyServer(function(input, output, session) {
     plot_rsvp_repeated_letter_crowding(df_list())
   })
   
-  two_fonts_plots <- reactive({
-    req(input$file)
-    get_two_fonts_plots(df_list()$crowding)
-  })
-  
-  
   foveal_peripheral_diag <- reactive({
     req(input$file)
     get_foveal_peripheral_diag(df_list()$crowding)
@@ -575,65 +502,7 @@ shinyServer(function(input, output, session) {
     req(input$file)
     get_foveal_acuity_diag(df_list()$crowding, df_list()$acuity)
   })
-  
-  regressionFontPlot <- reactive({
-    req(input$file)
-    base_plot <- regression_font(df_list(), reading_rsvp_crowding_df()) +
-      labs(subtitle = "Reading vs crowding")
-    add_experiment_title(base_plot, experiment_names())
-  })
-  
-  regressionFontPlotWithLabel <- reactive({
-    req(input$file)
-    base_plot <- regression_font_with_label(df_list(), reading_rsvp_crowding_df()) +
-      labs(subtitle = "Reading vs crowding")
-    add_experiment_title(base_plot, experiment_names())
-  })
-  
-  readingTestRetest <- reactive({
-    req(input$file)
-    base_plot <- get_test_retest_reading(df_list()[[1]]) +
-      labs(subtitle = "Test retest of reading") +
-      ggpp::geom_text_npc(aes(
-        npcx = "left",
-        npcy = "bottom",
-        label = paste0("italic('N=')~", length(unique(
-          df_list()[[1]]$participant
-        )))
-      ),
-      parse = T)
-    add_experiment_title(base_plot, experiment_names())
-  })
-  crowdingTestRetest <- reactive({
-    req(input$file)
-    base_plot <- get_test_retest_crowding(df_list()[[2]]) +
-      labs(subtitle = "Test retest of crowding") +
-      ggpp::geom_text_npc(aes(
-        npcx = "left",
-        npcy = "bottom",
-        label = paste0("italic('N=')~", length(unique(
-          df_list()[[1]]$participant
-        )))
-      ),
-      parse = T)
-    add_experiment_title(base_plot, experiment_names())
-  })
-  
-  rsvpReadingTestRetest <- reactive({
-    req(input$file)
-    base_plot <- get_test_retest_rsvp(df_list()[[3]])  +
-      labs(subtitle = "Test retest of rsvp reading") +
-      ggpp::geom_text_npc(aes(
-        npcx = "left",
-        npcy = "bottom",
-        label = paste0("italic('N=')~", length(unique(
-          df_list()[[1]]$participant
-        )))
-      ),
-      parse = T)
-    add_experiment_title(base_plot, experiment_names())
-  })
-  
+
   readingSpeedRetention <- reactive({
     req(input$file)
     base_plot <- reading_speed_vs_retention(df_list()[[1]]) +
@@ -690,7 +559,6 @@ shinyServer(function(input, output, session) {
     return(list(plotList = l, fileNames = fileNames))
   })
 
- 
   histograms <- reactive({
   if (is.null(files())) {
     return(list(plotList = list(), fileNames = list()))
@@ -740,7 +608,7 @@ shinyServer(function(input, output, session) {
   }
 
   print('before appending')
-  lists <- append_hist_list(data_list(), l, fileNames, experiment_names())
+  lists <- append_hist_list(files()$data_list, l, fileNames, experiment_names())
 
   list(
     plotList  = lists$plotList,
@@ -748,7 +616,6 @@ shinyServer(function(input, output, session) {
   )
 })
 
-  
   histogramsQuality <- reactive({
     if (is.null(files())) {
       return(list(plotList = list(),
@@ -759,7 +626,7 @@ shinyServer(function(input, output, session) {
     l <- list()
     fileNames <- list()
     
-    lists <- append_hist_quality(data_list(), l, fileNames, conditionNames())
+    lists <- append_hist_quality(files()$data_list, l, fileNames, conditionNames())
     lists <- add_questsd_hist(df_list()$quest, lists)
     
     minDegHist <- minDegPlots()$hist_quality
@@ -780,7 +647,7 @@ shinyServer(function(input, output, session) {
     fileNames <- list()
     
     lists <-
-      append_hist_time(data_list(), l, fileNames, conditionNames())
+      append_hist_time(files()$data_list, l, fileNames, conditionNames())
     return(lists)
   })
   
@@ -805,7 +672,6 @@ shinyServer(function(input, output, session) {
       )
     )
   })
-  
   
   #### voilin plots ####
   
@@ -892,10 +758,15 @@ shinyServer(function(input, output, session) {
     foveal_crowding_acuity_plots <- foveal_crowding_vs_acuity_diag()
     peripheral_plots <- peripheral_plot(df_list())
     regression_plots <- regression_reading_plot(df_list())
-
+    test_retest_plots <- get_test_retest(df_list())
     plot_calls <- list(
       list(plot = plot_sizeCheck(files()$data_list), fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
       list(plot = plot_distance(files()$data_list), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
+      list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
+      list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
+      list(plot = test_retest_plots$beauty, fname = 'retest-test-beauty'),
+      list(plot = test_retest_plots$comfort, fname = 'retest-test-comfort'),
       list(plot = foveal_crowding_acuity_plots$foveal, fname = 'foveal-crowding-vs-foveal-acuity-grade-diagram'),
       list(plot = foveal_crowding_acuity_plots$peripheral, fname = 'foveal-crowding-vs-peripheral-acuity-grade-diagram'),
       list(plot = get_acuity_foveal_peripheral_diag(df_list()$acuity), fname = 'foveal-acuity-vs-peripheral-acuity-grade-diagram'),
@@ -908,7 +779,7 @@ shinyServer(function(input, output, session) {
       list(plot = regression_acuity_plot(df_list()), fname = 'ordinary-reading-rsvp-reading-vs-acuity'),
       list(plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp), fname = 'reading-vs-RSVP-reading-plot'),
       list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade'),
-      list(plot = plot_badLatenessTrials_vs_memory(data_list(),conditionNames()), fname="badLatenessTrials-vs-deviceMemoryGB-by-participant"),
+      list(plot = plot_badLatenessTrials_vs_memory(files()$data_list,conditionNames()), fname="badLatenessTrials-vs-deviceMemoryGB-by-participant"),
       list(plot = minDegPlots()$scatter, fname="foveal-crowding-vs-spacingMinDeg"),
       # New beauty/comfort scatter plots
       list(plot = comfort_vs_crowding_scatter(df_list()), fname = 'comfort-vs-crowding-scatter'),
@@ -994,7 +865,7 @@ shinyServer(function(input, output, session) {
     
     # Extract scatter plots using the append_scatter_time function
     scatter_time_plots <-
-      append_scatter_time(data_list(), l, fileNames, conditionNames())
+      append_scatter_time(files()$data_list, l, fileNames, conditionNames())
     
     # Apply experiment title to all plots
     updated_plots <- lapply(scatter_time_plots$plotList, function(plot) {
@@ -1023,7 +894,7 @@ shinyServer(function(input, output, session) {
     
     # Extract scatter plots using the append_scatter_time function
     scatter_time_plots <-
-      append_scatter_time_participant(data_list(), l, fileNames, conditionNames())
+      append_scatter_time_participant(files()$data_list, l, fileNames, conditionNames())
     
     # Apply experiment title to all plots
     updated_plots <- lapply(scatter_time_plots$plotList, function(plot) {
@@ -1039,7 +910,6 @@ shinyServer(function(input, output, session) {
       fileNames = scatter_time_plots$fileNames
     ))
   })
-  
   
   gradePlots <- reactive({
     if (is.null(files()) | is.null(df_list())) {
@@ -1070,6 +940,7 @@ shinyServer(function(input, output, session) {
       return(FALSE)
     }
   })
+  
   output$isReading <- reactive({
     if ('reading' %in% names(df_list())) {
       return(nrow(df_list()$reading) > 0)
@@ -1085,7 +956,6 @@ shinyServer(function(input, output, session) {
       return(FALSE)
     }
   })
-  
   
   output$isGrade <- reactive({
     if ('quest' %in% names(df_list())) {
@@ -1115,7 +985,6 @@ shinyServer(function(input, output, session) {
     }
   })
   
-  
   output$isAcuity <- reactive({
     if ('acuity' %in% names(df_list())) {
       return(nrow(df_list()$acuity) > 0)
@@ -1143,11 +1012,9 @@ shinyServer(function(input, output, session) {
     }
   })
   
-  
   output$isDuration <- reactive({
     return(nrow(durationData()) > 0)
   })
-  
   
   output$fileUploaded <- reactive({
     return(nrow(files()$pretest > 0))
@@ -1191,42 +1058,7 @@ shinyServer(function(input, output, session) {
       list(src = outfile,
            contenttype = 'svg')
     }, error = function(e) {
-      error_plot <- ggplot() +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.6,
-          label = paste("Error:", e$message),
-          color = "red",
-          size = 5,
-          hjust = 0.5,
-          vjust = 0.5
-        ) +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.4,
-          label = "Plot ID: corrMatrixPlot",
-          size = 4,
-          fontface = "italic"
-        ) +
-        plt_theme + 
-        labs(title = experiment_names(),
-             subtitle = 'Correlation Matrix Plot')
-      
-      # Save the error plot to a temp file
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = error_plot,
-        device = svglite,
-        width = 6,
-        height = 6
-      )
-      
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = paste0("Error in corrMatrixPlot: ", e$message))
+      handle_plot_error(e, "corrMatrixPlot", experiment_names(), "Correlation Matrix Plot")
     })
   }, deleteFile = TRUE)
   
@@ -1244,42 +1076,7 @@ shinyServer(function(input, output, session) {
       list(src = outfile,
            contenttype = 'svg')
     }, error = function(e) {
-      error_plot <- ggplot() +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.6,
-          label = paste("Error:", e$message),
-          color = "red",
-          size = 5,
-          hjust = 0.5,
-          vjust = 0.5
-        ) +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.4,
-          label = "Plot ID: nMatrixPlot",
-          size = 4,
-          fontface = "italic"
-        ) +
-        plt_theme + 
-        labs(title = experiment_names(),
-             subtitle = 'N Matrix Plot')
-      
-      # Save the error plot to a temp file
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = error_plot,
-        device = svglite,
-        width = 6,
-        height = 6
-      )
-      
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = paste0("Error in nMatrixPlot: ", e$message))
+      handle_plot_error(e, "nMatrixPlot", experiment_names(), "N Matrix Plot")
     })
   }, deleteFile = TRUE)
   
@@ -1311,43 +1108,7 @@ shinyServer(function(input, output, session) {
       list(src = outfile,
            contenttype = 'svg')
     }, error = function(e) {
-      error_plot <- ggplot() +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.6,
-          label = paste("Error:", e$message),
-          color = "red",
-          size = 5,
-          hjust = 0.5,
-          vjust = 0.5
-        ) +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.4,
-          label = "Plot ID: durationHist",
-          size = 4,
-          fontface = "italic"
-        ) +
-        plt_theme + 
-        labs(title = experiment_names(),
-             subtitle = 'targetMeasuredDurationSec by os histogram')
-      
-      # Save the error plot to a temp file
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = error_plot,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "Error in Duration Histogram")
+      handle_plot_error(e, "durationHist", experiment_names(), "Duration Histogram")
     })
     
   }, deleteFile = TRUE)
@@ -1366,47 +1127,8 @@ shinyServer(function(input, output, session) {
       list(src = outfile,
            contenttype = 'svg')
     }, error = function(e) {
-      error_plot <- ggplot() +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.6,
-          label = paste("Error:", e$message),
-          color = "red",
-          size = 5,
-          hjust = 0.5,
-          vjust = 0.5
-        ) +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.4,
-          label = "Plot ID: latenessHist",
-          size = 4,
-          fontface = "italic"
-        ) +
-        theme_void() +
-        labs(title = experiment_names(),
-          subtitle =  'targetMeasuredLatenessSec by os histogram')
-      
-      # Save the error plot to a temp file
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = error_plot,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "Error in Lateness Histogram")
+      handle_plot_error(e, "latenessHist", experiment_names(), "Lateness Histogram")
     })
-    
-    list(src = outfile,
-         contenttype = 'svg')
   }, deleteFile = TRUE)
   
   durationPlot <- reactive({
@@ -1431,33 +1153,7 @@ shinyServer(function(input, output, session) {
       list(src = outfile,
            contenttype = 'svg')
     }, error = function(e) {
-      error_plot <- ggplot() +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.6,
-          label = paste("Error:", e$message),
-          color = "red",
-          size = 5,
-          hjust = 0.5,
-          vjust = 0.5
-        ) +
-        theme_void() +
-        labs(subtitle =  'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant'
-        )
-      
-      # Save the error plot to a temp file
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = error_plot,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      list(src = outfile,
-           contenttype = 'svg')
+      handle_plot_error(e, "durationByID", experiment_names(), "Duration by Participant ID")
     })
   }, deleteFile = TRUE)
   
@@ -1475,34 +1171,7 @@ shinyServer(function(input, output, session) {
       list(src = outfile,
            contenttype = 'svg')
     }, error = function(e) {
-      error_plot <- ggplot() +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.6,
-          label = paste("Error:", e$message),
-          color = "red",
-          size = 5,
-          hjust = 0.5,
-          vjust = 0.5
-        ) +
-        theme_void() +
-        labs(subtitle =  
-          'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by font'
-        )
-      
-      # Save the error plot to a temp file
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = error_plot,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      list(src = outfile,
-           contenttype = 'svg')
+      handle_plot_error(e, "durationByFont", experiment_names(), "Duration by Font")
     })
   }, deleteFile = TRUE)
   
@@ -1565,35 +1234,8 @@ shinyServer(function(input, output, session) {
       list(src = outfile,
            contenttype = 'svg')
     }, error = function(e) {
-      error_plot <- ggplot() +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.6,
-          label = paste("Error:", e$message),
-          color = "red",
-          size = 5,
-          hjust = 0.5,
-          vjust = 0.5
-        ) +
-        theme_void() +
-        labs(subtitle =  
-          'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by participant'
-        )
-      
-      # Save the error plot to a temp file
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = error_plot,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
+      handle_plot_error(e, "latenessByID", experiment_names, "Lateness by Participant ID")
     })
-    list(src = outfile,
-         contenttype = 'svg')
   }, deleteFile = TRUE)
   
   output$latenessByFont <- renderImage({
@@ -1610,34 +1252,7 @@ shinyServer(function(input, output, session) {
       list(src = outfile,
            contenttype = 'svg')
     }, error = function(e) {
-      error_plot <- ggplot() +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.6,
-          label = paste("Error:", e$message),
-          color = "red",
-          size = 5,
-          hjust = 0.5,
-          vjust = 0.5
-        ) +
-        theme_void() +
-        labs(subtitle =  
-          'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by font'
-        )
-      
-      # Save the error plot to a temp file
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = error_plot,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      list(src = outfile,
-           contenttype = 'svg')
+      handle_plot_error(e, "latenessByFont", experiment_names, "Lateness by Font")
     })
   }, deleteFile = TRUE)
   
@@ -1683,63 +1298,7 @@ shinyServer(function(input, output, session) {
            contenttype = 'svg')
     })
   }, deleteFile = TRUE)
-  
-  #### crowding ####
-  
-  output$crowdingAvgPlot <-
-    renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot =  crowdingAvgPlot() + plt_theme,
-        device = svg,
-        width = 6,
-        height = 4
-      )
-      
-      list(src = outfile,
-           contenttype = 'svg')
-    }, deleteFile = TRUE)
-  
-  
-  output$SloanVsTimesMeanPlot <-
-    renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot =  two_fonts_plots()[[1]] +
-          labs(
-            title = experiment_names(),
-            subtitle = paste0("Crowding ", two_fonts_plots()$title, ", mean")
-          ) +
-          plt_theme,
-        device = svg,
-        width = 7,
-        height = 4
-      )
-      
-      list(src = outfile,
-           contenttype = 'svg')
-    }, deleteFile = TRUE)
-  
-  output$SloanVsTimesSDPlot <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    ggsave(
-      file = outfile,
-      plot =  two_fonts_plots()[[2]] +
-        labs(
-          title = experiment_names(),
-          subtitle = paste0("Crowding ", two_fonts_plots()$title, ", sd")
-        ) +
-        plt_theme,
-      device = svg,
-      width = 7,
-      height = 4
-    )
-    list(src = outfile,
-         contenttype = 'svg')
-  }, deleteFile = TRUE)
-  
+
   #### rsvp ggiraph ####
   
   ordinaryAcuityFoveal <- reactive({
@@ -1757,7 +1316,7 @@ shinyServer(function(input, output, session) {
         plot_with_title <- add_experiment_title(rsvpCrowding()$p_grade, experiment_names())
         ggiraph::girafe(ggobj = plot_with_title)
       }, error = function(e) {
-        print(e)
+        log_detailed_error(e, "rsvpCrowdingPeripheralGradePlot")
         error_plot <- ggplot() +
           annotate(
             "text",
@@ -2335,6 +1894,7 @@ shinyServer(function(input, output, session) {
     
     return(out)
   })
+  
   output$timingHistograms <- renderUI({
     out <- list()
     i <- 1
@@ -2973,8 +2533,8 @@ shinyServer(function(input, output, session) {
               plot = scatterDiagrams()$plotList[[ii]] +
                 plt_theme_scatter +
                 scale_color_manual(values = colorPalette),
-              width = 9,
-              height = 8,
+              width = 7,
+              height = 7,
               unit = 'in',
               limitsize = F,
               device = svglite
@@ -2984,37 +2544,7 @@ shinyServer(function(input, output, session) {
                  contenttype = 'svg')
             
           }, error = function(e) {
-            # Show error in a ggplot-friendly way
-            e
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 5,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void() +
-              labs(subtitle=scatterDiagrams()$fileNames[[ii]])
-            
-            # Save the error plot to a temp file
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = error_plot,
-              device = svglite,
-              width = 6,
-              height = 4,
-              unit = 'in'
-            )
-            list(
-              src = outfile,
-              contenttype = 'svg',
-              alt = paste0("Error in ", scatterDiagrams()$fileNames[[ii]])
-            )
+          handle_plot_error(e, paste0("scatter", ii), experiment_names(), scatterDiagrams()$fileNames[[ii]])
           })
           
         }, deleteFile = TRUE)
@@ -3741,63 +3271,6 @@ shinyServer(function(input, output, session) {
     return(out)
   })
   
-
-  #### test retest ####
-  output$readingTestRetest <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    ggsave(
-      file = outfile,
-      plot = readingTestRetest() + plt_theme,
-      device = svg,
-      width = 6,
-      height = 4
-    )
-    
-    list(src = outfile,
-         contenttype = 'svg')
-  }, deleteFile = TRUE)
-  
-  output$crowdingTestRetest <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    ggsave(
-      file = outfile,
-      plot = crowdingTestRetest() + plt_theme,
-      device = svg,
-      width = 6,
-      height = 4
-    )
-    
-    list(src = outfile,
-         contenttype = 'svg')
-  }, deleteFile = TRUE)
-  
-  output$rsvpReadingTestRetest <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    ggsave(
-      file = outfile,
-      plot = rsvpReadingTestRetest() + plt_theme,
-      device = svg,
-      width = 6,
-      height = 4
-    )
-    
-    list(src = outfile,
-         contenttype = 'svg')
-  }, deleteFile = TRUE)
-  
-  output$readingSpeedRetention <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
-    ggsave(
-      file = outfile,
-      plot = readingSpeedRetention() + plt_theme,
-      device = svg,
-      width = 6,
-      height = 4
-    )
-    
-    list(src = outfile,
-         contenttype = 'svg')
-  }, deleteFile = TRUE)
   
   #### crowding stair plots
   stairPlot <- reactive({
@@ -4527,8 +4000,6 @@ shinyServer(function(input, output, session) {
     output$profileAverageTitle <-
       renderText(profile_plot()$title)
   })
-  
-  
   
   #### Event Handler ####
   
@@ -6784,104 +6255,7 @@ shinyServer(function(input, output, session) {
       }
     )
     
-    output$downloadCrowdingAvgPlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('average_crowding_left_vs_right.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = crowdingAvgPlot(),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
-      }
-    )
-    
-    output$downloadSloanVsTimesMeanPlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('2_fonts_mean.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = two_fonts_plots()[[1]] +
-            labs(
-              title = experiment_names(),
-              subtitle = paste0("Crowding ", two_fonts_plots()$title, ", mean")
-            ) +
-            plt_theme,
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
-      }
-    )
-    
-    
-    #### download sloan vs times ####
-    
-    output$downloadReadingSpeedRetention <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('reading-speed-vs-retention.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = readingSpeedRetention(),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
-      }
-    )
-    
-    output$downloadReadingTestRetest <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('reading-test-retest.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = readingTestRetest(),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
-      }
-    )
-    
-    output$downloadCrowdingTestRetest <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('crowding-test-retest.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = crowdingTestRetest(),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
-      }
-    )
-    
-    output$downloadRsvpReadingTestRetest <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('rsvp-test-retest.', input$fileType),
-        sep = "-"
-      ),
-      content = function(file) {
-        ggsave(
-          file,
-          plot = rsvpReadingTestRetest(),
-          device = ifelse(input$fileType == "svg", svglite, input$fileType)
-        )
-      }
-    )
-    
+
   })
   
   # download jupyter notebook handler

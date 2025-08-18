@@ -166,7 +166,7 @@ crowding_scatter_plot <- function(crowding_L_R){
       font_palette <- font_color_palette(unique(font_names))
       setNames(font_palette[font_names], levels(df$shortConditionName))
     }) +
-    guides(color = guide_legend(title = NULL, ncol = 1)) +
+    guides(color = guide_legend(title = NULL, ncol = 2)) +
     labs(
       subtitle   = "Left vs right peripheral crowding",
       caption = paste0(ecc_label, "\n", summ_label)

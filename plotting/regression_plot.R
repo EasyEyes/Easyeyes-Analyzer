@@ -166,16 +166,19 @@ regression_reading_plot <- function(df_list){
     eccs_int <- as.integer(round(eccs))
     ecc_label <- paste0("X ecc = ", paste(eccs_int, collapse = ", "), " deg")
     
-    p2 <- ggplot(peripheral,
-                 aes(
-                   x = crowding_distance,
-                   y = 10^(avg_log_WPM),
-                   color = paste(targetKind, font_label),
-                   shape = targetKind
-                 )) +
-      geom_point() +
+    p2 <- ggplot(data= peripheral) +
+      geom_point(aes(
+        x = crowding_distance,
+        y = 10^(avg_log_WPM),
+        color = font_label,
+        shape = targetKind)) +
       # one regression per font because color is mapped globally
-      geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+      geom_smooth(aes(
+        x = crowding_distance,
+        y = 10^(avg_log_WPM),
+        color = font_label,
+        linetype = targetKind),
+        method = "lm", formula = y ~ x, se = FALSE) +
       scale_x_log10() +
       scale_y_log10() +
       coord_fixed(ratio = 1) +
@@ -190,7 +193,7 @@ regression_reading_plot <- function(df_list){
         label = paste0(ecc_label, "\nN=", nrow(peripheral)),
         inherit.aes = FALSE
       ) +
-      guides(color = guide_legend(ncol = 1, title = "")) +
+      guides(color = guide_legend(ncol = 2, title = "")) +
       theme_bw() +
       theme(
         axis.text.x = element_text(angle = 45, hjust = 1),

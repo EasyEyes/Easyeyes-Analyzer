@@ -39,6 +39,7 @@ plot_violins <- function(df_list) {
   print("inside plot_violins")
   create_plot <- function(data, ylabel, title) {
     p <- NULL
+
     # print(paste("Creating plot for:", title))
     # print(paste("Data rows:", nrow(data)))
     

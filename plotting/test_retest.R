@@ -1,178 +1,164 @@
-### retest experiments ###
-library(ggpubr)
-
-# compare test and retest results
-### test vs retest reading ###
-get_test_retest_reading <- function(reading){
-  # prepare data
-  reading_each <- reading %>% 
-    group_by(font, participant, block_condition, conditionName) %>%
-    summarize(avg_wordPerMin = 10^(mean(log10(wordPerMin), na.rm = T)), .groups = "drop")
-  
-  conditionNames <- unique(reading_each$conditionName)
-  if (!n_distinct(conditionNames) == 2) {
-    return(ggplot() + theme_bw() + labs(subtitle='test retest reading plot'))
-  }
-  reading_test_retest <- tibble()
-  for (i in 1:length(conditionNames)){
-    tmp <- reading_each %>% filter(conditionName == conditionNames[i]) %>% 
-      pivot_wider(names_from = block_condition, values_from = avg_wordPerMin) %>% 
-      rename(test = 4,
-             retest = 5)
-    reading_test_retest <- rbind(reading_test_retest, tmp)
-  }
-  # plot 
-  ggplot(reading_test_retest %>% filter(test<3000, retest < 3000), aes(test, retest)) + 
-    geom_point(aes(shape = participant, color = participant),  size = 3) +
-    facet_wrap(~conditionName)+
-    geom_abline(slope = 1) + 
-    scale_x_log10(limits = c(100,3000)) + 
-    scale_y_log10(limits = c(100,3000)) +
-    coord_fixed(ratio = 1) +
-    theme_bw() + 
-    theme(legend.position = "right", 
-          legend.box = "vertical", 
-          legend.justification = c(1,1),
-          legend.margin = margin(-0.4),
-          legend.key.size = unit(4.5, "mm"),
-          panel.grid.major = element_blank(), 
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank(), 
-          strip.text = element_text(size=12),
-          axis.title = element_text(size = 16),
-          axis.text = element_text(size = 16),
-          axis.line = element_line(colour = "black"),
-          axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
-          plot.title = element_text(size = 16),
-          plot.subtitle = element_text(size = 16)) +
-    xlab("Retest reading (w/min)”") +
-    ylab("Retest reading (w/min)”") + 
-    annotate("text", x = 2800, 
-             y = 100, 
-             label = paste("italic(n)==",length(unique(reading_test_retest$participant))), 
-             parse = TRUE) +
-    annotation_logticks(
-      sides = "bl", 
-      short = unit(2, "pt"), 
-      mid   = unit(2, "pt"), 
-      long  = unit(7, "pt")
-    ) +
-    scale_shape_manual(values = sample(1:25, length(unique(reading_test_retest$participant)))) + 
-    stat_cor(aes(label = ..r.label..), label.x.npc = "left", label.y.npc = "top", r.accuracy = 0.01)
-}
-
-#### crowding ####
-
-get_test_retest_crowding <- function(crowding){
-  #TODO fix condition fail to generate plot
-  # prepare data
-  conditionNames <- unique(crowding$conditionName)
-  crowding_test_retest <- tibble()
-  if (!n_distinct(conditionNames) == 2) {
-    return(ggplot() + theme_bw() + labs(subtitle='test retest crowding plot'))
-  }
-  for (i in 1:length(conditionNames)){
-    tmp <- crowding %>% 
-      filter(conditionName == conditionNames[i]) %>%
-      select(participant, block_condition, conditionName,bouma_factor) %>% 
-      pivot_wider(names_from = block_condition, values_from = bouma_factor) %>% 
-      rename(test = 3,
-             retest = 4)
-    crowding_test_retest <- rbind(crowding_test_retest, tmp)
+get_test_retest <- function(df_list){
+  pCrowding <- df_list$crowding %>% 
+    filter(targetEccentricityXDeg != 0 ) %>% 
+    group_by(experiment, participant, font, conditionName) %>%
+    summarize(test = 10^mean(log_crowding_distance_deg, na.rm = T),
+              .groups = "drop")
     
-  }
-  # plot 
-  ggplot(crowding_test_retest, aes(10^(test), 10^(retest))) + 
-    geom_point(aes(shape = participant, color = participant),  size = 3) +
-    facet_wrap(~str_sub(conditionName, 7, -1))+
-    geom_abline(slope = 1) + 
-    scale_x_log10(limits = c(0.2, 100), breaks = c(1,10, 100)) + 
-    scale_y_log10(limits = c(0.2, 100), breaks = c(1,10, 100)) +
-    coord_fixed(ratio = 1) +
-    theme_bw() + 
-    theme(legend.position = "right", 
-          legend.box = "vertical", 
-          legend.justification = c(1,1),
-          legend.margin = margin(-0.4),
-          legend.key.size = unit(4.5, "mm"),
-          panel.grid.major = element_blank(), 
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank(), 
-          strip.text = element_text(size=12,hjust = 0),
-          axis.title = element_text(size = 16),
-          axis.text = element_text(size = 16),
-          axis.line = element_line(colour = "black"),
-          axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1), 
-          plot.title = element_text(size = 16),
-          plot.subtitle = element_text(size = 16)) +
-    xlab("Retest Bouma factor") +
-    ylab("Bouma factor") + 
-    annotate("text", x = 90, 
-             y = 0.3, 
-             label = paste("italic(n)==",length(unique(crowding_test_retest$participant))), 
-             parse = TRUE) +
-    annotation_logticks(
-      sides = "bl", 
-      short = unit(2, "pt"), 
-      mid   = unit(2, "pt"), 
-      long  = unit(7, "pt")
-    ) +
-    scale_shape_manual(values = sample(1:25, length(unique(crowding_test_retest$participant)))) + 
-    stat_cor(aes(label = ..r.label..), label.x.npc = "left", label.y.npc = "top", r.accuracy = 0.01)
-}
-
-#### rsvp ####
-get_test_retest_rsvp <- function(rsvp_speed){
-  rsvp_speed <- rsvp_speed %>% select(-log_duration_s_RSVP, -targetKind,-thresholdParameter)
-  conditionNames <- unique(rsvp_speed$conditionName)
-  if (!n_distinct(conditionNames) == 2) {
-    return(ggplot() + theme_bw() + labs(subtitle='test retest rsvp reading plot'))
-  }
-  rsvp_test_retest <- tibble()
-  for (i in 1:length(conditionNames)){
-    tmp <- rsvp_speed %>% filter(conditionName == conditionNames[i]) %>% 
-      pivot_wider(names_from = block_condition, values_from = block_avg_log_WPM) %>% 
-      rename(test = 4,
-             retest = 5)
-    rsvp_test_retest <- rbind(rsvp_test_retest, tmp)
+  pAcuity <- df_list$acuity %>%
+    filter(targetEccentricityXDeg != 0 ) %>% 
+    group_by(experiment, participant, font, conditionName) %>%
+    summarize(test = 10^mean(questMeanAtEndOfTrialsLoop, na.rm = T),
+              .groups = "drop")
+  
+  rsvp <- df_list$rsvp %>%
+    group_by(experiment, participant, font, conditionName) %>%
+    summarize(test = 10^mean(block_avg_log_WPM, na.rm = T),
+              .groups = "drop")
+  
+  reading <- df_list$reading %>% 
+    group_by(experiment, participant, font, conditionName) %>%
+    summarize(test = mean(wordPerMin, na.rm = T),
+              .groups = "drop")
+  
+  
+  beauty = df_list$QA %>%
+    filter(grepl('bty', tolower(questionAndAnswerNickname))) %>%
+    mutate(test = as.numeric(arabic_to_western(questionAndAnswerResponse)),
+           font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
+                            conditionName=="beauty-majalla" ~"majalla.ttf",
+                            conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+           )) %>% 
+    filter(!is.na(test))
+  
+  cmfrt = df_list$QA %>% 
+    filter(grepl('CMFRT',questionAndAnswerNickname)) %>%
+    mutate(test = as.numeric(arabic_to_western(questionAndAnswerResponse)),
+           font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
+                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+           )) %>% 
+    filter(!is.na(test))
+  
+  create_plot <- function(data) {
+    data <- data %>% 
+      mutate(group = ifelse(grepl("Repeat",experiment), "retest","test"))
+    
+    test <- data %>%
+      filter(group == 'test')
+    
+    retest <- data %>%
+      filter(group == 'retest')
+    
+    
+    test_retest <- test %>% 
+      select(participant, font, conditionName, test) %>% 
+      inner_join(retest, by = c("participant", "font", "conditionName")) %>% 
+      rename(test=test.x,
+             retest = test.y) %>% 
+      filter(!is.na(test), !is.na(retest))
+    
+    print(test_retest)
+    # plot
+    if (nrow(test_retest) == 0) return (NULL)
+    n = nrow(test_retest)
+    p <- ggplot() +
+      geom_point(data=test_retest, 
+                 aes(x=test, 
+                     y=retest,
+                     color = font),
+                 size = 3) +
+      geom_smooth(data=test_retest, 
+                  aes(x=test, 
+                      y=retest,
+                      color=font),
+                  method = 'lm', 
+                  se = FALSE) + 
+      coord_fixed(ratio = 1) +
+      theme_bw() +
+      ggpp::geom_text_npc(aes(npcx = 'left',
+                              npcy = 'top',
+                              label = paste0('N=', n,'\n')))
   }
   
-  ggplot(rsvp_test_retest, aes(10^(test), 10^(retest))) + 
-    geom_point(aes(shape = participant, color = participant),  size = 3) +
-    facet_wrap(~font)+
-    geom_abline(slope = 1) + 
-    scale_x_log10() + 
-    scale_y_log10() +
-    coord_fixed(ratio = 1) +
-    theme_bw() + 
-    theme(legend.position = "right", 
-          legend.box = "vertical", 
-          legend.justification = c(1,1),
-          legend.margin = margin(-0.4),
-          legend.key.size = unit(4.5, "mm"),
-          panel.grid.major = element_blank(), 
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank(), 
-          strip.text = element_text(size=12),
-          axis.title = element_text(size = 16),
-          axis.text = element_text(size = 16),
-          axis.line = element_line(colour = "black"),
-          axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
-          plot.title = element_text(size = 16),
-          plot.subtitle = element_text(size = 16)) +
-    xlab("RSVP reading (w/min)") +
-    ylab("Retest RSVP reading (w/min)") + 
-    labs(subtitle="RSVP Reading") + 
-    annotate("text", x = 10^(max(rsvp_test_retest$test)*0.9), 
-             y = 10^(min(rsvp_test_retest$retest)*0.9), 
-             label = paste("italic(n)==",length(unique(rsvp_test_retest$participant))), 
-             parse = TRUE) +
+  reading_p <- create_plot(reading)
+  if (!is.null(reading_p)) {
+    reading_p <- reading_p + 
+      scale_x_log10(limits=c(50,1500)) +
+      scale_y_log10(limits=c(50,1500)) +
+      labs(x="Test reading (w/min)",
+           y="Retest reading (w/min)",
+           subtitle="Reading retest vs test") +
+      annotation_logticks(
+        sides = "bl",
+        short = unit(2, "pt"),
+        mid   = unit(2, "pt"),
+        long  = unit(7, "pt")
+      )
+  }
+  
+  crowding_p <- create_plot(pCrowding)
+  if (!is.null(crowding_p)) {
+    crowding_p <- crowding_p + 
+      scale_x_log10(limits=c(0.03,10)) +
+      scale_y_log10(limits=c(0.03,10)) +
+      labs(x="Test crowding (deg)",
+           y="Retest crowding (deg)",
+           subtitle="Peripheral crowding retest vs test\nGeometric mean of left and right") +
+      annotation_logticks(
+        sides = "bl",
+        short = unit(2, "pt"),
+        mid   = unit(2, "pt"),
+        long  = unit(7, "pt")
+      )
+  }
+  
+  acuity_p <- create_plot(pAcuity)
+  if (!is.null(acuity_p)) {
+    acuity_p <- acuity_p + 
+    scale_x_log10(limits=c(0.03,10)) +
+    scale_y_log10(limits=c(0.03,10)) +
+    labs(x="Test acuity (deg)",
+         y="Retest acuity (deg)",
+         subtitle="Peripheral cuity retest vs test\nGeometric mean of left and right") +
     annotation_logticks(
-      sides = "bl", 
-      short = unit(2, "pt"), 
-      mid   = unit(2, "pt"), 
+      sides = "bl",
+      short = unit(2, "pt"),
+      mid   = unit(2, "pt"),
       long  = unit(7, "pt")
-    ) +
-    scale_shape_manual(values = sample(1:25, length(unique(rsvp_test_retest$participant)))) +
-    stat_cor(aes(label = ..r.label..), label.x.npc = "left", label.y.npc = "top", r.accuracy = 0.01)
+    ) 
+  }
+  
+  beauty_p <- create_plot(beauty)
+  if (!is.null(beauty_p)) {
+    beauty_p <- beauty_p + 
+      labs(x="Test beauty ratings",
+           y="Retest beauty ratings",
+           subtitle="Beauty retest vs test")
+  }
+
+   comfort_p <- create_plot(cmfrt) 
+   if (!is.null(comfort_p)) {
+     comfort_p <- comfort_p + 
+       labs(x="Test comfort ratings",
+            y="Retest comfort ratings",
+            subtitle="Comfort retest vs test")
+   }
+   
+  return(list(reading = reading_p,
+              pCrowding = crowding_p,
+              pAcuity = acuity_p,
+              beauty = beauty_p,
+              comfort = comfort_p))
 }
+
+

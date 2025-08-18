@@ -250,3 +250,76 @@ get_N_text <- function(data) {
     mutate(text = paste0(conditionName, ': N=', n))
   return(paste0(unique(t$text), collapse='\n'))
 }
+
+# Enhanced error logging function for debugging
+log_detailed_error <- function(e, plot_id = "Unknown Plot") {
+  cat("\n=== DETAILED ERROR INFORMATION ===\n")
+  cat("Plot ID:", plot_id, "\n")
+  cat("Error Message:", e$message, "\n")
+  cat("Error Call:", deparse(e$call), "\n")
+  if (!is.null(e$trace)) {
+    cat("Stack Trace:\n")
+    print(e$trace)
+  }
+  cat("Full Error Object:\n")
+  print(e)
+  cat("Session Info at time of error:\n")
+  print(sessionInfo())
+  cat("=== END ERROR INFORMATION ===\n\n")
+}
+
+# Enhanced error handler for plot rendering with detailed console logging
+handle_plot_error <- function(e, plot_id, experiment_names_func = NULL, plot_subtitle = "") {
+  # Enhanced error logging for debugging - print detailed error info to console
+  log_detailed_error(e, plot_id)
+  
+  # Create user-friendly error plot
+  error_plot <- ggplot() +
+    annotate(
+      "text",
+      x = 0.5,
+      y = 0.6,
+      label = paste("Error:", e$message),
+      color = "red",
+      size = 5,
+      hjust = 0.5,
+      vjust = 0.5
+    ) +
+    annotate(
+      "text",
+      x = 0.5,
+      y = 0.4,
+      label = paste("Plot ID:", plot_id),
+      size = 4,
+      fontface = "italic"
+    ) +
+    plt_theme
+  
+  # Add title if experiment_names function is provided
+  if (!is.null(experiment_names_func)) {
+    tryCatch({
+      title_text <- experiment_names_func()
+      error_plot <- error_plot + labs(title = title_text, subtitle = plot_subtitle)
+    }, error = function(title_error) {
+      error_plot <<- error_plot + labs(title = "Error getting experiment names", subtitle = plot_subtitle)
+    })
+  } else {
+    error_plot <- error_plot + labs(subtitle = plot_subtitle)
+  }
+  
+  # Save the error plot to a temp file
+  outfile <- tempfile(fileext = '.svg')
+  ggsave(
+    file = outfile,
+    plot = error_plot,
+    device = svglite,
+    width = 6,
+    height = 6
+  )
+  
+  return(list(
+    src = outfile,
+    contenttype = 'svg',
+    alt = paste0("Error in ", plot_id, ": ", e$message)
+  ))
+}

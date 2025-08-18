@@ -26,13 +26,7 @@ generate_threshold <-
         filter(!is.na(age)) %>% 
         distinct()
     }
-    
-    #### experiment name ####
-    experiment <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-      data_list[[i]] %>% 
-        distinct(participant, experiment) %>% 
-        filter(!is.na(experiment), !is.na(participant))
-    }
+
     #### NQuestTrials ####
     NQuestTrials <- stairs %>%
       group_by(participant, staircaseName, thresholdParameter) %>%
@@ -123,10 +117,10 @@ generate_threshold <-
     reading <- tibble()
     for (i in 1:length(data_list)) {
       t <- data_list[[i]] %>% 
-        select(block_condition, participant, conditionName, font, readingPages, readingPageWords, readingPageDurationOnsetToOffsetSec,
+        select(experiment, date, block_condition, participant, conditionName, font, readingPages, readingPageWords, readingPageDurationOnsetToOffsetSec,
                targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
         filter(readingPages > 1) %>% 
-        group_by(participant, block_condition, conditionName, font) %>%
+        group_by(experiment, date, participant, block_condition, conditionName, font) %>%
         mutate(trial = row_number()) %>% 
         ungroup() %>% 
         mutate(wordPerMin = ifelse(trial < 3 & tolower(participant) %in% englishChild$participant,
@@ -144,7 +138,9 @@ generate_threshold <-
         select(participant, `OMT_words read`) %>% 
         mutate(`OMT_words read` = as.numeric(`OMT_words read`)) %>% 
         filter(!is.na(`OMT_words read`)) %>% 
-        mutate(block_condition = '',
+        mutate(experiment = '',
+               date = '',
+               block_condition = '',
                conditionName = '',
                font = '',
                targetKind = 'reading',
@@ -279,7 +275,9 @@ generate_threshold <-
     
     if (ncol(reading) > 1) {
       reading <- reading %>% 
-        left_join(age, by = "participant") %>% 
+        left_join(age, 
+                  by = 'participant',
+                  relationship = "many-to-many") %>% 
         filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
       if ('Include' %in% names(pretest)) {
         reading <- reading %>% filter(!participant %in% (pretest %>% filter(Include == 'no') %>% select(participant)))
@@ -336,7 +334,9 @@ generate_threshold <-
              questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop, questType, Grade,
              `Skilled reader?`, ParticipantCode, questTrials, NWrongTrial,NCorrectTrial,frac
       ) %>% 
-      left_join(eccentricityDeg, by = c('participant', 'conditionName'))
+      left_join(eccentricityDeg, 
+                by = c('participant', 'conditionName'),
+                relationship = "many-to-many")
     
     if (nrow(pretest) > 0) {
       quest <- quest %>% 
@@ -386,7 +386,9 @@ generate_threshold <-
     age <- distinct(age)
     
     quest <- quest %>%
-      left_join(age, by = 'participant') %>% 
+      left_join(age, 
+                by = 'participant',
+                relationship = "many-to-many") %>% 
       left_join(targetDurationSecs, by = c('participant', 'conditionName'))
     
     quest_all_thresholds <- quest
@@ -412,7 +414,7 @@ generate_threshold <-
     
     rsvp_speed <- quest %>% 
       filter(questType == "RSVP reading") %>% 
-      select(participant,conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop,
+      select(experiment, participant,conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop,
              font, Grade, age,`Skilled reader?`,ParticipantCode) %>%
       dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
       mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP,
@@ -550,7 +552,6 @@ generate_threshold <-
         .groups="drop")
     
     wpm_all <- reading %>% 
-      left_join(experiment, by = "participant") %>% 
       filter(conditionName != "") %>% 
       group_by(conditionName, participant, experiment) %>%
       dplyr::summarize(pm = mean(wordPerMin, na.rm =T),
@@ -580,8 +581,12 @@ generate_threshold <-
     threshold_each <- rbind(threshold_all, wpm_all) %>% 
       mutate(m = round(pm,3),
              sd = round(sd,3)) %>% 
-      left_join(age, by = 'participant') %>% 
-      left_join(df, by = 'participant') %>% 
+      left_join(age, 
+                by = 'participant',
+                relationship = "many-to-many") %>% 
+      left_join(df,
+                by = 'participant',
+                relationship = "many-to-many") %>% 
       mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
       rename(pavloviaSessionID = participant) %>% 
       select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, m, sd, parameter)
@@ -597,7 +602,8 @@ generate_threshold <-
     #### beauty and comfort ####
     QA <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
       data_list[[i]] %>% 
-        distinct(participant,
+        distinct(experiment,
+                 participant,
                  block,
                  block_condition, 
                  conditionName, 
@@ -618,7 +624,7 @@ generate_threshold <-
                                                      .default = questionAndAnswerNickname))
     } %>% 
       filter(!blockShuffleGroups2=="readin5") %>% 
-      arrange(participant, block, block_condition)
+      arrange(experiment, participant, block, block_condition)
     
     
     ratings <- QA %>% 
@@ -634,8 +640,12 @@ generate_threshold <-
     
     all_summary <- all_summary %>% 
       select(-Grade) %>% 
-      left_join(df, by = "participant") %>% 
-      left_join(age, by = "participant") %>% 
+      left_join(df,
+                by = 'participant',
+                relationship = "many-to-many") %>% 
+      left_join(age, 
+                by = 'participant',
+                relationship = "many-to-many") %>% 
       rename(pavloviaSessionID = participant,
              TrialsSentToQuest = questTrials) %>% 
       mutate(condition = ifelse(length(str_split(block_condition,'_')) == 0,
