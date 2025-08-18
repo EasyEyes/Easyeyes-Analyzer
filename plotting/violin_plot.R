@@ -2,6 +2,14 @@ plot_violins <- function(df_list) {
   crowding = df_list$crowding %>% mutate(y = log_crowding_distance_deg)
   rsvp = df_list$rsvp %>% mutate(y = block_avg_log_WPM)
   reading = df_list$reading %>% mutate(y = log_WPM)
+  
+  # Debug reading data
+  print("Reading data for violin plot:")
+  print(paste("Number of reading rows:", nrow(reading)))
+  print("Reading y values summary:")
+  print(summary(reading$y))
+  print("Any NA values in reading y:")
+  print(sum(is.na(reading$y)))
   acuity = df_list$acuity %>% mutate(y = questMeanAtEndOfTrialsLoop)
   beauty = df_list$QA %>%
     filter(grepl('bty', tolower(questionAndAnswerNickname))) %>%
@@ -31,11 +39,57 @@ plot_violins <- function(df_list) {
   print("inside plot_violins")
   create_plot <- function(data, ylabel, title) {
     p <- NULL
-    print(nrow(data))
+    print(paste("Creating plot for:", title))
+    print(paste("Data rows:", nrow(data)))
+    
     if (nrow(data) > 0) {
-      p <- ggplot(data, aes(x = font, y = y)) +
+      # Debug: Check if this is reading data and print more details
+      if (grepl("Reading", title)) {
+        print("Reading plot debug:")
+        print("Font counts:")
+        print(table(data$font))
+        print("Y value summary:")
+        print(summary(data$y))
+        print("Any infinite values:")
+        print(sum(is.infinite(data$y)))
+      }
+      # Calculate participant count by font
+      participant_counts <- data %>%
+        group_by(font) %>%
+        summarise(n_participants = n_distinct(participant), .groups = "drop")
+      
+      # Create labels with N counts for each font
+      font_labels <- participant_counts %>%
+        mutate(label = paste0(font, "\n(N=", n_participants, ")"))
+      
+      # Update data with new labels and filter out infinite values
+      plot_data <- data %>%
+        left_join(font_labels, by = "font") %>%
+        mutate(font_label = factor(label, levels = font_labels$label)) %>%
+        filter(is.finite(y))  # Remove -Inf, Inf, NA values for plotting
+      
+      # Calculate means by font for mean lines (already filtered for finite values)
+      mean_data <- plot_data %>%
+        group_by(font_label) %>%
+        summarise(mean_y = mean(y, na.rm = TRUE), .groups = "drop")
+      
+      # Debug mean calculation for reading plot
+      if (grepl("Reading", title)) {
+        print("Mean data for reading plot:")
+        print(mean_data)
+        print("Any NA means:")
+        print(sum(is.na(mean_data$mean_y)))
+      }
+      
+      p <- ggplot(plot_data, aes(x = font_label, y = y)) +
         geom_violin(trim = FALSE, alpha = 0.5) +
         geom_jitter(width = 0.15, alpha = 0.7) +
+        geom_segment(data = mean_data, 
+                     aes(x = as.numeric(font_label) - 0.4, 
+                         xend = as.numeric(font_label) + 0.4,
+                         y = mean_y, 
+                         yend = mean_y),
+                     color = "red", size = 1, alpha = 0.8) +
         coord_flip() +
         theme_minimal(base_size = 14) +
         labs(

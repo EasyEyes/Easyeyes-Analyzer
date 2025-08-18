@@ -47,9 +47,40 @@ plot_font_comparison <- function(df_list) {
     mutate(measure = 10^block_avg_log_WPM) %>%  # Convert from log to linear
     select(participant, font, measure)
   
+  # Log RSVP data range
+  if (nrow(rsvp_data) > 0) {
+    rsvp_min <- min(rsvp_data$measure, na.rm = TRUE)
+    rsvp_max <- max(rsvp_data$measure, na.rm = TRUE)
+    print(paste("RSVP data range: min =", round(rsvp_min, 2), "max =", round(rsvp_max, 2)))
+    
+    # Calculate geometric means by font for RSVP
+    rsvp_means <- rsvp_data %>%
+      group_by(font) %>%
+      summarise(geom_mean = exp(mean(log(measure), na.rm = TRUE)), .groups = "drop")
+    print("RSVP geometric means by font:")
+    print(rsvp_means)
+  }
+  
   reading_data <- df_list$reading %>%
     mutate(measure = wordPerMin) %>%  # Already in linear scale
     select(participant, font, measure)
+  
+  # Log Reading data range
+  if (nrow(reading_data) > 0) {
+    reading_min <- min(reading_data$measure, na.rm = TRUE)
+    reading_max <- max(reading_data$measure, na.rm = TRUE)
+    print(paste("Reading data range: min =", round(reading_min, 2), "max =", round(reading_max, 2)))
+    
+    # Calculate geometric means by font for Reading
+    reading_filtered <- reading_data %>% filter(measure > 0)  # Remove 0 values for geometric mean
+    if (nrow(reading_filtered) > 0) {
+      reading_means <- reading_filtered %>%
+        group_by(font) %>%
+        summarise(geom_mean = exp(mean(log(measure), na.rm = TRUE)), .groups = "drop")
+      print("Reading geometric means by font:")
+      print(reading_means)
+    }
+  }
  
   comfort_data <- df_list$QA %>%
     filter(grepl('CMFRT', questionAndAnswerNickname)) %>%
@@ -83,7 +114,7 @@ plot_font_comparison <- function(df_list) {
     select(participant, font, measure)
   
   # Function to create individual plots
-  create_font_plot <- function(data, title, ylabel, use_log_scale = TRUE, use_geometric_mean = TRUE) {
+  create_font_plot <- function(data, title, ylabel, use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = NULL) {
     if (nrow(data) == 0) return(ggplot())
     
     # Calculate means and standard errors by font
@@ -120,7 +151,21 @@ plot_font_comparison <- function(df_list) {
     summary_data <- summary_data %>%
       filter(!is.na(mean_val), !is.na(se_lower), !is.na(se_upper), mean_val > 0)
     
+    # Debug: Print summary data for this plot
+    print(paste("Plot:", title))
+    print("Summary data (mean_val by font):")
+    print(summary_data %>% select(font, mean_val))
+    
     if (nrow(summary_data) == 0) return(ggplot())
+    
+    # Calculate participant count by font
+    participant_counts <- data %>%
+      group_by(font) %>%
+      summarise(n_participants = n_distinct(participant), .groups = "drop")
+    
+    # Add participant counts to summary data
+    summary_data <- summary_data %>%
+      left_join(participant_counts, by = "font")
     
     # Sort fonts alphabetically for consistent ordering
     summary_data$font <- factor(summary_data$font, levels = sort(unique(summary_data$font)))
@@ -128,11 +173,18 @@ plot_font_comparison <- function(df_list) {
     # Get consistent font colors
     font_colors <- font_color_palette(unique(summary_data$font))
     
+    # Debug: Print final data before plotting
+    print("Final data being plotted:")
+    print(summary_data %>% select(font, mean_val, se_lower, se_upper, n_participants))
+    
     # Create the plot with colored bars using font color palette
     p <- ggplot(summary_data, aes(x = font, y = mean_val, fill = font)) +
       geom_col(width = 0.4, alpha = 0.8) +  # Made bars smaller (0.4 instead of 0.6)
       geom_errorbar(aes(ymin = pmax(mean_val - se_lower, 0.001), ymax = mean_val + se_upper),
                     width = 0.15, size = 0.5, color = "black") +  # Made error bars smaller too
+      geom_text(aes(label = paste0("N=", n_participants), 
+                    y = mean_val + se_upper), 
+                vjust = -0.3, hjust = 0.5, size = 3, color = "black") +  # Add N counts above error bars
       scale_fill_manual(values = font_colors, name = "Font", guide = guide_legend(ncol = 3)) +  # Use consistent font colors with 3 columns
       theme_minimal(base_size = 12) +
       theme(
@@ -170,6 +222,11 @@ plot_font_comparison <- function(df_list) {
     # Apply log scale if requested
     if (use_log_scale && use_geometric_mean) {
       p <- p + scale_y_log10()
+      if (!is.null(y_limits)) {
+        p <- p + coord_cartesian(ylim = y_limits)
+      }
+    } else if (!is.null(y_limits)) {
+      p <- p + coord_cartesian(ylim = y_limits)
     }
     
     return(p)
@@ -177,10 +234,10 @@ plot_font_comparison <- function(df_list) {
   
   # Create individual plots with appropriate titles and y-axis labels
   plots <- list(
-    rsvp = create_font_plot(rsvp_data, "RSVP", "RSVP Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE),
+    rsvp = create_font_plot(rsvp_data, "RSVP", "RSVP Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(500, 2000)),
     crowding = create_font_plot(crowding_data, "Crowding", "Crowding Distance (deg)", use_log_scale = TRUE, use_geometric_mean = TRUE),
-    reading = create_font_plot(reading_data, "Reading", "Ordinary Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE),
-    comfort = create_font_plot(comfort_data, "Comfort", "Comfort Rating", use_log_scale = FALSE, use_geometric_mean = FALSE),
+    reading = create_font_plot(reading_data, "Reading", "Ordinary Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(100, 300)),
+    comfort = create_font_plot(comfort_data, "Comfort", "Comfort Rating", use_log_scale = FALSE, use_geometric_mean = FALSE, y_limits = c(3, 6)),
     beauty = create_font_plot(beauty_data, "Beauty", "Beauty Rating", use_log_scale = FALSE, use_geometric_mean = FALSE)
   )
   
