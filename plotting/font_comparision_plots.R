@@ -151,11 +151,6 @@ plot_font_comparison <- function(df_list) {
     summary_data <- summary_data %>%
       filter(!is.na(mean_val), !is.na(se_lower), !is.na(se_upper), mean_val > 0)
     
-    # Debug: Print summary data for this plot
-    print(paste("Plot:", title))
-    print("Summary data (mean_val by font):")
-    print(summary_data %>% select(font, mean_val))
-    
     if (nrow(summary_data) == 0) return(ggplot())
     
     # Calculate participant count by font
@@ -173,34 +168,25 @@ plot_font_comparison <- function(df_list) {
     # Get consistent font colors
     font_colors <- font_color_palette(unique(summary_data$font))
     
-    # Debug: Print final data before plotting
-    print("Final data being plotted:")
-    print(summary_data %>% select(font, mean_val, se_lower, se_upper, n_participants))
-    
     # Create the plot with colored bars using font color palette
     p <- ggplot(summary_data, aes(x = font, y = mean_val, fill = font)) +
       geom_col(width = 0.4, alpha = 0.8) +  # Made bars smaller (0.4 instead of 0.6)
       geom_errorbar(aes(ymin = pmax(mean_val - se_lower, 0.001), ymax = mean_val + se_upper),
                     width = 0.15, size = 0.5, color = "black") +  # Made error bars smaller too
       geom_text(aes(label = paste0("N=", n_participants), 
-                    y = mean_val + se_upper), 
-                vjust = -0.3, hjust = 0.5, size = 3, color = "black") +  # Add N counts above error bars
-      scale_fill_manual(values = font_colors, name = "Font", guide = guide_legend(ncol = 3)) +  # Use consistent font colors with 3 columns
+                    y = if(!is.null(y_limits)) y_limits[1] + 0.05 else mean_val * 0.05), 
+                vjust = 0.5, hjust = 0.5, size = 4, color = "black", fontface = "bold") +  # Add N counts at bottom based on y-limits - bold white for visibility
+      scale_fill_manual(values = font_colors, guide = "none") +  # Keep colors but remove legend
       theme_minimal(base_size = 12) +
       theme(
         # Ensure white background and black text for export
         plot.background = element_rect(fill = "white", color = NA),
         panel.background = element_rect(fill = "white", color = NA),
-        legend.background = element_rect(fill = "white", color = NA),
-        legend.key = element_rect(fill = "white", color = NA),
         
-        # Text colors - explicitly set to black
-        axis.text.x = element_blank(),  # Remove font names from x-axis
-        axis.ticks.x = element_blank(), # Remove x-axis ticks
+        # Text colors - explicitly set to black  
+        axis.text.x = element_text(size = 9, color = "black", angle = 45, hjust = 1, vjust = 1),  # Show font names tilted diagonally
+        axis.ticks.x = element_line(color = "black"), # Show x-axis ticks
         axis.text.y = element_text(size = 10, color = "black"),
-        legend.position = "top",  # Show legend at top
-        legend.title = element_text(size = 10, color = "black"),
-        legend.text = element_text(size = 6, color = "black"),
         plot.subtitle = element_text(size = 14, hjust = 0.5, margin = margin(b = 10), color = "black"),
         axis.title.x = element_text(size = 12, margin = margin(t = 10), color = "black"),
         axis.title.y = element_text(size = 12, margin = margin(r = 10), color = "black"),
@@ -235,7 +221,7 @@ plot_font_comparison <- function(df_list) {
   # Create individual plots with appropriate titles and y-axis labels
   plots <- list(
     rsvp = create_font_plot(rsvp_data, "RSVP", "RSVP Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(500, 2000)),
-    crowding = create_font_plot(crowding_data, "Crowding", "Crowding Distance (deg)", use_log_scale = TRUE, use_geometric_mean = TRUE),
+    crowding = create_font_plot(crowding_data, "Crowding", "Crowding Distance (deg)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(1, 2.5)),
     reading = create_font_plot(reading_data, "Reading", "Ordinary Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(100, 300)),
     comfort = create_font_plot(comfort_data, "Comfort", "Comfort Rating", use_log_scale = FALSE, use_geometric_mean = FALSE, y_limits = c(3, 6)),
     beauty = create_font_plot(beauty_data, "Beauty", "Beauty Rating", use_log_scale = FALSE, use_geometric_mean = FALSE)

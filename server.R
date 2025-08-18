@@ -2003,7 +2003,7 @@ shinyServer(function(input, output, session) {
 
         
         output[[paste0("downloadP", i)]] <- downloadHandler(
-          filename = paste0(experiment_names(), fileNames[[i]], i, ".", input$fileType),
+          filename = paste0(get_short_experiment_name(experiment_names()), fileNames[[i]], ".", input$fileType),
           content = function(file) {
             plot <- plotList[[i]] + plt_theme
             savePlot(
@@ -2125,9 +2125,9 @@ shinyServer(function(input, output, session) {
         
         output[[paste0("downloadHist", jj)]] <- downloadHandler(
           filename = paste0(
-            experiment_names(),
+            get_short_experiment_name(experiment_names()),
             files[[jj]],
-            jj, ".", input$fileType
+            ".", input$fileType
           ),
           content = function(file) {
             if (input$fileType == "png") {
@@ -2288,9 +2288,8 @@ shinyServer(function(input, output, session) {
         output[[paste0("downloadQualityHist", ii)]] <-
           downloadHandler(
             filename = paste0(
-              experiment_names(),
+              get_short_experiment_name(experiment_names()),
               histogramsQuality()$fileNames[[ii]],
-              ii,
               '.',
               input$fileType
             ),
@@ -2464,7 +2463,7 @@ shinyServer(function(input, output, session) {
         output[[paste0("downloadTimingHist", ii)]] <-
           downloadHandler(
             filename = paste0(
-              experiment_names(),
+              get_short_experiment_name(experiment_names()),
               timingHistograms()$fileNames[[ii]],
               ii,
               '.',
@@ -2555,7 +2554,7 @@ shinyServer(function(input, output, session) {
     output$downloadStackedRsvpPlot <- downloadHandler(
       filename = function() {
         paste0(
-          experiment_names(),
+          get_short_experiment_name(experiment_names()),
           "histogram-of-rsvp-reading-stacked-by-grade.",
           input$fileType
         )
@@ -2655,7 +2654,7 @@ shinyServer(function(input, output, session) {
     output$downloadStackedCrowdingPlot <- downloadHandler(
       filename = function() {
         paste0(
-          experiment_names(),
+          get_short_experiment_name(experiment_names()),
           "histogram-of-peripheral-crowding-stacked-by-grade.",
           input$fileType
         )
@@ -2715,7 +2714,7 @@ shinyServer(function(input, output, session) {
     output$downloadStackedFovealAcuityPlot <- downloadHandler(
       filename = function() {
         paste0(
-          experiment_names(),
+          get_short_experiment_name(experiment_names()),
           "histogram-of-foveal-acuity-stacked-by-grade.",
           input$fileType
         )
@@ -2774,7 +2773,7 @@ shinyServer(function(input, output, session) {
     output$downloadStackedFovealCrowdingPlot <- downloadHandler(
       filename = function() {
         paste0(
-          experiment_names(),
+          get_short_experiment_name(experiment_names()),
           "histogram-of-foveal-crowding-stacked-by-grade.",
           input$fileType
         )
@@ -2829,7 +2828,7 @@ shinyServer(function(input, output, session) {
     output$downloadStackedFovealRepeatedPlot <- downloadHandler(
       filename = function() {
         paste0(
-          experiment_names(),
+          get_short_experiment_name(experiment_names()),
           "histogram-of-foveal-repeated-letter-crowding-stacked-by-grade.",
           input$fileType
         )
@@ -2885,7 +2884,7 @@ shinyServer(function(input, output, session) {
       downloadHandler(
         filename = function() {
           paste0(
-            experiment_names(),
+            get_short_experiment_name(experiment_names()),
             "histogram-of-peripheral-acuity-stacked-by-grade.",
             input$fileType
           )
@@ -3022,9 +3021,8 @@ shinyServer(function(input, output, session) {
         output[[paste0("downloadScatter", ii)]] <-
           downloadHandler(
             filename = paste0(
-              experiment_names(),
+              get_short_experiment_name(experiment_names()),
               scatterDiagrams()$fileNames[[ii]],
-              ii,
               '.',
               input$fileType
             ),
@@ -3165,7 +3163,7 @@ shinyServer(function(input, output, session) {
         output[[paste0("downloadViolin", ii)]] <-
           downloadHandler(
             filename = paste0(
-              experiment_names(),
+              get_short_experiment_name(experiment_names()),
               violinPlots()$fileNames[[ii]],
               '.',
               input$fileType
@@ -3306,7 +3304,7 @@ shinyServer(function(input, output, session) {
         output[[paste0("downloadFontComparison", ii)]] <-
           downloadHandler(
             filename = paste0(
-              experiment_names(),
+              get_short_experiment_name(experiment_names()),
               fontComparisonPlots()$fileNames[[ii]],
               '.',
               input$fileType
@@ -3411,7 +3409,7 @@ shinyServer(function(input, output, session) {
         output[[paste0("downloadQualityScatter", ii)]] <-
           downloadHandler(
             filename = paste0(
-              experiment_names(),
+              get_short_experiment_name(experiment_names()),
               scatterQuality()$fileNames[[ii]],
               ii,
               '.',
@@ -3566,7 +3564,7 @@ shinyServer(function(input, output, session) {
         output[[paste0("downloadScatterTimeParticipant", ii)]] <-
           downloadHandler(
             filename = paste0(
-              experiment_names(),
+              get_short_experiment_name(experiment_names()),
               scatterTimeParticipant()$fileNames[[ii]],
               ii,
               '.',
@@ -3703,7 +3701,7 @@ shinyServer(function(input, output, session) {
         output[[paste0("downloadScatterTime", ii)]] <-
           downloadHandler(
             filename = paste0(
-              experiment_names(),
+              get_short_experiment_name(experiment_names()),
               scatterTime()$fileNames[[ii]],
               ii,
               '.',
@@ -4777,7 +4775,7 @@ shinyServer(function(input, output, session) {
       ifelse(
         experiment_names() == "",
         "error report.html",
-        paste0(experiment_names(), ".html")
+        paste0(get_short_experiment_name(experiment_names()), "error-report.html")
       )
     },
     content = function(file) {
@@ -4800,7 +4798,7 @@ shinyServer(function(input, output, session) {
       ifelse(
         experiment_names() == "",
         "Summary-of-each-condition.xlsx",
-        paste0(experiment_names(), "-Summary-of-each-condition.xlsx")
+        paste0(get_short_experiment_name(experiment_names()), "Summary-of-each-condition.xlsx")
       )
     },
     content = function(filename) {
@@ -4813,7 +4811,7 @@ shinyServer(function(input, output, session) {
       ifelse(
         experiment_names() == "",
         "Thresholds(brief).xlsx",
-        paste0(experiment_names(), "-Thresholds(brief).xlsx")
+        paste0(get_short_experiment_name(experiment_names()), "Thresholds(brief).xlsx")
       )
     },
     content = function(filename) {
@@ -4826,7 +4824,7 @@ shinyServer(function(input, output, session) {
       ifelse(
         experiment_names() == "",
         "Thresholds.xlsx",
-        paste0(experiment_names(), "-Thresholds.xlsx")
+        paste0(get_short_experiment_name(experiment_names()), "Thresholds.xlsx")
       )
     },
     content = function(filename) {
@@ -4840,7 +4838,7 @@ shinyServer(function(input, output, session) {
         experiment_names() == "",
         "sound-calibration.xlsx",
         # Change file extension to .xlsx
-        paste0(experiment_names(), "sound-calibration.xlsx")
+        paste0(get_short_experiment_name(experiment_names()), "sound-calibration.xlsx")
       )
     },
     content = function(filename) {
@@ -6121,7 +6119,7 @@ shinyServer(function(input, output, session) {
         output[[paste0("downloadScatter", ii)]] <-
           downloadHandler(
             filename = paste0(
-              experiment_names(),
+              get_short_experiment_name(experiment_names()),
               scatterDiagrams()$fileNames[[ii]],
               '.',
               input$fileType
@@ -6245,7 +6243,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadRsvpFovealAcuityGradePlot <- downloadHandler(
       filename = function () {
-        paste0(experiment_names(),
+        paste0(get_short_experiment_name(experiment_names()),
                'rsvp-vs-fovel-acuity-by-grade.',
                input$fileType)
       },
@@ -6282,7 +6280,7 @@ shinyServer(function(input, output, session) {
     
     output$downloadFactorOutAgePlot <- downloadHandler(
       filename = function () {
-        paste0(experiment_names(),
+        paste0(get_short_experiment_name(experiment_names()),
                'rsvp-vs-crowding-factored-age.',
                input$fileType)
       },
@@ -6316,7 +6314,7 @@ shinyServer(function(input, output, session) {
     output$downloadRsvpPeripheralAcuityGradePlot <-
       downloadHandler(
         filename = function () {
-          paste0(experiment_names(),
+          paste0(get_short_experiment_name(experiment_names()),
                  'rsvp-vs-periphreal-acuity-by-grade.',
                  input$fileType)
         },
@@ -6335,8 +6333,8 @@ shinyServer(function(input, output, session) {
     output$downloadRsvpPeripheralAcuityFontPlot <-
       downloadHandler(
         filename = function () {
-          paste0(experiment_names(),
-                 'rsvp-vs-periphreal-acuity-by-font',
+          paste0(get_short_experiment_name(experiment_names()),
+                 'rsvp-vs-periphreal-acuity-by-font.',
                  input$fileType)
         },
         content = function(file) {
@@ -6409,10 +6407,10 @@ shinyServer(function(input, output, session) {
     
     #### reading plots downlaod ####
     output$downloadOrdinaryPeripheralAcuityGradePlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('reading-vs-peripheral-acuity-by-grade.', input$fileType),
-        sep = "-"
+      filename = paste0(
+        get_short_experiment_name(experiment_names()),
+        'reading-vs-peripheral-acuity-by-grade.',
+        input$fileType
       ),
       content = function(file) {
         plot <- ordinaryAcuityPeripheral()$grade + plt_theme
@@ -6426,10 +6424,10 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadOrdinaryPeripheralAcuityFontPlot <- downloadHandler(
-      filename = paste(
-        app_title$default,
-        paste0('reading-vs-peripheral-acuity-by-font.', input$fileType),
-        sep = "-"
+      filename = paste0(
+        get_short_experiment_name(experiment_names()),
+        'reading-vs-peripheral-acuity-by-font.',
+        input$fileType
       ),
       content = function(file) {
         plot <- ordinaryAcuityPeripheral()$font + plt_theme
@@ -6478,7 +6476,7 @@ shinyServer(function(input, output, session) {
       downloadHandler(
         filename = function() {
           paste0(
-            experiment_names(),
+            get_short_experiment_name(experiment_names()),
             "ordinary-reading-vs-foveal-crowding-by-font.",
             input$fileType
           )
@@ -6511,7 +6509,7 @@ shinyServer(function(input, output, session) {
       downloadHandler(
         filename = function() {
           paste0(
-            experiment_names(),
+            get_short_experiment_name(experiment_names()),
             "ordinary-reading-vs-foveal-crowding-by-grade.",
             input$fileType
           )
@@ -6547,7 +6545,7 @@ shinyServer(function(input, output, session) {
       downloadHandler(
         filename = function() {
           paste0(
-            experiment_names(),
+            get_short_experiment_name(experiment_names()),
             "ordinary-reading-vs-peripheral-crowding-by-font.",
             input$fileType
           )
@@ -6586,7 +6584,7 @@ shinyServer(function(input, output, session) {
       downloadHandler(
         filename = function() {
           paste0(
-            experiment_names(),
+            get_short_experiment_name(experiment_names()),
             "ordinary-reading-vs-peripheral-crowding-by-grade.",
             input$fileType
           )
@@ -6656,8 +6654,8 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadCorrMatrixPlot <- downloadHandler(
-      filename = paste0('correlation-matrix',
-                        '.',
+      filename = paste0(get_short_experiment_name(experiment_names()),
+                        'correlation-matrix.',
                         input$fileType),
       content = function(file) {
         if (input$fileType == "png") {
@@ -6693,7 +6691,7 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadNMatrixPlot <- downloadHandler(
-      filename = function() paste0("n-matrix.", input$fileType),
+      filename = function() paste0(get_short_experiment_name(experiment_names()), "n-matrix.", input$fileType),
       content = function(file) {
         if (input$fileType == "png") {
           ggsave("tmp.svg",
@@ -6722,8 +6720,8 @@ shinyServer(function(input, output, session) {
     
     
     output$downloadDurationCorrMatrixPlot <- downloadHandler(
-      filename = paste0('duration-correlation-matrix',
-                        '.',
+      filename = paste0(get_short_experiment_name(experiment_names()),
+                        'duration-correlation-matrix.',
                         input$fileType),
       content = function(file) {
         if (input$fileType == "png") {

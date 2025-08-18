@@ -99,7 +99,7 @@ plotsTab <- tabPanel(
       )
     )
   ),
-  h2("Violin Plots"),
+  h2("Violin plots"),
   shinycssloaders::withSpinner(uiOutput('violinPlots'), type = 4),
   h2("Font comparison plots"),
   shinycssloaders::withSpinner(uiOutput('fontComparisonPlots'), type = 4),

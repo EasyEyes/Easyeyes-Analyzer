@@ -173,16 +173,18 @@ get_reading_hist <- function(data) {
   if (nrow(data) > 0) {
     if (data$targetKind[1] == 'rsvpReading') {
       data <- data %>%
+        filter(is.finite(block_avg_log_WPM)) %>%  # Filter infinite values BEFORE mean calculation
         group_by(participant, targetKind, `Skilled reader?`) %>% 
         summarize(log_WPM = mean(block_avg_log_WPM, na.rm=T),
                   .groups="drop")
     } else {
       data <- data %>%
+        filter(is.finite(log_WPM)) %>%  # Filter infinite values BEFORE mean calculation
         group_by(participant, targetKind, `Skilled reader?`) %>% 
         summarize(log_WPM = mean(log_WPM, na.rm=T),
                   .groups="drop")
     }
-    data <- data %>% filter(!is.na(log_WPM))
+    data <- data %>% filter(!is.na(log_WPM) & is.finite(log_WPM))
     if (nrow(data) == 0) {
       return(NULL)
     }
@@ -258,11 +260,16 @@ generate_histograms_by_grade <- function(data) {
   crowding <- data$crowding %>% filter(!is.na(log_crowding_distance_deg))
   acuity <- data$acuity %>% filter(!is.na(questMeanAtEndOfTrialsLoop))
   repeated <- data$repeated %>% filter(!is.na(log_crowding_distance_deg))
-  rsvp <- data$rsvp %>% filter(!is.na(block_avg_log_WPM))
+  rsvp <- data$rsvp %>% filter(!is.na(block_avg_log_WPM) & is.finite(block_avg_log_WPM))
   
   # Helper function to create stacked histograms
   create_stacked_histogram <- function(subset_data, variable, grade_order, x_label, title_prefix) {
     if (nrow(subset_data) == 0) {return(NULL)}
+    
+    # Filter out infinite and NA values
+    subset_data <- subset_data %>% filter(is.finite(.data[[variable]]))
+    if (nrow(subset_data) == 0) {return(NULL)}
+    
     plots <- list()
     
     # Calculate global x-axis range for all grades
