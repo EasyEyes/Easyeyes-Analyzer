@@ -164,55 +164,62 @@ plot_font_comparison <- function(df_list) {
     # Get consistent font colors
     font_colors <- font_color_palette(unique(summary_data$font))
     
+
     # Create the plot with colored bars using font color palette
-    p <- ggplot(summary_data, aes(x = font, y = mean_val, fill = font)) +
-      geom_col(width = 0.4, alpha = 0.8) +  # Made bars smaller (0.4 instead of 0.6)
-      geom_errorbar(aes(ymin = pmax(mean_val - se_lower, 0.001), ymax = mean_val + se_upper),
-                    width = 0.15, size = 0.5, color = "black") +  # Made error bars smaller too
-      geom_text(aes(label = paste0("N=", n_participants), 
-                    y = if(!is.null(y_limits)) y_limits[1] + 0.05 else mean_val * 0.05), 
-                vjust = 0.5, hjust = 0.5, size = 4, color = "black", fontface = "bold") +  # Add N counts at bottom based on y-limits - bold white for visibility
-      scale_fill_manual(values = font_colors, guide = "none") +  # Keep colors but remove legend
+    p <- ggplot(summary_data, aes(x = font, fill = font)) +
+      geom_rect(
+        aes(
+          xmin = as.numeric(factor(font)) - 0.2,  # control bar width
+          xmax = as.numeric(factor(font)) + 0.2,
+          ymin = y_limits[1],                     # custom baseline
+          ymax = mean_val
+        ),
+        alpha = 0.8
+      ) +
+      geom_errorbar(
+        aes(ymin = pmax(mean_val - se_lower, 0.001), ymax = mean_val + se_upper),
+        width = 0.15, size = 0.5, color = "black"
+      ) +
+      geom_text(
+        aes(label = paste0("N=", n_participants), 
+            y = y_limits[1] * 1.1), 
+        vjust = 0.5, hjust = 0.5, size = 4, color = "black", fontface = "bold"
+      ) +
+      scale_fill_manual(values = font_colors, guide = "none") +
       theme_minimal(base_size = 12) +
       theme(
-        # Ensure white background and black text for export
         plot.background = element_rect(fill = "white", color = NA),
         panel.background = element_rect(fill = "white", color = NA),
-        
-        # Text colors - explicitly set to black  
-        axis.text.x = element_text(size = 9, color = "black", angle = 45, hjust = 1, vjust = 1),  # Show font names tilted diagonally
-        axis.ticks.x = element_line(color = "black"), # Show x-axis ticks
+        axis.text.x = element_text(size = 9, color = "black", angle = 45, hjust = 1, vjust = 1),
+        axis.ticks.x = element_line(color = "black"),
         axis.text.y = element_text(size = 10, color = "black"),
-        plot.subtitle = element_text(size = 14, hjust = 0.5, margin = margin(b = 10), color = "black"),
         axis.title.x = element_text(size = 12, margin = margin(t = 10), color = "black"),
         axis.title.y = element_text(size = 12, margin = margin(r = 10), color = "black"),
-        
-        # Grid and borders
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.y = element_line(color = "gray90", size = 0.3),
         panel.grid.minor.y = element_blank(),
-        panel.border = element_blank(),
         axis.line = element_line(color = "black", size = 0.5)
       ) +
       labs(
         subtitle = title,
         x = "Fonts",
-        y = ylabel  # Add y-axis label
+        y = ylabel
       )
     
     # Apply log scale if requested
     if (use_log_scale && use_geometric_mean) {
-      p <- p + scale_y_log10()
-      if (!is.null(y_limits)) {
-        p <- p + coord_cartesian(ylim = y_limits)
-      }
+      p <- p + scale_y_log10(limits = y_limits,expand = c(0,0)) 
       p <- p + annotation_logticks(sides = "l",
                         short = unit(2, "pt"),
                         mid   = unit(2, "pt"),
                         long  = unit(7, "pt")) 
     } else if (!is.null(y_limits)) {
-      p <- p + coord_cartesian(ylim = y_limits)
+      p <- p +
+        scale_y_continuous(expand = c(0,0)) + coord_cartesian(ylim = y_limits)
+    } else {
+      p <- p +
+        scale_y_continuous(expand = c(0,0)) + coord_cartesian(ylim = c(0, max(summary_data$mean_val) * 1.5))
     }
     
     return(p)
@@ -221,11 +228,13 @@ plot_font_comparison <- function(df_list) {
   # Create individual plots with appropriate titles and y-axis labels
   plots <- list(
     rsvp = create_font_plot(rsvp_data, "RSVP", "RSVP Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(500, 2000)),
-    crowding = create_font_plot(crowding_data, "Crowding", "Crowding Distance (deg)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(1, 2.5)),
-    reading = create_font_plot(reading_data, "Reading", "Ordinary Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(100, 300)),
+    crowding = create_font_plot(crowding_data, "Crowding", "Crowding Distance (deg)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(0.5,2.5)),
+    reading = create_font_plot(reading_data, "Reading", "Ordinary Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(100, 500)),
     comfort = create_font_plot(comfort_data, "Comfort", "Comfort Rating", use_log_scale = FALSE, use_geometric_mean = FALSE, y_limits = c(3, 6)),
-    beauty = create_font_plot(beauty_data, "Beauty", "Beauty Rating", use_log_scale = FALSE, use_geometric_mean = FALSE)
+    beauty = create_font_plot(beauty_data, "Beauty", "Beauty Rating", use_log_scale = FALSE, use_geometric_mean = FALSE, y_limits = c(3, 6))
   )
   
   return(plots)
 }
+
+

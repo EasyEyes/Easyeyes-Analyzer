@@ -39,21 +39,9 @@ plot_violins <- function(df_list) {
   print("inside plot_violins")
   create_plot <- function(data, ylabel, title) {
     p <- NULL
-
-    # print(paste("Creating plot for:", title))
-    # print(paste("Data rows:", nrow(data)))
     
     if (nrow(data) > 0) {
-      # Debug: Check if this is reading data and print more details
-      # if (grepl("Reading", title)) {
-      #   print("Reading plot debug:")
-      #   print("Font counts:")
-      #   print(table(data$font))
-      #   print("Y value summary:")
-      #   print(summary(data$y))
-      #   print("Any infinite values:")
-      #   print(sum(is.infinite(data$y)))
-      # }
+
       # Calculate participant count by font
       participant_counts <- data %>%
         group_by(font) %>%
@@ -73,14 +61,6 @@ plot_violins <- function(df_list) {
       mean_data <- plot_data %>%
         group_by(font_label) %>%
         summarise(mean_y = mean(y, na.rm = TRUE), .groups = "drop")
-      
-      # Debug mean calculation for reading plot
-      # if (grepl("Reading", title)) {
-      #   print("Mean data for reading plot:")
-      #   print(mean_data)
-      #   print("Any NA means:")
-      #   print(sum(is.na(mean_data$mean_y)))
-      # }
       
       p <- ggplot(plot_data, aes(x = font_label, y = y)) +
         geom_violin(trim = FALSE, alpha = 0.5) +
@@ -107,7 +87,7 @@ plot_violins <- function(df_list) {
         if (grepl("Reading|RSVP|Crowding", title)) {
           print("Applying log scaling to y-axis")
           print(paste("Plot type:", title))
-          p <- p + scale_y_log10() +
+          p <- p + scale_y_log10(breaks = scales::log_breaks()) +
             annotation_logticks(sides = "b",
                         short = unit(2, "pt"),
                         mid   = unit(2, "pt"),
@@ -118,8 +98,8 @@ plot_violins <- function(df_list) {
   }
   
   return(list(
-    reading = create_plot(reading, "Reading Speed(word/min)", "Reading Speed by Font"),
-    rsvp = create_plot(rsvp, "RSVP Reading Speed(word/min)", "RSVP Reading Speed by Font"),
+    reading = create_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font"),
+    rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font"),
     crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
     acuity = create_plot(acuity, "acuity (deg)", "Acuity Threshold by Font"),
     beauty = create_plot(beauty, "Beauty Rating", "Beauty Rating by Font"),
