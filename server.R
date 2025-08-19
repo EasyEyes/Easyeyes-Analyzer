@@ -5659,6 +5659,103 @@ shinyServer(function(input, output, session) {
           )
       })
     }
+    for (j in 1:length(fontComparisonPlots()$plotList)){
+      local({
+        ii <- j
+        output[[paste0("downloadFontComparison", ii)]] <-
+          downloadHandler(
+            filename = paste0(
+              get_short_experiment_name(experiment_names()),
+              fontComparisonPlots()$fileNames[[ii]],
+              '.',
+              input$fileType
+            ),
+            content = function(file) {
+              if (input$fileType == "png") {
+                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+                ggsave(
+                  tmp_svg,
+                  plot = fontComparisonPlots()$plotList[[ii]] +
+                    plt_theme,
+                  width = 8,
+                  height = 6,
+                  unit = "in",
+                  limitsize = F,
+                  device = svglite
+                )
+                rsvg::rsvg_png(tmp_svg,
+                               file,
+                               width = 1800,
+                               height = 1350)
+              } else {
+                ggsave(
+                  file,
+                  plot = fontComparisonPlots()$plotList[[ii]] +
+                    plt_theme,
+                  width = 8,
+                  height = 6,
+                  unit = "in",
+                  limitsize = F,
+                  device = ifelse(
+                    input$fileType == "svg",
+                    svglite::svglite,
+                    input$fileType
+                  )
+                )
+              }
+            }
+          )
+      })
+    }
+    for (j in 1:length(violinPlots()$plotList)){
+      local({
+        ii <- j
+        output[[paste0("downloadViolin", ii)]] <-
+          downloadHandler(
+            filename = paste0(
+              get_short_experiment_name(experiment_names()),
+              violinPlots()$fileNames[[ii]],
+              '.',
+              input$fileType
+            ),
+            content = function(file) {
+              if (input$fileType == "png") {
+                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+                ggsave(
+                  tmp_svg,
+                  plot = violinPlots()$plotList[[ii]] +
+                    plt_theme,
+                  width = 8,
+                  height = 6,
+                  unit = "in",
+                  limitsize = F,
+                  device = svglite
+                )
+                rsvg::rsvg_png(tmp_svg,
+                               file,
+                               width = 1800,
+                               height = 1350)
+              } else {
+                ggsave(
+                  file,
+                  plot = violinPlots()$plotList[[ii]] +
+                    plt_theme,
+                  width = 8,
+                  height = 6,
+                  unit = "in",
+                  limitsize = F,
+                  device = ifelse(
+                    input$fileType == "svg",
+                    svglite::svglite,
+                    input$fileType
+                  )
+                )
+              }
+            }
+          )
+        })
+    }
+    
     
     output$downloadRsvpCrowdingPeripheralGradePlot <- downloadHandler(
       filename = paste(
