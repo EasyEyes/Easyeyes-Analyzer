@@ -57,8 +57,6 @@ plot_font_comparison <- function(df_list) {
     rsvp_means <- rsvp_data %>%
       group_by(font) %>%
       summarise(geom_mean = exp(mean(log(measure), na.rm = TRUE)), .groups = "drop")
-    print("RSVP geometric means by font:")
-    print(rsvp_means)
   }
   
   reading_data <- df_list$reading %>%
@@ -77,8 +75,6 @@ plot_font_comparison <- function(df_list) {
       reading_means <- reading_filtered %>%
         group_by(font) %>%
         summarise(geom_mean = exp(mean(log(measure), na.rm = TRUE)), .groups = "drop")
-      print("Reading geometric means by font:")
-      print(reading_means)
     }
   }
  

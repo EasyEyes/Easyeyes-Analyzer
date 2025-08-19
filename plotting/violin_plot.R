@@ -1,7 +1,7 @@
 plot_violins <- function(df_list) {
-  crowding = df_list$crowding %>% mutate(y = log_crowding_distance_deg)
-  rsvp = df_list$rsvp %>% mutate(y = block_avg_log_WPM)
-  reading = df_list$reading %>% mutate(y = log_WPM)
+  crowding = df_list$crowding %>% mutate(y = 10^log_crowding_distance_deg)
+  rsvp = df_list$rsvp %>% mutate(y = 10^block_avg_log_WPM)
+  reading = df_list$reading %>% mutate(y = 10^log_WPM)
   
   # Debug reading data
   # print("Reading data for violin plot:")
@@ -118,10 +118,10 @@ plot_violins <- function(df_list) {
   }
   
   return(list(
-    reading = create_plot(reading, "Log Reading Speed(word/min)", "Log Reading Speed by Font"),
-    rsvp = create_plot(rsvp, "Log RSVP Reading Speed(word/min)", "Log RSVP Reading Speed by Font"),
-    crowding = create_plot(crowding, "Log Crowding Distance (deg)", "Crowding Threshold by Font"),
-    acuity = create_plot(acuity, "Log acuity (deg)", "Acuity Threshold by Font"),
+    reading = create_plot(reading, "Reading Speed(word/min)", "Reading Speed by Font"),
+    rsvp = create_plot(rsvp, "RSVP Reading Speed(word/min)", "RSVP Reading Speed by Font"),
+    crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
+    acuity = create_plot(acuity, "acuity (deg)", "Acuity Threshold by Font"),
     beauty = create_plot(beauty, "Beauty Rating", "Beauty Rating by Font"),
     cmfrt = create_plot(cmfrt, "Comfort Rating", "Comfort Rating by Font")
   ))
