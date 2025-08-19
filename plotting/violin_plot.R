@@ -37,7 +37,7 @@ plot_violins <- function(df_list) {
                             questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.ttf",
            ))
   print("inside plot_violins")
-  create_plot <- function(data, ylabel, title) {
+  create_plot <- function(data, ylabel, title, xlimits = NULL) {
     p <- NULL
     
     if (nrow(data) > 0) {
@@ -57,7 +57,13 @@ plot_violins <- function(df_list) {
         mutate(font_label = factor(label, levels = font_labels$label)) %>%
         filter(is.finite(y))  # Remove -Inf, Inf, NA values for plotting
       
-      # Calculate means by font for mean lines (already filtered for finite values)
+      # Apply x-axis limits if specified (filter data to limits)
+      if (!is.null(xlimits)) {
+        plot_data <- plot_data %>%
+          filter(y >= xlimits[1] & y <= xlimits[2])
+      }
+      
+      # Calculate means by font for mean lines (already filtered for finite values and limits)
       mean_data <- plot_data %>%
         group_by(font_label) %>%
         summarise(mean_y = mean(y, na.rm = TRUE), .groups = "drop")
@@ -83,23 +89,33 @@ plot_violins <- function(df_list) {
           y = ylabel
         )
       
-              # Apply log scaling to y-axis for specific plot types (becomes x-axis after coord_flip)
-        if (grepl("Reading|RSVP|Crowding", title)) {
-          print("Applying log scaling to y-axis")
-          print(paste("Plot type:", title))
-          p <- p + scale_y_log10(breaks = scales::log_breaks()) +
-            annotation_logticks(sides = "b",
-                        short = unit(2, "pt"),
-                        mid   = unit(2, "pt"),
-                        long  = unit(7, "pt")) 
+      # Apply log scaling to y-axis for specific plot types (becomes x-axis after coord_flip)
+      if (grepl("Reading|RSVP|Crowding", title)) {
+        print("Applying log scaling to y-axis")
+        print(paste("Plot type:", title))
+        p <- p + scale_y_log10(breaks = scales::log_breaks()) +
+          annotation_logticks(sides = "b",
+                      short = unit(2, "pt"),
+                      mid   = unit(2, "pt"),
+                      long  = unit(7, "pt"))
+        
+        # Apply x-axis limits if specified (for log scale plots)
+        if (!is.null(xlimits)) {
+          p <- p + coord_flip(ylim = xlimits)
         }
+      } else {
+        # Apply x-axis limits if specified (for non-log scale plots)
+        if (!is.null(xlimits)) {
+          p <- p + coord_flip(ylim = xlimits)
+        }
+      }
     }
     return(p)
   }
   
   return(list(
-    reading = create_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font"),
-    rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font"),
+    reading = create_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font", xlimits = c(25, 1000)),
+    rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font", xlimits = c(100, 4000)),
     crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
     acuity = create_plot(acuity, "acuity (deg)", "Acuity Threshold by Font"),
     beauty = create_plot(beauty, "Beauty Rating", "Beauty Rating by Font"),
