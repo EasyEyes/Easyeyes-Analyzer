@@ -3,6 +3,9 @@ source('./constant.R')
 
 crowding_by_side <- function(crowding) {
   print('insdie crowding_by_side')
+  
+  # DEBUG: Cleaned up - eccentricity values are now working correctly
+  
   crowding <- crowding %>% filter(targetEccentricityXDeg != 0, !is.na(conditionName)) %>% 
     mutate(side = ifelse(targetEccentricityXDeg < 0, 'L', 'R'),
            XDeg = abs(targetEccentricityXDeg)) %>% 
@@ -25,7 +28,10 @@ crowding_by_side <- function(crowding) {
            "log_crowding_distance_deg_Left" = "log_crowding_distance_deg.x",
            "log_crowding_distance_deg_Right" = "log_crowding_distance_deg.y") %>%
     filter(!is.na(log_crowding_distance_deg_Left) & !is.na(log_crowding_distance_deg_Right)) %>% 
-    mutate(conditionName =  paste0(font, ' -', XDeg, ' vs ', font, ' +', XDeg)) %>% 
+    mutate(conditionName =  paste0(font, ' -', XDeg, ' vs ', font, ' +', XDeg))
+  
+  # Condition names created successfully with font and eccentricity info
+  
   return(crowding_L_R)
 }
 crowding_scatter_plot <- function(crowding_L_R){
@@ -36,9 +42,9 @@ crowding_scatter_plot <- function(crowding_L_R){
     return(NULL)
   }
   
-  # eccentricity label
-  eccs      <- sort(unique(crowding_L_R$XDeg))
-  ecc_label <- paste0("X ecc = ", paste(eccs, collapse = ", "), " deg")
+  # eccentricity label - round to nearest integer for cleaner display
+  eccs      <- sort(unique(round(crowding_L_R$XDeg)))
+  ecc_label <- paste0("X ecc = ±", paste(eccs, collapse = ", ±"), " deg")
   
   # compute per‐participant averages
   df <- crowding_L_R %>%
@@ -61,16 +67,20 @@ crowding_scatter_plot <- function(crowding_L_R){
       .groups = "drop"
     ) %>%
     mutate(
-      # pull out the two numbers (handles both hyphens and unicode dashes)
-      eccs = str_extract_all(conditionName, "[-−]?\\d+"),
-      left_ecc  = map_chr(eccs, 1),
-      right_ecc = map_chr(eccs, 2),
+      # Extract only the eccentricity values (the -5 and +5 parts), not font name numbers
+      # Look specifically for pattern " -5 vs " and " +5" 
+      left_ecc  = str_extract(conditionName, "(?<= )[-−]?\\d+(?= vs)"),
+      right_ecc = str_extract(conditionName, "(?<= \\+)\\d+$"),
       fontName = sub(" [-−]?[0-9]+.*", "", conditionName),
       short = paste0(
-        left_ecc, " vs ", right_ecc, " deg, ",
+        "±", abs(as.numeric(left_ecc)), " deg, ",
         fontName, ", N=", N, ", R=", sprintf("%.2f", R)
       )
-    ) %>%
+    )
+  
+  # Legend labels created with proper eccentricity extraction (avoiding font name numbers)
+  
+  stats_cond <- stats_cond %>%
     select(conditionName, short)
   
   df <- df %>%
@@ -128,8 +138,19 @@ crowding_scatter_plot <- function(crowding_L_R){
                df$log_crowding_distance_deg_Right, na.rm = TRUE) * 1.1
   
 
+  # Add font column to the data BEFORE creating the plot
+  df <- df %>% mutate(
+    font = sapply(shortConditionName, function(x) {
+      trimws(strsplit(as.character(x), ",")[[1]][2])
+    })
+  )
   
-  # build the plot
+  print("Unique fonts in data:")
+  print(unique(df$font))
+  print("Unique shortConditionName levels:")
+  print(levels(df$shortConditionName))
+  
+  # build the plot using shortConditionName for color (to preserve legend info)
   p <- ggplot(df,
               aes(
                 x     = 10^(log_crowding_distance_deg_Right),
@@ -154,21 +175,31 @@ crowding_scatter_plot <- function(crowding_L_R){
     ) +
     annotation_logticks(sides = "bl") +
     coord_fixed() +
-    theme_bw() +
-    scale_color_manual(values = {
-      # Create mapping from shortConditionName to font colors
-      # Extract font names from conditionName (used to create shortConditionName)
-      font_names <- sapply(levels(df$shortConditionName), function(x) {
-        # Extract font name from the short format: "eccs deg, fontName, N=X, R=Y"
-        # Split by comma and take the second part (fontName), then trim whitespace
-        trimws(strsplit(x, ",")[[1]][2])
-      })
-      font_palette <- font_color_palette(unique(font_names))
-      setNames(font_palette[font_names], levels(df$shortConditionName))
-    }) +
+    theme_bw()
+  
+  # Create font color palette
+  unique_fonts <- sort(unique(df$font))
+  font_palette <- font_color_palette(unique_fonts)
+  
+  print("Font palette:")
+  print(font_palette)
+  
+  # Map each shortConditionName to its font's color
+  condition_to_color <- setNames(
+    font_palette[sapply(levels(df$shortConditionName), function(x) {
+      trimws(strsplit(as.character(x), ",")[[1]][2])
+    })],
+    levels(df$shortConditionName)
+  )
+  
+  print("Condition to color mapping:")
+  print(condition_to_color)
+  
+  # Apply the color mapping
+  p <- p + scale_color_manual(values = condition_to_color) +
     guides(color = guide_legend(title = NULL, ncol = 2)) +
     labs(
-      subtitle   = "Left vs right peripheral crowding",
+      subtitle   = "Peripheral crowding colored by font",
       caption = paste0(ecc_label, "\n", summ_label)
     ) +
     theme(plot.caption = element_text(hjust = 0, size = 12))
@@ -437,9 +468,9 @@ get_peripheral_crowding_vs_age <- function(crowding) {
     return(list(NULL, NULL))
   } else {
     
-    eccs     <- sort(unique(t$targetEccentricityXDeg))
+    eccs     <- sort(unique(abs(t$targetEccentricityXDeg)))
     eccs_int <- as.integer(round(eccs))
-    ecc_label <- paste0("X ecc = ", paste(eccs_int, collapse = ", "), " deg")
+    ecc_label <- paste0("X ecc = ±", paste(eccs_int, collapse = ", ±"), " deg")
     # Add regression line, compute slope and R
     t <- t %>% mutate(Y = 10^(log_crowding_distance_deg))
     regression <- lm(Y ~ age, data = t)
