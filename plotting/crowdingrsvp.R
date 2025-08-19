@@ -126,8 +126,8 @@ plot_rsvp_crowding <- function(allData) {
   
   factor_out_age_and_plot <- function(allData) {
     # Helper function to compute residuals after factoring out age
-    eccs     <- sort(unique(allData$crowding$targetEccentricityXDeg[allData$crowding$targetEccentricityXDeg != 0]))
-    ecc_label <- paste0("X ecc = ", paste(as.integer(round(eccs)), collapse = ", "), " deg")
+    eccs     <- sort(unique(abs(allData$crowding$targetEccentricityXDeg[allData$crowding$targetEccentricityXDeg != 0])))
+    ecc_label <- paste0("X ecc = ±", paste(as.integer(round(eccs)), collapse = ", ±"), " deg")
     
     compute_residuals <- function(data, x_var, y_var, age_var) {
       regression_y <- lm(paste0(y_var, " ~ ", age_var), data = data)
@@ -181,8 +181,14 @@ plot_rsvp_crowding <- function(allData) {
     
     # Compute residuals after factoring out age
     if (n_distinct(data$age) > 1) {
-      residuals <- compute_residuals(data, "log_crowding", "log_rsvp", "age")
-      data <- data %>%
+      # Filter for complete cases before computing residuals to avoid size mismatch
+      complete_data <- data %>% 
+        filter(!is.na(log_crowding), !is.na(log_rsvp), !is.na(age))
+      
+      residuals <- compute_residuals(complete_data, "log_crowding", "log_rsvp", "age")
+      
+      # Use the complete_data for further processing to ensure size consistency
+      data <- complete_data %>%
         mutate(
           residual_log_crowding = residuals$residual_x,
           residual_log_rsvp = residuals$residual_y,
@@ -357,8 +363,8 @@ plot_rsvp_crowding <- function(allData) {
     y_breaks <- scales::log_breaks()(c(yMin, yMax))
     
     if (condition == "Peripheral") {
-      eccs     <- sort(unique(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg != 0]))
-      ecc_label <- paste0("X ecc = ", paste(as.integer(round(eccs)), collapse = ", "), " deg")
+      eccs     <- sort(unique(abs(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg != 0])))
+      ecc_label <- paste0("X ecc = ±", paste(as.integer(round(eccs)), collapse = ", ±"), " deg")
       label_text <- paste0(
         "N = ", corr$N, "\n",
         "R = ", corr$correlation, "\n",
@@ -424,7 +430,7 @@ plot_rsvp_crowding <- function(allData) {
     }
     
     if (condition == "Peripheral") {
-      p <- p + labs(subtitle = paste("RSVP vs", tolower(condition), "crowding\ncolored by", tolower(colorFactor),'Geometric mean of left and right measurements'))
+      p <- p + labs(subtitle = paste("RSVP vs", tolower(condition), "crowding\ncolored by", tolower(colorFactor),'\nGeometric mean of left and right measurements'))
     } else {
       p <- p + labs(subtitle = paste("RSVP vs", tolower(condition), "crowding\ncolored by", tolower(colorFactor)))
     }
