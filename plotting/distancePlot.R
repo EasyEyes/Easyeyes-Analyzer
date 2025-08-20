@@ -221,7 +221,7 @@ plot_distance <- function(data_list) {
     scale_y_log10(limits = c(min_val, max_val)) +  # Log scale for Y-axis (identical to X)
     scale_color_manual(values= colorPalette) + 
     guides(color = guide_legend(
-      ncol = 4,  # More columns to fit more participants horizontally
+      ncol = 3,  # More columns to fit more participants horizontally
       title = "",
       # Reduce legend text size to fit more participants
       override.aes = list(size = 2),  # Smaller points in legend
@@ -246,7 +246,7 @@ plot_distance <- function(data_list) {
   return(p)
 }
 
-plot_sizeCheck <- function(data_list) {
+plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
   print('inside plot_sizeCheck')
   sizeCheck <- get_sizeCheck_data(data_list)
   # Check if the data is empty
@@ -338,9 +338,6 @@ plot_sizeCheck <- function(data_list) {
       ) %>%
       ungroup()
     
-    # Set the allowed range (default value)
-    calibrateTrackDistanceCheckLengthSDLogAllowed <- 0.01
-    
     # Create custom breaks that don't cross zero
     data_range <- range(sdLogDensity_data$sdLogDensity)
     
@@ -413,7 +410,7 @@ plot_sizeCheck <- function(data_list) {
     scale_y_log10() +
     scale_color_manual(values= colorPalette) + 
     guides(color = guide_legend(
-      ncol = 4,  
+      ncol = 3,  
       title = "",
       override.aes = list(size = 2),  
       keywidth = unit(1.2, "lines"),  

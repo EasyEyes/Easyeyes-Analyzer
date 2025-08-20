@@ -129,9 +129,20 @@ shinyUI(
               NULL,
               value = 10000,
               min = 0,
-              width = '80px'
+              width = '90px'
             ),
             tags$span("words/min.")
+          ),
+          div(
+            style = "display: flex; align-items: center; gap: 5px;",
+            tags$span("calibrateTrackDistanceCheckLengthSDLogAllowed:"),
+            numericInput(
+              'calibrateTrackDistanceCheckLengthSDLogAllowed',
+              NULL,
+              value = 0.005,
+              min = 0,
+              width = '90px'
+            )
           ),
           checkboxGroupInput(
             inputId = "conditionName",

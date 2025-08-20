@@ -219,6 +219,10 @@ shinyServer(function(input, output, session) {
   minNQuestTrials <-reactive({input$NQuestTrials}) %>% debounce(1000)
   maxQuestSD <- reactive({input$maxQuestSD}) %>% debounce(1000)
   conditionNames <- reactive(input$conditionName) %>% debounce(5000)
+  calibrateTrackDistanceCheckLengthSDLogAllowed <- 
+    reactive({
+      input$calibrateTrackDistanceCheckLengthSDLogAllowed
+    }) %>% debounce(5000)
   minWrongTrials <- reactive(input$NWrongTrials) %>% debounce(5000)
   maxReadingSpeed <- reactive(input$maxReadingSpeed) %>% debounce(2000)
   
@@ -749,7 +753,7 @@ shinyServer(function(input, output, session) {
   
   #### scatterDiagrams ####
   sizeCheckPlot <- reactive({
-    plot_sizeCheck(files()$data_list)
+    plot_sizeCheck(files()$data_list,calibrateTrackDistanceCheckLengthSDLogAllowed())
   }) 
   
   scatterDiagrams <- reactive({
