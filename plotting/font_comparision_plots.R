@@ -158,18 +158,35 @@ plot_font_comparison <- function(df_list) {
     summary_data <- summary_data %>%
       left_join(participant_counts, by = "font")
     
-    # Define font order
+    # Define font order (corrected file extensions)
     font_order <- c(
       "Al-Awwal-Regular.ttf",
       "majalla.ttf", 
       "Saudi-Regular.ttf",
-      "SaudiTextv1-Regular.ttf",
-      "SaudiTextv2-Regular.ttf",
-      "SaudiTextv3-Regular.ttf"
+      "SaudiTextv1-Regular.otf",  # Fixed: .otf not .ttf
+      "SaudiTextv2-Regular.otf",  # Fixed: .otf not .ttf
+      "SaudiTextv3-Regular.otf"   # Fixed: .otf not .ttf
     )
+    
+    # Debug font matching
+    print(paste("Debug for", title, "plot:"))
+    print("Fonts in data:")
+    print(unique(summary_data$font))
+    print("Predefined font_order:")
+    print(font_order)
+    print("Fonts that match font_order:")
+    print(intersect(unique(summary_data$font), font_order))
+    print("Fonts that don't match (will be dropped):")
+    print(setdiff(unique(summary_data$font), font_order))
     
     # Sort fonts by specified order
     summary_data$font <- factor(summary_data$font, levels = font_order)
+    
+    # Show final data after factor conversion
+    print("Final summary_data after factor conversion:")
+    print(summary_data)
+    print("Number of rows in final summary_data:")
+    print(nrow(summary_data))
     
     # Get consistent font colors
     font_colors <- font_color_palette(unique(summary_data$font))
