@@ -726,7 +726,8 @@ shinyServer(function(input, output, session) {
       list(plot = font_comparisons$rsvp, fname = 'rsvp-font-comparison-plot'),
       list(plot = font_comparisons$crowding, fname = 'crowding-font-comparison-plot'),
       list(plot = font_comparisons$comfort, fname = 'comfort-font-comparison-plot'),
-      list(plot = font_comparisons$beauty, fname = 'beauty-font-comparison-plot')
+      list(plot = font_comparisons$beauty, fname = 'beauty-font-comparison-plot'),
+      list(plot = font_comparisons$acuity, fname = 'acuity-font-comparison-plot')
     )
     
     for (call in plot_calls) {

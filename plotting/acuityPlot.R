@@ -738,11 +738,17 @@ peripheral_plot <- function(allData) {
   
   if (nrow(t) == 0) return(list(grade = NULL, font = NULL))
 
+  # Calculate common axis limits to make axes identical
+  x_range <- range(t$crowding_gmean, na.rm = TRUE)
+  y_range <- range(t$acuity_gmean, na.rm = TRUE)
+  common_limits <- c(min(x_range[1], y_range[1]), max(x_range[2], y_range[2]))
+
   n_grades <- n_distinct(t$Grade)
   p1 <- ggplot(t, aes(x = crowding_gmean, y = acuity_gmean, color = Grade)) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black", size = 0.8) +  # Equality line
     geom_point(size = 3) +
-    scale_x_log10(expand = c(0,0.1)) +
-    scale_y_log10(expand = c(0,0.1)) +
+    scale_x_log10(limits = common_limits, expand = c(0,0.1)) +
+    scale_y_log10(limits = common_limits, expand = c(0,0.1)) +
     coord_fixed() +
     labs(
       subtitle = 'Peripheral acuity vs. peripheral crowding\ncolored by grade\nGeometric mean of left and right measurements',
@@ -754,9 +760,10 @@ peripheral_plot <- function(allData) {
     color_scale(n = n_grades)
 
   p2 <- ggplot(t, aes(x = crowding_gmean, y = acuity_gmean, color = font)) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black", size = 0.8) +  # Equality line
     geom_point(size = 3) +
-    scale_x_log10(expand = c(0,0.1)) +
-    scale_y_log10(expand = c(0,0.1)) +
+    scale_x_log10(limits = common_limits, expand = c(0,0.1)) +
+    scale_y_log10(limits = common_limits, expand = c(0,0.1)) +
     coord_fixed() +
     labs(
       subtitle = 'Peripheral acuity vs. peripheral crowding\ncolored by font\nGeometric mean of left and right measurements',

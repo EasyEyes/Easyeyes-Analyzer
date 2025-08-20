@@ -37,46 +37,22 @@ ordinary_mean_se <- function(x) {
 
 # Main function to create font comparison plots
 plot_font_comparison <- function(df_list) {
-  print("inside plot_font_comparison")
   # Extract data for each measure
   crowding_data <- df_list$crowding %>%
     mutate(measure = 10^log_crowding_distance_deg) %>%  # Convert from log to linear
     select(participant, font, measure)
   
-  rsvp_data <- df_list$rsvp %>%
+    rsvp_data <- df_list$rsvp %>%
     mutate(measure = 10^block_avg_log_WPM) %>%  # Convert from log to linear
     select(participant, font, measure)
-  
-  # Log RSVP data range
-  if (nrow(rsvp_data) > 0) {
-    rsvp_min <- min(rsvp_data$measure, na.rm = TRUE)
-    rsvp_max <- max(rsvp_data$measure, na.rm = TRUE)
-    print(paste("RSVP data range: min =", round(rsvp_min, 2), "max =", round(rsvp_max, 2)))
-    
-    # Calculate geometric means by font for RSVP
-    rsvp_means <- rsvp_data %>%
-      group_by(font) %>%
-      summarise(geom_mean = exp(mean(log(measure), na.rm = TRUE)), .groups = "drop")
-  }
   
   reading_data <- df_list$reading %>%
     mutate(measure = wordPerMin) %>%  # Already in linear scale
     select(participant, font, measure)
   
-  # Log Reading data range
-  if (nrow(reading_data) > 0) {
-    reading_min <- min(reading_data$measure, na.rm = TRUE)
-    reading_max <- max(reading_data$measure, na.rm = TRUE)
-    print(paste("Reading data range: min =", round(reading_min, 2), "max =", round(reading_max, 2)))
-    
-    # Calculate geometric means by font for Reading
-    reading_filtered <- reading_data %>% filter(measure > 0)  # Remove 0 values for geometric mean
-    if (nrow(reading_filtered) > 0) {
-      reading_means <- reading_filtered %>%
-        group_by(font) %>%
-        summarise(geom_mean = exp(mean(log(measure), na.rm = TRUE)), .groups = "drop")
-    }
-  }
+  acuity_data <- df_list$acuity %>%
+    mutate(measure = 10^questMeanAtEndOfTrialsLoop) %>%  # Convert from log to linear
+    select(participant, font, measure)
  
   comfort_data <- df_list$QA %>%
     filter(grepl('CMFRT', questionAndAnswerNickname)) %>%
@@ -168,25 +144,8 @@ plot_font_comparison <- function(df_list) {
       "SaudiTextv3-Regular.otf"   # Fixed: .otf not .ttf
     )
     
-    # Debug font matching
-    print(paste("Debug for", title, "plot:"))
-    print("Fonts in data:")
-    print(unique(summary_data$font))
-    print("Predefined font_order:")
-    print(font_order)
-    print("Fonts that match font_order:")
-    print(intersect(unique(summary_data$font), font_order))
-    print("Fonts that don't match (will be dropped):")
-    print(setdiff(unique(summary_data$font), font_order))
-    
     # Sort fonts by specified order
     summary_data$font <- factor(summary_data$font, levels = font_order)
-    
-    # Show final data after factor conversion
-    print("Final summary_data after factor conversion:")
-    print(summary_data)
-    print("Number of rows in final summary_data:")
-    print(nrow(summary_data))
     
     # Get consistent font colors
     font_colors <- font_color_palette(unique(summary_data$font))
@@ -253,13 +212,18 @@ plot_font_comparison <- function(df_list) {
   }
   
   # Create individual plots with appropriate titles and y-axis labels
+ 
+  
   plots <- list(
-    rsvp = create_font_plot(rsvp_data, "RSVP", "RSVP Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(500, 5000)),
+    rsvp = create_font_plot(rsvp_data, "RSVP", "RSVP Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(500, 1500)),
     crowding = create_font_plot(crowding_data, "Crowding", "Crowding Distance (deg)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(0.5,2.5)),
     reading = create_font_plot(reading_data, "Reading", "Ordinary Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(100, 300)),
+    acuity = create_font_plot(acuity_data, "Acuity", "Acuity Threshold (deg)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(0.5, 2.0)),
     comfort = create_font_plot(comfort_data, "Comfort", "Comfort Rating", use_log_scale = FALSE, use_geometric_mean = FALSE, y_limits = c(3, 6)),
     beauty = create_font_plot(beauty_data, "Beauty", "Beauty Rating", use_log_scale = FALSE, use_geometric_mean = FALSE, y_limits = c(3, 6))
   )
+  
+ 
   
   return(plots)
 }
