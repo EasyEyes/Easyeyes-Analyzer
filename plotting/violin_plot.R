@@ -17,9 +17,9 @@ plot_violins <- function(df_list) {
            font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
                             conditionName=="beauty-majalla" ~"majalla.ttf",
                             conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.otf",
            )) %>% 
     filter(!is.na(y))
   
@@ -28,13 +28,13 @@ plot_violins <- function(df_list) {
     mutate(y = as.numeric(arabic_to_western(questionAndAnswerResponse)),
            font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
                             questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
-                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
            ))
   print("inside plot_violins")
   create_plot <- function(data, ylabel, title, xlimits = NULL) {
@@ -42,14 +42,26 @@ plot_violins <- function(df_list) {
     
     if (nrow(data) > 0) {
 
+      # Define font order
+      font_order <- c(
+        "Al-Awwal-Regular.ttf",
+        "majalla.ttf",
+        "Saudi-Regular.ttf",
+        "SaudiTextv1-Regular.otf",
+        "SaudiTextv2-Regular.otf",
+        "SaudiTextv3-Regular.otf"
+      )
+      
       # Calculate participant count by font
       participant_counts <- data %>%
         group_by(font) %>%
         summarise(n_participants = n_distinct(participant), .groups = "drop")
       
-      # Create labels with N counts for each font
+      # Create labels with N counts for each font and apply ordering
       font_labels <- participant_counts %>%
-        mutate(label = paste0(font, "\n(N=", n_participants, ")"))
+        mutate(label = paste0(font, "\n(N=", n_participants, ")"),
+               font_factor = factor(font, levels = font_order)) %>%
+        arrange(font_factor)
       
       # Update data with new labels and filter out infinite values
       plot_data <- data %>%
@@ -104,6 +116,13 @@ plot_violins <- function(df_list) {
           p <- p + coord_flip(ylim = xlimits)
         }
       } else {
+        # For non-log scale plots, add standard tick marks
+        p <- p + theme(
+          axis.ticks.x = element_line(color = "black", size = 0.5),
+          axis.ticks.y = element_line(color = "black", size = 0.5),
+          axis.ticks.length = unit(4, "pt")
+        )
+        
         # Apply x-axis limits if specified (for non-log scale plots)
         if (!is.null(xlimits)) {
           p <- p + coord_flip(ylim = xlimits)

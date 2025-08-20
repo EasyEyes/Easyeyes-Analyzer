@@ -83,13 +83,13 @@ plot_font_comparison <- function(df_list) {
     mutate(measure = as.numeric(arabic_to_western(questionAndAnswerResponse)),
            font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
                             questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
-                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
                             TRUE ~ questionAndAnswerNickname  # fallback for any unmatched cases
            )) %>%
     filter(!is.na(measure)) %>%
@@ -101,9 +101,9 @@ plot_font_comparison <- function(df_list) {
            font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
                             conditionName=="beauty-majalla" ~"majalla.ttf",
                             conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.otf",
                             TRUE ~ conditionName  # fallback for any unmatched cases
            )) %>% 
     filter(!is.na(measure)) %>%
@@ -111,7 +111,7 @@ plot_font_comparison <- function(df_list) {
   
   # Function to create individual plots
   create_font_plot <- function(data, title, ylabel, use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = NULL) {
-    if (nrow(data) == 0) return(ggplot())
+    if (nrow(data) == 0) return(NULL)
     
     # Calculate means and standard errors by font
     if (use_geometric_mean) {
@@ -158,8 +158,18 @@ plot_font_comparison <- function(df_list) {
     summary_data <- summary_data %>%
       left_join(participant_counts, by = "font")
     
-    # Sort fonts alphabetically for consistent ordering
-    summary_data$font <- factor(summary_data$font, levels = sort(unique(summary_data$font)))
+    # Define font order
+    font_order <- c(
+      "Al-Awwal-Regular.ttf",
+      "majalla.ttf", 
+      "Saudi-Regular.ttf",
+      "SaudiTextv1-Regular.ttf",
+      "SaudiTextv2-Regular.ttf",
+      "SaudiTextv3-Regular.ttf"
+    )
+    
+    # Sort fonts by specified order
+    summary_data$font <- factor(summary_data$font, levels = font_order)
     
     # Get consistent font colors
     font_colors <- font_color_palette(unique(summary_data$font))
@@ -227,9 +237,9 @@ plot_font_comparison <- function(df_list) {
   
   # Create individual plots with appropriate titles and y-axis labels
   plots <- list(
-    rsvp = create_font_plot(rsvp_data, "RSVP", "RSVP Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(500, 2000)),
+    rsvp = create_font_plot(rsvp_data, "RSVP", "RSVP Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(500, 5000)),
     crowding = create_font_plot(crowding_data, "Crowding", "Crowding Distance (deg)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(0.5,2.5)),
-    reading = create_font_plot(reading_data, "Reading", "Ordinary Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(100, 500)),
+    reading = create_font_plot(reading_data, "Reading", "Ordinary Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(100, 300)),
     comfort = create_font_plot(comfort_data, "Comfort", "Comfort Rating", use_log_scale = FALSE, use_geometric_mean = FALSE, y_limits = c(3, 6)),
     beauty = create_font_plot(beauty_data, "Beauty", "Beauty Rating", use_log_scale = FALSE, use_geometric_mean = FALSE, y_limits = c(3, 6))
   )

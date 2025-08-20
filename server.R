@@ -61,6 +61,7 @@ source("./other/sound_plots.R")
 source("./other/read_json.R")
 source("./other/formSpree.R")
 source("./other/utility.R")
+source("./other/anova_by_font.R")
 
 #### server code ####
 
@@ -573,6 +574,7 @@ shinyServer(function(input, output, session) {
   crowding_hists <- get_crowding_hist(df_list()$crowding) # Single function call
 
   static_calls <- list(
+    list(plot = sizeCheckPlot()$histogram,                    fname = 'sd-log-density-histogram'),
     list(plot = acuity_hists[[1]],      fname = 'foveal-acuity-histogram'),
     list(plot = acuity_hists[[2]],      fname = 'peripheral-acuity-histogram'),
     list(plot = crowding_hists$foveal,  fname = 'foveal-crowding-histogram'),
@@ -745,6 +747,9 @@ shinyServer(function(input, output, session) {
   })
   
   #### scatterDiagrams ####
+  sizeCheckPlot <- reactive({
+    plot_sizeCheck(files()$data_list)
+  }) 
   
   scatterDiagrams <- reactive({
     if (is.null(input$file) | is.null(files())) {
@@ -760,7 +765,7 @@ shinyServer(function(input, output, session) {
     regression_plots <- regression_reading_plot(df_list())
     test_retest_plots <- get_test_retest(df_list())
     plot_calls <- list(
-      list(plot = plot_sizeCheck(files()$data_list), fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
+      list(plot = sizeCheckPlot()$scatter, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
       list(plot = plot_distance(files()$data_list), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
@@ -4086,7 +4091,71 @@ shinyServer(function(input, output, session) {
                    closeAlert()
                  }
                })
+   #### anova page ####
+  anova_results <- reactive({calculate_anova(df_list())})
   
+  # ANOVA summary tables
+  output$readingANOVA <- renderTable({
+    if (!is.null(anova_results()$reading$summary)) {
+      anova_results()$reading$summary[[1]]
+    }
+  }, rownames = TRUE)
+  
+  output$crowdingANOVA <- renderTable({
+    if (!is.null(anova_results()$crowding$summary)) {
+      anova_results()$crowding$summary[[1]]
+    }
+  }, rownames = TRUE)
+  
+  output$rsvpANOVA <- renderTable({
+    if (!is.null(anova_results()$rsvp$summary)) {
+      anova_results()$rsvp$summary[[1]]
+    }
+  }, rownames = TRUE)
+  
+  output$beautyANOVA <- renderTable({
+    if (!is.null(anova_results()$beauty$summary)) {
+      anova_results()$beauty$summary[[1]]
+    }
+  }, rownames = TRUE)
+  
+  output$comfortANOVA <- renderTable({
+    if (!is.null(anova_results()$comfort$summary)) {
+      anova_results()$comfort$summary[[1]]
+    }
+  }, rownames = TRUE)
+  
+  # Pairwise comparison tables
+  output$readingPairwise <- renderTable({
+    if (!is.null(anova_results()$reading$pairwise)) {
+      anova_results()$reading$pairwise$p.value
+    }
+  }, rownames = TRUE)
+  
+  output$crowdingPairwise <- renderTable({
+    if (!is.null(anova_results()$crowding$pairwise)) {
+      anova_results()$crowding$pairwise$p.value
+    }
+  }, rownames = TRUE)
+  
+  output$rsvpPairwise <- renderTable({
+    if (!is.null(anova_results()$rsvp$pairwise)) {
+      anova_results()$rsvp$pairwise$p.value
+    }
+  }, rownames = TRUE)
+  
+  output$beautyPairwise <- renderTable({
+    if (!is.null(anova_results()$beauty$pairwise)) {
+      anova_results()$beauty$pairwise$p.value
+    }
+  }, rownames = TRUE)
+  
+  output$comfortPairwise <- renderTable({
+    if (!is.null(anova_results()$comfort$pairwise)) {
+      anova_results()$comfort$pairwise$p.value
+    }
+  }, rownames = TRUE)
+
   
   #### download handlers ####
   

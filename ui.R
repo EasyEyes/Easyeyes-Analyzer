@@ -9,7 +9,7 @@ source('./tabs/profile.R')
 source('./tabs/formSpreeDash.R')
 source('./tabs/timming.R')
 source('./tabs/quality.R')
-
+source('./tabs/anova.R')
 # packages
 library(shiny)
 library(shinytitle)
@@ -162,6 +162,7 @@ shinyUI(
     tabPanel("Sessions", value = "Sessions", sessionTab),
     tabPanel("Stats", value = "Stats", statTab),
     tabPanel("Plots", value = "Plots", plotsTab),
+    tabPanel("ANOVA", value = "Anova", anovaTab),
     tabPanel("Quality", value = "Quality", qualityTab),
     tabPanel("Timing", value = 'Timing', timingTab),
     tabPanel("Staircases", value = "Staircases", staircasesTab),

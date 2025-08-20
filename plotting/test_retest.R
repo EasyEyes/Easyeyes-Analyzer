@@ -28,9 +28,9 @@ get_test_retest <- function(df_list){
            font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
                             conditionName=="beauty-majalla" ~"majalla.ttf",
                             conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.otf",
            )) %>% 
     filter(!is.na(test))
   
@@ -39,13 +39,13 @@ get_test_retest <- function(df_list){
     mutate(test = as.numeric(arabic_to_western(questionAndAnswerResponse)),
            font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
                             questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
-                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
            )) %>% 
     filter(!is.na(test))
   
@@ -67,7 +67,6 @@ get_test_retest <- function(df_list){
              retest = test.y) %>% 
       filter(!is.na(test), !is.na(retest))
     
-    print(test_retest)
     # plot
     if (nrow(test_retest) == 0) return (NULL)
     n = nrow(test_retest)

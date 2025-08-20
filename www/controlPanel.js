@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", function () {
-  const visibleTabs = ["Sessions", "Plots", "Staircases", "Timing", "Stats", "Quality"];
+  const visibleTabs = ["Sessions", "Plots", "Staircases", "Timing", "Stats", "Quality", "Anova"];
 
   function updatePanelVisibility(tabName) {
     const controlPanel = document.getElementById("controlPanel");

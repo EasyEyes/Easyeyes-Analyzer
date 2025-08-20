@@ -271,7 +271,7 @@ log_detailed_error <- function(e, plot_id = "Unknown Plot") {
 # Enhanced error handler for plot rendering with detailed console logging
 handle_plot_error <- function(e, plot_id, experiment_names_func = NULL, plot_subtitle = "") {
   # Enhanced error logging for debugging - print detailed error info to console
-  log_detailed_error(e, plot_id)
+  # log_detailed_error(e, plot_id)
   
   # Create user-friendly error plot
   error_plot <- ggplot() +

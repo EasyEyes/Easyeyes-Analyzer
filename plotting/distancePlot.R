@@ -274,7 +274,7 @@ plot_sizeCheck <- function(data_list) {
     print("Error: No valid numeric data available after NA removal.")
     return(NULL)
   }
-  
+  print(sizeCheck, n = 100)
   # Average Estimated PxPerCm per Participant per Requested Size
   sizeCheck_avg <- sizeCheck %>%
     group_by(participant, SizeCheckRequestedCm) %>%
@@ -301,8 +301,93 @@ plot_sizeCheck <- function(data_list) {
   min_val <- min(c(sizeCheck_avg$SizeCheckRequestedCm, sizeCheck_avg$avg_estimated))
   max_val <- max(c(sizeCheck_avg$SizeCheckRequestedCm, sizeCheck_avg$avg_estimated))
   
-  # Logarithmic plot
-  p <- ggplot(data=sizeCheck_avg) + 
+  # Compute sdLogDensity for each participant
+  sdLogDensity_data <- sizeCheck %>%
+    group_by(participant) %>%
+    summarize(
+      sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    filter(!is.na(sdLogDensity))
+  
+  print("sdLogDensity_data")
+  print(sdLogDensity_data)
+  
+  # Create histogram with stacked colored dots
+  if (nrow(sdLogDensity_data) > 0) {
+    # Set bin width
+    bin_width <- 0.003
+    
+    # Create bins that don't cross zero
+    sdLogDensity_data <- sdLogDensity_data %>%
+      mutate(
+        # Assign each participant to a bin that doesn't cross zero
+        bin_center = ifelse(sdLogDensity >= 0,
+                           # For positive values: 0, 0.003, 0.006, etc.
+                           floor(sdLogDensity / bin_width) * bin_width + bin_width/2,
+                           # For negative values: -0.003, -0.006, etc.
+                           ceiling(sdLogDensity / bin_width) * bin_width - bin_width/2)
+      ) %>%
+      arrange(bin_center, participant) %>%
+      group_by(bin_center) %>%
+      mutate(
+        # Stack position within each bin (starting from 1)
+        stack_position = row_number(),
+        # Y position for the dot (stacked on top of the histogram bar)
+        dot_y = stack_position
+      ) %>%
+      ungroup()
+    
+    # Set the allowed range (default value)
+    calibrateTrackDistanceCheckLengthSDLogAllowed <- 0.01
+    
+    # Create custom breaks that don't cross zero
+    data_range <- range(sdLogDensity_data$sdLogDensity)
+    
+    # Create breaks for positive side (0, 0.003, 0.006, etc.)
+    positive_breaks <- seq(0, ceiling(data_range[2] / bin_width) * bin_width + bin_width, by = bin_width)
+    
+    # Create breaks for negative side (-0.003, -0.006, etc.)
+    negative_breaks <- seq(-bin_width, floor(data_range[1] / bin_width) * bin_width - bin_width, by = -bin_width)
+    
+    # Combine breaks
+    custom_breaks <- sort(c(negative_breaks, positive_breaks))
+    
+    # Create the histogram plot with stacked dots
+    histogram_plot <- ggplot(sdLogDensity_data, aes(x = sdLogDensity)) +
+      # Add transparent light-green bar for allowed range
+      annotate("rect", 
+               xmin = 0, 
+               xmax = calibrateTrackDistanceCheckLengthSDLogAllowed, 
+               ymin = 0, 
+               ymax = Inf, 
+               fill = "lightgreen", 
+               alpha = 0.3) +
+      # Base histogram with custom breaks
+      geom_histogram(breaks = custom_breaks, alpha = 0.7, fill = "lightgray", color = "black") +
+      # Stacked colored points on top of bars
+      geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
+      guides(color = guide_legend(
+        ncol = 2,  
+        title = "",
+        override.aes = list(size = 1.5),  
+        keywidth = unit(0.8, "lines"),  
+        keyheight = unit(0.3, "lines")
+      )) +
+      labs(
+        subtitle = "Histogram of sdLogDensity",
+        x = "sdLogDensity",
+        y = "Count"
+      ) +
+      theme_bw() 
+  } else {
+    histogram_plot <- ggplot() + 
+      annotate("text", x = 0.5, y = 0.5, label = "No data available for sdLogDensity calculation") +
+      theme_void()
+  }
+  
+  # Original logarithmic plot
+  scatter_plot <- ggplot(data=sizeCheck_avg) + 
     geom_line(aes(x = SizeCheckRequestedCm, 
                   y = avg_estimated,
                   color = participant,
@@ -332,5 +417,9 @@ plot_sizeCheck <- function(data_list) {
           y = 'SizeCheckEstimatedPxPerCm',
           caption = paste0('Ratio of credit card estimate to measured pixel density is ', ratio_formatted, '.'))
   
-  return(p)
+  # Return both plots as a list
+  return(list(
+    scatter = scatter_plot,
+    histogram = histogram_plot
+  ))
 }

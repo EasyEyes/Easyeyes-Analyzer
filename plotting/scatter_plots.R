@@ -47,13 +47,13 @@ comfort_vs_crowding_scatter <- function(df_list) {
            font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
                             questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
                             # Fix early data typos - map old nicknames to correct fonts
-                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
                             TRUE ~ questionAndAnswerNickname)) %>%
     filter(!is.na(comfort_rating)) %>%
     group_by(participant, font) %>%
@@ -63,12 +63,6 @@ comfort_vs_crowding_scatter <- function(df_list) {
   # Standardize font names to match beauty/comfort mapping
   crowding_data <- df_list$crowding %>%
     mutate(
-      font = case_when(
-        font == "SaudiTextv1-Regular.otf" ~ "SaudiTextv1-Regular.ttf",
-        font == "SaudiTextv2-Regular.otf" ~ "SaudiTextv2-Regular.ttf", 
-        font == "SaudiTextv3-Regular.otf" ~ "SaudiTextv3-Regular.ttf",
-        TRUE ~ font  # keep other fonts as-is
-      ),
       crowding_distance = 10^log_crowding_distance_deg
     ) %>%
     group_by(participant, font) %>%
@@ -129,9 +123,9 @@ beauty_vs_crowding_scatter <- function(df_list) {
            font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
                             conditionName=="beauty-majalla" ~"majalla.ttf",
                             conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.otf",
                             TRUE ~ conditionName)) %>%
     filter(!is.na(beauty_rating)) %>%
     group_by(participant, font) %>%
@@ -141,12 +135,6 @@ beauty_vs_crowding_scatter <- function(df_list) {
   # Standardize font names to match beauty/comfort mapping
   crowding_data <- df_list$crowding %>%
     mutate(
-      font = case_when(
-        font == "SaudiTextv1-Regular.otf" ~ "SaudiTextv1-Regular.ttf",
-        font == "SaudiTextv2-Regular.otf" ~ "SaudiTextv2-Regular.ttf", 
-        font == "SaudiTextv3-Regular.otf" ~ "SaudiTextv3-Regular.ttf",
-        TRUE ~ font  # keep other fonts as-is
-      ),
       crowding_distance = 10^log_crowding_distance_deg
     ) %>%
     group_by(participant, font) %>%
@@ -207,9 +195,9 @@ beauty_vs_comfort_scatter <- function(df_list) {
            font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
                             conditionName=="beauty-majalla" ~"majalla.ttf",
                             conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.otf",
                             TRUE ~ conditionName)) %>%
     filter(!is.na(beauty_rating)) %>%
     group_by(participant, font) %>%
@@ -221,13 +209,13 @@ beauty_vs_comfort_scatter <- function(df_list) {
     mutate(comfort_rating = as.numeric(arabic_to_western(questionAndAnswerResponse)),
            font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
                             questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
-                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
                             TRUE ~ questionAndAnswerNickname)) %>%
     filter(!is.na(comfort_rating)) %>%
     group_by(participant, font) %>%
