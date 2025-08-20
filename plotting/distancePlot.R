@@ -367,6 +367,7 @@ plot_sizeCheck <- function(data_list) {
       geom_histogram(breaks = custom_breaks, alpha = 0.7, fill = "lightgray", color = "black") +
       # Stacked colored points on top of bars
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
+      scale_color_manual(values= colorPalette) +
       guides(color = guide_legend(
         ncol = 2,  
         title = "",
@@ -386,25 +387,31 @@ plot_sizeCheck <- function(data_list) {
       theme_void()
   }
   
-  # Original logarithmic plot
+  sizeCheck_avg <- sizeCheck_avg %>% 
+    left_join(sdLogDensity_data, by = "participant") %>% 
+    mutate(reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed))
   scatter_plot <- ggplot(data=sizeCheck_avg) + 
     geom_line(aes(x = SizeCheckRequestedCm, 
                   y = avg_estimated,
                   color = participant,
-                  group = participant), 
+                  group = participant,
+                  linetype = reliableBool), 
               alpha = 0.7) +
+    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dashed")) +
     geom_point(aes(x = SizeCheckRequestedCm, 
                    y = avg_estimated,
                    color = participant), 
                size = 2) + 
          # Add horizontal line at y = 44.21
-     geom_hline(yintercept = 44.21, linetype = "dashed", size = 1) +
+     # geom_hline(yintercept = 44.21, linetype = "dashed", size = 1) +
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
                         label = paste0('N=', n_distinct(sizeCheck_avg$participant), '\n',
                                        'R=', corr, '\n',
                                        'slope=', slope)) + 
-    # scale_color_manual(values= colorPalette) + 
+    scale_x_log10() +
+    scale_y_log10() +
+    scale_color_manual(values= colorPalette) + 
     guides(color = guide_legend(
       ncol = 4,  
       title = "",
