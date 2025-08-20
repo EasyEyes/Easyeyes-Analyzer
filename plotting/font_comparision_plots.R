@@ -217,7 +217,7 @@ plot_font_comparison <- function(df_list) {
   plots <- list(
     rsvp = create_font_plot(rsvp_data, "RSVP", "RSVP Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(500, 1500)),
     crowding = create_font_plot(crowding_data, "Crowding", "Crowding Distance (deg)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(0.5,2.5)),
-    reading = create_font_plot(reading_data, "Reading", "Ordinary Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(100, 300)),
+    reading = create_font_plot(reading_data, "Reading", "Ordinary Reading Speed (WPM)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(100, 200)),
     acuity = create_font_plot(acuity_data, "Acuity", "Acuity Threshold (deg)", use_log_scale = TRUE, use_geometric_mean = TRUE, y_limits = c(0.5, 2.0)),
     comfort = create_font_plot(comfort_data, "Comfort", "Comfort Rating", use_log_scale = FALSE, use_geometric_mean = FALSE, y_limits = c(3, 6)),
     beauty = create_font_plot(beauty_data, "Beauty", "Beauty Rating", use_log_scale = FALSE, use_geometric_mean = FALSE, y_limits = c(3, 6))
