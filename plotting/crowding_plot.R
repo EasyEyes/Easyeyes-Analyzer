@@ -160,7 +160,6 @@ crowding_scatter_plot <- function(crowding_L_R){
     geom_point(size = 1) +
     geom_abline(intercept = 0, slope = 1,
                 linetype = "dashed", color = "black") +
-    geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
     scale_x_log10(
       name   = "Right crowding distance (deg)",
       limits = c(10^minXY, 10^maxXY),
@@ -225,7 +224,6 @@ crowding_mean_scatter_plot <- function(crowding_L_R){
 
   ggplot(t, aes(x = avg_left_deg, y = avg_right_deg, color = conditionName)) + 
     geom_point(size = 2) +
-    geom_smooth(method = "lm",formula = y ~ x, se=F) + 
     stat_cor() +  
     coord_fixed(ratio = 1) + 
     guides(color = guide_legend(title="", ncol = 1)) + 
@@ -309,7 +307,6 @@ get_two_fonts_plots <- function(crowding) {
     geom_point() + 
     scale_y_log10() +
     scale_x_log10() + 
-    geom_smooth(method = "lm", formula = y ~ x, se = FALSE) + 
     theme_bw() + 
     coord_fixed(ratio = 1) + 
     labs(x = paste0(font1, " Bouma Factor"), 
@@ -331,7 +328,6 @@ get_two_fonts_plots <- function(crowding) {
     geom_point() + 
     scale_y_log10() +
     scale_x_log10() + 
-    geom_smooth(method = "lm", formula = y ~ x, se = FALSE) + 
     theme_bw() + 
     coord_fixed(ratio = 1) + 
     labs(x = paste0(font1, " Bouma Factor"), 

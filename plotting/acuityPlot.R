@@ -777,5 +777,122 @@ peripheral_plot <- function(allData) {
   return(list(grade = p1, font = p2))
 }
 
+crowding_vs_acuity_plot <- function(allData) {
+  # Extract crowding and acuity data
+  crowding_data <- allData$crowding %>%
+    filter(!is.na(log_crowding_distance_deg), !is.na(participant))
+  
+  acuity_data <- allData$acuity %>%
+    filter(!is.na(questMeanAtEndOfTrialsLoop), !is.na(participant))
+  
+  if (nrow(crowding_data) == 0 || nrow(acuity_data) == 0) {
+    return(list(grade = NULL, font = NULL))
+  }
+  
+  # Compute geometric mean of left and right for crowding
+  # Group by participant, targetEccentricityXDeg, and other relevant factors
+  crowding_summary <- crowding_data %>%
+    group_by(participant, font, Grade, targetEccentricityXDeg) %>%
+    summarize(
+      crowding_gmean_log = mean(log_crowding_distance_deg, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    # Now compute geometric mean of test and retest (if there are multiple sessions)
+    group_by(participant, font, Grade, targetEccentricityXDeg) %>%
+    summarize(
+      crowding_gmean_log = mean(crowding_gmean_log, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(crowding_gmean = 10^crowding_gmean_log)
+  
+  # Compute geometric mean of left and right for acuity
+  acuity_summary <- acuity_data %>%
+    group_by(participant, font, Grade, targetEccentricityXDeg) %>%
+    summarize(
+      acuity_gmean_log = mean(questMeanAtEndOfTrialsLoop, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    # Now compute geometric mean of test and retest (if there are multiple sessions)
+    group_by(participant, font, Grade, targetEccentricityXDeg) %>%
+    summarize(
+      acuity_gmean_log = mean(acuity_gmean_log, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(acuity_gmean = 10^acuity_gmean_log)
+  
+  # Join crowding and acuity data - one point per participant
+  # Take geometric mean across all eccentricities for each participant
+  crowding_per_participant <- crowding_summary %>%
+    group_by(participant, font, Grade) %>%
+    summarize(
+      crowding_participant_gmean_log = mean(crowding_gmean_log, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(crowding_participant_gmean = 10^crowding_participant_gmean_log)
+  
+  acuity_per_participant <- acuity_summary %>%
+    group_by(participant, font, Grade) %>%
+    summarize(
+      acuity_participant_gmean_log = mean(acuity_gmean_log, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(acuity_participant_gmean = 10^acuity_participant_gmean_log)
+  
+  # Join the data
+  plot_data <- inner_join(
+    crowding_per_participant,
+    acuity_per_participant,
+    by = c("participant", "font", "Grade")
+  ) %>%
+    filter(!is.na(crowding_participant_gmean), !is.na(acuity_participant_gmean)) %>%
+    mutate(Grade = factor(Grade))
+  
+  if (nrow(plot_data) == 0) {
+    return(list(grade = NULL, font = NULL))
+  }
+  
+  # Calculate common axis limits to make horizontal and vertical scales identical
+  x_range <- range(plot_data$acuity_participant_gmean, na.rm = TRUE)
+  y_range <- range(plot_data$crowding_participant_gmean, na.rm = TRUE)
+  common_limits <- c(min(x_range[1], y_range[1]), max(x_range[2], y_range[2]))
+  
+  # Create plot colored by Grade
+  n_grades <- n_distinct(plot_data$Grade)
+  p1 <- ggplot(plot_data, aes(x = acuity_participant_gmean, y = crowding_participant_gmean, color = Grade)) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black", size = 0.8) +  # Equality line
+    geom_point(size = 3) +
+    scale_x_log10(limits = common_limits, expand = c(0, 0.1)) +
+    scale_y_log10(limits = common_limits, expand = c(0, 0.1)) +
+    coord_fixed() +
+    annotation_logticks(sides = "bl") +
+    labs(
+      subtitle = 'Crowding vs. acuity\ncolored by grade\nGeometric mean of left and right\nGeometric mean of test and retest',
+      x = 'Acuity (deg)',
+      y = 'Crowding (deg)'
+    ) +
+    theme_classic() + plt_theme +
+    theme(legend.position = "top") +
+    color_scale(n = n_grades)
+  
+  # Create plot colored by Font
+  p2 <- ggplot(plot_data, aes(x = acuity_participant_gmean, y = crowding_participant_gmean, color = font)) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black", size = 0.8) +  # Equality line
+    geom_point(size = 3) +
+    scale_x_log10(limits = common_limits, expand = c(0, 0.1)) +
+    scale_y_log10(limits = common_limits, expand = c(0, 0.1)) +
+    coord_fixed() +
+    annotation_logticks(sides = "bl") +
+    labs(
+      subtitle = 'Crowding vs. acuity\ncolored by font\nGeometric mean of left and right\nGeometric mean of test and retest',
+      x = 'Acuity (deg)',
+      y = 'Crowding (deg)'
+    ) +
+    theme_classic() + plt_theme +
+    theme(legend.position = "top") +
+    scale_color_manual(values = font_color_palette(unique(plot_data$font)))
+  
+  return(list(grade = p1, font = p2))
+}
+
 
 

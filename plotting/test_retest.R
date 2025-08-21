@@ -49,7 +49,7 @@ get_test_retest <- function(df_list){
            )) %>% 
     filter(!is.na(test))
   
-  create_plot <- function(data) {
+  create_plot <- function(data, use_jitter = FALSE) {
     data <- data %>% 
       mutate(group = ifelse(grepl("Repeat",experiment), "retest","test"))
     
@@ -70,18 +70,24 @@ get_test_retest <- function(df_list){
     # plot
     if (nrow(test_retest) == 0) return (NULL)
     n = nrow(test_retest)
-    p <- ggplot() +
+    
+    # Choose geom based on whether we need jitter for integer data
+    point_geom <- if (use_jitter) {
+      geom_jitter(data=test_retest, 
+                  aes(x=test, 
+                      y=retest,
+                      color = font),
+                  size = 3, width = 0.25, height = 0.25)
+    } else {
       geom_point(data=test_retest, 
                  aes(x=test, 
                      y=retest,
                      color = font),
-                 size = 3) +
-      geom_smooth(data=test_retest, 
-                  aes(x=test, 
-                      y=retest,
-                      color=font),
-                  method = 'lm', 
-                  se = FALSE) + 
+                 size = 3)
+    }
+    
+    p <- ggplot() +
+      point_geom +
       coord_fixed(ratio = 1) +
       theme_bw() +
       ggpp::geom_text_npc(aes(npcx = 'left',
@@ -137,7 +143,7 @@ get_test_retest <- function(df_list){
     ) 
   }
   
-  beauty_p <- create_plot(beauty)
+  beauty_p <- create_plot(beauty, use_jitter = TRUE)
   if (!is.null(beauty_p)) {
     beauty_p <- beauty_p + 
       labs(x="Test beauty ratings",
@@ -145,7 +151,7 @@ get_test_retest <- function(df_list){
            subtitle="Beauty retest vs test")
   }
 
-   comfort_p <- create_plot(cmfrt) 
+   comfort_p <- create_plot(cmfrt, use_jitter = TRUE) 
    if (!is.null(comfort_p)) {
      comfort_p <- comfort_p + 
        labs(x="Test comfort ratings",
