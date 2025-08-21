@@ -419,7 +419,9 @@ plot_rsvp_crowding <- function(allData) {
       ) + 
       plt_theme_ggiraph +
       theme(
-        legend.position = ifelse(n_distinct(data_rsvp[[colorFactor]]) == 1, "none", "top")
+        legend.position = ifelse(n_distinct(data_rsvp[[colorFactor]]) == 1, "none", "top"),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 9)
       ) +
       guides(color = guide_legend(title = colorFactor), 
              shape = guide_legend(title = '',ncol= 1))

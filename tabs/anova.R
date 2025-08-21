@@ -3,7 +3,9 @@ anovaTab <- tabPanel(
   fluidRow(
     column(12,
       h3("ANOVA Analysis by Font"),
-      p("Analysis of variance and pairwise comparisons between fonts for each measure.")
+      p("Analysis of variance and pairwise comparisons between fonts for each measure."),
+      br(),
+      downloadButton("downloadAnovaTables", "Download")
     )
   ),
   

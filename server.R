@@ -19,6 +19,7 @@ library(ggpp)
 library(svglite)
 library(patchwork)
 library(grid)
+library(gridExtra)
 library(ggnewscale)
 # library(showtext)
 # library(systemfonts)
@@ -4163,6 +4164,122 @@ shinyServer(function(input, output, session) {
       anova_results()$comfort$pairwise$p.value
     }
   }, rownames = TRUE)
+  
+  # Download handler for ANOVA tables PDF
+  output$downloadAnovaTables <- downloadHandler(
+    filename = function() {
+      paste0(get_short_experiment_name(experiment_names()), "anova-tables.pdf")
+    },
+    content = function(file) {
+      
+      # Create a temporary PDF file
+      pdf(file, width = 8.5, height = 11, onefile = TRUE)
+      
+      # Get ANOVA results
+      anova_data <- anova_results()
+      
+      # Define the measures and their display names
+      measures <- list(
+        list(key = "reading", name = "Reading Speed"),
+        list(key = "crowding", name = "Crowding Distance"), 
+        list(key = "rsvp", name = "RSVP Reading Speed"),
+        list(key = "beauty", name = "Beauty Rating"),
+        list(key = "comfort", name = "Comfort Rating")
+      )
+      
+      # Create a page for each measure
+      for (measure in measures) {
+        # Start a new page
+        grid.newpage()
+        
+        # Create page title
+        grid.text(
+          paste("ANOVA Analysis:", measure$name),
+          x = 0.5, y = 0.95,
+          gp = gpar(fontsize = 16, fontface = "bold"),
+          just = "center"
+        )
+        
+        # Check if data exists for this measure
+        measure_data <- anova_data[[measure$key]]
+        
+        if (!is.null(measure_data) && !is.null(measure_data$summary)) {
+          # ANOVA Results table
+          if (is.list(measure_data$summary) && length(measure_data$summary) > 0) {
+            anova_table <- measure_data$summary[[1]]
+            if (!is.null(anova_table) && nrow(anova_table) > 0) {
+              # Create ANOVA table grob
+              anova_grob <- tableGrob(
+                anova_table,
+                rows = rownames(anova_table),
+                theme = ttheme_default(
+                  core = list(fg_params = list(cex = 0.6)),
+                  colhead = list(fg_params = list(cex = 0.7, fontface = "bold")),
+                  rowhead = list(fg_params = list(cex = 0.6, fontface = "bold"))
+                )
+              )
+              
+              # Add ANOVA table title
+              grid.text(
+                "ANOVA Results",
+                x = 0.5, y = 0.8,
+                gp = gpar(fontsize = 12, fontface = "bold"),
+                just = "center"
+              )
+              
+              # Position ANOVA table
+              vp_anova <- viewport(x = 0.5, y = 0.65, width = 0.9, height = 0.15)
+              pushViewport(vp_anova)
+              grid.draw(anova_grob)
+              popViewport()
+            }
+          }
+          
+          # Pairwise comparisons table
+          if (!is.null(measure_data$pairwise) && !is.null(measure_data$pairwise$p.value)) {
+            pairwise_table <- measure_data$pairwise$p.value
+            if (!is.null(pairwise_table) && nrow(pairwise_table) > 0) {
+              # Create pairwise table grob
+              pairwise_grob <- tableGrob(
+                pairwise_table,
+                rows = rownames(pairwise_table),
+                theme = ttheme_default(
+                  core = list(fg_params = list(cex = 0.6)),
+                  colhead = list(fg_params = list(cex = 0.7, fontface = "bold")),
+                  rowhead = list(fg_params = list(cex = 0.6, fontface = "bold"))
+                )
+              )
+              
+              # Add pairwise table title
+              grid.text(
+                "Pairwise Comparisons (Bonferroni corrected)",
+                x = 0.5, y = 0.45,
+                gp = gpar(fontsize = 12, fontface = "bold"),
+                just = "center"
+              )
+              
+              # Position pairwise table
+              vp_pairwise <- viewport(x = 0.5, y = 0.3, width = 0.9, height = 0.25)
+              pushViewport(vp_pairwise)
+              grid.draw(pairwise_grob)
+              popViewport()
+            }
+          }
+        } else {
+          # No data available message
+          grid.text(
+            "No data available for this measure",
+            x = 0.5, y = 0.5,
+            gp = gpar(fontsize = 12, col = "red"),
+            just = "center"
+          )
+        }
+      }
+      
+      # Close the PDF device
+      dev.off()
+    }
+  )
 
   
   #### download handlers ####
@@ -5856,7 +5973,7 @@ shinyServer(function(input, output, session) {
     output$downloadRsvpCrowdingPeripheralFontPlot <- downloadHandler(
       filename = paste(
         app_title$default,
-        paste0('rsvp-vs-peripheral-crowding-by-font', input$fileType),
+        paste0('rsvp-vs-peripheral-crowding-by-font.', input$fileType),
         sep = "-"
       ),
       content = function(file) {
@@ -5866,7 +5983,7 @@ shinyServer(function(input, output, session) {
           plot = plot_with_title,
           filename = file,
           fileType = input$fileType,
-          width = 8,
+          width = 9,
           height = 6
         )
       }
