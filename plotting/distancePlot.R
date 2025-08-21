@@ -104,6 +104,11 @@ get_sizeCheck_data <- function(data_list) {
       df <- rbind(t, df)
     }
   }
+  
+  df <- df %>% mutate(
+    SizeCheckEstimatedPxPerCm = as.numeric(SizeCheckEstimatedPxPerCm),
+    SizeCheckRequestedCm = as.numeric(SizeCheckRequestedCm)
+  )
 
   print('done get_sizeCheck_data')
   return(df)
@@ -144,24 +149,29 @@ get_measured_distance_data <- function(data_list) {
       df <- rbind(t, df)
     }
   }
+  df <- df %>% mutate(
+    calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
+    calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm)
+  )
   print('done get_measured_distance_data')
   return(df)
 }
 
-plot_distance <- function(data_list) {
+plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowed) {
   print('inside plot_distance')
   distance <- get_measured_distance_data(data_list)
-  # Check if the data is empty
-  if (nrow(distance) == 0) {
-    print("Error: Empty dataset returned from get_measured_distance_data()")
-    return(NULL)
-  }
+  sizeCheck <- get_sizeCheck_data(data_list)
+
+  if (nrow(distance) == 0) {return(NULL)}
   
-  # Convert to numeric
-  distance <- distance %>% mutate(
-    calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
-    calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm)
-  )
+  sdLogDensity_data <- sizeCheck %>%
+    group_by(participant) %>%
+    summarize(
+      sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    filter(!is.na(sdLogDensity)) %>% 
+    mutate(reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed))
   
   # Check for NA values after conversion
   if (sum(is.na(distance$calibrateTrackDistanceMeasuredCm)) == nrow(distance) ||
@@ -183,8 +193,13 @@ plot_distance <- function(data_list) {
     summarize(
       avg_measured = mean(calibrateTrackDistanceMeasuredCm, na.rm = TRUE),
       .groups = "drop"
-    )
-  
+    ) 
+  if (nrow(sdLogDensity_data) > 0) {
+    distance_avg <- distance_avg %>% 
+      left_join(sdLogDensity_data, by = "participant")
+  } else {
+    distance_avg <- distance_avg %>% mutate(reliableBool = TRUE)
+  }
   # Perform regression on averaged data
   fit <- lm(log10(avg_measured) ~ log10(calibrateTrackDistanceRequestedCm), data = distance_avg)
 
@@ -205,6 +220,7 @@ plot_distance <- function(data_list) {
               aes(x = calibrateTrackDistanceRequestedCm, 
                   y = avg_measured,
                   color = participant, 
+                  lty = reliableBool,
                   group = participant), alpha = 0.7) +
     geom_point(data=distance_avg, 
                aes(x = calibrateTrackDistanceRequestedCm, 
@@ -217,6 +233,7 @@ plot_distance <- function(data_list) {
                                        'slope=', slope)) + 
     # Remove regression line, keep R and slope statistics 
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
+    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted")) +
     scale_x_log10(limits = c(min_val, max_val)) +  # Log scale for X-axis
     scale_y_log10(limits = c(min_val, max_val)) +  # Log scale for Y-axis (identical to X)
     scale_color_manual(values= colorPalette) + 
@@ -255,11 +272,6 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     return(NULL)
   }
   
-  # Convert to numeric
-  sizeCheck <- sizeCheck %>% mutate(
-    SizeCheckEstimatedPxPerCm = as.numeric(SizeCheckEstimatedPxPerCm),
-    SizeCheckRequestedCm = as.numeric(SizeCheckRequestedCm)
-  )
   
   # Check for NA values after conversion
   if (sum(is.na(sizeCheck$SizeCheckEstimatedPxPerCm)) == nrow(sizeCheck) ||
@@ -309,11 +321,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       .groups = "drop"
     ) %>%
     filter(!is.na(sdLogDensity))
+
   
-  print("sdLogDensity_data")
-  print(sdLogDensity_data)
-  
-  # Create histogram with stacked colored dots
   if (nrow(sdLogDensity_data) > 0) {
     # Set bin width
     bin_width <- 0.003
@@ -354,17 +363,18 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     histogram_plot <- ggplot(sdLogDensity_data, aes(x = sdLogDensity)) +
       # Add transparent light-green bar for allowed range
       annotate("rect", 
-               xmin = 0, 
+               xmin = -Inf, 
                xmax = calibrateTrackDistanceCheckLengthSDLogAllowed, 
                ymin = 0, 
                ymax = Inf, 
                fill = "lightgreen", 
                alpha = 0.3) +
       # Base histogram with custom breaks
-      geom_histogram(breaks = custom_breaks, alpha = 0.7, fill = "lightgray", color = "black") +
+      geom_histogram(breaks = custom_breaks, alpha = 0, color = "black") +
       # Stacked colored points on top of bars
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
       scale_color_manual(values= colorPalette) +
+      scale_y_continuous(expand=expansion(mult=c(0,0.5))) + 
       guides(color = guide_legend(
         ncol = 2,  
         title = "",
@@ -394,7 +404,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                   group = participant,
                   linetype = reliableBool), 
               alpha = 0.7) +
-    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dashed")) +
+    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted")) +
     geom_point(aes(x = SizeCheckRequestedCm, 
                    y = avg_estimated,
                    color = participant), 

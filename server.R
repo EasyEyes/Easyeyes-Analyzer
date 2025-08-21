@@ -223,7 +223,7 @@ shinyServer(function(input, output, session) {
   calibrateTrackDistanceCheckLengthSDLogAllowed <- 
     reactive({
       input$calibrateTrackDistanceCheckLengthSDLogAllowed
-    }) %>% debounce(5000)
+    }) %>% debounce(2000)
   minWrongTrials <- reactive(input$NWrongTrials) %>% debounce(5000)
   maxReadingSpeed <- reactive(input$maxReadingSpeed) %>% debounce(2000)
   
@@ -773,7 +773,7 @@ shinyServer(function(input, output, session) {
     test_retest_plots <- get_test_retest(df_list())
     plot_calls <- list(
       list(plot = sizeCheckPlot()$scatter, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
-      list(plot = plot_distance(files()$data_list), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = plot_distance(files()$data_list,calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
