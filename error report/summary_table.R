@@ -195,7 +195,8 @@ generate_summary_table <- function(data_list, stairs) {
     group_by(participant, date) %>%
     summarize(goodTrials = format(round(mean(goodTrials), 2), nsmall = 2),
               badTrials = format(round(mean(badTrials), 2), nsmall = 2),
-              .groups="drop")
+              .groups="drop") %>% 
+    mutate(date = as.character(date))
 
   params <- params %>%
     group_by(participant,
@@ -213,8 +214,10 @@ generate_summary_table <- function(data_list, stairs) {
       ), nsmall = 2),
       .groups="drop"
     ) %>%
+    mutate(date = as.character(date)) %>% 
     left_join(NQuestTrials, by = c('participant', 'date')) %>%
     rename("Pavlovia session ID" = "participant")
+    
   
   webGL <-
     get_webGL(data_list) %>% rename("Pavlovia session ID" = "participant")
