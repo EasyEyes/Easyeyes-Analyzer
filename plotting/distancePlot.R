@@ -73,12 +73,17 @@ get_sizeCheck_data <- function(data_list) {
   print('inside get_sizeCheck_data')
   df <- tibble()
   
+  # pxPerCm: pixel density measured with a credit card
+  # SizeCheckEstimatedPxPerCm: pixel density measured from length production
+  
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>%
       select(participant,
              calibrateTrackDistance,
              SizeCheckEstimatedPxPerCm,
              SizeCheckRequestedCm,
+             rulerLength,
+             rulerUnit,
              pxPerCm) %>%
       distinct() %>%
       filter(!is.na(SizeCheckEstimatedPxPerCm),
@@ -285,6 +290,10 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     return(NULL)
   }
   
+  ruler <-  sizeCheck %>%
+    distinct(participant, rulerLength, rulerUnit) %>%
+    filter(!is.na(rulerLength)) %>% 
+    mutate(lengthCm = ifelse(rulerUnit == 'cm', rulerLength, rulerLength * 2.54))
   
   # Check for NA values after conversion
   if (sum(is.na(sizeCheck$SizeCheckEstimatedPxPerCm)) == nrow(sizeCheck) ||
@@ -324,12 +333,13 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   
   # Compute sdLogDensity for each participant
   sdLogDensity_data <- sizeCheck %>%
-    group_by(participant) %>%
+    group_by(participant, pxPerCm) %>%
     summarize(
       sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
       .groups = "drop"
     ) %>%
-    filter(!is.na(sdLogDensity))
+    filter(!is.na(sdLogDensity)) %>% 
+    mutate(ratio = pxPerCm / sdLogDensity)
 
   
   if (nrow(sdLogDensity_data) > 0) {
@@ -361,7 +371,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     custom_breaks <- sort(c(negative_breaks, positive_breaks))
     
     # Create the histogram plot with stacked dots
-    histogram_plot <- ggplot(sdLogDensity_data, aes(x = sdLogDensity)) +
+    h1 <- ggplot(sdLogDensity_data, aes(x = sdLogDensity)) +
       # Add transparent light-green bar for allowed range
       annotate("rect", 
                xmin = -Inf, 
@@ -385,20 +395,27 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       )) +
       labs(
         subtitle = "Histogram of SD of\nlog10 pixel density",
-        x = "sdLogDensity",
+        x = "SD of log10 pixel density",
         y = "Count"
       ) +
       theme_bw() 
   } else {
-    histogram_plot <- ggplot() + 
-      annotate("text", x = 0.5, y = 0.5, label = "No data available for sdLogDensity calculation") +
-      theme_void()
+    h1 <- NULL
+  }
+  if (nrow(ruler) > 0) {
+    h2 <- ggplot(ruler, aes(x = lengthCm)) +
+      geom_histogram(color="black", fill="gray80") + 
+      labs(subtitle = 'Histogram of ruler \nlength (cm)',
+           x = "ruler length (cm)")
+  } else {
+    h2 = NULL
   }
   
   sizeCheck_avg <- sizeCheck_avg %>% 
     left_join(sdLogDensity_data, by = "participant") %>% 
     mutate(reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed))
-    scatter_plot <- ggplot(data=sizeCheck_avg) + 
+  
+  p1 <- ggplot(data=sizeCheck_avg) + 
     geom_line(aes(x = SizeCheckRequestedCm_jitter, 
                   y = avg_estimated,
                   color = participant,
@@ -419,6 +436,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       ggpp::geom_text_npc(data = NULL, aes(npcx = "left", npcy = "bottom"), label = statement) + 
     scale_x_log10() +
     scale_y_log10() +
+    annotation_logticks() + 
     scale_color_manual(values= colorPalette) + 
     guides(color = guide_legend(
       ncol = 3,  
@@ -432,9 +450,28 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
           x = 'Requested length (cm)',
           y = 'Measured pixel density (px/cm)')
   
-  # Return both plots as a list
+  p2 <- ggplot(data=sdLogDensity_data) + 
+    geom_point(aes(x = sdLogDensity, 
+                   y = pxPerCm,
+                   color = participant), 
+               size = 2) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "left", npcy = "bottom"), label = statement) + 
+    scale_color_manual(values= colorPalette) + 
+    guides(color = guide_legend(
+      ncol = 3,  
+      title = "",
+      override.aes = list(size = 2),  
+      keywidth = unit(1.2, "lines"),  
+      keyheight = unit(0.8, "lines")  
+    ),
+    linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
+    labs(subtitle = 'Credit card pixel density re mean production vs.\nSD of log produced pixel density',
+         x = 'Ratio of pixel densities',
+         y = 'SD of log10 pixel density')
   return(list(
-    scatter = scatter_plot,
-    histogram = histogram_plot
+    density_vs_length = p1,
+    density_ratio_vs_sd = p2,
+    sd_hist = h1,
+    ruler_hist = h2
   ))
 }

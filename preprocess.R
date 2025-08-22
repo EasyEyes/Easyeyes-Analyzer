@@ -130,6 +130,8 @@ ensure_columns <- function(t, file_name = NULL) {
     readingPages = NA,
     readingPageWords = NA,
     readWordIdentifiedBool = NA,
+    rulerLength = NA,
+    rulerUnit = "",
     rsvpReadingResponseCorrectBool = NA,
     screenHeightPx = NA,
     screenWidthPx = NA,
@@ -172,6 +174,8 @@ ensure_columns <- function(t, file_name = NULL) {
   t$rows = nrow(t)
   t$cols = ifelse('placeholder' %in% names(t), 1, ncol(t))
   t$date = t$date[t$date != "" & !is.na(t$date)][1]
+  t$rulerLength = t$rulerLength[t$rulerLength != "" & !is.na(t$rulerLength)][1]
+  t$rulerUnit = t$rulerUnit[t$rulerUnit != "" & !is.na(t$rulerUnit)][1]
   t$deviceMemoryGB = sort(t$deviceMemoryGB)[1]
   t$screenWidthCm = sort(t$screenWidthCm)[1]
   t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]

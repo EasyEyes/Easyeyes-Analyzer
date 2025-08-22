@@ -576,7 +576,8 @@ shinyServer(function(input, output, session) {
   crowding_hists <- get_crowding_hist(df_list()$crowding) # Single function call
 
   static_calls <- list(
-    list(plot = sizeCheckPlot()$histogram,                    fname = 'sd-log-density-histogram'),
+    list(plot = sizeCheckPlot()$sd_hist,                    fname = 'sd-log-density-histogram'),
+    list(plot = sizeCheckPlot()$ruler_hist,                 fname = 'ruler-length-histogram'),
     list(plot = acuity_hists[[1]],      fname = 'foveal-acuity-histogram'),
     list(plot = acuity_hists[[2]],      fname = 'peripheral-acuity-histogram'),
     list(plot = crowding_hists$foveal,  fname = 'foveal-crowding-histogram'),
@@ -769,7 +770,8 @@ shinyServer(function(input, output, session) {
     regression_plots <- regression_reading_plot(df_list())
     test_retest_plots <- get_test_retest(df_list())
     plot_calls <- list(
-      list(plot = sizeCheckPlot()$scatter, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
+      list(plot = sizeCheckPlot()$density_vs_length, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
+      list(plot = sizeCheckPlot()$density_ratio_vs_sd, fname = 'ratio-vs-sdLogDensity-plot'),
       list(plot = plot_distance(files()$data_list, calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
