@@ -13,11 +13,13 @@ ptToPx <- function(pt, pxPerCm) {
 
 # Helper function to add experiment name to plot title
 add_experiment_title <- function(plot, experiment_name) {
-  if (is.null(plot) || is.null(experiment_name) || experiment_name == "") {
+  short_name <- get_short_experiment_name(experiment_name)
+  
+  if (is.null(plot) || is.null(short_name) || short_name == "") {
     return(plot)
   }
 
-  short_name <- get_short_experiment_name(experiment_name)
+ 
   # Remove trailing underscore for title display
   short_name <- gsub("_$", "", short_name)
   # Get the current title
@@ -135,10 +137,11 @@ append_plot_list <- function(plotList, fileNames, plot, fname) {
 # Helper function to get a short experiment name for filenames
 # If multiple experiments, pick the alphabetically first one
 get_short_experiment_name <- function(experiment_names) {
-
-  first_name <- sort(experiment_names)[1]
+  if (length(experiment_names) == 0) {
+    return(NULl)
+  }
   
-  return(first_name)
+  return(sort(experiment_names)[1])
 }
 
 get_stats_label <- function(data, needSlope, needCorr) {
