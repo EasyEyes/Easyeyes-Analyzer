@@ -76,6 +76,7 @@ get_sizeCheck_data <- function(data_list) {
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>%
       select(participant,
+             calibrateTrackDistance,
              SizeCheckEstimatedPxPerCm,
              SizeCheckRequestedCm,
              pxPerCm) %>%
@@ -168,7 +169,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   print('inside plot_distance')
   distance <- get_measured_distance_data(data_list)
   sizeCheck <- get_sizeCheck_data(data_list)
-  statement <- paste0('calibrateTrackDistance: calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
+  statement <- paste0('calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
   if (nrow(distance) == 0) {return(NULL)}
   
   if (nrow(sizeCheck) > 0) {
@@ -205,6 +206,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     summarize(
       avg_measured = mean(calibrateTrackDistanceMeasuredCm, na.rm = TRUE),
       .groups = "drop"
+    ) %>%
+    mutate(
+      # Add random horizontal jitter to x-axis variable
+      calibrateTrackDistanceRequestedCm_jitter = calibrateTrackDistanceRequestedCm * runif(n(), min = 0.95, max = 1.05)
     ) 
   if (nrow(sdLogDensity_data) > 0) {
     distance_avg <- distance_avg %>% 
@@ -223,18 +228,18 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   min_val <- min(c(distance_avg$calibrateTrackDistanceRequestedCm, distance_avg$avg_measured))
   max_val <- max(c(distance_avg$calibrateTrackDistanceRequestedCm, distance_avg$avg_measured))
 
-  p <- ggplot() + 
+    p <- ggplot() + 
     geom_line(data=distance_avg, 
-              aes(x = calibrateTrackDistanceRequestedCm, 
+              aes(x = calibrateTrackDistanceRequestedCm_jitter, 
                   y = avg_measured,
                   color = participant, 
                   lty = reliableBool,
                   group = participant), alpha = 0.7) +
-    geom_jitter(data=distance_avg, 
-                aes(x = calibrateTrackDistanceRequestedCm, 
-                    y = avg_measured,
-                    color = participant), 
-                size = 2, width = 0.02, height = 0) + 
+    geom_point(data=distance_avg, 
+               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                   y = avg_measured,
+                   color = participant), 
+               size = 2) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
                         label = paste0('N=', n_distinct(distance_avg$participant), '\n',
@@ -242,10 +247,11 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
                                        'slope=', slope)) + 
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
-                          labels = c("TRUE" = "", "FALSE" = "Dotted line indicates unreliable length production.")) +
+                          labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
     scale_x_log10(limits = c(min_val, max_val)) + 
     scale_y_log10(limits = c(min_val, max_val)) + 
     scale_color_manual(values= colorPalette) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "left", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
       ncol = 3,  # More columns to fit more participants horizontally
       title = "",
@@ -272,6 +278,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
 plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
   print('inside plot_sizeCheck')
   sizeCheck <- get_sizeCheck_data(data_list)
+  statement <- paste0('calibrateTrackDistance = ', sizeCheck$calibrateTrackDistance[1])
   # Check if the data is empty
   if (nrow(sizeCheck) == 0) {
     print("Error: Empty dataset returned from get_sizeCheck_data()")
@@ -296,6 +303,10 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     summarize(
       avg_estimated = mean(SizeCheckEstimatedPxPerCm, na.rm = TRUE),
       .groups = "drop"
+    ) %>%
+    mutate(
+      # Add random horizontal jitter to x-axis variable
+      SizeCheckRequestedCm_jitter = SizeCheckRequestedCm * runif(n(), min = 0.95, max = 1.05)
     )
   
   # Perform regression on averaged data
@@ -330,32 +341,23 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       mutate(
         # Assign each participant to a bin that doesn't cross zero
         bin_center = ifelse(sdLogDensity >= 0,
-                           # For positive values: 0, 0.003, 0.006, etc.
                            floor(sdLogDensity / bin_width) * bin_width + bin_width/2,
-                           # For negative values: -0.003, -0.006, etc.
                            ceiling(sdLogDensity / bin_width) * bin_width - bin_width/2)
       ) %>%
       arrange(bin_center, participant) %>%
       group_by(bin_center) %>%
       mutate(
-        # Stack position within each bin (starting from 1)
         stack_position = row_number(),
-        # Y position for the dot (stacked on top of the histogram bar)
         dot_y = stack_position
       ) %>%
       ungroup()
     
     data_range <- range(sdLogDensity_data$sdLogDensity)
     # Calculate reasonable x-axis maximum (data max + some padding)
-    x_max <- max(sdLogDensity_data$bin_center) + bin_width
+    x_max <- max(sdLogDensity_data$bin_center, calibrateTrackDistanceCheckLengthSDLogAllowed) + bin_width
     
-    # Create breaks for positive side (0, 0.003, 0.006, etc.)
     positive_breaks <- seq(0, ceiling(data_range[2] / bin_width) * bin_width + bin_width, by = bin_width)
-    
-    # Create breaks for negative side (-0.003, -0.006, etc.)
     negative_breaks <- seq(-bin_width, floor(data_range[1] / bin_width) * bin_width - bin_width, by = -bin_width)
-    
-    # Combine breaks
     custom_breaks <- sort(c(negative_breaks, positive_breaks))
     
     # Create the histogram plot with stacked dots
@@ -396,24 +398,25 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   sizeCheck_avg <- sizeCheck_avg %>% 
     left_join(sdLogDensity_data, by = "participant") %>% 
     mutate(reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed))
-  scatter_plot <- ggplot(data=sizeCheck_avg) + 
-    geom_line(aes(x = SizeCheckRequestedCm, 
+    scatter_plot <- ggplot(data=sizeCheck_avg) + 
+    geom_line(aes(x = SizeCheckRequestedCm_jitter, 
                   y = avg_estimated,
                   color = participant,
                   group = participant,
                   linetype = reliableBool), 
               alpha = 0.7) +
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
-                          labels = c("TRUE" = "", "FALSE" = "Dotted line indicates unreliable length production.")) +
-    geom_jitter(aes(x = SizeCheckRequestedCm, 
-                    y = avg_estimated,
-                    color = participant), 
-                size = 2, width = 0.02, height = 0) + 
+                          labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
+    geom_point(aes(x = SizeCheckRequestedCm_jitter, 
+                   y = avg_estimated,
+                   color = participant), 
+               size = 2) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
                         label = paste0('N=', n_distinct(sizeCheck_avg$participant), '\n',
                                        'R=', corr, '\n',
                                        'slope=', slope)) + 
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "left", npcy = "bottom"), label = statement) + 
     scale_x_log10() +
     scale_y_log10() +
     scale_color_manual(values= colorPalette) + 
@@ -427,7 +430,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
      labs(subtitle = 'Estimated pixel density vs Requested length',
           x = 'Requested length (cm)',
-          y = 'Estimated pixel density (px/cm)')
+          y = 'Measured pixel density (px/cm)')
   
   # Return both plots as a list
   return(list(
