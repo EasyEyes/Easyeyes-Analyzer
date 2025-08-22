@@ -85,10 +85,7 @@ comfort_vs_crowding_scatter <- function(df_list) {
   print(paste("Combined fonts after join:", paste(unique(combined_data$font), collapse = ", ")))
   
   if (nrow(combined_data) == 0) {
-    return(ggplot() + 
-           labs(subtitle = "Comfort vs crowding", 
-                x = "Crowding Distance (deg)", 
-                y = "Comfort Rating"))
+    return(NULL)
   }
   
   # Calculate correlation and p-value
@@ -163,10 +160,7 @@ beauty_vs_crowding_scatter <- function(df_list) {
   print(paste("Combined fonts after join:", paste(unique(combined_data$font), collapse = ", ")))
   
   if (nrow(combined_data) == 0) {
-    return(ggplot() + 
-           labs(subtitle = "Beauty vs crowding", 
-                x = "Crowding Distance (deg)", 
-                y = "Beauty Rating"))
+    return(NULL)
   }
   
   # Calculate correlation and p-value
@@ -238,10 +232,7 @@ beauty_vs_comfort_scatter <- function(df_list) {
     filter(!is.na(beauty_rating), !is.na(comfort_rating))
   
   if (nrow(combined_data) == 0) {
-    return(ggplot() + 
-           labs(subtitle = "Beauty vs Comfort", 
-                x = "Comfort Rating", 
-                y = "Beauty Rating"))
+    return(NULL)
   }
   
   # Calculate correlation and p-value

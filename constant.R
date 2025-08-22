@@ -66,7 +66,7 @@ plt_theme_scatter <- theme(
   legend.box = "vertical", 
   legend.key.size = unit(4.5, "mm"),
   legend.title = element_text(size=14,hjust = 0),
-  legend.text = element_text(size=10),
+  legend.text = element_text(size=10, hjust = 0),
   legend.box.margin = margin(0,0,0,0,"cm"),
   panel.grid.major = element_blank(), 
   panel.grid.minor = element_blank(),

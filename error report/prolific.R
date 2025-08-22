@@ -97,7 +97,7 @@ combineProlific <- function(prolificData, summary_table, pretest){
                                         !`ProlificSessionID` %in% unique(summary_table$prolificSessionID))
     }
     # join prolific data to only latest session
-    print(summary_table)
+
     latest_per_participant <- summary_table %>%
       group_by(`Prolific participant ID`, ProlificSessionID) %>%
       slice_max(order_by = date, n = 1, with_ties = FALSE) %>%
@@ -107,8 +107,6 @@ combineProlific <- function(prolificData, summary_table, pretest){
       mutate(`Prolific participant ID` = as.character(`Prolific participant ID`),
              date = as.character(date),
              ProlificSessionID = as.character(ProlificSessionID))
-
-    print(latest_per_participant)
     
     t <- summary_table %>%
       left_join(latest_per_participant, by = c("Prolific participant ID","ProlificSessionID", "date")) %>% 

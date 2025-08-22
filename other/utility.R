@@ -16,12 +16,10 @@ add_experiment_title <- function(plot, experiment_name) {
   if (is.null(plot) || is.null(experiment_name) || experiment_name == "") {
     return(plot)
   }
-  
-  # Use short experiment name for consistency with filenames
+
   short_name <- get_short_experiment_name(experiment_name)
   # Remove trailing underscore for title display
   short_name <- gsub("_$", "", short_name)
-  
   # Get the current title
   original_title <- plot$labels$title
   
@@ -137,26 +135,10 @@ append_plot_list <- function(plotList, fileNames, plot, fname) {
 # Helper function to get a short experiment name for filenames
 # If multiple experiments, pick the alphabetically first one
 get_short_experiment_name <- function(experiment_names) {
-  if (is.null(experiment_names) || experiment_names == "") {
-    return("")
-  }
+
+  first_name <- sort(experiment_names)[1]
   
-  # Split by hyphen (-) to separate different experiment names
-  names_split <- unlist(strsplit(experiment_names, "-"))
-  names_split <- trimws(names_split)  # Remove leading/trailing whitespace
-  names_split <- names_split[names_split != ""]  # Remove empty strings
-  
-  if (length(names_split) == 0) {
-    return("")
-  }
-  
-  # Sort alphabetically and take the first complete experiment name
-  first_name <- sort(names_split)[1]
-  
-  # Clean up the name for filename use (keep alphanumeric characters)
-  clean_name <- gsub("[^[:alnum:]]", "", first_name)
-  
-  return(paste0(clean_name, "_"))
+  return(first_name)
 }
 
 get_stats_label <- function(data, needSlope, needCorr) {

@@ -286,10 +286,7 @@ shinyServer(function(input, output, session) {
     }
     get_duration_data(files()$data_list, conditionNames())
   })
-  
-  # OPTIMIZATION: Shared expensive computation across multiple reactive expressions
-  # get_minDeg_plots is called in histogramsQuality, scatterDiagrams, and scatterQuality
-  # with identical parameters - compute once, reuse everywhere
+
   minDegPlots <- reactive({
     if (is.null(files()) || is.null(df_list())) {
       return(NULL)
@@ -604,10 +601,10 @@ shinyServer(function(input, output, session) {
   all_calls <- c(static_calls, prop_calls)
   for (call in all_calls) {
     plot_with_theme <- call$plot + hist_theme
-    plot_with_footnote <- add_experiment_title(plot_with_theme, experiment_names())
+    p <- add_experiment_title(plot_with_theme, experiment_names())
     res <- append_plot_list(
       l, fileNames,
-      plot_with_footnote,
+      p,
       call$fname
     )
     l         <- res$plotList
@@ -773,7 +770,7 @@ shinyServer(function(input, output, session) {
     test_retest_plots <- get_test_retest(df_list())
     plot_calls <- list(
       list(plot = sizeCheckPlot()$scatter, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
-      list(plot = plot_distance(files()$data_list,calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = plot_distance(files()$data_list, calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
@@ -1061,10 +1058,10 @@ shinyServer(function(input, output, session) {
   output$corrMatrixPlot <- renderImage({
     tryCatch({
       outfile <- tempfile(fileext = '.svg')
-      plot_with_footnote <- add_experiment_title(corrMatrix()$plot, experiment_names())
+      p <- add_experiment_title(corrMatrix()$plot, experiment_names())
       ggsave(
         file = outfile,
-        plot = plot_with_footnote,
+        plot = p,
         device = svglite,
         width = corrMatrix()$width,
         height = corrMatrix()$height
@@ -1079,10 +1076,10 @@ shinyServer(function(input, output, session) {
   output$nMatrixPlot <- renderImage({
     tryCatch({
       outfile <- tempfile(fileext = '.svg')
-      plot_with_footnote <- add_experiment_title(corrMatrix()$n_plot, experiment_names())
+      p <- add_experiment_title(corrMatrix()$n_plot, experiment_names())
       ggsave(
         file   = outfile,
-        plot   = plot_with_footnote,   
+        plot   = p,   
         device = svglite,
         width  = corrMatrix()$width,
         height = corrMatrix()$height
@@ -1096,10 +1093,10 @@ shinyServer(function(input, output, session) {
   
   output$durationCorrMatrixPlot <- renderImage({
     outfile <- tempfile(fileext = '.svg')
-    plot_with_footnote <- add_experiment_title(durationCorrMatrix()$plot, experiment_names())
+    p <- add_experiment_title(durationCorrMatrix()$plot, experiment_names())
     ggsave(
       file = outfile,
-      plot = plot_with_footnote,
+      plot = p,
       device = svg,
       width = durationCorrMatrix()$width,
       height = durationCorrMatrix()$height
@@ -2113,10 +2110,10 @@ shinyServer(function(input, output, session) {
           plot.title = element_text(size = 12, margin = margin(b = 2)),
           plot.margin = margin(5, 5, 5, 5, "pt")
         )
-      plot_with_footnote <- add_experiment_title(base_plot, experiment_names())
+      p <- add_experiment_title(base_plot, experiment_names())
       ggsave(
         filename = outfile,
-        plot = plot_with_footnote,
+        plot = p,
         width = 6,
         height = 8,
         unit = "in",
@@ -2540,26 +2537,41 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("scatter", ii)]] <- renderImage({
-          tryCatch({
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = scatterDiagrams()$plotList[[ii]] +
-                plt_theme_scatter +
-                scale_color_manual(values = colorPalette),
-              width = 7,
-              height = 7,
-              unit = 'in',
-              limitsize = F,
-              device = svglite
-            )
-            
-            list(src = outfile,
-                 contenttype = 'svg')
-            
-          }, error = function(e) {
-          handle_plot_error(e, paste0("scatter", ii), experiment_names(), scatterDiagrams()$fileNames[[ii]])
-          })
+          outfile <- tempfile(fileext = '.svg')
+          ggsave(
+            file = outfile,
+            plot = scatterDiagrams()$plotList[[ii]] +
+              plt_theme_scatter +
+              scale_color_manual(values = colorPalette),
+            width = 7,
+            height = 7,
+            unit = 'in',
+            limitsize = F,
+            device = svglite
+          )
+          
+          list(src = outfile,
+               contenttype = 'svg')
+          # tryCatch({
+          #   outfile <- tempfile(fileext = '.svg')
+          #   ggsave(
+          #     file = outfile,
+          #     plot = scatterDiagrams()$plotList[[ii]] +
+          #       plt_theme_scatter +
+          #       scale_color_manual(values = colorPalette),
+          #     width = 7,
+          #     height = 7,
+          #     unit = 'in',
+          #     limitsize = F,
+          #     device = svglite
+          #   )
+          #   
+          #   list(src = outfile,
+          #        contenttype = 'svg')
+          #   
+          # }, error = function(e) {
+          # handle_plot_error(e, paste0("scatter", ii), experiment_names(), scatterDiagrams()$fileNames[[ii]])
+          # })
           
         }, deleteFile = TRUE)
         output[[paste0("downloadScatter", ii)]] <-

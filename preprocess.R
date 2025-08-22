@@ -65,6 +65,7 @@ ensure_columns <- function(t, file_name = NULL) {
     block = NA,
     blockShuffleGroups2 = "",
     block_condition = "",
+    calibrateTrackDistance = "",
     calibrateTrackDistanceMeasuredCm = "",
     calibrateTrackDistanceRequestedCm = "",
     ComputerInfoFrom51Degrees = "",
@@ -174,7 +175,7 @@ ensure_columns <- function(t, file_name = NULL) {
   t$deviceMemoryGB = sort(t$deviceMemoryGB)[1]
   t$screenWidthCm = sort(t$screenWidthCm)[1]
   t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
-  
+  t$calibrateTrackDistance = t$calibrateTrackDistance[t$calibrateTrackDistance != "" & !is.na(t$calibrateTrackDistance)][1]
   t$hardwareConcurrency = ifelse(sum(!is.na(t$hardwareConcurrency)) >= 1,
                                  unique(t$hardwareConcurrency[!is.na(t$hardwareConcurrency)& t$hardwareConcurrency != ""]), 
                                  "")
@@ -553,7 +554,7 @@ read_files <- function(file){
   print('done preprocess')
   return(list(data_list = data_list, 
               summary_list = summary_list, 
-              experiment = paste(unique(experiment), collapse = "-"),
+              experiment = unique(experiment),
               readingCorpus = paste(unique(readingCorpus), collapse = "-"),
               df = df,
               pretest = pretest,
