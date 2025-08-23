@@ -213,8 +213,11 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
       .groups = "drop"
     ) %>%
     mutate(
-      # Add random horizontal jitter to x-axis variable
-      calibrateTrackDistanceRequestedCm_jitter = calibrateTrackDistanceRequestedCm * runif(n(), min = 0.95, max = 1.05)
+      # Add consistent random horizontal jitter to x-axis variable
+      calibrateTrackDistanceRequestedCm_jitter = {
+        set.seed(42) # Consistent seed for reproducible jitter across both plots
+        calibrateTrackDistanceRequestedCm * runif(n(), min = 0.95, max = 1.05)
+      }
     ) 
   if (nrow(sdLogDensity_data) > 0) {
     distance_avg <- distance_avg %>% 
@@ -230,8 +233,15 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   corr <- cor(log10(distance_avg$calibrateTrackDistanceRequestedCm), log10(distance_avg$avg_measured))
   corr <- format(round(corr,2), nsmall=2)
   
-  min_val <- min(c(distance_avg$calibrateTrackDistanceRequestedCm, distance_avg$avg_measured))
-  max_val <- max(c(distance_avg$calibrateTrackDistanceRequestedCm, distance_avg$avg_measured))
+  # Use appropriate scale limits for cleaner axis display
+  min_val <- 8   # Round down from ~9
+  max_val <- 70  # Round up from ~57 for better visual spacing
+  
+  # DEBUG: Show what Y-values the credit card plot is using
+  print("=== CREDIT CARD Y-VALUE CHECK ===")
+  print("Credit card plot Y-values (avg_measured) sample:")
+  print(head(distance_avg$avg_measured, 10))
+  print("=== END CREDIT CARD CHECK ===")
 
     p <- ggplot() + 
     geom_line(data=distance_avg, 
@@ -251,8 +261,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(limits = c(min_val, max_val), breaks = seq(5, 100, by = 5)) + 
-    scale_y_log10(limits = c(min_val, max_val), breaks = seq(5, 100, by = 5)) + 
+    scale_x_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) + 
+    scale_y_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
@@ -373,8 +383,8 @@ plot_distance_production <- function(data_list,calibrateTrackDistanceCheckLength
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(limits = c(min_val, max_val), breaks = seq(5, 100, by = 5)) + 
-    scale_y_log10(limits = c(min_val, max_val), breaks = seq(5, 100, by = 5)) + 
+    scale_x_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) + 
+    scale_y_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
@@ -569,13 +579,14 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   if (nrow(ruler) > 0) {
     h2 <- ggplot(ruler, aes(x = lengthCm)) +
       geom_histogram(color="black", fill="gray80") + 
-      scale_x_log10(breaks = c(1, 2, 3, 5, 10, 15, 20, 30, 50, 100, 150, 200, 300, 500)) +
-      annotation_logticks(sides = "b") +
+      scale_x_log10(breaks = c(10, 30, 100, 300)) +
+      annotation_logticks(sides = "b", size = 0.3, alpha = 0.7, short = unit(0.1, "cm"), mid = unit(0.15, "cm"), long = unit(0.2, "cm")) +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
                           label = paste0('N=', n_distinct(ruler$participant))) + 
       labs(subtitle = 'Histogram of ruler \nlength (cm)',
            x = "Ruler length (cm)",
-           y = "Count")
+           y = "Count") +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
   } else {
     h2 = NULL
   }
@@ -603,7 +614,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     scale_x_log10(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50)) +
     scale_y_log10(breaks = c(10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500)) +
-    annotation_logticks() + 
+    annotation_logticks(size = 0.3, alpha = 0.7, short = unit(0.1, "cm"), mid = unit(0.15, "cm"), long = unit(0.2, "cm")) + 
     scale_color_manual(values= colorPalette) + 
     guides(color = guide_legend(
       ncol = 3,  
@@ -677,4 +688,155 @@ p2 <- ggplot(sdLogDensity_data) +
     sd_hist = h1,
     ruler_hist = h2
   ))
+}
+
+plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+  print('=== STARTING plot_distance_production ===')
+  distance <- get_measured_distance_data(data_list)
+  sizeCheck <- get_sizeCheck_data(data_list)
+  statement <- paste0('calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
+  
+  if (nrow(distance) == 0) {return(NULL)}
+  
+  # Calculate density ratio data (same as credit card plot's sdLogDensity_data calculation)
+  if (nrow(sizeCheck) > 0) {
+    densityRatio_data <- sizeCheck %>%
+      group_by(participant, pxPerCm) %>%
+      summarize(
+        avg_estimated = 10^mean(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
+        sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      filter(!is.na(sdLogDensity)) %>%
+      mutate(
+        densityRatio = pxPerCm / avg_estimated,
+        reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed)
+      )
+    
+    sdLogDensity_data <- densityRatio_data %>%
+      select(participant, sdLogDensity, reliableBool)
+      
+  } else {
+    densityRatio_data <- tibble()
+    sdLogDensity_data <- tibble()
+  }
+
+  # Ensure we have at least one valid row
+  distance <- na.omit(distance)
+  if (nrow(distance) == 0) {
+    print("Error: No valid numeric data available after NA removal.")
+    return(NULL)
+  }
+  
+  # Average Measured Distance per Participant per Requested Distance (SAME AS CREDIT CARD)
+  distance_avg <- distance %>%
+    group_by(participant, calibrateTrackDistanceRequestedCm) %>%
+    summarize(
+      creditCardMeasuredCm = mean(calibrateTrackDistanceMeasuredCm, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      # Add consistent random horizontal jitter to x-axis variable (SAME AS CREDIT CARD)
+      calibrateTrackDistanceRequestedCm_jitter = {
+        set.seed(42) # IDENTICAL seed as credit card plot for identical jitter
+        calibrateTrackDistanceRequestedCm * runif(n(), min = 0.95, max = 1.05)
+      }
+    )
+    
+  # Join with density ratio data
+  if (nrow(densityRatio_data) > 0) {
+    distance_avg <- distance_avg %>% 
+      left_join(densityRatio_data %>% select(participant, densityRatio), by = "participant") %>%
+      left_join(sdLogDensity_data, by = "participant")
+  } else {
+    distance_avg <- distance_avg %>% 
+      mutate(densityRatio = 1, reliableBool = TRUE)
+  }
+  
+  # Apply production correction - this is the ONLY difference from credit card plot
+  distance_avg <- distance_avg %>%
+    mutate(
+      avg_measured = ifelse(!is.na(densityRatio), densityRatio * creditCardMeasuredCm, creditCardMeasuredCm)
+    )
+  
+  # DEBUG: Verify the Y-values are actually different
+  print("DEBUG PRODUCTION: Sample Y-values being plotted:")
+  print(distance_avg %>% 
+    select(participant, creditCardMeasuredCm, densityRatio, avg_measured) %>% 
+    head(10))
+  
+  print("DEBUG PRODUCTION: Y-value ranges:")
+  print(paste("Credit card range:", min(distance_avg$creditCardMeasuredCm), "to", max(distance_avg$creditCardMeasuredCm)))
+  print(paste("Production range (avg_measured):", min(distance_avg$avg_measured), "to", max(distance_avg$avg_measured)))
+  print(paste("Are they identical?", identical(distance_avg$creditCardMeasuredCm, distance_avg$avg_measured)))
+
+  # IDENTICAL regression and correlation calculations as credit card plot
+  fit <- lm(log10(avg_measured) ~ log10(calibrateTrackDistanceRequestedCm), data = distance_avg)
+
+  slope <- coef(fit)
+  slope <- format(round(slope[['log10(calibrateTrackDistanceRequestedCm)']], 2), nsmall=2)
+  corr <- cor(log10(distance_avg$calibrateTrackDistanceRequestedCm), log10(distance_avg$avg_measured))
+  corr <- format(round(corr,2), nsmall=2)
+  
+  # IDENTICAL scale limits as credit card plot
+  # Use appropriate scale limits for cleaner axis display
+  min_val <- 8   # Round down from ~9
+  max_val <- 70  # Round up from ~57 for better visual spacing
+  
+  # FINAL VERIFICATION: Show what Y-values we're actually plotting
+  print("=== FINAL Y-VALUE CHECK ===")
+  print("Production plot Y-values (avg_measured) sample:")
+  print(head(distance_avg$avg_measured, 10))
+  print("Original credit card values sample:")  
+  print(head(distance_avg$creditCardMeasuredCm, 10))
+  print("Density ratios sample:")
+  print(head(distance_avg$densityRatio, 10))
+  print(paste("Y-values are different from original:", !identical(distance_avg$avg_measured, distance_avg$creditCardMeasuredCm)))
+  print("=== END Y-VALUE CHECK ===")
+
+  # IDENTICAL plot creation as credit card plot - only difference is labels
+  p <- ggplot() + 
+    geom_line(data=distance_avg, 
+              aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                  y = avg_measured,
+                  color = participant, 
+                  lty = reliableBool,
+                  group = participant), alpha = 0.7) +
+    geom_point(data=distance_avg, 
+               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                   y = avg_measured,
+                   color = participant), 
+               size = 2) + 
+    ggpp::geom_text_npc(aes(npcx="left",
+                            npcy="top"),
+                        label = paste0('N=', n_distinct(distance_avg$participant))) + 
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
+    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
+                          labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
+    scale_x_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) + 
+    scale_y_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) + 
+    scale_color_manual(values= colorPalette) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+    guides(color = guide_legend(
+      ncol = 3,  # SAME AS CREDIT CARD: More columns to fit more participants horizontally
+      title = "",
+      override.aes = list(size = 2),  # SAME AS CREDIT CARD: Smaller points in legend
+      keywidth = unit(1.2, "lines"),  # SAME AS CREDIT CARD: Reduce key width
+      keyheight = unit(0.8, "lines")  # SAME AS CREDIT CARD: Reduce key height
+    ),
+    linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
+    coord_fixed() +  # SAME AS CREDIT CARD
+    labs(subtitle = 'Production-measured vs. requested distance',  # ONLY LABEL DIFFERENCE
+         x = 'Requested distance (cm)',                              # SAME AS CREDIT CARD
+         y = 'Production-measured distance (cm)') +
+    theme(  # IDENTICAL THEME AS CREDIT CARD
+      axis.title = element_text(size = 10),        # Same as credit card
+      axis.text = element_text(size = 9),          # Same as credit card
+      plot.title = element_text(size = 12),        # Same as credit card
+      legend.position = "bottom",                   # Same as credit card
+      legend.box = "horizontal"                     # Same as credit card
+    )
+
+  print('=== FINISHED plot_distance_production ===')
+  return(p)
 }

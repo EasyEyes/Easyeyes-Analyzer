@@ -690,6 +690,7 @@ generate_threshold <-
       if ("rulerLength" %in% available_cols) select_cols <- c(select_cols, "rulerLength")
       if ("rulerUnit" %in% available_cols) select_cols <- c(select_cols, "rulerUnit")
       if ("calibrateTrackDistance" %in% available_cols) select_cols <- c(select_cols, "calibrateTrackDistance")
+      if ("distanceObjectCm" %in% available_cols) select_cols <- c(select_cols, "distanceObjectCm")
       
       # Extract data with standardized columns
       temp_data <- data_list[[i]] %>% 
@@ -701,14 +702,15 @@ generate_threshold <-
           PavloviaSessionID = if("PavloviaSessionID" %in% names(.)) PavloviaSessionID else NA_character_,
           rulerLength = if("rulerLength" %in% names(.)) as.numeric(rulerLength) else NA_real_,
           rulerUnit = if("rulerUnit" %in% names(.)) as.character(rulerUnit) else NA_character_,
-          calibrateTrackDistance = if("calibrateTrackDistance" %in% names(.)) as.character(calibrateTrackDistance) else NA_character_
+          calibrateTrackDistance = if("calibrateTrackDistance" %in% names(.)) as.character(calibrateTrackDistance) else NA_character_,
+          distanceObjectCm = if("distanceObjectCm" %in% names(.)) as.numeric(distanceObjectCm) else NA_real_
         ) %>%
-        select(participant, PavloviaSessionID, rulerLength, rulerUnit, calibrateTrackDistance)
+        select(participant, PavloviaSessionID, rulerLength, rulerUnit, calibrateTrackDistance, distanceObjectCm)
       
       participant_info_list[[i]] <- temp_data
     }
     
-    # Combine all datasets with consistent column structure
+    # Combine all datasets with consistent column structure and consolidate duplicates
     participant_info <- do.call(rbind, participant_info_list) %>%
       distinct() %>%
       mutate(
@@ -717,9 +719,18 @@ generate_threshold <-
         # Convert ruler length to cm
         rulerCm = case_when(
           !is.na(rulerLength) & rulerUnit == "cm" ~ rulerLength,
-          !is.na(rulerLength) & rulerUnit == "in" ~ rulerLength * 2.54,
+          !is.na(rulerLength) & rulerUnit == "inches" ~ rulerLength * 2.54,
           .default = NA_real_
         )
+      ) %>%
+      # Consolidate multiple rows per participant by taking first non-NA value for each field
+      group_by(PavloviaParticipantID) %>%
+      summarize(
+        participant = first(participant),
+        rulerCm = first(rulerCm[!is.na(rulerCm)]),
+        calibrateTrackDistance = first(calibrateTrackDistance[!is.na(calibrateTrackDistance)]),
+        distanceObjectCm = first(distanceObjectCm[!is.na(distanceObjectCm)]),
+        .groups = "drop"
       )
     
     print(paste("Participant info table created with", nrow(participant_info), "participants"))
@@ -734,7 +745,7 @@ generate_threshold <-
       temp_qa <- data_list[[i]] %>%
         filter(!is.na(questionAndAnswerNickname),
                questionAndAnswerNickname %in% c("COMMENT", "OBJCT")) %>%
-        select(participant, questionAndAnswerNickname, questionAndAnswerResponse) %>%
+        select(participant, questionAndAnswerNickname, questionAndAnswerResponse, questionAndAnswerQuestion) %>%
         distinct()
       
       if (nrow(temp_qa) > 0) {
@@ -751,7 +762,8 @@ generate_threshold <-
     } else {
       participant_qa <- tibble(participant = character(), 
                               questionAndAnswerNickname = character(), 
-                              questionAndAnswerResponse = character())
+                              questionAndAnswerResponse = character(),
+                              questionAndAnswerQuestion = character())
       print("DEBUG: No participant QA data found")
     }
     
@@ -764,11 +776,15 @@ generate_threshold <-
     
     objects_data <- participant_qa %>%
       filter(questionAndAnswerNickname == "OBJCT") %>%
-      select(participant, questionAndAnswerResponse) %>%
+      select(participant, questionAndAnswerQuestion) %>%
       distinct() %>%
-      rename(Object = questionAndAnswerResponse)
+      rename(Object = questionAndAnswerQuestion)
     
     print(paste("DEBUG: Found", nrow(comments_data), "COMMENT responses and", nrow(objects_data), "OBJCT responses"))
+    
+    # Debug distanceObjectCm extraction
+    print("DEBUG: Checking distanceObjectCm values:")
+    print(participant_info %>% select(participant, calibrateTrackDistance, distanceObjectCm) %>% head(10))
     
     # Join all data together
     participant_info <- participant_info %>%
@@ -777,7 +793,7 @@ generate_threshold <-
       mutate(
         # objectLengthCm and Object are only defined when calibrateTrackDistance === "object"
         objectLengthCm = case_when(
-          calibrateTrackDistance == "object" ~ rulerCm,
+          calibrateTrackDistance == "object" ~ distanceObjectCm,
           .default = NA_real_
         ),
         Object = case_when(
