@@ -483,12 +483,12 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     custom_breaks <- sort(c(negative_breaks, positive_breaks))
     
     # Create the histogram plot with stacked dots
-    # Calculate legend rows and dynamic sizing
+    # Calculate legend rows and dynamic sizing (now using 3 columns)
     n_participants <- n_distinct(sdLogDensity_data$participant)
-    legend_rows <- ceiling(n_participants / 2)
+    legend_rows <- ceiling(n_participants / 3)  # Changed to 3 columns
     
-    # Dynamic sizing based on number of rows
-    legend_text_size <-8 * (5/6)^(legend_rows - 1)
+    # Dynamic sizing based on number of rows - increase base size for dot plots
+    legend_text_size <- 7
     
     # Calculate appropriate y-axis limit (remove empty space above)
     max_count <- max(sdLogDensity_data$dot_y)
@@ -513,27 +513,27 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
                           label = paste0('N=', n_distinct(sdLogDensity_data$participant))) + 
       guides(color = guide_legend(
-        nrow = 4,  
+        ncol = 4,  
         title = "",
-        override.aes = list(size = 0),  
-        keywidth = unit(0, "pt"),
-        keyheight = unit(0, "pt")
+        override.aes = list(size = 2),  # Increase legend dot size
+        keywidth = unit(0.3, "cm"),     # Add some width for the dots
+        keyheight = unit(0.3, "cm")     # Add some height for the dots
       )) +
       labs(
-        subtitle = "Histogram of SD of\nlog10 pixel density",
+        subtitle = "Histogram of SD of log10 pixel density",
         x = "SD of log10 pixel density",
         y = "Count"
       ) +
       theme_bw() + 
-      theme( legend.key.size = unit(0, "pt"),
+      theme( legend.key.size = unit(0.3, "cm"),        # Increase key size for dots
              legend.title = element_text(size=6),
-             legend.text = element_text(size=legend_text_size * 0.8, margin = margin(l=0.1, r=0, t = -1, b = -1)),
+             legend.text = element_text(size=legend_text_size * 1.2, margin = margin(l=0.1, r=0, t = -1, b = -1)),
              legend.box.margin = margin(l=-6,r=0,t=2,b=1,"mm"),
-             legend.box.spacing = unit(0, "pt"),
-             legend.spacing.y = unit(0, "pt"),
-             legend.spacing.x = unit(0.1, "pt"),
-             legend.key.height = unit(0, "pt"),
-             legend.key.width = unit(0.1, "pt"),
+             legend.box.spacing = unit(0.2, "cm"),          # Add some spacing between legend elements
+             legend.spacing.y = unit(0.1, "cm"),            # Add vertical spacing
+             legend.spacing.x = unit(0.2, "cm"),            # Add horizontal spacing
+             legend.key.height = unit(0.3, "cm"),           # Match keyheight from guide_legend
+             legend.key.width = unit(0.3, "cm"),            # Match keywidth from guide_legend
              legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
              legend.margin = margin(l=0, r=0, t=0, b=0, unit = 'mm'),
              legend.position = "top", 
@@ -542,18 +542,18 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
              panel.grid.major = element_blank(), 
              panel.grid.minor = element_blank(),
              panel.background = element_blank(), 
-             axis.title = element_text(size = 9),        # Reduced from 12
-             axis.text = element_text(size = 8),         # Reduced from 12  
+             axis.title = element_text(size = 12),        # Reduced from 12
+             axis.text = element_text(size = 12),         # Reduced from 12  
              axis.line = element_line(colour = "black"),
-             axis.text.y = element_text(size = 8),       # Reduced from 10
+             axis.text.y = element_text(size = 10),       # Reduced from 10
              plot.title = element_text(size=7,
                                        hjust = 0,
                                        margin = margin(b = 0)),
              plot.title.position = "plot",
-             plot.subtitle = element_text(size=10,       # Reduced from 12
+             plot.subtitle = element_text(size=14,       # Increased for dot plots
                                           hjust = 0,
                                           margin = margin(t = 0)),
-             plot.caption = element_text(size=8),        # Reduced from 10
+             plot.caption = element_text(size=10),        # Reduced from 10
              plot.margin = margin(
                t = 0.2,                                  # Increased top margin for legend
                r = 0.1,

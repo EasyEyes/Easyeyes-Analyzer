@@ -576,7 +576,6 @@ shinyServer(function(input, output, session) {
   crowding_hists <- get_crowding_hist(df_list()$crowding) # Single function call
 
   static_calls <- list(
-    list(plot = sizeCheckPlot()$sd_hist,                                       fname = 'sd-log-density-histogram'),
     list(plot = sizeCheckPlot()$ruler_hist + hist_theme,                       fname = 'ruler-length-histogram'),
     list(plot = acuity_hists[[1]] + hist_theme,                                fname = 'foveal-acuity-histogram'),
     list(plot = acuity_hists[[2]] + hist_theme,                                fname = 'peripheral-acuity-histogram'),
@@ -739,6 +738,32 @@ shinyServer(function(input, output, session) {
         plot <- add_experiment_title(plot, experiment_names())
       }
       res <- append_plot_list(l, fileNames, plot, call$fname)
+      l <- res$plotList
+      fileNames <- res$fileNames
+    }
+    
+    return(list(
+      plotList = l,
+      fileNames = fileNames
+    ))
+  })
+  
+  #### dotPlots ####
+  dotPlots <- reactive({
+    if (is.null(files())) {
+      return(list(plotList = list(), fileNames = list()))
+    }
+    
+    l         <- list()
+    fileNames <- list()
+    
+    # SD histogram goes here with larger sizing
+    static_calls <- list(
+      list(plot = sizeCheckPlot()$sd_hist, fname = 'sd-log-density-histogram')
+    )
+    
+    for (call in static_calls) {
+      res <- append_plot_list(l, fileNames, call$plot, call$fname)
       l <- res$plotList
       fileNames <- res$fileNames
     }
@@ -1720,6 +1745,146 @@ shinyServer(function(input, output, session) {
                 plot   = plots[[jj]] + hist_theme,
                 width  = 2.5,
                 height = 2.5,
+                unit   = "in",
+                limitsize = FALSE,
+                device   = if (input$fileType == "svg") svglite::svglite else input$fileType
+              )
+            }
+          }
+        )
+      })
+    }
+    
+    return(out)
+  })
+
+  output$dotPlots <- renderUI({
+    out    <- list()
+    plots  <- dotPlots()$plotList
+    files  <- dotPlots()$fileNames
+    n      <- length(plots)
+    
+    if (n == 0) {
+      return(out)
+    }
+    
+    # Use 50% width for dot plots (2 per row)
+    nPerRow <- 2
+    
+    for (i in seq(1, n, by = nPerRow)) {
+      idx <- i:min(i + nPerRow - 1, n)
+      
+      # --- row of plots ---
+      plot_cells <- lapply(idx, function(j) {
+        shinycssloaders::withSpinner(
+          plotOutput(paste0("dot", j),
+                     width  = "100%",
+                     height = "100%"),
+          type = 4
+        )
+      })
+      # pad out any missing cells so splitLayout stays stable
+      if (length(plot_cells) < nPerRow)
+        plot_cells <- c(plot_cells, rep("", nPerRow - length(plot_cells)))
+      
+      out[[length(out) + 1]] <- do.call(splitLayout, c(
+        list(
+          cellWidths = rep("50%", nPerRow),
+          style      = "overflow-x: hidden; white-space: nowrap;"
+        ),
+        plot_cells
+      ))
+      
+      # --- row of download buttons ---
+      dl_cells <- lapply(idx, function(j) {
+        downloadButton(paste0("downloadDot", j), "Download")
+      })
+      if (length(dl_cells) < nPerRow)
+        dl_cells <- c(dl_cells, rep("", nPerRow - length(dl_cells)))
+      
+      out[[length(out) + 1]] <- do.call(splitLayout, c(
+        list(
+          cellWidths = rep("50%", nPerRow),
+          style      = "overflow-x: hidden; white-space: nowrap;"
+        ),
+        dl_cells
+      ))
+    }
+    
+    # register each renderImage & downloadHandler
+    for (j in seq_along(plots)) {
+      local({
+        jj <- j
+       
+      output[[paste0("dot", jj)]] <- renderImage({
+          tryCatch({
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot =  plots[[jj]],
+              device = svglite,
+              width = 6,    # Larger width for better legend visibility
+              height = 4,   # Larger height for better legend visibility
+              unit = 'in'
+            )
+            list(src = outfile, contenttype = 'svg')
+          }, error = function(e) {
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              xlim(0, 1) +
+              ylim(0, 1) +
+              theme_void()
+            
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = error_plot,
+              device = svglite,
+              width = 6,
+              height = 4,
+              unit = 'in'
+            )
+            list(
+              src = outfile,
+              contenttype = 'svg',
+              alt = paste0("Error in ", files[[jj]])
+            )
+          })
+        
+      }, deleteFile = TRUE)
+        
+        output[[paste0("downloadDot", jj)]] <- downloadHandler(
+          filename = paste0(
+            get_short_experiment_name(experiment_names()),
+            files[[jj]],
+            ".", input$fileType
+          ),
+          content = function(file) {
+            if (input$fileType == "png") {
+              tmp_svg <- tempfile(fileext = ".svg")
+              ggsave(tmp_svg,
+                     plot   = plots[[jj]],
+                     device = svglite,
+                     width  = 6,
+                     height = 4,
+                     unit   = "in",
+                     limitsize = FALSE)
+              rsvg::rsvg_png(tmp_svg, file,
+                             width  = 1800,    # 6 * 300 DPI
+                             height = 1200)    # 4 * 300 DPI
+            } else {
+              ggsave(
+                file,
+                plot   = plots[[jj]],
+                width  = 6,
+                height = 4,
                 unit   = "in",
                 limitsize = FALSE,
                 device   = if (input$fileType == "svg") svglite::svglite else input$fileType
@@ -4342,11 +4507,21 @@ shinyServer(function(input, output, session) {
         for (i in seq_along(histograms()$plotList)) {
           plotFileName <- paste0(short_exp_name, histograms()$fileNames[[i]], '.', input$fileType)
           
+          savePlot(histograms()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
+          fileNames <- c(fileNames, plotFileName)
+        }
+      }
+      
+      # Save dot plots
+      if (length(dotPlots()$plotList) > 0) {
+        for (i in seq_along(dotPlots()$plotList)) {
+          plotFileName <- paste0(short_exp_name, dotPlots()$fileNames[[i]], '.', input$fileType)
+          
           # Use larger dimensions for SD histogram to make legend readable
-          if (grepl("sd-log-density-histogram", histograms()$fileNames[[i]])) {
-            savePlot(histograms()$plotList[[i]] + plt_theme, plotFileName, input$fileType, width = 12, height = 8)
+          if (grepl("sd-log-density-histogram", dotPlots()$fileNames[[i]])) {
+            savePlot(dotPlots()$plotList[[i]], plotFileName, input$fileType, width = 12, height = 8)
           } else {
-            savePlot(histograms()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
+            savePlot(dotPlots()$plotList[[i]], plotFileName, input$fileType, width = 8, height = 6)
           }
           fileNames <- c(fileNames, plotFileName)
         }
