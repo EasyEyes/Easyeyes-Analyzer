@@ -576,17 +576,17 @@ shinyServer(function(input, output, session) {
   crowding_hists <- get_crowding_hist(df_list()$crowding) # Single function call
 
   static_calls <- list(
-    list(plot = sizeCheckPlot()$sd_hist,                    fname = 'sd-log-density-histogram'),
-    list(plot = sizeCheckPlot()$ruler_hist,                 fname = 'ruler-length-histogram'),
-    list(plot = acuity_hists[[1]],      fname = 'foveal-acuity-histogram'),
-    list(plot = acuity_hists[[2]],      fname = 'peripheral-acuity-histogram'),
-    list(plot = crowding_hists$foveal,  fname = 'foveal-crowding-histogram'),
-    list(plot = crowding_hists$peripheral, fname = 'peripheral-crowding-histogram'),
-    list(plot = get_reading_hist(df_list()$rsvp),                  fname = 'rsvp-reading-speed-histogram'),
-    list(plot = get_reading_hist(df_list()$reading),               fname = 'reading-speed-histogram'),
-    list(plot = get_repeatedLetter_hist(df_list()$repeatedLetters),fname = 'repeated-letter-crowding-histogram'),
-    list(plot = get_age_histogram(df_list()$age),                  fname = 'age-histogram'),
-    list(plot = get_grade_histogram(df_list()$age),                fname = 'grade-histogram')
+    list(plot = sizeCheckPlot()$sd_hist,                                       fname = 'sd-log-density-histogram'),
+    list(plot = sizeCheckPlot()$ruler_hist + hist_theme,                       fname = 'ruler-length-histogram'),
+    list(plot = acuity_hists[[1]] + hist_theme,                                fname = 'foveal-acuity-histogram'),
+    list(plot = acuity_hists[[2]] + hist_theme,                                fname = 'peripheral-acuity-histogram'),
+    list(plot = crowding_hists$foveal+ hist_theme,                             fname = 'foveal-crowding-histogram'),
+    list(plot = crowding_hists$peripheral+ hist_theme,                         fname = 'peripheral-crowding-histogram'),
+    list(plot = get_reading_hist(df_list()$rsvp)+ hist_theme,                  fname = 'rsvp-reading-speed-histogram'),
+    list(plot = get_reading_hist(df_list()$reading)+ hist_theme,               fname = 'reading-speed-histogram'),
+    list(plot = get_repeatedLetter_hist(df_list()$repeatedLetters)+ hist_theme,fname = 'repeated-letter-crowding-histogram'),
+    list(plot = get_age_histogram(df_list()$age)+ hist_theme,                  fname = 'age-histogram'),
+    list(plot = get_grade_histogram(df_list()$age)+ hist_theme,                fname = 'grade-histogram')
   )
 
  
@@ -601,8 +601,7 @@ shinyServer(function(input, output, session) {
 
   all_calls <- c(static_calls, prop_calls)
   for (call in all_calls) {
-    plot_with_theme <- call$plot + hist_theme
-    p <- add_experiment_title(plot_with_theme, experiment_names())
+    p <- add_experiment_title(call$plot, experiment_names())
     res <- append_plot_list(
       l, fileNames,
       p,
@@ -1654,7 +1653,7 @@ shinyServer(function(input, output, session) {
             outfile <- tempfile(fileext = '.svg')
             ggsave(
               file = outfile,
-              plot =  plots[[jj]] + hist_theme,
+              plot =  plots[[jj]],
               device = svglite,
               width = 2.5,
               height = 2.5,

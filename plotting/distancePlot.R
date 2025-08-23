@@ -253,10 +253,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(limits = c(min_val, max_val)) + 
-    scale_y_log10(limits = c(min_val, max_val)) + 
+    scale_x_log10(limits = c(min_val, max_val), breaks = seq(5, 100, by = 5)) + 
+    scale_y_log10(limits = c(min_val, max_val), breaks = seq(5, 100, by = 5)) + 
     scale_color_manual(values= colorPalette) + 
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "left", npcy = "bottom"), label = statement) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
       ncol = 3,  # More columns to fit more participants horizontally
       title = "",
@@ -310,23 +310,14 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   sizeCheck_avg <- sizeCheck %>%
     group_by(participant, SizeCheckRequestedCm) %>%
     summarize(
-      avg_estimated = mean(SizeCheckEstimatedPxPerCm, na.rm = TRUE),
+      avg_estimated = 10^mean(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
       .groups = "drop"
     ) %>%
     mutate(
       # Add random horizontal jitter to x-axis variable
       SizeCheckRequestedCm_jitter = SizeCheckRequestedCm * runif(n(), min = 0.95, max = 1.05)
     )
-  
-  # Perform regression on averaged data
-  fit <- lm(log10(avg_estimated) ~ log10(SizeCheckRequestedCm), data = sizeCheck_avg)
 
-  # Calculate slope and correlation
-  slope <- coef(fit)
-  slope <- format(round(slope[['log10(SizeCheckRequestedCm)']], 2), nsmall=2)
-  corr <- cor(log10(sizeCheck_avg$SizeCheckRequestedCm), log10(sizeCheck_avg$avg_estimated))
-  corr <- format(round(corr,2), nsmall=2)
-  
   # Determine scale limits
   min_val <- min(c(sizeCheck_avg$SizeCheckRequestedCm, sizeCheck_avg$avg_estimated))
   max_val <- max(c(sizeCheck_avg$SizeCheckRequestedCm, sizeCheck_avg$avg_estimated))
@@ -335,11 +326,12 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   sdLogDensity_data <- sizeCheck %>%
     group_by(participant, pxPerCm) %>%
     summarize(
+      avg_estimated=10^mean(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
       sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
       .groups = "drop"
     ) %>%
     filter(!is.na(sdLogDensity)) %>% 
-    mutate(ratio = pxPerCm / sdLogDensity)
+    mutate(ratio = pxPerCm / avg_estimated)
 
   
   if (nrow(sdLogDensity_data) > 0) {
@@ -371,6 +363,13 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     custom_breaks <- sort(c(negative_breaks, positive_breaks))
     
     # Create the histogram plot with stacked dots
+    # Calculate legend rows and dynamic sizing
+    n_participants <- n_distinct(sdLogDensity_data$participant)
+    legend_rows <- ceiling(n_participants / 2)
+    
+    # Dynamic sizing based on number of rows
+    legend_text_size <-8 * (5/6)^(legend_rows - 1)
+    
     h1 <- ggplot(sdLogDensity_data, aes(x = sdLogDensity)) +
       # Add transparent light-green bar for allowed range
       annotate("rect", 
@@ -387,32 +386,72 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       scale_y_continuous(expand=expansion(mult=c(0,0.5))) + 
       scale_x_continuous(limits = c(0, x_max)) +
       guides(color = guide_legend(
-        ncol = 2,  
+        nrow = 4,  
         title = "",
-        override.aes = list(size = 1.5),  
-        keywidth = unit(0.8, "lines"),  
-        keyheight = unit(0.3, "lines")
+        override.aes = list(size = 0),  
+        keywidth = unit(0, "pt"),
+        keyheight = unit(0, "pt")
       )) +
       labs(
         subtitle = "Histogram of SD of\nlog10 pixel density",
         x = "SD of log10 pixel density",
         y = "Count"
       ) +
-      theme_bw() 
+      theme_bw() + 
+      theme( legend.key.size = unit(0, "pt"),
+             legend.title = element_text(size=7),
+             legend.text = element_text(size=legend_text_size, margin = margin(l=0.1, r=0, t = -1, b = -1)),
+             legend.box.margin = margin(l=-6,r=0,t=0,b=1,"mm"),
+             legend.box.spacing = unit(0, "pt"),
+             legend.spacing.y = unit(0, "pt"),
+             legend.spacing.x = unit(0.1, "pt"),
+             legend.key.height = unit(0, "pt"),
+             legend.key.width = unit(0.1, "pt"),
+             legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+             legend.margin = margin(l=0, r=0, t=0, b=0, unit = 'mm'),
+             legend.position = "top", 
+             legend.box = "vertical", 
+             legend.justification='left',
+             panel.grid.major = element_blank(), 
+             panel.grid.minor = element_blank(),
+             panel.background = element_blank(), 
+             axis.title = element_text(size = 12),
+             axis.text = element_text(size = 12),
+             axis.line = element_line(colour = "black"),
+             axis.text.y = element_text(size  = 10),
+             plot.title = element_text(size=7,
+                                       hjust = 0,
+                                       margin = margin(b = 0)),
+             plot.title.position = "plot",
+             plot.subtitle = element_text(size=12,
+                                          hjust = 0,
+                                          margin = margin(t = 0)),
+             plot.caption = element_text(size=10),
+             plot.margin = margin(
+               t = 0,
+               r = 0.1,
+               b = 0,
+               l = 0.1,
+               "inch"
+             ),
+             strip.text = element_text(size = 14))
+
   } else {
     h1 <- NULL
   }
   if (nrow(ruler) > 0) {
     h2 <- ggplot(ruler, aes(x = lengthCm)) +
       geom_histogram(color="black", fill="gray80") + 
+      scale_x_log10() +
       labs(subtitle = 'Histogram of ruler \nlength (cm)',
-           x = "ruler length (cm)")
+           x = "Ruler length (cm)",
+           y = "Count")
   } else {
     h2 = NULL
   }
   
   sizeCheck_avg <- sizeCheck_avg %>% 
-    left_join(sdLogDensity_data, by = "participant") %>% 
+    left_join(sdLogDensity_data %>% select(-avg_estimated), by = "participant") %>% 
     mutate(reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed))
   
   p1 <- ggplot(data=sizeCheck_avg) + 
@@ -430,12 +469,10 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                size = 2) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
-                        label = paste0('N=', n_distinct(sizeCheck_avg$participant), '\n',
-                                       'R=', corr, '\n',
-                                       'slope=', slope)) + 
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "left", npcy = "bottom"), label = statement) + 
-    scale_x_log10() +
-    scale_y_log10() +
+                        label = paste0('N=', n_distinct(sizeCheck_avg$participant))) + 
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+    scale_x_log10(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50)) +
+    scale_y_log10(breaks = c(10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500)) +
     annotation_logticks() + 
     scale_color_manual(values= colorPalette) + 
     guides(color = guide_legend(
@@ -452,11 +489,12 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   
   p2 <- ggplot(data=sdLogDensity_data) + 
     geom_point(aes(x = sdLogDensity, 
-                   y = pxPerCm,
+                   y = ratio,
                    color = participant), 
                size = 2) + 
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "left", npcy = "bottom"), label = statement) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     scale_color_manual(values= colorPalette) + 
+    scale_y_log10() + 
     guides(color = guide_legend(
       ncol = 3,  
       title = "",
@@ -466,8 +504,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     ),
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
     labs(subtitle = 'Credit card pixel density re mean production vs.\nSD of log produced pixel density',
-         x = 'Ratio of pixel densities',
-         y = 'SD of log10 pixel density')
+         x = 'SD of log10 pixel density',
+         y = 'Ratio of pixel densities')
   return(list(
     density_vs_length = p1,
     density_ratio_vs_sd = p2,
