@@ -254,7 +254,7 @@ log_detailed_error <- function(e, plot_id = "Unknown Plot") {
 }
 
 # Enhanced error handler for plot rendering with detailed console logging
-handle_plot_error <- function(e, plot_id, experiment_names_func = NULL, plot_subtitle = "") {
+handle_plot_error <- function(e, plot_id, experiment_names = NULL, plot_subtitle = "") {
   # Enhanced error logging for debugging - print detailed error info to console
   # log_detailed_error(e, plot_id)
   
@@ -281,9 +281,9 @@ handle_plot_error <- function(e, plot_id, experiment_names_func = NULL, plot_sub
     plt_theme
   
   # Add title if experiment_names function is provided
-  if (!is.null(experiment_names_func)) {
+  if (!is.null(experiment_names)) {
     tryCatch({
-      title_text <- experiment_names_func()
+      title_text <- experiment_names
       error_plot <- error_plot + labs(title = title_text, subtitle = plot_subtitle)
     }, error = function(title_error) {
       error_plot <<- error_plot + labs(title = "Error getting experiment names", subtitle = plot_subtitle)

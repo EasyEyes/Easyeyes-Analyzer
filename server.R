@@ -189,9 +189,7 @@ shinyServer(function(input, output, session) {
     if (is.null(files())) {
       return(NULL)
     }
-    exp_names <-
-      trimws(files()[[3]])  # Extract and trim whitespace
-    # name_list <- unlist(strsplit(exp_names, "-"))
+    exp_names <-files()[[3]]
     
     return(exp_names)
   })
@@ -763,7 +761,11 @@ shinyServer(function(input, output, session) {
     )
     
     for (call in static_calls) {
-      res <- append_plot_list(l, fileNames, call$plot, call$fname)
+    
+      res <- append_plot_list(l, 
+                              fileNames,
+                              add_experiment_title(call$plot, experiment_names()), 
+                              call$fname)
       l <- res$plotList
       fileNames <- res$fileNames
     }
@@ -1272,7 +1274,7 @@ shinyServer(function(input, output, session) {
       list(src = outfile,
            contenttype = 'svg')
     }, error = function(e) {
-      handle_plot_error(e, "latenessByID", experiment_names, "Lateness by Participant ID")
+      handle_plot_error(e, "latenessByID", experiment_names(), "Lateness by Participant ID")
     })
   }, deleteFile = TRUE)
   
@@ -1290,7 +1292,7 @@ shinyServer(function(input, output, session) {
       list(src = outfile,
            contenttype = 'svg')
     }, error = function(e) {
-      handle_plot_error(e, "latenessByFont", experiment_names, "Lateness by Font")
+      handle_plot_error(e, "latenessByFont", experiment_names(), "Lateness by Font")
     })
   }, deleteFile = TRUE)
   

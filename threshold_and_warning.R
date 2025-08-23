@@ -793,13 +793,17 @@ generate_threshold <-
       mutate(
         # objectLengthCm and Object are only defined when calibrateTrackDistance === "object"
         objectLengthCm = case_when(
-          calibrateTrackDistance == "object" ~ distanceObjectCm,
-          .default = NA_real_
+          calibrateTrackDistance == "object" ~ format(round(distanceObjectCm), nsmall=0),
+          .default = NA_character_
         ),
         Object = case_when(
           calibrateTrackDistance == "object" ~ Object,
           .default = NA_character_
-        )
+        ),
+        rulerCm = case_when(
+          !is.na(rulerCm) ~ format(round(rulerCm), nsmall = 0),
+          .default = NA_character_
+        ),
       ) %>%
       select(PavloviaParticipantID, rulerCm, objectLengthCm, Object, Comment) %>%
       arrange(PavloviaParticipantID)
