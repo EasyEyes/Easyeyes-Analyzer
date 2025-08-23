@@ -772,6 +772,7 @@ shinyServer(function(input, output, session) {
       list(plot = sizeCheckPlot()$density_vs_length, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
       list(plot = sizeCheckPlot()$density_ratio_vs_sd, fname = 'ratio-vs-sdLogDensity-plot'),
       list(plot = plot_distance(files()$data_list, calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = plot_distance_production(files()$data_list, calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
@@ -4093,6 +4094,8 @@ shinyServer(function(input, output, session) {
                      DT::renderDataTable(df_list()$QA)
                    output$ratings <-
                      renderTable(df_list()$ratings)
+                   output$participantInfo <-
+                     renderTable(df_list()$participant_info)                   
                    
                    updateSelectInput(
                      session,
@@ -4338,7 +4341,13 @@ shinyServer(function(input, output, session) {
       if (length(histograms()$plotList) > 0) {
         for (i in seq_along(histograms()$plotList)) {
           plotFileName <- paste0(short_exp_name, histograms()$fileNames[[i]], '.', input$fileType)
-          savePlot(histograms()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
+          
+          # Use larger dimensions for SD histogram to make legend readable
+          if (grepl("sd-log-density-histogram", histograms()$fileNames[[i]])) {
+            savePlot(histograms()$plotList[[i]] + plt_theme, plotFileName, input$fileType, width = 12, height = 8)
+          } else {
+            savePlot(histograms()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
+          }
           fileNames <- c(fileNames, plotFileName)
         }
       }

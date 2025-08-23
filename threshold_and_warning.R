@@ -600,7 +600,44 @@ generate_threshold <-
     
     
     #### beauty and comfort ####
-    QA <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
+    print("DEBUG: Starting QA extraction")
+    print(paste("Length of summary_list:", length(summary_list)))
+    print(paste("Length of data_list:", length(data_list)))
+    
+    QA <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+      print(paste("DEBUG: Processing dataset", i, "for QA data"))
+      
+      # Check if QA columns exist
+      qa_cols <- c("questionAndAnswerQuestion", "questionAndAnswerNickname", "questionAndAnswerResponse", "questionAndAnswerCorrectAnswer")
+      available_qa_cols <- qa_cols[qa_cols %in% names(data_list[[i]])]
+      print(paste("DEBUG: Available QA columns in dataset", i, ":", paste(available_qa_cols, collapse = ", ")))
+      
+      if (length(available_qa_cols) == 0) {
+        print(paste("DEBUG: No QA columns found in dataset", i))
+        return(NULL)
+      }
+      
+      # Check for direct COMMENT/OBJCT columns (alternative storage format)
+      direct_comment_cols <- c("COMMENT", "OBJCT")
+      available_direct_cols <- direct_comment_cols[direct_comment_cols %in% names(data_list[[i]])]
+      print(paste("DEBUG: Available direct comment columns in dataset", i, ":", paste(available_direct_cols, collapse = ", ")))
+      
+      # Check for question/answer data
+      qa_data <- data_list[[i]] %>%
+        filter(!is.na(questionAndAnswerNickname) | !is.na(questionAndAnswerQuestion))
+      
+      print(paste("DEBUG: Dataset", i, "has", nrow(qa_data), "rows with QA data"))
+      
+      if (nrow(qa_data) == 0) {
+        print(paste("DEBUG: No QA rows found in dataset", i))
+        return(NULL)
+      }
+      
+      # Show sample of QA nicknames
+      qa_nicknames <- unique(qa_data$questionAndAnswerNickname)
+      qa_nicknames <- qa_nicknames[!is.na(qa_nicknames) & qa_nicknames != ""]
+      print(paste("DEBUG: QA nicknames in dataset", i, ":", paste(qa_nicknames, collapse = ", ")))
+      
       data_list[[i]] %>% 
         distinct(experiment,
                  participant,
@@ -626,6 +663,8 @@ generate_threshold <-
       filter(!blockShuffleGroups2=="readin5") %>% 
       arrange(experiment, participant, block, block_condition)
     
+    print(paste("DEBUG: Final QA has", nrow(QA), "rows"))
+    
     
     ratings <- QA %>% 
       select(-c(questionAndAnswerQuestion,questionAndAnswerCorrectAnswer)) %>% 
@@ -636,6 +675,118 @@ generate_threshold <-
       mutate(`mean rating` = ifelse(questionAndAnswerNickname == 'BirthYear', year(today()) - `mean rating`,`mean rating`)) %>% 
       arrange(block, block_condition) %>% 
       select(-block)
+    
+    #### participant information table ####
+    # Extract basic participant info (PavloviaParticipantID, ruler info, calibration method)
+    participant_info_list <- list()
+    
+    for (i in 1:length(data_list)) {
+      # Check which columns exist in this dataset
+      available_cols <- names(data_list[[i]])
+      
+      # Build select statement with only available columns
+      select_cols <- c("participant")
+      if ("PavloviaSessionID" %in% available_cols) select_cols <- c(select_cols, "PavloviaSessionID")
+      if ("rulerLength" %in% available_cols) select_cols <- c(select_cols, "rulerLength")
+      if ("rulerUnit" %in% available_cols) select_cols <- c(select_cols, "rulerUnit")
+      if ("calibrateTrackDistance" %in% available_cols) select_cols <- c(select_cols, "calibrateTrackDistance")
+      
+      # Extract data with standardized columns
+      temp_data <- data_list[[i]] %>% 
+        select(all_of(select_cols)) %>%
+        distinct() %>%
+        filter(!is.na(participant)) %>%
+        mutate(
+          # Ensure all expected columns exist with proper types
+          PavloviaSessionID = if("PavloviaSessionID" %in% names(.)) PavloviaSessionID else NA_character_,
+          rulerLength = if("rulerLength" %in% names(.)) as.numeric(rulerLength) else NA_real_,
+          rulerUnit = if("rulerUnit" %in% names(.)) as.character(rulerUnit) else NA_character_,
+          calibrateTrackDistance = if("calibrateTrackDistance" %in% names(.)) as.character(calibrateTrackDistance) else NA_character_
+        ) %>%
+        select(participant, PavloviaSessionID, rulerLength, rulerUnit, calibrateTrackDistance)
+      
+      participant_info_list[[i]] <- temp_data
+    }
+    
+    # Combine all datasets with consistent column structure
+    participant_info <- do.call(rbind, participant_info_list) %>%
+      distinct() %>%
+      mutate(
+        # Use participant as fallback for PavloviaSessionID, create final ID
+        PavloviaParticipantID = ifelse(is.na(PavloviaSessionID) | PavloviaSessionID == "", participant, PavloviaSessionID),
+        # Convert ruler length to cm
+        rulerCm = case_when(
+          !is.na(rulerLength) & rulerUnit == "cm" ~ rulerLength,
+          !is.na(rulerLength) & rulerUnit == "in" ~ rulerLength * 2.54,
+          .default = NA_real_
+        )
+      )
+    
+    print(paste("Participant info table created with", nrow(participant_info), "participants"))
+    
+    # Extract COMMENT and OBJCT responses directly for participant info table
+    print("DEBUG: Creating separate QA extraction for participant info")
+    
+    participant_qa_list <- list()
+    
+    for (i in 1:length(data_list)) {
+      # Extract COMMENT and OBJCT data directly
+      temp_qa <- data_list[[i]] %>%
+        filter(!is.na(questionAndAnswerNickname),
+               questionAndAnswerNickname %in% c("COMMENT", "OBJCT")) %>%
+        select(participant, questionAndAnswerNickname, questionAndAnswerResponse) %>%
+        distinct()
+      
+      if (nrow(temp_qa) > 0) {
+        print(paste("DEBUG: Dataset", i, "has", nrow(temp_qa), "COMMENT/OBJCT rows"))
+        participant_qa_list[[i]] <- temp_qa
+      }
+    }
+    
+    # Combine all participant QA data
+    if (length(participant_qa_list) > 0) {
+      participant_qa <- do.call(rbind, participant_qa_list) %>%
+        distinct()
+      print(paste("DEBUG: Combined participant QA has", nrow(participant_qa), "rows"))
+    } else {
+      participant_qa <- tibble(participant = character(), 
+                              questionAndAnswerNickname = character(), 
+                              questionAndAnswerResponse = character())
+      print("DEBUG: No participant QA data found")
+    }
+    
+    # Split into comments and objects
+    comments_data <- participant_qa %>%
+      filter(questionAndAnswerNickname == "COMMENT") %>%
+      select(participant, questionAndAnswerResponse) %>%
+      distinct() %>%
+      rename(Comment = questionAndAnswerResponse)
+    
+    objects_data <- participant_qa %>%
+      filter(questionAndAnswerNickname == "OBJCT") %>%
+      select(participant, questionAndAnswerResponse) %>%
+      distinct() %>%
+      rename(Object = questionAndAnswerResponse)
+    
+    print(paste("DEBUG: Found", nrow(comments_data), "COMMENT responses and", nrow(objects_data), "OBJCT responses"))
+    
+    # Join all data together
+    participant_info <- participant_info %>%
+      left_join(comments_data, by = "participant") %>%
+      left_join(objects_data, by = "participant") %>%
+      mutate(
+        # objectLengthCm and Object are only defined when calibrateTrackDistance === "object"
+        objectLengthCm = case_when(
+          calibrateTrackDistance == "object" ~ rulerCm,
+          .default = NA_real_
+        ),
+        Object = case_when(
+          calibrateTrackDistance == "object" ~ Object,
+          .default = NA_character_
+        )
+      ) %>%
+      select(PavloviaParticipantID, rulerCm, objectLengthCm, Object, Comment) %>%
+      arrange(PavloviaParticipantID)
     
     
     all_summary <- all_summary %>% 
@@ -670,6 +821,7 @@ generate_threshold <-
                 threshold_each = threshold_each, 
                 all_summary = all_summary,
                 ratings = ratings,
-                QA = QA %>% select(-block)
+                QA = QA %>% select(-block),
+                participant_info = participant_info
     ))
   }
