@@ -68,6 +68,7 @@ ensure_columns <- function(t, file_name = NULL) {
     calibrateTrackDistance = "",
     calibrateTrackDistanceMeasuredCm = "",
     calibrateTrackDistanceRequestedCm = "",
+    # cameraIsTopCenter = NA,
     ComputerInfoFrom51Degrees = "",
     computeRandomMHz = NA,
     conditionName = "",
