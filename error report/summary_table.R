@@ -824,6 +824,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
   # compute one‐based indices for DataTables
   res_col   <- which(names(dt) == "resolution")
   width_col <- which(names(dt) == "resolution_width")
+  
   datatable(
     dt,
     class = list(stripe = FALSE, 'compact'),
@@ -840,11 +841,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
       language = list(info = 'Showing _TOTAL_ entries',
                       infoFiltered =  "(filtered from _MAX_ entries)"),
       columnDefs = list(
-        list(visible = FALSE, targets = c(0, 54)),
-        list(
-          targets = width_col,
-          visible = FALSE
-        ),
+        list(visible = FALSE, targets = c(0, width_col)),  # Hide first column and resolution_width column
         list(
           targets   = res_col,
           orderData = width_col

@@ -217,10 +217,13 @@ ensure_columns <- function(t, file_name = NULL) {
   
   t <- t %>% mutate(screenWidthPx = screenWidth,
                     screenHeightPx = screenHeight,
-                    browser = case_when(deviceBrowser == "" ~ "",
-                                        is.na(deviceBrowserVersion) & deviceBrowser != "" ~ paste(deviceBrowser, 
-                                                                                                  str_split(deviceBrowserVersion, "[.]")[[1]][1]),
-                                        .default = ""),
+                    browser = case_when(
+                      deviceBrowser == "" | is.na(deviceBrowser) ~ "",
+                      !is.na(deviceBrowserVersion) & deviceBrowserVersion != "" ~ paste(deviceBrowser, 
+                                                                                        str_split(deviceBrowserVersion, "[.]")[[1]][1]),
+                      !is.na(deviceBrowser) & deviceBrowser != "" ~ deviceBrowser,
+                      .default = ""
+                    ),
                     resolution = paste0(screenWidthPx, " x ", screenHeightPx),
                     block_condition = ifelse(block_condition == "",staircaseName, block_condition))
   

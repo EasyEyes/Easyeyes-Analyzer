@@ -4247,21 +4247,21 @@ shinyServer(function(input, output, session) {
                             app_title$default)
                    })
                    session$sendCustomMessage("updateTitle", "Hello")
-                   set.seed(2023)
-                   #### summary page ####
-                   output$instruction <- renderText(instruction)
-                   output$experiment <-
-                     renderText(experiment_names())
-                   if (!is.null(prolific())) {
-                     combinedTable <-
-                       combineProlific(prolific(), summary_table(), files()$pretest)[[1]]
-                   } else{
-                     combinedTable <-
-                       combineProlific(NULL, summary_table(), files()$pretest)[[1]]
-                   }
-                   
-                   participants <-
-                     unique(combinedTable$`Pavlovia session ID`)
+                                     set.seed(2023)
+                  #### summary page ####
+                  output$instruction <- renderText(instruction)
+                  output$experiment <-
+                    renderText(experiment_names())
+                  if (!is.null(prolific())) {
+                    combinedTable <-
+                      combineProlific(prolific(), summary_table(), files()$pretest)[[1]]
+                  } else{
+                    combinedTable <-
+                      combineProlific(NULL, summary_table(), files()$pretest)[[1]]
+                  }
+                  
+                  participants <-
+                    unique(combinedTable$`Pavlovia session ID`)
                    prolific_id <-
                      unique(combinedTable$`Prolific participant ID`)
                    output$ex1 <- DT::renderDataTable({
