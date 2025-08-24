@@ -157,7 +157,6 @@ get_lateness_and_duration <- function(all_files) {
 generate_summary_table <- function(data_list, stairs) {
   all_files <- tibble()
   
-  
   fontParams <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
     t <- data_list[[i]] %>%
       mutate(block_condition = ifelse(block_condition == "", as.character(staircaseName), block_condition)) %>% 
@@ -219,8 +218,7 @@ generate_summary_table <- function(data_list, stairs) {
     rename("Pavlovia session ID" = "participant")
     
   
-  webGL <-
-    get_webGL(data_list) %>% rename("Pavlovia session ID" = "participant")
+  webGL <- get_webGL(data_list) %>% rename("Pavlovia session ID" = "participant")
   
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>%
@@ -252,37 +250,11 @@ generate_summary_table <- function(data_list, stairs) {
         `Loudspeaker survey`,
         `Microphone survey`,
         QRConnect,
-        questionAndAnswerResponse,
         error,
-        warning
-      ) %>%
-      arrange(`Loudspeaker survey`)
-    loudspeakerSurvey <-
-      t[t$`Loudspeaker survey` != "", ]$`Loudspeaker survey`
-    micSurvey <- t[t$`Microphone survey` != "", ]$`Microphone survey`
-    needsUnmet <- t[t$`_needsUnmet` != "", ]$`_needsUnmet`
-    QRConnect <- t[t$QRConnect != "", ]$`QRConnect`
-    questionAndAnswerResponse <-
-      t[t$questionAndAnswerResponse != "", ]$`questionAndAnswerResponse`
-    ComputerInfoFrom51Degrees <-
-      t[t$ComputerInfoFrom51Degrees != "", ]$`ComputerInfoFrom51Degrees`
+        warning,
+        experimentCompleteBool
+      ) 
     t <- t %>%
-      mutate(
-        `Loudspeaker survey` = ifelse(length(loudspeakerSurvey) == 0, '', loudspeakerSurvey),
-        `_needsUnmet` = ifelse(length(needsUnmet) == 0, '', needsUnmet),
-        `Microphone survey` = ifelse(length(micSurvey) == 0, '', micSurvey),
-        QRConnect = ifelse(length(QRConnect) == 0, '', QRConnect),
-        `ComputerInfoFrom51Degrees` = ifelse(
-          length(ComputerInfoFrom51Degrees) == 0,
-          '',
-          ComputerInfoFrom51Degrees
-        ),
-        questionAndAnswerResponse = ifelse(
-          length(questionAndAnswerResponse) == 0,
-          '',
-          questionAndAnswerResponse
-        )
-      ) %>%
       group_by(participant, block_condition) %>% 
       mutate(trial = n()) %>% 
       ungroup() %>% 
@@ -290,32 +262,14 @@ generate_summary_table <- function(data_list, stairs) {
         ProlificParticipantID,
         participant,
         ProlificSessionID,
+        date,
         block,
         block_condition,
         trial,
         conditionName,
-        targetTask,
-        targetKind,
-        thresholdParameter,
-        deviceType,
-        cores,
-        deviceSystemFamily,
-        browser,
-        resolution,
-        screenWidthCm,
-        rows,
-        cols,
-        kb,
         targetMeasuredLatenessSec,
         targetMeasuredDurationSec,
-        date,
         targetDurationSec,
-        ComputerInfoFrom51Degrees,
-        `_needsUnmet`,
-        `Loudspeaker survey`,
-        `Microphone survey`,
-        QRConnect,
-        questionAndAnswerResponse,
         error,
         warning
       )
@@ -329,7 +283,11 @@ generate_summary_table <- function(data_list, stairs) {
   }
   
   print('done all files')
-  trial <- all_files %>% select(participant, date, block_condition, trial) %>% filter(block_condition != "")
+  
+  trial <- all_files %>%
+    select(participant, date, block_condition, trial) %>%
+    filter(block_condition != "")
+  
   lateness_duration <- get_lateness_and_duration(all_files)
   
   #### errors ####
@@ -338,8 +296,6 @@ generate_summary_table <- function(data_list, stairs) {
     group_by(participant,date) %>%
     summarize(error = paste(error, collapse = "<br>"),
               .groups = "drop")
-  # mutate(warning = "") %>%
-  # mutate(ok = paste(emoji("x")))
   print('done error')
   
   #### warnings ####
@@ -348,53 +304,29 @@ generate_summary_table <- function(data_list, stairs) {
     group_by(participant,date) %>%
     summarize(warning = paste(warning, collapse = "<br>"),
               .groups = "drop")
-  # mutate(error = "") %>%
-  # mutate(ok = emoji("large_orange_diamond"))
   print('done warnings')
   
-  #### incomplete files ####
-  incomplete = tibble()
+  #### Get device and block condition columns ####
+  sessions = tibble()
   for (i in 1:length(data_list)) {
     if (nrow(data_list[[i]] >=  1)) {
       experimentCompleteBool = ifelse(is.na(data_list[[i]]$experimentCompleteBool[1]) || 
                                         length(data_list[[i]]$experimentCompleteBool[1]) == 0,
                                       F,
                                       data_list[[i]]$experimentCompleteBool[1])
-      if (!experimentCompleteBool) {
-        t <- data_list[[i]] %>%
-          distinct(
-            ProlificParticipantID,
-            participant,
-            ProlificSessionID,
-            date,
-            deviceType,
-            cores,
-            deviceSystemFamily,
-            browser,
-            resolution,
-            screenWidthCm,
-            rows,
-            cols,
-            kb,
-            ComputerInfoFrom51Degrees,
-            `_needsUnmet`,
-            `Loudspeaker survey`,
-            `Microphone survey`,
-            QRConnect,
-            questionAndAnswerResponse
-          ) %>%
+      
+        t <- data_list[[i]] %>% 
           arrange(`Loudspeaker survey`)
-
+        
         loudspeakerSurvey <-
           t[t$`Loudspeaker survey` != "", ]$`Loudspeaker survey`
         micSurvey <-
           t[t$`Microphone survey` != "", ]$`Microphone survey`
         needsUnmet <- t[t$`_needsUnmet` != "", ]$`_needsUnmet`
         QRConnect <- t[t$QRConnect != "", ]$`QRConnect`
-        questionAndAnswerResponse <-
-          t[t$questionAndAnswerResponse != "", ]$`questionAndAnswerResponse`
         ComputerInfoFrom51Degrees <-
           t[t$ComputerInfoFrom51Degrees != "", ]$`ComputerInfoFrom51Degrees`
+        
         t <- t %>%
           mutate(
             `Loudspeaker survey` = ifelse(length(loudspeakerSurvey) == 0, '', loudspeakerSurvey),
@@ -405,11 +337,6 @@ generate_summary_table <- function(data_list, stairs) {
               length(ComputerInfoFrom51Degrees) == 0,
               '',
               ComputerInfoFrom51Degrees
-            ),
-            questionAndAnswerResponse = ifelse(
-              length(questionAndAnswerResponse) == 0,
-              '',
-              questionAndAnswerResponse
             )
           ) %>%
           distinct(
@@ -423,6 +350,7 @@ generate_summary_table <- function(data_list, stairs) {
             browser,
             resolution,
             screenWidthCm,
+            cameraIsTopCenter,
             rows,
             cols,
             kb,
@@ -430,9 +358,9 @@ generate_summary_table <- function(data_list, stairs) {
             `_needsUnmet`,
             `Loudspeaker survey`,
             `Microphone survey`,
-            QRConnect,
-            questionAndAnswerResponse
+            QRConnect
           )
+        
         info <- data_list[[i]] %>%
           distinct(
             block,
@@ -455,135 +383,21 @@ generate_summary_table <- function(data_list, stairs) {
             thresholdParameter = NA
           )
         }
+        
         t <- cbind(t, info)
+        
         if (t$participant[1] %in% error$participant) {
           t$ok <- emoji("x")
-        } else {
+        } else if (!experimentCompleteBool) {
           t$ok <- emoji("construction")
+        } else {
+          t$ok <- emoji("white_check_mark")
         }
         
-        incomplete <- rbind(incomplete, t)
-      }
+        sessions <- rbind(sessions, t)
     }
-   
-  }
-
-  incomplete_participant <- c()
-  if (nrow(incomplete) > 0) {
-    incomplete_participant <- incomplete_participant$participant
   }
   
-  print('done noerror_fails')
-  # noerror_fails$warning = ""
-  sessions = incomplete
-  for (i in 1:length(data_list)) {
-    if (nrow(data_list[[i]] >=  1)) {
-      experimentCompleteBool = ifelse(is.na(data_list[[i]]$experimentCompleteBool[1]) || 
-                                        length(data_list[[i]]$experimentCompleteBool[1]) == 0,
-                                      F,
-                                      data_list[[i]]$experimentCompleteBool[1])
-      if (experimentCompleteBool) {
-        t <- data_list[[i]] %>%
-          distinct(
-            ProlificParticipantID,
-            participant,
-            ProlificSessionID,
-            date,
-            deviceType,
-            cores,
-            deviceSystemFamily,
-            browser,
-            resolution,
-            screenWidthCm,
-            rows,
-            cols,
-            kb,
-            ComputerInfoFrom51Degrees,
-            `_needsUnmet`,
-            `Loudspeaker survey`,
-            `Microphone survey`,
-            QRConnect,
-            questionAndAnswerResponse
-          )
-        
-        loudspeakerSurvey <-
-          t[t$`Loudspeaker survey` != "", ]$`Loudspeaker survey`
-        micSurvey <-
-          t[t$`Microphone survey` != "", ]$`Microphone survey`
-        needsUnmet <- t[t$`_needsUnmet` != "", ]$`_needsUnmet`
-        QRConnect <- t[t$QRConnect != "", ]$`QRConnect`
-        questionAndAnswerResponse <-
-          t[t$questionAndAnswerResponse != "", ]$`questionAndAnswerResponse`
-        ComputerInfoFrom51Degrees <-
-          t[t$ComputerInfoFrom51Degrees != "", ]$`ComputerInfoFrom51Degrees`
-        
-        t <- t %>%
-          mutate(
-            `Loudspeaker survey` = ifelse(length(loudspeakerSurvey) == 0, '', loudspeakerSurvey),
-            `_needsUnmet` = ifelse(length(needsUnmet) == 0, '', needsUnmet),
-            `Microphone survey` = ifelse(length(micSurvey) == 0, '', micSurvey),
-            QRConnect = ifelse(length(QRConnect) == 0, '', QRConnect),
-            `ComputerInfoFrom51Degrees` = ifelse(
-              length(ComputerInfoFrom51Degrees) == 0,
-              '',
-              ComputerInfoFrom51Degrees
-            ),
-            questionAndAnswerResponse = ifelse(
-              length(questionAndAnswerResponse) == 0,
-              '',
-              questionAndAnswerResponse
-            )
-          ) %>%
-          distinct(
-            ProlificParticipantID,
-            participant,
-            ProlificSessionID,
-            date,
-            deviceType,
-            cores,
-            deviceSystemFamily,
-            browser,
-            resolution,
-            screenWidthCm,
-            rows,
-            cols,
-            kb,
-            ComputerInfoFrom51Degrees,
-            `_needsUnmet`,
-            `Loudspeaker survey`,
-            `Microphone survey`,
-            QRConnect,
-            questionAndAnswerResponse
-          )
-        info <- data_list[[i]] %>%
-          distinct(
-            block,
-            block_condition,
-            conditionName,
-            targetTask,
-            targetKind,
-            thresholdParameter
-          ) %>%
-          dplyr::filter(block_condition != "")
-        if (nrow(info) > 0) {
-          info <- info %>% tail(1)
-        } else {
-          info <- tibble(
-            block = 0,
-            block_condition = NA,
-            conditionName = NA,
-            targetTask = NA,
-            targetKind = NA,
-            thresholdParameter = NA
-          )
-        }
-        t <- cbind(t, info)
-        t$ok <- emoji("white_check_mark")
-        sessions <- rbind(sessions, t)
-      }
-    }
-  }
-
   summary_df <- sessions %>%
     distinct() %>% 
     left_join(error, by = c('participant','date')) %>%
@@ -610,8 +424,7 @@ generate_summary_table <- function(data_list, stairs) {
       "unmetNeeds" = '_needsUnmet',
       "computer51Deg" = "ComputerInfoFrom51Degrees",
       "Loudspeaker" = "Loudspeaker survey",
-      "Microphone" = "Microphone survey",
-      'comment' = 'questionAndAnswerResponse'
+      "Microphone" = "Microphone survey"
     ) %>%
     distinct(
       `Prolific participant ID`,
@@ -622,6 +435,7 @@ generate_summary_table <- function(data_list, stairs) {
       browser,
       resolution,
       screenWidthCm,
+      cameraIsTopCenter,
       QRConnect,
       date,
       ok,
@@ -647,8 +461,7 @@ generate_summary_table <- function(data_list, stairs) {
       viewingDistanceCm,
       fontMaxPx,
       Loudspeaker,
-      Microphone,
-      comment
+      Microphone
     )
   
   #### order block_condition by splitting and order block and condition order ####
@@ -692,132 +505,7 @@ generate_summary_table <- function(data_list, stairs) {
   return(summary_df)
 }
 
-# render_summary_datatable <- function(dt, participants, prolific_id){
-#   datatable(dt,
-#             class = list(stripe = FALSE, 'compact'),
-#             selection = 'none',
-#             filter = "top",
-#             escape = FALSE,
-#             # extensions = 'FixedHeader',
-#             options = list(
-#               autoWidth = TRUE,
-#               paging = FALSE,
-#               scrollX = TRUE,
-#               fixedHeader = TRUE,
-#               dom= 'lrtip',
-#               language = list(
-#                 info = 'Showing _TOTAL_ entries',
-#                 infoFiltered =  "(filtered from _MAX_ entries)"
-#               ),
-#               columnDefs = list(
-#                 list(visible = FALSE, targets = c(0, 53)),
-#                 list(
-#                   targets = c(16),
-#                   width = '100px',
-#                   className = 'errorC-control',
-#                   render = JS(
-#                     "function(data, type, row, meta) {",
-#                     "return type === 'display' && data && data.length > 30 ?",
-#                     "data.substr(0, 30) + '...' : data;",
-#                     "}"
-#                   )
-#                 ),
-#                 list(
-#                   targets = c(17),
-#                   width = '100px',
-#                   className = 'warnC-control',
-#                   render = JS(
-#                     "function(data, type, row, meta) {",
-#                     "return type === 'display' && data && data.length > 30 ?",
-#                     "data.substr(0, 30) + '...' : data;",
-#                     "}"
-#                   )
-#                 ),
-#                 list(
-#                   targets = c(31),
-#                   width = '50px',
-#                   className = 'computer51Deg',
-#                   render = JS(
-#                     "function(data, type, row, meta) {",
-#                     "return type === 'display' && data && data.length > 30 ?",
-#                     "data.substr(0, 30) + '...' : data;",
-#                     "}"
-#                   )
-#                 ),
-#                 list(
-#                   targets = c(32),
-#                   width = '50px',
-#                   className = 'loudspeakerSurvey',
-#                   render = JS(
-#                     "function(data, type, row, meta) {",
-#                     "return type === 'display' && data && data.length > 30 ?",
-#                     "data.substr(0, 30) + '...' : data;",
-#                     "}"
-#                   )
-#                 ),
-#                 list(
-#                   targets = c(33),
-#                   width = '50px',
-#                   className = 'microphoneSurvey',
-#                   render = JS(
-#                     "function(data, type, row, meta) {",
-#                     "return type === 'display' && data && data.length > 30 ?",
-#                     "data.substr(0, 30) + '...' : data;",
-#                     "}"
-#                   )
-#                 ),
-#                 list(
-#                   targets = c(2),
-#                   render = JS(
-#                     "function(data, type, row, meta) {",
-#                     "return type === 'display' && data && data.length > 6 ?",
-#                     "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-#                     "}"
-#                   ),
-#                   className = 'information-control1'
-#                 ),
-#                 list(
-#                   targets = c(3),
-#                   render = JS(
-#                     "function(data, type, row, meta) {",
-#                     "return type === 'display' && data && data.length > 6 ?",
-#                     "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-#                     "}"
-#                   ),
-#                   className = 'information-control2'
-#                 ),
-#                 list(
-#                   targets = c(4),
-#                   render = JS(
-#                     "function(data, type, row, meta) {",
-#                     "return type === 'display' && data && data.length > 6 ?",
-#                     "'<span title=\"' + data + '\">' + data.substr(0, 6) + '...</span>' : data;",
-#                     "}"
-#                   ),
-#                   className = 'information-control3'
-#                 ),
-#                 list(
-#                   width = '50px',
-#                   targets = c(8),
-#                   className = 'dt-center'
-#                 ),
-#                 list(
-#                   width = '20px',
-#                   padding = '0px',
-#                   targets = c(9:15, 18:29, 34:52),
-#                   className = 'dt-center'
-#                 )
-#               )
-#             ),
-#             callback = JS(data_table_call_back)) %>%
-#     formatStyle(names(dt),color = 'black', lineHeight="15px") %>%
-#     formatStyle(names(dt)[-1],
-#                 'Pavlovia session ID',
-#                 backgroundColor = styleEqual(participants, random_rgb(length(participants)))) %>%
-#     formatStyle(names(dt)[1],
-#                 'Prolific participant ID',
-#                 backgroundColor = styleEqual(prolific_id, random_rgb(length(prolific_id))))
-# }
+
 render_summary_datatable <- function(dt, participants, prolific_id) {
   dt$resolution_width <- as.integer(sub("^\\s*([0-9]+).*", "\\1", dt$resolution))
   

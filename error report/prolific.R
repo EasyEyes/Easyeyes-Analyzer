@@ -77,7 +77,7 @@ read_prolific <- function(fileProlific) {
   
 }
 
-combineProlific <- function(prolificData, summary_table, pretest){
+combineProlific <- function(prolificData, summary_table, pretest, participant_info){
   print('inside combineProlific')
   if (is.null(prolificData) | nrow(prolificData) == 0) {
     t <- summary_table %>% mutate(ProlificStatus= ' ',
@@ -142,15 +142,20 @@ combineProlific <- function(prolificData, summary_table, pretest){
                 rename('Pavlovia session ID' = 'participant') %>%
                 select(`Pavlovia session ID`, `Participant ID`),
               by = 'Pavlovia session ID') %>% 
+    left_join(participant_info %>% 
+                rename(`Pavlovia session ID` = PavloviaParticipantID,
+                       comment = Comment) %>% 
+                select(`Pavlovia session ID`, comment),
+              by = 'Pavlovia session ID') %>% 
     distinct(`Participant ID`,`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
-             `device type`, system, browser, resolution, screenWidthCm, `Phone QR connect`, date, `Prolific min`,
+             `device type`, system, browser, resolution, screenWidthCm, cameraIsTopCenter, `Phone QR connect`, date, `Prolific min`,
              `Prolific status`,`Completion code`, ok, unmetNeeds, error, warning, cores, GB,
-             `Lateness ms`, `Duration ms`, KB, rows, cols,block,condition, trial, `condition name`,
+             `Lateness ms`, `Duration ms`, KB, rows, cols, block,condition, trial, `condition name`,
              `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
              Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
              fontMaxPx, viewingDistanceCm, fontRenderMaxPx, heapLimitAfterDrawing, heapTotalAvgMB,
              mustTrackSec, goodTrials, badTrials, WebGLVersion, 
-             maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order)
+             maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer)
   print('done combine prolific')
   return(list(t, formSpree))
 }

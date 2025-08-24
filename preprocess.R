@@ -68,7 +68,7 @@ ensure_columns <- function(t, file_name = NULL) {
     calibrateTrackDistance = "",
     calibrateTrackDistanceMeasuredCm = "",
     calibrateTrackDistanceRequestedCm = "",
-    # cameraIsTopCenter = NA,
+    cameraIsTopCenter = "",
     ComputerInfoFrom51Degrees = "",
     computeRandomMHz = NA,
     conditionName = "",
@@ -177,6 +177,7 @@ ensure_columns <- function(t, file_name = NULL) {
   t$rulerLength = t$rulerLength[t$rulerLength != "" & !is.na(t$rulerLength)][1]
   t$rulerUnit = t$rulerUnit[t$rulerUnit != "" & !is.na(t$rulerUnit)][1]
   t$deviceMemoryGB = sort(t$deviceMemoryGB)[1]
+  t$cameraIsTopCenter =  t$cameraIsTopCenter[t$cameraIsTopCenter != "" & !is.na(t$cameraIsTopCenter)][1]
   t$screenWidthCm = sort(t$screenWidthCm)[1]
   t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
   t$calibrateTrackDistance = t$calibrateTrackDistance[t$calibrateTrackDistance != "" & !is.na(t$calibrateTrackDistance)][1]

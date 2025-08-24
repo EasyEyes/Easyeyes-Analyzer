@@ -212,7 +212,8 @@ shinyServer(function(input, output, session) {
     if (is.null(files())) {
       return(NULL)
     }
-    generate_summary_table(files()$data_list, files()$stairs)
+    generate_summary_table(files()$data_list,
+                           files()$stairs)
   })
   
   minNQuestTrials <-reactive({input$NQuestTrials}) %>% debounce(1000)
@@ -4254,10 +4255,16 @@ shinyServer(function(input, output, session) {
                     renderText(experiment_names())
                   if (!is.null(prolific())) {
                     combinedTable <-
-                      combineProlific(prolific(), summary_table(), files()$pretest)[[1]]
+                      combineProlific(prolific(), 
+                                      summary_table(), 
+                                      files()$pretest, 
+                                      df_list()$participant_info)[[1]]
                   } else{
                     combinedTable <-
-                      combineProlific(NULL, summary_table(), files()$pretest)[[1]]
+                      combineProlific(NULL, 
+                                      summary_table(), 
+                                      files()$pretest, 
+                                      df_list()$participant_info)[[1]]
                   }
                   
                   participants <-
@@ -4669,10 +4676,10 @@ shinyServer(function(input, output, session) {
     content = function(filename) {
       if (!is.null(prolific())) {
         combinedTable <-
-          combineProlific(prolific(), summary_table(), files()$pretest)[[1]]
+          combineProlific(prolific(), summary_table(), files()$pretest, df_list()$participant_info)[[1]]
       } else{
         combinedTable <-
-          combineProlific(NULL, summary_table(), files()$pretest)[[1]]
+          combineProlific(NULL, summary_table(), files()$pretest, df_list()$participant_info)[[1]]
       }
       openxlsx::write.xlsx(combinedTable %>% select(-order), file = filename)
     }

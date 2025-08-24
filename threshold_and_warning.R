@@ -674,7 +674,7 @@ generate_threshold <-
     
     # Extract the 6 needed columns from sessions data
     sessions_columns <- sessions_data %>%
-      select(`Pavlovia session ID`, `device type`, system, browser, `Prolific participant ID`, ok, screenWidthCm) %>%
+      select(`Pavlovia session ID`, `device type`, system, browser, `Prolific participant ID`, ok, screenWidthCm, cameraIsTopCenter) %>%
       rename(
         PavloviaParticipantID = `Pavlovia session ID`,
         `Prolific min` = `Prolific participant ID`  # User asked for "Prolific min" 
@@ -708,7 +708,7 @@ generate_threshold <-
       # Join with sessions data to add the 6 columns
       left_join(sessions_columns, by = "PavloviaParticipantID") %>%
       select(PavloviaParticipantID, rulerCm, objectLengthCm, Object, Comment, 
-             `device type`, system, browser, `Prolific min`, ok, screenWidthCm) %>%
+             `device type`, system, browser, `Prolific min`, ok, screenWidthCm, cameraIsTopCenter) %>%
       # Sort by ok status first (✅ first), then alphabetically by PavloviaParticipantID within each status group
       mutate(
         ok_priority = case_when(
