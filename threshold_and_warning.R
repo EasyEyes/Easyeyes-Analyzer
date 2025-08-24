@@ -7,7 +7,7 @@ englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
 
 generate_threshold <- 
   function(data_list, summary_list, df, pretest, stairs, filterInput, skillFilter,minNQuestTrials, 
-           minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed) {
+           minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed, minRulerCm) {
     
     print('inside threshold warning')
     print(paste0('length of data list: ', length(data_list)))
@@ -511,93 +511,6 @@ generate_threshold <-
     print(paste('nrow of age:', nrow(age)))
     
     
-    #### previous code from generate_threshold ####
-    print('inside generate_threshold')
-    if (nrow(pretest) > 0) {
-      if (!'Grade' %in% names(pretest)) {
-        pretest$Grade = -1
-      }
-      if (!'Skilled reader?' %in% names(pretest)) {
-        pretest$`Skilled reader?` = 'unkown'
-      }
-      pretest <- pretest %>%
-        mutate(lowerCaseParticipant = tolower(participant))
-      if ('Exclude?' %in% names(pretest)) {
-        basicExclude <-pretest %>% 
-          filter(`Exclude?` == TRUE)
-      } else {
-        basicExclude <- tibble(participant = '')
-      }
-    } else {
-      basicExclude <- tibble(participant = '')
-    }
-    
-    threshold_all <- all_summary %>%
-      group_by(participant, experiment, conditionName, thresholdParameter) %>%
-      dplyr::summarize(
-        pm = mean(questMeanAtEndOfTrialsLoop, na.rm =T),
-        sd = sd(questMeanAtEndOfTrialsLoop, na.rm =T),
-        .groups="drop") %>% 
-      rename(parameter = thresholdParameter)
-    
-    threshold_summary <- threshold_all %>% 
-      mutate(variance = sd^2) %>% 
-      group_by(conditionName, experiment, parameter) %>% 
-      dplyr::summarize(
-        m = mean(pm, na.rm = T),
-        `se across participants` = sd(pm, na.rm =T)/sqrt(n()), 
-        `sd across participants` = sd(pm, na.rm =T),
-        `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
-        N = n(),
-        .groups="drop")
-    
-    wpm_all <- reading %>% 
-      filter(conditionName != "") %>% 
-      group_by(conditionName, participant, experiment) %>%
-      dplyr::summarize(pm = mean(wordPerMin, na.rm =T),
-                       sd = sd(wordPerMin, na.rm =T),
-                       parameter = "word per minute",
-                       .groups="drop") %>% 
-      filter(!is.na(pm))
-    
-    wpm_summary <- wpm_all %>% 
-      mutate(variance = sd^2) %>% 
-      group_by(conditionName, experiment) %>% 
-      dplyr::summarize(
-        m = mean(pm),
-        `se across participants` = sd(pm)/sqrt(n()), 
-        `sd across participants` = sd(pm),
-        `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
-        N = n(),
-        parameter = "word per minute",
-        .groups="drop") %>% 
-      mutate(conditionName = as.character(conditionName))
-    
-    
-    df <- df %>%
-      rename(participantID = ParticipantCode) %>% 
-      distinct(participant,participantID )
-    
-    threshold_each <- rbind(threshold_all, wpm_all) %>% 
-      mutate(m = round(pm,3),
-             sd = round(sd,3)) %>% 
-      left_join(age, 
-                by = 'participant',
-                relationship = "many-to-many") %>% 
-      left_join(df,
-                by = 'participant',
-                relationship = "many-to-many") %>% 
-      mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
-      rename(pavloviaSessionID = participant) %>% 
-      select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, m, sd, parameter)
-    
-    threshold <- rbind(threshold_summary, wpm_summary) %>% 
-      mutate(m = round(m,3),
-             `se across participants` = round(`se across participants`,3),
-             `sd across participants` = round(`sd across participants`,3),
-             `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
-      select(experiment,conditionName, m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
-    
     
     #### beauty and comfort ####
     print("DEBUG: Starting QA extraction")
@@ -665,47 +578,23 @@ generate_threshold <-
     
     print(paste("DEBUG: Final QA has", nrow(QA), "rows"))
     
-    
-    ratings <- QA %>% 
-      select(-c(questionAndAnswerQuestion,questionAndAnswerCorrectAnswer)) %>% 
-      mutate(questionAndAnswerResponse = as.numeric(arabic_to_western(questionAndAnswerResponse))) %>% 
-      filter(!is.na(questionAndAnswerResponse)) %>% 
-      group_by(block, block_condition, conditionName, questionAndAnswerNickname) %>% 
-      summarize(`mean rating` = mean(questionAndAnswerResponse, rm.na = T), .groups = "drop") %>% 
-      mutate(`mean rating` = ifelse(questionAndAnswerNickname == 'BirthYear', year(today()) - `mean rating`,`mean rating`)) %>% 
-      arrange(block, block_condition) %>% 
-      select(-block)
-    
     #### participant information table ####
-    # Extract basic participant info (PavloviaParticipantID, ruler info, calibration method)
+    
     participant_info_list <- list()
     
     for (i in 1:length(data_list)) {
-      # Check which columns exist in this dataset
-      available_cols <- names(data_list[[i]])
-      
-      # Build select statement with only available columns
-      select_cols <- c("participant")
-      if ("PavloviaSessionID" %in% available_cols) select_cols <- c(select_cols, "PavloviaSessionID")
-      if ("rulerLength" %in% available_cols) select_cols <- c(select_cols, "rulerLength")
-      if ("rulerUnit" %in% available_cols) select_cols <- c(select_cols, "rulerUnit")
-      if ("calibrateTrackDistance" %in% available_cols) select_cols <- c(select_cols, "calibrateTrackDistance")
-      if ("distanceObjectCm" %in% available_cols) select_cols <- c(select_cols, "distanceObjectCm")
-      
       # Extract data with standardized columns
       temp_data <- data_list[[i]] %>% 
-        select(all_of(select_cols)) %>%
+        select(participant,rulerLength,rulerUnit,calibrateTrackDistance,distanceObjectCm) %>%
         distinct() %>%
         filter(!is.na(participant)) %>%
         mutate(
-          # Ensure all expected columns exist with proper types
-          PavloviaSessionID = if("PavloviaSessionID" %in% names(.)) PavloviaSessionID else NA_character_,
-          rulerLength = if("rulerLength" %in% names(.)) as.numeric(rulerLength) else NA_real_,
-          rulerUnit = if("rulerUnit" %in% names(.)) as.character(rulerUnit) else NA_character_,
-          calibrateTrackDistance = if("calibrateTrackDistance" %in% names(.)) as.character(calibrateTrackDistance) else NA_character_,
-          distanceObjectCm = if("distanceObjectCm" %in% names(.)) as.numeric(distanceObjectCm) else NA_real_
+          rulerLength = as.numeric(rulerLength),
+          rulerUnit = as.character(rulerUnit),
+          calibrateTrackDistance = as.character(calibrateTrackDistance),
+          distanceObjectCm = as.numeric(distanceObjectCm)
         ) %>%
-        select(participant, PavloviaSessionID, rulerLength, rulerUnit, calibrateTrackDistance, distanceObjectCm)
+        select(participant, rulerLength, rulerUnit, calibrateTrackDistance, distanceObjectCm)
       
       participant_info_list[[i]] <- temp_data
     }
@@ -714,8 +603,6 @@ generate_threshold <-
     participant_info <- do.call(rbind, participant_info_list) %>%
       distinct() %>%
       mutate(
-        # Use participant as fallback for PavloviaSessionID, create final ID
-        PavloviaParticipantID = ifelse(is.na(PavloviaSessionID) | PavloviaSessionID == "", participant, PavloviaSessionID),
         # Convert ruler length to cm
         rulerCm = case_when(
           !is.na(rulerLength) & rulerUnit == "cm" ~ rulerLength,
@@ -723,10 +610,8 @@ generate_threshold <-
           .default = NA_real_
         )
       ) %>%
-      # Consolidate multiple rows per participant by taking first non-NA value for each field
-      group_by(PavloviaParticipantID) %>%
+      group_by(participant) %>%
       summarize(
-        participant = first(participant),
         rulerCm = first(rulerCm[!is.na(rulerCm)]),
         calibrateTrackDistance = first(calibrateTrackDistance[!is.na(calibrateTrackDistance)]),
         distanceObjectCm = first(distanceObjectCm[!is.na(distanceObjectCm)]),
@@ -745,8 +630,7 @@ generate_threshold <-
       temp_qa <- data_list[[i]] %>%
         filter(!is.na(questionAndAnswerNickname),
                questionAndAnswerNickname %in% c("COMMENT", "OBJCT")) %>%
-        select(participant, questionAndAnswerNickname, questionAndAnswerResponse, questionAndAnswerQuestion) %>%
-        distinct()
+        distinct(participant, questionAndAnswerNickname, questionAndAnswerResponse, questionAndAnswerQuestion)
       
       if (nrow(temp_qa) > 0) {
         print(paste("DEBUG: Dataset", i, "has", nrow(temp_qa), "COMMENT/OBJCT rows"))
@@ -761,24 +645,22 @@ generate_threshold <-
       print(paste("DEBUG: Combined participant QA has", nrow(participant_qa), "rows"))
     } else {
       participant_qa <- tibble(participant = character(), 
-                              questionAndAnswerNickname = character(), 
-                              questionAndAnswerResponse = character(),
-                              questionAndAnswerQuestion = character())
+                               questionAndAnswerNickname = character(), 
+                               questionAndAnswerResponse = character(),
+                               questionAndAnswerQuestion = character())
       print("DEBUG: No participant QA data found")
     }
     
     # Split into comments and objects
     comments_data <- participant_qa %>%
       filter(questionAndAnswerNickname == "COMMENT") %>%
-      select(participant, questionAndAnswerResponse) %>%
-      distinct() %>%
+      distinct(participant, questionAndAnswerResponse) %>%
       rename(Comment = questionAndAnswerResponse)
     
     objects_data <- participant_qa %>%
-      filter(questionAndAnswerNickname == "OBJCT") %>%
-      select(participant, questionAndAnswerQuestion) %>%
-      distinct() %>%
-      rename(Object = questionAndAnswerQuestion)
+      filter(questionAndAnswerNickname == "OBJCT") %>% 
+      distinct(participant, questionAndAnswerResponse) %>%
+      rename(Object = questionAndAnswerResponse)
     
     print(paste("DEBUG: Found", nrow(comments_data), "COMMENT responses and", nrow(objects_data), "OBJCT responses"))
     
@@ -805,9 +687,144 @@ generate_threshold <-
           .default = NA_character_
         ),
       ) %>%
+      rename(PavloviaParticipantID = participant) %>% 
       select(PavloviaParticipantID, rulerCm, objectLengthCm, Object, Comment) %>%
       arrange(PavloviaParticipantID)
     
+    # Applied filter: 
+    # TODO: Move all filter after this point
+    # Get ruler length < minRulerCm
+    shortRuler <- participant_info %>% 
+      filter(as.numeric(rulerCm) < minRulerCm) %>% 
+      distinct(PavloviaParticipantID)
+    
+    print('inside generate_threshold')
+    if (nrow(pretest) > 0) {
+      if (!'Grade' %in% names(pretest)) {
+        pretest$Grade = -1
+      }
+      if (!'Skilled reader?' %in% names(pretest)) {
+        pretest$`Skilled reader?` = 'unkown'
+      }
+      pretest <- pretest %>%
+        mutate(lowerCaseParticipant = tolower(participant))
+      if ('Exclude?' %in% names(pretest)) {
+        basicExclude <-pretest %>% 
+          filter(`Exclude?` == TRUE)
+      } else {
+        basicExclude <- tibble(participant = '')
+      }
+    } else {
+      basicExclude <- tibble(participant = '')
+    }
+    
+    reading <-  reading %>% 
+      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    crowding <- crowding %>% 
+      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    rsvp <-rsvp_speed %>%
+      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    # fluency <- fluency %>%
+    #   filter(!participant %in% shortRuler$PavloviaParticipantID)
+    acuity <- acuity %>%
+      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    repeatedLetters <- repeatedLetters %>%
+      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    quest <- quest %>%
+      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    quest_all_thresholds <- quest_all_thresholds %>%
+      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    age <-  age %>%
+      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    # threshold <- threshold %>%
+    #   filter(!participant %in% shortRuler$PavloviaParticipantID)
+    # threshold_each <- threshold_each %>%
+    #   filter(!participant %in% shortRuler$PavloviaParticipantID)
+    all_summary <- all_summary %>% 
+      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    QA <- QA %>%
+      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    participant_info <- participant_info %>%
+      filter(!PavloviaParticipantID %in% shortRuler$PavloviaParticipantID)
+    
+    #### Generate ratings summary stat table ####
+    
+    ratings <- QA %>% 
+      select(-c(questionAndAnswerQuestion,questionAndAnswerCorrectAnswer)) %>% 
+      mutate(questionAndAnswerResponse = as.numeric(arabic_to_western(questionAndAnswerResponse))) %>% 
+      filter(!is.na(questionAndAnswerResponse)) %>% 
+      group_by(block, block_condition, conditionName, questionAndAnswerNickname) %>% 
+      summarize(`mean rating` = mean(questionAndAnswerResponse, rm.na = T), .groups = "drop") %>% 
+      mutate(`mean rating` = ifelse(questionAndAnswerNickname == 'BirthYear', year(today()) - `mean rating`,`mean rating`)) %>% 
+      arrange(block, block_condition) %>% 
+      select(-block)
+    
+    
+    threshold_all <- all_summary %>%
+      group_by(participant, experiment, conditionName, thresholdParameter) %>%
+      dplyr::summarize(
+        pm = mean(questMeanAtEndOfTrialsLoop, na.rm =T),
+        sd = sd(questMeanAtEndOfTrialsLoop, na.rm =T),
+        .groups="drop") %>% 
+      rename(parameter = thresholdParameter)
+    
+    threshold_summary <- threshold_all %>% 
+      mutate(variance = sd^2) %>% 
+      group_by(conditionName, experiment, parameter) %>% 
+      dplyr::summarize(
+        m = mean(pm, na.rm = T),
+        `se across participants` = sd(pm, na.rm =T)/sqrt(n()), 
+        `sd across participants` = sd(pm, na.rm =T),
+        `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
+        N = n(),
+        .groups="drop")
+    
+    wpm_all <- reading %>% 
+      filter(conditionName != "") %>% 
+      group_by(conditionName, participant, experiment) %>%
+      dplyr::summarize(pm = mean(wordPerMin, na.rm =T),
+                       sd = sd(wordPerMin, na.rm =T),
+                       parameter = "word per minute",
+                       .groups="drop") %>% 
+      filter(!is.na(pm))
+    
+    wpm_summary <- wpm_all %>% 
+      mutate(variance = sd^2) %>% 
+      group_by(conditionName, experiment) %>% 
+      dplyr::summarize(
+        m = mean(pm),
+        `se across participants` = sd(pm)/sqrt(n()), 
+        `sd across participants` = sd(pm),
+        `sd across repetitions` = sqrt(mean(variance, na.rm = T)),
+        N = n(),
+        parameter = "word per minute",
+        .groups="drop") %>% 
+      mutate(conditionName = as.character(conditionName))
+    
+    
+    df <- df %>%
+      rename(participantID = ParticipantCode) %>% 
+      distinct(participant,participantID )
+    
+    threshold_each <- rbind(threshold_all, wpm_all) %>% 
+      mutate(m = round(pm,3),
+             sd = round(sd,3)) %>% 
+      left_join(age, 
+                by = 'participant',
+                relationship = "many-to-many") %>% 
+      left_join(df,
+                by = 'participant',
+                relationship = "many-to-many") %>% 
+      mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
+      rename(pavloviaSessionID = participant) %>% 
+      select(experiment, pavloviaSessionID, participantID, age, Grade, conditionName, m, sd, parameter)
+    
+    threshold <- rbind(threshold_summary, wpm_summary) %>% 
+      mutate(m = round(m,3),
+             `se across participants` = round(`se across participants`,3),
+             `sd across participants` = round(`sd across participants`,3),
+             `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
+      select(experiment,conditionName, m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
     
     all_summary <- all_summary %>% 
       select(-Grade) %>% 
@@ -826,6 +843,7 @@ generate_threshold <-
              age, Grade, conditionName, block, condition, 
              conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,
              questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials)
+    
     
     return(list(reading = reading, 
                 crowding = crowding,

@@ -81,6 +81,7 @@ ensure_columns <- function(t, file_name = NULL) {
     deviceSystem = "",
     deviceSystemFamily = "",
     deviceType = "",
+    distanceObjectCm = NA_real_,
     error = "",
     experiment = "",
     experimentCompleteBool = FALSE,

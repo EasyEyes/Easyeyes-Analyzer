@@ -135,6 +135,18 @@ shinyUI(
           ),
           div(
             style = "display: flex; align-items: center; gap: 5px;",
+            tags$span("  Exclude participants with rulerCm <"),
+            numericInput(
+              'minRulerCm',
+              NULL,
+              value = 91,
+              min = 0,
+              width = '90px'
+            ),
+            tags$span(" cm")
+          ),
+          div(
+            style = "display: flex; align-items: center; gap: 5px;",
             tags$span("calibrateTrackDistanceCheckLengthSDLogAllowed:"),
             numericInput(
               'calibrateTrackDistanceCheckLengthSDLogAllowed',

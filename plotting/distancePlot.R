@@ -1,74 +1,3 @@
-# get_measured_distance_data <- function(data_list) {
-#   print('inside get_measured_distance_data')
-#   df <- tibble()
-#   for (i in 1:length(data_list)) {
-#     t <- data_list[[i]] %>%
-#       select(participant,
-#              calibrateTrackDistanceMeasuredCm,
-#              calibrateTrackDistanceRequestedCm) %>% 
-#       distinct() %>% 
-#       filter(!is.na(calibrateTrackDistanceMeasuredCm),
-#              !is.na(calibrateTrackDistanceRequestedCm),
-#              calibrateTrackDistanceMeasuredCm != '',
-#              calibrateTrackDistanceRequestedCm != '')
-#     if (nrow(t) > 0) {
-#       t <- t %>%
-#         separate_rows(calibrateTrackDistanceMeasuredCm,sep=',') %>% 
-#         separate_rows(calibrateTrackDistanceRequestedCm,sep=',')
-#       df <- rbind(t, df)
-#     }
-#   }
-#   
-#   print('done get_measured_distance_data')
-#   return(df)
-# }
-
-# get_measured_distance_data <- function(data_list) {
-#   print('inside get_measured_distance_data')
-#   print(data_list)
-#   df <- tibble()
-#   
-#   for (i in 1:length(data_list)) {
-#     t <- data_list[[i]] %>%
-#       select(participant,
-#              calibrateTrackDistanceMeasuredCm,
-#              calibrateTrackDistanceRequestedCm) %>% 
-#       distinct() %>%
-#       filter(!is.na(calibrateTrackDistanceMeasuredCm),
-#              !is.na(calibrateTrackDistanceRequestedCm),
-#              calibrateTrackDistanceMeasuredCm != '',
-#              calibrateTrackDistanceRequestedCm != '')
-# 
-#     
-#     if (nrow(t) > 0) {
-#       # Convert lists or JSON-like arrays into character vectors
-#       t <- t %>%
-#         mutate(
-#           calibrateTrackDistanceMeasuredCm = ifelse(
-#             grepl("\\[", calibrateTrackDistanceMeasuredCm),  # Detect JSON-like format
-#             gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm), # Remove brackets and quotes
-#             calibrateTrackDistanceMeasuredCm
-#           ),
-#           calibrateTrackDistanceRequestedCm = ifelse(
-#             grepl("\\[", calibrateTrackDistanceRequestedCm),
-#             gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm),
-#             calibrateTrackDistanceRequestedCm
-#           )
-#         ) %>%
-#         separate_rows(calibrateTrackDistanceMeasuredCm, sep=",") %>% 
-#         separate_rows(calibrateTrackDistanceRequestedCm, sep=",") %>%
-#         mutate(
-#           calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
-#           calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm)
-#         )
-#       
-#       df <- rbind(t, df)
-#     }
-#   }
-#   
-#   print('done get_measured_distance_data')
-#   return(df)
-# }
 get_sizeCheck_data <- function(data_list) {
   print('inside get_sizeCheck_data')
   df <- tibble()
@@ -114,10 +43,10 @@ get_sizeCheck_data <- function(data_list) {
   if (nrow(df) > 0) {
     df <- df %>% mutate(
       SizeCheckEstimatedPxPerCm = as.numeric(SizeCheckEstimatedPxPerCm),
-      SizeCheckRequestedCm = as.numeric(SizeCheckRequestedCm)
+      SizeCheckRequestedCm = as.numeric(SizeCheckRequestedCm),
+      rulerCm = ifelse(rulerUnit == 'cm', rulerLength, as.integer(rulerLength * 2.54))
     )
   }
-  
 
   print('done get_sizeCheck_data')
   return(df)
@@ -170,10 +99,34 @@ get_measured_distance_data <- function(data_list) {
   return(df)
 }
 
-plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  print('inside plot_distance')
+get_distance_calibration <- function(data_list, minRulerCm) {
+  
+  sizeCheck <- get_sizeCheck_data(data_list) 
+  
+  if(nrow(sizeCheck) > 0) {
+    sizeCheck <- sizeCheck %>%
+      filter(rulerCm >= minRulerCm)
+  }
+  
   distance <- get_measured_distance_data(data_list)
-  sizeCheck <- get_sizeCheck_data(data_list)
+  
+  if(nrow(distance) > 0) {
+    distance <- distance %>%
+      filter(participant %in% unique(sizeCheck$participant))
+  }
+  
+ 
+  
+  return(list(
+    sizeCheck = sizeCheck,
+    distance = distance
+  ))
+}
+
+plot_distance <- function(distanceCalibration,calibrateTrackDistanceCheckLengthSDLogAllowed) {
+  print('inside plot_distance')
+  distance <- distanceCalibration$distance
+  sizeCheck <- distanceCalibration$sizeCheck
   statement <- paste0('calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
   if (nrow(distance) == 0) {return(NULL)}
   
@@ -288,131 +241,9 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   return(p)
 }
 
-plot_distance_production <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  print('inside plot_distance_production')
-  distance <- get_measured_distance_data(data_list)
-  sizeCheck <- get_sizeCheck_data(data_list)
-  statement <- paste0('calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
-  if (nrow(distance) == 0) {return(NULL)}
-  
-  # Calculate density ratio from sizeCheck data
-  densityRatio_data <- tibble()
-  if (nrow(sizeCheck) > 0) {
-    densityRatio_data <- sizeCheck %>%
-      group_by(participant, pxPerCm) %>%
-      summarize(
-        avg_estimated = 10^mean(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
-        sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
-        .groups = "drop"
-      ) %>%
-      filter(!is.na(sdLogDensity)) %>% 
-      mutate(
-        densityRatio = pxPerCm / avg_estimated,
-        reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed)
-      )
-  }
-  
-  # Check for NA values after conversion
-  if (sum(is.na(distance$calibrateTrackDistanceMeasuredCm)) == nrow(distance) ||
-      sum(is.na(distance$calibrateTrackDistanceRequestedCm)) == nrow(distance)) {
-    print("Error: All values in one or both columns are NA after conversion.")
-    return(NULL)
-  }
-  
-  # Ensure we have at least one valid row
-  distance <- na.omit(distance)  # Remove rows with NA values
-  if (nrow(distance) == 0) {
-    print("Error: No valid numeric data available after NA removal.")
-    return(NULL)
-  }
-  
-  # Average Measured Distance per Participant per Requested Distance
-  distance_avg <- distance %>%
-    group_by(participant, calibrateTrackDistanceRequestedCm) %>%
-    summarize(
-      creditCardMeasuredCm = mean(calibrateTrackDistanceMeasuredCm, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      # Add random horizontal jitter to x-axis variable
-      calibrateTrackDistanceRequestedCm_jitter = calibrateTrackDistanceRequestedCm * runif(n(), min = 0.95, max = 1.05)
-    )
-  
-  # Join with density ratio data and calculate production-measured distance
-  if (nrow(densityRatio_data) > 0) {
-    distance_avg <- distance_avg %>% 
-      left_join(densityRatio_data %>% select(participant, densityRatio, reliableBool), by = "participant") %>%
-      mutate(
-        # Apply density ratio correction: productionMeasuredCm = densityRatio × creditCardMeasuredCm
-        productionMeasuredCm = ifelse(!is.na(densityRatio), densityRatio * creditCardMeasuredCm, creditCardMeasuredCm),
-        reliableBool = ifelse(is.na(reliableBool), TRUE, reliableBool)
-      )
-  } else {
-    distance_avg <- distance_avg %>% 
-      mutate(
-        productionMeasuredCm = creditCardMeasuredCm,
-        reliableBool = TRUE
-      )
-  }
-
-  fit <- lm(log10(productionMeasuredCm) ~ log10(calibrateTrackDistanceRequestedCm), data = distance_avg)
-
-  slope <- coef(fit)
-  slope <- format(round(slope[['log10(calibrateTrackDistanceRequestedCm)']], 2), nsmall=2)
-  corr <- cor(log10(distance_avg$calibrateTrackDistanceRequestedCm), log10(distance_avg$productionMeasuredCm))
-  corr <- format(round(corr,2), nsmall=2)
-  
-  min_val <- min(c(distance_avg$calibrateTrackDistanceRequestedCm, distance_avg$productionMeasuredCm))
-  max_val <- max(c(distance_avg$calibrateTrackDistanceRequestedCm, distance_avg$productionMeasuredCm))
-
-    p <- ggplot() + 
-    geom_line(data=distance_avg, 
-              aes(x = calibrateTrackDistanceRequestedCm_jitter, 
-                  y = productionMeasuredCm,
-                  color = participant, 
-                  lty = reliableBool,
-                  group = participant), alpha = 0.7) +
-    geom_point(data=distance_avg, 
-               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
-                   y = productionMeasuredCm,
-                   color = participant), 
-               size = 2) + 
-    ggpp::geom_text_npc(aes(npcx="left",
-                            npcy="top"),
-                        label = paste0('N=', n_distinct(distance_avg$participant))) + 
-    geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
-    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
-                          labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) + 
-    scale_y_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) + 
-    scale_color_manual(values= colorPalette) + 
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
-    guides(color = guide_legend(
-      ncol = 3,  # More columns to fit more participants horizontally
-      title = "",
-      override.aes = list(size = 2),  # Smaller points in legend
-      keywidth = unit(1.2, "lines"),  # Reduce key width
-      keyheight = unit(0.8, "lines")  # Reduce key height
-    ),
-    linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-    coord_fixed() +  
-         labs(subtitle = 'Production-measured vs. requested distance',
-          x = 'Requested distance (cm)',
-          y = 'Production-measured distance (cm)') +
-    theme(  # Smaller legend text (was default ~10-12), left-aligned # Smaller legend title
-      axis.title = element_text(size = 10),        # Smaller axis titles (was default ~12-14)
-      axis.text = element_text(size = 9),          # Smaller axis text (was default ~10-12)
-      plot.title = element_text(size = 12),        # Smaller plot title (was default ~14-16)
-      legend.position = "bottom",                   # Move legend to bottom to prevent right cutoff
-      legend.box = "horizontal"                     # Ensure horizontal layout
-    )
-  
-  return(p)
-}
-
-plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+plot_sizeCheck <- function(distanceCalibration, calibrateTrackDistanceCheckLengthSDLogAllowed) {
   print('inside plot_sizeCheck')
-  sizeCheck <- get_sizeCheck_data(data_list)
+  sizeCheck <- distanceCalibration$sizeCheck
   statement <- paste0('calibrateTrackDistance = ', sizeCheck$calibrateTrackDistance[1])
   # Check if the data is empty
   if (nrow(sizeCheck) == 0) {
@@ -421,9 +252,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   }
   
   ruler <-  sizeCheck %>%
-    distinct(participant, rulerLength, rulerUnit) %>%
-    filter(!is.na(rulerLength)) %>% 
-    mutate(lengthCm = ifelse(rulerUnit == 'cm', rulerLength, rulerLength * 2.54))
+    distinct(participant, rulerCm) %>%
+    filter(!is.na(rulerCm))
   
   # Check for NA values after conversion
   if (sum(is.na(sizeCheck$SizeCheckEstimatedPxPerCm)) == nrow(sizeCheck) ||
@@ -577,7 +407,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     h1 <- NULL
   }
   if (nrow(ruler) > 0) {
-    h2 <- ggplot(ruler, aes(x = lengthCm)) +
+    h2 <- ggplot(ruler, aes(x = rulerCm)) +
       geom_histogram(color="black", fill="gray80") + 
       scale_x_log10(breaks = c(10, 30, 100, 300)) +
       annotation_logticks(sides = "b", size = 0.3, alpha = 0.7, short = unit(0.1, "cm"), mid = unit(0.15, "cm"), long = unit(0.2, "cm")) +
@@ -690,10 +520,10 @@ p2 <- ggplot(sdLogDensity_data) +
   ))
 }
 
-plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+plot_distance_production <- function(distanceCalibration, calibrateTrackDistanceCheckLengthSDLogAllowed) {
   print('=== STARTING plot_distance_production ===')
-  distance <- get_measured_distance_data(data_list)
-  sizeCheck <- get_sizeCheck_data(data_list)
+  distance <- distanceCalibration$distance
+  sizeCheck <- distanceCalibration$sizeCheck
   statement <- paste0('calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
   
   if (nrow(distance) == 0) {return(NULL)}

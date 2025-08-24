@@ -224,6 +224,7 @@ shinyServer(function(input, output, session) {
     }) %>% debounce(2000)
   minWrongTrials <- reactive(input$NWrongTrials) %>% debounce(5000)
   maxReadingSpeed <- reactive(input$maxReadingSpeed) %>% debounce(2000)
+  minRulerCm <- reactive({input$minRulerCm}) %>% debounce(2000)
   
   df_list <- reactive({
     if (is.null(files())) {
@@ -241,11 +242,16 @@ shinyServer(function(input, output, session) {
       minWrongTrials(),
       maxQuestSD(),
       conditionNames(),
-      maxReadingSpeed()
+      maxReadingSpeed(),
+      minRulerCm()
     )
     return(
       df_list
     )
+  })
+  
+  distanceCalibration <- reactive({
+    get_distance_calibration(files()$data_list, minRulerCm())
   })
   
   crowdingBySide <- reactive({
@@ -778,7 +784,7 @@ shinyServer(function(input, output, session) {
   
   #### scatterDiagrams ####
   sizeCheckPlot <- reactive({
-    plot_sizeCheck(files()$data_list,calibrateTrackDistanceCheckLengthSDLogAllowed())
+    plot_sizeCheck(distanceCalibration(),calibrateTrackDistanceCheckLengthSDLogAllowed())
   }) 
   
   scatterDiagrams <- reactive({
@@ -798,8 +804,8 @@ shinyServer(function(input, output, session) {
     plot_calls <- list(
       list(plot = sizeCheckPlot()$density_vs_length, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
       list(plot = sizeCheckPlot()$density_ratio_vs_sd, fname = 'ratio-vs-sdLogDensity-plot'),
-      list(plot = plot_distance(files()$data_list, calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = plot_distance_production(files()$data_list, calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = plot_distance_production(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
@@ -1677,48 +1683,58 @@ shinyServer(function(input, output, session) {
         jj <- j
        
       output[[paste0("hist", jj)]] <- renderImage({
-          tryCatch({
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot =  plots[[jj]],
-              device = svglite,
-              width = 2.5,
-              height = 2.5,
-              unit = 'in'
-            )
-            list(src = outfile, contenttype = 'svg')
-          }, error = function(e) {
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 5,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void() +
-              labs(subtitle=files[[jj]])
-            
-            # Save the error plot to a temp file
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = error_plot,
-              device = svglite,
-              width = 2.5,
-              height = 2.5,
-              unit = 'in'
-            )
-            list(
-              src = outfile,
-              contenttype = 'svg',
-              alt = paste0("Error in ", files[[jj]])
-            )
-          })
+        outfile <- tempfile(fileext = '.svg')
+        ggsave(
+          file = outfile,
+          plot =  plots[[jj]],
+          device = svglite,
+          width = 2.5,
+          height = 2.5,
+          unit = 'in'
+        )
+        list(src = outfile, contenttype = 'svg')
+          # tryCatch({
+          #   outfile <- tempfile(fileext = '.svg')
+          #   ggsave(
+          #     file = outfile,
+          #     plot =  plots[[jj]],
+          #     device = svglite,
+          #     width = 2.5,
+          #     height = 2.5,
+          #     unit = 'in'
+          #   )
+          #   list(src = outfile, contenttype = 'svg')
+          # }, error = function(e) {
+          #   error_plot <- ggplot() +
+          #     annotate(
+          #       "text",
+          #       x = 0.5,
+          #       y = 0.5,
+          #       label = paste("Error:", e$message),
+          #       color = "red",
+          #       size = 5,
+          #       hjust = 0.5,
+          #       vjust = 0.5
+          #     ) +
+          #     theme_void() +
+          #     labs(subtitle=files[[jj]])
+          #   
+          #   # Save the error plot to a temp file
+          #   outfile <- tempfile(fileext = '.svg')
+          #   ggsave(
+          #     file = outfile,
+          #     plot = error_plot,
+          #     device = svglite,
+          #     width = 2.5,
+          #     height = 2.5,
+          #     unit = 'in'
+          #   )
+          #   list(
+          #     src = outfile,
+          #     contenttype = 'svg',
+          #     alt = paste0("Error in ", files[[jj]])
+          #   )
+          # })
           
         }, deleteFile = TRUE)
         
@@ -2706,41 +2722,41 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("scatter", ii)]] <- renderImage({
-          outfile <- tempfile(fileext = '.svg')
-          ggsave(
-            file = outfile,
-            plot = scatterDiagrams()$plotList[[ii]] +
-              plt_theme_scatter +
-              scale_color_manual(values = colorPalette),
-            width = 7,
-            height = 7,
-            unit = 'in',
-            limitsize = F,
-            device = svglite
-          )
-          
-          list(src = outfile,
-               contenttype = 'svg')
-          # tryCatch({
-          #   outfile <- tempfile(fileext = '.svg')
-          #   ggsave(
-          #     file = outfile,
-          #     plot = scatterDiagrams()$plotList[[ii]] +
-          #       plt_theme_scatter +
-          #       scale_color_manual(values = colorPalette),
-          #     width = 7,
-          #     height = 7,
-          #     unit = 'in',
-          #     limitsize = F,
-          #     device = svglite
-          #   )
-          #   
-          #   list(src = outfile,
-          #        contenttype = 'svg')
-          #   
-          # }, error = function(e) {
-          # handle_plot_error(e, paste0("scatter", ii), experiment_names(), scatterDiagrams()$fileNames[[ii]])
-          # })
+          # outfile <- tempfile(fileext = '.svg')
+          # ggsave(
+          #   file = outfile,
+          #   plot = scatterDiagrams()$plotList[[ii]] +
+          #     plt_theme_scatter +
+          #     scale_color_manual(values = colorPalette),
+          #   width = 7,
+          #   height = 7,
+          #   unit = 'in',
+          #   limitsize = F,
+          #   device = svglite
+          # )
+          # 
+          # list(src = outfile,
+          #      contenttype = 'svg')
+          tryCatch({
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = scatterDiagrams()$plotList[[ii]] +
+                plt_theme_scatter +
+                scale_color_manual(values = colorPalette),
+              width = 7,
+              height = 7,
+              unit = 'in',
+              limitsize = F,
+              device = svglite
+            )
+
+            list(src = outfile,
+                 contenttype = 'svg')
+
+          }, error = function(e) {
+          handle_plot_error(e, paste0("scatter", ii), experiment_names(), scatterDiagrams()$fileNames[[ii]])
+          })
           
         }, deleteFile = TRUE)
         output[[paste0("downloadScatter", ii)]] <-
