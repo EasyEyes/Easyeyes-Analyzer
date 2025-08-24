@@ -4740,6 +4740,19 @@ shinyServer(function(input, output, session) {
     }
   )
   
+  output$participantInfoExcel <- downloadHandler(
+    filename = function() {
+      ifelse(
+        experiment_names() == "",
+        "ParticipantInfo.xlsx",
+        paste0(get_short_experiment_name(experiment_names()), "ParticipantInfo.xlsx")
+      )
+    },
+    content = function(filename) {
+      openxlsx::write.xlsx(df_list()$participant_info, file = filename)  # Using openxlsx
+    }
+  )
+  
   output$`sound_data` <- downloadHandler(
     filename = function() {
       ifelse(

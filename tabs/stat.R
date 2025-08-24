@@ -4,7 +4,8 @@ statTab <- tabPanel(
   fluidRow(
     downloadButton("thresholdOne", "Download Summary of each condition"),
     downloadButton("thresholdTwo", "Download Thresholds (brief)"),
-    downloadButton("thresholdThree", "Download Thresholds")),
+    downloadButton("thresholdThree", "Download Thresholds"),
+    downloadButton("participantInfoExcel", "Download Participant Info")),
   fluidRow(
     column(
       width = 12,

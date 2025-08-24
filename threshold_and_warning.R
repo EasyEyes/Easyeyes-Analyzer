@@ -668,6 +668,23 @@ generate_threshold <-
     print("DEBUG: Checking distanceObjectCm values:")
     print(participant_info %>% select(participant, calibrateTrackDistance, distanceObjectCm) %>% head(10))
     
+    # Generate sessions data to extract additional columns
+    print("DEBUG: Generating sessions data for participant info table")
+    sessions_data <- generate_summary_table(data_list, stairs)
+    
+    # Extract the 6 needed columns from sessions data
+    sessions_columns <- sessions_data %>%
+      select(`Pavlovia session ID`, `device type`, system, browser, `Prolific participant ID`, ok, screenWidthCm) %>%
+      rename(
+        PavloviaParticipantID = `Pavlovia session ID`,
+        `Prolific min` = `Prolific participant ID`  # User asked for "Prolific min" 
+      ) %>%
+      distinct()
+    
+    print(paste("DEBUG: Sessions data has", nrow(sessions_columns), "rows"))
+    print("DEBUG: Sessions columns available:")
+    print(names(sessions_columns))
+
     # Join all data together
     participant_info <- participant_info %>%
       left_join(comments_data, by = "participant") %>%
@@ -687,9 +704,35 @@ generate_threshold <-
           .default = NA_character_
         ),
       ) %>%
-      rename(PavloviaParticipantID = participant) %>% 
-      select(PavloviaParticipantID, rulerCm, objectLengthCm, Object, Comment) %>%
-      arrange(PavloviaParticipantID)
+      rename(PavloviaParticipantID = participant) %>%
+      # Join with sessions data to add the 6 columns
+      left_join(sessions_columns, by = "PavloviaParticipantID") %>%
+      select(PavloviaParticipantID, rulerCm, objectLengthCm, Object, Comment, 
+             `device type`, system, browser, `Prolific min`, ok, screenWidthCm) %>%
+      # Sort by ok status first (✅ first), then alphabetically by PavloviaParticipantID within each status group
+      mutate(
+        ok_priority = case_when(
+          ok == "✅" ~ 1,  # ✅ (white_check_mark) first
+          ok == "🚧" ~ 2,  # 🚧 (construction) second  
+          ok == "❌" ~ 3,  # ❌ (x) last
+          is.na(ok) ~ 4,   # NA last
+          .default = 5     # Any other status
+        )
+      ) %>%
+      arrange(ok_priority, PavloviaParticipantID) %>%
+      select(-ok_priority)  # Remove the helper column
+    
+    # Debug: Show sorting results
+    print("DEBUG: Participant info table sorting results:")
+    print(paste("Total participants:", nrow(participant_info)))
+    if ("ok" %in% names(participant_info)) {
+      status_counts <- participant_info %>% 
+        group_by(ok) %>% 
+        summarize(count = n(), .groups = "drop") %>%
+        arrange(match(ok, c("✅", "🚧", "❌", NA)))
+      print("Status distribution (in sorted order):")
+      print(status_counts)
+    }
     
     # Applied filter: 
     # TODO: Move all filter after this point
