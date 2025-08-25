@@ -154,7 +154,7 @@ get_lateness_and_duration <- function(all_files) {
   return(t)
 }
 
-generate_summary_table <- function(data_list, stairs) {
+generate_summary_table <- function(data_list, stairs, pretest, prolific) {
   all_files <- tibble()
   
   fontParams <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
@@ -220,53 +220,40 @@ generate_summary_table <- function(data_list, stairs) {
   
   webGL <- get_webGL(data_list) %>% rename("Pavlovia session ID" = "participant")
   
+  comments_data <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
+    t <- data_list[[i]] %>%
+      filter(!is.na(questionAndAnswerNickname),
+             questionAndAnswerNickname =="COMMENT") %>%
+      distinct(participant, date, questionAndAnswerNickname, questionAndAnswerResponse, questionAndAnswerQuestion) %>% 
+      mutate(date = as.character(date)) %>% 
+      rename(comment = questionAndAnswerResponse)
+
+  }
+  
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>%
       distinct(
-        ProlificParticipantID,
         participant,
-        ProlificSessionID,
+        date,
         block,
         block_condition,
         conditionName,
-        targetTask,
-        targetKind,
-        thresholdParameter,
-        deviceType,
-        cores,
-        deviceSystemFamily,
-        browser,
-        resolution,
-        screenWidthCm,
-        rows,
-        cols,
-        kb,
         targetMeasuredLatenessSec,
         targetMeasuredDurationSec,
-        date,
         targetDurationSec,
-        ComputerInfoFrom51Degrees,
-        `_needsUnmet`,
-        `Loudspeaker survey`,
-        `Microphone survey`,
-        QRConnect,
         error,
-        warning,
-        experimentCompleteBool
-      ) 
-    t <- t %>%
+        warning
+      ) %>% 
       group_by(participant, block_condition) %>% 
       mutate(trial = n()) %>% 
       ungroup() %>% 
       distinct(
-        ProlificParticipantID,
         participant,
-        ProlificSessionID,
         date,
         block,
         block_condition,
-        trial,
         conditionName,
+        trial,
         targetMeasuredLatenessSec,
         targetMeasuredDurationSec,
         targetDurationSec,
@@ -410,6 +397,7 @@ generate_summary_table <- function(data_list, stairs) {
     left_join(lateness_duration, by = c("participant", "date")) %>%
     left_join(trial, by = c("participant", 'date','block_condition')) %>%
     left_join(fontParams, by = c("participant", 'date', 'block_condition')) %>% 
+    left_join(comments_data, by = c("participant", "date")) %>% 
     rename(
       "Prolific participant ID" = "ProlificParticipantID",
       "Pavlovia session ID" = "participant",
@@ -461,7 +449,8 @@ generate_summary_table <- function(data_list, stairs) {
       viewingDistanceCm,
       fontMaxPx,
       Loudspeaker,
-      Microphone
+      Microphone,
+      comment
     )
   
   #### order block_condition by splitting and order block and condition order ####
@@ -501,8 +490,10 @@ generate_summary_table <- function(data_list, stairs) {
                                   orders = c('ymdHMS', 'mdyHMS'))) %>%
     mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
   
+  final_summary_table <- combineProlific(prolific, summary_df, pretest)
+  print(final_summary_table)
   print('done summary_df')
-  return(summary_df)
+  return(final_summary_table)
 }
 
 

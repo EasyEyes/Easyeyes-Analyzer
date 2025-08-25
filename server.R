@@ -157,7 +157,7 @@ shinyServer(function(input, output, session) {
   output$fileStatusMessage <- renderUI({
     if (!is.null(files())) {
       prolific_counts <-
-        get_prolific_file_counts(prolific(), summary_table())
+        get_prolific_file_counts(files()$prolific, summary_table())
       prolific_file_count <- if (prolific_counts$prolific_count > 0) 1 else 0
       HTML(
         paste0(
@@ -175,14 +175,6 @@ shinyServer(function(input, output, session) {
         )
       )
     }
-  })
-  
-  prolific <- reactive({
-    if (is.null(files())) {
-      return(NULL)
-    }
-    t <- find_prolific_from_files(input$file)
-    return(t)
   })
   
   experiment_names <- reactive({
@@ -212,8 +204,12 @@ shinyServer(function(input, output, session) {
     if (is.null(files())) {
       return(NULL)
     }
-    generate_summary_table(files()$data_list,
-                           files()$stairs)
+    generate_summary_table(
+      files()$data_list,
+      files()$stairs,
+      files()$pretest,
+      files()$prolific)
+
   })
   
   minNQuestTrials <-reactive({input$NQuestTrials}) %>% debounce(1000)
@@ -237,6 +233,7 @@ shinyServer(function(input, output, session) {
       files()$df,
       files()$pretest,
       files()$stairs,
+      files()$prolific,
       input$filterInput,
       input$skillFilter,
       minNQuestTrials(),
@@ -802,11 +799,13 @@ shinyServer(function(input, output, session) {
     crowding_vs_acuity_plots <- crowding_vs_acuity_plot(df_list())
     regression_plots <- regression_reading_plot(df_list())
     test_retest_plots <- get_test_retest(df_list())
+    distance_production_plots <- plot_distance_production(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
     plot_calls <- list(
       list(plot = sizeCheckPlot()$density_vs_length, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
       list(plot = sizeCheckPlot()$density_ratio_vs_sd, fname = 'ratio-vs-sdLogDensity-plot'),
       list(plot = plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = plot_distance_production(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_production_plots$production_vs_requested, fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_production_plots$production_fraction, fname = 'calibrateTrackDistanceProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
@@ -4253,26 +4252,14 @@ shinyServer(function(input, output, session) {
                   output$instruction <- renderText(instruction)
                   output$experiment <-
                     renderText(experiment_names())
-                  if (!is.null(prolific())) {
-                    combinedTable <-
-                      combineProlific(prolific(), 
-                                      summary_table(), 
-                                      files()$pretest, 
-                                      df_list()$participant_info)[[1]]
-                  } else{
-                    combinedTable <-
-                      combineProlific(NULL, 
-                                      summary_table(), 
-                                      files()$pretest, 
-                                      df_list()$participant_info)[[1]]
-                  }
                   
                   participants <-
-                    unique(combinedTable$`Pavlovia session ID`)
+                    unique(summary_table()$`Pavlovia session ID`)
                    prolific_id <-
-                     unique(combinedTable$`Prolific participant ID`)
+                     unique(summary_table()$`Prolific participant ID`)
+                   
                    output$ex1 <- DT::renderDataTable({
-                     render_summary_datatable(combinedTable, participants, prolific_id)
+                     render_summary_datatable(summary_table(), participants, prolific_id)
                    })
                    
                    #### stats page ####
@@ -4674,14 +4661,8 @@ shinyServer(function(input, output, session) {
       )
     },
     content = function(filename) {
-      if (!is.null(prolific())) {
-        combinedTable <-
-          combineProlific(prolific(), summary_table(), files()$pretest, df_list()$participant_info)[[1]]
-      } else{
-        combinedTable <-
-          combineProlific(NULL, summary_table(), files()$pretest, df_list()$participant_info)[[1]]
-      }
-      openxlsx::write.xlsx(combinedTable %>% select(-order), file = filename)
+      
+      openxlsx::write.xlsx(summary_table(), file = filename)
     }
   )
   

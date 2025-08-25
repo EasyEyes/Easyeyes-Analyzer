@@ -559,6 +559,7 @@ read_files <- function(file){
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
   stairs <- do.call(rbind, stair_list)
+  prolific <- find_prolific_from_files(file)
   print('done preprocess')
   return(list(data_list = data_list, 
               summary_list = summary_list, 
@@ -566,7 +567,8 @@ read_files <- function(file){
               readingCorpus = paste(unique(readingCorpus), collapse = "-"),
               df = df,
               pretest = pretest,
-              stairs = stairs
+              stairs = stairs,
+              prolific = prolific
   ))
 }
 

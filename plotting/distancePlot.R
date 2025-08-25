@@ -1,9 +1,5 @@
 get_distance_calibration <- function(data_list, minRulerCm) {
-  print('inside get_distance_calibration')
-  print(paste("DEBUG: minRulerCm =", minRulerCm))
-  
   if (length(data_list) == 0) {
-    print("DEBUG: empty data_list received")
     return(list())
   }
   
@@ -22,7 +18,6 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   }
   
   if (length(participant_info_list) == 0) {
-    print("DEBUG: No ruler information found, returning original data_list")
     return(data_list)
   }
   
@@ -44,14 +39,10 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     ) %>%
     filter(rulerCm >= minRulerCm)
   
-  print(paste("DEBUG: Participants with valid rulers:", nrow(participant_info)))
-  print(paste("DEBUG: Valid participants:", paste(participant_info$participant, collapse = ", ")))
-  
   # Filter the original data_list to only include participants with acceptable ruler lengths
   valid_participants <- participant_info$participant
   
   if (length(valid_participants) == 0) {
-    print("DEBUG: No participants meet ruler criteria, returning empty list")
     return(list())
   }
   
@@ -65,12 +56,10 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     }
   }
   
-  print(paste("DEBUG: Returning", length(filtered_data_list), "filtered datasets"))
   return(filtered_data_list)
 }
 
 get_sizeCheck_data <- function(data_list) {
-  print('inside get_sizeCheck_data')
   df <- tibble()
   
   # pxPerCm: pixel density measured with a credit card
@@ -110,7 +99,7 @@ get_sizeCheck_data <- function(data_list) {
       df <- rbind(t, df)
     }
   }
-  
+
   if (nrow(df) > 0) {
     df <- df %>% mutate(
       SizeCheckEstimatedPxPerCm = as.numeric(SizeCheckEstimatedPxPerCm),
@@ -119,12 +108,10 @@ get_sizeCheck_data <- function(data_list) {
   }
   
   
-  print('done get_sizeCheck_data')
   return(df)
 }
 
 get_measured_distance_data <- function(data_list) {
-  print('inside get_measured_distance_data')
   df <- tibble()
   
   for (i in 1:length(data_list)) {
@@ -138,7 +125,7 @@ get_measured_distance_data <- function(data_list) {
              !is.na(calibrateTrackDistanceRequestedCm),
              calibrateTrackDistanceMeasuredCm != '',
              calibrateTrackDistanceRequestedCm != '')
-    
+
     if (nrow(t) > 0) {
       # Convert JSON-like lists into strings and remove extra characters
       t <- t %>%
@@ -166,12 +153,10 @@ get_measured_distance_data <- function(data_list) {
     )
   }
   
-  print('done get_measured_distance_data')
   return(df)
 }
 
 plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  print('inside plot_distance')
   distance <- get_measured_distance_data(data_list)
   sizeCheck <- get_sizeCheck_data(data_list)
   statement <- paste0('calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
@@ -194,14 +179,12 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   # Check for NA values after conversion
   if (sum(is.na(distance$calibrateTrackDistanceMeasuredCm)) == nrow(distance) ||
       sum(is.na(distance$calibrateTrackDistanceRequestedCm)) == nrow(distance)) {
-    print("Error: All values in one or both columns are NA after conversion.")
     return(NULL)
   }
   
   # Ensure we have at least one valid row
   distance <- na.omit(distance)  # Remove rows with NA values
   if (nrow(distance) == 0) {
-    print("Error: No valid numeric data available after NA removal.")
     return(NULL)
   }
   
@@ -225,24 +208,11 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   } else {
     distance_avg <- distance_avg %>% mutate(reliableBool = TRUE)
   }
-  
-  fit <- lm(log10(avg_measured) ~ log10(calibrateTrackDistanceRequestedCm), data = distance_avg)
-  
-  slope <- coef(fit)
-  slope <- format(round(slope[['log10(calibrateTrackDistanceRequestedCm)']], 2), nsmall=2)
-  corr <- cor(log10(distance_avg$calibrateTrackDistanceRequestedCm), log10(distance_avg$avg_measured))
-  corr <- format(round(corr,2), nsmall=2)
-  
-  # Use appropriate scale limits for cleaner axis display
-  min_val <- 8   # Round down from ~9
-  max_val <- 70  # Round up from ~57 for better visual spacing
-  
-  # DEBUG: Show what Y-values the credit card plot is using
-  print("=== CREDIT CARD Y-VALUE CHECK ===")
-  print("Credit card plot Y-values (avg_measured) sample:")
-  print(head(distance_avg$avg_measured, 10))
-  print("=== END CREDIT CARD CHECK ===")
-  
+
+     # Use appropriate scale limits for cleaner axis display
+   min_val <- 8   # Round down from ~9
+   max_val <- 70  # Round up from ~57 for better visual spacing
+   
   p <- ggplot() + 
     geom_line(data=distance_avg, 
               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
@@ -289,22 +259,11 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
 }
 
 plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  print('inside plot_sizeCheck')
   sizeCheck <- get_sizeCheck_data(data_list)
-  
-  # DEBUG: Print basic information about the dataset
-  print(paste("DEBUG: sizeCheck has", nrow(sizeCheck), "rows"))
-  if (nrow(sizeCheck) > 0) {
-    print("DEBUG: sizeCheck column names:")
-    print(colnames(sizeCheck))
-    print("DEBUG: Sample of sizeCheck data:")
-    print(head(sizeCheck, 3))
-  }
   
   statement <- paste0('calibrateTrackDistance = ', sizeCheck$calibrateTrackDistance[1])
   # Check if the data is empty
   if (nrow(sizeCheck) == 0) {
-    print("Error: Empty dataset returned from get_sizeCheck_data()")
     return(NULL)
   }
   
@@ -316,7 +275,6 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   # Check for NA values after conversion
   if (sum(is.na(sizeCheck$SizeCheckEstimatedPxPerCm)) == nrow(sizeCheck) ||
       sum(is.na(sizeCheck$SizeCheckRequestedCm)) == nrow(sizeCheck)) {
-    print("Error: All values in one or both columns are NA after conversion.")
     return(NULL)
   }
   
@@ -348,17 +306,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
       .groups = "drop"
     ) %>%
-    filter(!is.na(sdLogDensity)) %>% 
-    mutate(ratio = pxPerCm / avg_estimated)
-  
-  # DEBUG: Print sdLogDensity_data information
-  print(paste("DEBUG: sdLogDensity_data has", nrow(sdLogDensity_data), "rows"))
-  if (nrow(sdLogDensity_data) > 0) {
-    print("DEBUG: sdLogDensity range:")
-    print(range(sdLogDensity_data$sdLogDensity, na.rm = TRUE))
-    print("DEBUG: Sample sdLogDensity values:")
-    print(head(sdLogDensity_data$sdLogDensity, 10))
-  }
+      filter(!is.na(sdLogDensity)) %>% 
+  mutate(ratio = pxPerCm / avg_estimated)
   
   
   if (nrow(sdLogDensity_data) > 0) {
@@ -370,8 +319,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       mutate(
         # Assign each participant to a bin that doesn't cross zero
         bin_center = ifelse(sdLogDensity >= 0,
-                            floor(sdLogDensity / bin_width) * bin_width + bin_width/2,
-                            ceiling(sdLogDensity / bin_width) * bin_width - bin_width/2)
+                           floor(sdLogDensity / bin_width) * bin_width + bin_width/2,
+                           ceiling(sdLogDensity / bin_width) * bin_width - bin_width/2)
       ) %>%
       arrange(bin_center, participant) %>%
       group_by(bin_center) %>%
@@ -383,35 +332,13 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     
     data_range <- range(sdLogDensity_data$sdLogDensity)
     
-    # DEBUG: Print data range information
-    print(paste("DEBUG: data_range[1] (min):", data_range[1]))
-    print(paste("DEBUG: data_range[2] (max):", data_range[2]))
-    print(paste("DEBUG: bin_width:", bin_width))
-    
     # Calculate reasonable x-axis maximum (data max + some padding)
     x_max <- max(sdLogDensity_data$bin_center, calibrateTrackDistanceCheckLengthSDLogAllowed) + bin_width
-    
-    positive_breaks <- seq(0, ceiling(data_range[2] / bin_width) * bin_width + bin_width, by = bin_width)
-    
-    # Fix negative_breaks logic: only create negative breaks if data_range[1] is actually negative
-    if (data_range[1] < 0) {
-      negative_to <- floor(data_range[1] / bin_width) * bin_width - bin_width
-      print(paste("DEBUG: Creating negative breaks from -bin_width =", -bin_width, "to", negative_to))
-      negative_breaks <- seq(-bin_width, negative_to, by = -bin_width)
-    } else {
-      print("DEBUG: No negative breaks needed - data_range[1] is not negative")
-      negative_breaks <- numeric(0)  # Empty vector
-    }
-    
-    custom_breaks <- sort(c(negative_breaks, positive_breaks))
     
     # Create the histogram plot with stacked dots
     # Calculate legend rows and dynamic sizing (now using 3 columns)
     n_participants <- n_distinct(sdLogDensity_data$participant)
     legend_rows <- ceiling(n_participants / 3)  # Changed to 3 columns
-    
-    # Dynamic sizing based on number of rows - increase base size for dot plots
-    legend_text_size <- 7
     
     # Calculate appropriate y-axis limit (remove empty space above)
     max_count <- max(sdLogDensity_data$dot_y)
@@ -431,6 +358,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       # Stacked colored points (histogram style with discrete stacks)
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
       scale_color_manual(values= colorPalette) +
+      scale_y_continuous(expand = expansion(mult = c(0, 0.5))) + 
       scale_x_log10(limits = c(x_min, x_max)) +
       annotation_logticks(sides = "b") +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
@@ -450,7 +378,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       theme_bw() + 
       theme( legend.key.size = unit(0.3, "cm"),        # Increase key size for dots
              legend.title = element_text(size=6),
-             legend.text = element_text(size=legend_text_size * 1.2, margin = margin(l=0.1, r=0, t = -1, b = -1)),
+             legend.text = element_text(size=8, margin = margin(l=0.1, r=0, t = -1, b = -1)),
              legend.box.margin = margin(l=-6,r=0,t=2,b=1,"mm"),
              legend.box.spacing = unit(0.2, "cm"),          # Add some spacing between legend elements
              legend.spacing.y = unit(0.1, "cm"),            # Add vertical spacing
@@ -507,7 +435,9 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   sizeCheck_avg <- sizeCheck_avg %>% 
     left_join(sdLogDensity_data %>% select(-avg_estimated), by = "participant") %>% 
     mutate(reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed))
-  
+  ymin = max(5,floor(min(sizeCheck_avg$avg_estimated) / 10 - 1) * 10)
+  ymax = ceiling(max(sizeCheck_avg$avg_estimated) / 10 + 1) * 10
+
   p1 <- ggplot(data=sizeCheck_avg) + 
     geom_line(aes(x = SizeCheckRequestedCm_jitter, 
                   y = avg_estimated,
@@ -527,8 +457,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     scale_x_log10(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50)) +
     scale_y_log10(breaks = c(10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500),
-                  limits = c(max(5,floor(sizeCheck_avg$avg_estimated / 10 - 1) * 10),
-                             ceiling(sizeCheck_avg$avg_estimated / 10 + 1) * 10)) +
+                  limits = c(ymin,ymax)) +
     annotation_logticks(size = 0.3, alpha = 0.7, short = unit(0.1, "cm"), mid = unit(0.15, "cm"), long = unit(0.2, "cm")) + 
     scale_color_manual(values= colorPalette) + 
     guides(color = guide_legend(
@@ -568,12 +497,13 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   
   # keep your x_left/xmax_band from earlier...
   p2 <- ggplot(sdLogDensity_data) +
-    geom_rect(
-      aes(xmin = x_left, xmax = xmax_band, ymin = y_min_panel, ymax = y_max_panel),
-      inherit.aes = FALSE,
-      fill = "lightgreen", 
-      alpha = 0.18
-    ) +
+    annotate("rect", 
+             xmin = x_left, 
+             xmax = xmax_band, 
+             ymin = y_min_panel, 
+             ymax = y_max_panel, 
+             fill = "lightgreen", 
+             alpha = 0.3) +
     geom_point(aes(x = sdLogDensity, y = ratio, color = participant), size = 2) +
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                         label = paste0("N=", dplyr::n_distinct(sdLogDensity_data$participant))) +
@@ -606,7 +536,6 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
 }
 
 plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  print('=== STARTING plot_distance_production ===')
   distance <- get_measured_distance_data(data_list)
   sizeCheck <- get_sizeCheck_data(data_list)
   statement <- paste0('calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
@@ -638,10 +567,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
   
   # Ensure we have at least one valid row
   distance <- na.omit(distance)
-  if (nrow(distance) == 0) {
-    print("Error: No valid numeric data available after NA removal.")
-    return(NULL)
-  }
+  if (nrow(distance) == 0) {return(NULL)}
   
   # Average Measured Distance per Participant per Requested Distance (SAME AS CREDIT CARD)
   distance_avg <- distance %>%
@@ -668,49 +594,29 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       mutate(densityRatio = 1, reliableBool = TRUE)
   }
   
-  # Apply production correction - this is the ONLY difference from credit card plot
+  # Apply production correction and calculate ratio
   distance_avg <- distance_avg %>%
     mutate(
-      avg_measured = ifelse(!is.na(densityRatio), densityRatio * creditCardMeasuredCm, creditCardMeasuredCm)
+      avg_measured = ifelse(!is.na(densityRatio), densityRatio * creditCardMeasuredCm, creditCardMeasuredCm),
+      # Calculate the ratio Y/X for the second plot
+      production_fraction = ifelse(!is.na(densityRatio), densityRatio * creditCardMeasuredCm, creditCardMeasuredCm) / calibrateTrackDistanceRequestedCm
     )
+
+  # Calculate mean and SD of the ratio for reporting
+  mean_fraction <- mean(distance_avg$production_fraction, na.rm = TRUE)
+  sd_fraction <- sd(distance_avg$production_fraction, na.rm = TRUE)
   
-  # DEBUG: Verify the Y-values are actually different
-  print("DEBUG PRODUCTION: Sample Y-values being plotted:")
-  print(distance_avg %>% 
-          select(participant, creditCardMeasuredCm, densityRatio, avg_measured) %>% 
-          head(10))
-  
-  print("DEBUG PRODUCTION: Y-value ranges:")
-  print(paste("Credit card range:", min(distance_avg$creditCardMeasuredCm), "to", max(distance_avg$creditCardMeasuredCm)))
-  print(paste("Production range (avg_measured):", min(distance_avg$avg_measured), "to", max(distance_avg$avg_measured)))
-  print(paste("Are they identical?", identical(distance_avg$creditCardMeasuredCm, distance_avg$avg_measured)))
-  
-  # IDENTICAL regression and correlation calculations as credit card plot
-  fit <- lm(log10(avg_measured) ~ log10(calibrateTrackDistanceRequestedCm), data = distance_avg)
-  
-  slope <- coef(fit)
-  slope <- format(round(slope[['log10(calibrateTrackDistanceRequestedCm)']], 2), nsmall=2)
-  corr <- cor(log10(distance_avg$calibrateTrackDistanceRequestedCm), log10(distance_avg$avg_measured))
-  corr <- format(round(corr,2), nsmall=2)
+  # Format for display
+  mean_formatted <- format(round(mean_fraction, 3), nsmall = 3)
+  sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
   
   # IDENTICAL scale limits as credit card plot
   # Use appropriate scale limits for cleaner axis display
   min_val <- 8   # Round down from ~9
   max_val <- 70  # Round up from ~57 for better visual spacing
   
-  # FINAL VERIFICATION: Show what Y-values we're actually plotting
-  print("=== FINAL Y-VALUE CHECK ===")
-  print("Production plot Y-values (avg_measured) sample:")
-  print(head(distance_avg$avg_measured, 10))
-  print("Original credit card values sample:")  
-  print(head(distance_avg$creditCardMeasuredCm, 10))
-  print("Density ratios sample:")
-  print(head(distance_avg$densityRatio, 10))
-  print(paste("Y-values are different from original:", !identical(distance_avg$avg_measured, distance_avg$creditCardMeasuredCm)))
-  print("=== END Y-VALUE CHECK ===")
-  
-  # IDENTICAL plot creation as credit card plot - only difference is labels
-  p <- ggplot() + 
+  # Plot 1: Production-measured vs requested distance
+  p1 <- ggplot() + 
     geom_line(data=distance_avg, 
               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
                   y = avg_measured,
@@ -752,6 +658,52 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       legend.box = "horizontal"                     # Same as credit card
     )
   
-  print('=== FINISHED plot_distance_production ===')
-  return(p)
+  # Plot 2: Production-measured as fraction of requested distance
+  p2 <- ggplot() + 
+    geom_line(data=distance_avg, 
+              aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                  y = production_fraction,
+                  color = participant, 
+                  lty = reliableBool,
+                  group = participant), alpha = 0.7) +
+    geom_point(data=distance_avg, 
+               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                   y = production_fraction,
+                   color = participant), 
+               size = 2) + 
+    ggpp::geom_text_npc(aes(npcx="left",
+                            npcy="top"),
+                        label = paste0('N=', n_distinct(distance_avg$participant), '\n',
+                                       'Mean=', mean_formatted, '\n',
+                                       'SD=', sd_formatted)) + 
+    geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
+    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
+                          labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
+    scale_x_log10(breaks = c(10, 20, 30, 50, 100)) + 
+    scale_y_continuous(breaks = seq(0.5, 2.0, by = 0.1)) + 
+    scale_color_manual(values= colorPalette) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+    guides(color = guide_legend(
+      ncol = 3,
+      title = "",
+      override.aes = list(size = 2),
+      keywidth = unit(1.2, "lines"),
+      keyheight = unit(0.8, "lines")
+    ),
+    linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
+    labs(subtitle = 'Production-measured as fraction of requested distance',
+         x = 'Requested distance (cm)',
+         y = 'Production-measured as fraction of requested distance') +
+    theme(
+      axis.title = element_text(size = 10),
+      axis.text = element_text(size = 9),
+      plot.title = element_text(size = 12),
+      legend.position = "bottom",
+      legend.box = "horizontal"
+    )
+  
+  return(list(
+    production_vs_requested = p1,
+    production_fraction = p2
+  ))
 }

@@ -77,8 +77,9 @@ read_prolific <- function(fileProlific) {
   
 }
 
-combineProlific <- function(prolificData, summary_table, pretest, participant_info){
+combineProlific <- function(prolificData, summary_table, pretest){
   print('inside combineProlific')
+
   if (is.null(prolificData) | nrow(prolificData) == 0) {
     t <- summary_table %>% mutate(ProlificStatus= ' ',
                                   prolificMin = NaN,
@@ -142,11 +143,6 @@ combineProlific <- function(prolificData, summary_table, pretest, participant_in
                 rename('Pavlovia session ID' = 'participant') %>%
                 select(`Pavlovia session ID`, `Participant ID`),
               by = 'Pavlovia session ID') %>% 
-    left_join(participant_info %>% 
-                rename(`Pavlovia session ID` = PavloviaParticipantID,
-                       comment = Comment) %>% 
-                select(`Pavlovia session ID`, comment),
-              by = 'Pavlovia session ID') %>% 
     distinct(`Participant ID`,`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
              `device type`, system, browser, resolution, screenWidthCm, cameraIsTopCenter, `Phone QR connect`, date, `Prolific min`,
              `Prolific status`,`Completion code`, ok, unmetNeeds, error, warning, cores, GB,
@@ -157,7 +153,7 @@ combineProlific <- function(prolificData, summary_table, pretest, participant_in
              mustTrackSec, goodTrials, badTrials, WebGLVersion, 
              maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer)
   print('done combine prolific')
-  return(list(t, formSpree))
+  return(t)
 }
 
 

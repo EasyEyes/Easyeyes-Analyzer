@@ -6,7 +6,7 @@ englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
   mutate(participant = tolower(ID))
 
 generate_threshold <- 
-  function(data_list, summary_list, df, pretest, stairs, filterInput, skillFilter,minNQuestTrials, 
+  function(data_list, summary_list, df, pretest, stairs, prolific, filterInput, skillFilter, minNQuestTrials, 
            minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed, minRulerCm) {
     
     print('inside threshold warning')
@@ -670,14 +670,13 @@ generate_threshold <-
     
     # Generate sessions data to extract additional columns
     print("DEBUG: Generating sessions data for participant info table")
-    sessions_data <- generate_summary_table(data_list, stairs)
+    sessions_data <- generate_summary_table(data_list, stairs, pretest, prolific)
     
     # Extract the 6 needed columns from sessions data
     sessions_columns <- sessions_data %>%
-      select(`Pavlovia session ID`, `device type`, system, browser, `Prolific participant ID`, ok, screenWidthCm, cameraIsTopCenter) %>%
+      select(`Pavlovia session ID`, `device type`, `Prolific min`, system, browser, ok, screenWidthCm, cameraIsTopCenter) %>%
       rename(
         PavloviaParticipantID = `Pavlovia session ID`,
-        `Prolific min` = `Prolific participant ID`  # User asked for "Prolific min" 
       ) %>%
       distinct()
     
