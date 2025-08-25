@@ -706,9 +706,8 @@ generate_threshold <-
       rename(PavloviaParticipantID = participant) %>%
       # Join with sessions data to add the 6 columns
       left_join(sessions_columns, by = "PavloviaParticipantID") %>%
-      select(PavloviaParticipantID, rulerCm, objectLengthCm, Object, Comment, 
-             `device type`, system, browser, `Prolific min`, ok, screenWidthCm, cameraIsTopCenter) %>%
-      # Sort by ok status first (✅ first), then alphabetically by PavloviaParticipantID within each status group
+      select(ok, PavloviaParticipantID, `device type`, system, browser, `Prolific min`, 
+             screenWidthCm, rulerCm, objectLengthCm, Object, Comment) %>%
       mutate(
         ok_priority = case_when(
           ok == "✅" ~ 1,  # ✅ (white_check_mark) first
@@ -721,7 +720,7 @@ generate_threshold <-
       arrange(ok_priority, PavloviaParticipantID) %>%
       select(-ok_priority)  # Remove the helper column
     
-    # Debug: Show sorting results
+
     print("DEBUG: Participant info table sorting results:")
     print(paste("Total participants:", nrow(participant_info)))
     if ("ok" %in% names(participant_info)) {
