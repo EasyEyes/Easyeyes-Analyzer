@@ -28,26 +28,133 @@ impute_column <- function(df, colname, preceding_value) {
   return(df)
 }
 
+# Check whether a single ZIP archive is empty
+# - Accepts a character path, or a Shiny fileInput row/list with $datapath
+# - Returns: TRUE (empty), FALSE (not empty), or NA (unreadable)
+check_empty_archive <- function(file) {
+  # Resolve the path
+  path <- NULL
+  if (is.character(file)) {
+    path <- file[1]
+  } else if (is.list(file) && !is.null(file$datapath)) {
+    path <- file$datapath
+  } else if (is.data.frame(file) && "datapath" %in% names(file)) {
+    path <- file$datapath[[1]]
+  } else {
+    stop("Provide a zip path, or a Shiny file object/row with $datapath.")
+  }
+
+  if (is.na(path) || !nzchar(path) || !file.exists(path)) {
+    stop("Archive path does not exist.")
+  }
+
+  # List contents; if this fails, return NA
+  info <- tryCatch(utils::unzip(path, list = TRUE), error = function(e) e)
+  if (inherits(info, "error")) {
+    warning(sprintf("Couldn't read archive '%s': %s", basename(path), conditionMessage(info)))
+    return(NA)
+  }
+
+  # Drop directories and Mac metadata
+  info <- info[!grepl("/$", info$Name), , drop = FALSE]           # remove directory entries
+  info <- info[!grepl("^__MACOSX/", info$Name), , drop = FALSE]   # remove __MACOSX
+
+  # Empty if no files remain, or all remaining files are 0 bytes
+  if (nrow(info) == 0) return(TRUE)
+  has_nonempty_file <- any(!is.na(info$Length) & info$Length > 0)
+  return(!has_nonempty_file)
+}
+
 check_file_names <- function(file) {
   file_names <- file$name
+  file_paths <- file$datapath
   valid_endings <- c(".results.zip", ".csv", ".prolific.csv", ".pretest.xlsx")
   is_valid <- sapply(file_names, 
                      function(name) any(sapply(valid_endings, function(ext) grepl(paste0(ext, "$"), name))))
   invalid_files <- file_names[!is_valid]
   
-  if (all(is_valid)) {
-    return(NULL) 
-  } else {
-    return(paste0(
-      "Sorry. Incompatible filename(s):<br> ", 
-      paste(invalid_files, collapse = ", "), "<br><br>",
-      "Compatible filenames must have one of these endings:<br>",
-      "&nbsp;&nbsp;&nbsp;• .results.zip<br>",
-      "&nbsp;&nbsp;&nbsp;• .csv<br>",
-      "&nbsp;&nbsp;&nbsp;• .prolific.csv<br>",
-      "&nbsp;&nbsp;&nbsp;• .pretest.xlsx"
+  # Check for empty zip files
+  zip_indices <- grep("\\.zip$", file_names, ignore.case = TRUE)
+  unreadable_empty_files <- c()
+  
+  if (length(zip_indices) > 0) {
+    for (i in zip_indices) {
+      zip_path <- file_paths[i]
+      zip_name <- file_names[i]
+      
+      empty_result <- tryCatch({
+        check_empty_archive(zip_path)
+      }, error = function(e) {
+        return(NA)
+      })
+      
+      if (is.na(empty_result) || empty_result) {
+        # Combine both unreadable (NA) and empty (TRUE) files
+        unreadable_empty_files <- c(unreadable_empty_files, zip_name)
+      }
+    }
+  }
+  
+  # Now determine what message to return based on what problems we found
+  has_invalid_names <- length(invalid_files) > 0
+  has_unreadable_empty_files <- length(unreadable_empty_files) > 0
+  
+  # Build comprehensive error message showing ALL problems
+  error_sections <- c()
+  
+  if (has_invalid_names) {
+    error_sections <- c(error_sections, paste0(
+      "<strong>Incompatible filename(s):</strong><br>", 
+      paste(invalid_files, collapse = ", ")
     ))
   }
+  
+  if (has_unreadable_empty_files) {
+    error_sections <- c(error_sections, paste0(
+      "<strong>Unreadable/empty zip file(s):</strong><br>", 
+      paste(unreadable_empty_files, collapse = ", ")
+    ))
+  }
+  
+  # If we have any problems, return comprehensive message
+  if (length(error_sections) > 0) {
+    
+    # Build help text based on what problems we found
+    help_text <- ""
+    
+    if (has_invalid_names) {
+      help_text <- paste0(help_text, 
+        "Compatible filenames must have one of these endings:<br>",
+        "&nbsp;&nbsp;&nbsp;• .results.zip<br>",
+        "&nbsp;&nbsp;&nbsp;• .csv<br>",
+        "&nbsp;&nbsp;&nbsp;• .prolific.csv<br>",
+        "&nbsp;&nbsp;&nbsp;• .pretest.xlsx<br><br>"
+      )
+    }
+    
+    if (has_unreadable_empty_files) {
+      help_text <- paste0(help_text, 
+        "Zip files must contain experiment data (.csv files) and be readable.<br><br>"
+      )
+    }
+    
+    # Use appropriate title based on number of error types
+    title <- if (length(error_sections) > 1) {
+      "Sorry. Multiple issues found:<br><br>"
+    } else {
+      "Sorry. File issue found:<br><br>"
+    }
+    
+    return(paste0(
+      title,
+      paste(error_sections, collapse = "<br><br>"),
+      "<br><br>",
+      help_text
+    ))
+  }
+  
+  # No problems found
+  return(NULL)
 }
 
 ensure_columns <- function(t, file_name = NULL) {
@@ -368,6 +475,23 @@ read_files <- function(file){
       }
     }
     if (grepl(".zip", file_list[i])) {
+      # Check if this zip file is empty and skip it if so
+      empty_result <- tryCatch({
+        check_empty_archive(file_list[i])
+      }, error = function(e) {
+        print(paste("Warning: Could not read zip file", file_names[i], "-", e$message))
+        return(NA)
+      })
+      
+      if (is.na(empty_result)) {
+        print(paste("Skipping unreadable zip file:", file_names[i]))
+        next
+      } else if (empty_result) {
+        print(paste("Skipping empty zip file:", file_names[i]))
+        next
+      }
+      
+      # Proceed with processing non-empty zip file
       file_names <- unzip(file_list[i], list = TRUE)$Name
       file_names <- file_names[!grepl("^~", basename(file_names))]
       all_csv <- file_names[grepl(".csv", file_names)]
@@ -489,6 +613,23 @@ read_files <- function(file){
   }
   
   df <- tibble()
+  
+  # Remove any NULL entries from lists that might have been created by skipped files
+  data_list <- data_list[!sapply(data_list, is.null)]
+  stair_list <- stair_list[!sapply(stair_list, is.null)]
+  summary_list <- summary_list[!sapply(summary_list, is.null)]
+  
+  # Safety check: if no data was processed, return empty structure
+  if (length(data_list) == 0) {
+    return(list(
+      data_list = list(),
+      stair_list = list(),
+      summary_list = list(),
+      pretest = tibble(),
+      experiment = character(0),
+      prolific = tibble()
+    ))
+  }
   
   for (i in 1:length(data_list)) {
     if (!'ParticipantCode' %in% names(data_list[[i]])) {
