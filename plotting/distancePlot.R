@@ -357,6 +357,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                alpha = 0.3) +
       # Stacked colored points (histogram style with discrete stacks)
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
       scale_color_manual(values= colorPalette) +
       scale_y_continuous(expand = expansion(mult = c(0, 0.5))) + 
       scale_x_log10(limits = c(x_min, x_max)) +
@@ -419,7 +420,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   }
   if (nrow(ruler) > 0) {
     h2 <- ggplot(ruler, aes(x = lengthCm)) +
-      geom_histogram(color="black", fill="gray80") + 
+      geom_histogram(fill="gray80") + 
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
       scale_x_log10(breaks = c(10, 30, 100, 300)) +
       annotation_logticks(sides = "b", size = 0.3, alpha = 0.7, short = unit(0.1, "cm"), mid = unit(0.15, "cm"), long = unit(0.2, "cm")) +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
