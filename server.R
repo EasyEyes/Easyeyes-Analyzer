@@ -796,7 +796,7 @@ shinyServer(function(input, output, session) {
     # OPTIMIZATION: Compute expensive functions once, use results multiple times
     foveal_crowding_acuity_plots <- foveal_crowding_vs_acuity_diag()
     peripheral_plots <- peripheral_plot(df_list())
-    crowding_vs_acuity_plots <- crowding_vs_acuity_plot(df_list())
+    #crowding_vs_acuity_plots <- crowding_vs_acuity_plot(df_list())
     regression_plots <- regression_reading_plot(df_list())
     test_retest_plots <- get_test_retest(df_list())
     distance_production_plots <- plot_distance_production(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
@@ -817,8 +817,8 @@ shinyServer(function(input, output, session) {
       list(plot = foveal_peripheral_diag()$grade, fname = 'foveal-crowding-vs-peripheral-crowding-grade-diagram'),
       list(plot = peripheral_plots$grade, fname = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'),
       list(plot = peripheral_plots$font, fname = 'peripheral-acuity-vs-peripheral-crowding-font-diagram'),
-      list(plot = crowding_vs_acuity_plots$grade, fname = 'crowding-vs-acuity-grade-diagram'),
-      list(plot = crowding_vs_acuity_plots$font, fname = 'crowding-vs-acuity-font-diagram'),
+      # list(plot = crowding_vs_acuity_plots$grade, fname = 'crowding-vs-acuity-grade-diagram'),
+      # list(plot = crowding_vs_acuity_plots$font, fname = 'crowding-vs-acuity-font-diagram'),
       list(plot = crowdingPlot(), fname = 'peripheral_crowding_left_vs_right'),
       list(plot = regression_plots$foveal, fname = 'reading-rsvp-reading-vs-foveal-crowding'),
       list(plot = regression_plots$peripheral, fname = 'reading-rsvp-reading-vs-peripheral-crowding'),
