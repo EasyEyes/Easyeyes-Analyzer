@@ -208,12 +208,27 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   } else {
     distance_avg <- distance_avg %>% mutate(reliableBool = TRUE)
   }
+  
+  # Calculate the ratio Y/X for the second plot
+  distance_avg <- distance_avg %>%
+    mutate(
+      credit_card_fraction = avg_measured / calibrateTrackDistanceRequestedCm
+    )
+
+  # Calculate mean and SD of the ratio for reporting
+  mean_fraction <- mean(distance_avg$credit_card_fraction, na.rm = TRUE)
+  sd_fraction <- sd(distance_avg$credit_card_fraction, na.rm = TRUE)
+  
+  # Format for display
+  mean_formatted <- format(round(mean_fraction, 3), nsmall = 3)
+  sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
 
      # Use appropriate scale limits for cleaner axis display
    min_val <- 8   # Round down from ~9
    max_val <- 70  # Round up from ~57 for better visual spacing
    
-  p <- ggplot() + 
+  # Plot 1: Credit-card-measured vs requested distance
+  p1 <- ggplot() + 
     geom_line(data=distance_avg, 
               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
                   y = avg_measured,
@@ -255,7 +270,54 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
       legend.box = "horizontal"                     # Ensure horizontal layout
     )
   
-  return(p)
+  # Plot 2: Credit-card-measured as fraction of requested distance
+  p2 <- ggplot() + 
+    geom_line(data=distance_avg, 
+              aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                  y = credit_card_fraction,
+                  color = participant, 
+                  lty = reliableBool,
+                  group = participant), alpha = 0.7) +
+    geom_point(data=distance_avg, 
+               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                   y = credit_card_fraction,
+                   color = participant), 
+               size = 2) + 
+    ggpp::geom_text_npc(aes(npcx="left",
+                            npcy="top"),
+                        label = paste0('N=', n_distinct(distance_avg$participant), '\n',
+                                       'Mean=', mean_formatted, '\n',
+                                       'SD=', sd_formatted)) + 
+    geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
+    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
+                          labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
+    scale_x_log10(breaks = c(10, 20, 30, 50, 100)) + 
+    scale_y_continuous(breaks = seq(0.5, 2.0, by = 0.1)) + 
+    scale_color_manual(values= colorPalette) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+    guides(color = guide_legend(
+      ncol = 3,
+      title = "",
+      override.aes = list(size = 2),
+      keywidth = unit(1.2, "lines"),
+      keyheight = unit(0.8, "lines")
+    ),
+    linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
+    labs(subtitle = 'Credit-card-measured as fraction of requested distance',
+         x = 'Requested distance (cm)',
+         y = 'Credit-card-measured as fraction of requested distance') +
+    theme(
+      axis.title = element_text(size = 10),
+      axis.text = element_text(size = 9),
+      plot.title = element_text(size = 12),
+      legend.position = "bottom",
+      legend.box = "horizontal"
+    )
+  
+  return(list(
+    credit_card_vs_requested = p1,
+    credit_card_fraction = p2
+  ))
 }
 
 plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
@@ -421,11 +483,12 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   if (nrow(ruler) > 0) {
     h2 <- ggplot(ruler, aes(x = lengthCm)) +
       geom_histogram(fill="gray80") + 
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement,size = 2) + 
       scale_x_log10(breaks = c(10, 30, 100, 300)) +
       annotation_logticks(sides = "b", size = 0.3, alpha = 0.7, short = unit(0.1, "cm"), mid = unit(0.15, "cm"), long = unit(0.2, "cm")) +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
-                          label = paste0('N=', n_distinct(ruler$participant))) + 
+                          label = paste0('N=', n_distinct(ruler$participant))
+                          ) + 
       labs(subtitle = 'Histogram of ruler \nlength (cm)',
            x = "Ruler length (cm)",
            y = "Count") +
@@ -601,7 +664,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     mutate(
       avg_measured = ifelse(!is.na(densityRatio), densityRatio * creditCardMeasuredCm, creditCardMeasuredCm),
       # Calculate the ratio Y/X for the second plot
-      production_fraction = ifelse(!is.na(densityRatio), densityRatio * creditCardMeasuredCm, creditCardMeasuredCm) / calibrateTrackDistanceRequestedCm
+      production_fraction = avg_measured / calibrateTrackDistanceRequestedCm
     )
 
   # Calculate mean and SD of the ratio for reporting
@@ -709,3 +772,22 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     production_fraction = p2
   ))
 }
+
+objectCm_hist <- function(participant_info) {
+  dt <- participant_info %>% filter(!is.na(objectLengthCm)) %>% mutate(objectLengthCm = as.numeric(objectLengthCm))
+  if (nrow(dt) == 0) return(NULL)
+  p <- ggplot(dt, aes(x = objectLengthCm)) +
+    geom_histogram(fill="gray80") + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = 'calibrateTrackDistance = object', size = 2) + 
+    # scale_x_log10(breaks = c(10, 30, 100, 300)) +
+    # annotation_logticks(sides = "b", size = 0.3, alpha = 0.7, 
+    #                     short = unit(0.1, "cm"), 
+    #                     mid = unit(0.15, "cm"), 
+    #                     long = unit(0.2, "cm")) +
+    ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
+                        label = paste0('N=', n_distinct(dt$PavloviaParticipantID))) + 
+    labs(subtitle = 'Histogram of object \nlength (cm)',
+         x = "Object length (cm)",
+         y = "Count")
+}
+

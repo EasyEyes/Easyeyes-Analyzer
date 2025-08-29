@@ -662,28 +662,16 @@ generate_threshold <-
       distinct(participant, questionAndAnswerResponse) %>%
       rename(Object = questionAndAnswerResponse)
     
-    print(paste("DEBUG: Found", nrow(comments_data), "COMMENT responses and", nrow(objects_data), "OBJCT responses"))
-    
-    # Debug distanceObjectCm extraction
-    print("DEBUG: Checking distanceObjectCm values:")
-    print(participant_info %>% select(participant, calibrateTrackDistance, distanceObjectCm) %>% head(10))
-    
-    # Generate sessions data to extract additional columns
-    print("DEBUG: Generating sessions data for participant info table")
     sessions_data <- generate_summary_table(data_list, stairs, pretest, prolific)
     
     # Extract the 6 needed columns from sessions data
     sessions_columns <- sessions_data %>%
-      select(`Pavlovia session ID`, `device type`, `Prolific min`, system, browser, ok, screenWidthCm, cameraIsTopCenter) %>%
+      select(`Pavlovia session ID`, `device type`, cameraIsTopCenter, `Prolific min`, system, browser, ok, screenWidthCm, cameraIsTopCenter) %>%
       rename(
         PavloviaParticipantID = `Pavlovia session ID`,
       ) %>%
       distinct()
     
-    print(paste("DEBUG: Sessions data has", nrow(sessions_columns), "rows"))
-    print("DEBUG: Sessions columns available:")
-    print(names(sessions_columns))
-
     # Join all data together
     participant_info <- participant_info %>%
       left_join(comments_data, by = "participant") %>%
@@ -706,7 +694,7 @@ generate_threshold <-
       rename(PavloviaParticipantID = participant) %>%
       # Join with sessions data to add the 6 columns
       left_join(sessions_columns, by = "PavloviaParticipantID") %>%
-      select(ok, PavloviaParticipantID, `device type`, system, browser, `Prolific min`, 
+      select(ok, PavloviaParticipantID, `device type`, system, browser, cameraIsTopCenter, `Prolific min`, 
              screenWidthCm, rulerCm, objectLengthCm, Object, Comment) %>%
       mutate(
         ok_priority = case_when(
@@ -721,15 +709,11 @@ generate_threshold <-
       select(-ok_priority)  # Remove the helper column
     
 
-    print("DEBUG: Participant info table sorting results:")
-    print(paste("Total participants:", nrow(participant_info)))
     if ("ok" %in% names(participant_info)) {
       status_counts <- participant_info %>% 
         group_by(ok) %>% 
         summarize(count = n(), .groups = "drop") %>%
         arrange(match(ok, c("✅", "🚧", "❌", NA)))
-      print("Status distribution (in sorted order):")
-      print(status_counts)
     }
     
     # Applied filter: 

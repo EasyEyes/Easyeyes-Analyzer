@@ -491,7 +491,7 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
   
   final_summary_table <- combineProlific(prolific, summary_df, pretest)
-  print(final_summary_table)
+
   print('done summary_df')
   return(final_summary_table)
 }

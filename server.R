@@ -578,7 +578,8 @@ shinyServer(function(input, output, session) {
   crowding_hists <- get_crowding_hist(df_list()$crowding) # Single function call
 
   static_calls <- list(
-    list(plot = sizeCheckPlot()$ruler_hist + hist_theme,                       fname = 'ruler-length-histogram'),
+    list(plot = sizeCheckPlot()$ruler_hist + hist_theme,                       fname = 'ruler-length-cm-histogram'),
+    list(plot = objectCm_hist(df_list()$participant_info) + hist_theme,         fname = 'object-length-cm-histogram'),
     list(plot = acuity_hists[[1]] + hist_theme,                                fname = 'foveal-acuity-histogram'),
     list(plot = acuity_hists[[2]] + hist_theme,                                fname = 'peripheral-acuity-histogram'),
     list(plot = crowding_hists$foveal+ hist_theme,                             fname = 'foveal-crowding-histogram'),
@@ -800,10 +801,12 @@ shinyServer(function(input, output, session) {
     regression_plots <- regression_reading_plot(df_list())
     test_retest_plots <- get_test_retest(df_list())
     distance_production_plots <- plot_distance_production(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
+    distance_plots <- plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
     plot_calls <- list(
       list(plot = sizeCheckPlot()$density_vs_length, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
       list(plot = sizeCheckPlot()$density_ratio_vs_sd, fname = 'ratio-vs-sdLogDensity-plot'),
-      list(plot = plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed()), fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_plots$credit_card_vs_requested, fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_plots$credit_card_fraction, fname = 'calibrateTrackDistanceMeasuredCm-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$production_vs_requested, fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$production_fraction, fname = 'calibrateTrackDistanceProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
