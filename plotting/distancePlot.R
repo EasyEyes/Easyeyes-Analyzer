@@ -61,7 +61,9 @@ get_distance_calibration <- function(data_list, minRulerCm) {
 
 get_sizeCheck_data <- function(data_list) {
   df <- tibble()
-  
+  if(length(data_list) == 0) {
+    return(df)
+  }
   # pxPerCm: pixel density measured with a credit card
   # SizeCheckEstimatedPxPerCm: pixel density measured from length production
   
@@ -113,7 +115,9 @@ get_sizeCheck_data <- function(data_list) {
 
 get_measured_distance_data <- function(data_list) {
   df <- tibble()
-  
+  if(length(data_list) == 0) {
+    return(df)
+  }
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>%
       select(participant,
