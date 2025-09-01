@@ -138,7 +138,7 @@ append_plot_list <- function(plotList, fileNames, plot, fname) {
 # If multiple experiments, pick the alphabetically first one
 get_short_experiment_name <- function(experiment_names) {
   if (length(experiment_names) == 0) {
-    return(NULl)
+    return(NULL)
   }
   
   return(sort(experiment_names)[1])

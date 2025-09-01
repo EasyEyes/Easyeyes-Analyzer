@@ -228,9 +228,9 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
 
      # Use appropriate scale limits for cleaner axis display
-   min_val <- 8   # Round down from ~9
-   max_val <- 70  # Round up from ~57 for better visual spacing
-   
+  min_val <- 10 * floor(min(distance_avg$calibrateTrackDistanceRequestedCm / 10)) - 10
+  max_val <- 10 * ceiling(max(distance_avg$calibrateTrackDistanceRequestedCm / 10)) + 10
+  
   # Plot 1: Credit-card-measured vs requested distance
   p1 <- ggplot() + 
     geom_line(data=distance_avg, 
@@ -295,8 +295,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(breaks = c(10, 20, 30, 50, 100)) + 
-    scale_y_continuous(breaks = seq(0.5, 2.0, by = 0.1)) + 
+    scale_x_log10(limits = c(min_val, max_val), breaks = c(20, 30, 40, 50, 70), expand = expansion(mult = c(0.05, 0.05))) + 
+    scale_y_continuous(n.breaks = 6) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
@@ -485,11 +485,21 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     h1 <- NULL
   }
   if (nrow(ruler) > 0) {
+    print('get ruler length histogram')
+    print(ruler)
+    maxX = 1.05 * max(ruler$lengthCm) 
+    minX = 0.95 * min(ruler$lengthCm)
     h2 <- ggplot(ruler, aes(x = lengthCm)) +
       geom_histogram(fill="gray80") + 
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement,size = 2) + 
-      scale_x_log10(breaks = c(10, 30, 100, 300)) +
-      annotation_logticks(sides = "b", size = 0.3, alpha = 0.7, short = unit(0.1, "cm"), mid = unit(0.15, "cm"), long = unit(0.2, "cm")) +
+      scale_x_log10(limits=c(minX, maxX),
+                    breaks = scales::log_breaks()) +
+      annotation_logticks(sides = "b", 
+                          size = 0.3, 
+                          alpha = 0.7, 
+                          short = unit(0.1, "cm"),
+                          mid = unit(0.15, "cm"), 
+                          long = unit(0.2, "cm")) +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
                           label = paste0('N=', n_distinct(ruler$participant))
                           ) + 
@@ -552,11 +562,6 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   y_low  <- suppressWarnings(min(rat_pos, na.rm = TRUE))
   y_high <- suppressWarnings(max(rat_pos, na.rm = TRUE))
   
-  xmax_allowed <- as.numeric(calibrateTrackDistanceCheckLengthSDLogAllowed)
-  
-  # guard: keep the band within the panel
-  xmax_band <- max(min(xmax_allowed, max(sdLogDensity_data$sdLogDensity, na.rm = TRUE)), x_left)
-  
   rat_pos <- sdLogDensity_data$ratio[sdLogDensity_data$ratio > 0]
   y_low  <- suppressWarnings(min(rat_pos, na.rm = TRUE))
   y_high <- suppressWarnings(max(rat_pos, na.rm = TRUE))
@@ -568,7 +573,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   p2 <- ggplot(sdLogDensity_data) +
     annotate("rect", 
              xmin = x_left, 
-             xmax = xmax_band, 
+             xmax = calibrateTrackDistanceCheckLengthSDLogAllowed, 
              ymin = y_min_panel, 
              ymax = y_max_panel, 
              fill = "lightgreen", 
@@ -578,7 +583,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                         label = paste0("N=", dplyr::n_distinct(sdLogDensity_data$participant))) +
     ggpp::geom_text_npc(aes(npcx="right", npcy="bottom"), label = statement) +
     scale_color_manual(values = colorPalette) +
-    scale_x_log10(limits = c(x_left, NA), expand = c(0, 0)) +   # left edge flush
+    scale_x_log10(limits = c(x_left, NA), expand = expansion(mult = c(0, 0.05))) + 
     scale_y_log10(limits = c(y_min_panel, y_max_panel), expand = c(0, 0)) +
     annotation_logticks() +
     guides(
@@ -681,8 +686,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
   
   # IDENTICAL scale limits as credit card plot
   # Use appropriate scale limits for cleaner axis display
-  min_val <- 8   # Round down from ~9
-  max_val <- 70  # Round up from ~57 for better visual spacing
+  min_val <- 10 * floor(min(distance_avg$calibrateTrackDistanceRequestedCm / 10)) - 10
+  max_val <- 10 * ceiling(max(distance_avg$calibrateTrackDistanceRequestedCm / 10)) + 10
   
   # Plot 1: Production-measured vs requested distance
   p1 <- ggplot() + 
@@ -748,8 +753,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(breaks = c(10, 20, 30, 50, 100)) + 
-    scale_y_continuous(breaks = seq(0.5, 2.0, by = 0.1)) + 
+    scale_x_log10(limits = c(min_val, max_val), breaks = c(20, 30, 40, 50, 60), expand = expansion(mult = c(0.05, 0.05))) + 
+    scale_y_continuous(n.breaks = 6) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
