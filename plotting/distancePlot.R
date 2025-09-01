@@ -203,7 +203,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
       # Add consistent random horizontal jitter to x-axis variable
       calibrateTrackDistanceRequestedCm_jitter = {
         set.seed(42) # Consistent seed for reproducible jitter across both plots
-        calibrateTrackDistanceRequestedCm * runif(n(), min = 0.95, max = 1.05)
+        calibrateTrackDistanceRequestedCm * runif(n(), min = 0.98, max = 1.02)
       }
     ) 
   if (nrow(sdLogDensity_data) > 0) {
@@ -265,14 +265,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     coord_fixed() +  
     labs(subtitle = 'Credit-card-measured vs. requested distance',
          x = 'Requested distance (cm)',
-         y = 'Credit-card-measured distance (cm)') +
-    theme(  # Smaller legend text (was default ~10-12), left-aligned # Smaller legend title
-      axis.title = element_text(size = 10),        # Smaller axis titles (was default ~12-14)
-      axis.text = element_text(size = 9),          # Smaller axis text (was default ~10-12)
-      plot.title = element_text(size = 12),        # Smaller plot title (was default ~14-16)
-      legend.position = "bottom",                   # Move legend to bottom to prevent right cutoff
-      legend.box = "horizontal"                     # Ensure horizontal layout
-    )
+         y = 'Credit-card-measured distance (cm)',
+         caption = 'Horizontal jitter added to reduce overlap')
   
   # Plot 2: Credit-card-measured as fraction of requested distance
   p2 <- ggplot() + 
@@ -309,14 +303,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
     labs(subtitle = 'Credit-card-measured as fraction of requested distance',
          x = 'Requested distance (cm)',
-         y = 'Credit-card-measured as fraction of requested distance') +
-    theme(
-      axis.title = element_text(size = 10),
-      axis.text = element_text(size = 9),
-      plot.title = element_text(size = 12),
-      legend.position = "bottom",
-      legend.box = "horizontal"
-    )
+         y = 'Credit-card-measured as fraction of requested distance',
+         caption = 'Horizontal jitter added to reduce overlap')
   
   return(list(
     credit_card_vs_requested = p1,
@@ -654,7 +642,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       # Add consistent random horizontal jitter to x-axis variable (SAME AS CREDIT CARD)
       calibrateTrackDistanceRequestedCm_jitter = {
         set.seed(42) # IDENTICAL seed as credit card plot for identical jitter
-        calibrateTrackDistanceRequestedCm * runif(n(), min = 0.95, max = 1.05)
+        calibrateTrackDistanceRequestedCm * runif(n(), min = 0.98, max = 1.02)
       }
     )
   
@@ -723,14 +711,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     coord_fixed() +  # SAME AS CREDIT CARD
     labs(subtitle = 'Production-measured vs. requested distance',  # ONLY LABEL DIFFERENCE
          x = 'Requested distance (cm)',                              # SAME AS CREDIT CARD
-         y = 'Production-measured distance (cm)') +
-    theme(  # IDENTICAL THEME AS CREDIT CARD
-      axis.title = element_text(size = 10),        # Same as credit card
-      axis.text = element_text(size = 9),          # Same as credit card
-      plot.title = element_text(size = 12),        # Same as credit card
-      legend.position = "bottom",                   # Same as credit card
-      legend.box = "horizontal"                     # Same as credit card
-    )
+         y = 'Production-measured distance (cm)',
+         caption = "Horizontal jitter added to reduce overlap")
   
   # Plot 2: Production-measured as fraction of requested distance
   p2 <- ggplot() + 
@@ -767,14 +749,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
     labs(subtitle = 'Production-measured as fraction of requested distance',
          x = 'Requested distance (cm)',
-         y = 'Production-measured as fraction of requested distance') +
-    theme(
-      axis.title = element_text(size = 10),
-      axis.text = element_text(size = 9),
-      plot.title = element_text(size = 12),
-      legend.position = "bottom",
-      legend.box = "horizontal"
-    )
+         y = 'Production-measured as fraction of requested distance',
+         caption = 'Horizontal jitter added to reduce overlap')
   
   return(list(
     production_vs_requested = p1,
