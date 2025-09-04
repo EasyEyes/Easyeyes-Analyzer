@@ -1065,6 +1065,16 @@ shinyServer(function(input, output, session) {
     return(nrow(durationData()) > 0)
   })
   
+  output$isCorrMatrixAvailable <- reactive({
+    return(!is.null(corrMatrix()))
+  })
+  outputOptions(output, 'isCorrMatrixAvailable', suspendWhenHidden = FALSE)
+  
+  output$isDurationCorrMatrixAvailable <- reactive({
+    return(!is.null(durationCorrMatrix()))
+  })
+  outputOptions(output, 'isDurationCorrMatrixAvailable', suspendWhenHidden = FALSE)
+  
   output$fileUploaded <- reactive({
     return(nrow(files()$pretest > 0))
   })
@@ -1094,6 +1104,11 @@ shinyServer(function(input, output, session) {
   #### plots ####
   
   output$corrMatrixPlot <- renderImage({
+    # Check if correlation matrix data is available
+    if (is.null(corrMatrix())) {
+      return(NULL)
+    }
+    
     tryCatch({
       outfile <- tempfile(fileext = '.svg')
       p <- add_experiment_title(corrMatrix()$plot, experiment_names())
@@ -1112,6 +1127,11 @@ shinyServer(function(input, output, session) {
   }, deleteFile = TRUE)
   
   output$nMatrixPlot <- renderImage({
+    # Check if correlation matrix data is available
+    if (is.null(corrMatrix())) {
+      return(NULL)
+    }
+    
     tryCatch({
       outfile <- tempfile(fileext = '.svg')
       p <- add_experiment_title(corrMatrix()$n_plot, experiment_names())
@@ -1130,6 +1150,11 @@ shinyServer(function(input, output, session) {
   }, deleteFile = TRUE)
   
   output$durationCorrMatrixPlot <- renderImage({
+    # Check if duration correlation matrix data is available
+    if (is.null(durationCorrMatrix())) {
+      return(NULL)
+    }
+    
     outfile <- tempfile(fileext = '.svg')
     p <- add_experiment_title(durationCorrMatrix()$plot, experiment_names())
     ggsave(

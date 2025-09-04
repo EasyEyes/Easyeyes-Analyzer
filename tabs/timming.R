@@ -1,13 +1,17 @@
 
 timingTab <- tabPanel(
   'Timing',
-    fixedRow(
-      shinycssloaders::withSpinner(
-        plotOutput("durationCorrMatrixPlot", width = "100%", height = "100%"), 
-        type = 4
-      )
+    h2("Duration Correlation Matrix"),
+    conditionalPanel(
+      'output.isDurationCorrMatrixAvailable',
+      fixedRow(
+        shinycssloaders::withSpinner(
+          plotOutput("durationCorrMatrixPlot", width = "100%", height = "100%"), 
+          type = 4
+        )
+      ),
+      downloadButton("downloadDurationCorrMatrixPlot", "Download")
     ),
-    downloadButton("downloadDurationCorrMatrixPlot", "Download"),
     conditionalPanel('output.isDuration', 
                      h3("Histograms"),
                      shinycssloaders::withSpinner(uiOutput("timingHistograms"), type = 4),

@@ -101,6 +101,11 @@ get_duration_corr <- function(data_list, conditionNameInput) {
   params <- params[complete.cases(params),]
   N = nrow(params)
   
+  # Check if we have any valid data for correlation
+  if (ncol(params) == 0 || nrow(params) == 0 || N == 0) {
+    return(NULL)
+  }
+  
   c <- colnames(params)
   t <- data.frame(cor(params))
   

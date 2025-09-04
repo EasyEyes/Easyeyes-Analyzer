@@ -542,6 +542,13 @@ getCorrMatrix <- function(allData, pretest) {
     rename('log rsvp' = 'block_avg_log_WPM') %>% 
     select_if(is.numeric) %>% 
     select(where(~sum(!is.na(.)) > 0))
+  
+  # Check if we have any valid data for correlation
+  if (ncol(crowdingW) == 0 || nrow(crowdingW) == 0 || 
+      nrow(crowdingW[complete.cases(crowdingW), ]) == 0) {
+    return(NULL)
+  }
+  
   # c <- colnames(crowdingW)
 
   # t <- data.frame(cor(crowdingW[complete.cases(crowdingW),]))
