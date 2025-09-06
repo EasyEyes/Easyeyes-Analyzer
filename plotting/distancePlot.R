@@ -228,8 +228,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
 
      # Use appropriate scale limits for cleaner axis display
-  min_val <- 10 * floor(min(distance_avg$calibrateTrackDistanceRequestedCm / 10)) - 10
-  max_val <- 10 * ceiling(max(distance_avg$calibrateTrackDistanceRequestedCm / 10)) + 10
+   min_val <- 5 * floor(min(c(distance_avg$calibrateTrackDistanceRequestedCm, 
+                               distance_avg$avg_measured), na.rm = TRUE) / 5) 
+   min_val = max(10, min_val)
+   max_val <- 5 * ceiling(max(c(distance_avg$calibrateTrackDistanceRequestedCm), na.rm = TRUE) / 5)
   
   # Plot 1: Credit-card-measured vs requested distance
   p1 <- ggplot() + 
@@ -349,8 +351,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     )
   
   # Determine scale limits
-  min_val <- min(c(sizeCheck_avg$SizeCheckRequestedCm, sizeCheck_avg$avg_estimated))
-  max_val <- max(c(sizeCheck_avg$SizeCheckRequestedCm, sizeCheck_avg$avg_estimated))
+  min_val <- min(c(sizeCheck_avg$SizeCheckRequestedCm, sizeCheck_avg$avg_estimated), na.rm = TRUE)
+  max_val <- max(c(sizeCheck_avg$SizeCheckRequestedCm, sizeCheck_avg$avg_estimated), na.rm = TRUE)
   
   # Compute sdLogDensity for each participant
   sdLogDensity_data <- sizeCheck %>%
@@ -662,7 +664,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       avg_measured = ifelse(!is.na(densityRatio), densityRatio * creditCardMeasuredCm, creditCardMeasuredCm),
       # Calculate the ratio Y/X for the second plot
       production_fraction = avg_measured / calibrateTrackDistanceRequestedCm
-    )
+    ) %>% 
+    filter(is.finite(avg_measured))
 
   # Calculate mean and SD of the ratio for reporting
   mean_fraction <- mean(distance_avg$production_fraction, na.rm = TRUE)
@@ -674,9 +677,12 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
   
   # IDENTICAL scale limits as credit card plot
   # Use appropriate scale limits for cleaner axis display
-  min_val <- 10 * floor(min(distance_avg$calibrateTrackDistanceRequestedCm / 10)) - 10
-  max_val <- 10 * ceiling(max(distance_avg$calibrateTrackDistanceRequestedCm / 10)) + 10
-  
+  min_val <- 5 * floor(min(c(distance_avg$calibrateTrackDistanceRequestedCm, 
+                              distance_avg$avg_measured), na.rm = TRUE) / 5)
+  min_val = max(10, min_val)
+  max_val <- 5 * ceiling(max(c(distance_avg$calibrateTrackDistanceRequestedCm, 
+                                distance_avg$avg_measured), na.rm = TRUE) / 5)
+
   # Plot 1: Production-measured vs requested distance
   p1 <- ggplot() + 
     geom_line(data=distance_avg, 
