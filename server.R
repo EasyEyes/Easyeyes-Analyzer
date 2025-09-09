@@ -578,8 +578,6 @@ shinyServer(function(input, output, session) {
   crowding_hists <- get_crowding_hist(df_list()$crowding) # Single function call
 
   static_calls <- list(
-    list(plot = sizeCheckPlot()$ruler_hist + hist_theme,                       fname = 'ruler-length-cm-histogram'),
-    list(plot = objectCm_hist(df_list()$participant_info) + hist_theme,         fname = 'object-length-cm-histogram'),
     list(plot = acuity_hists[[1]] + hist_theme,                                fname = 'foveal-acuity-histogram'),
     list(plot = acuity_hists[[2]] + hist_theme,                                fname = 'peripheral-acuity-histogram'),
     list(plot = crowding_hists$foveal+ hist_theme,                             fname = 'foveal-crowding-histogram'),
@@ -760,9 +758,11 @@ shinyServer(function(input, output, session) {
     l         <- list()
     fileNames <- list()
     
-    # SD histogram goes here with larger sizing
+    # SD histogram and distance-related dot plots go here with larger sizing
     static_calls <- list(
-      list(plot = sizeCheckPlot()$sd_hist, fname = 'sd-log-density-histogram')
+      list(plot = sizeCheckPlot()$sd_hist, fname = 'sd-log-density-histogram'),
+      list(plot = sizeCheckPlot()$ruler_hist, fname = 'ruler-length-cm-dotplot'),
+      list(plot = objectCm_hist(df_list()$participant_info), fname = 'object-length-cm-dotplot')
     )
     
     for (call in static_calls) {

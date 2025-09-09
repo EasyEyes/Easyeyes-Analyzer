@@ -432,44 +432,35 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
         x = "SD of log10 pixel density",
         y = "Count"
       ) +
-      theme_bw() + 
-      theme( legend.key.size = unit(0.3, "cm"),        # Increase key size for dots
-             legend.title = element_text(size=6),
-             legend.text = element_text(size=8, margin = margin(l=0.1, r=0, t = -1, b = -1)),
-             legend.box.margin = margin(l=-6,r=0,t=2,b=1,"mm"),
-             legend.box.spacing = unit(0.2, "cm"),          # Add some spacing between legend elements
-             legend.spacing.y = unit(0.1, "cm"),            # Add vertical spacing
-             legend.spacing.x = unit(0.2, "cm"),            # Add horizontal spacing
-             legend.key.height = unit(0.3, "cm"),           # Match keyheight from guide_legend
-             legend.key.width = unit(0.3, "cm"),            # Match keywidth from guide_legend
-             legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
-             legend.margin = margin(l=0, r=0, t=0, b=0, unit = 'mm'),
-             legend.position = "top", 
-             legend.box = "vertical", 
-             legend.justification='left',
-             panel.grid.major = element_blank(), 
-             panel.grid.minor = element_blank(),
-             panel.background = element_blank(), 
-             axis.title = element_text(size = 12),        # Reduced from 12
-             axis.text = element_text(size = 12),         # Reduced from 12  
-             axis.line = element_line(colour = "black"),
-             axis.text.y = element_text(size = 10),       # Reduced from 10
-             plot.title = element_text(size=7,
-                                       hjust = 0,
-                                       margin = margin(b = 0)),
-             plot.title.position = "plot",
-             plot.subtitle = element_text(size=14,       # Increased for dot plots
-                                          hjust = 0,
-                                          margin = margin(t = 0)),
-             plot.caption = element_text(size=10),        # Reduced from 10
-             plot.margin = margin(
-               t = 0.2,                                  # Increased top margin for legend
-               r = 0.1,
-               b = 0,
-               l = 0.1,
-               "inch"
-             ),
-             strip.text = element_text(size = 12))
+      theme_bw() +
+      theme(legend.key.size = unit(0, "mm"),
+            legend.title = element_text(size = 7),
+            legend.text = element_text(size = 8, margin = margin(t = -10, b = -10)),
+            legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+            legend.box.spacing = unit(0, "lines"),
+            legend.spacing.y = unit(-10, "lines"),
+            legend.spacing.x = unit(0, "lines"),
+            legend.key.height = unit(0, "lines"),
+            legend.key.width = unit(0, "mm"),
+            legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+            legend.margin = margin(0, 0, 0, 0),
+            legend.position = "top", 
+            legend.box = "vertical", 
+            legend.justification = 'left',
+            panel.grid.major = element_blank(), 
+            panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.title = element_text(size = 12),
+            axis.text = element_text(size = 12),
+            axis.line = element_line(colour = "black"),
+            axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+            axis.text.y = element_text(size = 10),
+            plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+            plot.title.position = "plot",
+            plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+            plot.caption = element_text(size = 10),
+            plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+            strip.text = element_text(size = 14))
     
   } else {
     h1 <- NULL
@@ -479,9 +470,31 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     print(ruler)
     maxX = 1.05 * max(ruler$lengthCm) 
     minX = 0.95 * min(ruler$lengthCm)
-    h2 <- ggplot(ruler, aes(x = lengthCm)) +
-      geom_histogram(fill="gray80") + 
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement,size = 2) + 
+    # Create dot plot style like SD histogram
+    bin_width <- (max(ruler$lengthCm) - min(ruler$lengthCm)) / 20  # Adjust bin width based on data range
+    
+    ruler_dotplot <- ruler %>%
+      mutate(
+        # Create bins for stacking
+        bin_center = round(lengthCm / bin_width) * bin_width
+      ) %>%
+      arrange(bin_center, participant) %>%
+      group_by(bin_center) %>%
+      mutate(
+        stack_position = row_number(),
+        dot_y = stack_position
+      ) %>%
+      ungroup()
+    
+    max_count <- max(ruler_dotplot$dot_y)
+    n_participants <- n_distinct(ruler_dotplot$participant)
+    
+    h2 <- ggplot(ruler_dotplot, aes(x = lengthCm)) +
+      # Stacked colored points (dot plot style)
+      geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 2) + 
+      scale_color_manual(values = colorPalette) +
+      scale_y_continuous(limits = c(0, max_count + 1), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
       scale_x_log10(limits=c(minX, maxX),
                     breaks = scales::log_breaks()) +
       annotation_logticks(sides = "b", 
@@ -491,12 +504,46 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                           mid = unit(0.15, "cm"), 
                           long = unit(0.2, "cm")) +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
-                          label = paste0('N=', n_distinct(ruler$participant))
-                          ) + 
-      labs(subtitle = 'Histogram of ruler \nlength (cm)',
+                          label = paste0('N=', n_distinct(ruler_dotplot$participant))) + 
+      guides(color = guide_legend(
+        ncol = 4,  
+        title = "",
+        override.aes = list(size = 2),
+        keywidth = unit(0.3, "cm"),
+        keyheight = unit(0.3, "cm")
+      )) +
+      labs(subtitle = 'Histogram of ruler length (cm)',
            x = "Ruler length (cm)",
            y = "Count") +
-      theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+      theme_bw() +
+      theme(legend.key.size = unit(0, "mm"),
+            legend.title = element_text(size = 7),
+            legend.text = element_text(size = 8, margin = margin(t = -10, b = -10)),
+            legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+            legend.box.spacing = unit(0, "lines"),
+            legend.spacing.y = unit(-10, "lines"),
+            legend.spacing.x = unit(0, "lines"),
+            legend.key.height = unit(0, "lines"),
+            legend.key.width = unit(0, "mm"),
+            legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+            legend.margin = margin(0, 0, 0, 0),
+            legend.position = "top", 
+            legend.box = "vertical", 
+            legend.justification = 'left',
+            panel.grid.major = element_blank(), 
+            panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.title = element_text(size = 12),
+            axis.text = element_text(size = 12),
+            axis.line = element_line(colour = "black"),
+            axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+            axis.text.y = element_text(size = 10),
+                  plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+            plot.title.position = "plot",
+            plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+            plot.caption = element_text(size = 10),
+            plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+            strip.text = element_text(size = 14))
   } else {
     h2 = NULL
   }
@@ -767,18 +814,77 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
 objectCm_hist <- function(participant_info) {
   dt <- participant_info %>% filter(!is.na(objectLengthCm)) %>% mutate(objectLengthCm = as.numeric(objectLengthCm))
   if (nrow(dt) == 0) return(NULL)
-  p <- ggplot(dt, aes(x = objectLengthCm)) +
-    geom_histogram(fill="gray80") + 
+  
+  # Create dot plot style like SD histogram
+  bin_width <- (max(dt$objectLengthCm) - min(dt$objectLengthCm)) / 20  # Adjust bin width based on data range
+  
+  object_dotplot <- dt %>%
+    mutate(
+      # Create bins for stacking
+      bin_center = round(objectLengthCm / bin_width) * bin_width
+    ) %>%
+    arrange(bin_center, PavloviaParticipantID) %>%
+    group_by(bin_center) %>%
+    mutate(
+      stack_position = row_number(),
+      dot_y = stack_position
+    ) %>%
+    ungroup()
+  
+  max_count <- max(object_dotplot$dot_y)
+  n_participants <- n_distinct(object_dotplot$PavloviaParticipantID)
+  
+  p <- ggplot(object_dotplot, aes(x = objectLengthCm)) +
+    # Stacked colored points (dot plot style)
+    geom_point(aes(x = bin_center, y = dot_y, color = PavloviaParticipantID), size = 3, alpha = 0.8) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = 'calibrateTrackDistance = object', size = 2) + 
+    scale_color_manual(values = colorPalette) +
+    scale_y_continuous(limits = c(0, max_count + 1), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
     # scale_x_log10(breaks = c(10, 30, 100, 300)) +
     # annotation_logticks(sides = "b", size = 0.3, alpha = 0.7, 
     #                     short = unit(0.1, "cm"), 
     #                     mid = unit(0.15, "cm"), 
     #                     long = unit(0.2, "cm")) +
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
-                        label = paste0('N=', n_distinct(dt$PavloviaParticipantID))) + 
-    labs(subtitle = 'Histogram of object \nlength (cm)',
+                        label = paste0('N=', n_distinct(object_dotplot$PavloviaParticipantID))) + 
+    guides(color = guide_legend(
+      ncol = 4,  
+      title = "",
+      override.aes = list(size = 2),
+      keywidth = unit(0.3, "cm"),
+      keyheight = unit(0.3, "cm")
+    )) +
+    labs(subtitle = 'Histogram of object length (cm)',
          x = "Object length (cm)",
-         y = "Count")
+         y = "Count") +
+    theme_bw() +
+    theme(legend.key.size = unit(0, "mm"),
+          legend.title = element_text(size = 7),
+          legend.text = element_text(size = 8, margin = margin(t = -10, b = -10)),
+          legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+          legend.box.spacing = unit(0, "lines"),
+          legend.spacing.y = unit(-10, "lines"),
+          legend.spacing.x = unit(0, "lines"),
+          legend.key.height = unit(0, "lines"),
+          legend.key.width = unit(0, "mm"),
+          legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "top", 
+          legend.box = "vertical", 
+          legend.justification = 'left',
+          panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(), 
+          axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+          plot.caption = element_text(size = 10),
+          plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14))
 }
 

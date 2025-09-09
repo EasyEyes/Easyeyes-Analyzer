@@ -27,7 +27,7 @@ plotsTab <- tabPanel(
   shinycssloaders::withSpinner(uiOutput('histograms'), type = 4),
   
   #### dot plots ####
-  h2("Dot plots"),
+  h2("Histograms colored by participant"),
   shinycssloaders::withSpinner(uiOutput('dotPlots'), type = 4),
   conditionalPanel(
     'output.isGrade',
