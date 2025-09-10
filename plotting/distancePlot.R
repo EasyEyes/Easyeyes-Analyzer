@@ -181,6 +181,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   
   
   # Check for NA values after conversion
+  print("CalibrateTrackDistance RequestedCm in distance plot: ")
+  print(distance$calibrateTrackDistanceRequestedCm)
+  print("CalibrateTrackDistance MeasuredCm in distance plot: ")
+  print(distance$calibrateTrackDistanceMeasuredCm)
   if (sum(is.na(distance$calibrateTrackDistanceMeasuredCm)) == nrow(distance) ||
       sum(is.na(distance$calibrateTrackDistanceRequestedCm)) == nrow(distance)) {
     return(NULL)
@@ -206,6 +210,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         calibrateTrackDistanceRequestedCm * runif(n(), min = 0.98, max = 1.02)
       }
     ) 
+  print("Distance_avg in distance plot: ")
+  print(distance_avg)
   if (nrow(sdLogDensity_data) > 0) {
     distance_avg <- distance_avg %>% 
       left_join(sdLogDensity_data, by = "participant")
@@ -227,12 +233,25 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   mean_formatted <- format(round(mean_fraction, 3), nsmall = 3)
   sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
 
-     # Use appropriate scale limits for cleaner axis display
-   min_val <- 5 * floor(min(c(distance_avg$calibrateTrackDistanceRequestedCm, 
-                               distance_avg$avg_measured), na.rm = TRUE) / 5) 
-   min_val = max(10, min_val)
-   max_val <- 5 * ceiling(max(c(distance_avg$calibrateTrackDistanceRequestedCm), na.rm = TRUE) / 5)
+     # Use appropriate scale limits for cleaner axis display - use JITTERED values
+  min_val <- 5 * floor(min(c(distance_avg$calibrateTrackDistanceRequestedCm_jitter, 
+                              distance_avg$avg_measured), na.rm = TRUE) / 5) 
+  min_val = max(10, min_val)
+  max_val <- 5 * ceiling(max(c(distance_avg$calibrateTrackDistanceRequestedCm_jitter), na.rm = TRUE) / 5)
+  print("calibrateTrackDistanceRequestedCm_jitter in distance plot: ")
+  print(distance_avg$calibrateTrackDistanceRequestedCm_jitter)
   
+  # Debug: Check scale limits
+  print(paste("min_val:", min_val, "max_val:", max_val))
+  print("Points within x-axis limits:")
+  print(distance_avg$calibrateTrackDistanceRequestedCm_jitter >= min_val & 
+        distance_avg$calibrateTrackDistanceRequestedCm_jitter <= max_val)
+  print("Points within y-axis limits:")
+  print(distance_avg$avg_measured >= min_val & distance_avg$avg_measured <= max_val)
+  
+  # Debug: Check all data that will be plotted
+  print("Data for plotting:")
+  print(distance_avg[c("participant", "calibrateTrackDistanceRequestedCm_jitter", "avg_measured")])
   # Plot 1: Credit-card-measured vs requested distance
   p1 <- ggplot() + 
     geom_line(data=distance_avg, 
@@ -415,7 +434,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
       scale_color_manual(values= colorPalette) +
-      scale_y_continuous(expand = expansion(mult = c(0, 0.5))) + 
+      scale_y_continuous(expand = expansion(mult = c(0, 0.1)), 
+                         breaks = function(x) seq(0, ceiling(max(x)), by = 1)) + 
       scale_x_log10(limits = c(x_min, x_max)) +
       annotation_logticks(sides = "b") +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
@@ -466,12 +486,21 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     h1 <- NULL
   }
   if (nrow(ruler) > 0) {
-    print('get ruler length histogram')
+    print('=====get ruler length histogram======')
     print(ruler)
     maxX = 1.05 * max(ruler$lengthCm) 
     minX = 0.95 * min(ruler$lengthCm)
     # Create dot plot style like SD histogram
     bin_width <- (max(ruler$lengthCm) - min(ruler$lengthCm)) / 20  # Adjust bin width based on data range
+    
+    # Debug ruler histogram
+    print(paste("Ruler bin_width:", bin_width))
+    print(paste("Ruler data range:", min(ruler$lengthCm), "to", max(ruler$lengthCm)))
+    
+    # Handle case where all rulers have same length (bin_width = 0)
+    if (bin_width == 0) {
+      bin_width <- 1  # Use a small default bin width
+    }
     
     ruler_dotplot <- ruler %>%
       mutate(
@@ -485,6 +514,10 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
         dot_y = stack_position
       ) %>%
       ungroup()
+    
+    # Debug ruler dotplot data
+    print("Ruler dotplot data:")
+    print(ruler_dotplot)
     
     max_count <- max(ruler_dotplot$dot_y)
     n_participants <- n_distinct(ruler_dotplot$participant)
@@ -722,13 +755,30 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
   mean_formatted <- format(round(mean_fraction, 3), nsmall = 3)
   sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
   
-  # IDENTICAL scale limits as credit card plot
+  # IDENTICAL scale limits as credit card plot - use JITTERED values
   # Use appropriate scale limits for cleaner axis display
-  min_val <- 5 * floor(min(c(distance_avg$calibrateTrackDistanceRequestedCm, 
+  min_val <- 5 * floor(min(c(distance_avg$calibrateTrackDistanceRequestedCm_jitter, 
                               distance_avg$avg_measured), na.rm = TRUE) / 5)
   min_val = max(10, min_val)
-  max_val <- 5 * ceiling(max(c(distance_avg$calibrateTrackDistanceRequestedCm, 
+  max_val <- 5 * ceiling(max(c(distance_avg$calibrateTrackDistanceRequestedCm_jitter, 
                                 distance_avg$avg_measured), na.rm = TRUE) / 5)
+
+  # Debug: Production distance plot
+  print("=== PRODUCTION DISTANCE PLOT DEBUG ===")
+  print("calibrateTrackDistanceRequestedCm_jitter in production plot:")
+  print(distance_avg$calibrateTrackDistanceRequestedCm_jitter)
+  print(paste("Production plot - min_val:", min_val, "max_val:", max_val))
+  print("Production plot - Points within x-axis limits:")
+  print(distance_avg$calibrateTrackDistanceRequestedCm_jitter >= min_val & 
+        distance_avg$calibrateTrackDistanceRequestedCm_jitter <= max_val)
+  print("Production plot - Points within y-axis limits:")
+  print(distance_avg$avg_measured >= min_val & distance_avg$avg_measured <= max_val)
+  print("Production plot - Data for plotting:")
+  print(distance_avg[c("participant", "calibrateTrackDistanceRequestedCm_jitter", "avg_measured")])
+  print("Production plot - densityRatio values:")
+  print(distance_avg$densityRatio)
+  print("Production plot - creditCardMeasuredCm vs avg_measured:")
+  print(distance_avg[c("participant", "creditCardMeasuredCm", "avg_measured")])
 
   # Plot 1: Production-measured vs requested distance
   p1 <- ggplot() + 
@@ -818,6 +868,16 @@ objectCm_hist <- function(participant_info) {
   # Create dot plot style like SD histogram
   bin_width <- (max(dt$objectLengthCm) - min(dt$objectLengthCm)) / 20  # Adjust bin width based on data range
   
+  # Debug object histogram
+  print("=====Object length histogram debug=====")
+  print(paste("Object bin_width:", bin_width))
+  print(paste("Object data range:", min(dt$objectLengthCm), "to", max(dt$objectLengthCm)))
+  
+  # Handle case where all objects have same length (bin_width = 0)
+  if (bin_width == 0) {
+    bin_width <- 1  # Use a small default bin width
+  }
+  
   object_dotplot <- dt %>%
     mutate(
       # Create bins for stacking
@@ -830,6 +890,10 @@ objectCm_hist <- function(participant_info) {
       dot_y = stack_position
     ) %>%
     ungroup()
+  
+  # Debug object dotplot data
+  print("Object dotplot data:")
+  print(object_dotplot)
   
   max_count <- max(object_dotplot$dot_y)
   n_participants <- n_distinct(object_dotplot$PavloviaParticipantID)

@@ -332,6 +332,7 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
             ProlificSessionID,
             date,
             deviceType,
+            deviceMemoryGB,
             cores,
             deviceSystemFamily,
             browser,
@@ -419,6 +420,7 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
       `Pavlovia session ID`,
       ProlificSessionID,
       `device type`,
+      deviceMemoryGB,
       system,
       browser,
       resolution,
@@ -484,7 +486,12 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     mutate(`threshold parameter` = as.character(`threshold parameter`)) %>%
     left_join(logFont, by = c('Pavlovia session ID')) %>%
     left_join(webGL, by = c('Pavlovia session ID','date')) %>%
+    # Preserve deviceMemoryGB from sessions before params join overwrites it
+    mutate(deviceMemoryGB_preserved = deviceMemoryGB) %>%
     left_join(params, by = c('Pavlovia session ID', 'date')) %>%
+    # Use preserved deviceMemoryGB from sessions since params filtering removes the data
+    mutate(deviceMemoryGB = deviceMemoryGB_preserved) %>%
+    select(-deviceMemoryGB_preserved) %>%
     rename("GB" = "deviceMemoryGB") %>% 
     mutate(date = parse_date_time(str_remove(date, " UTC[+-]\\d+"),
                                   orders = c('ymdHMS', 'mdyHMS'))) %>%
