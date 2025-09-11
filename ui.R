@@ -151,7 +151,7 @@ shinyUI(
             numericInput(
               'calibrateTrackDistanceCheckLengthSDLogAllowed',
               NULL,
-              value = 0.015,
+              value = 0.02,
               min = 0,
               width = '90px'
             )

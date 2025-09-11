@@ -4,9 +4,37 @@ source('./other/utility.R')
 # Each time update the summary table, the rmd report need to be updated accordingly.
 
 data_table_call_back = "
-  table.column(33).nodes().to$().css({cursor: 'pointer'});
+    // error column call back
+    table.column(18).nodes().to$().css({cursor: 'pointer'});
+    var format1 = function(d) {
+      return '<p>' + d[18] + '</p>';
+    };
+    table.on('click', 'td.errorC-control', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format1(row.data())).show();
+      }
+    });
+     // warning column call back
+    table.column(19).nodes().to$().css({cursor: 'pointer'});
+    var format2 = function(d) {
+      return '<p>' + d[19] + '</p>';
+    };
+    table.on('click', 'td.warnC-control', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(format2(row.data())).show();
+      }
+    });
+    
+    // computer51Deg column call back
+     table.column(34).nodes().to$().css({cursor: 'pointer'});
     var format8 = function(d) {
-      return '<p>' + d[33] + '</p>';
+      return '<p>' + d[34] + '</p>';
     };
     table.on('click', 'td.computer51Deg', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -17,35 +45,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(17).nodes().to$().css({cursor: 'pointer'});
-    var format1 = function(d) {
-      return '<p>' + d[17] + '</p>';
-    };
-    table.on('click', 'td.errorC-control', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(format1(row.data())).show();
-      }
-    });
-
-    table.column(18).nodes().to$().css({cursor: 'pointer'});
-    var format2 = function(d) {
-      return '<p>' + d[18] + '</p>';
-    };
-    table.on('click', 'td.warnC-control', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(format2(row.data())).show();
-      }
-    });
-
-    table.column(34).nodes().to$().css({cursor: 'pointer'});
+    table.column(35).nodes().to$().css({cursor: 'pointer'});
     var format6 = function(d) {
-      return '<p>' + d[34] + '</p>';
+      return '<p>' + d[35] + '</p>';
     };
     table.on('click', 'td.loudspeakerSurvey', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -56,9 +58,9 @@ data_table_call_back = "
       }
     });
 
-    table.column(35).nodes().to$().css({cursor: 'pointer'});
+    table.column(36).nodes().to$().css({cursor: 'pointer'});
     var format5 = function(d) {
-      return '<p>' + d[35] + '</p>';
+      return '<p>' + d[36] + '</p>';
     };
     table.on('click', 'td.microphoneSurvey', function() {
       var td = $(this), row = table.row(td.closest('tr'));
@@ -67,6 +69,20 @@ data_table_call_back = "
         row.child.hide();
       } else {
         row.child(format5(row.data())).show();
+      }
+    });
+    
+    table.column(40).nodes().to$().css({cursor: 'pointer'});
+    var formatComment = function(d) {
+      return '<p>' + d[40] + '</p>';
+    };
+    table.on('click', 'td.comment', function() {
+      var td = $(this), row = table.row(td.closest('tr'));
+      console.log(td);
+      if (row.child.isShown()) {
+        row.child.hide();
+      } else {
+        row.child(formatComment(row.data())).show();
       }
     });
 
@@ -533,7 +549,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
           orderData = width_col
         ),
         list(
-          targets = c(17),
+          targets = c(18),
           width = '100px',
           className = 'errorC-control',
           render = JS(
@@ -544,7 +560,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
           )
         ),
         list(
-          targets = c(18),
+          targets = c(19),
           width = '100px',
           className = 'warnC-control',
           render = JS(
@@ -555,7 +571,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
           )
         ),
         list(
-          targets = c(33),
+          targets = c(34),
           width = '50px',
           className = 'computer51Deg',
           render = JS(
@@ -566,7 +582,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
           )
         ),
         list(
-          targets = c(34),
+          targets = c(35),
           width = '50px',
           className = 'loudspeakerSurvey',
           render = JS(
@@ -577,9 +593,20 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
           )
         ),
         list(
-          targets = c(35),
+          targets = c(36),
           width = '50px',
           className = 'microphoneSurvey',
+          render = JS(
+            "function(data, type, row, meta) {",
+            "  return type === 'display' && data && data.length > 30 ?",
+            "    data.substr(0, 30) + '...' : data;",
+            "}"
+          )
+        ),
+        list(
+          targets = c(40),
+          width = '50px',
+          className = 'comment',
           render = JS(
             "function(data, type, row, meta) {",
             "  return type === 'display' && data && data.length > 30 ?",

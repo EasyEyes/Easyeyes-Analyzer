@@ -73,16 +73,10 @@ comfort_vs_crowding_scatter <- function(df_list) {
     group_by(participant, font) %>%
     summarize(crowding_distance = mean(crowding_distance, na.rm = TRUE), .groups = "drop")
   
-  # Debug: Check font availability
-  print(paste("Comfort fonts available:", paste(unique(comfort_data$font), collapse = ", ")))
-  print(paste("Crowding fonts available:", paste(unique(crowding_data$font), collapse = ", ")))
-  
   # Join comfort and crowding data
   combined_data <- comfort_data %>%
     inner_join(crowding_data, by = c("participant", "font")) %>%
     filter(!is.na(comfort_rating), !is.na(crowding_distance))
-  
-  print(paste("Combined fonts after join:", paste(unique(combined_data$font), collapse = ", ")))
   
   if (nrow(combined_data) == 0) {
     return(NULL)
@@ -148,16 +142,10 @@ beauty_vs_crowding_scatter <- function(df_list) {
     group_by(participant, font) %>%
     summarize(crowding_distance = mean(crowding_distance, na.rm = TRUE), .groups = "drop")
   
-  # Debug: Check font availability
-  print(paste("Beauty fonts available:", paste(unique(beauty_data$font), collapse = ", ")))
-  print(paste("Crowding fonts available:", paste(unique(crowding_data$font), collapse = ", ")))
-  
   # Join beauty and crowding data
   combined_data <- beauty_data %>%
     inner_join(crowding_data, by = c("participant", "font")) %>%
     filter(!is.na(beauty_rating), !is.na(crowding_distance))
-  
-  print(paste("Combined fonts after join:", paste(unique(combined_data$font), collapse = ", ")))
   
   if (nrow(combined_data) == 0) {
     return(NULL)

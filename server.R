@@ -809,6 +809,8 @@ shinyServer(function(input, output, session) {
       list(plot = distance_plots$credit_card_fraction, fname = 'calibrateTrackDistanceMeasuredCm-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$production_vs_requested, fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$production_fraction, fname = 'calibrateTrackDistanceProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_production_plots$raw_production_vs_requested, fname = 'calibrateTrackDistanceIndividualProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_production_plots$individual_production_fraction, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
@@ -2084,9 +2086,7 @@ shinyServer(function(input, output, session) {
                   plot = histogramsQuality()$plotList[[ii]] + hist_theme,
                   unit = "in",
                   width = 4,
-                  # Reduced width
                   height = 3.5,
-                  # Reduced height
                   limitsize = F,
                   device = svglite
                 )
@@ -4516,25 +4516,27 @@ shinyServer(function(input, output, session) {
       
       # Save correlation matrices
       short_exp_name <- get_short_experiment_name(experiment_names())
-      
-      savePlot(corrMatrix()$plot, 
-               paste0(short_exp_name, "correlation-matrix.", input$fileType),
-               input$fileType, 
-               width = corrMatrix()$width, 
-               height = corrMatrix()$height)
-      
-      savePlot(durationCorrMatrix()$plot, 
-               paste0(short_exp_name, "duration-correlation-matrix.", input$fileType),
-               input$fileType, 
-               width = durationCorrMatrix()$width, 
-               height = durationCorrMatrix()$height)
-      
-      # Add N correlation matrix
-      savePlot(corrMatrix()$n_plot, 
-               paste0(short_exp_name, "n-matrix.", input$fileType),
-               input$fileType, 
-               width = corrMatrix()$width, 
-               height = corrMatrix()$height)
+      if (!is.null(corrMatrix()$plot)) {
+        savePlot(corrMatrix()$plot, 
+                 paste0(short_exp_name, "correlation-matrix.", input$fileType),
+                 input$fileType, 
+                 width = corrMatrix()$width, 
+                 height = corrMatrix()$height)
+        
+        savePlot(corrMatrix()$n_plot, 
+                 paste0(short_exp_name, "pairwise-count-matrix.", input$fileType),
+                 input$fileType, 
+                 width = corrMatrix()$width, 
+                 height = corrMatrix()$height)
+      }
+     
+      if (!is.null(durationCorrMatrix()$plot)) {
+        savePlot(durationCorrMatrix()$plot, 
+                 paste0(short_exp_name, "duration-correlation-matrix.", input$fileType),
+                 input$fileType, 
+                 width = durationCorrMatrix()$width, 
+                 height = durationCorrMatrix()$height)
+      }
       
       fileNames <- c(
         paste0(short_exp_name, "correlation-matrix.", input$fileType),

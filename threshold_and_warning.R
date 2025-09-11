@@ -208,7 +208,6 @@ generate_threshold <-
         all_summary <- all_summary %>% 
           filter(`Skilled reader?` == "FALSE")
       }
-      print('done skill filter')
       
       if (!'ParticipantCode' %in% names(all_summary)) {
         all_summary$ParticipantCode = all_summary$participant
@@ -221,7 +220,6 @@ generate_threshold <-
     }
     
     
-    print('done combine threshlod')
     
     #### calculate cut-off start here ####
     
@@ -232,8 +230,6 @@ generate_threshold <-
     
     threshold <- ifelse(nrow(reading_avg) != 0, quantile(reading_avg$avg, 0.25, na.rm = T), 0)
     slowest = tibble()
-    print(paste0('threshold:', threshold))
-    
     if (!is.na(threshold) & threshold != 0) {
       slowest = reading_avg %>% filter(avg <= threshold) %>% mutate(participant = tolower(participant)) %>% distinct(participant)
     }
@@ -257,7 +253,7 @@ generate_threshold <-
       print(paste('number of rows in reading', nrow(reading)))
       print(paste('number of rows all_summary', nrow(all_summary)))
       reading <- reading %>% filter(tolower(participant) %in% tolower(slowest$participant))
-      all_summary <- all_summary %>% 
+      all_summary <- all_summary %>%
         filter(tolower(participant) %in% tolower(slowest$participant))
       print('after filtering')
       print(paste('unique pavloviaSessionID in reading', n_distinct(reading$participant)))
@@ -513,44 +509,8 @@ generate_threshold <-
     
     
     #### beauty and comfort ####
-    print("DEBUG: Starting QA extraction")
-    print(paste("Length of summary_list:", length(summary_list)))
-    print(paste("Length of data_list:", length(data_list)))
-    
+
     QA <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-      print(paste("DEBUG: Processing dataset", i, "for QA data"))
-      
-      # Check if QA columns exist
-      qa_cols <- c("questionAndAnswerQuestion", "questionAndAnswerNickname", "questionAndAnswerResponse", "questionAndAnswerCorrectAnswer")
-      available_qa_cols <- qa_cols[qa_cols %in% names(data_list[[i]])]
-      print(paste("DEBUG: Available QA columns in dataset", i, ":", paste(available_qa_cols, collapse = ", ")))
-      
-      if (length(available_qa_cols) == 0) {
-        print(paste("DEBUG: No QA columns found in dataset", i))
-        return(NULL)
-      }
-      
-      # Check for direct COMMENT/OBJCT columns (alternative storage format)
-      direct_comment_cols <- c("COMMENT", "OBJCT")
-      available_direct_cols <- direct_comment_cols[direct_comment_cols %in% names(data_list[[i]])]
-      print(paste("DEBUG: Available direct comment columns in dataset", i, ":", paste(available_direct_cols, collapse = ", ")))
-      
-      # Check for question/answer data
-      qa_data <- data_list[[i]] %>%
-        filter(!is.na(questionAndAnswerNickname) | !is.na(questionAndAnswerQuestion))
-      
-      print(paste("DEBUG: Dataset", i, "has", nrow(qa_data), "rows with QA data"))
-      
-      if (nrow(qa_data) == 0) {
-        print(paste("DEBUG: No QA rows found in dataset", i))
-        return(NULL)
-      }
-      
-      # Show sample of QA nicknames
-      qa_nicknames <- unique(qa_data$questionAndAnswerNickname)
-      qa_nicknames <- qa_nicknames[!is.na(qa_nicknames) & qa_nicknames != ""]
-      print(paste("DEBUG: QA nicknames in dataset", i, ":", paste(qa_nicknames, collapse = ", ")))
-      
       data_list[[i]] %>% 
         distinct(experiment,
                  participant,
@@ -576,8 +536,9 @@ generate_threshold <-
       filter(!blockShuffleGroups2=="readin5") %>% 
       arrange(experiment, participant, block, block_condition)
     
-    print(paste("DEBUG: Final QA has", nrow(QA), "rows"))
-    
+    # write.csv(QA %>% filter(questionAndAnswerCorrectAnswer != "",
+    #                                   !is.na(questionAndAnswerCorrectAnswer)),
+    #           'QA.csv')
     #### participant information table ####
     
     participant_info_list <- list()
@@ -618,11 +579,7 @@ generate_threshold <-
         .groups = "drop"
       )
     
-    print(paste("Participant info table created with", nrow(participant_info), "participants"))
-    
     # Extract COMMENT and OBJCT responses directly for participant info table
-    print("DEBUG: Creating separate QA extraction for participant info")
-    
     participant_qa_list <- list()
     
     for (i in 1:length(data_list)) {
@@ -633,7 +590,6 @@ generate_threshold <-
         distinct(participant, questionAndAnswerNickname, questionAndAnswerResponse, questionAndAnswerQuestion)
       
       if (nrow(temp_qa) > 0) {
-        print(paste("DEBUG: Dataset", i, "has", nrow(temp_qa), "COMMENT/OBJCT rows"))
         participant_qa_list[[i]] <- temp_qa
       }
     }
@@ -642,13 +598,11 @@ generate_threshold <-
     if (length(participant_qa_list) > 0) {
       participant_qa <- do.call(rbind, participant_qa_list) %>%
         distinct()
-      print(paste("DEBUG: Combined participant QA has", nrow(participant_qa), "rows"))
     } else {
       participant_qa <- tibble(participant = character(), 
                                questionAndAnswerNickname = character(), 
                                questionAndAnswerResponse = character(),
                                questionAndAnswerQuestion = character())
-      print("DEBUG: No participant QA data found")
     }
     
     # Split into comments and objects
@@ -723,7 +677,6 @@ generate_threshold <-
       filter(as.numeric(rulerCm) < minRulerCm) %>% 
       distinct(PavloviaParticipantID)
     
-    print('inside generate_threshold')
     if (nrow(pretest) > 0) {
       if (!'Grade' %in% names(pretest)) {
         pretest$Grade = -1

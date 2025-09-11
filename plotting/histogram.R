@@ -744,8 +744,11 @@ append_hist_list <- function(data_list, plot_list, fileNames, experimentNames){
         x     = 'spacingMinDeg',
         y     = 'Count',
         subtitle = 'Histogram of\nspacingMinDeg'
-      )
+      ) + 
+      hist_theme
+    
     p <-  add_experiment_title(p, experimentNames)
+    
     if (stats$N > 0) {
       plot_list[[j]] <- p
       fileNames[[j]] <- "spacingMinDeg-histogram"
