@@ -179,14 +179,13 @@ get_measured_distance_data <- function(data_list) {
       df <- rbind(t, df)
     }
   }
-  print(df)
   
   if(all(is.na(df$calibrateTrackDistanceIpdCameraPx))) {
     df <- df %>% select(-calibrateTrackDistanceIpdCameraPx)
   } else {
     df <- df %>% filter(!is.na(calibrateTrackDistanceIpdCameraPx))
   }
-  print(df)
+
   return(df)
 }
 
@@ -284,8 +283,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) + 
-    scale_y_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) + 
+    scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8)) +
+    scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
@@ -323,8 +322,11 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(limits = c(min_val, max_val), breaks = c(20, 30, 40, 50, 70), expand = expansion(mult = c(0.05, 0.05))) + 
-    scale_y_continuous(n.breaks = 6) + 
+    scale_x_log10(limits = c(min_val, max_val),
+                  breaks = scales::log_breaks(n=8),
+                  expand = expansion(mult = c(0.05, 0.05))) + 
+    scale_y_log10(limits = c(0.5,1.5),
+                   breaks = seq(0.5, 1.5, 0.1)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
@@ -368,8 +370,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         ggpp::geom_text_npc(aes(npcx="left",
                                 npcy="top"),
                             label = paste0('N=', n_distinct(ipd_data$participant))) +
-        scale_x_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) +
-        scale_y_continuous(n.breaks = 6) +
+        scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8)) +
+        scale_y_log10(breaks = scales::log_breaks(n=8)) +
         scale_color_manual(values= colorPalette) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
         guides(color = guide_legend(
@@ -500,7 +502,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       scale_color_manual(values= colorPalette) +
       scale_y_continuous(expand = expansion(mult = c(0, 0.1)), 
                          breaks = function(x) seq(0, ceiling(max(x)), by = 1)) + 
-      scale_x_log10(limits = c(x_min, x_max)) +
+      scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=8)) +
       annotation_logticks(sides = "b") +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
                           label = paste0('N=', n_distinct(sdLogDensity_data$participant))) + 
@@ -593,7 +595,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       scale_color_manual(values = colorPalette) +
       scale_y_continuous(limits = c(0, max_count + 1), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
       scale_x_log10(limits=c(minX, maxX),
-                    breaks = scales::log_breaks()) +
+                    breaks = scales::log_breaks(n=8)) +
       annotation_logticks(sides = "b", 
                           size = 0.3, 
                           alpha = 0.7, 
@@ -668,10 +670,14 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                             npcy="top"),
                         label = paste0('N=', n_distinct(sizeCheck_avg$participant))) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
-    scale_x_log10(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50)) +
-    scale_y_log10(breaks = c(10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500),
+    scale_x_log10(breaks = scales::log_breaks(n=8)) +
+    scale_y_log10(breaks = scales::log_breaks(n=8),
                   limits = c(ymin,ymax)) +
-    annotation_logticks(size = 0.3, alpha = 0.7, short = unit(0.1, "cm"), mid = unit(0.15, "cm"), long = unit(0.2, "cm")) + 
+    annotation_logticks(size = 0.3, 
+                        alpha = 0.7, 
+                        short = unit(0.1, "cm"), 
+                        mid = unit(0.15, "cm"), 
+                        long = unit(0.2, "cm")) + 
     scale_color_manual(values= colorPalette) + 
     guides(color = guide_legend(
       ncol = 3,  
@@ -717,8 +723,12 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                         label = paste0("N=", dplyr::n_distinct(sdLogDensity_data$participant))) +
     ggpp::geom_text_npc(aes(npcx="right", npcy="bottom"), label = statement) +
     scale_color_manual(values = colorPalette) +
-    scale_x_log10(limits = c(x_left, NA), expand = expansion(mult = c(0, 0.05))) + 
-    scale_y_log10(limits = c(y_min_panel, y_max_panel), expand = c(0, 0)) +
+    scale_x_log10(limits = c(x_left, NA),
+                  expand = expansion(mult = c(0, 0.05)),
+                  breaks = scales::log_breaks(n=8)) +
+    scale_y_log10(limits = c(y_min_panel, y_max_panel),
+                  expand = c(0, 0),
+                  breaks = scales::log_breaks(n=8)) +
     annotation_logticks() +
     guides(
       color = guide_legend(ncol = 3, title = "",
@@ -847,8 +857,11 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) +
-    scale_y_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) +
+    scale_x_log10(limits = c(min_val, max_val),
+                  breaks = scales::log_breaks(n=8)) +
+    scale_y_log10(limits = c(min_val, max_val),
+                  breaks = scales::log_breaks(n=8)) +
+    annotation_logticks() + 
     scale_color_manual(values= colorPalette) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
     guides(color = guide_legend(
@@ -872,11 +885,9 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       left_join(densityRatio_data %>% select(participant, densityRatio, pxPerCm), by = "participant") %>%
       left_join(sdLogDensity_data %>% select(participant, reliableBool), by = "participant") %>%
       mutate(
-        # Calculate corrected measurement in cm
         product_measured = ifelse(!is.na(densityRatio),
                                  calibrateTrackDistanceMeasuredCm * densityRatio,
                                  calibrateTrackDistanceMeasuredCm),
-        # Add jitter to requested distance
         calibrateTrackDistanceRequestedCm_jitter = {
           set.seed(42) # Same seed as other plots for consistency
           calibrateTrackDistanceRequestedCm * runif(n(), min = 0.98, max = 1.02)
@@ -903,8 +914,9 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
       scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                             labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) +
-      scale_y_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) +
+      scale_x_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8)) +
+      scale_y_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8)) +
+      annotation_logticks() + 
       scale_color_manual(values= colorPalette) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
       guides(color = guide_legend(
@@ -941,7 +953,9 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     # Format for display
     mean_individual_formatted <- format(round(mean_individual_fraction, 3), nsmall = 3)
     sd_individual_formatted <- format(round(sd_individual_fraction, 3), nsmall = 3)
-
+    
+    minFrac <- min(0.5, individual_fraction_data$production_fraction - 0.1)
+    maxFrac <- max(1.5, individual_fraction_data$production_fraction + 0.1)
     p4 <- ggplot() +
       # Connect points within the same trial using trial_id
       geom_line(data=individual_fraction_data,
@@ -963,8 +977,12 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
       scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                             labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(limits = c(min_val, max_val), breaks = c(20, 30, 40, 50, 60), expand = expansion(mult = c(0.05, 0.05))) +
-      scale_y_continuous(n.breaks = 6) +
+      scale_x_log10(limits = c(min_val, max_val),
+                    breaks = scales::log_breaks(n=8),
+                    expand = expansion(mult = c(0.05, 0.05))) +
+      scale_y_log10(limits = c(minFrac,maxFrac),
+                    breaks = seq(0.5,1.5, 0.1)) +
+      annotation_logticks() + 
       scale_color_manual(values= colorPalette) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
       guides(color = guide_legend(
@@ -984,30 +1002,34 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
   }
 
   # Plot 2: Production-measured as fraction of requested distance
-  p2 <- ggplot() + 
-    geom_line(data=distance_avg, 
-              aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+  p2 <- ggplot() +
+    geom_line(data=distance_avg,
+              aes(x = calibrateTrackDistanceRequestedCm_jitter,
                   y = production_fraction,
-                  color = participant, 
+                  color = participant,
                   lty = reliableBool,
                   group = participant), alpha = 0.7) +
-    geom_point(data=distance_avg, 
-               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+    geom_point(data=distance_avg,
+               aes(x = calibrateTrackDistanceRequestedCm_jitter,
                    y = production_fraction,
-                   color = participant), 
-               size = 2) + 
+                   color = participant),
+               size = 2) +
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
                         label = paste0('N=', n_distinct(distance_avg$participant), '\n',
                                        'Mean=', mean_formatted, '\n',
-                                       'SD=', sd_formatted)) + 
+                                       'SD=', sd_formatted)) +
     geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(limits = c(min_val, max_val), breaks = c(20, 30, 40, 50, 60), expand = expansion(mult = c(0.05, 0.05))) + 
-    scale_y_continuous(n.breaks = 6) + 
-    scale_color_manual(values= colorPalette) + 
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+    scale_x_log10(limits = c(min_val, max_val),
+                  breaks = scales::pretty_breaks(n=8),
+                  expand = expansion(mult = c(0.05, 0.05))) +
+    scale_y_log10(limits = c(0.5,1.5),
+                  breaks = seq(0.5, 1.5, 0.1)) +
+    annotation_logticks() +
+    scale_color_manual(values= colorPalette) +
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
     guides(color = guide_legend(
       ncol = 3,
       title = "",
@@ -1035,12 +1057,7 @@ objectCm_hist <- function(participant_info) {
   
   # Create dot plot style like SD histogram
   bin_width <- (max(dt$objectLengthCm) - min(dt$objectLengthCm)) / 20  # Adjust bin width based on data range
-  
-  # Debug object histogram
-  print("=====Object length histogram debug=====")
-  print(paste("Object bin_width:", bin_width))
-  print(paste("Object data range:", min(dt$objectLengthCm), "to", max(dt$objectLengthCm)))
-  
+
   # Handle case where all objects have same length (bin_width = 0)
   if (bin_width == 0) {
     bin_width <- 1  # Use a small default bin width
@@ -1059,10 +1076,6 @@ objectCm_hist <- function(participant_info) {
     ) %>%
     ungroup()
   
-  # Debug object dotplot data
-  print("Object dotplot data:")
-  print(object_dotplot)
-  
   max_count <- max(object_dotplot$dot_y)
   n_participants <- n_distinct(object_dotplot$PavloviaParticipantID)
   
@@ -1071,12 +1084,9 @@ objectCm_hist <- function(participant_info) {
     geom_point(aes(x = bin_center, y = dot_y, color = PavloviaParticipantID), size = 3, alpha = 0.8) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = 'calibrateTrackDistance = object', size = 2) + 
     scale_color_manual(values = colorPalette) +
-    scale_y_continuous(limits = c(0, max_count + 1), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
-    # scale_x_log10(breaks = c(10, 30, 100, 300)) +
-    # annotation_logticks(sides = "b", size = 0.3, alpha = 0.7, 
-    #                     short = unit(0.1, "cm"), 
-    #                     mid = unit(0.15, "cm"), 
-    #                     long = unit(0.2, "cm")) +
+    scale_y_continuous(limits = c(0, max_count + 1), 
+                       expand = expansion(mult = c(0, 0.1)), 
+                       breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
                         label = paste0('N=', n_distinct(object_dotplot$PavloviaParticipantID))) + 
     guides(color = guide_legend(
