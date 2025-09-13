@@ -173,6 +173,7 @@ ensure_columns <- function(t, file_name = NULL) {
     blockShuffleGroups2 = "",
     block_condition = "",
     calibrateTrackDistance = "",
+    calibrateTrackDistanceIpdCameraPx = NA,
     calibrateTrackDistanceMeasuredCm = "",
     calibrateTrackDistanceRequestedCm = "",
     cameraIsTopCenter = "",

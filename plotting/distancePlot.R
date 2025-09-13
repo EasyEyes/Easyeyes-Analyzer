@@ -119,64 +119,79 @@ get_measured_distance_data <- function(data_list) {
     return(df)
   }
   for (i in 1:length(data_list)) {
-    t <- data_list[[i]] %>%
-      select(participant,
-             calibrateTrackDistanceMeasuredCm,
-             calibrateTrackDistanceRequestedCm,
-             calibrateTrackDistance) %>%
-      distinct() %>%
-      filter(!is.na(calibrateTrackDistanceMeasuredCm),
-             !is.na(calibrateTrackDistanceRequestedCm),
-             calibrateTrackDistanceMeasuredCm != '',
-             calibrateTrackDistanceRequestedCm != '')
 
+      t <- data_list[[i]] %>%
+        select(participant,
+               calibrateTrackDistanceMeasuredCm,
+               calibrateTrackDistanceRequestedCm,
+               calibrateTrackDistance,
+               calibrateTrackDistanceIpdCameraPx) %>%
+        distinct() %>%
+        filter(!is.na(calibrateTrackDistanceMeasuredCm),
+               !is.na(calibrateTrackDistanceRequestedCm),
+               calibrateTrackDistanceMeasuredCm != '',
+               calibrateTrackDistanceRequestedCm != '')
+    
     if (nrow(t) > 0) {
       # Convert JSON-like lists into strings and remove extra characters
-      t <- t %>%
-        mutate(
-          calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
-          calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm)
-        ) %>%
-        # Separate both columns together while keeping row-wise structure
-        mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","),
-               requested_list = strsplit(calibrateTrackDistanceRequestedCm, ",")) %>%
-        unnest(c(measured_list, requested_list)) %>%  # Expands both columns together
-        mutate(
-          calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
-          calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list))
-        ) %>%
-        select(-measured_list, -requested_list)  # Remove temp lists
-
+        t <- t %>%
+          mutate(
+            calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
+            calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm),
+            calibrateTrackDistanceIpdCameraPx = gsub("\\[|\\]|\"", "", calibrateTrackDistanceIpdCameraPx)
+          ) %>%
+          # Separate all columns together while keeping row-wise structure
+          mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","),
+                 requested_list = strsplit(calibrateTrackDistanceRequestedCm, ","),
+                 ipd_list = strsplit(calibrateTrackDistanceIpdCameraPx, ",")) %>%
+          unnest(c(measured_list, requested_list, ipd_list)) %>%  # Expands all columns together
+          mutate(
+            calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
+            calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
+            calibrateTrackDistanceIpdCameraPx = as.numeric(trimws(ipd_list))
+          ) %>%
+          select(-measured_list, -requested_list, -ipd_list)  # Remove temp lists
+        
+        if (nrow(t) > 0) {
+          t <- t %>% mutate(
+            calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
+            calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm)
+          ) %>%
+            # Ensure IPD column exists even if it wasn't processed
+            mutate(calibrateTrackDistanceIpdCameraPx = if("calibrateTrackDistanceIpdCameraPx" %in% names(.)) calibrateTrackDistanceIpdCameraPx else NA) %>%
+            # Add row number first to preserve original order
+            mutate(original_row = row_number()) %>%
+            # Add trial identification - group by participant and assign trial numbers
+            group_by(participant) %>%
+            mutate(
+              # Calculate number of unique distances per participant
+              n_unique_distances = n_distinct(calibrateTrackDistanceRequestedCm),
+              # Create trial groups based on original row position (not arranged order)
+              trial_id = paste(participant,
+                               # Create trial number based on original position within each distance
+                               ceiling(original_row / n_unique_distances),
+                               sep = "_trial_")
+            ) %>%
+            ungroup() %>%
+            # Remove the temporary row number column
+            select(-original_row)
+        }
       df <- rbind(t, df)
     }
   }
-  if (nrow(df) > 0) {
-    df <- df %>% mutate(
-      calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
-      calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm)
-    ) %>%
-    # Add row number first to preserve original order
-    mutate(original_row = row_number()) %>%
-    # Add trial identification - group by participant and assign trial numbers
-    group_by(participant) %>%
-    mutate(
-      # Calculate number of unique distances per participant
-      n_unique_distances = n_distinct(calibrateTrackDistanceRequestedCm),
-      # Create trial groups based on original row position (not arranged order)
-      trial_id = paste(participant,
-                      # Create trial number based on original position within each distance
-                      ceiling(original_row / n_unique_distances),
-                      sep = "_trial_")
-    ) %>%
-    ungroup() %>%
-    # Remove the temporary row number column
-    select(-original_row)
+  print(df)
+  
+  if(all(is.na(df$calibrateTrackDistanceIpdCameraPx))) {
+    df <- df %>% select(-calibrateTrackDistanceIpdCameraPx)
+  } else {
+    df <- df %>% filter(!is.na(calibrateTrackDistanceIpdCameraPx))
   }
-
+  print(df)
   return(df)
 }
 
 plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowed) {
+  print('inside plot_distance')
   distance <- get_measured_distance_data(data_list)
   sizeCheck <- get_sizeCheck_data(data_list)
   statement <- paste0('calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
@@ -197,6 +212,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
 
   if (sum(is.na(distance$calibrateTrackDistanceMeasuredCm)) == nrow(distance) ||
       sum(is.na(distance$calibrateTrackDistanceRequestedCm)) == nrow(distance)) {
+    print('all data is null')
     return(NULL)
   }
   
@@ -323,10 +339,61 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
          x = 'Requested distance (cm)',
          y = 'Credit-card-measured as fraction of requested distance',
          caption = 'Horizontal jitter added to reduce overlap')
-  
+
+  # Plot 3: IPD (camera px) vs requested distance (individual data)
+  if ("calibrateTrackDistanceIpdCameraPx" %in% names(distance)) {
+    ipd_data <- distance %>%
+      filter(!is.na(calibrateTrackDistanceIpdCameraPx),
+             !is.na(calibrateTrackDistanceRequestedCm)) %>%
+      mutate(
+        # Add jitter to requested distance for better visualization
+        calibrateTrackDistanceRequestedCm_jitter = {
+          set.seed(42) # Same seed for consistency
+          calibrateTrackDistanceRequestedCm * runif(n(), min = 0.98, max = 1.02)
+        }
+      )
+
+    if (nrow(ipd_data) > 0) {
+      p3 <- ggplot() +
+        geom_line(data=ipd_data,
+                  aes(x = calibrateTrackDistanceRequestedCm_jitter,
+                      y = calibrateTrackDistanceIpdCameraPx,
+                      color = participant,
+                      group = trial_id), alpha = 0.7) +
+        geom_point(data=ipd_data,
+                   aes(x = calibrateTrackDistanceRequestedCm_jitter,
+                       y = calibrateTrackDistanceIpdCameraPx,
+                       color = participant),
+                   size = 2) +
+        ggpp::geom_text_npc(aes(npcx="left",
+                                npcy="top"),
+                            label = paste0('N=', n_distinct(ipd_data$participant))) +
+        scale_x_log10(limits = c(min_val, max_val), breaks = c(10, 20, 30, 50, 100)) +
+        scale_y_continuous(n.breaks = 6) +
+        scale_color_manual(values= colorPalette) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+        guides(color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 2),
+          keywidth = unit(1.2, "lines"),
+          keyheight = unit(0.8, "lines")
+        )) +
+        labs(subtitle = 'IPD (camera px) vs. requested distance',
+             x = 'Requested distance (cm)',
+             y = 'IPD (camera px)',
+             caption = 'Lines connect measurements from the same trial.\nHorizontal jitter added to reduce overlap')
+    } else {
+      p3 <- NULL
+    }
+  } else {
+    p3 <- NULL
+  }
+
   return(list(
     credit_card_vs_requested = p1,
-    credit_card_fraction = p2
+    credit_card_fraction = p2,
+    ipd_vs_requested = p3
   ))
 }
 
@@ -793,7 +860,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     ),
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
     coord_fixed() +  # SAME AS CREDIT CARD
-    labs(subtitle = 'Averge Production-measured vs. requested distance',  # ONLY LABEL DIFFERENCE
+    labs(subtitle = 'Averge Production-measured vs.\nrequested distance',  # ONLY LABEL DIFFERENCE
          x = 'Requested distance (cm)',                              # SAME AS CREDIT CARD
          y = 'Average production-measured distance (cm)',
          caption = "Horizontal jitter added to reduce overlap")
@@ -849,10 +916,10 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       ),
       linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
       coord_fixed() +
-      labs(subtitle = 'Individual Production-measured vs. requested distance',
+      labs(subtitle = 'Individual Production-measured vs. \nrequested distance',
            x = 'Requested distance (cm)',
            y = 'Individual production-measured distance (cm)',
-           caption = "Lines connect measurements from the same trial. Horizontal jitter added to reduce overlap")
+           caption = "Lines connect measurements from the same trial.\nHorizontal jitter added to reduce overlap")
   } else {
     p3 <- NULL
   }
@@ -908,10 +975,10 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
         keyheight = unit(0.8, "lines")
       ),
       linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-      labs(subtitle = 'Individual Production-measured as fraction of requested distance',
+      labs(subtitle = 'Individual Production-measured as fraction\n of requested distance',
            x = 'Requested distance (cm)',
            y = 'Individual production-measured as fraction of requested distance',
-           caption = 'Lines connect measurements from the same trial. Horizontal jitter added to reduce overlap')
+           caption = 'Lines connect measurements from the same trial.\nHorizontal jitter added to reduce overlap')
   } else {
     p4 <- NULL
   }
