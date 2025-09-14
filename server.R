@@ -762,7 +762,9 @@ shinyServer(function(input, output, session) {
     static_calls <- list(
       list(plot = sizeCheckPlot()$sd_hist, fname = 'sd-log-density-histogram'),
       list(plot = sizeCheckPlot()$ruler_hist, fname = 'ruler-length-cm-dotplot'),
-      list(plot = objectCm_hist(df_list()$participant_info), fname = 'object-length-cm-dotplot')
+      list(plot = objectCm_hist(df_list()$participant_info), fname = 'object-length-cm-dotplot'),
+      list(plot = bs_vd_hist(files()$data_list)$mean_plot, fname = 'blindspot-viewing-distance-mean-dotplot'),
+      list(plot = bs_vd_hist(files()$data_list)$sd_plot, fname = 'blindspot-viewing-distance-sd-dotplot')
     )
     
     for (call in static_calls) {

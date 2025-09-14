@@ -189,6 +189,31 @@ get_measured_distance_data <- function(data_list) {
   return(df)
 }
 
+get_bs_vd <- function(data_list) {
+  # Get blindspot viewing distance left and right from data list
+  bs_vwing_ds <- tibble()
+  for (i in 1:length(data_list)) {
+    if ("viewingDistanceByBlindspot1Cm" %in% names(data_list[[i]])) {
+      t <- data_list[[i]] %>%
+        select(participant,
+               viewingDistanceByBlindspot1Cm,
+               viewingDistanceByBlindspot2Cm) %>%
+        mutate(viewingDistanceByBlindspot1Cm = as.numeric(viewingDistanceByBlindspot1Cm),
+               viewingDistanceByBlindspot2Cm = as.numeric(viewingDistanceByBlindspot2Cm)) %>%
+        distinct() %>%
+        filter(!is.na(viewingDistanceByBlindspot1Cm),
+               !is.na(viewingDistanceByBlindspot2Cm))
+      bs_vwing_ds <- rbind(bs_vwing_ds, t)
+    }
+  }
+  if (nrow(bs_vwing_ds) > 0) {
+    bs_vwing_ds <- bs_vwing_ds %>%
+      mutate(m = (viewingDistanceByBlindspot1Cm + viewingDistanceByBlindspot2Cm) / 2) %>%
+      mutate(sd = sqrt((log10(viewingDistanceByBlindspot1Cm) - log10(m))^2 + (log10(viewingDistanceByBlindspot2Cm) - log10(m))^2))
+  }
+  return(bs_vwing_ds)
+}
+
 plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowed) {
   print('inside plot_distance')
   distance <- get_measured_distance_data(data_list)
@@ -725,7 +750,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     scale_color_manual(values = colorPalette) +
     scale_x_log10(limits = c(x_left, NA),
                   expand = expansion(mult = c(0, 0.05)),
-                  breaks = scales::log_breaks(n=8)) +
+                  breaks = scales::log_breaks(n=8),
+                  labels = scales::label_number(scale = 1)) +
     scale_y_log10(limits = c(y_min_panel, y_max_panel),
                   expand = c(0, 0),
                   breaks = scales::log_breaks(n=8)) +
@@ -875,7 +901,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     coord_fixed() +  # SAME AS CREDIT CARD
     labs(subtitle = 'Averge Production-measured vs.\nrequested distance',  # ONLY LABEL DIFFERENCE
          x = 'Requested distance (cm)',                              # SAME AS CREDIT CARD
-         y = 'Average production-measured distance (cm)',
+         y = 'production-measured distance (cm)',
          caption = "Horizontal jitter added to reduce overlap")
 
   # Plot 3: Individual production measurements vs requested distance (non-averaged)
@@ -930,7 +956,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       coord_fixed() +
       labs(subtitle = 'Individual Production-measured vs. \nrequested distance',
            x = 'Requested distance (cm)',
-           y = 'Individual production-measured distance (cm)',
+           y = 'production-measured distance (cm)',
            caption = "Lines connect measurements from the same trial.\nHorizontal jitter added to reduce overlap")
   } else {
     p3 <- NULL
@@ -954,8 +980,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     mean_individual_formatted <- format(round(mean_individual_fraction, 3), nsmall = 3)
     sd_individual_formatted <- format(round(sd_individual_fraction, 3), nsmall = 3)
     
-    minFrac <- min(0.5, individual_fraction_data$production_fraction - 0.1)
-    maxFrac <- max(1.5, individual_fraction_data$production_fraction + 0.1)
+    minFrac <- max(0.1, min(0.5, floor(individual_fraction_data$production_fraction * 10) / 10))
+    maxFrac <- max(1.5, ceiling(individual_fraction_data$production_fraction * 10) / 10)
     p4 <- ggplot() +
       # Connect points within the same trial using trial_id
       geom_line(data=individual_fraction_data,
@@ -981,7 +1007,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
                     breaks = scales::log_breaks(n=8),
                     expand = expansion(mult = c(0.05, 0.05))) +
       scale_y_log10(limits = c(minFrac,maxFrac),
-                    breaks = seq(0.5,1.5, 0.1)) +
+                    breaks = scales::log_breaks(n=8)) +
       annotation_logticks() + 
       scale_color_manual(values= colorPalette) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -1002,6 +1028,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
   }
 
   # Plot 2: Production-measured as fraction of requested distance
+  minFrac <- max(0.1, min(0.5, floor(distance_avg$production_fraction * 10) / 10))
+  maxFrac <- max(1.5, ceiling(distance_avg$production_fraction * 10) / 10)
   p2 <- ggplot() +
     geom_line(data=distance_avg,
               aes(x = calibrateTrackDistanceRequestedCm_jitter,
@@ -1025,8 +1053,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     scale_x_log10(limits = c(min_val, max_val),
                   breaks = scales::pretty_breaks(n=8),
                   expand = expansion(mult = c(0.05, 0.05))) +
-    scale_y_log10(limits = c(0.5,1.5),
-                  breaks = seq(0.5, 1.5, 0.1)) +
+    scale_y_log10(limits = c(minFrac,maxFrac),
+                  breaks = scales::log_breaks()) +
     annotation_logticks() +
     scale_color_manual(values= colorPalette) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -1128,5 +1156,168 @@ objectCm_hist <- function(participant_info) {
           plot.caption = element_text(size = 10),
           plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
           strip.text = element_text(size = 14))
+}
+
+bs_vd_hist <- function(data_list) {
+  # get blindspot viewing distance data
+  dt <- get_bs_vd(data_list)
+  if (nrow(dt) == 0) return(list(mean_plot = NULL, sd_plot = NULL))
+
+  # Plot 1: MEAN of left and right viewing distances measured in blindspot-based calibration
+  bin_width_mean <- (max(dt$m) - min(dt$m)) / 20  # Adjust bin width based on data range
+
+  # Handle case where all values are the same (bin_width = 0)
+  if (bin_width_mean == 0) {
+    bin_width_mean <- max(dt$m) * 0.01  # Use 1% of value as bin width
+  }
+
+  mean_dotplot <- dt %>%
+    mutate(
+      # Create bins for stacking
+      bin_center = round(m / bin_width_mean) * bin_width_mean
+    ) %>%
+    arrange(bin_center, participant) %>%
+    group_by(bin_center) %>%
+    mutate(
+      stack_position = row_number(),
+      dot_y = stack_position
+    ) %>%
+    ungroup()
+
+  max_count_mean <- max(mean_dotplot$dot_y)
+  n_participants_mean <- n_distinct(mean_dotplot$participant)
+
+  p1 <- ggplot(mean_dotplot, aes(x = m)) +
+    # Stacked colored points (dot plot style)
+    geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = 'calibrateTrackDistance = blindspot', size = 2) +
+    scale_color_manual(values = colorPalette) +
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 8),
+                       labels = scales::label_number()) +
+    scale_y_continuous(limits = c(0, max_count_mean + 1),
+                       expand = expansion(mult = c(0, 0.1)),
+                       breaks = function(x) seq(0, ceiling(max(x)), by = 2)) +
+    ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
+                        label = paste0('N=', n_participants_mean)) +
+    guides(color = guide_legend(
+      ncol = 4,
+      title = "",
+      override.aes = list(size = 2),
+      keywidth = unit(0.3, "cm"),
+      keyheight = unit(0.3, "cm")
+    )) +
+    labs(subtitle = 'Mean of left and right viewing distances measured in \nblindspot-based calibration',
+         x = "Mean viewing distance (cm)",
+         y = "Count") +
+    theme_bw() +
+    theme(legend.key.size = unit(0, "mm"),
+          legend.title = element_text(size = 7),
+          legend.text = element_text(size = 8, margin = margin(t = -10, b = -10)),
+          legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+          legend.box.spacing = unit(0, "lines"),
+          legend.spacing.y = unit(-10, "lines"),
+          legend.spacing.x = unit(0, "lines"),
+          legend.key.height = unit(0, "lines"),
+          legend.key.width = unit(0, "mm"),
+          legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = 'left',
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+          plot.caption = element_text(size = 10),
+          plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14))
+
+  # Plot 2: SD of log10 of left and right viewing distances measured in blindspot-based calibration
+  bin_width_sd <- (max(dt$sd) - min(dt$sd)) / 20  # Adjust bin width based on data range
+
+  # Handle case where all values are the same (bin_width = 0)
+  if (bin_width_sd == 0) {
+    bin_width_sd <- max(dt$sd) * 0.01  # Use 1% of value as bin width
+  }
+
+  sd_dotplot <- dt %>%
+    mutate(
+      # Create bins for stacking
+      bin_center = round(sd / bin_width_sd) * bin_width_sd
+    ) %>%
+    arrange(bin_center, participant) %>%
+    group_by(bin_center) %>%
+    mutate(
+      stack_position = row_number(),
+      dot_y = stack_position
+    ) %>%
+    ungroup()
+
+  max_count_sd <- max(sd_dotplot$dot_y)
+  n_participants_sd <- n_distinct(sd_dotplot$participant)
+
+  p2 <- ggplot(sd_dotplot, aes(x = sd)) +
+    # Stacked colored points (dot plot style)
+    geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = 'calibrateTrackDistance = blindspot', size = 2) +
+    scale_color_manual(values = colorPalette) +
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 8),
+                       labels = scales::label_number()) +
+    scale_y_continuous(limits = c(0, max_count_sd + 1),
+                       expand = expansion(mult = c(0, 0.1)),
+                       breaks = function(x) seq(0, ceiling(max(x)), by = 2)) +
+    ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
+                        label = paste0('N=', n_participants_sd)) +
+    guides(color = guide_legend(
+      ncol = 4,
+      title = "",
+      override.aes = list(size = 2),
+      keywidth = unit(0.3, "cm"),
+      keyheight = unit(0.3, "cm")
+    )) +
+    labs(subtitle = 'SD of log10 of left and right viewing distances measured in \nblindspot-based calibration',
+         x = "SD of log10 viewing distance",
+         y = "Count") +
+    theme_bw() +
+    theme(legend.key.size = unit(0, "mm"),
+          legend.title = element_text(size = 7),
+          legend.text = element_text(size = 8, margin = margin(t = -10, b = -10)),
+          legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+          legend.box.spacing = unit(0, "lines"),
+          legend.spacing.y = unit(-10, "lines"),
+          legend.spacing.x = unit(0, "lines"),
+          legend.key.height = unit(0, "lines"),
+          legend.key.width = unit(0, "mm"),
+          legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = 'left',
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+          plot.caption = element_text(size = 10),
+          plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14))
+
+  return(list(
+    mean_plot = p1,
+    sd_plot = p2
+  ))
 }
 
