@@ -65,11 +65,36 @@ check_empty_archive <- function(file) {
   return(!has_nonempty_file)
 }
 
+# Helper function to normalize filenames by removing browser download suffixes
+normalize_filename <- function(filename) {
+  # Remove download suffixes commonly added by browsers when downloading duplicate files
+  # Patterns handled:
+  # - " (1)", " (2)", etc. - Standard macOS/Windows/Chrome pattern
+  # - " - Copy", " - Copy (1)" - Some Windows patterns  
+  # - ".1", ".2" - Alternative numbering pattern
+  # - Case insensitive matching
+  
+  # Remove " (number)" pattern (most common)
+  normalized <- gsub("\\s+\\([0-9]+\\)(?=\\.[^.]*$)", "", filename, perl = TRUE)
+  
+  # Remove " - Copy" and " - Copy (number)" patterns
+  normalized <- gsub("\\s+-\\s+Copy(\\s+\\([0-9]+\\))?(?=\\.[^.]*$)", "", normalized, perl = TRUE)
+  
+  # Remove ".number" pattern (before the final extension)
+  normalized <- gsub("\\.[0-9]+(?=\\.[^.]*$)", "", normalized, perl = TRUE)
+  
+  return(normalized)
+}
+
 check_file_names <- function(file) {
   file_names <- file$name
   file_paths <- file$datapath
   valid_endings <- c(".results.zip", ".csv", ".prolific.csv", ".pretest.xlsx")
-  is_valid <- sapply(file_names, 
+  
+  # Normalize filenames to handle browser download suffixes
+  normalized_names <- sapply(file_names, normalize_filename)
+  
+  is_valid <- sapply(normalized_names, 
                      function(name) any(sapply(valid_endings, function(ext) grepl(paste0(ext, "$"), name))))
   invalid_files <- file_names[!is_valid]
   
@@ -128,7 +153,8 @@ check_file_names <- function(file) {
         "&nbsp;&nbsp;&nbsp;• .results.zip<br>",
         "&nbsp;&nbsp;&nbsp;• .csv<br>",
         "&nbsp;&nbsp;&nbsp;• .prolific.csv<br>",
-        "&nbsp;&nbsp;&nbsp;• .pretest.xlsx<br><br>"
+        "&nbsp;&nbsp;&nbsp;• .pretest.xlsx<br>",
+        "<em>Note: Browser download suffixes like ' (1)' are automatically ignored.</em><br><br>"
       )
     }
     
