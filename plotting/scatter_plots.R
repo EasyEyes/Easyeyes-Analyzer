@@ -1,4 +1,15 @@
 #### scatter plots ####
+
+# Helper function for logarithmic jitter (unbiased for log scales)
+add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
+  # Apply logarithmic jitter for unbiased results on log scales
+  # jitter_percent: percentage jitter (e.g., 1 for ±1%)
+  set.seed(seed)
+  log_max <- log10(1 + jitter_percent/100)
+  log_min <- -log_max
+  log_factor <- log_min + runif(length(values)) * (log_max - log_min)
+  return(values * 10^log_factor)
+}
 reading_speed_vs_retention <- function(reading){
   #TODO
   t <- reading %>% group_by(participant,
@@ -88,9 +99,16 @@ comfort_vs_crowding_scatter <- function(df_list) {
   correlation <- cor_test$estimate
   p_value <- cor_test$p.value
   
+  # Add logarithmic jitter to x-axis (log scale) and linear jitter to y-axis (integer ratings)
+  combined_data <- combined_data %>%
+    mutate(
+      crowding_distance_jitter = add_log_jitter(crowding_distance, jitter_percent = 2, seed = 42),
+      comfort_rating_jitter = comfort_rating + runif(n(), -0.25, 0.25)
+    )
+  
   # Create the plot
-  ggplot(combined_data, aes(x = crowding_distance, y = comfort_rating, color = font)) +
-    geom_jitter(size = 3, alpha = 0.7, height = 0.25, width = 0) +
+  ggplot(combined_data, aes(x = crowding_distance_jitter, y = comfort_rating_jitter, color = font)) +
+    geom_point(size = 3, alpha = 0.7) +
     geom_smooth(method = "lm", se = FALSE, color = "black") +
     scale_x_log10() +
     annotation_logticks(sides = "b", 
@@ -157,9 +175,16 @@ beauty_vs_crowding_scatter <- function(df_list) {
   correlation <- cor_test$estimate
   p_value <- cor_test$p.value
   
+  # Add logarithmic jitter to x-axis (log scale) and linear jitter to y-axis (integer ratings)
+  combined_data <- combined_data %>%
+    mutate(
+      crowding_distance_jitter = add_log_jitter(crowding_distance, jitter_percent = 2, seed = 42),
+      beauty_rating_jitter = beauty_rating + runif(n(), -0.25, 0.25)
+    )
+  
   # Create the plot
-  ggplot(combined_data, aes(x = crowding_distance, y = beauty_rating, color = font)) +
-    geom_jitter(size = 3, alpha = 0.7, height = 0.25, width = 0) +
+  ggplot(combined_data, aes(x = crowding_distance_jitter, y = beauty_rating_jitter, color = font)) +
+    geom_point(size = 3, alpha = 0.7) +
     geom_smooth(method = "lm", se = FALSE, color = "black") +
     scale_x_log10() +
     annotation_logticks(sides = "b", 
@@ -229,9 +254,16 @@ beauty_vs_comfort_scatter <- function(df_list) {
   correlation <- cor_test$estimate
   p_value <- cor_test$p.value
   
+  # Add linear jitter to both axes (both are integer ratings)
+  combined_data <- combined_data %>%
+    mutate(
+      comfort_rating_jitter = comfort_rating + runif(n(), -0.25, 0.25),
+      beauty_rating_jitter = beauty_rating + runif(n(), -0.25, 0.25)
+    )
+  
   # Create the plot
-  ggplot(combined_data, aes(x = comfort_rating, y = beauty_rating, color = font)) +
-    geom_jitter(size = 3, alpha = 0.7, width = 0.25, height = 0.25) +
+  ggplot(combined_data, aes(x = comfort_rating_jitter, y = beauty_rating_jitter, color = font)) +
+    geom_point(size = 3, alpha = 0.7) +
     geom_smooth(method = "lm", se = FALSE, color = "black") +
     annotate("text", x = min(combined_data$comfort_rating) * 1.1, 
              y = max(combined_data$beauty_rating) * 0.9,

@@ -1,3 +1,16 @@
+# Helper function for logarithmic jitter (unbiased for log scales)
+# NOTE: geom_jitter in violin plots uses mainly x-axis jitter, but when
+# y-axis uses log scale, any y-jitter should ideally be logarithmic
+add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
+  # Apply logarithmic jitter for unbiased results on log scales
+  # jitter_percent: percentage jitter (e.g., 1 for ±1%)
+  set.seed(seed)
+  log_max <- log10(1 + jitter_percent/100)
+  log_min <- -log_max
+  log_factor <- log_min + runif(length(values)) * (log_max - log_min)
+  return(values * 10^log_factor)
+}
+
 plot_violins <- function(df_list) {
   crowding = df_list$crowding %>% mutate(y = 10^log_crowding_distance_deg)
   rsvp = df_list$rsvp %>% mutate(y = 10^block_avg_log_WPM)

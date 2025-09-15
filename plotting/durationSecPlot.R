@@ -1,3 +1,17 @@
+# Helper function for logarithmic jitter (unbiased for log scales)
+# NOTE: This file contains many geom_jitter() instances that should ideally use
+# logarithmic jitter when paired with scale_x_log10() or scale_y_log10().
+# For critical distance measurement plots, this has been fixed in distancePlot.R
+add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
+  # Apply logarithmic jitter for unbiased results on log scales
+  # jitter_percent: percentage jitter (e.g., 1 for ±1%)
+  set.seed(seed)
+  log_max <- log10(1 + jitter_percent/100)
+  log_min <- -log_max
+  log_factor <- log_min + runif(length(values)) * (log_max - log_min)
+  return(values * 10^log_factor)
+}
+
 source('./constant.R')
 get_duration_data <- function(data_list, conditionNameInput) {
   print('inside get_duration_data')

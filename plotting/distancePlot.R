@@ -1,3 +1,14 @@
+# Helper function for logarithmic jitter (unbiased for log scales)
+add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
+  # Apply logarithmic jitter for unbiased results on log scales
+  # jitter_percent: percentage jitter (e.g., 1 for ±1%)
+  set.seed(seed)
+  log_max <- log10(1 + jitter_percent/100)
+  log_min <- -log_max
+  log_factor <- log_min + runif(length(values)) * (log_max - log_min)
+  return(values * 10^log_factor)
+}
+
 get_distance_calibration <- function(data_list, minRulerCm) {
   if (length(data_list) == 0) {
     return(list())
@@ -254,11 +265,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
       .groups = "drop"
     ) %>%
     mutate(
-      # Add consistent random horizontal jitter to x-axis variable
-      calibrateTrackDistanceRequestedCm_jitter = {
-        set.seed(42) # Consistent seed for reproducible jitter across both plots
-        calibrateTrackDistanceRequestedCm * runif(n(), min = 0.98, max = 1.02)
-      }
+      # Add consistent logarithmic horizontal jitter to x-axis variable (unbiased for log scales)
+      calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
     ) 
 
   if (nrow(sdLogDensity_data) > 0) {
@@ -324,7 +332,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     labs(subtitle = 'Credit-card-measured vs. requested distance',
          x = 'Requested distance (cm)',
          y = 'Credit-card-measured distance (cm)',
-         caption = 'Horizontal jitter added to reduce overlap')
+         caption = 'Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
   
   # Plot 2: Credit-card-measured as fraction of requested distance
   p2 <- ggplot() + 
@@ -365,7 +373,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     labs(subtitle = 'Credit-card-measured as fraction of requested distance',
          x = 'Requested distance (cm)',
          y = 'Credit-card-measured as fraction of requested distance',
-         caption = 'Horizontal jitter added to reduce overlap')
+         caption = 'Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
 
   # Plot 3: IPD (camera px) vs requested distance (individual data)
   if ("calibrateTrackDistanceIpdCameraPx" %in% names(distance)) {
@@ -373,11 +381,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
       filter(!is.na(calibrateTrackDistanceIpdCameraPx),
              !is.na(calibrateTrackDistanceRequestedCm)) %>%
       mutate(
-        # Add jitter to requested distance for better visualization
-        calibrateTrackDistanceRequestedCm_jitter = {
-          set.seed(42) # Same seed for consistency
-          calibrateTrackDistanceRequestedCm * runif(n(), min = 0.98, max = 1.02)
-        }
+        # Add logarithmic jitter to requested distance for better visualization (unbiased for log scales)
+        calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
       )
 
     if (nrow(ipd_data) > 0) {
@@ -409,7 +414,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         labs(subtitle = 'IPD (camera px) vs. requested distance',
              x = 'Requested distance (cm)',
              y = 'IPD (camera px)',
-             caption = 'Lines connect measurements from the same trial.\nHorizontal jitter added to reduce overlap')
+             caption = 'Lines connect measurements from the same trial.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
     } else {
       p3 <- NULL
     }
@@ -456,8 +461,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       .groups = "drop"
     ) %>%
     mutate(
-      # Add random horizontal jitter to x-axis variable
-      SizeCheckRequestedCm_jitter = SizeCheckRequestedCm * runif(n(), min = 0.95, max = 1.05)
+      # Add logarithmic horizontal jitter to x-axis variable (unbiased for log scales)
+      SizeCheckRequestedCm_jitter = add_log_jitter(SizeCheckRequestedCm, jitter_percent = 5, seed = 42)
     )
   
   # Determine scale limits
@@ -821,11 +826,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       .groups = "drop"
     ) %>%
     mutate(
-      # Add consistent random horizontal jitter to x-axis variable (SAME AS CREDIT CARD)
-      calibrateTrackDistanceRequestedCm_jitter = {
-        set.seed(42) # IDENTICAL seed as credit card plot for identical jitter
-        calibrateTrackDistanceRequestedCm * runif(n(), min = 0.98, max = 1.02)
-      }
+      # Add consistent logarithmic horizontal jitter to x-axis variable (SAME AS CREDIT CARD)
+      calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
     )
   
   # Join with density ratio data
@@ -902,7 +904,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     labs(subtitle = 'Averge Production-measured vs.\nrequested distance',  # ONLY LABEL DIFFERENCE
          x = 'Requested distance (cm)',                              # SAME AS CREDIT CARD
          y = 'production-measured distance (cm)',
-         caption = "Horizontal jitter added to reduce overlap")
+         caption = "Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)")
 
   # Plot 3: Individual production measurements vs requested distance (non-averaged)
   if (nrow(distance) > 0) {
@@ -914,10 +916,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
         product_measured = ifelse(!is.na(densityRatio),
                                  calibrateTrackDistanceMeasuredCm * densityRatio,
                                  calibrateTrackDistanceMeasuredCm),
-        calibrateTrackDistanceRequestedCm_jitter = {
-          set.seed(42) # Same seed as other plots for consistency
-          calibrateTrackDistanceRequestedCm * runif(n(), min = 0.98, max = 1.02)
-        }
+        calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
       ) %>%
       filter(is.finite(product_measured))
 
@@ -957,7 +956,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       labs(subtitle = 'Individual Production-measured vs. \nrequested distance',
            x = 'Requested distance (cm)',
            y = 'production-measured distance (cm)',
-           caption = "Lines connect measurements from the same trial.\nHorizontal jitter added to reduce overlap")
+           caption = "Lines connect measurements from the same trial.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)")
   } else {
     p3 <- NULL
   }
@@ -1069,7 +1068,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     labs(subtitle = 'Production-measured as fraction of requested distance',
          x = 'Requested distance (cm)',
          y = 'Production-measured as fraction of requested distance',
-         caption = 'Horizontal jitter added to reduce overlap')
+         caption = 'Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
   
   return(list(
     production_vs_requested = p1,

@@ -1,3 +1,14 @@
+# Helper function for logarithmic jitter (unbiased for log scales)
+add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
+  # Apply logarithmic jitter for unbiased results on log scales
+  # jitter_percent: percentage jitter (e.g., 1 for ±1%)
+  set.seed(seed)
+  log_max <- log10(1 + jitter_percent/100)
+  log_min <- -log_max
+  log_factor <- log_min + runif(length(values)) * (log_max - log_min)
+  return(values * 10^log_factor)
+}
+
 get_test_retest <- function(df_list){
   pCrowding <- df_list$crowding %>% 
     filter(targetEccentricityXDeg != 0 ) %>% 
@@ -49,7 +60,7 @@ get_test_retest <- function(df_list){
            )) %>% 
     filter(!is.na(test))
   
-  create_plot <- function(data, use_jitter = FALSE) {
+  create_plot <- function(data, use_jitter = FALSE, use_log_jitter = FALSE) {
     data <- data %>% 
       mutate(group = ifelse(grepl("Repeat",experiment), "retest","test"))
     
@@ -71,31 +82,42 @@ get_test_retest <- function(df_list){
     if (nrow(test_retest) == 0) return (NULL)
     n = nrow(test_retest)
     
-    # Choose geom based on whether we need jitter for integer data
-    point_geom <- if (use_jitter) {
-      geom_jitter(data=test_retest, 
-                  aes(x=test, 
-                      y=retest,
-                      color = font),
-                  size = 3, width = 0.25, height = 0.25)
+    # Apply jitter based on scale type
+    if (use_jitter) {
+      if (use_log_jitter) {
+        # Logarithmic jitter for log scales (unbiased)
+        test_retest <- test_retest %>%
+          mutate(
+            test_jitter = add_log_jitter(test, jitter_percent = 2, seed = 42),
+            retest_jitter = add_log_jitter(retest, jitter_percent = 2, seed = 43)
+          )
+      } else {
+        # Linear jitter for linear scales
+        test_retest <- test_retest %>%
+          mutate(
+            test_jitter = test + runif(n(), -0.25, 0.25),
+            retest_jitter = retest + runif(n(), -0.25, 0.25)
+          )
+      }
+      
+      p <- ggplot(test_retest, aes(x = test_jitter, y = retest_jitter, color = font)) +
+        geom_point(size = 3)
     } else {
-      geom_point(data=test_retest, 
-                 aes(x=test, 
-                     y=retest,
-                     color = font),
-                 size = 3)
+      p <- ggplot(test_retest, aes(x = test, y = retest, color = font)) +
+        geom_point(size = 3)
     }
     
-    p <- ggplot() +
-      point_geom +
+    p <- p +
       coord_fixed(ratio = 1) +
       theme_bw() +
       ggpp::geom_text_npc(aes(npcx = 'left',
                               npcy = 'top',
                               label = paste0('N=', n,'\n')))
+    
+    return(p)
   }
   
-  reading_p <- create_plot(reading)
+  reading_p <- create_plot(reading, use_jitter = TRUE, use_log_jitter = TRUE)
   if (!is.null(reading_p)) {
     reading_p <- reading_p + 
       scale_x_log10(limits=c(50,1500)) +
@@ -111,7 +133,7 @@ get_test_retest <- function(df_list){
       )
   }
   
-  crowding_p <- create_plot(pCrowding)
+  crowding_p <- create_plot(pCrowding, use_jitter = TRUE, use_log_jitter = TRUE)
   if (!is.null(crowding_p)) {
     crowding_p <- crowding_p + 
       scale_x_log10(limits=c(0.03,10)) +
@@ -127,7 +149,7 @@ get_test_retest <- function(df_list){
       )
   }
   
-  acuity_p <- create_plot(pAcuity)
+  acuity_p <- create_plot(pAcuity, use_jitter = TRUE, use_log_jitter = TRUE)
   if (!is.null(acuity_p)) {
     acuity_p <- acuity_p + 
     scale_x_log10(limits=c(0.03,10)) +
