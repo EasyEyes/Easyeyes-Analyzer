@@ -822,7 +822,7 @@ generate_threshold <-
              conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,
              questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials)
     
-    
+    print('done generate_threshold')
     return(list(reading = reading, 
                 crowding = crowding,
                 rsvp = rsvp_speed,

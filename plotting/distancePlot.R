@@ -190,13 +190,13 @@ get_measured_distance_data <- function(data_list) {
       df <- rbind(t, df)
     }
   }
-  
-  if(all(is.na(df$calibrateTrackDistanceIpdCameraPx))) {
-    df <- df %>% select(-calibrateTrackDistanceIpdCameraPx)
-  } else {
-    df <- df %>% filter(!is.na(calibrateTrackDistanceIpdCameraPx))
+  if (nrow(t) > 0) {
+    if(all(is.na(df$calibrateTrackDistanceIpdCameraPx))) {
+      df <- df %>% select(-calibrateTrackDistanceIpdCameraPx)
+    } else {
+      df <- df %>% filter(!is.na(calibrateTrackDistanceIpdCameraPx))
+    }
   }
-
   return(df)
 }
 
@@ -327,7 +327,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     labs(subtitle = 'Credit-card-measured vs. requested distance',
          x = 'Requested distance (cm)',
          y = 'Credit-card-measured distance (cm)',
-         caption = 'Lines connect measurements from the same trial.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
+         caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
   
   # Plot 2: Credit-card-measured as fraction of requested distance (INDIVIDUAL MEASUREMENTS)
   p2 <- ggplot() + 
@@ -365,10 +365,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
       keyheight = unit(0.8, "lines")
     ),
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-    labs(subtitle = 'Credit-card-measured as fraction of requested distance',
+    labs(subtitle = 'Credit-card-measured over requested distance',
          x = 'Requested distance (cm)',
-         y = 'Credit-card-measured as fraction of requested distance',
-         caption = 'Lines connect measurements from the same trial.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
+         y = 'Credit-card-measured over requested distance',
+         caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
 
   # Plot 3: IPD (camera px) vs requested distance (individual data)
   if ("calibrateTrackDistanceIpdCameraPx" %in% names(distance)) {
@@ -409,7 +409,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         labs(subtitle = 'IPD (camera px) vs. requested distance',
              x = 'Requested distance (cm)',
              y = 'IPD (camera px)',
-             caption = 'Lines connect measurements from the same trial.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
+             caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
     } else {
       p3 <- NULL
     }
@@ -951,7 +951,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       labs(subtitle = 'Production-measured vs. \nrequested distance',
            x = 'Requested distance (cm)',
            y = 'production-measured distance (cm)',
-           caption = "Lines connect measurements from the same trial.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)")
+           caption = "Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)")
   } else {
     p3 <- NULL
   }
@@ -1013,10 +1013,10 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
         keyheight = unit(0.8, "lines")
       ),
       linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-      labs(subtitle = 'Production-measured as fraction\n of requested distance',
+      labs(subtitle = 'Production-measured over\n requested distance',
            x = 'Requested distance (cm)',
-           y = 'Individual production-measured as fraction of requested distance',
-           caption = 'Lines connect measurements from the same trial.\nHorizontal jitter added to reduce overlap')
+           y = 'Individual production-measured over requested distance',
+           caption = 'Lines connect measurements from the same session.\nHorizontal jitter added to reduce overlap')
   } else {
     p4 <- NULL
   }
@@ -1060,9 +1060,9 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       keyheight = unit(0.8, "lines")
     ),
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-    labs(subtitle = 'Production-measured as fraction of requested distance',
+    labs(subtitle = 'Production-measured over requested distance',
          x = 'Requested distance (cm)',
-         y = 'Production-measured as fraction of requested distance',
+         y = 'Production-measured over requested distance',
          caption = 'Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
   
   return(list(

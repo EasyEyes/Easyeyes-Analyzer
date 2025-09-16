@@ -156,7 +156,6 @@ combineProlific <- function(prolificData, summary_table, pretest){
   return(t)
 }
 
-
 get_prolific_file_counts <- function(prolificData, summary_table) {
   print("DEBUG: Prolific Data Loaded")
   
@@ -180,5 +179,3 @@ get_prolific_file_counts <- function(prolificData, summary_table) {
   
   return(list(prolific_count = prolific_count, formSpree_count = formSpree_count))
 }
-
-
