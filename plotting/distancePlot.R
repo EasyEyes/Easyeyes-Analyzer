@@ -257,62 +257,57 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     return(NULL)
   }
   
-  # Average Measured Distance per Participant per Requested Distance
-  distance_avg <- distance %>%
-    group_by(participant, calibrateTrackDistanceRequestedCm) %>%
-    summarize(
-      avg_measured = mean(calibrateTrackDistanceMeasuredCm, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
+  # Prepare individual measurements for plotting (not averaged)
+  distance_individual <- distance %>%
     mutate(
       # Add consistent logarithmic horizontal jitter to x-axis variable (unbiased for log scales)
       calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
-    ) 
+    )
 
   if (nrow(sdLogDensity_data) > 0) {
-    distance_avg <- distance_avg %>% 
+    distance_individual <- distance_individual %>% 
       left_join(sdLogDensity_data, by = "participant")
   } else {
-    distance_avg <- distance_avg %>% mutate(reliableBool = TRUE)
+    distance_individual <- distance_individual %>% mutate(reliableBool = TRUE)
   }
   
   # Calculate the ratio Y/X for the second plot
-  distance_avg <- distance_avg %>%
+  distance_individual <- distance_individual %>%
     mutate(
-      credit_card_fraction = avg_measured / calibrateTrackDistanceRequestedCm
+      credit_card_fraction = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
     )
 
   # Calculate mean and SD of the ratio for reporting
-  mean_fraction <- mean(distance_avg$credit_card_fraction, na.rm = TRUE)
-  sd_fraction <- sd(distance_avg$credit_card_fraction, na.rm = TRUE)
+  mean_fraction <- mean(distance_individual$credit_card_fraction, na.rm = TRUE)
+  sd_fraction <- sd(distance_individual$credit_card_fraction, na.rm = TRUE)
   
   # Format for display
   mean_formatted <- format(round(mean_fraction, 3), nsmall = 3)
   sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
 
      # Use appropriate scale limits for cleaner axis display - use JITTERED values
-  min_val <- 5 * floor(min(c(distance_avg$calibrateTrackDistanceRequestedCm_jitter, 
-                              distance_avg$avg_measured), na.rm = TRUE) / 5) 
+  min_val <- 5 * floor(min(c(distance_individual$calibrateTrackDistanceRequestedCm_jitter, 
+                              distance_individual$calibrateTrackDistanceMeasuredCm), na.rm = TRUE) / 5) 
   min_val = max(10, min_val)
-  max_val <- 5 * ceiling(max(c(distance_avg$calibrateTrackDistanceRequestedCm_jitter,
-                               distance_avg$avg_measured), na.rm = TRUE) / 5)
+  max_val <- 5 * ceiling(max(c(distance_individual$calibrateTrackDistanceRequestedCm_jitter,
+                               distance_individual$calibrateTrackDistanceMeasuredCm), na.rm = TRUE) / 5)
   
-  # Plot 1: Credit-card-measured vs requested distance
+  # Plot 1: Credit-card-measured vs requested distance (INDIVIDUAL MEASUREMENTS)
   p1 <- ggplot() + 
-    geom_line(data=distance_avg, 
+    geom_line(data=distance_individual, 
               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
-                  y = avg_measured,
+                  y = calibrateTrackDistanceMeasuredCm,
                   color = participant, 
                   lty = reliableBool,
-                  group = participant), alpha = 0.7) +
-    geom_point(data=distance_avg, 
+                  group = trial_id), alpha = 0.7) +
+    geom_point(data=distance_individual, 
                aes(x = calibrateTrackDistanceRequestedCm_jitter, 
-                   y = avg_measured,
+                   y = calibrateTrackDistanceMeasuredCm,
                    color = participant), 
                size = 2) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
-                        label = paste0('N=', n_distinct(distance_avg$participant))) + 
+                        label = paste0('N=', n_distinct(distance_individual$participant))) + 
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
@@ -332,24 +327,24 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     labs(subtitle = 'Credit-card-measured vs. requested distance',
          x = 'Requested distance (cm)',
          y = 'Credit-card-measured distance (cm)',
-         caption = 'Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
+         caption = 'Lines connect measurements from the same trial.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
   
-  # Plot 2: Credit-card-measured as fraction of requested distance
+  # Plot 2: Credit-card-measured as fraction of requested distance (INDIVIDUAL MEASUREMENTS)
   p2 <- ggplot() + 
-    geom_line(data=distance_avg, 
+    geom_line(data=distance_individual, 
               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
                   y = credit_card_fraction,
                   color = participant, 
                   lty = reliableBool,
-                  group = participant), alpha = 0.7) +
-    geom_point(data=distance_avg, 
+                  group = trial_id), alpha = 0.7) +
+    geom_point(data=distance_individual, 
                aes(x = calibrateTrackDistanceRequestedCm_jitter, 
                    y = credit_card_fraction,
                    color = participant), 
                size = 2) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
-                        label = paste0('N=', n_distinct(distance_avg$participant), '\n',
+                        label = paste0('N=', n_distinct(distance_individual$participant), '\n',
                                        'Mean=', mean_formatted, '\n',
                                        'SD=', sd_formatted)) + 
     geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
@@ -373,7 +368,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     labs(subtitle = 'Credit-card-measured as fraction of requested distance',
          x = 'Requested distance (cm)',
          y = 'Credit-card-measured as fraction of requested distance',
-         caption = 'Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
+         caption = 'Lines connect measurements from the same trial.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
 
   # Plot 3: IPD (camera px) vs requested distance (individual data)
   if ("calibrateTrackDistanceIpdCameraPx" %in% names(distance)) {
@@ -953,7 +948,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       ),
       linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
       coord_fixed() +
-      labs(subtitle = 'Individual Production-measured vs. \nrequested distance',
+      labs(subtitle = 'Production-measured vs. \nrequested distance',
            x = 'Requested distance (cm)',
            y = 'production-measured distance (cm)',
            caption = "Lines connect measurements from the same trial.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)")
@@ -1018,7 +1013,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
         keyheight = unit(0.8, "lines")
       ),
       linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-      labs(subtitle = 'Individual Production-measured as fraction\n of requested distance',
+      labs(subtitle = 'Production-measured as fraction\n of requested distance',
            x = 'Requested distance (cm)',
            y = 'Individual production-measured as fraction of requested distance',
            caption = 'Lines connect measurements from the same trial.\nHorizontal jitter added to reduce overlap')
