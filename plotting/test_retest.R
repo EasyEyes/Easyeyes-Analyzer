@@ -119,9 +119,28 @@ get_test_retest <- function(df_list){
   
   reading_p <- create_plot(reading, use_jitter = TRUE, use_log_jitter = TRUE)
   if (!is.null(reading_p)) {
+    # Calculate dynamic limits based on actual data
+    reading_test_retest <- reading %>% 
+      mutate(group = ifelse(grepl("Repeat",experiment), "retest","test")) %>%
+      filter(group %in% c('test', 'retest')) %>%
+      group_by(participant, font, conditionName) %>%
+      filter(n() == 2) %>%  # Only keep pairs with both test and retest
+      ungroup()
+    
+    if (nrow(reading_test_retest) > 0) {
+      # Calculate limits with some padding for better visualization
+      min_reading <- min(reading_test_retest$test, na.rm = TRUE)
+      max_reading <- max(reading_test_retest$test, na.rm = TRUE)
+      # Use log-scale appropriate padding
+      reading_limits <- c(min_reading * 0.7, max_reading * 1.4)
+    } else {
+      # Fallback to reasonable defaults if no data
+      reading_limits <- c(50, 1500)
+    }
+    
     reading_p <- reading_p + 
-      scale_x_log10(limits=c(50,1500)) +
-      scale_y_log10(limits=c(50,1500)) +
+      scale_x_log10(limits=reading_limits) +
+      scale_y_log10(limits=reading_limits) +
       labs(x="Test reading (w/min)",
            y="Retest reading (w/min)",
            subtitle="Reading retest vs test") +
@@ -135,9 +154,28 @@ get_test_retest <- function(df_list){
   
   crowding_p <- create_plot(pCrowding, use_jitter = TRUE, use_log_jitter = TRUE)
   if (!is.null(crowding_p)) {
+    # Calculate dynamic limits based on actual data
+    crowding_test_retest <- pCrowding %>% 
+      mutate(group = ifelse(grepl("Repeat",experiment), "retest","test")) %>%
+      filter(group %in% c('test', 'retest')) %>%
+      group_by(participant, font, conditionName) %>%
+      filter(n() == 2) %>%  # Only keep pairs with both test and retest
+      ungroup()
+    
+    if (nrow(crowding_test_retest) > 0) {
+      # Calculate limits with some padding for better visualization
+      min_crowding <- min(crowding_test_retest$test, na.rm = TRUE)
+      max_crowding <- max(crowding_test_retest$test, na.rm = TRUE)
+      # Use log-scale appropriate padding
+      crowding_limits <- c(min_crowding * 0.7, max_crowding * 1.4)
+    } else {
+      # Fallback to reasonable defaults if no data
+      crowding_limits <- c(0.03, 10)
+    }
+    
     crowding_p <- crowding_p + 
-      scale_x_log10(limits=c(0.03,10)) +
-      scale_y_log10(limits=c(0.03,10)) +
+      scale_x_log10(limits=crowding_limits) +
+      scale_y_log10(limits=crowding_limits) +
       labs(x="Test crowding (deg)",
            y="Retest crowding (deg)",
            subtitle="Peripheral crowding retest vs test\nGeometric mean of left and right") +
@@ -151,9 +189,28 @@ get_test_retest <- function(df_list){
   
   acuity_p <- create_plot(pAcuity, use_jitter = TRUE, use_log_jitter = TRUE)
   if (!is.null(acuity_p)) {
+    # Calculate dynamic limits based on actual data
+    acuity_test_retest <- pAcuity %>% 
+      mutate(group = ifelse(grepl("Repeat",experiment), "retest","test")) %>%
+      filter(group %in% c('test', 'retest')) %>%
+      group_by(participant, font, conditionName) %>%
+      filter(n() == 2) %>%  # Only keep pairs with both test and retest
+      ungroup()
+    
+    if (nrow(acuity_test_retest) > 0) {
+      # Calculate limits with some padding for better visualization
+      min_acuity <- min(acuity_test_retest$test, na.rm = TRUE)
+      max_acuity <- max(acuity_test_retest$test, na.rm = TRUE)
+      # Use log-scale appropriate padding
+      acuity_limits <- c(min_acuity * 0.7, max_acuity * 1.4)
+    } else {
+      # Fallback to reasonable defaults if no data
+      acuity_limits <- c(0.03, 10)
+    }
+    
     acuity_p <- acuity_p + 
-    scale_x_log10(limits=c(0.03,10)) +
-    scale_y_log10(limits=c(0.03,10)) +
+    scale_x_log10(limits=acuity_limits) +
+    scale_y_log10(limits=acuity_limits) +
     labs(x="Test acuity (deg)",
          y="Retest acuity (deg)",
          subtitle="Peripheral cuity retest vs test\nGeometric mean of left and right") +
@@ -162,7 +219,7 @@ get_test_retest <- function(df_list){
       short = unit(2, "pt"),
       mid   = unit(2, "pt"),
       long  = unit(7, "pt")
-    ) 
+    )
   }
   
   beauty_p <- create_plot(beauty, use_jitter = TRUE)

@@ -292,6 +292,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   max_val <- 5 * ceiling(max(c(distance_individual$calibrateTrackDistanceRequestedCm_jitter,
                                distance_individual$calibrateTrackDistanceMeasuredCm), na.rm = TRUE) / 5)
   
+  # Calculate dynamic y-axis limits for the fraction plot based on actual data
+  minFrac <- max(0.1, min(0.5, floor(distance_individual$credit_card_fraction * 10) / 10))
+  maxFrac <- max(1.5, ceiling(distance_individual$credit_card_fraction * 10) / 10)
+  
   # Plot 1: Credit-card-measured vs requested distance (INDIVIDUAL MEASUREMENTS)
   p1 <- ggplot() + 
     geom_line(data=distance_individual, 
@@ -353,8 +357,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     scale_x_log10(limits = c(min_val, max_val),
                   breaks = scales::log_breaks(n=8),
                   expand = expansion(mult = c(0.05, 0.05))) + 
-    scale_y_log10(limits = c(0.5,1.5),
-                   breaks = seq(0.5, 1.5, 0.1)) + 
+    scale_y_log10(limits = c(minFrac, maxFrac),
+                   breaks = scales::log_breaks(n=8)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(

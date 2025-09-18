@@ -145,9 +145,22 @@ plot_violins <- function(df_list) {
     return(p)
   }
   
+  # Calculate dynamic limits based on actual data
+  reading_limits <- if (nrow(reading) > 0 && !all(is.na(reading$y))) {
+    c(min(reading$y, na.rm = TRUE) * 0.8, max(reading$y, na.rm = TRUE) * 1.2)
+  } else {
+    NULL  # Let ggplot auto-scale
+  }
+  
+  rsvp_limits <- if (nrow(rsvp) > 0 && !all(is.na(rsvp$y))) {
+    c(min(rsvp$y, na.rm = TRUE) * 0.8, max(rsvp$y, na.rm = TRUE) * 1.2)
+  } else {
+    NULL  # Let ggplot auto-scale
+  }
+
   return(list(
-    reading = create_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font", xlimits = c(25, 1000)),
-    rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font", xlimits = c(100, 4000)),
+    reading = create_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font", xlimits = reading_limits),
+    rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font", xlimits = rsvp_limits),
     crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
     acuity = create_plot(acuity, "acuity (deg)", "Acuity Threshold by Font"),
     beauty = create_plot(beauty, "Beauty Rating", "Beauty Rating by Font"),

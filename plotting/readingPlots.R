@@ -35,13 +35,28 @@ plot_rsvp_vs_x_height <- function(rsvp_speed){
   rsvp_summary <- rsvp_summary %>% 
     mutate(x_height = ifelse(viewingDistanceDesiredCm == 60, x_height + 0.005, x_height))
   N_text <- ifelse(minN == maxN, minN, paste0(minN, "~to~",maxN))
+  
+  # Calculate dynamic limits based on actual data including error bars
+  reading_speeds <- 60/(10^(rsvp_summary$m))
+  reading_speeds_with_error <- c(
+    60/(10^(rsvp_summary$m + rsvp_summary$se/2)),  # lower error bar
+    60/(10^(rsvp_summary$m - rsvp_summary$se/2))   # upper error bar
+  )
+  all_speeds <- c(reading_speeds, reading_speeds_with_error)
+  
+  if (length(all_speeds) > 0 && !all(is.na(all_speeds))) {
+    speed_limits <- c(min(all_speeds, na.rm = TRUE) * 0.9, max(all_speeds, na.rm = TRUE) * 1.1)
+  } else {
+    speed_limits <- c(250, 1000)  # fallback
+  }
+  
   rsvp_summary
   p1 <- ggplot(rsvp_summary, aes(x = x_height, y = 60/(10^(m)), color = as.factor(viewingDistanceDesiredCm))) + 
     geom_point() + 
     geom_line() +
     theme_bw() + 
     scale_x_log10() + 
-    scale_y_log10(limits = c(250, 1000),breaks = c(250, 500, 750, 1000)) + 
+    scale_y_log10(limits = speed_limits, breaks = scales::log_breaks(n=6)) + 
     # this is to dodge error bar
     # geom_errorbar(aes(ymin=60/(10^(m-se/2)),
     #                   ymax=60/(10^(m+se/2))), width=0, position = pd) +
@@ -59,7 +74,7 @@ plot_rsvp_vs_x_height <- function(rsvp_speed){
     geom_point() + 
     geom_line() +
     theme_bw() + 
-    scale_y_continuous(limits = c(250, 1000),breaks = c(250, 500, 750, 1000)) + 
+    scale_y_continuous(limits = speed_limits, breaks = scales::pretty_breaks(n=6)) + 
     # this is to dodge error bar
     # geom_errorbar(aes(ymin=60/(10^(m-se/2)),
     #                   ymax=60/(10^(m+se/2))), width=0, position = pd) +

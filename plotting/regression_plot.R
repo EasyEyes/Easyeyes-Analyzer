@@ -370,6 +370,33 @@ regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
     mutate(legend = paste0(targetKind, ", slope = ", slope, ", R = ", correlation))
   
   
+  # Calculate dynamic limits based on actual data including error bars
+  y_values <- 10^(rsvp_vs_ordinary_vs_crowding$avg_log_SpeedWPM)
+  y_with_error <- c(
+    10^(rsvp_vs_ordinary_vs_crowding$avg_log_SpeedWPM - rsvp_vs_ordinary_vs_crowding$se),
+    10^(rsvp_vs_ordinary_vs_crowding$avg_log_SpeedWPM + rsvp_vs_ordinary_vs_crowding$se)
+  )
+  all_y <- c(y_values, y_with_error)
+  
+  x_values <- rsvp_vs_ordinary_vs_crowding$mean_bouma_factor
+  x_with_error <- c(
+    rsvp_vs_ordinary_vs_crowding$mean_bouma_factor - rsvp_vs_ordinary_vs_crowding$se_bouma_factor,
+    rsvp_vs_ordinary_vs_crowding$mean_bouma_factor + rsvp_vs_ordinary_vs_crowding$se_bouma_factor
+  )
+  all_x <- c(x_values, x_with_error)
+  
+  if (length(all_y) > 0 && !all(is.na(all_y))) {
+    y_limits <- c(min(all_y, na.rm = TRUE) * 0.8, max(all_y, na.rm = TRUE) * 1.2)
+  } else {
+    y_limits <- c(100, 2000)  # fallback
+  }
+  
+  if (length(all_x) > 0 && !all(is.na(all_x))) {
+    x_limits <- c(min(all_x, na.rm = TRUE) * 0.8, max(all_x, na.rm = TRUE) * 1.2)
+  } else {
+    x_limits <- NULL  # let ggplot auto-scale
+  }
+  
   # regression and font mean
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, aes(x = mean_bouma_factor, 
                                                        y = 10^(avg_log_SpeedWPM))) + 
@@ -392,8 +419,8 @@ regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
     #             formula = y ~ x, 
     #             se=F,
     #             fullrange=T) + 
-    scale_y_log10(limits = c(100, 2000)) +
-    scale_x_log10() + 
+    scale_y_log10(limits = y_limits) +
+    scale_x_log10(limits = x_limits) + 
     coord_fixed(ratio = 1) +
     labs(x="Bouma factor", 
          y = "Reading speed (w/min)") +
@@ -454,6 +481,15 @@ regression_font <- function(df_list, reading_rsvp_crowding_df){
     rsvp_vs_ordinary_vs_crowding %>% 
     mutate(legend = paste0(targetKind, ", slope = ", slope, ", R = ", correlation)) %>% 
     mutate(fontlabel = paste0(font, " - ", substr(font, start = 1, stop = 3)))
+  
+  # Calculate dynamic x-axis limits based on actual data
+  x_values <- rsvp_vs_ordinary_vs_crowding$mean_bouma_factor
+  if (length(x_values) > 0 && !all(is.na(x_values))) {
+    x_limits <- c(min(x_values, na.rm = TRUE) * 0.8, max(x_values, na.rm = TRUE) * 1.2)
+  } else {
+    x_limits <- NULL  # let ggplot auto-scale
+  }
+  
   # regression and font mean
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, aes(x = mean_bouma_factor, 
                                                        y = 10^(avg_log_SpeedWPM))) + 
@@ -464,7 +500,7 @@ regression_font <- function(df_list, reading_rsvp_crowding_df){
                 fullrange=T) +
     scale_linetype_manual(values = c(1, 2)) +
     scale_y_log10() +
-    scale_x_log10(limits = c(0.1,1)) + 
+    scale_x_log10(limits = x_limits) + 
     coord_fixed(ratio = 1) +
     labs(x="Bouma factor", 
          y = "Reading speed (w/min)") +
@@ -530,6 +566,14 @@ regression_font_with_label <- function(df_list, reading_rsvp_crowding_df){
                                    font == "Agoesa.woff2" ~ "Agoesa",
                                    font == "Quela.woff2" ~ "Quela",
                                    TRUE ~ "Arial"))
+  # Calculate dynamic x-axis limits based on actual data
+  x_values <- rsvp_vs_ordinary_vs_crowding$mean_bouma_factor
+  if (length(x_values) > 0 && !all(is.na(x_values))) {
+    x_limits <- c(min(x_values, na.rm = TRUE) * 0.8, max(x_values, na.rm = TRUE) * 1.2)
+  } else {
+    x_limits <- NULL  # let ggplot auto-scale
+  }
+  
   # regression and font mean
   
   p <- ggplot(data = rsvp_vs_ordinary_vs_crowding, aes(x = mean_bouma_factor, 
@@ -562,7 +606,7 @@ regression_font_with_label <- function(df_list, reading_rsvp_crowding_df){
     #             se=F,
     #             fullrange=T) +
     scale_y_log10() +
-    scale_x_log10(limits = c(0.1,1)) + 
+    scale_x_log10(limits = x_limits) + 
     coord_fixed(ratio = 1) +
     labs(x="Bouma factor", 
          y = "Reading speed (w/min)") +
