@@ -130,62 +130,48 @@ get_measured_distance_data <- function(data_list) {
     return(df)
   }
   for (i in 1:length(data_list)) {
-      t <- data_list[[i]] %>%
-        select(participant,
-               calibrateTrackDistanceMeasuredCm,
-               calibrateTrackDistanceRequestedCm,
-               calibrateTrackDistance,
-               calibrateTrackDistanceIpdCameraPx) %>%
-        distinct() %>%
-        filter(!is.na(calibrateTrackDistanceMeasuredCm),
-               !is.na(calibrateTrackDistanceRequestedCm),
-               calibrateTrackDistanceMeasuredCm != '',
-               calibrateTrackDistanceRequestedCm != '')
-
+    t <- data_list[[i]] %>%
+      select(participant,
+             calibrateTrackDistanceMeasuredCm,
+             calibrateTrackDistanceRequestedCm,
+             calibrateTrackDistance,
+             calibrateTrackDistanceIpdCameraPx) %>%
+      distinct() %>%
+      filter(!is.na(calibrateTrackDistanceMeasuredCm),
+             !is.na(calibrateTrackDistanceRequestedCm),
+             calibrateTrackDistanceMeasuredCm != '',
+             calibrateTrackDistanceRequestedCm != '')
+    
     if (nrow(t) > 0) {
       # Convert JSON-like lists into strings and remove extra characters
-        t <- t %>%
-          mutate(
-            calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
-            calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm),
-            calibrateTrackDistanceIpdCameraPx = gsub("\\[|\\]|\"", "", calibrateTrackDistanceIpdCameraPx)
-          ) %>%
-          # Separate all columns together while keeping row-wise structure
-          mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","),
-                 requested_list = strsplit(calibrateTrackDistanceRequestedCm, ","),
-                 ipd_list = strsplit(calibrateTrackDistanceIpdCameraPx, ",")) %>%
-          unnest(c(measured_list, requested_list, ipd_list)) %>%  # Expands all columns together
-          mutate(
-            calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
-            calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
-            calibrateTrackDistanceIpdCameraPx = as.numeric(trimws(ipd_list))
-          ) %>%
-          select(-measured_list, -requested_list, -ipd_list)  # Remove temp lists
-        
-        if (nrow(t) > 0) {
-          t <- t %>% mutate(
-            calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
-            calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm)
-          ) %>%
-            # Ensure IPD column exists even if it wasn't processed
-            mutate(calibrateTrackDistanceIpdCameraPx = if("calibrateTrackDistanceIpdCameraPx" %in% names(.)) calibrateTrackDistanceIpdCameraPx else NA) %>%
-            # Add row number first to preserve original order
-            mutate(original_row = row_number()) %>%
-            # Add trial identification - group by participant and assign trial numbers
-            group_by(participant) %>%
-            mutate(
-              # Calculate number of unique distances per participant
-              n_unique_distances = n_distinct(calibrateTrackDistanceRequestedCm),
-              # Create trial groups based on original row position (not arranged order)
-              trial_id = paste(participant,
-                               # Create trial number based on original position within each distance
-                               ceiling(original_row / n_unique_distances),
-                               sep = "_trial_")
-            ) %>%
-            ungroup() %>%
-            # Remove the temporary row number column
-            select(-original_row)
-        }
+      t <- t %>%
+        mutate(
+          calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
+          calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm),
+          calibrateTrackDistanceIpdCameraPx = gsub("\\[|\\]|\"", "", calibrateTrackDistanceIpdCameraPx)
+        ) %>%
+        # Separate all columns together while keeping row-wise structure
+        mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","),
+               requested_list = strsplit(calibrateTrackDistanceRequestedCm, ","),
+               ipd_list = strsplit(calibrateTrackDistanceIpdCameraPx, ",")) %>%
+        unnest(c(measured_list, requested_list, ipd_list)) %>%  # Expands all columns together
+        mutate(
+          calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
+          calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
+          calibrateTrackDistanceIpdCameraPx = as.numeric(trimws(ipd_list))
+        ) %>%
+        select(-measured_list, -requested_list, -ipd_list)  # Remove temp lists
+      
+      if (nrow(t) > 0) {
+        t <- t %>% mutate(
+          calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
+          calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm)
+        ) %>%
+          # Ensure IPD column exists even if it wasn't processed
+          mutate(calibrateTrackDistanceIpdCameraPx = if("calibrateTrackDistanceIpdCameraPx" %in% names(.)) calibrateTrackDistanceIpdCameraPx else NA) %>%
+          # Add row number first to preserve original order
+          mutate(order = row_number())
+      }
       df <- rbind(t, df)
     }
   }
@@ -196,7 +182,7 @@ get_measured_distance_data <- function(data_list) {
       df <- df %>% filter(!is.na(calibrateTrackDistanceIpdCameraPx))
     }
   }
-
+  
   return(df)
 }
 
@@ -554,11 +540,12 @@ plot_eye_feet_position <- function(data_list) {
       # Add points with fill aesthetic to avoid server color conflicts
       geom_point(aes(fill = ratio_continuous, shape = session_limited), 
                  size = 4, alpha = 0.9, color = "black", stroke = 0.2) +
-      # Continuous fill scale as specified in Trello
+      # Log-scaled continuous fill scale
       scale_fill_gradientn(
         colors = c("#3B4CC0", "#89A1F0", "#FDE725", "#F07E26", "#B2182B"),
-        values = scales::rescale(c(0.5, 0.85, 1.0, 1.3, 2.0)),
+        values = scales::rescale(log10(c(0.5, 0.85, 1.0, 1.3, 2.0))),
         limits = c(0.5, 2.0),
+        trans = "log10",
         oob = scales::squish,
         name = "Measured /\nRequested"
       ) +
@@ -719,57 +706,58 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   maxFrac <- max(1.5, ceiling(distance_individual$credit_card_fraction * 10) / 10)
   
   # Plot 1: Credit-card-measured vs requested distance (INDIVIDUAL MEASUREMENTS)
-  distance_individual <- distance_individual %>% 
-    filter(!is.na(calibrateTrackDistanceRequestedCm_jitter), 
+  distance_individual <- distance_individual %>%
+    arrange(participant, order) %>%  # Ensure proper ordering
+    filter(!is.na(calibrateTrackDistanceRequestedCm_jitter),
            !is.na(calibrateTrackDistanceMeasuredCm))
-  p1 <- NULL 
+  p1 <- NULL
   if (nrow(distance_individual) > 0) {
-    p1 <- ggplot() + 
-      geom_line(data=distance_individual, 
-                aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+  p1 <- ggplot() + 
+      geom_line(data=distance_individual,
+              aes(x = calibrateTrackDistanceRequestedCm_jitter, 
                     y = calibrateTrackDistanceMeasuredCm,
-                    color = participant, 
-                    lty = reliableBool,
-                    group = trial_id), alpha = 0.7) +
+                  color = participant, 
+                  lty = reliableBool,
+                  group = participant), alpha = 0.7) +
       geom_point(data=distance_individual, 
-                 aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
                      y = calibrateTrackDistanceMeasuredCm,
-                     color = participant), 
-                 size = 2) + 
-      ggpp::geom_text_npc(aes(npcx="left",
-                              npcy="top"),
+                   color = participant), 
+               size = 2) + 
+    ggpp::geom_text_npc(aes(npcx="left",
+                            npcy="top"),
                           label = paste0('N=', n_distinct(distance_individual$participant))) + 
-      geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
-      scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
-                            labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
+    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
+                          labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8)) +
       scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8)) + 
-      scale_color_manual(values= colorPalette) + 
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
-      guides(color = guide_legend(
-        ncol = 3,  # More columns to fit more participants horizontally
-        title = "",
-        override.aes = list(size = 2),  # Smaller points in legend
-        keywidth = unit(1.2, "lines"),  # Reduce key width
-        keyheight = unit(0.8, "lines")  # Reduce key height
-      ),
-      linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-      coord_fixed() +  
-      labs(subtitle = 'Credit-card-measured vs. requested distance',
-           x = 'Requested distance (cm)',
-           y = 'Credit-card-measured distance (cm)',
+    scale_color_manual(values= colorPalette) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+    guides(color = guide_legend(
+      ncol = 3,  # More columns to fit more participants horizontally
+      title = "",
+      override.aes = list(size = 2),  # Smaller points in legend
+      keywidth = unit(1.2, "lines"),  # Reduce key width
+      keyheight = unit(0.8, "lines")  # Reduce key height
+    ),
+    linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
+    coord_fixed() +  
+    labs(subtitle = 'Credit-card-measured vs. requested distance',
+         x = 'Requested distance (cm)',
+         y = 'Credit-card-measured distance (cm)',
            caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
-    
+  
   }
  
   # Plot 2: Credit-card-measured as fraction of requested distance (INDIVIDUAL MEASUREMENTS)
   p2 <- ggplot() + 
-    geom_line(data=distance_individual, 
+    geom_line(data=distance_individual,
               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
                   y = credit_card_fraction,
                   color = participant, 
                   lty = reliableBool,
-                  group = trial_id), alpha = 0.7) +
+                  group = participant), alpha = 0.7) +
     geom_point(data=distance_individual, 
                aes(x = calibrateTrackDistanceRequestedCm_jitter, 
                    y = credit_card_fraction,
@@ -808,6 +796,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     ipd_data <- distance %>%
       filter(!is.na(calibrateTrackDistanceIpdCameraPx),
              !is.na(calibrateTrackDistanceRequestedCm)) %>%
+      arrange(participant, order) %>%  # Ensure proper ordering
       mutate(
         # Add logarithmic jitter to requested distance for better visualization (unbiased for log scales)
         calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
@@ -819,7 +808,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
                   aes(x = calibrateTrackDistanceRequestedCm_jitter,
                       y = calibrateTrackDistanceIpdCameraPx,
                       color = participant,
-                      group = trial_id), alpha = 0.7) +
+                      group = participant), alpha = 0.7) +
         geom_point(data=ipd_data,
                    aes(x = calibrateTrackDistanceRequestedCm_jitter,
                        y = calibrateTrackDistanceIpdCameraPx,
@@ -1244,7 +1233,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     densityRatio_data <- tibble()
     sdLogDensity_data <- tibble()
   }
-
+  
   
   # Average Measured Distance per Participant per Requested Distance (SAME AS CREDIT CARD)
   distance_avg <- distance %>%
@@ -1296,87 +1285,87 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
   p1 <- NULL
   p2 <- NULL 
   if (nrow(distance_avg) > 0) {
-    # Plot 1: Production-measured vs requested distance
-    p1 <- ggplot() +
-      geom_line(data=distance_avg,
-                aes(x = calibrateTrackDistanceRequestedCm_jitter,
-                    y = avg_measured,
-                    color = participant,
-                    lty = reliableBool,
-                    group = participant), alpha = 0.7) +
-      geom_point(data=distance_avg,
-                 aes(x = calibrateTrackDistanceRequestedCm_jitter,
-                     y = avg_measured,
-                     color = participant),
-                 size = 2) +
-      ggpp::geom_text_npc(aes(npcx="left",
-                              npcy="top"),
-                          label = paste0('N=', n_distinct(distance_avg$participant))) +
-      geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
-      scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
-                            labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
+  # Plot 1: Production-measured vs requested distance
+  p1 <- ggplot() + 
+    geom_line(data=distance_avg, 
+              aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                  y = avg_measured,
+                  color = participant, 
+                  lty = reliableBool,
+                  group = participant), alpha = 0.7) +
+    geom_point(data=distance_avg, 
+               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                   y = avg_measured,
+                   color = participant), 
+               size = 2) + 
+    ggpp::geom_text_npc(aes(npcx="left",
+                            npcy="top"),
+                        label = paste0('N=', n_distinct(distance_avg$participant))) + 
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
+    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
+                          labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(limits = c(min_val, max_val),
                     breaks = scales::log_breaks(n=8)) +
       scale_y_log10(limits = c(min_val, max_val),
                     breaks = scales::log_breaks(n=8)) +
       annotation_logticks() + 
-      scale_color_manual(values= colorPalette) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-      guides(color = guide_legend(
-        ncol = 3,  # SAME AS CREDIT CARD: More columns to fit more participants horizontally
-        title = "",
-        override.aes = list(size = 2),  # SAME AS CREDIT CARD: Smaller points in legend
-        keywidth = unit(1.2, "lines"),  # SAME AS CREDIT CARD: Reduce key width
-        keyheight = unit(0.8, "lines")  # SAME AS CREDIT CARD: Reduce key height
-      ),
-      linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-      coord_fixed() +  # SAME AS CREDIT CARD
+    scale_color_manual(values= colorPalette) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+    guides(color = guide_legend(
+      ncol = 3,  # SAME AS CREDIT CARD: More columns to fit more participants horizontally
+      title = "",
+      override.aes = list(size = 2),  # SAME AS CREDIT CARD: Smaller points in legend
+      keywidth = unit(1.2, "lines"),  # SAME AS CREDIT CARD: Reduce key width
+      keyheight = unit(0.8, "lines")  # SAME AS CREDIT CARD: Reduce key height
+    ),
+    linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
+    coord_fixed() +  # SAME AS CREDIT CARD
       labs(subtitle = 'Averge Production-measured vs.\nrequested distance',  # ONLY LABEL DIFFERENCE
-           x = 'Requested distance (cm)',                              # SAME AS CREDIT CARD
+         x = 'Requested distance (cm)',                              # SAME AS CREDIT CARD
            y = 'production-measured distance (cm)',
            caption = "Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)")
-    
-    # Plot 2: Production-measured as fraction of requested distance
+  
+  # Plot 2: Production-measured as fraction of requested distance
     minFrac <- max(0.1, min(0.5, floor(distance_avg$production_fraction * 10) / 10))
     maxFrac <- max(1.5, ceiling(distance_avg$production_fraction * 10) / 10)
-    p2 <- ggplot() +
-      geom_line(data=distance_avg,
-                aes(x = calibrateTrackDistanceRequestedCm_jitter,
-                    y = production_fraction,
-                    color = participant,
-                    lty = reliableBool,
-                    group = participant), alpha = 0.7) +
-      geom_point(data=distance_avg,
-                 aes(x = calibrateTrackDistanceRequestedCm_jitter,
-                     y = production_fraction,
-                     color = participant),
-                 size = 2) +
-      ggpp::geom_text_npc(aes(npcx="left",
-                              npcy="top"),
-                          label = paste0('N=', n_distinct(distance_avg$participant), '\n',
-                                         'Mean=', mean_formatted, '\n',
-                                         'SD=', sd_formatted)) +
-      geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
-      scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
-                            labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
+  p2 <- ggplot() + 
+    geom_line(data=distance_avg, 
+              aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                  y = production_fraction,
+                  color = participant, 
+                  lty = reliableBool,
+                  group = participant), alpha = 0.7) +
+    geom_point(data=distance_avg, 
+               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+                   y = production_fraction,
+                   color = participant), 
+               size = 2) + 
+    ggpp::geom_text_npc(aes(npcx="left",
+                            npcy="top"),
+                        label = paste0('N=', n_distinct(distance_avg$participant), '\n',
+                                       'Mean=', mean_formatted, '\n',
+                                       'SD=', sd_formatted)) + 
+    geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
+    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
+                          labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(limits = c(min_val, max_val),
                     breaks = scales::pretty_breaks(n=8),
                     expand = expansion(mult = c(0.05, 0.05))) +
       scale_y_log10(limits = c(minFrac,maxFrac),
                     breaks = scales::log_breaks()) +
       annotation_logticks() +
-      scale_color_manual(values= colorPalette) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-      guides(color = guide_legend(
-        ncol = 3,
-        title = "",
-        override.aes = list(size = 2),
-        keywidth = unit(1.2, "lines"),
-        keyheight = unit(0.8, "lines")
-      ),
-      linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
+    scale_color_manual(values= colorPalette) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+    guides(color = guide_legend(
+      ncol = 3,
+      title = "",
+      override.aes = list(size = 2),
+      keywidth = unit(1.2, "lines"),
+      keyheight = unit(0.8, "lines")
+    ),
+    linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
       labs(subtitle = 'Production-measured over requested distance',
-           x = 'Requested distance (cm)',
+         x = 'Requested distance (cm)',
            y = 'Production-measured over requested distance',
            caption = 'Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
     
@@ -1386,6 +1375,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
   if (nrow(distance) > 0) {
     # Use individual distance measurements, not aggregated data
     individual_data <- distance %>%
+      arrange(participant, order) %>%  # Ensure proper ordering
       left_join(densityRatio_data %>% select(participant, densityRatio, pxPerCm), by = "participant") %>%
       left_join(sdLogDensity_data %>% select(participant, reliableBool), by = "participant") %>%
       mutate(
@@ -1397,13 +1387,13 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       filter(is.finite(product_measured))
 
     p3 <- ggplot() +
-      # Connect points within the same trial using trial_id
+      # Connect points within the same participant in order
       geom_line(data=individual_data,
                 aes(x = calibrateTrackDistanceRequestedCm_jitter,
                     y = product_measured,
                     color = participant,
                     lty = reliableBool,
-                    group = trial_id), alpha = 0.7) +
+                    group = participant), alpha = 0.7) +
       geom_point(data=individual_data,
                  aes(x = calibrateTrackDistanceRequestedCm_jitter,
                      y = product_measured,
@@ -1439,7 +1429,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
 
   # Plot 4: Individual production measurements as fraction of requested distance
   if (nrow(distance) > 0) {
-    # Use the same individual_data as p3
+    # Use the same individual_data as p3 (already arranged by participant, order)
     individual_fraction_data <- individual_data %>%
       mutate(
         # Calculate fraction for each individual measurement
@@ -1454,17 +1444,17 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     # Format for display
     mean_individual_formatted <- format(round(mean_individual_fraction, 3), nsmall = 3)
     sd_individual_formatted <- format(round(sd_individual_fraction, 3), nsmall = 3)
-    
+
     minFrac <- max(0.1, min(0.5, floor(individual_fraction_data$production_fraction * 10) / 10))
     maxFrac <- max(1.5, ceiling(individual_fraction_data$production_fraction * 10) / 10)
     p4 <- ggplot() +
-      # Connect points within the same trial using trial_id
+      # Connect points within the same participant in order
       geom_line(data=individual_fraction_data,
                 aes(x = calibrateTrackDistanceRequestedCm_jitter,
                     y = production_fraction,
                     color = participant,
                     lty = reliableBool,
-                    group = trial_id), alpha = 0.7) +
+                    group = participant), alpha = 0.7) +
       geom_point(data=individual_fraction_data,
                  aes(x = calibrateTrackDistanceRequestedCm_jitter,
                      y = production_fraction,
@@ -1518,7 +1508,7 @@ objectCm_hist <- function(participant_info) {
   
   # Create dot plot style like SD histogram
   bin_width <- (max(dt$objectLengthCm) - min(dt$objectLengthCm)) / 20  # Adjust bin width based on data range
-
+  
   # Handle case where all objects have same length (bin_width = 0)
   if (bin_width == 0) {
     bin_width <- 1  # Use a small default bin width
