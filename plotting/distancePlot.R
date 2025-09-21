@@ -9,6 +9,22 @@ add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
   return(values * 10^log_factor)
 }
 
+get_cameraResolutionXY <- function(data_list) {
+  df <- tibble()
+  if (is.null(data_list) || length(data_list) == 0) return(df)
+  for (i in 1:length(data_list)) {
+    t <- data_list[[i]] %>%
+      select(cameraResolutionXY, participant) %>%
+      rename(Session = participant) %>% 
+      distinct() %>%
+      filter(!is.na(cameraResolutionXY), cameraResolutionXY != "")
+    if (nrow(t) > 0) {
+      df <- rbind(df, t)
+    }
+  }
+  return(df)
+}
+
 get_distance_calibration <- function(data_list, minRulerCm) {
   if (length(data_list) == 0) {
     return(list())
@@ -195,48 +211,22 @@ get_eye_feet_position_data <- function(data_list) {
   }
   
   for (i in 1:length(data_list)) {
-    print(paste("Processing data list item", i, "of", length(data_list)))
     available_cols <- names(data_list[[i]])
-    print(paste("Available columns:", paste(available_cols, collapse = ", ")))
-    
+
     # Check if we have the required columns
     if (!("calibrateTrackDistanceEyeFeetXYPx" %in% available_cols)) {
       print("calibrateTrackDistanceEyeFeetXYPx column not found, skipping")
       next
     }
     
-    cols_to_select <- c("participant",
+    cols_to_select <- c("experiment",
+                        "participant",
+                        "pxPerCm",
+                        "screenWidthPx",
+                        "screenHeightPx",
                        "calibrateTrackDistanceMeasuredCm", 
                        "calibrateTrackDistanceRequestedCm",
                        "calibrateTrackDistanceEyeFeetXYPx")
-    
-    # Add pxPerCm if available (needed for conversion to cm)
-    if ("pxPerCm" %in% available_cols) {
-      cols_to_select <- c(cols_to_select, "pxPerCm")
-      print("pxPerCm column found and added")
-    } else {
-      print("pxPerCm column not found - will use default value")
-    }
-    
-    # Add screen dimensions if available
-    if ("screenWidthPx" %in% available_cols) {
-      cols_to_select <- c(cols_to_select, "screenWidthPx")
-      print("screenWidthPx column found and added")
-    }
-    if ("screenHeightPx" %in% available_cols) {
-      cols_to_select <- c(cols_to_select, "screenHeightPx")
-      print("screenHeightPx column found and added")
-    }
-    
-    # Add session identifier if available
-    if ("experiment" %in% available_cols) {
-      cols_to_select <- c(cols_to_select, "experiment")
-      print("experiment column found and added")
-    } else {
-      print("experiment column not found - will use participant as session")
-    }
-    
-    print(paste("Selecting columns:", paste(cols_to_select, collapse = ", ")))
     
     t <- data_list[[i]] %>%
       select(all_of(cols_to_select)) %>%
@@ -247,18 +237,8 @@ get_eye_feet_position_data <- function(data_list) {
              calibrateTrackDistanceMeasuredCm != '',
              calibrateTrackDistanceRequestedCm != '',
              calibrateTrackDistanceEyeFeetXYPx != '')
-
-    print(paste("Rows after filtering:", nrow(t)))
     
     if (nrow(t) > 0) {
-      # Log the raw data before processing
-      print("=== RAW DATA SAMPLE ===")
-      print(paste("calibrateTrackDistanceMeasuredCm:", t$calibrateTrackDistanceMeasuredCm[1]))
-      print(paste("calibrateTrackDistanceRequestedCm:", t$calibrateTrackDistanceRequestedCm[1]))
-      print(paste("calibrateTrackDistanceEyeFeetXYPx:", t$calibrateTrackDistanceEyeFeetXYPx[1]))
-      if ("pxPerCm" %in% names(t)) {
-        print(paste("pxPerCm:", t$pxPerCm[1]))
-      }
       
       # Process the measured and requested distances (these are JSON arrays)
       t <- t %>%
@@ -276,13 +256,7 @@ get_eye_feet_position_data <- function(data_list) {
           measurement_index = row_number()
         ) %>%
         select(-measured_list, -requested_list)
-      
-      print(paste("After expanding measurements:", nrow(t), "rows"))
-      print("Sample measurements:")
-      print(head(t[c("calibrateTrackDistanceMeasuredCm", "calibrateTrackDistanceRequestedCm", "measurement_index")], 5))
-      
-      # Parse the eye feet JSON structure: [[[left_x, left_y], [right_x, right_y]], ...]
-      # This is the complex part - let's use jsonlite if available, otherwise manual parsing
+
       tryCatch({
         print("=== PARSING EYE FEET DATA ===")
         
@@ -292,8 +266,7 @@ get_eye_feet_position_data <- function(data_list) {
         
         # Manual parsing approach - extract all numbers
         coords_str <- gsub("\\[|\\]", "", eye_feet_raw)
-        print(paste("After removing brackets:", coords_str))
-        
+  
         coords_numbers <- as.numeric(unlist(strsplit(coords_str, ",")))
         coords_numbers <- coords_numbers[!is.na(coords_numbers)]
         print(paste("Extracted", length(coords_numbers), "coordinate values"))
@@ -301,9 +274,7 @@ get_eye_feet_position_data <- function(data_list) {
         
         # Check if we have the right number of coordinates (4 per measurement: left_x, left_y, right_x, right_y)
         n_measurements <- length(coords_numbers) / 4
-        print(paste("Expected measurements from coordinates:", n_measurements))
-        print(paste("Actual measurements from distance data:", nrow(t)))
-        
+
         if (length(coords_numbers) %% 4 != 0) {
           print(paste("WARNING: Expected multiple of 4 coordinates, got", length(coords_numbers)))
           return(tibble())  # Return empty if parsing fails
@@ -341,14 +312,6 @@ get_eye_feet_position_data <- function(data_list) {
             distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
           )
         
-        print("=== PROCESSED DATA SAMPLE ===")
-        print("Sample of processed data:")
-        sample_data <- t %>% 
-          select(measurement_index, left_x, left_y, right_x, right_y, 
-                 avg_eye_x_px, avg_eye_y_px, distance_ratio) %>%
-          head(3)
-        print(sample_data)
-        
       }, error = function(e) {
         print(paste("ERROR parsing eye feet data:", e$message))
         print("Returning empty data frame")
@@ -363,7 +326,6 @@ get_eye_feet_position_data <- function(data_list) {
             avg_eye_x_cm = avg_eye_x_px / pxPerCm,
             avg_eye_y_cm = avg_eye_y_px / pxPerCm
           )
-        print(paste("Converted to cm using pxPerCm:", unique(t$pxPerCm)))
       } else {
         # If no pxPerCm, assume a typical value (e.g., 37.8 px/cm for 96 DPI)
         default_pxPerCm <- 37.8
@@ -375,13 +337,6 @@ get_eye_feet_position_data <- function(data_list) {
           )
         print(paste("Using default pxPerCm:", default_pxPerCm))
       }
-      
-      print("=== FINAL SAMPLE DATA ===")
-      final_sample <- t %>%
-        select(measurement_index, avg_eye_x_px, avg_eye_y_px, avg_eye_x_cm, avg_eye_y_cm, 
-               distance_ratio, calibrateTrackDistanceMeasuredCm, calibrateTrackDistanceRequestedCm) %>%
-        head(3)
-      print(final_sample)
       
       # Add a data_list_index to help distinguish sessions
       t <- t %>%

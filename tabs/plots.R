@@ -1,8 +1,20 @@
 plotsTab <- tabPanel(
   'Plots',
-  h2("Correlation Matrix"),
+  conditionalPanel(
+    'output.IsCameraResolutionXYTable',
+    fixedRow(
+      column(
+        width = 6,
+        shinycssloaders::withSpinner(
+          tableOutput("cameraResolutionXYTable"),
+          type = 4
+        )
+      )
+    )
+  ),
   conditionalPanel(
     'output.isCorrMatrixAvailable',
+    h2("Correlation Matrix"),
     fixedRow(
       column(
         width = 6,

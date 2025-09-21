@@ -980,6 +980,10 @@ shinyServer(function(input, output, session) {
     get_histogram_duration_lateness(durationData())
   })
   
+  cameraResolutionXYTable <- reactive({
+    get_cameraResolutionXY(files()$data_list)
+  })
+  
   output$isRsvp <- reactive({
     if ('rsvp' %in% names(df_list())) {
       return(nrow(df_list()$rsvp) > 0)
@@ -1092,6 +1096,11 @@ shinyServer(function(input, output, session) {
     return(FALSE)
   })
   
+  output$IsCameraResolutionXYTable <- reactive({
+    return(nrow(cameraResolutionXYTable()) > 0)
+  })
+  outputOptions(output, 'IsCameraResolutionXYTable', suspendWhenHidden = FALSE)
+  
   outputOptions(output, 'fileUploaded', suspendWhenHidden = FALSE)
   outputOptions(output, 'questData', suspendWhenHidden = FALSE)
   outputOptions(output, 'isGrade', suspendWhenHidden = FALSE)
@@ -1107,8 +1116,15 @@ shinyServer(function(input, output, session) {
   outputOptions(output, 'isDuration', suspendWhenHidden = FALSE)
   outputOptions(output, 'jsonUploaded', suspendWhenHidden = FALSE)
   
-  #### plots ####
   
+  #### cameraResolutionXYTable ####
+  
+  output$cameraResolutionXYTable <- renderTable({
+    cameraResolutionXYTable()
+  })
+  
+  #### plots ####
+
   output$corrMatrixPlot <- renderImage({
     # Check if correlation matrix data is available
     if (is.null(corrMatrix())) {
