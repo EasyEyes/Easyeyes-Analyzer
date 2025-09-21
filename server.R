@@ -814,6 +814,7 @@ shinyServer(function(input, output, session) {
       list(plot = distance_production_plots$raw_production_vs_requested, fname = 'calibrateTrackDistanceIndividualProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$individual_production_fraction, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_plots$ipd_vs_requested, fname = 'calibrateTrackDistanceIpdCameraPx-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_plots$eye_feet_position, fname = 'eye-feet-position-vs-distance-error-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),

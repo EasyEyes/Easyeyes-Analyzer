@@ -200,6 +200,440 @@ get_measured_distance_data <- function(data_list) {
   return(df)
 }
 
+get_eye_feet_position_data <- function(data_list) {
+  print('=== Inside get_eye_feet_position_data ===')
+  df <- tibble()
+  if(length(data_list) == 0) {
+    print("No data_list provided")
+    return(df)
+  }
+  
+  for (i in 1:length(data_list)) {
+    print(paste("Processing data list item", i, "of", length(data_list)))
+    available_cols <- names(data_list[[i]])
+    print(paste("Available columns:", paste(available_cols, collapse = ", ")))
+    
+    # Check if we have the required columns
+    if (!("calibrateTrackDistanceEyeFeetXYPx" %in% available_cols)) {
+      print("calibrateTrackDistanceEyeFeetXYPx column not found, skipping")
+      next
+    }
+    
+    cols_to_select <- c("participant",
+                       "calibrateTrackDistanceMeasuredCm", 
+                       "calibrateTrackDistanceRequestedCm",
+                       "calibrateTrackDistanceEyeFeetXYPx")
+    
+    # Add pxPerCm if available (needed for conversion to cm)
+    if ("pxPerCm" %in% available_cols) {
+      cols_to_select <- c(cols_to_select, "pxPerCm")
+      print("pxPerCm column found and added")
+    } else {
+      print("pxPerCm column not found - will use default value")
+    }
+    
+    # Add screen dimensions if available
+    if ("screenWidthPx" %in% available_cols) {
+      cols_to_select <- c(cols_to_select, "screenWidthPx")
+      print("screenWidthPx column found and added")
+    }
+    if ("screenHeightPx" %in% available_cols) {
+      cols_to_select <- c(cols_to_select, "screenHeightPx")
+      print("screenHeightPx column found and added")
+    }
+    
+    # Add session identifier if available
+    if ("experiment" %in% available_cols) {
+      cols_to_select <- c(cols_to_select, "experiment")
+      print("experiment column found and added")
+    } else {
+      print("experiment column not found - will use participant as session")
+    }
+    
+    print(paste("Selecting columns:", paste(cols_to_select, collapse = ", ")))
+    
+    t <- data_list[[i]] %>%
+      select(all_of(cols_to_select)) %>%
+      distinct() %>%
+      filter(!is.na(calibrateTrackDistanceMeasuredCm),
+             !is.na(calibrateTrackDistanceRequestedCm),
+             !is.na(calibrateTrackDistanceEyeFeetXYPx),
+             calibrateTrackDistanceMeasuredCm != '',
+             calibrateTrackDistanceRequestedCm != '',
+             calibrateTrackDistanceEyeFeetXYPx != '')
+
+    print(paste("Rows after filtering:", nrow(t)))
+    
+    if (nrow(t) > 0) {
+      # Log the raw data before processing
+      print("=== RAW DATA SAMPLE ===")
+      print(paste("calibrateTrackDistanceMeasuredCm:", t$calibrateTrackDistanceMeasuredCm[1]))
+      print(paste("calibrateTrackDistanceRequestedCm:", t$calibrateTrackDistanceRequestedCm[1]))
+      print(paste("calibrateTrackDistanceEyeFeetXYPx:", t$calibrateTrackDistanceEyeFeetXYPx[1]))
+      if ("pxPerCm" %in% names(t)) {
+        print(paste("pxPerCm:", t$pxPerCm[1]))
+      }
+      
+      # Process the measured and requested distances (these are JSON arrays)
+      t <- t %>%
+        mutate(
+          calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
+          calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm)
+        ) %>%
+        # Parse the measured and requested distances
+        mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","),
+               requested_list = strsplit(calibrateTrackDistanceRequestedCm, ",")) %>%
+        unnest(c(measured_list, requested_list)) %>%
+        mutate(
+          calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
+          calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
+          measurement_index = row_number()
+        ) %>%
+        select(-measured_list, -requested_list)
+      
+      print(paste("After expanding measurements:", nrow(t), "rows"))
+      print("Sample measurements:")
+      print(head(t[c("calibrateTrackDistanceMeasuredCm", "calibrateTrackDistanceRequestedCm", "measurement_index")], 5))
+      
+      # Parse the eye feet JSON structure: [[[left_x, left_y], [right_x, right_y]], ...]
+      # This is the complex part - let's use jsonlite if available, otherwise manual parsing
+      tryCatch({
+        print("=== PARSING EYE FEET DATA ===")
+        
+        # Try to parse as JSON first
+        eye_feet_raw <- t$calibrateTrackDistanceEyeFeetXYPx[1]  # Should be same for all rows in this group
+        print(paste("Raw eye feet string:", eye_feet_raw))
+        
+        # Manual parsing approach - extract all numbers
+        coords_str <- gsub("\\[|\\]", "", eye_feet_raw)
+        print(paste("After removing brackets:", coords_str))
+        
+        coords_numbers <- as.numeric(unlist(strsplit(coords_str, ",")))
+        coords_numbers <- coords_numbers[!is.na(coords_numbers)]
+        print(paste("Extracted", length(coords_numbers), "coordinate values"))
+        print(paste("First 8 coordinates:", paste(coords_numbers[1:min(8, length(coords_numbers))], collapse=", ")))
+        
+        # Check if we have the right number of coordinates (4 per measurement: left_x, left_y, right_x, right_y)
+        n_measurements <- length(coords_numbers) / 4
+        print(paste("Expected measurements from coordinates:", n_measurements))
+        print(paste("Actual measurements from distance data:", nrow(t)))
+        
+        if (length(coords_numbers) %% 4 != 0) {
+          print(paste("WARNING: Expected multiple of 4 coordinates, got", length(coords_numbers)))
+          return(tibble())  # Return empty if parsing fails
+        }
+        
+        # Create coordinate data frame
+        coords_df <- tibble(
+          measurement_idx = rep(1:n_measurements, each = 4),
+          coord_type = rep(c("left_x", "left_y", "right_x", "right_y"), n_measurements),
+          coord_value = coords_numbers
+        ) %>%
+          pivot_wider(names_from = coord_type, values_from = coord_value)
+        
+        print("Coordinate data frame created:")
+        print(head(coords_df))
+        
+        # Match measurements - if we have more coordinates than distance measurements, trim
+        if (n_measurements > nrow(t)) {
+          print(paste("Trimming coordinates to match", nrow(t), "distance measurements"))
+          coords_df <- coords_df[1:nrow(t), ]
+        } else if (n_measurements < nrow(t)) {
+          print(paste("WARNING: Fewer coordinates than distance measurements"))
+          # Pad with NAs or truncate distance data
+          t <- t[1:n_measurements, ]
+        }
+        
+        # Combine data
+        t <- cbind(t, coords_df) %>%
+          select(-measurement_idx) %>%
+          mutate(
+            # Calculate average eye position (as requested)
+            avg_eye_x_px = (left_x + right_x) / 2,
+            avg_eye_y_px = (left_y + right_y) / 2,
+            # Calculate measured/requested ratio
+            distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
+          )
+        
+        print("=== PROCESSED DATA SAMPLE ===")
+        print("Sample of processed data:")
+        sample_data <- t %>% 
+          select(measurement_index, left_x, left_y, right_x, right_y, 
+                 avg_eye_x_px, avg_eye_y_px, distance_ratio) %>%
+          head(3)
+        print(sample_data)
+        
+      }, error = function(e) {
+        print(paste("ERROR parsing eye feet data:", e$message))
+        print("Returning empty data frame")
+        return(tibble())
+      })
+      
+      # Convert pixels to cm if pxPerCm is available
+      if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
+        t <- t %>%
+          mutate(
+            pxPerCm = as.numeric(pxPerCm),
+            avg_eye_x_cm = avg_eye_x_px / pxPerCm,
+            avg_eye_y_cm = avg_eye_y_px / pxPerCm
+          )
+        print(paste("Converted to cm using pxPerCm:", unique(t$pxPerCm)))
+      } else {
+        # If no pxPerCm, assume a typical value (e.g., 37.8 px/cm for 96 DPI)
+        default_pxPerCm <- 37.8
+        t <- t %>%
+          mutate(
+            pxPerCm = default_pxPerCm,
+            avg_eye_x_cm = avg_eye_x_px / default_pxPerCm,
+            avg_eye_y_cm = avg_eye_y_px / default_pxPerCm
+          )
+        print(paste("Using default pxPerCm:", default_pxPerCm))
+      }
+      
+      print("=== FINAL SAMPLE DATA ===")
+      final_sample <- t %>%
+        select(measurement_index, avg_eye_x_px, avg_eye_y_px, avg_eye_x_cm, avg_eye_y_cm, 
+               distance_ratio, calibrateTrackDistanceMeasuredCm, calibrateTrackDistanceRequestedCm) %>%
+        head(3)
+      print(final_sample)
+      
+      # Add a data_list_index to help distinguish sessions
+      t <- t %>%
+        mutate(data_list_index = i)
+      
+      df <- rbind(df, t)
+    }
+  }
+  
+  # Add session detection based on data_list_index for cases where experiment names are the same
+  if (nrow(df) > 0) {
+    df <- df %>%
+      mutate(
+        session_from_data_index = paste0("Session_", data_list_index)
+      )
+  }
+  
+  print(paste("=== FINAL RESULTS ==="))
+  print(paste("Total rows returned:", nrow(df)))
+  if (nrow(df) > 0) {
+    print("Summary statistics:")
+    print(paste("X range (px):", min(df$avg_eye_x_px, na.rm=T), "to", max(df$avg_eye_x_px, na.rm=T)))
+    print(paste("Y range (px):", min(df$avg_eye_y_px, na.rm=T), "to", max(df$avg_eye_y_px, na.rm=T)))
+    print(paste("X range (cm):", round(min(df$avg_eye_x_cm, na.rm=T), 2), "to", round(max(df$avg_eye_x_cm, na.rm=T), 2)))
+    print(paste("Y range (cm):", round(min(df$avg_eye_y_cm, na.rm=T), 2), "to", round(max(df$avg_eye_y_cm, na.rm=T), 2)))
+    print(paste("Ratio range:", round(min(df$distance_ratio, na.rm=T), 3), "to", round(max(df$distance_ratio, na.rm=T), 3)))
+  }
+  
+  return(df)
+}
+
+plot_eye_feet_position <- function(data_list) {
+  print('=== Inside plot_eye_feet_position ===')
+  eye_feet_data <- get_eye_feet_position_data(data_list)
+  
+  if (nrow(eye_feet_data) == 0) {
+    print("No eye feet position data available - returning NULL")
+    return(NULL)
+  }
+  
+  # Filter out rows with invalid coordinates
+  eye_feet_data <- eye_feet_data %>%
+    filter(!is.na(left_x), !is.na(left_y), !is.na(right_x), !is.na(right_y),
+           !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm), !is.na(distance_ratio))
+  
+  if (nrow(eye_feet_data) == 0) {
+    print("No valid eye feet coordinate data available after filtering")
+    return(NULL)
+  }
+  
+  print(paste("Plotting", nrow(eye_feet_data), "eye feet measurements"))
+  
+  # Estimate screen dimensions in cm from the data
+  # Origin is at top-left corner (0,0) as specified
+  
+  # Get actual screen dimensions from the data if available
+  typical_pxPerCm <- median(eye_feet_data$pxPerCm, na.rm = TRUE)
+  
+  # Try to get screen dimensions from screenWidthPx/screenHeightPx columns if available
+  if ("screenWidthPx" %in% names(eye_feet_data) && "screenHeightPx" %in% names(eye_feet_data)) {
+    screen_width_px <- median(as.numeric(eye_feet_data$screenWidthPx), na.rm = TRUE)
+    screen_height_px <- median(as.numeric(eye_feet_data$screenHeightPx), na.rm = TRUE)
+    screen_width_cm <- screen_width_px / typical_pxPerCm
+    screen_height_cm <- screen_height_px / typical_pxPerCm
+    print(paste("Using actual screen dimensions from data:", round(screen_width_cm, 1), "x", round(screen_height_cm, 1), "cm"))
+  } else {
+    # Fallback: estimate from eye position data (may underestimate actual screen size)
+    max_x_px <- max(c(eye_feet_data$left_x, eye_feet_data$right_x), na.rm = TRUE)
+    max_y_px <- max(c(eye_feet_data$left_y, eye_feet_data$right_y), na.rm = TRUE)
+    screen_width_cm <- max_x_px / typical_pxPerCm
+    screen_height_cm <- max_y_px / typical_pxPerCm
+    print(paste("Estimated screen dimensions from eye positions:", round(screen_width_cm, 1), "x", round(screen_height_cm, 1), "cm"))
+    print("WARNING: This may underestimate actual screen size")
+  }
+  
+  print(paste("Estimated screen size:", round(screen_width_cm, 1), "x", round(screen_height_cm, 1), "cm"))
+  print(paste("Using pxPerCm:", round(typical_pxPerCm, 1)))
+  
+  # Calculate pixel ranges for debugging
+  if (nrow(eye_feet_data) > 0) {
+    min_x_px <- min(c(eye_feet_data$left_x, eye_feet_data$right_x), na.rm = TRUE)
+    max_x_px <- max(c(eye_feet_data$left_x, eye_feet_data$right_x), na.rm = TRUE)
+    min_y_px <- min(c(eye_feet_data$left_y, eye_feet_data$right_y), na.rm = TRUE)
+    max_y_px <- max(c(eye_feet_data$left_y, eye_feet_data$right_y), na.rm = TRUE)
+    print(paste("Eye position ranges: X", min_x_px, "to", max_x_px, "px, Y", min_y_px, "to", max_y_px, "px"))
+  }
+  
+  # Add 50% margin around screen as specified in Trello
+  # For W=30.20, H=19.61, limits should be x:[-15.10, 45.30], y:[-9.81, 29.42]
+  x_margin_cm <- 0.5 * screen_width_cm
+  y_margin_cm <- 0.5 * screen_height_cm
+  x_min <- -x_margin_cm
+  x_max <- screen_width_cm + x_margin_cm  
+  y_min <- -y_margin_cm
+  y_max <- screen_height_cm + y_margin_cm
+  
+  print(paste("Plot limits: X", round(x_min, 1), "to", round(x_max, 1), "cm, Y", round(y_min, 1), "to", round(y_max, 1), "cm"))
+  
+  # Prepare data for plotting
+  eye_feet_data <- eye_feet_data %>%
+    mutate(
+      # Clip points that fall beyond the margin (as requested)
+      foot_x_cm_clipped = pmax(x_min, pmin(x_max, avg_eye_x_cm)),
+      foot_y_cm_clipped = pmax(y_min, pmin(y_max, avg_eye_y_cm)),
+      # Use continuous ratio for color mapping as specified
+      ratio_continuous = pmax(0.5, pmin(2.0, distance_ratio)),
+      # Create session identifier for shapes - use actual participant names like other plots
+      session_id = as.character(participant)
+    )
+  
+  # Debug session data
+  print("=== DEBUG SESSION DATA ===")
+  print(paste("Session column exists:", "session_id" %in% names(eye_feet_data)))
+  print(paste("Session_id class:", class(eye_feet_data$session_id)))
+  print(paste("Session_id values:", paste(unique(eye_feet_data$session_id), collapse = ", ")))
+  print(paste("Number of unique sessions:", n_distinct(eye_feet_data$session_id)))
+  print(paste("Any NA in session_id:", any(is.na(eye_feet_data$session_id))))
+  
+  # Handle unlimited number of participants with cycling shapes
+  eye_feet_data <- eye_feet_data %>%
+    mutate(
+      # Always use actual participant names - no artificial limits
+      session_limited = factor(session_id)
+    )
+  
+  # Debug session_limited data
+  print("=== DEBUG SESSION_LIMITED DATA ===")
+  print(paste("Session_limited class:", class(eye_feet_data$session_limited)))
+  print(paste("Session_limited levels:", paste(levels(eye_feet_data$session_limited), collapse = ", ")))
+  print(paste("Session_limited values:", paste(unique(eye_feet_data$session_limited), collapse = ", ")))
+  print(paste("Number of levels in session_limited:", nlevels(eye_feet_data$session_limited)))
+  print(paste("Any NA in session_limited:", any(is.na(eye_feet_data$session_limited))))
+  
+  # Debug other aesthetic variables
+  print("=== DEBUG OTHER AESTHETICS ===")
+  print(paste("foot_x_cm_clipped range:", round(min(eye_feet_data$foot_x_cm_clipped, na.rm=T), 2), "to", round(max(eye_feet_data$foot_x_cm_clipped, na.rm=T), 2)))
+  print(paste("foot_y_cm_clipped range:", round(min(eye_feet_data$foot_y_cm_clipped, na.rm=T), 2), "to", round(max(eye_feet_data$foot_y_cm_clipped, na.rm=T), 2)))
+  print(paste("ratio_continuous class:", class(eye_feet_data$ratio_continuous)))
+  print(paste("ratio_continuous range:", round(min(eye_feet_data$ratio_continuous, na.rm=T), 3), "to", round(max(eye_feet_data$ratio_continuous, na.rm=T), 3)))
+  print(paste("Any NA in ratio_continuous:", any(is.na(eye_feet_data$ratio_continuous))))
+  
+  n_sessions <- n_distinct(eye_feet_data$session_id)
+  print(paste("Final number of sessions:", n_sessions))
+  
+  # Create the plot directly without test plots
+  print("=== CREATING FINAL PLOT ===")
+  
+  tryCatch({
+    print("Creating eye feet position plot...")
+    
+    p <- ggplot(eye_feet_data, aes(x = foot_x_cm_clipped, y = foot_y_cm_clipped)) +
+      # Add screen boundary rectangle
+      geom_rect(aes(xmin = 0, xmax = screen_width_cm, 
+                    ymin = 0, ymax = screen_height_cm),
+                fill = NA, color = "black", linewidth = 1.2, alpha = 0.7) +
+      # Add points with fill aesthetic to avoid server color conflicts
+      geom_point(aes(fill = ratio_continuous, shape = session_limited), 
+                 size = 4, alpha = 0.9, color = "black", stroke = 0.2) +
+      # Continuous fill scale as specified in Trello
+      scale_fill_gradientn(
+        colors = c("#3B4CC0", "#89A1F0", "#FDE725", "#F07E26", "#B2182B"),
+        values = scales::rescale(c(0.5, 0.85, 1.0, 1.3, 2.0)),
+        limits = c(0.5, 2.0),
+        oob = scales::squish,
+        name = "Measured /\nRequested"
+      ) +
+      # Shape scale for participants (unlimited participants with cycling shapes)
+      scale_shape_manual(
+        values = {
+          # Create a large pool of distinct shapes (both fillable and non-fillable)
+          all_shapes <- c(21, 22, 23, 24, 25,    # fillable: circle, square, diamond, triangle up, triangle down
+                         16, 17, 15, 18, 4, 8,    # solid: circle, triangle, square, diamond, plus, asterisk  
+                         0, 1, 2, 3, 5, 6, 7, 9, 10, 11, 12, 13, 14)  # additional shapes
+          
+          n_participants <- nlevels(eye_feet_data$session_limited)
+          # Cycle through shapes if we have more participants than shapes
+          rep(all_shapes, length.out = n_participants)
+        },
+        name = ""
+      ) +
+      # Flip Y-axis to make origin truly at top-left (Y increases downward)
+      scale_y_reverse(limits = c(y_max, y_min), expand = c(0,0)) +
+      # Lock aspect ratio with exact 50% margins
+      coord_fixed(xlim = c(x_min, x_max), expand = FALSE) +
+      theme_bw() +
+      theme(
+        legend.position = "right",
+        legend.box = "vertical",
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "white", color = NA),
+        plot.background = element_rect(fill = "white", color = NA),
+        plot.title = element_text(size = 16, hjust = 0.5),
+        axis.title = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 9),
+        legend.key.height = unit(0.8, "cm"),
+        legend.key.width = unit(0.5, "cm"),
+        legend.margin = margin(l = 10, r = 10, t = 5, b = 5),
+        plot.margin = margin(t = 20, r = 10, b = 20, l = 20, "pt")  # Add plot margins to prevent text clipping
+      ) +
+      # Labels - set these LAST to ensure they stick
+      labs(
+        subtitle = "Measured:requested distance vs. foot position",
+        x = "Eye foot X (cm)",
+        y = "Eye foot Y (cm)",
+        caption = "Rectangle shows screen boundaries. Points beyond 50% margin are clipped to plot area.\nOrigin (0,0) is at top-left corner of screen."
+      ) +
+      # Screen annotation (adjusted for flipped Y-axis with more margin)
+      annotate("text", x = screen_width_cm/2, y = -y_margin_cm*0.7,
+               label = "Screen", hjust = 0.5, vjust = 0.5, size = 4, fontface = "bold", color = "black") +
+      # Summary statistics (pushed further down to avoid clipping)
+      annotate("text", x = x_min + x_margin_cm*0.15, y = y_min + y_margin_cm*0.8,
+               label = paste0("N = ", nrow(eye_feet_data), "\n",
+                             "Sessions= ", n_sessions, "\n",
+                             "Mean = ", round(mean(eye_feet_data$distance_ratio, na.rm = TRUE), 3)),
+               hjust = 0, vjust = 0, size = 4)
+    
+    print("Plot created successfully")
+    
+  }, error = function(e) {
+    print(paste("ERROR in plot creation:", e$message))
+    print("Full error:")
+    print(e)
+    print("Traceback:")
+    print(traceback())
+    return(NULL)
+  })
+  
+  # Return the plot or NULL if creation failed
+  if(exists("p") && !is.null(p)) {
+    return(p)
+  } else {
+    print("Plot creation failed, returning NULL")
+    return(NULL)
+  }
+}
+
 get_bs_vd <- function(data_list) {
   # Get blindspot viewing distance left and right from data list
   bs_vwing_ds <- tibble()
@@ -416,10 +850,15 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     p3 <- NULL
   }
 
+  # Plot 4: Eye feet position vs distance error
+  print("=== CREATING EYE FEET POSITION PLOT ===")
+  p4 <- plot_eye_feet_position(data_list)
+
   return(list(
     credit_card_vs_requested = p1,
     credit_card_fraction = p2,
-    ipd_vs_requested = p3
+    ipd_vs_requested = p3,
+    eye_feet_position = p4
   ))
 }
 
