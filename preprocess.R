@@ -489,8 +489,20 @@ read_files <- function(file){
 
         if (nrow(t) > 0)  {
           stairdf <- extractStaircases(t, info)
+          # CRITICAL FIX: Ensure participant column is character for summary data
+          if ("participant" %in% names(summaries)) {
+            summaries <- summaries %>% mutate(participant = as.character(participant))
+          }
           summary_list[[j]] <- summaries 
+          # CRITICAL FIX: Ensure participant column is character for main data
+          if ("participant" %in% names(t)) {
+            t <- t %>% mutate(participant = as.character(participant))
+          }
           data_list[[j]] <- t
+          # CRITICAL FIX: Ensure participant column is character for stair data
+          if ("participant" %in% names(stairdf)) {
+            stairdf <- stairdf %>% mutate(participant = as.character(participant))
+          }
           stair_list[[j]] <-  stairdf 
           t$experiment <- trimws(t$experiment[1])
           experiment[j] <- trimws(t$experiment[1])
@@ -565,8 +577,20 @@ read_files <- function(file){
           # for stair plots
           stairdf <- extractStaircases(t, info)
           if (nrow(t) > 0)  {
+            # CRITICAL FIX: Ensure participant column is character for summary data
+            if ("participant" %in% names(summaries)) {
+              summaries <- summaries %>% mutate(participant = as.character(participant))
+            }
             summary_list[[j]] <- summaries
+            # CRITICAL FIX: Ensure participant column is character for main data
+            if ("participant" %in% names(t)) {
+              t <- t %>% mutate(participant = as.character(participant))
+            }
             data_list[[j]] <- t
+            # CRITICAL FIX: Ensure participant column is character for stair data
+            if ("participant" %in% names(stairdf)) {
+              stairdf <- stairdf %>% mutate(participant = as.character(participant))
+            }
             stair_list[[j]] <- stairdf
             t$experiment <- trimws(t$experiment[1])
             experiment[j] <- trimws(t$experiment[1])
