@@ -6,13 +6,26 @@ library(purrr)
 # Function to calculate geometric mean and standard error
 geometric_mean_se <- function(x) {
   x <- x[!is.na(x) & x > 0]
-  if (length(x) == 0) return(c(mean = NA, se_lower = NA, se_upper = NA))
+  
+  if (length(x) == 0) {
+    return(c(mean = NA, se_lower = NA, se_upper = NA))
+  }
+  
+  # CRITICAL FIX: Handle single data points properly
+  if (length(x) == 1) {
+    # For single data point, mean is the value itself, SE is 0
+    geom_mean <- x[1]
+    return(c(mean = geom_mean, se_lower = 0, se_upper = 0))
+  }
+  
+  # For multiple data points, calculate geometric mean and SE normally
   log_x <- log(x)
   log_mean <- mean(log_x)
   log_se <- sd(log_x) / sqrt(length(log_x))
   geom_mean <- exp(log_mean)
   se_lower <- geom_mean - exp(log_mean - log_se)
   se_upper <- exp(log_mean + log_se) - geom_mean
+  
   c(mean = geom_mean, se_lower = se_lower, se_upper = se_upper)
 }
 
@@ -35,7 +48,7 @@ plot_font_comparison <- function(df_list) {
     select(participant, font, measure)
   
   reading_data <- df_list$reading %>%
-    mutate(measure = wordPerMin) %>%
+    mutate(measure =  10^log_WPM) %>%
     select(participant, font, measure)
   
   acuity_data <- df_list$acuity %>%

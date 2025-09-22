@@ -125,9 +125,9 @@ plot_violins <- function(df_list) {
                       long  = unit(7, "pt"))
         
         # Apply x-axis limits if specified (for log scale plots)
-        if (!is.null(xlimits)) {
-          p <- p + coord_flip(ylim = xlimits)
-        }
+        # if (!is.null(xlimits)) {
+        #   p <- p + coord_flip(ylim = xlimits)
+        # }
       } else {
         # For non-log scale plots, add standard tick marks
         p <- p + theme(
@@ -136,10 +136,10 @@ plot_violins <- function(df_list) {
           axis.ticks.length = unit(4, "pt")
         )
         
-        # Apply x-axis limits if specified (for non-log scale plots)
-        if (!is.null(xlimits)) {
-          p <- p + coord_flip(ylim = xlimits)
-        }
+        # # Apply x-axis limits if specified (for non-log scale plots)
+        # if (!is.null(xlimits)) {
+        #   p <- p + coord_flip(ylim = xlimits)
+        # }
       }
     }
     return(p)
@@ -159,8 +159,8 @@ plot_violins <- function(df_list) {
   }
 
   return(list(
-    reading = create_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font", xlimits = reading_limits),
-    rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font", xlimits = rsvp_limits),
+    reading = create_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font"),
+    rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font"),
     crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
     acuity = create_plot(acuity, "acuity (deg)", "Acuity Threshold by Font"),
     beauty = create_plot(beauty, "Beauty Rating", "Beauty Rating by Font"),
