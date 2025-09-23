@@ -22,7 +22,7 @@ get_cameraResolutionXY <- function(data_list) {
       df <- rbind(df, t)
     }
   }
-  return(df)
+  return(df %>% distinct)
 }
 
 get_distance_calibration <- function(data_list, minRulerCm) {

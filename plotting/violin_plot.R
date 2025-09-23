@@ -33,6 +33,10 @@ plot_violins <- function(df_list) {
                             conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.otf",
                             conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.otf",
                             conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.otf",
+                            conditionName=="beauty-Titr" ~"Titr.bold.woff2",
+                            conditionName=="beauty-Nazanin" ~"B-NAZANIN.TTF",
+                            conditionName=="beauty-Kalameh" ~"Kalameh-Regular.ttf",
+                            conditionName=="beauty-IranNastaliq" ~"IranNastaliq.ttf",
                             .default = conditionName
            )) %>% 
     filter(!is.na(y))
@@ -49,6 +53,11 @@ plot_violins <- function(df_list) {
                             questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTB-Nazanin" ~"B-NAZANIN.TTF",
+                            questionAndAnswerNickname=="CMFRT-Titr" ~"Titr.bold.woff2",
+                            questionAndAnswerNickname=="CMFRT-Kalameh" ~"Kalameh-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRT-IranNastaliq" ~"IranNastaliq.ttf",
+                            questionAndAnswerNickname=="CMFRT-Moalla" ~"Moalla.ttf",
                             .default = questionAndAnswerNickname
            ))
   print("inside plot_violins")
