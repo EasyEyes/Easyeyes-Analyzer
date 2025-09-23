@@ -33,6 +33,7 @@ plot_violins <- function(df_list) {
                             conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.otf",
                             conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.otf",
                             conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.otf",
+                            .default = conditionName
            )) %>% 
     filter(!is.na(y))
   
@@ -48,6 +49,7 @@ plot_violins <- function(df_list) {
                             questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
+                            .default = questionAndAnswerNickname
            ))
   print("inside plot_violins")
   create_plot <- function(data, ylabel, title, xlimits = NULL) {

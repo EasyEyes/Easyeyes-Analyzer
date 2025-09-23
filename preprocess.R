@@ -203,6 +203,7 @@ ensure_columns <- function(t, file_name = NULL) {
     calibrateTrackDistanceMeasuredCm = "",
     calibrateTrackDistanceRequestedCm = "",
     cameraIsTopCenter = "",
+    cameraResolutionXY = "",
     ComputerInfoFrom51Degrees = "",
     computeRandomMHz = NA,
     conditionName = "",
