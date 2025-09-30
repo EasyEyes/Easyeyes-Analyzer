@@ -1,7 +1,8 @@
 url <- "https://formspree.io/api/0/forms/mqkrdveg/submissions?limit=3000"
 getFormSpree <- function(){
-  response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9"))
-  if (httr::status_code(response)) {
+  response = NULL
+  try(response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9")))
+  if (!is.null(response) & httr::status_code(response) == 200) {
     content <- httr::content(response, as = "text", encoding='UTF-8')
     t <- jsonlite::fromJSON(content)$submissions 
     if (!"prolificParticipantID" %in% names(t)) {

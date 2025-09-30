@@ -13,16 +13,29 @@ get_cameraResolutionXY <- function(data_list) {
   df <- tibble()
   if (is.null(data_list) || length(data_list) == 0) return(df)
   for (i in 1:length(data_list)) {
+    factorCameraPxCmList = c()
+    factorCameraPxCm = ""
+    if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
+
+      distanceCalibration <- fromJSON(sort(data_list[[i]]$distanceCalibrationJSON)[1])
+
+     for (j in 1:length(distanceCalibration)) {
+       factorCameraPxCmList = c(factorCameraPxCmList,distanceCalibration[[j]]$factorCameraPxCm)
+     }
+      factorCameraPxCm <- paste0(factorCameraPxCmList, collapse = ", ")
+    }
+
     t <- data_list[[i]] %>%
-      select(cameraResolutionXY, participant) %>%
-      rename(Session = participant) %>% 
+      mutate(factorCameraPxCm = !!factorCameraPxCm) %>%
+      select(participant, factorCameraPxCm, screenWidthCm, cameraResolutionXY) %>%
+      rename(Session = participant) %>%
       distinct() %>%
       filter(!is.na(cameraResolutionXY), cameraResolutionXY != "")
     if (nrow(t) > 0) {
       df <- rbind(df, t)
     }
   }
-  return(df %>% distinct)
+  return(df %>% distinct())
 }
 
 get_distance_calibration <- function(data_list, minRulerCm) {
@@ -96,8 +109,11 @@ get_sizeCheck_data <- function(data_list) {
   
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>%
-      select(participant,
-             calibrateTrackDistance,
+      select(`_calibrateTrackDistance`,
+             `_calibrateTrackDistancePupil`,
+             viewingDistanceWhichEye,
+             viewingDistanceWhichPoint,
+             participant,
              SizeCheckEstimatedPxPerCm,
              SizeCheckRequestedCm,
              rulerLength,
@@ -147,17 +163,20 @@ get_measured_distance_data <- function(data_list) {
   }
   for (i in 1:length(data_list)) {
     t <- data_list[[i]] %>%
-      select(participant,
+      select(`_calibrateTrackDistance`,
+             `_calibrateTrackDistancePupil`,
+             viewingDistanceWhichEye,
+             viewingDistanceWhichPoint,
+             participant,
              calibrateTrackDistanceMeasuredCm,
              calibrateTrackDistanceRequestedCm,
-             calibrateTrackDistance,
              calibrateTrackDistanceIpdCameraPx) %>%
       distinct() %>%
       filter(!is.na(calibrateTrackDistanceMeasuredCm),
              !is.na(calibrateTrackDistanceRequestedCm),
              calibrateTrackDistanceMeasuredCm != '',
              calibrateTrackDistanceRequestedCm != '')
-    
+
     if (nrow(t) > 0) {
       # Convert JSON-like lists into strings and remove extra characters
       t <- t %>%
@@ -247,7 +266,7 @@ get_eye_feet_position_data <- function(data_list) {
           calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm)
         ) %>%
         # Parse the measured and requested distances
-        mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","),
+        mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","), 
                requested_list = strsplit(calibrateTrackDistanceRequestedCm, ",")) %>%
         unnest(c(measured_list, requested_list)) %>%
         mutate(
@@ -308,7 +327,7 @@ get_eye_feet_position_data <- function(data_list) {
             # Calculate average eye position (as requested)
             avg_eye_x_px = (left_x + right_x) / 2,
             avg_eye_y_px = (left_y + right_y) / 2,
-            # Calculate measured/requested ratio
+            # Calculate measured over requested ratio
             distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
           )
         
@@ -488,21 +507,30 @@ plot_eye_feet_position <- function(data_list) {
     print("Creating eye feet position plot...")
     
     p <- ggplot(eye_feet_data, aes(x = foot_x_cm_clipped, y = foot_y_cm_clipped)) +
-      # Add screen boundary rectangle
-      geom_rect(aes(xmin = 0, xmax = screen_width_cm, 
+      # Add screen boundary rectangle (halved thickness)
+      geom_rect(aes(xmin = 0, xmax = screen_width_cm,
                     ymin = 0, ymax = screen_height_cm),
-                fill = NA, color = "black", linewidth = 1.2, alpha = 0.7) +
+                fill = NA, color = "black", linewidth = 0.6, alpha = 0.7) +
       # Add points with fill aesthetic to avoid server color conflicts
       geom_point(aes(fill = ratio_continuous, shape = session_limited), 
                  size = 4, alpha = 0.9, color = "black", stroke = 0.2) +
-      # Log-scaled continuous fill scale
+      # Log-scaled continuous fill scale with 0.1 interval breaks
       scale_fill_gradientn(
         colors = c("#3B4CC0", "#89A1F0", "#FDE725", "#F07E26", "#B2182B"),
         values = scales::rescale(log10(c(0.5, 0.85, 1.0, 1.3, 2.0))),
         limits = c(0.5, 2.0),
         trans = "log10",
         oob = scales::squish,
-        name = "Measured /\nRequested"
+        name = "Measured over\nrequested",
+        breaks = seq(0.5, 2.0, by = 0.1),
+        labels = c("0.5", "0.6", "", "0.8", "", "1.0", "", "1.2", "", "", "1.5", "", "", "1.8", "", "2.0"),
+        guide = guide_colorbar(
+          barheight = unit(0.5, "cm"),
+          barwidth = unit(5, "cm"), # Increased colorbar width
+          title.position = "top",
+          ticks.colour = "black",
+          ticks.linewidth = 0.75
+        )
       ) +
       # Shape scale for participants (unlimited participants with cycling shapes)
       scale_shape_manual(
@@ -526,6 +554,7 @@ plot_eye_feet_position <- function(data_list) {
       theme(
         legend.position = "right",
         legend.box = "vertical",
+        legend.justification = "left",
         panel.grid.minor = element_blank(),
         panel.background = element_rect(fill = "white", color = NA),
         plot.background = element_rect(fill = "white", color = NA),
@@ -534,21 +563,21 @@ plot_eye_feet_position <- function(data_list) {
         axis.text = element_text(size = 10),
         legend.title = element_text(size = 10),
         legend.text = element_text(size = 9),
-        legend.key.height = unit(0.8, "cm"),
+        legend.key.height = unit(1.2, "cm"),  # Increased by 1.5x (0.8 * 1.5 = 1.2)
         legend.key.width = unit(0.5, "cm"),
         legend.margin = margin(l = 10, r = 10, t = 5, b = 5),
         plot.margin = margin(t = 20, r = 10, b = 20, l = 20, "pt")  # Add plot margins to prevent text clipping
       ) +
       # Labels - set these LAST to ensure they stick
       labs(
-        subtitle = "Measured:requested distance vs. foot position",
+        subtitle = "Measured over requested distance vs. foot position",
         x = "Eye foot X (cm)",
         y = "Eye foot Y (cm)",
         caption = "Rectangle shows screen boundaries. Points beyond 50% margin are clipped to plot area.\nOrigin (0,0) is at top-left corner of screen."
       ) +
-      # Screen annotation (adjusted for flipped Y-axis with more margin)
-      annotate("text", x = screen_width_cm/2, y = -y_margin_cm*0.7,
-               label = "Screen", hjust = 0.5, vjust = 0.5, size = 4, fontface = "bold", color = "black") +
+      # Screen annotation (moved close to screen outline, same size as Y label, not bold)
+      annotate("text", x = screen_width_cm/2, y = -y_margin_cm*0.1,
+               label = "Screen", hjust = 0.5, vjust = 0.5, size = 3.5, color = "black") +
       # Summary statistics (pushed further down to avoid clipping)
       annotate("text", x = x_min + x_margin_cm*0.15, y = y_min + y_margin_cm*0.8,
                label = paste0("N = ", nrow(eye_feet_data), "\n",
@@ -605,7 +634,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   print('inside plot_distance')
   distance <- get_measured_distance_data(data_list)
   sizeCheck <- get_sizeCheck_data(data_list)
-  statement <- paste0('calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
+  statement <- paste0('_calibrateTrackDistance = ', distance$`_calibrateTrackDistance`[1], '\n',
+                      '_calibrateTrackDistancePupil = ', distance$`_calibrateTrackDistancePupil`[1], '\n',
+                      'viewingDistanceWhichEye = ', distance$viewingDistanceWhichEye[1], '\n',
+                      'viewingDistanceWhichPoint = ', distance$viewingDistanceWhichPoint[1])
   if (nrow(distance) == 0) {return(NULL)}
   
   if (nrow(sizeCheck) > 0) {
@@ -798,7 +830,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   # Plot 4: Eye feet position vs distance error
   print("=== CREATING EYE FEET POSITION PLOT ===")
   p4 <- plot_eye_feet_position(data_list)
-
+  
   return(list(
     credit_card_vs_requested = p1,
     credit_card_fraction = p2,
@@ -810,7 +842,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
 plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
   sizeCheck <- get_sizeCheck_data(data_list)
   
-  statement <- paste0('calibrateTrackDistance = ', sizeCheck$calibrateTrackDistance[1])
+  statement <- paste0('_calibrateTrackDistance = ', sizeCheck$`_calibrateTrackDistance`[1], '\n',
+                      '_calibrateTrackDistancePupil = ', sizeCheck$`_calibrateTrackDistancePupil`[1], '\n',
+                      'viewingDistanceWhichEye = ', sizeCheck$viewingDistanceWhichEye[1], '\n',
+                      'viewingDistanceWhichPoint = ', sizeCheck$viewingDistanceWhichPoint[1])
   # Check if the data is empty
   if (nrow(sizeCheck) == 0) {
     return(NULL)
@@ -1163,7 +1198,10 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
 plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
   distance <- get_measured_distance_data(data_list)
   sizeCheck <- get_sizeCheck_data(data_list)
-  statement <- paste0('calibrateTrackDistance = ', distance$calibrateTrackDistance[1])
+  statement <- paste0('_calibrateTrackDistance = ', distance$`_calibrateTrackDistance`[1], '\n',
+                      '_calibrateTrackDistancePupil = ', distance$`_calibrateTrackDistancePupil`[1], '\n',
+                      'viewingDistanceWhichEye = ', distance$viewingDistanceWhichEye[1], '\n',
+                      'viewingDistanceWhichPoint = ', distance$viewingDistanceWhichPoint[1])
   
   if (nrow(distance) == 0) {return(NULL)}
   
