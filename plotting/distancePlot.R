@@ -685,8 +685,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8)) +
-      scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8)) + 
+      scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels=as.integer) +
+      scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels=as.integer) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
@@ -728,7 +728,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
     scale_x_log10(limits = c(min_val, max_val),
                   breaks = scales::log_breaks(n=8),
-                  expand = expansion(mult = c(0.05, 0.05))) + 
+                  expand = expansion(mult = c(0.05, 0.05)),
+                  labels=as.integer) + 
     scale_y_log10(limits = c(minFrac, maxFrac),
                    breaks = scales::log_breaks(n=8)) + 
     scale_color_manual(values= colorPalette) + 
@@ -772,7 +773,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         ggpp::geom_text_npc(aes(npcx="left",
                                 npcy="top"),
                             label = paste0('N=', n_distinct(ipd_data$participant))) +
-        scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8)) +
+        scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels=as.integer) +
         scale_y_log10(breaks = scales::log_breaks(n=8)) +
         scale_color_manual(values= colorPalette) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -1229,13 +1230,40 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
   mean_formatted <- format(round(mean_fraction, 3), nsmall = 3)
   sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
   
-  # IDENTICAL scale limits as credit card plot - use JITTERED values
-  # Use appropriate scale limits for cleaner axis display
-  min_val <- 5 * floor(min(c(distance_avg$calibrateTrackDistanceRequestedCm_jitter, 
-                              distance_avg$avg_measured), na.rm = TRUE) / 5)
+  # Calculate scale limits using INDIVIDUAL data that will actually be plotted
+  # This ensures all individual points are visible
+  print('DEBUG: === CALCULATING PRODUCTION PLOT LIMITS FROM INDIVIDUAL DATA ===')
+  
+  # Get individual data for limit calculation (same as what gets plotted)
+  individual_data_for_limits <- distance %>%
+    arrange(participant, order) %>%
+    left_join(densityRatio_data %>% select(participant, densityRatio, pxPerCm), by = "participant") %>%
+    left_join(sdLogDensity_data %>% select(participant, reliableBool), by = "participant") %>%
+    mutate(
+      product_measured = ifelse(!is.na(densityRatio),
+                               calibrateTrackDistanceMeasuredCm * densityRatio,
+                               calibrateTrackDistanceMeasuredCm),
+      calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
+    ) %>%
+    filter(is.finite(product_measured))
+  
+  print(paste('DEBUG: X range for limits:', min(individual_data_for_limits$calibrateTrackDistanceRequestedCm_jitter), 'to', max(individual_data_for_limits$calibrateTrackDistanceRequestedCm_jitter)))
+  print(paste('DEBUG: Y range for limits:', min(individual_data_for_limits$product_measured), 'to', max(individual_data_for_limits$product_measured)))
+  
+  raw_min <- min(c(individual_data_for_limits$calibrateTrackDistanceRequestedCm_jitter, 
+                   individual_data_for_limits$product_measured), na.rm = TRUE)
+  raw_max <- max(c(individual_data_for_limits$calibrateTrackDistanceRequestedCm_jitter, 
+                   individual_data_for_limits$product_measured), na.rm = TRUE)
+  
+  print(paste('DEBUG: Raw min from individual data:', raw_min))
+  print(paste('DEBUG: Raw max from individual data:', raw_max))
+  
+  min_val <- 5 * floor(raw_min / 5)
   min_val = max(10, min_val)
-  max_val <- 5 * ceiling(max(c(distance_avg$calibrateTrackDistanceRequestedCm_jitter, 
-                                distance_avg$avg_measured), na.rm = TRUE) / 5)
+  max_val <- 5 * ceiling(raw_max / 5)
+  
+  print(paste('DEBUG: NEW Calculated min_val:', min_val))
+  print(paste('DEBUG: NEW Calculated max_val:', max_val))
 
   p1 <- NULL
   p2 <- NULL 
@@ -1341,6 +1369,17 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       ) %>%
       filter(is.finite(product_measured))
 
+    print('DEBUG: === PRODUCTION PLOT LIMITS AND DATA ===')
+    print(paste('DEBUG: min_val (axis limit):', min_val))
+    print(paste('DEBUG: max_val (axis limit):', max_val))
+    print(paste('DEBUG: X-axis data range:', min(individual_data$calibrateTrackDistanceRequestedCm_jitter), 'to', max(individual_data$calibrateTrackDistanceRequestedCm_jitter)))
+    print(paste('DEBUG: Y-axis data range:', min(individual_data$product_measured), 'to', max(individual_data$product_measured)))
+    print(paste('DEBUG: Number of points to plot:', nrow(individual_data)))
+    print('DEBUG: First 5 points (X, Y):')
+    for(i in 1:min(5, nrow(individual_data))) {
+      print(paste('  Point', i, '- X:', round(individual_data$calibrateTrackDistanceRequestedCm_jitter[i], 2), 'Y:', round(individual_data$product_measured[i], 2)))
+    }
+
     p3 <- ggplot() +
       # Connect points within the same participant in order
       geom_line(data=individual_data,
@@ -1360,8 +1399,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
       scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                             labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8)) +
-      scale_y_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8)) +
+      scale_x_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8), labels=as.integer) +
+      scale_y_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8), labels=as.integer) +
       annotation_logticks() + 
       scale_color_manual(values= colorPalette) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -1376,7 +1415,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       coord_fixed() +
       labs(subtitle = 'Production-measured vs. \nrequested distance',
            x = 'Requested distance (cm)',
-           y = 'production-measured distance (cm)',
+           y = 'Production-measured distance (cm)',
            caption = "Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)")
   } else {
     p3 <- NULL
@@ -1391,6 +1430,16 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
         production_fraction = product_measured / calibrateTrackDistanceRequestedCm_jitter
       ) %>%
       filter(is.finite(production_fraction))
+    
+    print('DEBUG: === PRODUCTION FRACTION PLOT LIMITS AND DATA ===')
+    print(paste('DEBUG: X-axis limit min_val:', min_val))
+    print(paste('DEBUG: X-axis limit max_val:', max_val))
+    print(paste('DEBUG: Y-axis fraction data range:', min(individual_fraction_data$production_fraction), 'to', max(individual_fraction_data$production_fraction)))
+    print(paste('DEBUG: Number of fraction points to plot:', nrow(individual_fraction_data)))
+    print('DEBUG: First 5 fraction points (X, Y):')
+    for(i in 1:min(5, nrow(individual_fraction_data))) {
+      print(paste('  Point', i, '- X:', round(individual_fraction_data$calibrateTrackDistanceRequestedCm_jitter[i], 2), 'Y:', round(individual_fraction_data$production_fraction[i], 3)))
+    }
 
     # Calculate mean and SD of individual fractions for reporting
     mean_individual_fraction <- mean(individual_fraction_data$production_fraction, na.rm = TRUE)
@@ -1425,7 +1474,8 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
                             labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(limits = c(min_val, max_val),
                     breaks = scales::log_breaks(n=8),
-                    expand = expansion(mult = c(0.05, 0.05))) +
+                    expand = expansion(mult = c(0.05, 0.05)),
+                    labels=as.integer) +
       scale_y_log10(limits = c(minFrac,maxFrac),
                     breaks = scales::log_breaks(n=8)) +
       annotation_logticks() + 
@@ -1441,7 +1491,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
       linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
       labs(subtitle = 'Production-measured over\n requested distance',
            x = 'Requested distance (cm)',
-           y = 'Individual production-measured over requested distance',
+           y = 'Production-measured over requested distance',
            caption = 'Lines connect measurements from the same session.\nHorizontal jitter added to reduce overlap')
   } else {
     p4 <- NULL
