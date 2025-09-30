@@ -193,6 +193,8 @@ ensure_columns <- function(t, file_name = NULL) {
   breaked_fileName = str_split(file_name, "[_]")[[1]]
 
   required_cols <- list(
+    `_calibrateTrackDistance` = "",
+    `_calibrateTrackDistancePupil` = "",
     `_logFontBool` = FALSE,
     `_needsUnmet` = "",
     block = NA,
@@ -221,6 +223,7 @@ ensure_columns <- function(t, file_name = NULL) {
     error = "",
     experiment = "",
     experimentCompleteBool = FALSE,
+    factorCameraPxCm = NA,
     font = "",
     fontMaxPx = NA,
     fontNominalSizePt = NA,
@@ -295,6 +298,8 @@ ensure_columns <- function(t, file_name = NULL) {
     `trials.thisN` = NA,
     viewingDistanceCm = NA,
     viewingDistanceDesiredCm = NA,
+    viewingDistanceWhichEye = "",
+    viewingDistanceWhichPoint = "",
     warning = ""
   )
   for (col in names(required_cols)) {
@@ -304,7 +309,7 @@ ensure_columns <- function(t, file_name = NULL) {
   t <- t %>% 
     mutate(system = str_replace_all(deviceSystem, "OS X","macOS"),
            deviceSystemFamily = str_replace_all(deviceSystemFamily, "OS X","macOS"),
-           screenWidthCm = ifelse(is.na(pxPerCm) | pxPerCm <= 0, NA, round(screenWidthPx / pxPerCm,2))
+           screenWidthCm = ifelse(is.na(pxPerCm) | pxPerCm <= 0, NA, round(screenWidthPx / pxPerCm,1))
            )
   t$rows = nrow(t)
   t$cols = ifelse('placeholder' %in% names(t), 1, ncol(t))
@@ -313,9 +318,14 @@ ensure_columns <- function(t, file_name = NULL) {
   t$rulerUnit = t$rulerUnit[t$rulerUnit != "" & !is.na(t$rulerUnit)][1]
   t$deviceMemoryGB = sort(t$deviceMemoryGB)[1]
   t$cameraIsTopCenter =  t$cameraIsTopCenter[t$cameraIsTopCenter != "" & !is.na(t$cameraIsTopCenter)][1]
+  t$viewingDistanceWhichEye = sort(t$viewingDistanceWhichEye)[1]
+  t$viewingDistanceWhichPoint = sort(t$viewingDistanceWhichPoint)[1]
   t$screenWidthCm = sort(t$screenWidthCm)[1]
   t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
+  # calibrateTrackDistance has been renamed as __calibrateTrackDistance
   t$calibrateTrackDistance = t$calibrateTrackDistance[t$calibrateTrackDistance != "" & !is.na(t$calibrateTrackDistance)][1]
+  t$`_calibrateTrackDistance` = t$`_calibrateTrackDistance`[t$`_calibrateTrackDistance` != "" & !is.na(t$`_calibrateTrackDistance`)][1]
+  t$`_calibrateTrackDistancePupil` = sort(t$`_calibrateTrackDistancePupil`)[1]
   t$hardwareConcurrency = ifelse(sum(!is.na(t$hardwareConcurrency)) >= 1,
                                  unique(t$hardwareConcurrency[!is.na(t$hardwareConcurrency)& t$hardwareConcurrency != ""]), 
                                  "")
