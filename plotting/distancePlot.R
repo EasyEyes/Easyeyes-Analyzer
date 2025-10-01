@@ -26,9 +26,10 @@ get_cameraResolutionXY <- function(data_list) {
     }
 
     t <- data_list[[i]] %>%
-      mutate(factorCameraPxCm = !!factorCameraPxCm) %>%
-      select(participant, factorCameraPxCm, screenWidthCm, cameraResolutionXY) %>%
-      rename(Session = participant) %>%
+      mutate(factorCameraPxCm = !!factorCameraPxCm,
+             screenWidthDm = round(screenWidthCm / 10, 2)) %>%  # Convert cm to dm
+      select(participant, `_calibrateTrackDistancePupil`, factorCameraPxCm, cameraResolutionXY, screenWidthDm) %>%
+      rename(pavloviaParticipantID = participant) %>%
       distinct() %>%
       filter(!is.na(cameraResolutionXY), cameraResolutionXY != "")
     if (nrow(t) > 0) {
