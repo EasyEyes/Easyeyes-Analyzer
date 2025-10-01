@@ -39,6 +39,46 @@ get_cameraResolutionXY <- function(data_list) {
   return(df %>% distinct())
 }
 
+get_merged_participant_distance_info <- function(data_list, participant_info) {
+  # Get camera resolution data
+  camera_data <- get_cameraResolutionXY(data_list)
+  
+  # If no participant_info provided, return just camera data
+  if (is.null(participant_info) || nrow(participant_info) == 0) {
+    return(camera_data)
+  }
+  
+  # If no camera data, return just participant info with renamed ID column
+  if (nrow(camera_data) == 0) {
+    if ("PavloviaParticipantID" %in% names(participant_info)) {
+      return(participant_info)
+    } else if ("participant" %in% names(participant_info)) {
+      return(participant_info %>% rename(pavloviaParticipantID = participant))
+    } else {
+      return(participant_info)
+    }
+  }
+  
+  # Prepare participant_info for merging
+  participant_info_clean <- participant_info
+  
+  # Ensure consistent ID column naming
+  if ("PavloviaParticipantID" %in% names(participant_info_clean)) {
+    participant_info_clean <- participant_info_clean %>%
+      rename(pavloviaParticipantID = PavloviaParticipantID)
+  } else if ("participant" %in% names(participant_info_clean)) {
+    participant_info_clean <- participant_info_clean %>%
+      rename(pavloviaParticipantID = participant)
+  }
+  
+  # Perform full outer join to include all participants from both tables
+  merged_data <- camera_data %>%
+    full_join(participant_info_clean, by = "pavloviaParticipantID") %>%
+    arrange(pavloviaParticipantID)
+  
+  return(merged_data)
+}
+
 get_distance_calibration <- function(data_list, minRulerCm) {
   if (length(data_list) == 0) {
     return(list())

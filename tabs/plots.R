@@ -1,18 +1,6 @@
 plotsTab <- tabPanel(
   'Plots',
   conditionalPanel(
-    'output.IsCameraResolutionXYTable',
-    fixedRow(
-      column(
-        width = 6,
-        shinycssloaders::withSpinner(
-          tableOutput("cameraResolutionXYTable"),
-          type = 4
-        )
-      )
-    )
-  ),
-  conditionalPanel(
     'output.isCorrMatrixAvailable',
     h2("Correlation Matrix"),
     fixedRow(
@@ -38,9 +26,7 @@ plotsTab <- tabPanel(
   h2("Histograms"),
   shinycssloaders::withSpinner(uiOutput('histograms'), type = 4),
   
-  #### dot plots ####
-  h2("Histograms colored by participant"),
-  shinycssloaders::withSpinner(uiOutput('dotPlots'), type = 4),
+
   conditionalPanel(
     'output.isGrade',
     splitLayout(

@@ -788,6 +788,48 @@ shinyServer(function(input, output, session) {
     plot_sizeCheck(distanceCalibration(),calibrateTrackDistanceCheckLengthSDLogAllowed())
   }) 
   
+  scatterDistance <- reactive({
+    if (is.null(input$file) | is.null(files())) {
+      return(list(plotList = list(), fileNames = list()))
+    }
+    print('inside distance scatter plots')
+    l <- list()
+    fileNames <- list()
+
+    # Distance-specific plots
+    distance_production_plots <- plot_distance_production(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
+    distance_plots <- plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
+    
+    plot_calls <- list(
+      list(plot = sizeCheckPlot()$density_vs_length, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
+      list(plot = sizeCheckPlot()$density_ratio_vs_sd, fname = 'ratio-vs-sdLogDensity-plot'),
+      list(plot = distance_plots$credit_card_vs_requested, fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_plots$credit_card_fraction, fname = 'calibrateTrackDistanceMeasuredCm-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      #list(plot = distance_production_plots$production_vs_requested, fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      #list(plot = distance_production_plots$production_fraction, fname = 'calibrateTrackDistanceProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_production_plots$raw_production_vs_requested, fname = 'calibrateTrackDistanceIndividualProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_production_plots$individual_production_fraction, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_plots$ipd_vs_requested, fname = 'calibrateTrackDistanceIpdCameraPx-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_plots$eye_feet_position, fname = 'eye-feet-position-vs-distance-error-plot')
+    )
+
+    for (call in plot_calls) {
+      plot <- call$plot
+      if (!is.null(plot)) {
+        plot <- plot + scale_color_manual(values = colorPalette)
+        plot <- add_experiment_title(plot, experiment_names())
+      }
+      res <- append_plot_list(l, fileNames, plot, call$fname)
+      l <- res$plotList
+      fileNames <- res$fileNames
+    }
+
+    return(list(
+      plotList = l,
+      fileNames = fileNames
+    ))
+  })
+
   scatterDiagrams <- reactive({
     if (is.null(input$file) | is.null(files())) {
       return(list(plotList = list(), fileNames = list()))
@@ -802,19 +844,8 @@ shinyServer(function(input, output, session) {
     #crowding_vs_acuity_plots <- crowding_vs_acuity_plot(df_list())
     regression_plots <- regression_reading_plot(df_list())
     test_retest_plots <- get_test_retest(df_list())
-    distance_production_plots <- plot_distance_production(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
-    distance_plots <- plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
+    
     plot_calls <- list(
-      list(plot = sizeCheckPlot()$density_vs_length, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
-      list(plot = sizeCheckPlot()$density_ratio_vs_sd, fname = 'ratio-vs-sdLogDensity-plot'),
-      list(plot = distance_plots$credit_card_vs_requested, fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_plots$credit_card_fraction, fname = 'calibrateTrackDistanceMeasuredCm-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      #list(plot = distance_production_plots$production_vs_requested, fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      #list(plot = distance_production_plots$production_fraction, fname = 'calibrateTrackDistanceProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_production_plots$raw_production_vs_requested, fname = 'calibrateTrackDistanceIndividualProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_production_plots$individual_production_fraction, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_plots$ipd_vs_requested, fname = 'calibrateTrackDistanceIpdCameraPx-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_plots$eye_feet_position, fname = 'eye-feet-position-vs-distance-error-plot'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
@@ -984,6 +1015,13 @@ shinyServer(function(input, output, session) {
     get_cameraResolutionXY(files()$data_list)
   })
   
+  mergedParticipantDistanceTable <- reactive({
+    if (is.null(input$file) | is.null(files())) {
+      return(tibble())
+    }
+    get_merged_participant_distance_info(files()$data_list, df_list()$participant_info)
+  })
+  
   output$isRsvp <- reactive({
     if ('rsvp' %in% names(df_list())) {
       return(nrow(df_list()$rsvp) > 0)
@@ -1101,6 +1139,11 @@ shinyServer(function(input, output, session) {
   })
   outputOptions(output, 'IsCameraResolutionXYTable', suspendWhenHidden = FALSE)
   
+  output$IsMergedParticipantDistanceTable <- reactive({
+    return(nrow(mergedParticipantDistanceTable()) > 0)
+  })
+  outputOptions(output, 'IsMergedParticipantDistanceTable', suspendWhenHidden = FALSE)
+  
   outputOptions(output, 'fileUploaded', suspendWhenHidden = FALSE)
   outputOptions(output, 'questData', suspendWhenHidden = FALSE)
   outputOptions(output, 'isGrade', suspendWhenHidden = FALSE)
@@ -1122,6 +1165,25 @@ shinyServer(function(input, output, session) {
   output$cameraResolutionXYTable <- renderTable({
     cameraResolutionXYTable()
   })
+  
+  #### Merged Participant Distance Table ####
+  
+  output$mergedParticipantDistanceTable <- renderTable({
+    mergedParticipantDistanceTable()
+  })
+  
+  output$downloadParticipantDistanceInfo <- downloadHandler(
+    filename = function() {
+      ifelse(
+        experiment_names() == "",
+        "ParticipantDistanceInfo.xlsx",
+        paste0(get_short_experiment_name(experiment_names()), "ParticipantDistanceInfo.xlsx")
+      )
+    },
+    content = function(filename) {
+      openxlsx::write.xlsx(mergedParticipantDistanceTable(), file = filename)
+    }
+  )
   
   #### plots ####
 
@@ -2856,6 +2918,123 @@ shinyServer(function(input, output, session) {
     return(out)
   })
   
+  #### distance scatter plots ####
+  
+  output$distanceScatters <- renderUI({
+    out <- list()
+    i = 1
+    while (i <= length(scatterDistance()$plotList) - 1) {
+      out[[i]] <-  splitLayout(
+        cellWidths = c("50%", "50%"),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("distanceScatter", i),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("distanceScatter", i + 1),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4)
+      )
+      out[[i + 1]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        downloadButton(paste0("downloadDistanceScatter", i), 'Download'),
+        downloadButton(paste0("downloadDistanceScatter", i +
+                                1), 'Download')
+      )
+      i = i + 2
+    }
+    if (i == length(scatterDistance()$plotList)) {
+      out[[i]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        shinycssloaders::withSpinner(plotOutput(
+          paste0("distanceScatter", i),
+          width = "100%",
+          height = "100%"
+        ),
+        type = 4)
+      )
+      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
+                                  downloadButton(paste0("downloadDistanceScatter", i), 'Download'))
+    }
+    for (j in 1:length(scatterDistance()$plotList)) {
+      local({
+        ii <- j
+        output[[paste0("distanceScatter", ii)]] <- renderImage({
+          tryCatch({
+            outfile <- tempfile(fileext = '.svg')
+            ggsave(
+              file = outfile,
+              plot = scatterDistance()$plotList[[ii]] +
+                plt_theme_scatter +
+                scale_color_manual(values = colorPalette),
+              width = 7,
+              height = 7,
+              unit = 'in',
+              limitsize = F,
+              device = svglite
+            )
+
+            list(src = outfile,
+                 contenttype = 'svg')
+
+          }, error = function(e) {
+          handle_plot_error(e, paste0("distanceScatter", ii), experiment_names(), scatterDistance()$fileNames[[ii]])
+          })
+          
+        }, deleteFile = TRUE)
+        output[[paste0("downloadDistanceScatter", ii)]] <-
+          downloadHandler(
+            filename = paste0(
+              get_short_experiment_name(experiment_names()),
+              scatterDistance()$fileNames[[ii]],
+              '.',
+              input$fileType
+            ),
+            content = function(file) {
+              if (input$fileType == "png") {
+                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+                ggsave(
+                  tmp_svg,
+                  plot = scatterDistance()$plotList[[ii]] +
+                    plt_theme_scatter +
+                    scale_color_manual(values = colorPalette),
+                  width = 12,
+                  height = 8,
+                  unit = "in",
+                  limitsize = F,
+                  device = svglite
+                )
+                rsvg::rsvg_png(tmp_svg, file,
+                               width = 2400,
+                               height = 1600)
+              } else {
+                ggsave(
+                  file,
+                  plot = scatterDistance()$plotList[[ii]] +
+                    plt_theme_scatter +
+                    scale_color_manual(values = colorPalette),
+                  width = 12,
+                  height = 8,
+                  unit = "in",
+                  limitsize = F,
+                  device = ifelse(
+                    input$fileType == "svg",
+                    svglite::svglite,
+                    input$fileType
+                  )
+                )
+              }
+            }
+          )
+      })
+    }
+    return(out)
+  })
+  
   output$violinPlots <- renderUI({
     out <- list()
     i = 1
@@ -4319,8 +4498,6 @@ shinyServer(function(input, output, session) {
                      DT::renderDataTable(df_list()$QA)
                    output$ratings <-
                      renderTable(df_list()$ratings)
-                   output$participantInfo <-
-                     renderTable(df_list()$participant_info)                   
                    
                    updateSelectInput(
                      session,
@@ -4783,12 +4960,12 @@ shinyServer(function(input, output, session) {
     filename = function() {
       ifelse(
         experiment_names() == "",
-        "ParticipantInfo.xlsx",
-        paste0(get_short_experiment_name(experiment_names()), "ParticipantInfo.xlsx")
+        "ParticipantDistanceInfo.xlsx",
+        paste0(get_short_experiment_name(experiment_names()), "ParticipantDistanceInfo.xlsx")
       )
     },
     content = function(filename) {
-      openxlsx::write.xlsx(df_list()$participant_info, file = filename)  # Using openxlsx
+      openxlsx::write.xlsx(mergedParticipantDistanceTable(), file = filename)  # Using openxlsx
     }
   )
   

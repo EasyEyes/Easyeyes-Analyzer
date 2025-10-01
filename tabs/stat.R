@@ -43,20 +43,6 @@ statTab <- tabPanel(
       shinycssloaders::withSpinner(tableOutput('ratings'), type = 4)
     )
   ),
-  fluidRow(
-    column(
-      width = 12, 
-      align = "center", 
-      h3("Participant Information")
-    )
-  ),
-  fluidRow(
-    column(
-      width = 12,
-      align = "center",
-      shinycssloaders::withSpinner(tableOutput('participantInfo'), type = 4)
-    )
-  ),
   fluidRow(column(
     width = 12, 
     align = "center",
