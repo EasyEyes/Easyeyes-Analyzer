@@ -240,10 +240,14 @@ get_eye_feet_position_data <- function(data_list) {
     
     cols_to_select <- c("experiment",
                         "participant",
+                        "_calibrateTrackDistance",
+                        "_calibrateTrackDistancePupil",
+                        "viewingDistanceWhichEye",
+                        "viewingDistanceWhichPoint",
                         "pxPerCm",
                         "screenWidthPx",
                         "screenHeightPx",
-                       "calibrateTrackDistanceMeasuredCm", 
+                       "calibrateTrackDistanceMeasuredCm",
                        "calibrateTrackDistanceRequestedCm",
                        "calibrateTrackDistanceEyeFeetXYPx")
     
@@ -460,8 +464,8 @@ plot_eye_feet_position <- function(data_list) {
       # Clip points that fall beyond the margin (as requested)
       foot_x_cm_clipped = pmax(x_min, pmin(x_max, avg_eye_x_cm)),
       foot_y_cm_clipped = pmax(y_min, pmin(y_max, avg_eye_y_cm)),
-      # Use continuous ratio for color mapping as specified
-      ratio_continuous = pmax(0.5, pmin(2.0, distance_ratio)),
+      # Use continuous ratio for color mapping as specified (limited to 0.7-1.4 range)
+      ratio_continuous = pmax(0.7, pmin(1.4, distance_ratio)),
       # Create session identifier for shapes - use actual participant names like other plots
       session_id = as.character(participant)
     )
@@ -499,7 +503,13 @@ plot_eye_feet_position <- function(data_list) {
   
   n_sessions <- n_distinct(eye_feet_data$session_id)
   print(paste("Final number of sessions:", n_sessions))
-  
+
+  # Create statement for calibration parameters
+  statement <- paste0('_calibrateTrackDistance = ', eye_feet_data$`_calibrateTrackDistance`[1], '\n',
+                      '_calibrateTrackDistancePupil = ', eye_feet_data$`_calibrateTrackDistancePupil`[1], '\n',
+                      'viewingDistanceWhichEye = ', eye_feet_data$viewingDistanceWhichEye[1], '\n',
+                      'viewingDistanceWhichPoint = ', eye_feet_data$viewingDistanceWhichPoint[1])
+
   # Create the plot directly without test plots
   print("=== CREATING FINAL PLOT ===")
   
@@ -507,29 +517,30 @@ plot_eye_feet_position <- function(data_list) {
     print("Creating eye feet position plot...")
     
     p <- ggplot(eye_feet_data, aes(x = foot_x_cm_clipped, y = foot_y_cm_clipped)) +
-      # Add screen boundary rectangle (halved thickness)
+      # Add screen boundary rectangle (quarter thickness)
       geom_rect(aes(xmin = 0, xmax = screen_width_cm,
                     ymin = 0, ymax = screen_height_cm),
-                fill = NA, color = "black", linewidth = 0.6, alpha = 0.7) +
+                fill = NA, color = "black", linewidth = 0.3, alpha = 0.7) +
       # Add points with fill aesthetic to avoid server color conflicts
       geom_point(aes(fill = ratio_continuous, shape = session_limited), 
                  size = 4, alpha = 0.9, color = "black", stroke = 0.2) +
-      # Log-scaled continuous fill scale with 0.1 interval breaks
+      # Log-scaled continuous fill scale with 0.1 interval breaks (limited to 0.7-1.4 range)
       scale_fill_gradientn(
         colors = c("#3B4CC0", "#89A1F0", "#FDE725", "#F07E26", "#B2182B"),
-        values = scales::rescale(log10(c(0.5, 0.85, 1.0, 1.3, 2.0))),
-        limits = c(0.5, 2.0),
+        values = scales::rescale(log10(c(0.7, 0.85, 1.0, 1.2, 1.4))),
+        limits = c(0.7, 1.4),
         trans = "log10",
         oob = scales::squish,
-        name = "Measured over\nrequested",
-        breaks = seq(0.5, 2.0, by = 0.1),
-        labels = c("0.5", "0.6", "", "0.8", "", "1.0", "", "1.2", "", "", "1.5", "", "", "1.8", "", "2.0"),
+        name = "Measured over requested",
+        breaks = seq(0.7, 1.4, by = 0.1),
+        labels = c( "0.7", "", "", "1.0", "", "", "", "1.4"),
         guide = guide_colorbar(
           barheight = unit(0.5, "cm"),
           barwidth = unit(5, "cm"), # Increased colorbar width
           title.position = "top",
           ticks.colour = "black",
-          ticks.linewidth = 0.75
+          ticks.linewidth = 0.75,
+          ticks.position = "outward"
         )
       ) +
       # Shape scale for participants (unlimited participants with cycling shapes)
@@ -550,7 +561,7 @@ plot_eye_feet_position <- function(data_list) {
       scale_y_reverse(limits = c(y_max, y_min), expand = c(0,0)) +
       # Lock aspect ratio with exact 50% margins
       coord_fixed(xlim = c(x_min, x_max), expand = FALSE) +
-      theme_bw() +
+      theme_classic() +
       theme(
         legend.position = "right",
         legend.box = "vertical",
@@ -566,7 +577,12 @@ plot_eye_feet_position <- function(data_list) {
         legend.key.height = unit(1.2, "cm"),  # Increased by 1.5x (0.8 * 1.5 = 1.2)
         legend.key.width = unit(0.5, "cm"),
         legend.margin = margin(l = 10, r = 10, t = 5, b = 5),
-        plot.margin = margin(t = 20, r = 10, b = 20, l = 20, "pt")  # Add plot margins to prevent text clipping
+        plot.margin = margin(t = 20, r = 10, b = 20, l = 20, "pt"),  # Add plot margins to prevent text clipping
+        # Open plot style - only bottom and left axis lines
+        axis.line.x = element_line(color = "black"),
+        axis.line.y = element_line(color = "black"),
+        axis.line.x.top = element_blank(),
+        axis.line.y.right = element_blank()
       ) +
       # Labels - set these LAST to ensure they stick
       labs(
@@ -577,13 +593,17 @@ plot_eye_feet_position <- function(data_list) {
       ) +
       # Screen annotation (moved close to screen outline, same size as Y label, not bold)
       annotate("text", x = screen_width_cm/2, y = -y_margin_cm*0.1,
-               label = "Screen", hjust = 0.5, vjust = 0.5, size = 3.5, color = "black") +
+               label = "Screen", hjust = 0.5, vjust = 0.5, size = 4, color = "black") +
+      # Calibration parameters statement (bottom right corner)
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                          label = statement, hjust = 1, vjust = 0, size = 3, color = "black") +
       # Summary statistics (pushed further down to avoid clipping)
-      annotate("text", x = x_min + x_margin_cm*0.15, y = y_min + y_margin_cm*0.8,
-               label = paste0("N = ", nrow(eye_feet_data), "\n",
-                             "Sessions= ", n_sessions, "\n",
-                             "Mean = ", round(mean(eye_feet_data$distance_ratio, na.rm = TRUE), 3)),
-               hjust = 0, vjust = 0, size = 4)
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "left", npcy = "top"),
+                          label = paste0("N = ", nrow(eye_feet_data), "\n",
+                                        "Sessions= ", n_sessions, "\n",
+                                        "Mean = ", round(mean(eye_feet_data$distance_ratio, na.rm = TRUE), 3), "\n",
+                                        "SD = ", round(sd(eye_feet_data$distance_ratio, na.rm = TRUE), 3)),
+                          hjust = 0, vjust = 0, size = 4)
     
     print("Plot created successfully")
     
