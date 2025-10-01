@@ -824,7 +824,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
                   expand = expansion(mult = c(0.05, 0.05)),
                   labels=as.integer) + 
     scale_y_log10(limits = c(minFrac, maxFrac),
-                   breaks = scales::log_breaks(n=8)) + 
+                   breaks = seq(0.6, 1.4, by = 0.1)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
@@ -1434,7 +1434,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
                     breaks = scales::pretty_breaks(n=8),
                     expand = expansion(mult = c(0.05, 0.05))) +
       scale_y_log10(limits = c(minFrac,maxFrac),
-                    breaks = scales::log_breaks()) +
+                    breaks = seq(0.6, 1.4, by = 0.1)) +
       annotation_logticks() +
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
@@ -1576,7 +1576,7 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
                     expand = expansion(mult = c(0.05, 0.05)),
                     labels=as.integer) +
       scale_y_log10(limits = c(minFrac,maxFrac),
-                    breaks = scales::log_breaks(n=8)) +
+                    breaks = seq(0.6, 1.4, by = 0.1)) +
       annotation_logticks() + 
       scale_color_manual(values= colorPalette) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
