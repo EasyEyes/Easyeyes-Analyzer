@@ -249,6 +249,7 @@ ensure_columns <- function(t, file_name = NULL) {
     `Loudspeaker survey` = "",
     `Microphone survey` = "",
     mustTrackSec = NA,
+    OBJCT = "",
     participant = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][1] else "",
     ProlificParticipantID = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][2] else "",
     ProlificSessionID = "",
@@ -321,6 +322,7 @@ ensure_columns <- function(t, file_name = NULL) {
   t$viewingDistanceWhichEye = sort(t$viewingDistanceWhichEye)[1]
   t$viewingDistanceWhichPoint = sort(t$viewingDistanceWhichPoint)[1]
   t$screenWidthCm = sort(t$screenWidthCm)[1]
+  t$distanceObjectCm = sort(t$distanceObjectCm)[1]
   t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
   # calibrateTrackDistance has been renamed as __calibrateTrackDistance
   t$calibrateTrackDistance = t$calibrateTrackDistance[t$calibrateTrackDistance != "" & !is.na(t$calibrateTrackDistance)][1]

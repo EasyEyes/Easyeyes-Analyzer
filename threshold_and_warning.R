@@ -546,7 +546,9 @@ generate_threshold <-
     for (i in 1:length(data_list)) {
       # Extract data with standardized columns
       temp_data <- data_list[[i]] %>% 
-        select(participant,rulerLength,rulerUnit,calibrateTrackDistance,distanceObjectCm) %>%
+        select(participant, pxPerCm,
+               rulerLength, rulerUnit, 
+               calibrateTrackDistance, distanceObjectCm) %>%
         distinct() %>%
         filter(!is.na(participant)) %>%
         mutate(
@@ -555,7 +557,9 @@ generate_threshold <-
           calibrateTrackDistance = as.character(calibrateTrackDistance),
           distanceObjectCm = as.numeric(distanceObjectCm)
         ) %>%
-        select(participant, rulerLength, rulerUnit, calibrateTrackDistance, distanceObjectCm)
+        select(participant, pxPerCm,
+               rulerLength, rulerUnit, 
+               calibrateTrackDistance, distanceObjectCm)
       
       participant_info_list[[i]] <- temp_data
     }
@@ -576,6 +580,7 @@ generate_threshold <-
         rulerCm = first(rulerCm[!is.na(rulerCm)]),
         calibrateTrackDistance = first(calibrateTrackDistance[!is.na(calibrateTrackDistance)]),
         distanceObjectCm = first(distanceObjectCm[!is.na(distanceObjectCm)]),
+        pxPerCm =  first(pxPerCm[!is.na(pxPerCm)]),
         .groups = "drop"
       )
     
@@ -620,7 +625,7 @@ generate_threshold <-
     
     # Extract the 6 needed columns from sessions data
     sessions_columns <- sessions_data %>%
-      select(`Pavlovia session ID`, `device type`, cameraIsTopCenter, `Prolific min`, system, browser, ok, screenWidthCm, cameraIsTopCenter) %>%
+      select(`Pavlovia session ID`, `device type`, `Prolific min`, system, browser, ok, screenWidthCm) %>%
       rename(
         PavloviaParticipantID = `Pavlovia session ID`,
       ) %>%
@@ -630,26 +635,19 @@ generate_threshold <-
     participant_info <- participant_info %>%
       left_join(comments_data, by = "participant") %>%
       left_join(objects_data, by = "participant") %>%
+      rename(PavloviaParticipantID = participant) %>%
+      # Join with sessions data to add the 6 columns
+      left_join(sessions_columns, by = "PavloviaParticipantID") %>%
       mutate(
-        # objectLengthCm and Object are only defined when calibrateTrackDistance === "object"
-        objectLengthCm = case_when(
-          calibrateTrackDistance == "object" ~ format(round(distanceObjectCm), nsmall=0),
-          .default = NA_character_
-        ),
-        Object = case_when(
-          calibrateTrackDistance == "object" ~ Object,
-          .default = NA_character_
-        ),
+        objectLengthCm =format(round(distanceObjectCm), nsmall=0),
         rulerCm = case_when(
           !is.na(rulerCm) ~ format(round(rulerCm), nsmall = 0),
           .default = NA_character_
         ),
+        screenWidthCm =  format(round(screenWidthCm), nsmall = 0)
       ) %>%
-      rename(PavloviaParticipantID = participant) %>%
-      # Join with sessions data to add the 6 columns
-      left_join(sessions_columns, by = "PavloviaParticipantID") %>%
-      select(ok, PavloviaParticipantID, `device type`, system, browser, cameraIsTopCenter, `Prolific min`, 
-             screenWidthCm, rulerCm, objectLengthCm, Object, Comment) %>%
+      select(ok, PavloviaParticipantID, `device type`, system, browser, `Prolific min`, 
+             screenWidthCm, rulerCm, pxPerCm, objectLengthCm, Object, Comment) %>%
       mutate(
         ok_priority = case_when(
           ok == "✅" ~ 1,  # ✅ (white_check_mark) first

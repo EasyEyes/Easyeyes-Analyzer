@@ -6,10 +6,10 @@ distanceTab <- tabPanel(
      fixedRow(
        column(
          width = 12,
-         shinycssloaders::withSpinner(
-           tableOutput("mergedParticipantDistanceTable"),
-           type = 4
-         ),
+        shinycssloaders::withSpinner(
+          DT::dataTableOutput("mergedParticipantDistanceTable"),
+          type = 4
+        ),
          downloadButton("downloadParticipantDistanceInfo", "Download")
        )
      )

@@ -1168,8 +1168,48 @@ shinyServer(function(input, output, session) {
   
   #### Merged Participant Distance Table ####
   
-  output$mergedParticipantDistanceTable <- renderTable({
-    mergedParticipantDistanceTable()
+  output$mergedParticipantDistanceTable <- DT::renderDataTable({
+    datatable(mergedParticipantDistanceTable(),
+              class = list(stripe = FALSE, 'compact'),
+              selection = 'none',
+              extensions = 'FixedHeader',
+              filter = "top",
+              escape = FALSE,
+              options = list(
+                autoWidth = TRUE,
+                paging = FALSE,
+                scrollX = TRUE,
+                fixedHeader = TRUE,
+        columnDefs = list(
+          list(width = '100px', targets = 0),  # pavloviaParticipantID
+          list(width = '80px', targets = 1),   # _calibrateTrackDistancePupil
+          list(width = '80px', targets = 2),   # factorCameraPxCm
+          list(width = '80px', targets = 3),   # cameraResolutionXY
+          list(width = '40px', targets = 4),   # ok
+          list(width = '50px', targets = 5),   # device type
+          list(width = '50px', targets = 6),   # system
+          list(width = '50px', targets = 7),   # browser
+          list(width = '60px', targets = 8),   # Prolific min
+          list(width = '60px', targets = 9),   # screenWidthCm
+          list(width = '50px', targets = 10),  # rulerCm
+          list(width = '50px', targets = 11),  # pxPerCm
+          list(width = '50px', targets = 12),  # objectLengthCm
+          list(width = '80px', targets = 13),  # Object
+          list(width = '500px', targets = 14)  # Comment - wide and left-aligned
+        ),
+        initComplete = JS(
+          "function(settings, json) {",
+          "$(this.api().table().header()).css({'font-size': '13px', 'padding': '2px 4px'});",
+          "$(this.api().table().body()).css({'font-size': '12px', 'padding': '2px 4px'});",
+          "$('td').css({'text-align': 'center'});",
+          "$('th').css({'text-align': 'center'});",
+          "$('td:nth-child(15)').css('text-align', 'left');",  # Comment column left-aligned
+          "$('th:nth-child(15)').css('text-align', 'left');",  # Comment header left-aligned
+          "}"
+        )
+      ),
+      rownames = FALSE
+    )
   })
   
   output$downloadParticipantDistanceInfo <- downloadHandler(
@@ -4498,6 +4538,9 @@ shinyServer(function(input, output, session) {
                      DT::renderDataTable(df_list()$QA)
                    output$ratings <-
                      renderTable(df_list()$ratings)
+                   output$participantInfo <- renderTable({
+                     df_list()$participant_info
+                   }, width = "100%", spacing = "xs")
                    
                    updateSelectInput(
                      session,

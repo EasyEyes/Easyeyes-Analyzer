@@ -175,7 +175,7 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
   
   fontParams <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
     t <- data_list[[i]] %>%
-      mutate(block_condition = ifelse(block_condition == "", as.character(staircaseName), block_condition)) %>% 
+      mutate(block_condition = ifelse(block_condition == "", as.character(staircaseName), as.character(block_condition))) %>% 
       filter(!is.na(fontSizePx) | !is.na(viewingDistanceCm)) %>% 
       select(participant, date, block_condition,fontSizePx,viewingDistanceCm,fontRenderMaxPx,fontMaxPx)
       t <- t %>% group_by(participant, date, block_condition) %>% 
@@ -184,7 +184,8 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
                 fontRenderMaxPx = mean(as.numeric(fontRenderMaxPx),rm.na=T),
                 fontMaxPx = mean(as.numeric(fontMaxPx),rm.na=T),
                 .groups="drop")
-  }
+  } %>% 
+    mutate(block_condition = as.character(block_condition))
 
   params <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
     t <- data_list[[i]] %>%
@@ -289,7 +290,8 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
   
   trial <- all_files %>%
     select(participant, date, block_condition, trial) %>%
-    filter(block_condition != "")
+    filter(block_condition != "") %>% 
+    mutate(block_condition = as.character(block_condition))
   
   lateness_duration <- get_lateness_and_duration(all_files)
   
