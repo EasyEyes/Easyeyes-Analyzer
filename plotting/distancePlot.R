@@ -811,6 +811,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
           keywidth = unit(1.2, "lines"),
           keyheight = unit(0.8, "lines")
         )) +
+        coord_fixed() +
         labs(subtitle = 'IPD (camera px) vs. requested distance',
              x = 'Requested distance (cm)',
              y = 'IPD (camera px)',
@@ -1513,7 +1514,7 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
         ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                             label = paste0('N=', n_distinct(error_vs_object_data$participant))) +
         scale_x_log10(limits = c(x_min, x_max), breaks = scales::log_breaks(n=8)) +
-        scale_y_log10(limits = c(y_min, y_max), breaks = scales::log_breaks(n=8)) +
+         scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
         annotation_logticks() +
         scale_color_manual(values = colorPalette) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -1524,6 +1525,7 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
           keywidth = unit(1.2, "lines"),
           keyheight = unit(0.8, "lines")
         )) +
+        coord_fixed() +
         labs(subtitle = 'Error vs. object size',
              x = 'Object length (cm)',
              y = 'Production-measured over requested distance',
