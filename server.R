@@ -797,7 +797,7 @@ shinyServer(function(input, output, session) {
     fileNames <- list()
 
     # Distance-specific plots
-    distance_production_plots <- plot_distance_production(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
+    distance_production_plots <- plot_distance_production(distanceCalibration(), df_list()$participant_info, calibrateTrackDistanceCheckLengthSDLogAllowed())
     distance_plots <- plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
     
     plot_calls <- list(
@@ -809,6 +809,7 @@ shinyServer(function(input, output, session) {
       #list(plot = distance_production_plots$production_fraction, fname = 'calibrateTrackDistanceProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$raw_production_vs_requested, fname = 'calibrateTrackDistanceIndividualProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$individual_production_fraction, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_production_plots$error_vs_object_size, fname = 'error-vs-object-size-plot'),
       list(plot = distance_plots$ipd_vs_requested, fname = 'calibrateTrackDistanceIpdCameraPx-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_plots$eye_feet_position, fname = 'eye-feet-position-vs-distance-error-plot')
     )
@@ -1195,7 +1196,8 @@ shinyServer(function(input, output, session) {
           list(width = '50px', targets = 11),  # pxPerCm
           list(width = '50px', targets = 12),  # objectLengthCm
           list(width = '80px', targets = 13),  # Object
-          list(width = '500px', targets = 14)  # Comment - wide and left-aligned
+          list(width = '80px', targets = 14),  # Object
+          list(width = '500px', targets = 15)  # Comment - wide and left-aligned
         ),
         initComplete = JS(
           "function(settings, json) {",

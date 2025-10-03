@@ -34,7 +34,9 @@ get_cameraResolutionXY <- function(data_list) {
     }
 
     t <- t %>%
-      select(participant, `_calibrateTrackDistancePupil`, factorCameraPxCm, cameraResolutionXY) %>%
+      select(participant, `_calibrateTrackDistance`, 
+      `_calibrateTrackDistancePupil`, factorCameraPxCm, 
+      cameraResolutionXY) %>%
       rename(pavloviaParticipantID = participant) %>%
       distinct() %>%
       filter(!is.na(cameraResolutionXY), cameraResolutionXY != "")
@@ -1177,7 +1179,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   ))
 }
 
-plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+plot_distance_production <- function(data_list, participant_info,calibrateTrackDistanceCheckLengthSDLogAllowed) {
   distance <- get_measured_distance_data(data_list)
   sizeCheck <- get_sizeCheck_data(data_list)
   statement <- paste0('_calibrateTrackDistance = ', distance$`_calibrateTrackDistance`[1], '\n',
@@ -1488,13 +1490,54 @@ plot_distance_production <- function(data_list, calibrateTrackDistanceCheckLengt
     p4 <- NULL
   }
 
- 
-  
+  # Plot 5: Error vs. object size (Production-measured over requested distance vs objectLengthCm)
+  p5 <- NULL
+  if (nrow(distance_avg) > 0 && !is.null(participant_info) && nrow(participant_info) > 0) {
+    # Join with participant_info to get objectLengthCm
+    error_vs_object_data <- distance_avg %>%
+      left_join(participant_info %>% select(participant = PavloviaParticipantID, objectLengthCm),
+                by = "participant") %>%
+      filter(!is.na(objectLengthCm), !is.na(production_fraction)) %>% 
+      mutate(objectLengthCm = as.numeric(objectLengthCm))
+
+    if (nrow(error_vs_object_data) > 0) {
+      # Calculate scale limits
+      x_min <- max(1, min(error_vs_object_data$objectLengthCm) * 0.8)
+      x_max <- max(error_vs_object_data$objectLengthCm) * 1.2
+      y_min <- max(0.1, min(error_vs_object_data$production_fraction) * 0.8)
+      y_max <- min(2.0, max(error_vs_object_data$production_fraction) * 1.2)
+
+      p5 <- ggplot(error_vs_object_data, aes(x = objectLengthCm, y = production_fraction)) +
+        geom_point(aes(color = participant), size = 3, alpha = 0.8) +
+        geom_hline(yintercept = 1, linetype = "dashed", color = "red", alpha = 0.7) +
+        ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
+                            label = paste0('N=', n_distinct(error_vs_object_data$participant))) +
+        scale_x_log10(limits = c(x_min, x_max), breaks = scales::log_breaks(n=8)) +
+        scale_y_log10(limits = c(y_min, y_max), breaks = scales::log_breaks(n=8)) +
+        annotation_logticks() +
+        scale_color_manual(values = colorPalette) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+        guides(color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 2),
+          keywidth = unit(1.2, "lines"),
+          keyheight = unit(0.8, "lines")
+        )) +
+        labs(subtitle = 'Error vs. object size',
+             x = 'Object length (cm)',
+             y = 'Production-measured over requested distance',
+             caption = 'Red dashed line shows perfect accuracy (ratio = 1.0)')
+    }
+  }
+
+
   return(list(
     production_vs_requested = p1,
     production_fraction = p2,
     raw_production_vs_requested = p3,
-    individual_production_fraction = p4
+    individual_production_fraction = p4,
+    error_vs_object_size = p5
   ))
 }
 
