@@ -601,6 +601,29 @@ plot_eye_feet_position <- function(data_list) {
   }
 }
 
+get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
+  # Get _calibrateTrackDistanceBlindspotDiameterDeg from data list
+  blindspot_diameter_data <- tibble()
+  if (is.null(data_list) || length(data_list) == 0) return(blindspot_diameter_data)
+  
+  for (i in 1:length(data_list)) {
+    if ("_calibrateTrackDistanceBlindspotDiameterDeg" %in% names(data_list[[i]])) {
+      t <- data_list[[i]] %>%
+        select(participant, `_calibrateTrackDistanceBlindspotDiameterDeg`) %>%
+        mutate(`_calibrateTrackDistanceBlindspotDiameterDeg` = as.numeric(`_calibrateTrackDistanceBlindspotDiameterDeg`)) %>%
+        distinct() %>%
+        filter(!is.na(`_calibrateTrackDistanceBlindspotDiameterDeg`),
+               `_calibrateTrackDistanceBlindspotDiameterDeg` != "")
+      
+      if (nrow(t) > 0) {
+        blindspot_diameter_data <- rbind(blindspot_diameter_data, t)
+      }
+    }
+  }
+  
+  return(blindspot_diameter_data %>% distinct())
+}
+
 get_bs_vd <- function(data_list) {
   # Get blindspot viewing distance left and right from data list
   bs_vwing_ds <- tibble()
@@ -1187,6 +1210,7 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
                       '_calibrateTrackDistancePupil = ', distance$`_calibrateTrackDistancePupil`[1], '\n',
                       'viewingDistanceWhichEye = ', distance$viewingDistanceWhichEye[1], '\n',
                       'viewingDistanceWhichPoint = ', distance$viewingDistanceWhichPoint[1])
+        
   
   if (nrow(distance) == 0) {return(NULL)}
   
@@ -1213,7 +1237,9 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
     sdLogDensity_data <- tibble()
   }
   
-  
+
+
+
   # Average Measured Distance per Participant per Requested Distance (SAME AS CREDIT CARD)
   distance_avg <- distance %>%
     group_by(participant, calibrateTrackDistanceRequestedCm) %>%
@@ -1492,29 +1518,81 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
   }
 
   # Plot 5: Error vs. object size (Production-measured over requested distance vs objectLengthCm)
+  # Only show this plot when _calibrateTrackDistance=object (i.e., when objectLengthCm has valid values)
   p5 <- NULL
   if (nrow(distance_avg) > 0 && !is.null(participant_info) && nrow(participant_info) > 0) {
-    # Join with participant_info to get objectLengthCm
-    error_vs_object_data <- distance_avg %>%
-      left_join(participant_info %>% select(participant = PavloviaParticipantID, objectLengthCm),
-                by = "participant") %>%
-      filter(!is.na(objectLengthCm), !is.na(production_fraction)) %>% 
-      mutate(objectLengthCm = as.numeric(objectLengthCm))
+    # Check if objectLengthCm column has any valid (non-NA) values
+    has_valid_object_lengths <- any(!is.na(participant_info$objectLengthCm) & 
+                                   participant_info$objectLengthCm != "" & 
+                                   participant_info$objectLengthCm != "NA")
+    
+    if (has_valid_object_lengths) {
+      # Join with participant_info to get objectLengthCm
+      error_vs_object_data <- distance_avg %>%
+        left_join(participant_info %>% select(participant = PavloviaParticipantID, objectLengthCm),
+                  by = "participant") %>%
+        filter(!is.na(objectLengthCm), !is.na(production_fraction), 
+               objectLengthCm != "", objectLengthCm != "NA") %>% 
+        mutate(objectLengthCm = as.numeric(objectLengthCm))
 
-    if (nrow(error_vs_object_data) > 0) {
+      if (nrow(error_vs_object_data) > 0) {
+        # Calculate scale limits
+        x_min <- max(1, min(error_vs_object_data$objectLengthCm) * 0.8)
+        x_max <- max(error_vs_object_data$objectLengthCm) * 1.2
+        y_min <- max(0.1, min(error_vs_object_data$production_fraction) * 0.8)
+        y_max <- min(2.0, max(error_vs_object_data$production_fraction) * 1.2)
+
+        p5 <- ggplot(error_vs_object_data, aes(x = objectLengthCm, y = production_fraction)) +
+          geom_point(aes(color = participant), size = 3, alpha = 0.8) +
+          geom_hline(yintercept = 1, linetype = "dashed", color = "red", alpha = 0.7) +
+          ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
+                              label = paste0('N=', n_distinct(error_vs_object_data$participant))) +
+          scale_x_log10(limits = c(x_min, x_max), breaks = scales::log_breaks(n=8)) +
+           scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
+          annotation_logticks() +
+          scale_color_manual(values = colorPalette) +
+          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+          guides(color = guide_legend(
+            ncol = 3,
+            title = "",
+            override.aes = list(size = 2),
+            keywidth = unit(1.2, "lines"),
+            keyheight = unit(0.8, "lines")
+          )) +
+          coord_fixed() +
+          labs(subtitle = 'Error vs. object size',
+               x = 'Object length (cm)',
+               y = 'Production-measured over requested distance',
+               caption = 'Red dashed line shows perfect accuracy (ratio = 1.0)')
+      }
+    }
+  }
+
+  # Plot 6: Error vs. blindspot diameter (spotDeg)
+  blindspot_data <- get_calibrateTrackDistanceBlindspotDiameterDeg(data_list)
+  p6 <- NULL
+  if (nrow(distance_avg) > 0 && nrow(blindspot_data) > 0) {
+    # Join distance_avg with blindspot_data
+    error_vs_blindspot_data <- distance_avg %>%
+      left_join(blindspot_data, by = "participant") %>%
+      filter(!is.na(`_calibrateTrackDistanceBlindspotDiameterDeg`), 
+             !is.na(production_fraction)) %>%
+      rename(spotDeg = `_calibrateTrackDistanceBlindspotDiameterDeg`)
+
+    if (nrow(error_vs_blindspot_data) > 0) {
       # Calculate scale limits
-      x_min <- max(1, min(error_vs_object_data$objectLengthCm) * 0.8)
-      x_max <- max(error_vs_object_data$objectLengthCm) * 1.2
-      y_min <- max(0.1, min(error_vs_object_data$production_fraction) * 0.8)
-      y_max <- min(2.0, max(error_vs_object_data$production_fraction) * 1.2)
+      x_min <- max(0.1, min(error_vs_blindspot_data$spotDeg) * 0.8)
+      x_max <- max(error_vs_blindspot_data$spotDeg) * 1.2
+      y_min <- max(0.1, min(error_vs_blindspot_data$production_fraction) * 0.8)
+      y_max <- min(2.0, max(error_vs_blindspot_data$production_fraction) * 1.2)
 
-      p5 <- ggplot(error_vs_object_data, aes(x = objectLengthCm, y = production_fraction)) +
+      p6 <- ggplot(error_vs_blindspot_data, aes(x = spotDeg, y = production_fraction)) +
         geom_point(aes(color = participant), size = 3, alpha = 0.8) +
         geom_hline(yintercept = 1, linetype = "dashed", color = "red", alpha = 0.7) +
         ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                            label = paste0('N=', n_distinct(error_vs_object_data$participant))) +
+                            label = paste0('N=', n_distinct(error_vs_blindspot_data$participant))) +
         scale_x_log10(limits = c(x_min, x_max), breaks = scales::log_breaks(n=8)) +
-         scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
+        scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
         annotation_logticks() +
         scale_color_manual(values = colorPalette) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -1525,21 +1603,22 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
           keywidth = unit(1.2, "lines"),
           keyheight = unit(0.8, "lines")
         )) +
-        coord_fixed() +
-        labs(subtitle = 'Error vs. object size',
-             x = 'Object length (cm)',
+        labs(subtitle = 'Error vs. blindspot diameter',
+             x = 'Blindspot diameter (deg)',
              y = 'Production-measured over requested distance',
              caption = 'Red dashed line shows perfect accuracy (ratio = 1.0)')
     }
   }
-
+   
+  
 
   return(list(
     production_vs_requested = p1,
     production_fraction = p2,
     raw_production_vs_requested = p3,
     individual_production_fraction = p4,
-    error_vs_object_size = p5
+    error_vs_object_size = p5,
+    error_vs_blindspot_diameter = p6
   ))
 }
 
