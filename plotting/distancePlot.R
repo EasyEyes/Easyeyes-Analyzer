@@ -22,7 +22,8 @@ get_cameraResolutionXY <- function(data_list) {
      for (j in 1:length(distanceCalibration)) {
        factorCameraPxCmList = c(factorCameraPxCmList,distanceCalibration[[j]]$factorCameraPxCm)
      }
-      factorCameraPxCm <- paste0(factorCameraPxCmList, collapse = ", ")
+      # Take the first factorCameraPxCm value and ensure it's numeric
+      factorCameraPxCm <- as.numeric(factorCameraPxCmList[1])
     }
 
     t <- data_list[[i]] %>%
@@ -34,12 +35,13 @@ get_cameraResolutionXY <- function(data_list) {
     }
 
     t <- t %>%
-      select(participant, `_calibrateTrackDistance`, 
-      `_calibrateTrackDistancePupil`, factorCameraPxCm, 
-      cameraResolutionXY) %>%
+      select(participant, `_calibrateTrackDistance`,
+             `_calibrateTrackDistancePupil`, factorCameraPxCm,
+             cameraResolutionXY) %>%
       rename(pavloviaParticipantID = participant) %>%
       distinct() %>%
-      filter(!is.na(cameraResolutionXY), cameraResolutionXY != "")
+      filter(!is.na(cameraResolutionXY), cameraResolutionXY != "",
+             !is.na(factorCameraPxCm))
     if (nrow(t) > 0) {
       df <- rbind(df, t)
     }
@@ -283,40 +285,65 @@ get_eye_feet_position_data <- function(data_list) {
   if(length(data_list) == 0) {
     return(df)
   }
-  
+
   for (i in 1:length(data_list)) {
     available_cols <- names(data_list[[i]])
 
     # Check if we have the required columns
-    if (!("calibrateTrackDistanceEyeFeetXYPx" %in% available_cols)) {
+    if (!("distanceCalibrationJSON" %in% available_cols)) {
       next
     }
-    
-    cols_to_select <- c("experiment",
-                        "participant",
-                        "_calibrateTrackDistance",
-                        "_calibrateTrackDistancePupil",
-                        "viewingDistanceWhichEye",
-                        "viewingDistanceWhichPoint",
-                        "pxPerCm",
-                        "screenWidthPx",
-                        "screenHeightPx",
-                       "calibrateTrackDistanceMeasuredCm",
-                       "calibrateTrackDistanceRequestedCm",
-                       "calibrateTrackDistanceEyeFeetXYPx")
-    
+
     t <- data_list[[i]] %>%
-      select(all_of(cols_to_select)) %>%
-      distinct() %>%
+      select(experiment, participant, `_calibrateTrackDistance`, `_calibrateTrackDistancePupil`,
+             viewingDistanceWhichEye, viewingDistanceWhichPoint, pxPerCm, screenWidthPx, screenHeightPx,
+             calibrateTrackDistanceMeasuredCm, calibrateTrackDistanceRequestedCm, distanceCalibrationJSON) %>%
+      distinct()
+
+    # Parse distanceCalibrationJSON first before filtering
+    tryCatch({
+      distanceCalibration <- fromJSON(sort(t$distanceCalibrationJSON)[1])
+
+      # Extract eye foot coordinates from each calibration
+      eye_feet_coords <- list()
+      for (j in 1:length(distanceCalibration)) {
+        cal <- distanceCalibration[[j]]
+        if (!is.null(cal$leftEyeFootXYPx) && !is.null(cal$rightEyeFootXYPx)) {
+          eye_feet_coords[[length(eye_feet_coords) + 1]] <- list(
+            left_x = cal$leftEyeFootXYPx[1],
+            left_y = cal$leftEyeFootXYPx[2],
+            right_x = cal$rightEyeFootXYPx[1],
+            right_y = cal$rightEyeFootXYPx[2]
+          )
+        }
+      }
+
+      if (length(eye_feet_coords) == 0) {
+        next  # Skip this iteration if no eye foot coordinates found
+      }
+
+      # Create coordinate data frame
+      coords_df <- tibble(
+        measurement_idx = 1:length(eye_feet_coords),
+        left_x = sapply(eye_feet_coords, function(x) x$left_x),
+        left_y = sapply(eye_feet_coords, function(x) x$left_y),
+        right_x = sapply(eye_feet_coords, function(x) x$right_x),
+        right_y = sapply(eye_feet_coords, function(x) x$right_y)
+      )
+
+    }, error = function(e) {
+      next  # Skip this iteration if JSON parsing fails
+    })
+
+    # Now filter after JSON parsing
+    t <- t %>%
       filter(!is.na(calibrateTrackDistanceMeasuredCm),
              !is.na(calibrateTrackDistanceRequestedCm),
-             !is.na(calibrateTrackDistanceEyeFeetXYPx),
              calibrateTrackDistanceMeasuredCm != '',
-             calibrateTrackDistanceRequestedCm != '',
-             calibrateTrackDistanceEyeFeetXYPx != '')
-    
+             calibrateTrackDistanceRequestedCm != '')
+
     if (nrow(t) > 0) {
-      
+
       # Process the measured and requested distances (these are JSON arrays)
       t <- t %>%
         mutate(
@@ -334,53 +361,25 @@ get_eye_feet_position_data <- function(data_list) {
         ) %>%
         select(-measured_list, -requested_list)
 
-      tryCatch({
-        # Try to parse as JSON first
-        eye_feet_raw <- t$calibrateTrackDistanceEyeFeetXYPx[1]  # Should be same for all rows in this group
+      # Match measurements - if we have more coordinates than distance measurements, trim
+      n_measurements <- nrow(coords_df)
+      if (n_measurements > nrow(t)) {
+        coords_df <- coords_df[1:nrow(t), ]
+      } else if (n_measurements < nrow(t)) {
+        # Pad with NAs or truncate distance data
+        t <- t[1:n_measurements, ]
+      }
 
-        # Manual parsing approach - extract all numbers
-        coords_str <- gsub("\\[|\\]", "", eye_feet_raw)
-
-        coords_numbers <- as.numeric(unlist(strsplit(coords_str, ",")))
-        coords_numbers <- coords_numbers[!is.na(coords_numbers)]
-        
-        # Check if we have the right number of coordinates (4 per measurement: left_x, left_y, right_x, right_y)
-        n_measurements <- length(coords_numbers) / 4
-
-        if (length(coords_numbers) %% 4 != 0) {
-          return(tibble())  # Return empty if parsing fails
-        }
-
-        # Create coordinate data frame
-        coords_df <- tibble(
-          measurement_idx = rep(1:n_measurements, each = 4),
-          coord_type = rep(c("left_x", "left_y", "right_x", "right_y"), n_measurements),
-          coord_value = coords_numbers
-        ) %>%
-          pivot_wider(names_from = coord_type, values_from = coord_value)
-        
-        # Match measurements - if we have more coordinates than distance measurements, trim
-        if (n_measurements > nrow(t)) {
-          coords_df <- coords_df[1:nrow(t), ]
-        } else if (n_measurements < nrow(t)) {
-          # Pad with NAs or truncate distance data
-          t <- t[1:n_measurements, ]
-        }
-        
-        # Combine data
-        t <- cbind(t, coords_df) %>%
-          select(-measurement_idx) %>%
-          mutate(
-            # Calculate average eye position (as requested)
-            avg_eye_x_px = (left_x + right_x) / 2,
-            avg_eye_y_px = (left_y + right_y) / 2,
-            # Calculate measured over requested ratio
-            distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
-          )
-        
-      }, error = function(e) {
-        return(tibble())
-      })
+      # Combine data
+      t <- cbind(t, coords_df) %>%
+        select(-measurement_idx) %>%
+        mutate(
+          # Calculate average eye position (as requested)
+          avg_eye_x_px = (left_x + right_x) / 2,
+          avg_eye_y_px = (left_y + right_y) / 2,
+          # Calculate measured over requested ratio
+          distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
+        )
 
       # Convert pixels to cm if pxPerCm is available
       if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
@@ -400,15 +399,15 @@ get_eye_feet_position_data <- function(data_list) {
             avg_eye_y_cm = avg_eye_y_px / default_pxPerCm
           )
       }
-      
+
       # Add a data_list_index to help distinguish sessions
       t <- t %>%
         mutate(data_list_index = i)
-      
+
       df <- rbind(df, t)
     }
   }
-  
+
   # Add session detection based on data_list_index for cases where experiment names are the same
   if (nrow(df) > 0) {
     df <- df %>%
@@ -560,7 +559,8 @@ plot_eye_feet_position <- function(data_list) {
         legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
         legend.key.height = unit(0.8, "cm"),  # Shrunk for compact rows
         legend.key.width = unit(0.4, "cm"),
-        legend.margin = margin(l = 5, r = 5, t = 2, b = 2),
+        legend.margin = margin(l = 2, r = 2, t = 1, b = 1),
+        legend.background = element_rect(fill = NA, colour = NA),
         plot.margin = margin(t = 20, r = 10, b = 20, l = 20, "pt"),  # Add plot margins to prevent text clipping
         # Open plot style - only bottom and left axis lines
         axis.line.x = element_line(color = "black"),
@@ -582,12 +582,12 @@ plot_eye_feet_position <- function(data_list) {
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
                           label = statement, hjust = 1, vjust = 0, size = 3, color = "black") +
       # Summary statistics (pushed further down to avoid clipping)
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "left", npcy = "top"),
-                          label = paste0("N = ", nrow(eye_feet_data), "\n",
-                                        "Sessions= ", n_sessions, "\n",
-                                        "Mean = ", round(mean(eye_feet_data$distance_ratio, na.rm = TRUE), 3), "\n",
-                                        "SD = ", round(sd(eye_feet_data$distance_ratio, na.rm = TRUE), 3)),
-                          hjust = 0, vjust = 0, size = 4)
+      annotate("text", x = x_min+1, y = y_min + 1,
+               label = paste0("N = ", nrow(eye_feet_data), "\n",
+                             "Sessions= ", n_sessions, "\n",
+                             "Mean = ", round(mean(eye_feet_data$distance_ratio, na.rm = TRUE), 3), "\n",
+                             "SD = ", round(sd(eye_feet_data$distance_ratio, na.rm = TRUE), 3)),
+               hjust = 0, vjust = 1, size = 3, color = "black")
 
   }, error = function(e) {
     return(NULL)
@@ -602,25 +602,47 @@ plot_eye_feet_position <- function(data_list) {
 }
 
 get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
-  # Get _calibrateTrackDistanceBlindspotDiameterDeg from data list
+  # Get _calibrateTrackDistanceBlindspotDiameterDeg from distanceCalibrationJSON
   blindspot_diameter_data <- tibble()
   if (is.null(data_list) || length(data_list) == 0) return(blindspot_diameter_data)
-  
+
   for (i in 1:length(data_list)) {
-    if ("_calibrateTrackDistanceBlindspotDiameterDeg" %in% names(data_list[[i]])) {
+    if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
       t <- data_list[[i]] %>%
-        select(participant, `_calibrateTrackDistanceBlindspotDiameterDeg`) %>%
-        mutate(`_calibrateTrackDistanceBlindspotDiameterDeg` = as.numeric(`_calibrateTrackDistanceBlindspotDiameterDeg`)) %>%
-        distinct() %>%
-        filter(!is.na(`_calibrateTrackDistanceBlindspotDiameterDeg`),
-               `_calibrateTrackDistanceBlindspotDiameterDeg` != "")
-      
+        select(participant, distanceCalibrationJSON) %>%
+        filter(!is.na(distanceCalibrationJSON), distanceCalibrationJSON != "")
+
       if (nrow(t) > 0) {
-        blindspot_diameter_data <- rbind(blindspot_diameter_data, t)
+        tryCatch({
+          # Parse distanceCalibrationJSON to extract spotDeg
+          distanceCalibration <- fromJSON(sort(t$distanceCalibrationJSON)[1])
+
+          # Extract spotDeg from each calibration
+          spot_degrees <- c()
+          for (j in 1:length(distanceCalibration)) {
+            cal <- distanceCalibration[[j]]
+            if (!is.null(cal$spotDeg)) {
+              spot_degrees <- c(spot_degrees, as.numeric(cal$spotDeg))
+            }
+          }
+
+          if (length(spot_degrees) > 0) {
+            # Use the first (or average) spotDeg value
+            spot_deg <- spot_degrees[1]  # or mean(spot_degrees) if you want average
+
+            blindspot_entry <- t[1,] %>%  # Take first row for participant info
+              mutate(`_calibrateTrackDistanceBlindspotDiameterDeg` = spot_deg) %>%
+              select(participant, `_calibrateTrackDistanceBlindspotDiameterDeg`)
+
+            blindspot_diameter_data <- rbind(blindspot_diameter_data, blindspot_entry)
+          }
+        }, error = function(e) {
+          # Skip if JSON parsing fails
+        })
       }
     }
   }
-  
+
   return(blindspot_diameter_data %>% distinct())
 }
 
@@ -808,13 +830,43 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
       )
 
-    if (nrow(ipd_data) > 0) {
+    # Get camera data for factorCameraPxCm
+    camera_data <- get_cameraResolutionXY(data_list)
+
+    if (nrow(ipd_data) > 0 && nrow(camera_data) > 0) {
+      # Join with camera data to get factorCameraPxCm
+      ipd_data <- ipd_data %>%
+        left_join(camera_data %>% select(pavloviaParticipantID, factorCameraPxCm),
+                  by = c("participant" = "pavloviaParticipantID"))
+
+      # Create prediction data for each participant
+      prediction_data <- ipd_data %>%
+        filter(!is.na(factorCameraPxCm)) %>%  # factorCameraPxCm is already numeric
+        group_by(participant) %>%
+        summarize(
+          factorCameraPxCm = first(factorCameraPxCm),
+          .groups = "drop"
+        ) %>%
+        # Create prediction line across the x-range
+        crossing(calibrateTrackDistanceRequestedCm = seq(min_val, max_val, length.out = 100)) %>%
+        mutate(predictedIpdCameraPx = factorCameraPxCm / calibrateTrackDistanceRequestedCm)
+
       p3 <- ggplot() +
+        # Add predicted lines first (so they appear behind the data)
+        geom_line(data = prediction_data,
+                  aes(x = calibrateTrackDistanceRequestedCm,
+                      y = predictedIpdCameraPx,
+                      color = participant,
+                      group = participant),
+                  linewidth = 1.5, alpha = 0.8, linetype = "dashed") +
+        # Measured data lines (made thinner)
         geom_line(data=ipd_data,
                   aes(x = calibrateTrackDistanceRequestedCm_jitter,
                       y = calibrateTrackDistanceIpdCameraPx,
                       color = participant,
-                      group = participant), alpha = 0.7) +
+                      group = participant),
+                  linewidth = 0.5, alpha = 0.7) +
+        # Measured data points
         geom_point(data=ipd_data,
                    aes(x = calibrateTrackDistanceRequestedCm_jitter,
                        y = calibrateTrackDistanceIpdCameraPx,
@@ -838,7 +890,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         labs(subtitle = 'IPD (camera px) vs. requested distance',
              x = 'Requested distance (cm)',
              y = 'IPD (camera px)',
-             caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
+             caption = 'Dashed lines: predicted IPD = factorCameraPxCm/requestedDistance\nThin solid lines: measured data\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
     } else {
       p3 <- NULL
     }
@@ -1239,7 +1291,7 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
   
 
 
-
+  
   # Average Measured Distance per Participant per Requested Distance (SAME AS CREDIT CARD)
   distance_avg <- distance %>%
     group_by(participant, calibrateTrackDistanceRequestedCm) %>%
@@ -1611,7 +1663,7 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
   }
    
   
-
+  
   return(list(
     production_vs_requested = p1,
     production_fraction = p2,
