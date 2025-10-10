@@ -760,26 +760,30 @@ shinyServer(function(input, output, session) {
     
     # SD histogram and distance-related dot plots go here with larger sizing
     static_calls <- list(
-      list(plot = sizeCheckPlot()$sd_hist, fname = 'sd-log-density-histogram'),
-      list(plot = sizeCheckPlot()$ruler_hist, fname = 'ruler-length-cm-dotplot'),
-      list(plot = objectCm_hist(df_list()$participant_info), fname = 'object-length-cm-dotplot'),
-      list(plot = bs_vd_hist(files()$data_list)$mean_plot, fname = 'blindspot-viewing-distance-mean-dotplot'),
-      list(plot = bs_vd_hist(files()$data_list)$sd_plot, fname = 'blindspot-viewing-distance-sd-dotplot')
+      list(plot = sizeCheckPlot()$sd_hist$plot, height = sizeCheckPlot()$sd_hist$height, fname = 'sd-log-density-histogram'),
+      list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'ruler-length-cm-dotplot'),
+      list(plot = objectCm_hist(df_list()$participant_info)$plot, height = objectCm_hist(df_list()$participant_info)$height, fname = 'object-length-cm-dotplot'),
+      list(plot = bs_vd_hist(files()$data_list)$mean_plot$plot, height = bs_vd_hist(files()$data_list)$mean_plot$height, fname = 'blindspot-viewing-distance-mean-dotplot'),
+      list(plot = bs_vd_hist(files()$data_list)$sd_plot$plot, height = bs_vd_hist(files()$data_list)$sd_plot$height, fname = 'blindspot-viewing-distance-sd-dotplot')
     )
     
+    heights <- list()
     for (call in static_calls) {
-    
       res <- append_plot_list(l, 
                               fileNames,
                               add_experiment_title(call$plot, experiment_names()), 
-                              call$fname)
+                              call$fname,
+                              height = call$height,
+                              heights = heights)
       l <- res$plotList
       fileNames <- res$fileNames
+      heights <- res$heights
     }
     
     return(list(
       plotList = l,
-      fileNames = fileNames
+      fileNames = fileNames,
+      heights = heights
     ))
   })
   
@@ -801,37 +805,40 @@ shinyServer(function(input, output, session) {
     distance_plots <- plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
     
     plot_calls <- list(
-      list(plot = sizeCheckPlot()$density_vs_length, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
-      list(plot = sizeCheckPlot()$density_ratio_vs_sd, fname = 'ratio-vs-sdLogDensity-plot'),
-      list(plot = distance_plots$credit_card_vs_requested, fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_plots$credit_card_fraction, fname = 'calibrateTrackDistanceMeasuredCm-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      #list(plot = distance_production_plots$production_vs_requested, fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      #list(plot = distance_production_plots$production_fraction, fname = 'calibrateTrackDistanceProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_production_plots$raw_production_vs_requested, fname = 'calibrateTrackDistanceIndividualProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_production_plots$individual_production_fraction, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_production_plots$error_vs_object_size, fname = 'error-vs-object-size-plot'),
-      list(plot = distance_production_plots$error_vs_blindspot_diameter, fname = 'error-vs-blindspot-diameter-plot'),
-      list(plot = distance_plots$ipd_vs_requested, fname = 'calibrateTrackDistanceIpdCameraPx-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_plots$eye_feet_position, fname = 'eye-feet-position-vs-distance-error-plot'),
-      list(plot = distance_plots$foot_position_calibration, fname = 'foot-position-during-calibration-plot'),
-      list(plot = distance_plots$calibrated_vs_mean, fname = 'calibrated-vs-mean-factorCameraPxCm-plot'),
-      list(plot = distance_plots$calibrated_over_mean_vs_spot, fname = 'calibrated-over-mean-factorCameraPxCm-vs-spot-diameter-plot')
+      list(plot = sizeCheckPlot()$density_vs_length$plot, height = sizeCheckPlot()$density_vs_length$height, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
+      list(plot = sizeCheckPlot()$density_ratio_vs_sd$plot, height = sizeCheckPlot()$density_ratio_vs_sd$height, fname = 'ratio-vs-sdLogDensity-plot'),
+      list(plot = distance_plots$credit_card_vs_requested$plot, height = distance_plots$credit_card_vs_requested$height, fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_plots$credit_card_fraction$plot, height = distance_plots$credit_card_fraction$height, fname = 'calibrateTrackDistanceMeasuredCm-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      #list(plot = distance_production_plots$production_vs_requested$plot, height = distance_production_plots$production_vs_requested$height, fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      #list(plot = distance_production_plots$production_fraction$plot, height = distance_production_plots$production_fraction$height, fname = 'calibrateTrackDistanceProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_production_plots$raw_production_vs_requested$plot, height = distance_production_plots$raw_production_vs_requested$height, fname = 'calibrateTrackDistanceIndividualProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_production_plots$individual_production_fraction$plot, height = distance_production_plots$individual_production_fraction$height, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_production_plots$error_vs_object_size$plot, height = distance_production_plots$error_vs_object_size$height, fname = 'error-vs-object-size-plot'),
+      list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'error-vs-blindspot-diameter-plot'),
+      list(plot = distance_plots$ipd_vs_requested$plot, height = distance_plots$ipd_vs_requested$height, fname = 'calibrateTrackDistanceIpdCameraPx-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_plots$eye_feet_position$plot, height = distance_plots$eye_feet_position$height, fname = 'eye-feet-position-vs-distance-error-plot'),
+      list(plot = distance_plots$foot_position_calibration$plot, height = distance_plots$foot_position_calibration$height, fname = 'foot-position-during-calibration-plot'),
+      list(plot = distance_plots$calibrated_vs_mean$plot, height = distance_plots$calibrated_vs_mean$height, fname = 'calibrated-vs-mean-factorCameraPxCm-plot'),
+      list(plot = distance_plots$calibrated_over_mean_vs_spot$plot, height = distance_plots$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorCameraPxCm-vs-spot-diameter-plot')
     )
 
+    heights <- list()
     for (call in plot_calls) {
       plot <- call$plot
       if (!is.null(plot)) {
         plot <- plot + scale_color_manual(values = colorPalette)
         plot <- add_experiment_title(plot, experiment_names())
       }
-      res <- append_plot_list(l, fileNames, plot, call$fname)
+      res <- append_plot_list(l, fileNames, plot, call$fname, height = call$height, heights = heights)
       l <- res$plotList
       fileNames <- res$fileNames
+      heights <- res$heights
     }
 
     return(list(
       plotList = l,
-      fileNames = fileNames
+      fileNames = fileNames,
+      heights = heights
     ))
   })
 
@@ -1936,8 +1943,9 @@ shinyServer(function(input, output, session) {
 
   output$dotPlots <- renderUI({
     out    <- list()
-    plots  <- dotPlots()$plotList
-    files  <- dotPlots()$fileNames
+    plots   <- dotPlots()$plotList
+    files   <- dotPlots()$fileNames
+    heights <- dotPlots()$heights
     n      <- length(plots)
     
     if (n == 0) {
@@ -1999,8 +2007,8 @@ shinyServer(function(input, output, session) {
               file = outfile,
               plot =  plots[[jj]],
               device = svglite,
-              width = 6,    # Larger width for better legend visibility
-              height = 4,   # Larger height for better legend visibility
+              width = 6,
+              height = if (!is.null(heights) && length(heights) >= jj && !is.null(heights[[jj]])) heights[[jj]] else 4,
               unit = 'in'
             )
             list(src = outfile, contenttype = 'svg')
@@ -3018,7 +3026,7 @@ shinyServer(function(input, output, session) {
                 plt_theme_scatter +
                 scale_color_manual(values = colorPalette),
               width = 7,
-              height = 7,
+              height = scatterDistance()$heights[[ii]],
               unit = 'in',
               limitsize = F,
               device = svglite
@@ -3049,7 +3057,7 @@ shinyServer(function(input, output, session) {
                     plt_theme_scatter +
                     scale_color_manual(values = colorPalette),
                   width = 12,
-                  height = 8,
+                  height = scatterDistance()$heights[[ii]] * 1.5,  # Scale up for download
                   unit = "in",
                   limitsize = F,
                   device = svglite
@@ -3064,7 +3072,7 @@ shinyServer(function(input, output, session) {
                     plt_theme_scatter +
                     scale_color_manual(values = colorPalette),
                   width = 12,
-                  height = 8,
+                  height = scatterDistance()$heights[[ii]] * 1.5,  # Scale up for download
                   unit = "in",
                   limitsize = F,
                   device = ifelse(

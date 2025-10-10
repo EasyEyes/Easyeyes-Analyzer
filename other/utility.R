@@ -126,12 +126,15 @@ safely_execute <- function(expression, error_message = "Error occurred", return_
   return(result)
 }
 
-append_plot_list <- function(plotList, fileNames, plot, fname) {
+append_plot_list <- function(plotList, fileNames, plot, fname, height = NULL, heights = list()) {
+  # Default height in inches
+  default_height <- 4
   if (!is.null(plot)) {
     plotList[[length(plotList) + 1]] <- plot
     fileNames[[length(fileNames) + 1]] <- fname
+    heights[[length(heights) + 1]] <- ifelse(is.null(height), default_height, height)
   }
-  return(list(plotList = plotList, fileNames = fileNames))
+  return(list(plotList = plotList, fileNames = fileNames, heights = heights))
 }
 
 # Helper function to get a short experiment name for filenames
