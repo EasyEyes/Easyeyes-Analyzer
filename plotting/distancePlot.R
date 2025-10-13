@@ -9,6 +9,16 @@ add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
   return(values * 10^log_factor)
 }
 
+# Helper to auto-compute plot height based on base height and legend complexity
+compute_auto_height <- function(base_height, n_items, per_row, row_increase) {
+  if (is.na(n_items) || length(n_items) == 0 || n_items <= 0) {
+    return(base_height)
+  }
+  legend_rows <- ceiling(n_items / per_row)
+  height_factor <- 1 + (legend_rows - 1) * row_increase
+  return(base_height * height_factor)
+}
+
 get_cameraResolutionXY <- function(data_list) {
   df <- tibble()
   if (is.null(data_list) || length(data_list) == 0) return(df)
@@ -769,13 +779,10 @@ plot_eye_feet_position <- function(data_list) {
       # Shape scale for participants (unlimited participants with cycling shapes)
       scale_shape_manual(
         values = {
-          # Create a large pool of distinct shapes (both fillable and non-fillable)
-          all_shapes <- c(21, 22, 23, 24, 25,    # fillable: circle, square, diamond, triangle up, triangle down
-                         16, 17, 15, 18, 4, 8,    # solid: circle, triangle, square, diamond, plus, asterisk
-                         0, 1, 2, 3, 5, 6, 7, 9, 10, 11, 12, 13, 14)  # additional shapes
-
+          # Use only fillable shapes so fill color encodes error consistently
+          all_shapes <- c(21, 22, 23, 24, 25)
           n_participants <- nlevels(eye_feet_data$session_limited)
-          # Cycle through shapes if we have more participants than shapes
+          # Cycle through the 5 fillable shapes across all participants
           rep(all_shapes, length.out = n_participants)
         },
         name = "",
@@ -838,10 +845,8 @@ plot_eye_feet_position <- function(data_list) {
 
   # Calculate height based on legend complexity (in inches)
   n_sessions <- n_distinct(eye_feet_data$session_id)
-  base_height <-  6
-  legend_height_factor <- max(1, ceiling(n_sessions / 9))  # 9 sessions per row roughly for complex legend
-  height_factor <- 1 + (legend_height_factor - 1) * 0.4  # 40% increase per additional row for complex legend
-  plot_height <- base_height * height_factor
+  base_height <- 4
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_sessions, per_row = 3, row_increase = 0.4)
 
   # Return the plot or NULL if creation failed
   if(!is.null(p)) {
@@ -1360,6 +1365,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
             scale_y_log10(limits = c(min_val_factor, max_val_factor), 
                           breaks = scales::log_breaks(n = 8)) +
             annotation_logticks() +
+            coord_fixed() +  # Ensure equal axis lengths
             scale_color_manual(values = colorPalette) +
             ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
             guides(color = guide_legend(
@@ -1477,28 +1483,20 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   
   # Calculate heights based on legend complexity
   n_participants <- n_distinct(distance_individual$participant)
-
-  # Base height calculation: more participants = more legend space (in inches)
   base_height <- 4
-  legend_height_factor <- max(1, ceiling(n_participants / 6))  # 6 participants per row roughly
-  height_factor <- 1 + (legend_height_factor - 1) * 0.3  # 30% increase per additional row
-  plot_height <- base_height * height_factor
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.3)
 
   # Eye feet position plot has complex legend too
-  eye_feet_height <- if (!is.null(p4_result)) {
-    p4_result$height  # Use the height calculated by plot_eye_feet_position
-  } else {
-    4
-  }
+  eye_feet_height <- if (!is.null(p4_result)) p4_result$height else 4
 
   return(list(
     credit_card_vs_requested = list(plot = p1, height = plot_height),
     credit_card_fraction = list(plot = p2, height = plot_height),
-    ipd_vs_requested = list(plot = p3, height = if (!is.null(p3)) 4 else NULL),
+    ipd_vs_requested = list(plot = p3, height = if (!is.null(p3)) compute_auto_height(base_height = 4, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.3) else NULL),
     eye_feet_position = list(plot = p4, height = eye_feet_height),
     foot_position_calibration = list(plot = p4b, height = plot_height),
-    calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) 4 else NULL),
-    calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) 4 else NULL)
+    calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 5, n_items = n_distinct(factor_data$participant), per_row = 3, row_increase = 0.3) else NULL),
+    calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 4, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.3) else NULL)
   ))
 }
 
@@ -1611,7 +1609,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
                           label = paste0('N=', n_distinct(sdLogDensity_data$participant))) + 
       guides(color = guide_legend(
-        ncol = 4,  
+        ncol = 3,  
         title = "",
         override.aes = list(size = 2),  # Increase legend dot size
         keywidth = unit(0.3, "cm"),     # Add some width for the dots
@@ -1699,7 +1697,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
                           label = paste0('N=', n_distinct(ruler_dotplot$participant))) + 
       guides(color = guide_legend(
-        ncol = 4,  
+        ncol = 3,  
         title = "",
         override.aes = list(size = 2),
         keywidth = unit(0.3, "cm"),
@@ -1847,12 +1845,11 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
 
   # Base height calculation: more participants = more legend space (in inches)
   base_height <- 4
-  legend_height_factor <- max(1, ceiling(max(n_participants, n_participants_hist, n_participants_ruler) / 6))  # 6 participants per row roughly
-  height_factor <- 1 + (legend_height_factor - 1) * 0.3  # 30% increase per additional row
-  plot_height <- base_height * height_factor
+  plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants, n_participants_hist, n_participants_ruler), per_row = 3, row_increase = 0.3)
 
-  # Histograms have top legends which need extra space
-  hist_height <- base_height * 1.2  # 20% extra for top legends
+  # Histograms have top legends; reduce overall height to half
+  hist_base <- base_height * 0.6
+  hist_height <- compute_auto_height(base_height = hist_base, n_items = max(n_participants_hist, n_participants_ruler), per_row = 3, row_increase = 0.25)
 
   return(list(
     density_vs_length = list(plot = p1, height = plot_height),
@@ -2276,17 +2273,15 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
 
   # Base height calculation: more participants = more legend space (in inches)
   base_height <- 4
-  legend_height_factor <- max(1, ceiling(n_participants / 6))  # 6 participants per row roughly
-  height_factor <- 1 + (legend_height_factor - 1) * 0.3  # 30% increase per additional row
-  plot_height <- base_height * height_factor
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.3)
 
   return(list(
     production_vs_requested = list(plot = p1, height = plot_height),
     production_fraction = list(plot = p2, height = plot_height),
     raw_production_vs_requested = list(plot = p3, height = plot_height),
     individual_production_fraction = list(plot = p4, height = plot_height),
-    error_vs_object_size = list(plot = p5, height = if (!is.null(p5)) 4 else NULL),
-    error_vs_blindspot_diameter = list(plot = p6, height = if (!is.null(p6)) 4 else NULL)
+    error_vs_object_size = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 4, n_items = n_distinct(error_vs_object_data$participant), per_row = 3, row_increase = 0.3) else NULL),
+    error_vs_blindspot_diameter = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 4, n_items = n_distinct(error_vs_blindspot_data$participant), per_row = 3, row_increase = 0.3) else NULL)
   ))
 }
 
@@ -2335,7 +2330,7 @@ objectCm_hist <- function(participant_info) {
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
                         label = paste0('N=', n_distinct(object_dotplot$PavloviaParticipantID))) + 
     guides(color = guide_legend(
-      ncol = 4,  
+      ncol = 3,  
       title = "",
       override.aes = list(size = 2),
       keywidth = unit(0.3, "cm"),
@@ -2377,9 +2372,7 @@ objectCm_hist <- function(participant_info) {
   # Calculate height based on legend complexity
   n_participants <- n_distinct(object_dotplot$PavloviaParticipantID)
   base_height <- 400
-  legend_height_factor <- max(1, ceiling(n_participants / 4))  # 4 participants per row for top legend
-  height_factor <- 1 + (legend_height_factor - 1) * 0.25  # 25% increase per additional row
-  plot_height <- round(base_height * height_factor)
+  plot_height <- round(compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 4, row_increase = 0.25))
 
   return(list(plot = p, height = plot_height))
 }
@@ -2426,7 +2419,7 @@ bs_vd_hist <- function(data_list) {
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                         label = paste0('N=', n_participants_mean)) +
     guides(color = guide_legend(
-      ncol = 4,
+      ncol = 3,
       title = "",
       override.aes = list(size = 2),
       keywidth = unit(0.3, "cm"),
@@ -2502,7 +2495,7 @@ bs_vd_hist <- function(data_list) {
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                         label = paste0('N=', n_participants_sd)) +
     guides(color = guide_legend(
-      ncol = 4,
+      ncol = 3,
       title = "",
       override.aes = list(size = 2),
       keywidth = unit(0.3, "cm"),
@@ -2546,9 +2539,7 @@ bs_vd_hist <- function(data_list) {
   n_participants_sd <- if (nrow(sd_dotplot) > 0) n_distinct(sd_dotplot$participant) else 0
 
   base_height <- 4 * (2/3)  # Reduce to 2/3 of original height
-  legend_height_factor <- max(1, ceiling(max(n_participants_mean, n_participants_sd) / 4))  # 4 participants per row for top legend
-  height_factor <- 1 + (legend_height_factor - 1) * 0.25  # 25% increase per additional row
-  plot_height <- base_height * height_factor
+  plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants_mean, n_participants_sd), per_row = 4, row_increase = 0.25)
 
   return(list(
     mean_plot = list(plot = p1, height = plot_height),
