@@ -103,6 +103,24 @@ get_merged_participant_distance_info <- function(data_list, participant_info) {
         .default = 5     # Any other status
       )
     ) %>%
+    mutate(
+      # Parse camera height px from cameraResolutionXY string; take the first numeric entry
+      cameraResolution_clean = gsub("\\[|\\]|\"|'", "", cameraResolutionXY),
+      cameraResolution_split = strsplit(cameraResolution_clean, "[,xX ]+"),
+      cameraHeightPx = suppressWarnings(as.numeric(sapply(cameraResolution_split, function(v) if (length(v) >= 1) trimws(v[1]) else NA_character_))),
+      ratio_tmp = ifelse(
+        !is.na(factorCameraPxCm) & !is.na(cameraHeightPx) & cameraHeightPx != 0,
+        factorCameraPxCm / cameraHeightPx,
+        NA_real_
+      ),
+      ratio_round = round(ratio_tmp, 1),
+      `factorCameraPxCm / cameraHeightPx` = ifelse(
+        is.na(ratio_round),
+        NA_character_,
+        format(ratio_round, nsmall = 1)
+      )
+    ) %>%
+    select(-cameraResolution_clean, -cameraResolution_split, -ratio_tmp, -ratio_round) %>%
     arrange(ok_priority, pavloviaParticipantID) %>%
     select(-ok_priority) 
   
