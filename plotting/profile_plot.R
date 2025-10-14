@@ -38,58 +38,79 @@ preprocessProfiles <- function(transducerType, t) {
   }
   return(dt)
 }
-plot_profiles_avg <- function(dt) {
-  dt <- dt %>% filter(is.finite(gain), freq >= 20, freq <= 20000)
 
-  if (n_distinct(dt$label) == 1) {
-    maxY <- ceiling(max(dt$gain) /10) * 10
-    minY <- floor(min(dt$gain) /10) * 10
-    p <- ggplot() + geom_line(data = dt, aes(x = freq, y = gain), color = 'black') +
+plot_profiles_avg <- function(dt) {
+  dt <- dt %>%
+    filter(is.finite(gain), freq >= 20, freq <= 20000)
+  if (nrow(dt) == 0) {
+    return(list(height = NA, plot = ggplot() + theme_bw(), tb = tibble()))
+  }
+
+  freq_grid <- sort(unique(c(seq(20, 200, 1), seq(200, 2000, 10), seq(2000, 20000, 100))))
+
+  labels <- unique(dt$label)
+  interp_list <- lapply(labels, function(lbl) {
+    d <- dt %>%
+      filter(label == lbl, is.finite(freq), is.finite(gain)) %>%
+      arrange(freq)
+    if (nrow(d) < 2) return(NULL)
+    d <- d %>%
+      group_by(freq) %>%
+      summarize(gain = mean(gain, na.rm = TRUE), .groups = "drop") %>%
+      arrange(freq)
+    if (nrow(d) < 2) return(NULL)
+    y <- approx(x = d$freq, y = d$gain, xout = freq_grid, rule = 2)$y
+    tibble(freq = freq_grid, gain = y, label = lbl)
+  })
+
+  interp_list <- interp_list[!sapply(interp_list, is.null)]
+  if (length(interp_list) == 0) {
+    return(list(height = NA, plot = ggplot() + theme_bw(), tb = tibble()))
+  }
+  interp <- do.call(rbind, interp_list)
+
+  n_profiles <- n_distinct(interp$label)
+  agg <- interp %>%
+    group_by(freq) %>%
+    summarize(avg = mean(gain, na.rm = TRUE), std = sd(gain, na.rm = TRUE), .groups = "drop") %>%
+    mutate(upper = avg + std, lower = avg - std)
+
+  if (n_profiles == 1) {
+    maxY <- ceiling(max(agg$avg, na.rm = TRUE) / 10) * 10
+    minY <- floor(min(agg$avg, na.rm = TRUE) / 10) * 10
+    p <- ggplot() +
+      geom_line(data = agg, aes(x = freq, y = avg), color = 'black') +
       guides(color = FALSE)
-    dt <- dt %>% mutate(std = NA)
   } else {
-    dt <- dt %>% group_by(freq) %>% summarize(avg = mean(gain), std = sd(gain)) %>% 
-      mutate(upper = avg + std, lower = avg - std)
-    maxY <- ceiling(max(dt$upper) /10) * 10
-    minY <- floor(min(dt$lower) /10) * 10
-    p <- ggplot() + 
-      geom_line(data = dt, aes(x = freq, y = avg), color = 'black') +
-      geom_ribbon(data = dt, aes(x = freq, ymin = lower, ymax = upper, fill = 'pink'), alpha = 0.4) +
+    maxY <- ceiling(max(agg$upper, na.rm = TRUE) / 10) * 10
+    minY <- floor(min(agg$lower, na.rm = TRUE) / 10) * 10
+    p <- ggplot() +
+      geom_line(data = agg, aes(x = freq, y = avg), color = 'black') +
+      geom_ribbon(data = agg, aes(x = freq, ymin = lower, ymax = upper), fill = 'pink', alpha = 0.4) +
       guides(fill = FALSE, color = FALSE)
   }
-  p <- p +       
-    scale_x_log10(limits = c(20, 20000), 
+
+  p <- p +
+    scale_x_log10(limits = c(20, 20000),
                   breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
                   minor_breaks = breakPoints,
                   expand = c(0, 0)) +
-    scale_y_continuous(limits = c(minY ,maxY), breaks = seq(minY,maxY,10), expand = c(0,0)) +
+    scale_y_continuous(limits = c(minY, maxY), breaks = seq(minY, maxY, 10), expand = c(0, 0)) +
     theme_bw() +
-    theme(plot.margin = margin(
-      t = .3,
-      r = .4,
-      b = 0,
-      l = 0,
-      "inch"
-    )) + 
+    theme(plot.margin = margin(t = .3, r = .4, b = 0, l = 0, "inch")) +
     sound_theme_display +
-    labs(x = 'Frequency (Hz)',
-         y = 'Gain (dB)',
-         subtitle = 'Average of profiles')
-  height = ceiling((maxY - minY) / 15) + 0.3
-  tb <- dt %>%
-    filter(freq %in% c(50, 100, 300, 1000, 3000,6000)) %>%
-    mutate(`Freq (Hz)` = format(freq, nsmall=0),
-            `mean (dB)`= format(round(avg,1),nsmall=1),
-           `SD (dB)` = format(round(std,1),nsmall=1)) %>% 
-    select(`Freq (Hz)`,`mean (dB)`,`SD (dB)`)
-  return (
-    list(
-      height = height,
-      plot = p,
-      tb = tb
-    )
-  )
-    
+    labs(x = 'Frequency (Hz)', y = 'Gain (dB)', subtitle = 'Average of profiles')
+
+  height <- ceiling((maxY - minY) / 15) + 0.3
+
+  tb <- agg %>%
+    filter(freq %in% c(50, 100, 300, 1000, 3000, 6000)) %>%
+    mutate(`Freq (Hz)` = format(freq, nsmall = 0),
+           `mean (dB)` = format(round(avg, 1), nsmall = 1),
+           `SD (dB)` = format(round(std, 1), nsmall = 1)) %>%
+    select(`Freq (Hz)`, `mean (dB)`, `SD (dB)`)
+
+  return(list(height = height, plot = p, tb = tb))
 }
 
 plot_profiles <- function(dt, plotTitle) {
@@ -110,9 +131,9 @@ plot_profiles <- function(dt, plotTitle) {
   colors <- color_options[0 : n_distinct(dt$label) %% length(color_options) + 1]
   linetypes <- linetype_options[(0 : n_distinct(dt$label) %/% length(color_options)) %% length(linetype_options) + 1]
   if ("isDefault" %in% names(dt)) {
-    udt <- dt %>% distinct(label, isDefault) %>% mutate(linewidths = ifelse(isDefault, 1.4,0.6)) %>% arrange(label)
+    dt <- dt %>% mutate(linewidths = ifelse(isDefault, 1.2, 0.6))
     p <- ggplot() +
-      geom_line(data = dt, aes(x = freq, y = gain, color = label, linetype = label,linewidth = label)) +     
+      geom_line(data = dt, aes(x = freq, y = gain, color = label, linetype = label, linewidth = linewidths)) +     
       scale_y_continuous(limits = c(minY ,maxY), breaks = seq(minY,maxY,10), expand = c(0,0)) + 
       scale_x_log10(limits = c(20, 20000), 
                     breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
@@ -120,7 +141,7 @@ plot_profiles <- function(dt, plotTitle) {
                     expand = c(0, 0)) +
       scale_color_manual(values = colors) + 
       scale_linetype_manual(values = linetypes) +
-      scale_linewidth_manual(values = udt$linewidths) + 
+      scale_linewidth_identity(guide = "none") + 
       geom_text_npc(aes(npcx="left", npcy="top", label = paste(t$sd, " dB SD at 1000 Hz"))) + 
       theme_bw() +
       theme(legend.position="top",
@@ -200,10 +221,10 @@ plot_shifted_profiles <- function(dt, plotTitle) {
   colors <- color_options[0 : n_distinct(dt$label) %% length(color_options) + 1]
   linetypes <- linetype_options[(0 : n_distinct(dt$label) %/% length(color_options)) %% length(linetype_options) + 1]
   if ("isDefault" %in% names(dt)) {
-    udt <- dt %>% distinct(label, isDefault) %>% mutate(linewidths = ifelse(isDefault, 1.4,0.6)) %>% arrange(label)
-    shifted_dt <- shifted_dt %>% left_join(udt, by = 'label')
+
+    shifted_dt <- shifted_dt %>%  mutate(linewidths = ifelse(isDefault, 1.2, 0.6))
     p <- ggplot() +
-      geom_line(data = shifted_dt, aes(x = freq, y = gain, color = label, linetype = label, linewidth = label)) +     
+      geom_line(data = shifted_dt, aes(x = freq, y = gain, color = label, linetype = label, linewidth = linewidths)) +     
       scale_y_continuous(limits = c(minY ,maxY), breaks = seq(minY,maxY,10), expand = c(0,0)) + 
       scale_x_log10(limits = c(20, 20000), 
                     breaks = c(20, 100, 200, 1000, 2000, 10000, 20000),
@@ -211,7 +232,8 @@ plot_shifted_profiles <- function(dt, plotTitle) {
                     expand = c(0, 0)) +
       scale_color_manual(values = colors) + 
       scale_linetype_manual(values = linetypes) +
-      scale_linewidth_manual(values = udt$linewidths) + 
+      scale_linewidth_identity(guide = "none") + 
+      # scale_linewidth_manual(values = udt$linewidths) + 
       geom_text_npc(aes(npcx="left", npcy="top", label = paste(t$sd, " dB SD at 1000 Hz"))) + 
       theme_bw() +
       theme(legend.position="top",
