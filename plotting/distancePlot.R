@@ -863,8 +863,8 @@ plot_eye_feet_position <- function(data_list) {
 
   # Calculate height based on legend complexity (in inches)
   n_sessions <- n_distinct(eye_feet_data$session_id)
-  base_height <- 4
-  plot_height <- compute_auto_height(base_height = base_height, n_items = n_sessions, per_row = 3, row_increase = 0.4)
+  base_height <- 6
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_sessions, per_row = 3, row_increase = 0.08)
 
   # Return the plot or NULL if creation failed
   if(!is.null(p)) {
@@ -1178,7 +1178,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels=as.integer) +
-      scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels=as.integer) + 
+      scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
@@ -1501,8 +1501,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   
   # Calculate heights based on legend complexity
   n_participants <- n_distinct(distance_individual$participant)
-  base_height <- 4
-  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.3)
+  base_height <- 6
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.06)
 
   # Eye feet position plot has complex legend too
   eye_feet_height <- if (!is.null(p4_result)) p4_result$height else 4
@@ -1510,11 +1510,11 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   return(list(
     credit_card_vs_requested = list(plot = p1, height = plot_height),
     credit_card_fraction = list(plot = p2, height = plot_height),
-    ipd_vs_requested = list(plot = p3, height = if (!is.null(p3)) compute_auto_height(base_height = 4, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.3) else NULL),
+    ipd_vs_requested = list(plot = p3, height = if (!is.null(p3)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     eye_feet_position = list(plot = p4, height = eye_feet_height),
     foot_position_calibration = list(plot = p4b, height = plot_height),
-    calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 5, n_items = n_distinct(factor_data$participant), per_row = 3, row_increase = 0.3) else NULL),
-    calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 4, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.3) else NULL)
+    calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 6, n_items = n_distinct(factor_data$participant), per_row = 3, row_increase = 0.06) else NULL),
+    calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 6, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06) else NULL)
   ))
 }
 
@@ -1862,12 +1862,12 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   n_participants_ruler <- if (nrow(ruler) > 0) n_distinct(ruler$participant) else 0
 
   # Base height calculation: more participants = more legend space (in inches)
-  base_height <- 4
-  plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants, n_participants_hist, n_participants_ruler), per_row = 3, row_increase = 0.3)
+  base_height <- 6
+  plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants, n_participants_hist, n_participants_ruler), per_row = 3, row_increase = 0.06)
 
   # Histograms have top legends; reduce overall height to half
   hist_base <- base_height * 0.6
-  hist_height <- compute_auto_height(base_height = hist_base, n_items = max(n_participants_hist, n_participants_ruler), per_row = 3, row_increase = 0.25)
+  hist_height <- compute_auto_height(base_height = hist_base, n_items = max(n_participants_hist, n_participants_ruler), per_row = 3, row_increase = 0.05)
 
   return(list(
     density_vs_length = list(plot = p1, height = plot_height),
@@ -2103,7 +2103,7 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
       scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                             labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8), labels=as.integer) +
-      scale_y_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8), labels=as.integer) +
+      scale_y_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) +
       annotation_logticks() + 
       scale_color_manual(values= colorPalette) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -2290,16 +2290,16 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
   n_participants <- if (nrow(distance_avg) > 0) n_distinct(distance_avg$participant) else 0
 
   # Base height calculation: more participants = more legend space (in inches)
-  base_height <- 4
-  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.3)
+  base_height <- 6
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.06)
 
   return(list(
     production_vs_requested = list(plot = p1, height = plot_height),
     production_fraction = list(plot = p2, height = plot_height),
     raw_production_vs_requested = list(plot = p3, height = plot_height),
     individual_production_fraction = list(plot = p4, height = plot_height),
-    error_vs_object_size = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 4, n_items = n_distinct(error_vs_object_data$participant), per_row = 3, row_increase = 0.3) else NULL),
-    error_vs_blindspot_diameter = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 4, n_items = n_distinct(error_vs_blindspot_data$participant), per_row = 3, row_increase = 0.3) else NULL)
+    error_vs_object_size = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 6, n_items = n_distinct(error_vs_object_data$participant), per_row = 3, row_increase = 0.06) else NULL),
+    error_vs_blindspot_diameter = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 6, n_items = n_distinct(error_vs_blindspot_data$participant), per_row = 3, row_increase = 0.06) else NULL)
   ))
 }
 
