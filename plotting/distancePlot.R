@@ -1547,7 +1547,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   sizeCheck_avg <- sizeCheck %>%
     group_by(participant, SizeCheckRequestedCm) %>%
     summarize(
-      avg_estimated = 10^mean(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
+      avg_estimated = 10^median(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
       .groups = "drop"
     ) %>%
     mutate(
@@ -1563,7 +1563,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   sdLogDensity_data <- sizeCheck %>%
     group_by(participant, pxPerCm) %>%
     summarize(
-      avg_estimated=10^mean(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
+      avg_estimated=10^median(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
       sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
       .groups = "drop"
     ) %>%
@@ -1893,7 +1893,7 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
     densityRatio_data <- sizeCheck %>%
       group_by(participant, pxPerCm) %>%
       summarize(
-        avg_estimated = 10^mean(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
+        avg_estimated = 10^median(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
         sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
         .groups = "drop"
       ) %>%
