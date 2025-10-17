@@ -1461,7 +1461,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
           y_min <- min(plot_data$ratio, na.rm = TRUE) * 0.9
           y_max <- max(plot_data$ratio, na.rm = TRUE) * 1.1
           
-          p6 <- ggplot(plot_data, aes(x = spotDeg, y = ratio)) +
+          plot_data <- plot_data %>%
+            mutate(spotDeg_jitter = add_log_jitter(spotDeg, jitter_percent = 0.5, seed = 42))
+
+          p6 <- ggplot(plot_data, aes(x = spotDeg_jitter, y = ratio)) +
             geom_point(aes(color = participant), size = 3, alpha = 0.8) +
             geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.8) +
             ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
@@ -2260,7 +2263,10 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
       y_min <- max(0.1, min(error_vs_blindspot_data$production_fraction) * 0.8)
       y_max <- min(2.0, max(error_vs_blindspot_data$production_fraction) * 1.2)
 
-      p6 <- ggplot(error_vs_blindspot_data, aes(x = spotDeg, y = production_fraction)) +
+      error_vs_blindspot_data <- error_vs_blindspot_data %>%
+        mutate(spotDeg_jitter = add_log_jitter(spotDeg, jitter_percent = 0.5, seed = 42))
+
+      p6 <- ggplot(error_vs_blindspot_data, aes(x = spotDeg_jitter, y = production_fraction)) +
         geom_point(aes(color = participant), size = 3, alpha = 0.8) +
         geom_hline(yintercept = 1, linetype = "dashed", color = "red", alpha = 0.7) +
         ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
