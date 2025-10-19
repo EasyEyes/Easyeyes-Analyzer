@@ -632,12 +632,12 @@ generate_threshold <-
       distinct()
     
     # Join all data together
-    participant_info <- participant_info %>%
+    participant_info <- sessions_columns %>%
+      rename(participant = PavloviaParticipantID) %>%
       left_join(comments_data, by = "participant") %>%
       left_join(objects_data, by = "participant") %>%
+      full_join(participant_info, by = "participant") %>%
       rename(PavloviaParticipantID = participant) %>%
-      # Join with sessions data to add the 6 columns
-      left_join(sessions_columns, by = "PavloviaParticipantID") %>%
       mutate(
         objectLengthCm =format(round(distanceObjectCm), nsmall=0),
         rulerCm = case_when(

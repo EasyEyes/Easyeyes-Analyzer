@@ -759,12 +759,13 @@ shinyServer(function(input, output, session) {
     fileNames <- list()
     
     # SD histogram and distance-related dot plots go here with larger sizing
+    bs_vd <- bs_vd_hist(distanceCalibration())
     static_calls <- list(
       list(plot = sizeCheckPlot()$sd_hist$plot, height = sizeCheckPlot()$sd_hist$height, fname = 'sd-log-density-histogram'),
       list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'ruler-length-cm-dotplot'),
       list(plot = objectCm_hist(df_list()$participant_info)$plot, height = objectCm_hist(df_list()$participant_info)$height, fname = 'object-length-cm-dotplot'),
-      list(plot = bs_vd_hist(files()$data_list)$mean_plot$plot, height = bs_vd_hist(files()$data_list)$mean_plot$height, fname = 'blindspot-viewing-distance-mean-dotplot'),
-      list(plot = bs_vd_hist(files()$data_list)$sd_plot$plot, height = bs_vd_hist(files()$data_list)$sd_plot$height, fname = 'blindspot-viewing-distance-sd-dotplot')
+      list(plot = bs_vd$mean_plot$plot, height = bs_vd$mean_plot$height, fname = 'blindspot-viewing-distance-mean-dotplot'),
+      list(plot = bs_vd$sd_plot$plot, height = bs_vd$sd_plot$height, fname = 'blindspot-viewing-distance-sd-dotplot')
     )
     
     heights <- list()
@@ -809,8 +810,6 @@ shinyServer(function(input, output, session) {
       list(plot = sizeCheckPlot()$density_ratio_vs_sd$plot, height = sizeCheckPlot()$density_ratio_vs_sd$height, fname = 'ratio-vs-sdLogDensity-plot'),
       list(plot = distance_plots$credit_card_vs_requested$plot, height = distance_plots$credit_card_vs_requested$height, fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_plots$credit_card_fraction$plot, height = distance_plots$credit_card_fraction$height, fname = 'calibrateTrackDistanceMeasuredCm-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      #list(plot = distance_production_plots$production_vs_requested$plot, height = distance_production_plots$production_vs_requested$height, fname = 'calibrateTrackDistanceProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      #list(plot = distance_production_plots$production_fraction$plot, height = distance_production_plots$production_fraction$height, fname = 'calibrateTrackDistanceProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$raw_production_vs_requested$plot, height = distance_production_plots$raw_production_vs_requested$height, fname = 'calibrateTrackDistanceIndividualProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$individual_production_fraction$plot, height = distance_production_plots$individual_production_fraction$height, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$error_vs_object_size$plot, height = distance_production_plots$error_vs_object_size$height, fname = 'error-vs-object-size-plot'),
@@ -869,8 +868,6 @@ shinyServer(function(input, output, session) {
       list(plot = foveal_peripheral_diag()$grade, fname = 'foveal-crowding-vs-peripheral-crowding-grade-diagram'),
       list(plot = peripheral_plots$grade, fname = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'),
       list(plot = peripheral_plots$font, fname = 'peripheral-acuity-vs-peripheral-crowding-font-diagram'),
-      # list(plot = crowding_vs_acuity_plots$grade, fname = 'crowding-vs-acuity-grade-diagram'),
-      # list(plot = crowding_vs_acuity_plots$font, fname = 'crowding-vs-acuity-font-diagram'),
       list(plot = crowdingPlot(), fname = 'peripheral_crowding_left_vs_right'),
       list(plot = regression_plots$foveal, fname = 'reading-rsvp-reading-vs-foveal-crowding'),
       list(plot = regression_plots$peripheral, fname = 'reading-rsvp-reading-vs-peripheral-crowding'),
@@ -879,7 +876,6 @@ shinyServer(function(input, output, session) {
       list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade'),
       list(plot = plot_badLatenessTrials_vs_memory(files()$data_list,conditionNames()), fname="badLatenessTrials-vs-deviceMemoryGB-by-participant"),
       list(plot = minDegPlots()$scatter, fname="foveal-crowding-vs-spacingMinDeg"),
-      # New beauty/comfort scatter plots
       list(plot = comfort_vs_crowding_scatter(df_list()), fname = 'comfort-vs-crowding-scatter'),
       list(plot = beauty_vs_crowding_scatter(df_list()), fname = 'beauty-vs-crowding-scatter'),
       list(plot = beauty_vs_comfort_scatter(df_list()), fname = 'beauty-vs-comfort-scatter')
@@ -1031,7 +1027,7 @@ shinyServer(function(input, output, session) {
     if (is.null(input$file) | is.null(files())) {
       return(tibble())
     }
-    get_merged_participant_distance_info(files()$data_list, df_list()$participant_info)
+    get_merged_participant_distance_info(distanceCalibration(), df_list()$participant_info)
   })
   
   output$isRsvp <- reactive({

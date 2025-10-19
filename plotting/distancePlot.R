@@ -48,7 +48,7 @@ get_cameraResolutionXY <- function(data_list) {
       select(participant, `_calibrateTrackDistance`,
              `_calibrateTrackDistancePupil`, factorCameraPxCm,
              cameraResolutionXY) %>%
-      rename(pavloviaParticipantID = participant) %>%
+      rename(PavloviaParticipantID = participant) %>%
       distinct() %>%
       filter(!is.na(cameraResolutionXY), cameraResolutionXY != "",
              !is.na(factorCameraPxCm))
@@ -74,7 +74,7 @@ get_merged_participant_distance_info <- function(data_list, participant_info) {
     if ("PavloviaParticipantID" %in% names(participant_info)) {
       return(participant_info)
     } else if ("participant" %in% names(participant_info)) {
-      return(participant_info %>% rename(pavloviaParticipantID = participant))
+      return(participant_info %>% rename(PavloviaParticipantID = participant))
     } else {
       return(participant_info)
     }
@@ -83,19 +83,9 @@ get_merged_participant_distance_info <- function(data_list, participant_info) {
   # Prepare participant_info for merging
   participant_info_clean <- participant_info
   
-  # Ensure consistent ID column naming
-  if ("PavloviaParticipantID" %in% names(participant_info_clean)) {
-    participant_info_clean <- participant_info_clean %>%
-      rename(pavloviaParticipantID = PavloviaParticipantID)
-  } else if ("participant" %in% names(participant_info_clean)) {
-    participant_info_clean <- participant_info_clean %>%
-      rename(pavloviaParticipantID = participant)
-  }
-  
-  
   # Perform full outer join to include all participants from both tables
   merged_data <- camera_data %>%
-    left_join(participant_info_clean, by = "pavloviaParticipantID")
+    left_join(participant_info_clean, by = "PavloviaParticipantID")
 
   # Ensure 'ok' column exists to avoid errors in case_when
   if (!"ok" %in% names(merged_data)) {
@@ -126,8 +116,8 @@ get_merged_participant_distance_info <- function(data_list, participant_info) {
       ratio_round = round(ratio_tmp, 1),
       `factorCameraPxCm/cameraHeightPx` = ifelse(is.na(ratio_round), NA_character_, format(ratio_round, nsmall = 1))
     ) %>%
-    select(-cameraResolution_clean, -cameraResolution_split, -ratio_tmp, -ratio_round. -cameraHeightPx) %>%
-    arrange(ok_priority, pavloviaParticipantID) %>%
+    select(-cameraResolution_clean, -cameraResolution_split, -ratio_tmp, -ratio_round, -cameraHeightPx) %>%
+    arrange(ok_priority, PavloviaParticipantID) %>%
     select(-ok_priority)
   
   
@@ -1203,8 +1193,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     if (nrow(ipd_data) > 0 && nrow(camera_data) > 0) {
       # Join with camera data to get factorCameraPxCm
       ipd_data <- ipd_data %>%
-        left_join(camera_data %>% select(pavloviaParticipantID, factorCameraPxCm),
-                  by = c("participant" = "pavloviaParticipantID"))
+        left_join(camera_data %>% select(PavloviaParticipantID, factorCameraPxCm),
+                  by = c("participant" = "PavloviaParticipantID"))
 
       # Create prediction data for each participant
       prediction_data <- ipd_data %>%
@@ -1292,8 +1282,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
       factor_data <- distance %>%
         filter(!is.na(calibrateTrackDistanceIpdCameraPx),
                !is.na(calibrateTrackDistanceMeasuredCm)) %>%
-        left_join(camera_data %>% select(pavloviaParticipantID, factorCameraPxCm),
-                  by = c("participant" = "pavloviaParticipantID")) %>%
+        left_join(camera_data %>% select(PavloviaParticipantID, factorCameraPxCm),
+                  by = c("participant" = "PavloviaParticipantID")) %>%
         filter(!is.na(factorCameraPxCm))
       
       if (nrow(factor_data) > 0) {
@@ -1352,7 +1342,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
             ) +
             labs(subtitle = 'Calibrated vs. mean factorCameraPxCm',
                  x = 'Geometric mean factorCameraPxCm (per session)',
-                 y = 'Factor Camera PxCm',
+                 y = 'FactorCameraPxCm',
                  caption = 'Dashed line shows y=x (perfect agreement)\nGeometric mean = 10^mean(log10(measuredEyeToCameraCm × ipdCameraPx))')
         }
       }
@@ -1372,8 +1362,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
       factor_data <- distance %>%
         filter(!is.na(calibrateTrackDistanceIpdCameraPx),
                !is.na(calibrateTrackDistanceMeasuredCm)) %>%
-        left_join(camera_data %>% select(pavloviaParticipantID, factorCameraPxCm),
-                  by = c("participant" = "pavloviaParticipantID")) %>%
+        left_join(camera_data %>% select(PavloviaParticipantID, factorCameraPxCm),
+                  by = c("participant" = "PavloviaParticipantID")) %>%
         filter(!is.na(factorCameraPxCm))
       
       if (nrow(factor_data) > 0) {
@@ -1442,7 +1432,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
             ) +
             labs(subtitle = 'Calibrated over mean factorCameraPxCm vs. spot diameter',
                  x = 'Spot diameter (deg)',
-                 y = 'Factor Camera PxCm over geometric mean',
+                 y = 'FactorCameraPxCm over geometric mean',
                  caption = 'Dashed line shows y=1 (perfect agreement with session mean)\nGeometric mean = 10^mean(log10(measuredEyeToCameraCm × ipdCameraPx))')
         }
       }
