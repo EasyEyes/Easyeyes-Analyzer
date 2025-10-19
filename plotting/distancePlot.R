@@ -63,6 +63,7 @@ get_merged_participant_distance_info <- function(data_list, participant_info) {
   # Get camera resolution data
   camera_data <- get_cameraResolutionXY(data_list)
   
+  
   # If no participant_info provided, return just camera data
   if (is.null(participant_info) || nrow(participant_info) == 0) {
     return(camera_data)
@@ -91,38 +92,44 @@ get_merged_participant_distance_info <- function(data_list, participant_info) {
       rename(pavloviaParticipantID = participant)
   }
   
+  
   # Perform full outer join to include all participants from both tables
   merged_data <- camera_data %>%
-    full_join(participant_info_clean, by = "pavloviaParticipantID") %>%
+    left_join(participant_info_clean, by = "pavloviaParticipantID")
+
+  # Ensure 'ok' column exists to avoid errors in case_when
+  if (!"ok" %in% names(merged_data)) {
+    merged_data <- merged_data %>% mutate(ok = NA_character_)
+  }
+
+  merged_data <- merged_data %>%
     mutate(
       ok_priority = case_when(
-        ok == "✅" ~ 1,  # ✅ (white_check_mark) first
-        ok == "🚧" ~ 2,  # 🚧 (construction) second  
-        ok == "❌" ~ 3,  # ❌ (x) last
-        is.na(ok) ~ 4,   # NA last
-        .default = 5     # Any other status
+        ok == "✅" ~ 1,
+        ok == "🚧" ~ 2,
+        ok == "❌" ~ 3,
+        is.na(ok) ~ 4,
+        .default = 5
       )
     ) %>%
     mutate(
       # Parse camera height px from cameraResolutionXY string; take the first numeric entry
-      cameraResolution_clean = gsub("\\[|\\]|\"|'", "", cameraResolutionXY),
-      cameraResolution_split = strsplit(cameraResolution_clean, "[,xX ]+"),
+      cameraResolution_clean = ifelse(is.na(cameraResolutionXY) | cameraResolutionXY == "", NA_character_, gsub("\\[|\\]|\"|'", "", cameraResolutionXY)),
+      cameraResolution_split = ifelse(is.na(cameraResolution_clean), NA, cameraResolution_clean),
+      cameraResolution_split = ifelse(is.na(cameraResolution_split), list(NA_character_), strsplit(cameraResolution_clean, "[,xX ]+")),
       cameraHeightPx = suppressWarnings(as.numeric(sapply(cameraResolution_split, function(v) if (length(v) >= 1) trimws(v[1]) else NA_character_))),
-      ratio_tmp = ifelse(
-        !is.na(factorCameraPxCm) & !is.na(cameraHeightPx) & cameraHeightPx != 0,
-        factorCameraPxCm / cameraHeightPx,
-        NA_real_
-      ),
+      # Coerce to numeric to avoid non-numeric errors during division
+      factorCameraPxCm = suppressWarnings(as.numeric(factorCameraPxCm)),
+      cameraHeightPx = suppressWarnings(as.numeric(cameraHeightPx)),
+      ratio_tmp = ifelse(!is.na(factorCameraPxCm) & !is.na(cameraHeightPx) & cameraHeightPx != 0,
+                         factorCameraPxCm / cameraHeightPx, NA_real_),
       ratio_round = round(ratio_tmp, 1),
-      `factorCameraPxCm / cameraHeightPx` = ifelse(
-        is.na(ratio_round),
-        NA_character_,
-        format(ratio_round, nsmall = 1)
-      )
+      `factorCameraPxCm/cameraHeightPx` = ifelse(is.na(ratio_round), NA_character_, format(ratio_round, nsmall = 1))
     ) %>%
-    select(-cameraResolution_clean, -cameraResolution_split, -ratio_tmp, -ratio_round) %>%
+    select(-cameraResolution_clean, -cameraResolution_split, -ratio_tmp, -ratio_round. -cameraHeightPx) %>%
     arrange(ok_priority, pavloviaParticipantID) %>%
-    select(-ok_priority) 
+    select(-ok_priority)
+  
   
   return(merged_data)
 }
@@ -309,12 +316,9 @@ get_measured_distance_data <- function(data_list) {
 }
 
 get_eye_feet_position_data <- function(data_list) {
-  print("=== get_eye_feet_position_data DEBUG ===")
-  print(paste("Input data_list length:", length(data_list)))
   
   df <- tibble()
   if(length(data_list) == 0) {
-    print("Data list is empty, returning empty tibble")
     return(df)
   }
   
@@ -323,14 +327,12 @@ get_eye_feet_position_data <- function(data_list) {
 
     # Check if we have the required columns
     if (!("calibrateTrackDistanceEyeFeetXYPx" %in% available_cols)) {
-      print(paste("calibrateTrackDistanceEyeFeetXYPx not found in item", i, "- skipping"))
       next
     }
     
     
     # First, try to parse calibrateTrackDistanceEyeFeetXYPx to see if we have valid coordinate data
     tryCatch({
-      print("=== PARSING EYE FEET DATA FIRST ===")
       
       # Get raw data first
       t_raw <- data_list[[i]] %>%
@@ -353,37 +355,23 @@ get_eye_feet_position_data <- function(data_list) {
           all(is.na(t_raw$calibrateTrackDistanceMeasuredCm)) ||
           all(is.na(t_raw$calibrateTrackDistanceRequestedCm)) ||
           all(is.na(t_raw$calibrateTrackDistanceEyeFeetXYPx))) {
-        print("No valid data found, skipping")
         return(tibble())
       }
       
-      print("=== RAW DATA SAMPLE ===")
-      print(paste("calibrateTrackDistanceMeasuredCm:", t_raw$calibrateTrackDistanceMeasuredCm[1]))
-      print(paste("calibrateTrackDistanceRequestedCm:", t_raw$calibrateTrackDistanceRequestedCm[1]))
-      print(paste("calibrateTrackDistanceEyeFeetXYPx:", t_raw$calibrateTrackDistanceEyeFeetXYPx[1]))
-      if ("pxPerCm" %in% names(t_raw)) {
-        print(paste("pxPerCm:", t_raw$pxPerCm[1]))
-      }
       
       # Parse the eye feet coordinates first
       eye_feet_raw <- t_raw$calibrateTrackDistanceEyeFeetXYPx[1]
-      print(paste("Raw eye feet string:", eye_feet_raw))
 
       # Manual parsing approach - extract all numbers
       coords_str <- gsub("\\[|\\]", "", eye_feet_raw)
-      print(paste("After removing brackets:", coords_str))
 
       coords_numbers <- as.numeric(unlist(strsplit(coords_str, ",")))
       coords_numbers <- coords_numbers[!is.na(coords_numbers)]
-      print(paste("Extracted", length(coords_numbers), "coordinate values"))
-      print(paste("First 8 coordinates:", paste(coords_numbers[1:min(8, length(coords_numbers))], collapse=", ")))
       
       # Check if we have the right number of coordinates (4 per measurement: left_x, left_y, right_x, right_y)
       n_coord_measurements <- length(coords_numbers) / 4
-      print(paste("Expected measurements from coordinates:", n_coord_measurements))
 
       if (length(coords_numbers) %% 4 != 0) {
-        print(paste("WARNING: Expected multiple of 4 coordinates, got", length(coords_numbers)))
         return(tibble())  # Return empty if parsing fails
       }
 
@@ -396,7 +384,6 @@ get_eye_feet_position_data <- function(data_list) {
                calibrateTrackDistanceRequestedCm != '',
                calibrateTrackDistanceEyeFeetXYPx != '')
       
-      print(paste("Rows after filtering:", nrow(t)))
       
       if (nrow(t) > 0) {
         # Process the measured and requested distances (these are JSON arrays)
@@ -416,9 +403,6 @@ get_eye_feet_position_data <- function(data_list) {
           ) %>%
           select(-measured_list, -requested_list)
         
-        print(paste("After expanding measurements:", nrow(t), "rows"))
-        print("Sample measurements:")
-        print(head(t[c("calibrateTrackDistanceMeasuredCm", "calibrateTrackDistanceRequestedCm", "measurement_index")], 5))
 
         # Create coordinate data frame
         coords_df <- tibble(
@@ -428,15 +412,11 @@ get_eye_feet_position_data <- function(data_list) {
         ) %>%
           pivot_wider(names_from = coord_type, values_from = coord_value)
         
-        print("Coordinate data frame created:")
-        print(head(coords_df))
         
         # Match measurements - if we have more coordinates than distance measurements, trim
         if (n_coord_measurements > nrow(t)) {
-          print(paste("Trimming coordinates to match", nrow(t), "distance measurements"))
           coords_df <- coords_df[1:nrow(t), ]
         } else if (n_coord_measurements < nrow(t)) {
-          print(paste("WARNING: Fewer coordinates than distance measurements"))
           # Pad with NAs or truncate distance data
           t <- t[1:n_coord_measurements, ]
         }
@@ -452,18 +432,13 @@ get_eye_feet_position_data <- function(data_list) {
             distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
           )
         
-        print("=== PROCESSED DATA SAMPLE ===")
-        print("Sample of processed data:")
         sample_data <- t %>% 
           select(measurement_index, left_x, left_y, right_x, right_y, 
                  avg_eye_x_px, avg_eye_y_px, distance_ratio) %>%
           head(3)
-        print(sample_data)
       }
       
     }, error = function(e) {
-      print(paste("ERROR parsing eye feet data:", e$message))
-      print("Returning empty data frame")
       return(tibble())
     })
 
@@ -476,7 +451,6 @@ get_eye_feet_position_data <- function(data_list) {
             avg_eye_x_cm = avg_eye_x_px / pxPerCm,
             avg_eye_y_cm = avg_eye_y_px / pxPerCm
           )
-        print(paste("Converted to cm using pxPerCm:", unique(t$pxPerCm)))
       } else {
         # If no pxPerCm, assume a typical value (e.g., 37.8 px/cm for 96 DPI)
         default_pxPerCm <- 37.8
@@ -486,15 +460,12 @@ get_eye_feet_position_data <- function(data_list) {
             avg_eye_x_cm = avg_eye_x_px / default_pxPerCm,
             avg_eye_y_cm = avg_eye_y_px / default_pxPerCm
           )
-        print(paste("Using default pxPerCm:", default_pxPerCm))
       }
       
-      print("=== FINAL SAMPLE DATA ===")
       final_sample <- t %>%
         select(measurement_index, avg_eye_x_px, avg_eye_y_px, avg_eye_x_cm, avg_eye_y_cm, 
                distance_ratio, calibrateTrackDistanceMeasuredCm, calibrateTrackDistanceRequestedCm) %>%
         head(3)
-      print(final_sample)
       
       # Add a data_list_index to help distinguish sessions
       t <- t %>%
@@ -512,16 +483,6 @@ get_eye_feet_position_data <- function(data_list) {
     )
   }
   
-  print(paste("=== FINAL RESULTS ==="))
-  print(paste("Total rows returned:", nrow(df)))
-  if (nrow(df) > 0) {
-    print("Summary statistics:")
-    print(paste("X range (px):", min(df$avg_eye_x_px, na.rm=T), "to", max(df$avg_eye_x_px, na.rm=T)))
-    print(paste("Y range (px):", min(df$avg_eye_y_px, na.rm=T), "to", max(df$avg_eye_y_px, na.rm=T)))
-    print(paste("X range (cm):", round(min(df$avg_eye_x_cm, na.rm=T), 2), "to", round(max(df$avg_eye_x_cm, na.rm=T), 2)))
-    print(paste("Y range (cm):", round(min(df$avg_eye_y_cm, na.rm=T), 2), "to", round(max(df$avg_eye_y_cm, na.rm=T), 2)))
-    print(paste("Ratio range:", round(min(df$distance_ratio, na.rm=T), 3), "to", round(max(df$distance_ratio, na.rm=T), 3)))
-  }
   
   return(df)
 }
@@ -666,14 +627,10 @@ get_foot_position_during_calibration_data <- function(data_list) {
 }
 
 plot_eye_feet_position <- function(data_list) {
-  print("=== plot_eye_feet_position DEBUG ===")
-  print(paste("Input data_list length:", length(data_list)))
   
   eye_feet_data <- get_eye_feet_position_data(data_list)
-  print(paste("Eye feet data rows after extraction:", nrow(eye_feet_data)))
 
   if (nrow(eye_feet_data) == 0) {
-    print("No eye feet data found, returning NULL")
     return(NULL)
   }
 
@@ -682,10 +639,8 @@ plot_eye_feet_position <- function(data_list) {
     filter(!is.na(avg_eye_x_px), !is.na(avg_eye_y_px),
            !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm), !is.na(distance_ratio))
   
-  print(paste("Eye feet data rows after filtering:", nrow(eye_feet_data)))
 
   if (nrow(eye_feet_data) == 0) {
-    print("No valid coordinates after filtering, returning NULL")
     return(NULL)
   }
   
@@ -694,7 +649,6 @@ plot_eye_feet_position <- function(data_list) {
   
   # Get actual screen dimensions from the data if available
   typical_pxPerCm <- median(eye_feet_data$pxPerCm, na.rm = TRUE)
-  print(paste("Typical pxPerCm:", typical_pxPerCm))
   
   # Try to get screen dimensions from screenWidthPx/screenHeightPx columns if available
   if ("screenWidthPx" %in% names(eye_feet_data) && "screenHeightPx" %in% names(eye_feet_data)) {
@@ -702,14 +656,14 @@ plot_eye_feet_position <- function(data_list) {
     screen_height_px <- median(as.numeric(eye_feet_data$screenHeightPx), na.rm = TRUE)
     screen_width_cm <- screen_width_px / typical_pxPerCm
     screen_height_cm <- screen_height_px / typical_pxPerCm
-    print(paste("Screen dimensions from data: W=", round(screen_width_cm, 2), "cm, H=", round(screen_height_cm, 2), "cm"))
+    
   } else {
     # Fallback: estimate from eye position data (may underestimate actual screen size)
     max_x_px <- max(eye_feet_data$avg_eye_x_px, na.rm = TRUE)
     max_y_px <- max(eye_feet_data$avg_eye_y_px, na.rm = TRUE)
     screen_width_cm <- max_x_px / typical_pxPerCm
     screen_height_cm <- max_y_px / typical_pxPerCm
-    print(paste("Screen dimensions estimated from data: W=", round(screen_width_cm, 2), "cm, H=", round(screen_height_cm, 2), "cm"))
+    
   }
 
   # Add 50% margin around screen as specified in Trello
@@ -726,8 +680,7 @@ plot_eye_feet_position <- function(data_list) {
   y_min_padded <- y_min - y_padding
   y_max_padded <- y_max + y_padding
   
-  print(paste("Plot limits: X=[", round(x_min, 2), ",", round(x_max, 2), "], Y=[", round(y_min, 2), ",", round(y_max, 2), "]"))
-  print(paste("Padded Y limits: Y=[", round(y_min_padded, 2), ",", round(y_max_padded, 2), "]"))
+  
   
   # Prepare data for plotting
   eye_feet_data <- eye_feet_data %>%
@@ -741,15 +694,9 @@ plot_eye_feet_position <- function(data_list) {
       session_id = as.character(participant)
     )
   
-  print("=== PLOTTING DATA PREPARATION ===")
-  print(paste("Data points for plotting:", nrow(eye_feet_data)))
-  print(paste("Unique participants:", length(unique(eye_feet_data$participant))))
-  print(paste("Ratio range (clipped):", round(min(eye_feet_data$ratio_continuous, na.rm=T), 3), "to", round(max(eye_feet_data$ratio_continuous, na.rm=T), 3)))
-  print("Sample of plotting data:")
   sample_plot_data <- eye_feet_data %>%
     select(participant, foot_x_cm_clipped, foot_y_cm_clipped, ratio_continuous, distance_ratio) %>%
     head(3)
-  print(sample_plot_data)
   
   # Handle unlimited number of participants with cycling shapes
   eye_feet_data <- eye_feet_data %>%
