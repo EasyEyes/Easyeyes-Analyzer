@@ -56,6 +56,7 @@ source('./plotting/distancePlot.R')
 source('./plotting/minDegPlot.R')
 source('./plotting/violin_plot.R')
 source('./plotting/font_comparision_plots.R')
+source('./plotting/auditory_crowding.R')
 
 source("./other/getBits.R")
 source("./other/sound_plots.R")
@@ -576,8 +577,10 @@ shinyServer(function(input, output, session) {
   # OPTIMIZATION: Compute expensive functions once, use results multiple times
   acuity_hists <- get_acuity_hist(df_list()$acuity)      # Single function call
   crowding_hists <- get_crowding_hist(df_list()$crowding) # Single function call
+  aud_plots <- plot_auditory_crowding(df_list()$quest_all_thresholds, df_list()$crowding)
 
   static_calls <- list(
+    list(plot = aud_plots$hist + hist_theme,                                   fname = 'auditory-crowding-melody-db-histogram'),
     list(plot = acuity_hists[[1]] + hist_theme,                                fname = 'foveal-acuity-histogram'),
     list(plot = acuity_hists[[2]] + hist_theme,                                fname = 'peripheral-acuity-histogram'),
     list(plot = crowding_hists$foveal+ hist_theme,                             fname = 'foveal-crowding-histogram'),
@@ -855,8 +858,10 @@ shinyServer(function(input, output, session) {
     #crowding_vs_acuity_plots <- crowding_vs_acuity_plot(df_list())
     regression_plots <- regression_reading_plot(df_list())
     test_retest_plots <- get_test_retest(df_list())
+  aud_plots <- plot_auditory_crowding(df_list()$quest_all_thresholds, df_list()$crowding)
     
     plot_calls <- list(
+      list(plot = aud_plots$scatter, fname = 'auditory-crowding-melody-db-vs-crowding-threshold'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
