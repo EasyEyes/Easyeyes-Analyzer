@@ -822,7 +822,6 @@ generate_threshold <-
              questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials)
     
     print('done generate_threshold')
-    print(quest_all_thresholds)
     return(list(reading = reading, 
                 crowding = crowding,
                 rsvp = rsvp_speed,

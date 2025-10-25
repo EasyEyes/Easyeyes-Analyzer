@@ -1558,7 +1558,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                alpha = 0.3) +
       # Stacked colored points (histogram style with discrete stacks)
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3) + 
       scale_color_manual(values= colorPalette) +
       scale_y_continuous(expand = expansion(mult = c(0, 0.1)), 
                          breaks = function(x) seq(0, ceiling(max(x)), by = 1)) + 
@@ -1641,7 +1641,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     h2 <- ggplot(ruler_dotplot, aes(x = lengthCm)) +
       # Stacked colored points (dot plot style)
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 2) + 
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3) + 
       scale_color_manual(values = colorPalette) +
       scale_y_continuous(limits = c(0, max_count + 1), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
       scale_x_log10(limits=c(minX, maxX),
@@ -2332,8 +2332,9 @@ objectCm_hist <- function(participant_info) {
 
   # Calculate height based on legend complexity
   n_participants <- n_distinct(object_dotplot$PavloviaParticipantID)
-  base_height <- 400
-  plot_height <- round(compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 4, row_increase = 0.25))
+  # Use inches for height (consistent with other plots)
+  base_height <- 8/3
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.25)
 
   return(list(plot = p, height = plot_height))
 }
@@ -2341,6 +2342,13 @@ objectCm_hist <- function(participant_info) {
 bs_vd_hist <- function(data_list) {
   # get blindspot viewing distance data
   dt <- get_bs_vd(data_list)
+  print("=== bs_vd_hist DEBUG ===")
+  print(paste("raw dt rows:", nrow(dt)))
+  if (nrow(dt) > 0) {
+    print(paste("finite m:", sum(is.finite(dt$m)), ", finite sd:", sum(is.finite(dt$sd))))
+    print(paste("m>0 count:", sum(is.finite(dt$m) & dt$m > 0), ", sd>=0 count:", sum(is.finite(dt$sd) & dt$sd >= 0)))
+    print(utils::head(dt))
+  }
   if (nrow(dt) == 0) return(list(mean_plot = NULL, sd_plot = NULL))
 
   # Plot 1: MEAN of left and right viewing distances measured in blindspot-based calibration
@@ -2366,6 +2374,7 @@ bs_vd_hist <- function(data_list) {
 
   max_count_mean <- max(mean_dotplot$dot_y)
   n_participants_mean <- n_distinct(mean_dotplot$participant)
+  print(paste("mean_dotplot rows:", nrow(mean_dotplot), ", max_count_mean:", max_count_mean, ", n_participants_mean:", n_participants_mean))
 
   p1 <- ggplot(mean_dotplot, aes(x = m)) +
     # Stacked colored points (dot plot style)
@@ -2442,6 +2451,7 @@ bs_vd_hist <- function(data_list) {
 
   max_count_sd <- max(sd_dotplot$dot_y)
   n_participants_sd <- n_distinct(sd_dotplot$participant)
+  print(paste("sd_dotplot rows:", nrow(sd_dotplot), ", max_count_sd:", max_count_sd, ", n_participants_sd:", n_participants_sd))
 
   p2 <- ggplot(sd_dotplot, aes(x = sd)) +
     # Stacked colored points (dot plot style)
@@ -2499,8 +2509,9 @@ bs_vd_hist <- function(data_list) {
   n_participants_mean <- if (nrow(mean_dotplot) > 0) n_distinct(mean_dotplot$participant) else 0
   n_participants_sd <- if (nrow(sd_dotplot) > 0) n_distinct(sd_dotplot$participant) else 0
 
-  base_height <- 4 * (2/3)  # Reduce to 2/3 of original height
+  base_height <- 8/3  # Reduce to 2/3 of original height
   plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants_mean, n_participants_sd), per_row = 4, row_increase = 0.25)
+  print(paste("returning bs_vd_hist with height:", plot_height))
 
   return(list(
     mean_plot = list(plot = p1, height = plot_height),
