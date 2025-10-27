@@ -291,6 +291,40 @@ plotsTab <- tabPanel(
         )
       )
     ),
+    h2("Font plots"),
+    conditionalPanel(
+      'output.isReading || output.isRsvp',
+      conditionalPanel(
+        'output.isPeripheralCrowding',
+        splitLayout(
+          cellWidths = c("50%", "50%"),
+          shinycssloaders::withSpinner(
+            imageOutput("fontAggregatedReadingRsvpCrowdingPlot", height = '100%'),
+            type = 4
+          ),
+          shinycssloaders::withSpinner(
+            imageOutput("fontAggregatedOrdinaryReadingCrowdingPlot", height = '100%'),
+            type = 4
+          )
+        ),
+        splitLayout(
+          cellWidths = c("50%", "50%"),
+          downloadButton("downloadFontAggregatedReadingRsvpCrowdingPlot", "Download"),
+          downloadButton("downloadFontAggregatedOrdinaryReadingCrowdingPlot", "Download")
+        ),
+        splitLayout(
+          cellWidths = c("50%", "50%"),
+          shinycssloaders::withSpinner(
+            imageOutput("fontAggregatedRsvpCrowdingPlot", height = '100%'),
+            type = 4
+          )
+        ),
+        splitLayout(
+          cellWidths = c("50%", "50%"),
+          downloadButton("downloadFontAggregatedRsvpCrowdingPlot", "Download")
+        )
+      )
+    ),
     h2("Age plots"),
     uiOutput('plots')
   )

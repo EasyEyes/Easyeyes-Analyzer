@@ -48,6 +48,7 @@ source("./plotting/readingPlots.R")
 source("./plotting/customized_inplot_table.R")
 source("./plotting/profile_plot.R")
 source("./plotting/simulatedRSVP.R")
+source("./plotting/font_aggregated_plots.R")
 source("./plotting/acuityPlot.R")
 source('./plotting/crowdingrsvp.R')
 source('./plotting/repeated-letter-crowding.R')
@@ -1601,6 +1602,19 @@ shinyServer(function(input, output, session) {
   readingRepeatedPlots <- reactive({
     plot_reading_repeated_letter_crowding(df_list())
   })
+  
+  # Font-aggregated plots
+  fontAggregatedReadingRsvpCrowding <- reactive({
+    plot_font_aggregated_reading_rsvp_crowding(df_list())
+  })
+  
+  fontAggregatedOrdinaryReadingCrowding <- reactive({
+    plot_font_aggregated_ordinary_reading_crowding(df_list())
+  })
+  
+  fontAggregatedRsvpCrowding <- reactive({
+    plot_font_aggregated_rsvp_crowding(df_list())
+  })
 
   output$rsvpCrowdingFovealGradePlot <- ggiraph::renderGirafe({
     plot_with_title <- add_experiment_title(rsvpCrowding()$f_grade, experiment_names())
@@ -1661,6 +1675,85 @@ shinyServer(function(input, output, session) {
       plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[3]], experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
+  
+  # Font-aggregated plot outputs
+  output$fontAggregatedReadingRsvpCrowdingPlot <- renderImage({
+    tryCatch({
+      plot <- fontAggregatedReadingRsvpCrowding()
+      if (!is.null(plot)) {
+        outfile <- tempfile(fileext = '.svg')
+        plot_with_title <- add_experiment_title(plot, experiment_names())
+        ggsave(
+          file = outfile,
+          plot = plot_with_title + plt_theme,
+          width = 8,
+          height = 6,
+          unit = 'in',
+          limitsize = FALSE,
+          device = svglite
+        )
+        
+        list(src = outfile,
+             contenttype = 'svg')
+      } else {
+        NULL
+      }
+    }, error = function(e) {
+      handle_plot_error(e, "fontAggregatedReadingRsvpCrowdingPlot", experiment_names(), "Font-aggregated reading vs peripheral crowding")
+    })
+  }, deleteFile = TRUE)
+  
+  output$fontAggregatedOrdinaryReadingCrowdingPlot <- renderImage({
+    tryCatch({
+      plot <- fontAggregatedOrdinaryReadingCrowding()
+      if (!is.null(plot)) {
+        outfile <- tempfile(fileext = '.svg')
+        plot_with_title <- add_experiment_title(plot, experiment_names())
+        ggsave(
+          file = outfile,
+          plot = plot_with_title + plt_theme,
+          width = 8,
+          height = 6,
+          unit = 'in',
+          limitsize = FALSE,
+          device = svglite
+        )
+        
+        list(src = outfile,
+             contenttype = 'svg')
+      } else {
+        NULL
+      }
+    }, error = function(e) {
+      handle_plot_error(e, "fontAggregatedOrdinaryReadingCrowdingPlot", experiment_names(), "Font-aggregated ordinary reading vs peripheral crowding")
+    })
+  }, deleteFile = TRUE)
+  
+  output$fontAggregatedRsvpCrowdingPlot <- renderImage({
+    tryCatch({
+      plot <- fontAggregatedRsvpCrowding()
+      if (!is.null(plot)) {
+        outfile <- tempfile(fileext = '.svg')
+        plot_with_title <- add_experiment_title(plot, experiment_names())
+        ggsave(
+          file = outfile,
+          plot = plot_with_title + plt_theme,
+          width = 8,
+          height = 6,
+          unit = 'in',
+          limitsize = FALSE,
+          device = svglite
+        )
+        
+        list(src = outfile,
+             contenttype = 'svg')
+      } else {
+        NULL
+      }
+    }, error = function(e) {
+      handle_plot_error(e, "fontAggregatedRsvpCrowdingPlot", experiment_names(), "Font-aggregated RSVP vs peripheral crowding")
+    })
+  }, deleteFile = TRUE)
   
   # Foveal Crowding Plots
   output$ordinaryFovealCrowdingFontPlot <-
@@ -6485,7 +6578,7 @@ shinyServer(function(input, output, session) {
           plot = plot_with_title,
           filename = file,
           fileType = input$fileType,
-          width = 9,
+          width = 8,
           height = 6
         )
       }
@@ -6829,6 +6922,145 @@ shinyServer(function(input, output, session) {
               device = svg,
               width = 6,
             )
+          }
+        }
+      )
+    
+    # Font-aggregated plot download handlers
+    output$downloadFontAggregatedReadingRsvpCrowdingPlot <-
+      downloadHandler(
+        filename = function() {
+          paste0(
+            get_short_experiment_name(experiment_names()),
+            "font-aggregated-reading-rsvp-vs-peripheral-crowding.",
+            input$fileType
+          )
+        },
+        content = function(file) {
+          plot <- fontAggregatedReadingRsvpCrowding()
+          if (!is.null(plot)) {
+            plot_with_title <- add_experiment_title(plot + plt_theme, experiment_names())
+            if (input$fileType == "png") {
+              ggsave(
+                "tmp.svg",
+                plot = plot_with_title,
+                width = 8,
+                height = 6,
+                unit = "in",
+                device = svglite,
+                limitsize = FALSE
+              )
+              rsvg::rsvg_png("tmp.svg",
+                             file,
+                             width = 2400,
+                             height = 1800)
+            } else {
+              ggsave(
+                file = file,
+                plot = plot_with_title,
+                width = 8,
+                height = 6,
+                unit = "in",
+                device = ifelse(
+                  input$fileType == "svg",
+                  svglite::svglite,
+                  input$fileType
+                ),
+                limitsize = FALSE
+              )
+            }
+          }
+        }
+      )
+    
+    output$downloadFontAggregatedOrdinaryReadingCrowdingPlot <-
+      downloadHandler(
+        filename = function() {
+          paste0(
+            get_short_experiment_name(experiment_names()),
+            "font-aggregated-ordinary-reading-vs-peripheral-crowding.",
+            input$fileType
+          )
+        },
+        content = function(file) {
+          plot <- fontAggregatedOrdinaryReadingCrowding()
+          if (!is.null(plot)) {
+            plot_with_title <- add_experiment_title(plot + plt_theme, experiment_names())
+            if (input$fileType == "png") {
+              ggsave(
+                "tmp.svg",
+                plot = plot_with_title,
+                width = 8,
+                height = 6,
+                unit = "in",
+                device = svglite,
+                limitsize = FALSE
+              )
+              rsvg::rsvg_png("tmp.svg",
+                             file,
+                             width = 2400,
+                             height = 1800)
+            } else {
+              ggsave(
+                file = file,
+                plot = plot_with_title,
+                width = 8,
+                height = 6,
+                unit = "in",
+                device = ifelse(
+                  input$fileType == "svg",
+                  svglite::svglite,
+                  input$fileType
+                ),
+                limitsize = FALSE
+              )
+            }
+          }
+        }
+      )
+    
+    output$downloadFontAggregatedRsvpCrowdingPlot <-
+      downloadHandler(
+        filename = function() {
+          paste0(
+            get_short_experiment_name(experiment_names()),
+            "font-aggregated-rsvp-vs-peripheral-crowding.",
+            input$fileType
+          )
+        },
+        content = function(file) {
+          plot <- fontAggregatedRsvpCrowding()
+          if (!is.null(plot)) {
+            plot_with_title <- add_experiment_title(plot + plt_theme, experiment_names())
+            if (input$fileType == "png") {
+              ggsave(
+                "tmp.svg",
+                plot = plot_with_title,
+                width = 8,
+                height = 6,
+                unit = "in",
+                device = svglite,
+                limitsize = FALSE
+              )
+              rsvg::rsvg_png("tmp.svg",
+                             file,
+                             width = 2400,
+                             height = 1800)
+            } else {
+              ggsave(
+                file = file,
+                plot = plot_with_title,
+                width = 8,
+                height = 6,
+                unit = "in",
+                device = ifelse(
+                  input$fileType == "svg",
+                  svglite::svglite,
+                  input$fileType
+                ),
+                limitsize = FALSE
+              )
+            }
           }
         }
       )
