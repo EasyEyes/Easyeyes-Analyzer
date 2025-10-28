@@ -764,13 +764,30 @@ shinyServer(function(input, output, session) {
     
     # SD histogram and distance-related dot plots go here with larger sizing
     bs_vd <- bs_vd_hist(distanceCalibration())
+    
+    # Build static_calls list, starting with always-present plots
     static_calls <- list(
       list(plot = sizeCheckPlot()$sd_hist$plot, height = sizeCheckPlot()$sd_hist$height, fname = 'sd-log-density-histogram'),
       list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'ruler-length-cm-dotplot'),
-      list(plot = objectCm_hist(df_list()$participant_info)$plot, height = objectCm_hist(df_list()$participant_info)$height, fname = 'object-length-cm-dotplot'),
-      list(plot = bs_vd$mean_plot$plot, height = bs_vd$mean_plot$height, fname = 'blindspot-viewing-distance-mean-dotplot'),
-      list(plot = bs_vd$sd_plot$plot, height = bs_vd$sd_plot$height, fname = 'blindspot-viewing-distance-sd-dotplot')
+      list(plot = objectCm_hist(df_list()$participant_info)$plot, height = objectCm_hist(df_list()$participant_info)$height, fname = 'object-length-cm-dotplot')
     )
+    
+    # Conditionally add blindspot plots if they exist
+    if (!is.null(bs_vd$mean_plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = bs_vd$mean_plot$plot, 
+        height = bs_vd$mean_plot$height, 
+        fname = 'blindspot-viewing-distance-mean-dotplot'
+      )
+    }
+    
+    if (!is.null(bs_vd$sd_plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = bs_vd$sd_plot$plot, 
+        height = bs_vd$sd_plot$height, 
+        fname = 'blindspot-viewing-distance-sd-dotplot'
+      )
+    }
     
     heights <- list()
     for (call in static_calls) {

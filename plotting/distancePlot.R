@@ -1006,6 +1006,12 @@ get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
 get_bs_vd <- function(data_list) {
   # Get blindspot viewing distance left and right from data list
   bs_vwing_ds <- tibble()
+  
+  # Return empty tibble if data_list is empty to avoid subscript out of bounds error
+  if (length(data_list) == 0) {
+    return(bs_vwing_ds)
+  }
+  
   for (i in 1:length(data_list)) {
     if ("viewingDistanceByBlindspot1Cm" %in% names(data_list[[i]])) {
       t <- data_list[[i]] %>%
@@ -2342,13 +2348,6 @@ objectCm_hist <- function(participant_info) {
 bs_vd_hist <- function(data_list) {
   # get blindspot viewing distance data
   dt <- get_bs_vd(data_list)
-  print("=== bs_vd_hist DEBUG ===")
-  print(paste("raw dt rows:", nrow(dt)))
-  if (nrow(dt) > 0) {
-    print(paste("finite m:", sum(is.finite(dt$m)), ", finite sd:", sum(is.finite(dt$sd))))
-    print(paste("m>0 count:", sum(is.finite(dt$m) & dt$m > 0), ", sd>=0 count:", sum(is.finite(dt$sd) & dt$sd >= 0)))
-    print(utils::head(dt))
-  }
   if (nrow(dt) == 0) return(list(mean_plot = NULL, sd_plot = NULL))
 
   # Plot 1: MEAN of left and right viewing distances measured in blindspot-based calibration
