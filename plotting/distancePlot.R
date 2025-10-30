@@ -67,6 +67,53 @@ get_cameraResolutionXY <- function(data_list) {
   return(df %>% distinct())
 }
 
+get_distanceCheck_factorCameraPxCm <- function(data_list) {
+  df <- tibble()
+  if (is.null(data_list) || length(data_list) == 0) return(df)
+  
+  for (i in 1:length(data_list)) {
+    if ("distanceCheckJSON" %in% names(data_list[[i]])) {
+      # Skip iteration if participant column doesn't exist or has no data
+      if (!"participant" %in% names(data_list[[i]]) || 
+          all(is.na(data_list[[i]]$participant)) || 
+          all(data_list[[i]]$participant == "")) {
+        next
+      }
+      
+      tryCatch({
+        distanceCheck <- fromJSON(sort(data_list[[i]]$distanceCheckJSON)[1])
+        
+        # Extract measuredFactorCameraPxCm array from distanceCheckJSON
+        if (!is.null(distanceCheck$measuredFactorCameraPxCm)) {
+          measuredFactorCameraPxCm <- distanceCheck$measuredFactorCameraPxCm
+          
+          # Calculate median of the checking measurements
+          measuredFactorCameraPxCmVals <- suppressWarnings(as.numeric(measuredFactorCameraPxCm))
+          measuredFactorCameraPxCmVals <- measuredFactorCameraPxCmVals[!is.na(measuredFactorCameraPxCmVals)]
+          
+          if (length(measuredFactorCameraPxCmVals) > 0) {
+            medianFactorCameraPxCm <- median(measuredFactorCameraPxCmVals)
+            
+            t <- data_list[[i]] %>%
+              mutate(medianFactorCameraPxCm = medianFactorCameraPxCm) %>%
+              select(participant, medianFactorCameraPxCm) %>%
+              rename(PavloviaParticipantID = participant) %>%
+              distinct() %>%
+              filter(!is.na(medianFactorCameraPxCm))
+            
+            if (nrow(t) > 0) {
+              df <- rbind(df, t)
+            }
+          }
+        }
+      }, error = function(e) {
+        # Silently skip if JSON parsing fails
+      })
+    }
+  }
+  return(df %>% distinct())
+}
+
 get_merged_participant_distance_info <- function(data_list, participant_info) {
   # Get camera resolution data
   camera_data <- get_cameraResolutionXY(data_list)
@@ -1229,7 +1276,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
                       y = predictedIpdCameraPx,
                       color = participant,
                       group = participant),
-                  linewidth = 1.5, alpha = 0.8, linetype = "solid") +
+                  linewidth = 0.75, alpha = 0.8, linetype = "solid") +
         # Measured data lines (made thinner)
         geom_line(data=ipd_data,
                   aes(x = calibrateTrackDistanceRequestedCm_jitter,
@@ -1285,80 +1332,64 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   # Plot 4b: Foot position during calibration (colored by participant, no clipping)
   p4b <- plot_foot_position_during_calibration(data_list)
   
-  # Plot 5: Calibrated vs. mean factorCameraPxCm
+  # Plot 5: Calibrated vs. median factorCameraPxCm
   p5 <- NULL
   if ("calibrateTrackDistanceIpdCameraPx" %in% names(distance) && nrow(distance) > 0) {
-    # Get camera data for factorCameraPxCm
+    # Get calibration data for factorCameraPxCm (Y-axis)
     camera_data <- get_cameraResolutionXY(data_list)
+    # Get distance check data for median factorCameraPxCm (X-axis)
+    check_data <- get_distanceCheck_factorCameraPxCm(data_list)
     
-    if (nrow(camera_data) > 0) {
-      # Join distance data with camera data
-      factor_data <- distance %>%
-        filter(!is.na(calibrateTrackDistanceIpdCameraPx),
-               !is.na(calibrateTrackDistanceMeasuredCm)) %>%
-        left_join(camera_data %>% select(PavloviaParticipantID, factorCameraPxCm),
-                  by = c("participant" = "PavloviaParticipantID")) %>%
-        filter(!is.na(factorCameraPxCm))
-      
-      if (nrow(factor_data) > 0) {
-        # Calculate geometric mean per participant (session)
-        # geoMeanFactorCameraPxCm = 10^mean(log10(measuredEyeToCameraCm * ipdCameraPx))
-        geo_mean_data <- factor_data %>%
-          mutate(
-            product = calibrateTrackDistanceMeasuredCm * calibrateTrackDistanceIpdCameraPx
-          ) %>%
-          group_by(participant) %>%
-          summarize(
-            geoMeanFactorCameraPxCm = 10^mean(log10(product), na.rm = TRUE),
-            .groups = "drop"
-          )
+    if (nrow(camera_data) > 0 && nrow(check_data) > 0) {
+      # Join calibration and check data by participant
+      plot_data <- camera_data %>%
+        select(PavloviaParticipantID, factorCameraPxCm) %>%
+        inner_join(check_data %>% select(PavloviaParticipantID, medianFactorCameraPxCm),
+                  by = "PavloviaParticipantID") %>%
+        rename(participant = PavloviaParticipantID) %>%
+        filter(!is.na(factorCameraPxCm), !is.na(medianFactorCameraPxCm),
+               is.finite(factorCameraPxCm), is.finite(medianFactorCameraPxCm))
         
-        # Join back to get individual measurements with their session's geometric mean
-        plot_data <- factor_data %>%
-          left_join(geo_mean_data, by = "participant") %>%
-          filter(!is.na(geoMeanFactorCameraPxCm), is.finite(geoMeanFactorCameraPxCm))
+      if (nrow(plot_data) > 0) {
+        # Calculate separate scale limits for X and Y to cover full data range
+        min_val_x <- min(plot_data$medianFactorCameraPxCm, na.rm = TRUE) * 0.9
+        max_val_x <- max(plot_data$medianFactorCameraPxCm, na.rm = TRUE) * 1.1
+        min_val_y <- min(plot_data$factorCameraPxCm, na.rm = TRUE) * 0.9
+        max_val_y <- max(plot_data$factorCameraPxCm, na.rm = TRUE) * 1.1
         
-        if (nrow(plot_data) > 0) {
-          # Calculate identical log scale limits
-          all_values <- c(plot_data$factorCameraPxCm, plot_data$geoMeanFactorCameraPxCm)
-          min_val_factor <- min(all_values, na.rm = TRUE) * 0.9
-          max_val_factor <- max(all_values, na.rm = TRUE) * 1.1
-          
-          p5 <- ggplot(plot_data, aes(x = geoMeanFactorCameraPxCm, y = factorCameraPxCm)) +
-            geom_point(aes(color = participant), size = 3, alpha = 0.8) +
-            geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
-            ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                                label = paste0('N=', n_distinct(plot_data$participant))) +
-            scale_x_log10(limits = c(min_val_factor, max_val_factor), 
-                          breaks = scales::log_breaks(n = 8)) +
-            scale_y_log10(limits = c(min_val_factor, max_val_factor), 
-                          breaks = scales::log_breaks(n = 8)) +
-            annotation_logticks() +
-            coord_fixed() +  # Ensure equal axis lengths
-            scale_color_manual(values = colorPalette) +
-            ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-            guides(color = guide_legend(
-              ncol = 3,
-              title = "",
-              override.aes = list(size = 1.5),
-              keywidth = unit(0.8, "lines"),
-              keyheight = unit(0.6, "lines")
-            )) +
-            theme_classic() +
-            theme(
-              legend.position = "right",
-              legend.box = "vertical",
-              legend.justification = "left",
-              legend.text = element_text(size = 6),
-              legend.spacing.y = unit(0, "lines"),
-              legend.key.size = unit(0.4, "cm"),
-              plot.margin = margin(5, 5, 5, 5, "pt")
-            ) +
-            labs(subtitle = 'Calibrated vs. mean factorCameraPxCm',
-                 x = 'Geometric mean factorCameraPxCm (per session)',
-                 y = 'FactorCameraPxCm',
-                 caption = 'Dashed line shows y=x (perfect agreement)\nGeometric mean = 10^mean(log10(measuredEyeToCameraCm × ipdCameraPx))')
-        }
+        p5 <- ggplot(plot_data, aes(x = medianFactorCameraPxCm, y = factorCameraPxCm)) +
+          geom_point(aes(color = participant), size = 3, alpha = 0.8) +
+          geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
+          ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                              label = paste0('N=', n_distinct(plot_data$participant))) +
+          scale_x_log10(limits = c(min_val_x, max_val_x), 
+                        breaks = scales::log_breaks(n = 8)) +
+          scale_y_log10(limits = c(min_val_y, max_val_y), 
+                        breaks = scales::log_breaks(n = 8)) +
+          annotation_logticks() +
+          scale_color_manual(values = colorPalette) +
+          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+          guides(color = guide_legend(
+            ncol = 3,
+            title = "",
+            override.aes = list(size = 1.5),
+            keywidth = unit(0.8, "lines"),
+            keyheight = unit(0.6, "lines")
+          )) +
+          theme_classic() +
+          theme(
+            legend.position = "right",
+            legend.box = "vertical",
+            legend.justification = "left",
+            legend.text = element_text(size = 6),
+            legend.spacing.y = unit(0, "lines"),
+            legend.key.size = unit(0.4, "cm"),
+            plot.margin = margin(5, 5, 5, 5, "pt")
+          ) +
+          labs(subtitle = 'Calibrated vs. median factorCameraPxCm',
+               x = 'Median factorCameraPxCm from distance checking (per session)',
+               y = 'FactorCameraPxCm from calibration',
+               caption = 'Dashed line shows y=x (perfect agreement)\nMedian calculated from measuredFactorCameraPxCm in distanceCheckJSON')
       }
     }
   }
@@ -1467,8 +1498,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     ipd_vs_requested = list(plot = p3, height = if (!is.null(p3)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     eye_feet_position = list(plot = p4, height = eye_feet_height),
     foot_position_calibration = list(plot = p4b, height = plot_height),
-    calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 6, n_items = n_distinct(factor_data$participant), per_row = 3, row_increase = 0.06) else NULL),
-    calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 6, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06) else NULL)
+    calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
+    calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL)
   ))
 }
 
