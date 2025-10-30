@@ -140,7 +140,7 @@ shinyUI(
             numericInput(
               'minRulerCm',
               NULL,
-              value = 91,
+              value = 0,
               min = 0,
               width = '90px'
             ),

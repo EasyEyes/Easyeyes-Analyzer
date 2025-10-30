@@ -820,7 +820,9 @@ generate_threshold <-
              age, Grade, conditionName, block, condition, 
              conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,
              questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials)
-    
+
+    print(reading %>% distinct(experiment,block_condition, conditionName))
+    print(QA %>% filter(!is.na(questionAndAnswerCorrectAnswer)) %>% distinct(experiment, block_condition, conditionName, questionAndAnswerNickname),n=100)
     print('done generate_threshold')
     return(list(reading = reading, 
                 crowding = crowding,

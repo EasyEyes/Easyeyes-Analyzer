@@ -32,8 +32,16 @@ get_cameraResolutionXY <- function(data_list) {
      for (j in 1:length(distanceCalibration)) {
        factorCameraPxCmList = c(factorCameraPxCmList,distanceCalibration[[j]]$factorCameraPxCm)
      }
-      # Take the first factorCameraPxCm value and ensure it's numeric
-      factorCameraPxCm <- as.numeric(factorCameraPxCmList[1])
+      # Take the average of the last two factorCameraPxCm values (fallback to single if only one)
+      factorCameraPxCmVals <- suppressWarnings(as.numeric(factorCameraPxCmList))
+      factorCameraPxCmVals <- factorCameraPxCmVals[!is.na(factorCameraPxCmVals)]
+      if (length(factorCameraPxCmVals) >= 2) {
+        factorCameraPxCm <- mean(tail(factorCameraPxCmVals, 2))
+      } else if (length(factorCameraPxCmVals) == 1) {
+        factorCameraPxCm <- factorCameraPxCmVals[1]
+      } else {
+        factorCameraPxCm <- NA_real_
+      }
     }
 
     t <- data_list[[i]] %>%
