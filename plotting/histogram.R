@@ -512,6 +512,92 @@ add_questsd_hist <- function(quest, lists) {
 }
 
 
+get_reading_CQ_hist <- function(reading_pre, minCQAccuracy) {
+  # plot histogram of CQAccuracy
+  # Add vertical line at minCQAccuracy
+  print('[get_reading_CQ_hist] start')
+  print(paste('[get_reading_CQ_hist] minCQAccuracy =', as.character(minCQAccuracy)))
+  print(paste('[get_reading_CQ_hist] input rows =', ifelse(is.null(reading_pre), 'NULL', nrow(reading_pre))))
+  reading_pre <- reading_pre %>%
+    filter(!is.na(CQAccuracy) & is.finite(CQAccuracy))
+
+  print(paste('[get_reading_CQ_hist] rows after filter =', nrow(reading_pre)))
+  if (nrow(reading_pre) == 0) {
+    print('[get_reading_CQ_hist] no data after filtering; returning NULL')
+    return(NULL)
+  }
+
+  # use global wrap_words from other/utility.R
+
+  make_plot <- function(df, subtitle_text) {
+    # N should be number of distinct (experiment, participant, block)
+    n_combo <- tryCatch({
+      if (all(c("experiment","participant","block") %in% names(df))) {
+        nrow(dplyr::distinct(df, experiment, participant, block))
+      } else {
+        nrow(df)
+      }
+    }, error = function(e) nrow(df))
+
+    stats_sub <- df %>%
+      summarize(mean = mean(CQAccuracy),
+                sd   = sd(CQAccuracy),
+                .groups = "drop")
+    stats_sub$N <- n_combo
+    print(paste('[get_reading_CQ_hist] computed N (distinct experiment,participant,block) =', n_combo))
+
+    p <- ggplot(df, aes(x = CQAccuracy)) +
+      geom_histogram(color = NA, fill = "gray80") +
+      scale_x_continuous(name = "Comprehension accuracy", expand = c(0, 0)) +
+      scale_y_continuous(name = "Count",                 expand = c(0, 0)) +
+      labs(subtitle = subtitle_text) +
+      geom_text(
+        data = stats_sub,
+        aes(
+          x = Inf, y = Inf,
+          label = paste0(
+            "mean=", round(mean, 2),
+            "\n sd=",   round(sd,   2),
+            "\n N=",    N
+          )
+        ),
+        inherit.aes = FALSE,
+        hjust = 1, vjust = 1
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title          = element_text(size = 10, lineheight = 0.9, margin = margin(b = 5)),
+        plot.title.position = "plot"
+      )
+
+    if (!is.null(minCQAccuracy) && is.finite(minCQAccuracy)) {
+      p <- p + geom_vline(xintercept = minCQAccuracy, linetype = "dashed", color = "red", linewidth = 0.8)
+    }
+
+    p
+  }
+
+  print(paste('[get_reading_CQ_hist] conditionName present =', "conditionName" %in% names(reading_pre)))
+  if ("conditionName" %in% names(reading_pre)) {
+    reading_list <- split(reading_pre, reading_pre$conditionName)
+    print(paste('[get_reading_CQ_hist] unique conditions =', length(reading_list)))
+    hist_list <- lapply(names(reading_list), function(cond) {
+      full_title    <- paste("Histogram of comprehension accuracy", cond)
+      wrapped_title <- wrap_words(full_title, 25)
+      make_plot(reading_list[[cond]], wrapped_title)
+    })
+    names(hist_list) <- names(reading_list)
+    print(paste('[get_reading_CQ_hist] returning list of plots, length =', length(hist_list)))
+    return(hist_list)
+  } else {
+    subtitle_text <- wrap_words("Histogram of comprehension accuracy", 25)
+    p <- make_plot(reading_pre, subtitle_text)
+    print('[get_reading_CQ_hist] returning single plot')
+    return(p)
+  }
+}
+
+
 get_prop_correct_hist_list <- function(quest, max_chars_per_line = 25) {
   quest <- quest %>% 
     filter(is.finite(frac)) %>% 
@@ -519,28 +605,7 @@ get_prop_correct_hist_list <- function(quest, max_chars_per_line = 25) {
   
   if (nrow(quest) == 0) return(NULL)
   
-  #––– a text-wrapping function that never splits words –––
-  wrap_words <- function(text, max_chars) {
-    words <- strsplit(text, "\\s+")[[1]]
-    lines <- character()
-    current <- ""
-    
-    for (w in words) {
-      if (nchar(current) == 0) {
-        # first word on this line
-        current <- w
-      } else if (nchar(current) + 1 + nchar(w) <= max_chars) {
-        # +1 for the space
-        current <- paste(current, w, sep = " ")
-      } else {
-        # flush the old line, start a new one
-        lines <- c(lines, current)
-        current <- w
-      }
-    }
-    lines <- c(lines, current)  # final line
-    paste(lines, collapse = "\n")
-  }
+  # use global wrap_words from other/utility.R
   
   quest_list <- split(quest, quest$conditionName)
   stats_df   <- quest %>% 
@@ -586,57 +651,6 @@ get_prop_correct_hist_list <- function(quest, max_chars_per_line = 25) {
   names(hist_list) <- names(quest_list)
   hist_list
 }
-
-# get_prop_correct_hist_list <- function(quest) {
-#   quest <- quest %>% 
-#     filter(is.finite(frac)) %>% 
-#     mutate(prop_correct = 1 - frac)
-#   
-#   if (nrow(quest) == 0) return(NULL)
-#   
-#   # split into a list by conditionName
-#   quest_list <- split(quest, quest$conditionName)
-#   
-#   # precompute stats per condition
-#   stats_df <- quest %>% 
-#     group_by(conditionName) %>% 
-#     summarize(
-#       mean   = mean(prop_correct),
-#       sd     = sd(prop_correct),
-#       N      = n(),
-#       .groups = "drop"
-#     )
-#   
-#   # generate one histogram per condition
-#   hist_list <- lapply(names(quest_list), function(cond) {
-#     data_sub <- quest_list[[cond]]
-#     stats_sub <- stats_df %>% filter(conditionName == cond)
-#     
-#     ggplot(data_sub, aes(x = prop_correct)) +
-#       geom_histogram(color = NA, fill = "gray80") +
-#       scale_x_continuous(name = "Proportion correct", expand = c(0, 0)) +
-#       scale_y_continuous(name = "Count",            expand = c(0, 0)) +
-#       ggtitle(paste("Histogram of proportion\ncorrect\n", cond)) +
-#       geom_text(
-#         data = stats_sub,
-#         aes(
-#           x = Inf, y = Inf,
-#           label = paste0(
-#             "mean=", round(mean, 2),
-#             "\n sd=",   round(sd,   2),
-#             "\n N=",    N
-#           )
-#         ),
-#         inherit.aes = FALSE,
-#         hjust = 1, vjust = 1
-#       ) +
-#       theme_minimal()
-#   })
-#   
-#   names(hist_list) <- names(quest_list)
-#   return(hist_list)
-# }
-
 
 
 append_hist_list <- function(data_list, plot_list, fileNames, experimentNames){

@@ -256,6 +256,25 @@ log_detailed_error <- function(e, plot_id = "Unknown Plot") {
   cat("=== END ERROR INFORMATION ===\n\n")
 }
 
+# Word-wrapping helper that never splits words; wraps by max characters per line
+wrap_words <- function(text, max_chars) {
+  words <- strsplit(text, "\\s+")[[1]]
+  lines <- character()
+  current <- ""
+  for (w in words) {
+    if (nchar(current) == 0) {
+      current <- w
+    } else if (nchar(current) + 1 + nchar(w) <= max_chars) {
+      current <- paste(current, w, sep = " ")
+    } else {
+      lines <- c(lines, current)
+      current <- w
+    }
+  }
+  lines <- c(lines, current)
+  paste(lines, collapse = "\n")
+}
+
 # Enhanced error handler for plot rendering with detailed console logging
 handle_plot_error <- function(e, plot_id, experiment_names = NULL, plot_subtitle = "") {
   # Enhanced error logging for debugging - print detailed error info to console

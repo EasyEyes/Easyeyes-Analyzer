@@ -157,6 +157,19 @@ shinyUI(
               width = '90px'
             )
           ),
+          div(
+            style = "display: flex; align-items: center; gap: 5px;",
+            tags$span("Exclude ordinary reading speeds with less than "),
+            numericInput(
+              'minCQAccuracy',
+              NULL,
+              value = 80,
+              min = 0,
+              max = 100,
+              width = '50px'
+            ),
+            tags$span("% comprehension.")
+          ),
           checkboxGroupInput(
             inputId = "conditionName",
             label = "Include these conditionNames:",

@@ -224,7 +224,7 @@ shinyServer(function(input, output, session) {
   minWrongTrials <- reactive(input$NWrongTrials) %>% debounce(5000)
   maxReadingSpeed <- reactive(input$maxReadingSpeed) %>% debounce(2000)
   minRulerCm <- reactive({input$minRulerCm}) %>% debounce(2000)
-  
+  minCQAccuracy <- reactive({input$minCQAccuracy}) %>% debounce(2000)
   df_list <- reactive({
     if (is.null(files())) {
       return(NULL)
@@ -243,7 +243,8 @@ shinyServer(function(input, output, session) {
       maxQuestSD(),
       conditionNames(),
       maxReadingSpeed(),
-      minRulerCm()
+      minRulerCm(),
+      minCQAccuracy()
     )
     return(
       df_list
@@ -591,10 +592,30 @@ shinyServer(function(input, output, session) {
     list(plot = get_repeatedLetter_hist(df_list()$repeatedLetters)+ hist_theme,fname = 'repeated-letter-crowding-histogram'),
     list(plot = get_age_histogram(df_list()$age)+ hist_theme,                  fname = 'age-histogram'),
     list(plot = get_grade_histogram(df_list()$age)+ hist_theme,                fname = 'grade-histogram')
+    # CQ accuracy histograms are added via reading_CQ_calls below
   )
 
- 
+  reading_CQ_hists <- get_reading_CQ_hist(df_list()$reading_pre, minCQAccuracy())
+
+  # Build calls for CQ hist(s); handle per-condition list or single plot
+  if (is.null(reading_CQ_hists)) {
+    reading_CQ_calls <- list()
+  } else if (is.list(reading_CQ_hists)) {
+    reading_CQ_calls <- lapply(names(reading_CQ_hists), function(cond) {
+      list(
+        plot  = reading_CQ_hists[[cond]],
+        fname = paste0('reading-CQ-accuracy-histogram-', cond)
+      )
+    })
+  } else {
+    reading_CQ_calls <- list(list(
+      plot  = reading_CQ_hists,
+      fname = 'reading-CQ-accuracy-histogram'
+    ))
+  }
+  
   prop_hists <- get_prop_correct_hist_list(df_list()$quest_all_thresholds)
+  
   prop_calls <- lapply(names(prop_hists), function(cond) {
     list(
       plot  = prop_hists[[cond]],
@@ -603,7 +624,7 @@ shinyServer(function(input, output, session) {
   })
 
 
-  all_calls <- c(static_calls, prop_calls)
+  all_calls <- c(static_calls, prop_calls, reading_CQ_calls)
   for (call in all_calls) {
     p <- add_experiment_title(call$plot, experiment_names())
     res <- append_plot_list(

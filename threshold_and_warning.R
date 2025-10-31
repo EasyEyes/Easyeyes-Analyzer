@@ -7,7 +7,7 @@ englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
 
 generate_threshold <- 
   function(data_list, summary_list, df, pretest, stairs, prolific, filterInput, skillFilter, minNQuestTrials, 
-           minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed, minRulerCm) {
+           minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed, minRulerCm, minCQAccuracy) {
     
     print('inside threshold warning')
     print(paste0('length of data list: ', length(data_list)))
@@ -528,6 +528,7 @@ generate_threshold <-
                questionAndAnswerNickname != "", 
                questionAndAnswerQuestion != ""
         ) %>% 
+        # The rename of questionAndAnswerNickname is to fix an error in previous experiment setting
         mutate(correct = (questionAndAnswerResponse == questionAndAnswerCorrectAnswer),
                questionAndAnswerNickname = case_when(questionAndAnswerNickname=="CMFRTAmareddine" ~"CMFRTSaudiTextv1",
                                                      questionAndAnswerNickname=="CMFRTMakdessi" ~"CMFRTSaudiTextv2",
@@ -756,6 +757,29 @@ generate_threshold <-
         N = n(),
         .groups="drop")
     
+
+    # Calculate and apply reading comprehension accuracy
+    # And then link to nearest reading block
+    # for example block 3 CQ questions should link to block 2 reading
+    # And then apply filter
+    comprehension_ac <- QA %>%
+      group_by(experiment, participant, block) %>% 
+      # Calculate accuracy in percentage
+      summarize(CQAccuracy = mean(correct*100, na.rm = T), .groups = 'drop',
+                Nquestions = sum(!is.na(correct))) %>% 
+      mutate(block=as.numeric(block)-1)
+
+    reading_pre <- reading %>% 
+      mutate(block = ifelse(length(str_split(block_condition,'_')) == 0,
+                            NA,
+                            as.numeric(str_split(block_condition,'_')[[1]][1]))) %>% 
+      left_join(comprehension_ac, by = c("experiment", "participant","block"))
+    
+    reading <- reading_pre %>% 
+      filter(CQAccuracy >= minCQAccuracy)
+
+    
+    # continue to summarize statistics
     wpm_all <- reading %>% 
       filter(conditionName != "") %>% 
       group_by(conditionName, participant, experiment) %>%
@@ -821,8 +845,6 @@ generate_threshold <-
              conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,
              questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials)
 
-    print(reading %>% distinct(experiment,block_condition, conditionName))
-    print(QA %>% filter(!is.na(questionAndAnswerCorrectAnswer)) %>% distinct(experiment, block_condition, conditionName, questionAndAnswerNickname),n=100)
     print('done generate_threshold')
     return(list(reading = reading, 
                 crowding = crowding,
@@ -839,6 +861,7 @@ generate_threshold <-
                 all_summary = all_summary,
                 ratings = ratings,
                 QA = QA %>% select(-block),
-                participant_info = participant_info
+                participant_info = participant_info,
+                reading_pre = reading_pre
     ))
   }
