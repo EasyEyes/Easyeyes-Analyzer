@@ -19,6 +19,15 @@ compute_auto_height <- function(base_height, n_items, per_row, row_increase) {
   return(base_height * height_factor)
 }
 
+# Helper to get first non-NA calibration parameter value
+get_first_non_na <- function(values) {
+  non_na_values <- values[!is.na(values)]
+  if (length(non_na_values) > 0) {
+    return(non_na_values[1])
+  }
+  return(NA)
+}
+
 get_cameraResolutionXY <- function(data_list) {
   df <- tibble()
   if (is.null(data_list) || length(data_list) == 0) return(df)
@@ -595,7 +604,6 @@ get_foot_position_during_calibration_data <- function(data_list) {
              calibrateTrackDistanceRequestedCm != '')
 
     if (nrow(t) > 0) {
-
       # Process the measured and requested distances (these are JSON arrays)
       t <- t %>%
         mutate(
@@ -752,11 +760,11 @@ plot_eye_feet_position <- function(data_list) {
 
   n_sessions <- n_distinct(eye_feet_data$session_id)
 
-  # Create statement for calibration parameters
-  statement <- paste0('_calibrateTrackDistance = ', eye_feet_data$`_calibrateTrackDistance`[1], '\n',
-                      '_calibrateTrackDistancePupil = ', eye_feet_data$`_calibrateTrackDistancePupil`[1], '\n',
-                      'viewingDistanceWhichEye = ', eye_feet_data$viewingDistanceWhichEye[1], '\n',
-                      'viewingDistanceWhichPoint = ', eye_feet_data$viewingDistanceWhichPoint[1])
+  # Create statement for calibration parameters (use first non-NA values)
+  statement <- paste0('_calibrateTrackDistance = ', get_first_non_na(eye_feet_data$`_calibrateTrackDistance`), '\n',
+                      '_calibrateTrackDistancePupil = ', get_first_non_na(eye_feet_data$`_calibrateTrackDistancePupil`), '\n',
+                      'viewingDistanceWhichEye = ', get_first_non_na(eye_feet_data$viewingDistanceWhichEye), '\n',
+                      'viewingDistanceWhichPoint = ', get_first_non_na(eye_feet_data$viewingDistanceWhichPoint))
   p <- NULL
   # Create the plot directly without test plots
     p <- ggplot(eye_feet_data, aes(x = foot_x_cm_clipped, y = foot_y_cm_clipped)) +
@@ -929,11 +937,11 @@ plot_foot_position_during_calibration <- function(data_list) {
 
   n_sessions <- n_distinct(eye_feet_data$session_id)
 
-  # Create statement for calibration parameters
-  statement <- paste0('_calibrateTrackDistance = ', eye_feet_data$`_calibrateTrackDistance`[1], '\n',
-                      '_calibrateTrackDistancePupil = ', eye_feet_data$`_calibrateTrackDistancePupil`[1], '\n',
-                      'viewingDistanceWhichEye = ', eye_feet_data$viewingDistanceWhichEye[1], '\n',
-                      'viewingDistanceWhichPoint = ', eye_feet_data$viewingDistanceWhichPoint[1])
+  # Create statement for calibration parameters (use first non-NA values)
+  statement <- paste0('_calibrateTrackDistance = ', get_first_non_na(eye_feet_data$`_calibrateTrackDistance`), '\n',
+                      '_calibrateTrackDistancePupil = ', get_first_non_na(eye_feet_data$`_calibrateTrackDistancePupil`), '\n',
+                      'viewingDistanceWhichEye = ', get_first_non_na(eye_feet_data$viewingDistanceWhichEye), '\n',
+                      'viewingDistanceWhichPoint = ', get_first_non_na(eye_feet_data$viewingDistanceWhichPoint))
 
   # Create the plot
   tryCatch({
@@ -1092,10 +1100,10 @@ get_bs_vd <- function(data_list) {
 plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowed) {
   distance <- get_measured_distance_data(data_list)
   sizeCheck <- get_sizeCheck_data(data_list)
-  statement <- paste0('_calibrateTrackDistance = ', distance$`_calibrateTrackDistance`[1], '\n',
-                      '_calibrateTrackDistancePupil = ', distance$`_calibrateTrackDistancePupil`[1], '\n',
-                      'viewingDistanceWhichEye = ', distance$viewingDistanceWhichEye[1], '\n',
-                      'viewingDistanceWhichPoint = ', distance$viewingDistanceWhichPoint[1])
+  statement <- paste0('_calibrateTrackDistance = ', get_first_non_na(distance$`_calibrateTrackDistance`), '\n',
+                      '_calibrateTrackDistancePupil = ', get_first_non_na(distance$`_calibrateTrackDistancePupil`), '\n',
+                      'viewingDistanceWhichEye = ', get_first_non_na(distance$viewingDistanceWhichEye), '\n',
+                      'viewingDistanceWhichPoint = ', get_first_non_na(distance$viewingDistanceWhichPoint))
   if (nrow(distance) == 0) {return(NULL)}
   
   if (nrow(sizeCheck) > 0) {
@@ -1295,6 +1303,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
                             label = paste0('N=', n_distinct(ipd_data$participant))) +
         scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels=as.integer) +
         scale_y_log10(breaks = scales::log_breaks(n=8)) +
+        coord_fixed(ratio = 1) +  # Equal log scale spacing on both axes
         scale_color_manual(values= colorPalette) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
         guides(color = guide_legend(
@@ -1325,6 +1334,96 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     p3 <- NULL
   }
 
+  # Plot 3b: IPD * requested distance vs. requested distance (should equal factorCameraPxCm)
+  p3b <- NULL
+  if ("calibrateTrackDistanceIpdCameraPx" %in% names(distance)) {
+    ipd_product_data <- distance %>%
+      filter(!is.na(calibrateTrackDistanceIpdCameraPx),
+             !is.na(calibrateTrackDistanceRequestedCm)) %>%
+      arrange(participant, order) %>%
+      mutate(
+        # Calculate IPD * distance product
+        ipd_distance_product = calibrateTrackDistanceIpdCameraPx * calibrateTrackDistanceRequestedCm,
+        # Add logarithmic jitter to requested distance for better visualization
+        calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
+      )
+    
+    # Get camera data for factorCameraPxCm (horizontal lines)
+    camera_data <- get_cameraResolutionXY(data_list)
+    
+    if (nrow(ipd_product_data) > 0 && nrow(camera_data) > 0) {
+      # Join with camera data to get factorCameraPxCm for horizontal lines
+      ipd_product_data <- ipd_product_data %>%
+        left_join(camera_data %>% select(PavloviaParticipantID, factorCameraPxCm),
+                  by = c("participant" = "PavloviaParticipantID"))
+      
+      # Filter to data with valid factorCameraPxCm
+      ipd_product_data_valid <- ipd_product_data %>%
+        filter(!is.na(factorCameraPxCm))
+      
+      if (nrow(ipd_product_data_valid) > 0) {
+        # Create horizontal line data (one per participant with their factorCameraPxCm)
+        horizontal_lines <- ipd_product_data_valid %>%
+          group_by(participant, factorCameraPxCm) %>%
+          summarize(
+            min_distance = min(calibrateTrackDistanceRequestedCm, na.rm = TRUE),
+            max_distance = max(calibrateTrackDistanceRequestedCm, na.rm = TRUE),
+            .groups = "drop"
+          )
+        
+        p3b <- ggplot() +
+          # Horizontal lines for calibrated factorCameraPxCm (behind data)
+          geom_segment(data = horizontal_lines,
+                       aes(x = min_distance, xend = max_distance,
+                           y = factorCameraPxCm, yend = factorCameraPxCm,
+                           color = participant),
+                       linewidth = 1.2, alpha = 0.5, linetype = "solid") +
+          # Connected lines for measured IPD * distance
+          geom_line(data = ipd_product_data_valid,
+                    aes(x = calibrateTrackDistanceRequestedCm_jitter,
+                        y = ipd_distance_product,
+                        color = participant,
+                        group = participant),
+                    linewidth = 0.6, alpha = 0.8) +
+          # Points for measured IPD * distance
+          geom_point(data = ipd_product_data_valid,
+                     aes(x = calibrateTrackDistanceRequestedCm_jitter,
+                         y = ipd_distance_product,
+                         color = participant),
+                     size = 2.5, alpha = 0.8) +
+          ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                              label = paste0('N=', n_distinct(ipd_product_data_valid$participant))) +
+          scale_x_log10(limits = c(min_val, max_val), 
+                        breaks = scales::log_breaks(n = 8), 
+                        labels = as.integer) +
+          scale_y_log10(breaks = scales::log_breaks(n = 8)) +
+          scale_color_manual(values = colorPalette) +
+          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+          guides(color = guide_legend(
+            ncol = 3,
+            title = "",
+            override.aes = list(size = 1.5),
+            keywidth = unit(0.8, "lines"),
+            keyheight = unit(0.6, "lines")
+          )) +
+          theme_classic() +
+          theme(
+            legend.position = "right",
+            legend.box = "vertical",
+            legend.justification = "left",
+            legend.text = element_text(size = 6),
+            legend.spacing.y = unit(0, "lines"),
+            legend.key.size = unit(0.4, "cm"),
+            plot.margin = margin(5, 5, 5, 5, "pt")
+          ) +
+          labs(subtitle = 'IPD × requested distance vs. requested distance',
+               x = 'Requested distance (cm)',
+               y = 'IPD × requested distance (px·cm)',
+               caption = 'Thick faint lines: calibrated factorCameraPxCm (constant per session)\nThin lines with points: measured IPD × distance\nLogarithmic horizontal jitter added to reduce overlap')
+      }
+    }
+  }
+
   # Plot 4: Eye feet position vs distance error
   p4_result <- plot_eye_feet_position(data_list)
   p4 <- if (!is.null(p4_result)) p4_result$plot else NULL
@@ -1351,21 +1450,20 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
                is.finite(factorCameraPxCm), is.finite(medianFactorCameraPxCm))
         
       if (nrow(plot_data) > 0) {
-        # Calculate separate scale limits for X and Y to cover full data range
-        min_val_x <- min(plot_data$medianFactorCameraPxCm, na.rm = TRUE) * 0.9
-        max_val_x <- max(plot_data$medianFactorCameraPxCm, na.rm = TRUE) * 1.1
-        min_val_y <- min(plot_data$factorCameraPxCm, na.rm = TRUE) * 0.9
-        max_val_y <- max(plot_data$factorCameraPxCm, na.rm = TRUE) * 1.1
+        # Calculate symmetric scale limits to ensure equal axes (slope 1 equality line)
+        min_val_all <- min(c(plot_data$medianFactorCameraPxCm, plot_data$factorCameraPxCm), na.rm = TRUE) * 0.9
+        max_val_all <- max(c(plot_data$medianFactorCameraPxCm, plot_data$factorCameraPxCm), na.rm = TRUE) * 1.1
         
         p5 <- ggplot(plot_data, aes(x = medianFactorCameraPxCm, y = factorCameraPxCm)) +
           geom_point(aes(color = participant), size = 3, alpha = 0.8) +
           geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
           ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                               label = paste0('N=', n_distinct(plot_data$participant))) +
-          scale_x_log10(limits = c(min_val_x, max_val_x), 
+          scale_x_log10(limits = c(min_val_all, max_val_all), 
                         breaks = scales::log_breaks(n = 8)) +
-          scale_y_log10(limits = c(min_val_y, max_val_y), 
+          scale_y_log10(limits = c(min_val_all, max_val_all), 
                         breaks = scales::log_breaks(n = 8)) +
+          coord_fixed(ratio = 1) +  # Force 1:1 aspect ratio for symmetric axes
           annotation_logticks() +
           scale_color_manual(values = colorPalette) +
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -1496,6 +1594,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     credit_card_vs_requested = list(plot = p1, height = plot_height),
     credit_card_fraction = list(plot = p2, height = plot_height),
     ipd_vs_requested = list(plot = p3, height = if (!is.null(p3)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
+    ipd_product_vs_requested = list(plot = p3b, height = if (!is.null(p3b)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     eye_feet_position = list(plot = p4, height = eye_feet_height),
     foot_position_calibration = list(plot = p4b, height = plot_height),
     calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
@@ -1506,10 +1605,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
 plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
   sizeCheck <- get_sizeCheck_data(data_list)
   
-  statement <- paste0('_calibrateTrackDistance = ', sizeCheck$`_calibrateTrackDistance`[1], '\n',
-                      '_calibrateTrackDistancePupil = ', sizeCheck$`_calibrateTrackDistancePupil`[1], '\n',
-                      'viewingDistanceWhichEye = ', sizeCheck$viewingDistanceWhichEye[1], '\n',
-                      'viewingDistanceWhichPoint = ', sizeCheck$viewingDistanceWhichPoint[1])
+  statement <- paste0('_calibrateTrackDistance = ', get_first_non_na(sizeCheck$`_calibrateTrackDistance`), '\n',
+                      '_calibrateTrackDistancePupil = ', get_first_non_na(sizeCheck$`_calibrateTrackDistancePupil`), '\n',
+                      'viewingDistanceWhichEye = ', get_first_non_na(sizeCheck$viewingDistanceWhichEye), '\n',
+                      'viewingDistanceWhichPoint = ', get_first_non_na(sizeCheck$viewingDistanceWhichPoint))
   # Check if the data is empty
   if (nrow(sizeCheck) == 0) {
     return(NULL)
@@ -1865,10 +1964,10 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
 plot_distance_production <- function(data_list, participant_info,calibrateTrackDistanceCheckLengthSDLogAllowed) {
   distance <- get_measured_distance_data(data_list)
   sizeCheck <- get_sizeCheck_data(data_list)
-  statement <- paste0('_calibrateTrackDistance = ', distance$`_calibrateTrackDistance`[1], '\n',
-                      '_calibrateTrackDistancePupil = ', distance$`_calibrateTrackDistancePupil`[1], '\n',
-                      'viewingDistanceWhichEye = ', distance$viewingDistanceWhichEye[1], '\n',
-                      'viewingDistanceWhichPoint = ', distance$viewingDistanceWhichPoint[1])
+  statement <- paste0('_calibrateTrackDistance = ', get_first_non_na(distance$`_calibrateTrackDistance`), '\n',
+                      '_calibrateTrackDistancePupil = ', get_first_non_na(distance$`_calibrateTrackDistancePupil`), '\n',
+                      'viewingDistanceWhichEye = ', get_first_non_na(distance$viewingDistanceWhichEye), '\n',
+                      'viewingDistanceWhichPoint = ', get_first_non_na(distance$viewingDistanceWhichPoint))
         
   
   if (nrow(distance) == 0) {return(NULL)}
