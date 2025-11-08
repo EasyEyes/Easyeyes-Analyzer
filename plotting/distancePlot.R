@@ -82,6 +82,8 @@ get_cameraResolutionXY <- function(data_list) {
       df <- rbind(df, t)
     }
   }
+  print("get_cameraResolutionXY")
+  print(df)
   return(df %>% distinct())
 }
 
@@ -325,6 +327,11 @@ get_measured_distance_data <- function(data_list) {
     return(df)
   }
   for (i in 1:length(data_list)) {
+    
+    if ('calibrateTrackDistanceIpdCameraPx' %in% names(data_list[[i]])) {
+      data_list[[i]]$calibrateTrackDistanceIpdVpx = data_list[[i]]$calibrateTrackDistanceIpdCameraPx
+    }
+    
     t <- data_list[[i]] %>%
       select(`_calibrateTrackDistance`,
              `_calibrateTrackDistancePupil`,
