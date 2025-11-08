@@ -32,29 +32,38 @@ get_cameraResolutionXY <- function(data_list) {
   df <- tibble()
   if (is.null(data_list) || length(data_list) == 0) return(df)
   for (i in 1:length(data_list)) {
-    factorCameraPxCmList = c()
-    factorCameraPxCm = ""
+    factorVpxCmList = c()
+    factorVpxCm = ""
     if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
 
       distanceCalibration <- fromJSON(sort(data_list[[i]]$distanceCalibrationJSON)[1])
 
      for (j in 1:length(distanceCalibration)) {
-       factorCameraPxCmList = c(factorCameraPxCmList,distanceCalibration[[j]]$factorCameraPxCm)
+       # Accept both new and legacy field names; prefer new if present
+       val <- NULL
+       if (!is.null(distanceCalibration[[j]]$factorVpxCm)) {
+         val <- distanceCalibration[[j]]$factorVpxCm
+       } else if (!is.null(distanceCalibration[[j]]$factorCameraPxCm)) {
+         val <- distanceCalibration[[j]]$factorCameraPxCm
+       }
+       if (!is.null(val)) {
+         factorVpxCmList = c(factorVpxCmList, val)
+       }
      }
-      # Take the average of the last two factorCameraPxCm values (fallback to single if only one)
-      factorCameraPxCmVals <- suppressWarnings(as.numeric(factorCameraPxCmList))
-      factorCameraPxCmVals <- factorCameraPxCmVals[!is.na(factorCameraPxCmVals)]
-      if (length(factorCameraPxCmVals) >= 2) {
-        factorCameraPxCm <- mean(tail(factorCameraPxCmVals, 2))
-      } else if (length(factorCameraPxCmVals) == 1) {
-        factorCameraPxCm <- factorCameraPxCmVals[1]
+      # Take the average of the last two factorVpxCm values (fallback to single if only one)
+      factorVpxCmVals <- suppressWarnings(as.numeric(factorVpxCmList))
+      factorVpxCmVals <- factorVpxCmVals[!is.na(factorVpxCmVals)]
+      if (length(factorVpxCmVals) >= 2) {
+        factorVpxCm <- mean(tail(factorVpxCmVals, 2))
+      } else if (length(factorVpxCmVals) == 1) {
+        factorVpxCm <- factorVpxCmVals[1]
       } else {
-        factorCameraPxCm <- NA_real_
+        factorVpxCm <- NA_real_
       }
     }
 
     t <- data_list[[i]] %>%
-      mutate(factorCameraPxCm = !!factorCameraPxCm)
+      mutate(factorVpxCm = !!factorVpxCm)
 
     # Skip iteration if participant column doesn't exist or has no data
     if (!"participant" %in% names(t) || all(is.na(t$participant)) || all(t$participant == "")) {
@@ -63,12 +72,12 @@ get_cameraResolutionXY <- function(data_list) {
 
     t <- t %>%
       select(participant, `_calibrateTrackDistance`,
-             `_calibrateTrackDistancePupil`, factorCameraPxCm,
+             `_calibrateTrackDistancePupil`, factorVpxCm,
              cameraResolutionXY) %>%
       rename(PavloviaParticipantID = participant) %>%
       distinct() %>%
       filter(!is.na(cameraResolutionXY), cameraResolutionXY != "",
-             !is.na(factorCameraPxCm))
+             !is.na(factorVpxCm))
     if (nrow(t) > 0) {
       df <- rbind(df, t)
     }
@@ -76,7 +85,7 @@ get_cameraResolutionXY <- function(data_list) {
   return(df %>% distinct())
 }
 
-get_distanceCheck_factorCameraPxCm <- function(data_list) {
+get_distanceCheck_factorVpxCm <- function(data_list) {
   df <- tibble()
   if (is.null(data_list) || length(data_list) == 0) return(df)
   
@@ -92,23 +101,29 @@ get_distanceCheck_factorCameraPxCm <- function(data_list) {
       tryCatch({
         distanceCheck <- fromJSON(sort(data_list[[i]]$distanceCheckJSON)[1])
         
-        # Extract measuredFactorCameraPxCm array from distanceCheckJSON
-        if (!is.null(distanceCheck$measuredFactorCameraPxCm)) {
-          measuredFactorCameraPxCm <- distanceCheck$measuredFactorCameraPxCm
+        # Extract measuredFactorVpxCm (new) or measuredFactorCameraPxCm (legacy) from distanceCheckJSON
+        measured_vals <- NULL
+        if (!is.null(distanceCheck$measuredFactorVpxCm)) {
+          measured_vals <- distanceCheck$measuredFactorVpxCm
+        } else if (!is.null(distanceCheck$measuredFactorCameraPxCm)) {
+          measured_vals <- distanceCheck$measuredFactorCameraPxCm
+        }
+        if (!is.null(measured_vals)) {
+          measuredFactorVpxCm <- measured_vals
           
           # Calculate median of the checking measurements
-          measuredFactorCameraPxCmVals <- suppressWarnings(as.numeric(measuredFactorCameraPxCm))
-          measuredFactorCameraPxCmVals <- measuredFactorCameraPxCmVals[!is.na(measuredFactorCameraPxCmVals)]
+          measuredFactorVpxCmVals <- suppressWarnings(as.numeric(measuredFactorVpxCm))
+          measuredFactorVpxCmVals <- measuredFactorVpxCmVals[!is.na(measuredFactorVpxCmVals)]
           
-          if (length(measuredFactorCameraPxCmVals) > 0) {
-            medianFactorCameraPxCm <- median(measuredFactorCameraPxCmVals)
+          if (length(measuredFactorVpxCmVals) > 0) {
+            medianFactorVpxCm <- median(measuredFactorVpxCmVals)
             
             t <- data_list[[i]] %>%
-              mutate(medianFactorCameraPxCm = medianFactorCameraPxCm) %>%
-              select(participant, medianFactorCameraPxCm) %>%
+              mutate(medianFactorVpxCm = medianFactorVpxCm) %>%
+              select(participant, medianFactorVpxCm) %>%
               rename(PavloviaParticipantID = participant) %>%
               distinct() %>%
-              filter(!is.na(medianFactorCameraPxCm))
+              filter(!is.na(medianFactorVpxCm))
             
             if (nrow(t) > 0) {
               df <- rbind(df, t)
@@ -173,12 +188,12 @@ get_merged_participant_distance_info <- function(data_list, participant_info) {
       cameraResolution_split = ifelse(is.na(cameraResolution_split), list(NA_character_), strsplit(cameraResolution_clean, "[,xX ]+")),
       cameraHeightPx = suppressWarnings(as.numeric(sapply(cameraResolution_split, function(v) if (length(v) >= 1) trimws(v[1]) else NA_character_))),
       # Coerce to numeric to avoid non-numeric errors during division
-      factorCameraPxCm = suppressWarnings(as.numeric(factorCameraPxCm)),
+      factorVpxCm = suppressWarnings(as.numeric(factorVpxCm)),
       cameraHeightPx = suppressWarnings(as.numeric(cameraHeightPx)),
-      ratio_tmp = ifelse(!is.na(factorCameraPxCm) & !is.na(cameraHeightPx) & cameraHeightPx != 0,
-                         factorCameraPxCm / cameraHeightPx, NA_real_),
+      ratio_tmp = ifelse(!is.na(factorVpxCm) & !is.na(cameraHeightPx) & cameraHeightPx != 0,
+                         factorVpxCm / cameraHeightPx, NA_real_),
       ratio_round = round(ratio_tmp, 1),
-      `factorCameraPxCm/cameraHeightPx` = ifelse(is.na(ratio_round), NA_character_, format(ratio_round, nsmall = 1))
+      `factorVpxCm/cameraHeightPx` = ifelse(is.na(ratio_round), NA_character_, format(ratio_round, nsmall = 1))
     ) %>%
     select(-cameraResolution_clean, -cameraResolution_split, -ratio_tmp, -ratio_round, -cameraHeightPx) %>%
     arrange(ok_priority, PavloviaParticipantID) %>%
@@ -318,7 +333,7 @@ get_measured_distance_data <- function(data_list) {
              participant,
              calibrateTrackDistanceMeasuredCm,
              calibrateTrackDistanceRequestedCm,
-             calibrateTrackDistanceIpdCameraPx) %>%
+             calibrateTrackDistanceIpdVpx) %>%
       distinct() %>%
       filter(!is.na(calibrateTrackDistanceMeasuredCm),
              !is.na(calibrateTrackDistanceRequestedCm),
@@ -331,17 +346,17 @@ get_measured_distance_data <- function(data_list) {
         mutate(
           calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
           calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm),
-          calibrateTrackDistanceIpdCameraPx = gsub("\\[|\\]|\"", "", calibrateTrackDistanceIpdCameraPx)
+          calibrateTrackDistanceIpdVpx = gsub("\\[|\\]|\"", "", calibrateTrackDistanceIpdVpx)
         ) %>%
         # Separate all columns together while keeping row-wise structure
         mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","),
                requested_list = strsplit(calibrateTrackDistanceRequestedCm, ","),
-               ipd_list = strsplit(calibrateTrackDistanceIpdCameraPx, ",")) %>%
+               ipd_list = strsplit(calibrateTrackDistanceIpdVpx, ",")) %>%
         unnest(c(measured_list, requested_list, ipd_list)) %>%  # Expands all columns together
         mutate(
           calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
           calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
-          calibrateTrackDistanceIpdCameraPx = as.numeric(trimws(ipd_list))
+          calibrateTrackDistanceIpdVpx = as.numeric(trimws(ipd_list))
         ) %>%
         select(-measured_list, -requested_list, -ipd_list)  # Remove temp lists
       
@@ -351,7 +366,7 @@ get_measured_distance_data <- function(data_list) {
           calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm)
         ) %>%
           # Ensure IPD column exists even if it wasn't processed
-          mutate(calibrateTrackDistanceIpdCameraPx = if("calibrateTrackDistanceIpdCameraPx" %in% names(.)) calibrateTrackDistanceIpdCameraPx else NA) %>%
+          mutate(calibrateTrackDistanceIpdVpx = if("calibrateTrackDistanceIpdVpx" %in% names(.)) calibrateTrackDistanceIpdVpx else NA) %>%
           # Add row number first to preserve original order
           mutate(order = row_number())
       }
@@ -359,10 +374,10 @@ get_measured_distance_data <- function(data_list) {
     }
   }
   if (nrow(t) > 0) {
-    if(all(is.na(df$calibrateTrackDistanceIpdCameraPx))) {
-      df <- df %>% select(-calibrateTrackDistanceIpdCameraPx)
+    if(all(is.na(df$calibrateTrackDistanceIpdVpx))) {
+      df <- df %>% select(-calibrateTrackDistanceIpdVpx)
     } else {
-      df <- df %>% filter(!is.na(calibrateTrackDistanceIpdCameraPx))
+      df <- df %>% filter(!is.na(calibrateTrackDistanceIpdVpx))
     }
   }
   
@@ -1246,9 +1261,9 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
          caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
 
   # Plot 3: IPD (camera px) vs requested distance (individual data)
-  if ("calibrateTrackDistanceIpdCameraPx" %in% names(distance)) {
+  if ("calibrateTrackDistanceIpdVpx" %in% names(distance)) {
     ipd_data <- distance %>%
-      filter(!is.na(calibrateTrackDistanceIpdCameraPx),
+      filter(!is.na(calibrateTrackDistanceIpdVpx),
              !is.na(calibrateTrackDistanceRequestedCm)) %>%
       arrange(participant, order) %>%  # Ensure proper ordering
       mutate(
@@ -1256,46 +1271,46 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
       )
 
-    # Get camera data for factorCameraPxCm
+    # Get camera data for factorVpxCm
     camera_data <- get_cameraResolutionXY(data_list)
 
     if (nrow(ipd_data) > 0 && nrow(camera_data) > 0) {
-      # Join with camera data to get factorCameraPxCm
+      # Join with camera data to get factorVpxCm
       ipd_data <- ipd_data %>%
-        left_join(camera_data %>% select(PavloviaParticipantID, factorCameraPxCm),
+        left_join(camera_data %>% select(PavloviaParticipantID, factorVpxCm),
                   by = c("participant" = "PavloviaParticipantID"))
 
       # Create prediction data for each participant
       prediction_data <- ipd_data %>%
-        filter(!is.na(factorCameraPxCm)) %>%  # factorCameraPxCm is already numeric
+        filter(!is.na(factorVpxCm)) %>%  # factorVpxCm is already numeric
         group_by(participant) %>%
         summarize(
-          factorCameraPxCm = first(factorCameraPxCm),
+          factorVpxCm = first(factorVpxCm),
           .groups = "drop"
         ) %>%
         # Create prediction line across the x-range
         crossing(calibrateTrackDistanceRequestedCm = seq(min_val, max_val, length.out = 100)) %>%
-        mutate(predictedIpdCameraPx = factorCameraPxCm / calibrateTrackDistanceRequestedCm)
+        mutate(predictedIpdVpx = factorVpxCm / calibrateTrackDistanceRequestedCm)
 
       p3 <- ggplot() +
         # Add predicted lines first (so they appear behind the data)
         geom_line(data = prediction_data,
                   aes(x = calibrateTrackDistanceRequestedCm,
-                      y = predictedIpdCameraPx,
+                      y = predictedIpdVpx,
                       color = participant,
                       group = participant),
                   linewidth = 0.75, alpha = 0.8, linetype = "solid") +
         # Measured data lines (made thinner)
         geom_line(data=ipd_data,
                   aes(x = calibrateTrackDistanceRequestedCm_jitter,
-                      y = calibrateTrackDistanceIpdCameraPx,
+                      y = calibrateTrackDistanceIpdVpx,
                       color = participant,
                       group = participant),
                   linewidth = 0.5, alpha = 0.7) +
         # Measured data points
         geom_point(data=ipd_data,
                    aes(x = calibrateTrackDistanceRequestedCm_jitter,
-                       y = calibrateTrackDistanceIpdCameraPx,
+                       y = calibrateTrackDistanceIpdVpx,
                        color = participant),
                    size = 2) +
         ggpp::geom_text_npc(aes(npcx="left",
@@ -1326,7 +1341,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         labs(subtitle = 'IPD (camera px) vs. requested distance',
              x = 'Requested distance (cm)',
              y = 'IPD (camera px)',
-             caption = 'Thick solid lines: predicted IPD = factorCameraPxCm/requestedDistance\nThin solid lines: measured data\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
+             caption = 'Thick solid lines: predicted IPD = factorVpxCm/requestedDistance\nThin solid lines: measured data\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
     } else {
       p3 <- NULL
     }
@@ -1334,37 +1349,37 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     p3 <- NULL
   }
 
-  # Plot 3b: IPD * requested distance vs. requested distance (should equal factorCameraPxCm)
+  # Plot 3b: IPD * requested distance vs. requested distance (should equal factorVpxCm)
   p3b <- NULL
-  if ("calibrateTrackDistanceIpdCameraPx" %in% names(distance)) {
+  if ("calibrateTrackDistanceIpdVpx" %in% names(distance)) {
     ipd_product_data <- distance %>%
-      filter(!is.na(calibrateTrackDistanceIpdCameraPx),
+      filter(!is.na(calibrateTrackDistanceIpdVpx),
              !is.na(calibrateTrackDistanceRequestedCm)) %>%
       arrange(participant, order) %>%
       mutate(
         # Calculate IPD * distance product
-        ipd_distance_product = calibrateTrackDistanceIpdCameraPx * calibrateTrackDistanceRequestedCm,
+        ipd_distance_product = calibrateTrackDistanceIpdVpx * calibrateTrackDistanceRequestedCm,
         # Add logarithmic jitter to requested distance for better visualization
         calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
       )
     
-    # Get camera data for factorCameraPxCm (horizontal lines)
+    # Get camera data for factorVpxCm (horizontal lines)
     camera_data <- get_cameraResolutionXY(data_list)
     
     if (nrow(ipd_product_data) > 0 && nrow(camera_data) > 0) {
-      # Join with camera data to get factorCameraPxCm for horizontal lines
+      # Join with camera data to get factorVpxCm for horizontal lines
       ipd_product_data <- ipd_product_data %>%
-        left_join(camera_data %>% select(PavloviaParticipantID, factorCameraPxCm),
+        left_join(camera_data %>% select(PavloviaParticipantID, factorVpxCm),
                   by = c("participant" = "PavloviaParticipantID"))
       
-      # Filter to data with valid factorCameraPxCm
+      # Filter to data with valid factorVpxCm
       ipd_product_data_valid <- ipd_product_data %>%
-        filter(!is.na(factorCameraPxCm))
+        filter(!is.na(factorVpxCm))
       
       if (nrow(ipd_product_data_valid) > 0) {
-        # Create horizontal line data (one per participant with their factorCameraPxCm)
+        # Create horizontal line data (one per participant with their factorVpxCm)
         horizontal_lines <- ipd_product_data_valid %>%
-          group_by(participant, factorCameraPxCm) %>%
+          group_by(participant, factorVpxCm) %>%
           summarize(
             min_distance = min(calibrateTrackDistanceRequestedCm, na.rm = TRUE),
             max_distance = max(calibrateTrackDistanceRequestedCm, na.rm = TRUE),
@@ -1372,10 +1387,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
           )
         
         p3b <- ggplot() +
-          # Horizontal lines for calibrated factorCameraPxCm (behind data)
+          # Horizontal lines for calibrated factorVpxCm (behind data)
           geom_segment(data = horizontal_lines,
                        aes(x = min_distance, xend = max_distance,
-                           y = factorCameraPxCm, yend = factorCameraPxCm,
+                           y = factorVpxCm, yend = factorVpxCm,
                            color = participant),
                        linewidth = 1.2, alpha = 0.5, linetype = "solid") +
           # Connected lines for measured IPD * distance
@@ -1419,7 +1434,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
           labs(subtitle = 'IPD × requested distance vs. requested distance',
                x = 'Requested distance (cm)',
                y = 'IPD × requested distance (px·cm)',
-               caption = 'Thick faint lines: calibrated factorCameraPxCm (constant per session)\nThin lines with points: measured IPD × distance\nLogarithmic horizontal jitter added to reduce overlap')
+               caption = 'Thick faint lines: calibrated factorVpxCm (constant per session)\nThin lines with points: measured IPD × distance\nLogarithmic horizontal jitter added to reduce overlap')
       }
     }
   }
@@ -1431,30 +1446,30 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   # Plot 4b: Foot position during calibration (colored by participant, no clipping)
   p4b <- plot_foot_position_during_calibration(data_list)
   
-  # Plot 5: Calibrated vs. median factorCameraPxCm
+  # Plot 5: Calibrated vs. median factorVpxCm
   p5 <- NULL
-  if ("calibrateTrackDistanceIpdCameraPx" %in% names(distance) && nrow(distance) > 0) {
-    # Get calibration data for factorCameraPxCm (Y-axis)
+  if ("calibrateTrackDistanceIpdVpx" %in% names(distance) && nrow(distance) > 0) {
+    # Get calibration data for factorVpxCm (Y-axis)
     camera_data <- get_cameraResolutionXY(data_list)
-    # Get distance check data for median factorCameraPxCm (X-axis)
-    check_data <- get_distanceCheck_factorCameraPxCm(data_list)
+    # Get distance check data for median factorVpxCm (X-axis)
+    check_data <- get_distanceCheck_factorVpxCm(data_list)
     
     if (nrow(camera_data) > 0 && nrow(check_data) > 0) {
       # Join calibration and check data by participant
       plot_data <- camera_data %>%
-        select(PavloviaParticipantID, factorCameraPxCm) %>%
-        inner_join(check_data %>% select(PavloviaParticipantID, medianFactorCameraPxCm),
+        select(PavloviaParticipantID, factorVpxCm) %>%
+        inner_join(check_data %>% select(PavloviaParticipantID, medianFactorVpxCm),
                   by = "PavloviaParticipantID") %>%
         rename(participant = PavloviaParticipantID) %>%
-        filter(!is.na(factorCameraPxCm), !is.na(medianFactorCameraPxCm),
-               is.finite(factorCameraPxCm), is.finite(medianFactorCameraPxCm))
+        filter(!is.na(factorVpxCm), !is.na(medianFactorVpxCm),
+               is.finite(factorVpxCm), is.finite(medianFactorVpxCm))
         
       if (nrow(plot_data) > 0) {
         # Calculate symmetric scale limits to ensure equal axes (slope 1 equality line)
-        min_val_all <- min(c(plot_data$medianFactorCameraPxCm, plot_data$factorCameraPxCm), na.rm = TRUE) * 0.9
-        max_val_all <- max(c(plot_data$medianFactorCameraPxCm, plot_data$factorCameraPxCm), na.rm = TRUE) * 1.1
+        min_val_all <- min(c(plot_data$medianFactorVpxCm, plot_data$factorVpxCm), na.rm = TRUE) * 0.9
+        max_val_all <- max(c(plot_data$medianFactorVpxCm, plot_data$factorVpxCm), na.rm = TRUE) * 1.1
         
-        p5 <- ggplot(plot_data, aes(x = medianFactorCameraPxCm, y = factorCameraPxCm)) +
+        p5 <- ggplot(plot_data, aes(x = medianFactorVpxCm, y = factorVpxCm)) +
           geom_point(aes(color = participant), size = 3, alpha = 0.8) +
           geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
           ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
@@ -1484,18 +1499,18 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
             legend.key.size = unit(0.4, "cm"),
             plot.margin = margin(5, 5, 5, 5, "pt")
           ) +
-          labs(subtitle = 'Calibrated vs. median factorCameraPxCm',
-               x = 'Median factorCameraPxCm from distance checking (per session)',
-               y = 'FactorCameraPxCm from calibration',
-               caption = 'Dashed line shows y=x (perfect agreement)\nMedian calculated from measuredFactorCameraPxCm in distanceCheckJSON')
+          labs(subtitle = 'Calibrated vs. median factorVpxCm',
+               x = 'Median factorVpxCm from distance checking (per session)',
+               y = 'FactorVpxCm from calibration',
+               caption = 'Dashed line shows y=x (perfect agreement)\nMedian calculated from measuredFactorVpxCm in distanceCheckJSON')
       }
     }
   }
   
-  # Plot 6: Calibrated over mean factorCameraPxCm vs. spot diameter
+  # Plot 6: Calibrated over mean factorVpxCm vs. spot diameter
   p6 <- NULL
-  if ("calibrateTrackDistanceIpdCameraPx" %in% names(distance) && nrow(distance) > 0) {
-    # Get camera data for factorCameraPxCm
+  if ("calibrateTrackDistanceIpdVpx" %in% names(distance) && nrow(distance) > 0) {
+    # Get camera data for factorVpxCm
     camera_data <- get_cameraResolutionXY(data_list)
     # Get blindspot diameter data
     blindspot_data <- get_calibrateTrackDistanceBlindspotDiameterDeg(data_list)
@@ -1503,21 +1518,21 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     if (nrow(camera_data) > 0 && nrow(blindspot_data) > 0) {
       # Join distance data with camera data
       factor_data <- distance %>%
-        filter(!is.na(calibrateTrackDistanceIpdCameraPx),
+        filter(!is.na(calibrateTrackDistanceIpdVpx),
                !is.na(calibrateTrackDistanceMeasuredCm)) %>%
-        left_join(camera_data %>% select(PavloviaParticipantID, factorCameraPxCm),
+        left_join(camera_data %>% select(PavloviaParticipantID, factorVpxCm),
                   by = c("participant" = "PavloviaParticipantID")) %>%
-        filter(!is.na(factorCameraPxCm))
+        filter(!is.na(factorVpxCm))
       
       if (nrow(factor_data) > 0) {
         # Calculate geometric mean per participant (session)
         geo_mean_data <- factor_data %>%
           mutate(
-            product = calibrateTrackDistanceMeasuredCm * calibrateTrackDistanceIpdCameraPx
+            product = calibrateTrackDistanceMeasuredCm * calibrateTrackDistanceIpdVpx
           ) %>%
           group_by(participant) %>%
           summarize(
-            geoMeanFactorCameraPxCm = 10^mean(log10(product), na.rm = TRUE),
+            geoMeanFactorVpxCm = 10^mean(log10(product), na.rm = TRUE),
             .groups = "drop"
           )
         
@@ -1525,11 +1540,11 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         plot_data <- factor_data %>%
           left_join(geo_mean_data, by = "participant") %>%
           left_join(blindspot_data, by = "participant") %>%
-          filter(!is.na(geoMeanFactorCameraPxCm), 
-                 is.finite(geoMeanFactorCameraPxCm),
+          filter(!is.na(geoMeanFactorVpxCm), 
+                 is.finite(geoMeanFactorVpxCm),
                  !is.na(`_calibrateTrackDistanceBlindspotDiameterDeg`)) %>%
           mutate(
-            ratio = factorCameraPxCm / geoMeanFactorCameraPxCm,
+            ratio = factorVpxCm / geoMeanFactorVpxCm,
             spotDeg = `_calibrateTrackDistanceBlindspotDiameterDeg`
           ) %>%
           filter(is.finite(ratio))
@@ -1573,10 +1588,10 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
               legend.key.size = unit(0.4, "cm"),
               plot.margin = margin(5, 5, 5, 5, "pt")
             ) +
-            labs(subtitle = 'Calibrated over mean factorCameraPxCm vs. spot diameter',
+            labs(subtitle = 'Calibrated over mean factorVpxCm vs. spot diameter',
                  x = 'Spot diameter (deg)',
-                 y = 'FactorCameraPxCm over geometric mean',
-                 caption = 'Dashed line shows y=1 (perfect agreement with session mean)\nGeometric mean = 10^mean(log10(measuredEyeToCameraCm × ipdCameraPx))')
+                 y = 'FactorVpxCm over geometric mean',
+                 caption = 'Dashed line shows y=1 (perfect agreement with session mean)\nGeometric mean = 10^mean(log10(measuredEyeToCameraCm × ipdVpx))')
         }
       }
     }

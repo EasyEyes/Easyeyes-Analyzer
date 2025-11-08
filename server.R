@@ -856,12 +856,12 @@ shinyServer(function(input, output, session) {
       list(plot = distance_production_plots$individual_production_fraction$plot, height = distance_production_plots$individual_production_fraction$height, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$error_vs_object_size$plot, height = distance_production_plots$error_vs_object_size$height, fname = 'error-vs-object-size-plot'),
       list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'error-vs-blindspot-diameter-plot'),
-      list(plot = distance_plots$ipd_vs_requested$plot, height = distance_plots$ipd_vs_requested$height, fname = 'calibrateTrackDistanceIpdCameraPx-vs-calibrateTrackDistanceRequestedCm-plot'),
+      list(plot = distance_plots$ipd_vs_requested$plot, height = distance_plots$ipd_vs_requested$height, fname = 'calibrateTrackDistanceIpdVpx-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_plots$ipd_product_vs_requested$plot, height = distance_plots$ipd_product_vs_requested$height, fname = 'ipd-product-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_plots$eye_feet_position$plot, height = distance_plots$eye_feet_position$height, fname = 'eye-feet-position-vs-distance-error-plot'),
       list(plot = distance_plots$foot_position_calibration$plot, height = distance_plots$foot_position_calibration$height, fname = 'foot-position-during-calibration-plot'),
-      list(plot = distance_plots$calibrated_vs_mean$plot, height = distance_plots$calibrated_vs_mean$height, fname = 'calibrated-vs-mean-factorCameraPxCm-plot'),
-      list(plot = distance_plots$calibrated_over_mean_vs_spot$plot, height = distance_plots$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorCameraPxCm-vs-spot-diameter-plot')
+      list(plot = distance_plots$calibrated_vs_mean$plot, height = distance_plots$calibrated_vs_mean$height, fname = 'calibrated-vs-mean-factorVpxCm-plot'),
+      list(plot = distance_plots$calibrated_over_mean_vs_spot$plot, height = distance_plots$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter-plot')
     )
 
     heights <- list()
@@ -1236,7 +1236,7 @@ shinyServer(function(input, output, session) {
         columnDefs = list(
           list(width = '100px', targets = 0),  # pavloviaParticipantID
           list(width = '80px', targets = 1),   # _calibrateTrackDistancePupil
-          list(width = '80px', targets = 2),   # factorCameraPxCm
+          list(width = '80px', targets = 2),   # factorVpxCm
           list(width = '80px', targets = 3),   # cameraResolutionXY
           list(width = '40px', targets = 4),   # ok
           list(width = '50px', targets = 5),   # device type
