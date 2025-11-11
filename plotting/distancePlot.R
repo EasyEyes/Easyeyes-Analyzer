@@ -19,6 +19,70 @@ compute_auto_height <- function(base_height, n_items, per_row, row_increase) {
   return(base_height * height_factor)
 }
 
+# Safe helpers for building short, clean, single-string labels
+safe_first <- function(x) {
+  x <- as.character(x)
+  x <- x[!is.na(x) & x != "" & x != "NA"]
+  if (length(x)) x[1] else ""
+}
+
+safe_first_num <- function(x, digits = NULL) {
+  x <- suppressWarnings(as.numeric(x))
+  x <- x[is.finite(x)]
+  if (!length(x)) return("")
+  if (is.null(digits)) as.character(x[1]) else format(round(x[1], digits), nsmall = digits)
+}
+
+make_statement <- function(df) {
+  paste(
+    paste0("_calibrateTrackDistance = ",               safe_first(df[["_calibrateTrackDistance"]])),
+    paste0("_calibrateTrackDistancePupil = ",          safe_first(df[["_calibrateTrackDistancePupil"]])),
+    paste0("_calibrateTrackDistanceAllowedRatio = ",   safe_first(df[["_calibrateTrackDistanceAllowedRatio"]])),
+    paste0("_calibrateTrackDistanceShowLengthBool = ", safe_first(df[["_calibrateTrackDistanceShowLengthBool"]])),
+    paste0("_calibrateTrackDistanceTimes = ",          safe_first(df[["_calibrateTrackDistanceTimes"]])),
+    paste0("calibrateScreenSizeAllowedRatio = ",       safe_first(df[["calibrateScreenSizeAllowedRatio"]])),
+    paste0("calibrateScreenSizeTimes = ",              safe_first(df[["calibrateScreenSizeTimes"]])),
+    paste0("viewingDistanceWhichEye = ",               safe_first(df[["viewingDistanceWhichEye"]])),
+    paste0("viewingDistanceWhichPoint = ",             safe_first(df[["viewingDistanceWhichPoint"]])),
+    sep = "\n"
+  )
+}
+
+# Build a small parameter table for in-plot display
+build_param_table <- function(df) {
+  safe_first <- function(x) {
+    x <- as.character(x)
+    x <- x[!is.na(x) & x != "" & x != "NA"]
+    if (length(x)) x[1] else ""
+  }
+  keys <- c(
+    "_calibrateTrackDistance",
+    "_calibrateTrackDistancePupil",
+    "_calibrateTrackDistanceAllowedRatio",
+    "_calibrateTrackDistanceShowLengthBool",
+    "_calibrateTrackDistanceTimes",
+    "calibrateScreenSizeAllowedRatio",
+    "calibrateScreenSizeTimes",
+    "viewingDistanceWhichEye",
+    "viewingDistanceWhichPoint"
+  )
+  vals <- c(
+    safe_first(df[["_calibrateTrackDistance"]]),
+    safe_first(df[["_calibrateTrackDistancePupil"]]),
+    safe_first(df[["_calibrateTrackDistanceAllowedRatio"]]),
+    safe_first(df[["_calibrateTrackDistanceShowLengthBool"]]),
+    safe_first(df[["_calibrateTrackDistanceTimes"]]),
+    safe_first(df[["calibrateScreenSizeAllowedRatio"]]),
+    safe_first(df[["calibrateScreenSizeTimes"]]),
+    safe_first(df[["viewingDistanceWhichEye"]]),
+    safe_first(df[["viewingDistanceWhichPoint"]])
+  )
+  lines <- paste0(keys, " = ", vals)
+  # return a one-column data.frame; header will be hidden in theme
+  out <- data.frame(text = lines, stringsAsFactors = FALSE)
+  out
+}
+
 # Helper to get first non-NA calibration parameter value
 get_first_non_na <- function(values) {
   non_na_values <- values[!is.na(values)]
@@ -82,8 +146,7 @@ get_cameraResolutionXY <- function(data_list) {
       df <- rbind(df, t)
     }
   }
-  print("get_cameraResolutionXY")
-  print(df)
+
   return(df %>% distinct())
 }
 
@@ -140,9 +203,13 @@ get_distanceCheck_factorVpxCm <- function(data_list) {
   return(df %>% distinct())
 }
 
-get_merged_participant_distance_info <- function(data_list, participant_info) {
-  # Get camera resolution data
-  camera_data <- get_cameraResolutionXY(data_list)
+get_merged_participant_distance_info <- function(data_or_results, participant_info) {
+  # Get camera resolution data (support both raw data_list and precomputed results)
+  camera_data <- if (is.list(data_or_results) && "camera" %in% names(data_or_results)) {
+    data_or_results$camera
+  } else {
+    get_cameraResolutionXY(data_or_results)
+  }
   
   
   # If no participant_info provided, return just camera data
@@ -207,7 +274,16 @@ get_merged_participant_distance_info <- function(data_list, participant_info) {
 
 get_distance_calibration <- function(data_list, minRulerCm) {
   if (length(data_list) == 0) {
-    return(list())
+    return(list(
+      filtered = list(),
+      sizeCheck = tibble(),
+      distance = tibble(),
+      eye_feet = tibble(),
+      feet_calib = tibble(),
+      check_factor = tibble(),
+      camera = tibble(),
+      statement = ""
+    ))
   }
   
   # Get participant ruler info to determine who to exclude
@@ -250,7 +326,16 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   valid_participants <- participant_info$participant
   
   if (length(valid_participants) == 0) {
-    return(list())
+    return(list(
+      filtered = list(),
+      sizeCheck = tibble(),
+      distance = tibble(),
+      eye_feet = tibble(),
+      feet_calib = tibble(),
+      check_factor = tibble(),
+      camera = tibble(),
+      statement = ""
+    ))
   }
   
   filtered_data_list <- list()
@@ -262,7 +347,28 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       filtered_data_list[[length(filtered_data_list) + 1]] <- filtered_data
     }
   }
-  return(filtered_data_list)
+  
+  # Compute all derived datasets once
+  sizeCheck <- get_sizeCheck_data(filtered_data_list)
+  distance <- get_measured_distance_data(filtered_data_list)
+  eye_feet <- get_eye_feet_position_data(filtered_data_list)
+  feet_calib <- get_foot_position_during_calibration_data(filtered_data_list)
+  check_factor <- get_distanceCheck_factorVpxCm(filtered_data_list)
+  camera <- get_cameraResolutionXY(filtered_data_list)
+  blindspot <- get_calibrateTrackDistanceBlindspotDiameterDeg(filtered_data_list)
+  statement <- make_statement(sizeCheck)
+  
+  return(list(
+    filtered = filtered_data_list,
+    sizeCheck = sizeCheck,
+    distance = distance,
+    eye_feet = eye_feet,
+    feet_calib = feet_calib,
+    check_factor = check_factor,
+    camera = camera,
+    blindspot = blindspot,
+    statement = statement
+  ))
 }
 
 get_sizeCheck_data <- function(data_list) {
@@ -277,6 +383,11 @@ get_sizeCheck_data <- function(data_list) {
     t <- data_list[[i]] %>%
       select(`_calibrateTrackDistance`,
              `_calibrateTrackDistancePupil`,
+             `_calibrateTrackDistanceAllowedRatio`,
+             `_calibrateTrackDistanceShowLengthBool`,
+             `_calibrateTrackDistanceTimes`,
+             calibrateScreenSizeAllowedRatio,
+             calibrateScreenSizeTimes,
              viewingDistanceWhichEye,
              viewingDistanceWhichPoint,
              participant,
@@ -285,6 +396,16 @@ get_sizeCheck_data <- function(data_list) {
              rulerLength,
              rulerUnit,
              pxPerCm) %>%
+      mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+             `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+             `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+             calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+             calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+             `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+             `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+             `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+             `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)
+      ) %>%
       distinct() %>%
       filter(!is.na(SizeCheckEstimatedPxPerCm),
              !is.na(SizeCheckRequestedCm),
@@ -333,19 +454,34 @@ get_measured_distance_data <- function(data_list) {
     }
     
     t <- data_list[[i]] %>%
-      select(`_calibrateTrackDistance`,
-             `_calibrateTrackDistancePupil`,
-             viewingDistanceWhichEye,
-             viewingDistanceWhichPoint,
+      select(  `_calibrateTrackDistanceAllowedRatio`,
+               `_calibrateTrackDistanceShowLengthBool`,
+               `_calibrateTrackDistanceTimes`,
+               calibrateScreenSizeAllowedRatio,
+               calibrateScreenSizeTimes,
+               `_calibrateTrackDistance`,
+               `_calibrateTrackDistancePupil`,
+               viewingDistanceWhichEye,
+               viewingDistanceWhichPoint,
              participant,
              calibrateTrackDistanceMeasuredCm,
              calibrateTrackDistanceRequestedCm,
              calibrateTrackDistanceIpdVpx) %>%
-      distinct() %>%
+      mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+             `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+             `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+             calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+             calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+             `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+             `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+             `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+             `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)
+      ) %>%
       filter(!is.na(calibrateTrackDistanceMeasuredCm),
              !is.na(calibrateTrackDistanceRequestedCm),
              calibrateTrackDistanceMeasuredCm != '',
-             calibrateTrackDistanceRequestedCm != '')
+             calibrateTrackDistanceRequestedCm != '') %>% 
+        distinct()
 
     if (nrow(t) > 0) {
       # Convert JSON-like lists into strings and remove extra characters
@@ -412,18 +548,33 @@ get_eye_feet_position_data <- function(data_list) {
       
       # Get raw data first
       t_raw <- data_list[[i]] %>%
-        select("experiment",
-               "participant",
-               "_calibrateTrackDistance",
-               "_calibrateTrackDistancePupil",
-               "viewingDistanceWhichEye",
-               "viewingDistanceWhichPoint",
-               "pxPerCm",
-               "screenWidthPx",
-               "screenHeightPx",
-               "calibrateTrackDistanceMeasuredCm",
-               "calibrateTrackDistanceRequestedCm",
-               "calibrateTrackDistanceEyeFeetXYPx") %>%
+        select(experiment,
+               participant,
+               `_calibrateTrackDistanceAllowedRatio`,
+               `_calibrateTrackDistanceShowLengthBool`,
+               `_calibrateTrackDistanceTimes`,
+               calibrateScreenSizeAllowedRatio,
+               calibrateScreenSizeTimes,
+               `_calibrateTrackDistance`,
+               `_calibrateTrackDistancePupil`,
+               viewingDistanceWhichEye,
+               viewingDistanceWhichPoint,
+               pxPerCm,
+               screenWidthPx,
+               screenHeightPx,
+               calibrateTrackDistanceMeasuredCm,
+               calibrateTrackDistanceRequestedCm,
+               calibrateTrackDistanceEyeFeetXYPx) %>%
+        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)
+                ) %>% 
         distinct()
       
       # Check if we have the required data
@@ -578,9 +729,31 @@ get_foot_position_during_calibration_data <- function(data_list) {
     }
 
     t <- data_list[[i]] %>%
-      select(experiment, participant, `_calibrateTrackDistance`, `_calibrateTrackDistancePupil`,
-             viewingDistanceWhichEye, viewingDistanceWhichPoint, pxPerCm, screenWidthPx, screenHeightPx,
-             calibrateTrackDistanceMeasuredCm, calibrateTrackDistanceRequestedCm, distanceCalibrationJSON) %>%
+      select(participant,  
+             `_calibrateTrackDistanceAllowedRatio`,
+             `_calibrateTrackDistanceShowLengthBool`,
+             `_calibrateTrackDistanceTimes`,
+             calibrateScreenSizeAllowedRatio,
+             calibrateScreenSizeTimes,
+             `_calibrateTrackDistance`,
+             `_calibrateTrackDistancePupil`,
+             viewingDistanceWhichEye,
+             viewingDistanceWhichPoint,
+             pxPerCm, 
+             screenWidthPx, 
+             screenHeightPx,
+             calibrateTrackDistanceMeasuredCm, 
+             calibrateTrackDistanceRequestedCm,
+             distanceCalibrationJSON) %>%
+      mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+             `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+             `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+             calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+             calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+             `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+             `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+             `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+             `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>% 
       distinct()
 
     # Parse distanceCalibrationJSON first before filtering
@@ -701,9 +874,9 @@ get_foot_position_during_calibration_data <- function(data_list) {
   return(df)
 }
 
-plot_eye_feet_position <- function(data_list) {
+plot_eye_feet_position <- function(distanceCalibrationResults) {
   
-  eye_feet_data <- get_eye_feet_position_data(data_list)
+  eye_feet_data <- distanceCalibrationResults$eye_feet
 
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
@@ -782,11 +955,10 @@ plot_eye_feet_position <- function(data_list) {
 
   n_sessions <- n_distinct(eye_feet_data$session_id)
 
-  # Create statement for calibration parameters (use first non-NA values)
-  statement <- paste0('_calibrateTrackDistance = ', get_first_non_na(eye_feet_data$`_calibrateTrackDistance`), '\n',
-                      '_calibrateTrackDistancePupil = ', get_first_non_na(eye_feet_data$`_calibrateTrackDistancePupil`), '\n',
-                      'viewingDistanceWhichEye = ', get_first_non_na(eye_feet_data$viewingDistanceWhichEye), '\n',
-                      'viewingDistanceWhichPoint = ', get_first_non_na(eye_feet_data$viewingDistanceWhichPoint))
+  # Create statement for calibration parameters (safe, short)
+  statement <- make_statement(eye_feet_data)
+  param_tbl <- build_param_table(eye_feet_data)
+
   p <- NULL
   # Create the plot directly without test plots
     p <- ggplot(eye_feet_data, aes(x = foot_x_cm_clipped, y = foot_y_cm_clipped)) +
@@ -837,14 +1009,12 @@ plot_eye_feet_position <- function(data_list) {
       scale_y_reverse(limits = c(y_max_padded, y_min_padded), expand = c(0,0)) +
       # Lock aspect ratio with exact 50% margins
       coord_fixed(xlim = c(x_min, x_max), expand = FALSE) +
-      theme_classic() +
+      theme_bw() +
       theme(
         legend.position = "bottom",
         legend.box = "horizontal",
         legend.justification = "center",
         panel.grid.minor = element_blank(),
-        panel.background = element_rect(fill = "white", color = NA),
-        plot.background = element_rect(fill = "white", color = NA),
         plot.title = element_text(size = 16, hjust = 0.5),
         axis.title = element_text(size = 12),
         axis.text = element_text(size = 10),
@@ -861,19 +1031,22 @@ plot_eye_feet_position <- function(data_list) {
         axis.line.x.top = element_blank(),
         axis.line.y.right = element_blank()
       ) +
-      # Labels - set these LAST to ensure they stick
+      # # Labels - set these LAST to ensure they stick
       labs(
         subtitle = "Measured over requested distance vs. foot position",
         x = "Eye foot X (cm)",
         y = "Eye foot Y (cm)",
         caption = "Rectangle shows screen boundaries. Points beyond 50% margin are clipped to plot area.\nOrigin (0,0) is at top-left corner of screen."
       ) +
-      # Screen annotation (moved close to screen outline, same size as Y label, not bold)
+      # # Screen annotation (moved close to screen outline, same size as Y label, not bold)
       annotate("text", x = screen_width_cm/2, y = -y_margin_cm*0.1,
                label = "Screen", hjust = 0.5, vjust = 0.5, size = 4, color = "black") +
-      # Calibration parameters statement (bottom right corner)
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
-                          label = statement, hjust = 1, vjust = 0, size = 3, color = "black") +
+      # Calibration parameters (bottom right corner)
+      ggpp::geom_text_npc(
+        data = NULL,
+        aes(npcx = "right", npcy = "bottom"),
+        label = statement
+      ) +
       # Summary statistics (pushed further down to avoid clipping)
       annotate("text", x = x_min+1, y = y_min + 1,
                label = paste0("N = ", nrow(eye_feet_data), "\n",
@@ -885,7 +1058,7 @@ plot_eye_feet_position <- function(data_list) {
 
   # Calculate height based on legend complexity (in inches)
   n_sessions <- n_distinct(eye_feet_data$session_id)
-  base_height <- 6
+  base_height <- 7
   plot_height <- compute_auto_height(base_height = base_height, n_items = n_sessions, per_row = 3, row_increase = 0.08)
 
   # Return the plot or NULL if creation failed
@@ -896,8 +1069,8 @@ plot_eye_feet_position <- function(data_list) {
   }
 }
 
-plot_foot_position_during_calibration <- function(data_list) {
-  eye_feet_data <- get_foot_position_during_calibration_data(data_list)
+plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
+  eye_feet_data <- distanceCalibrationResults$feet_calib
 
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
@@ -959,11 +1132,12 @@ plot_foot_position_during_calibration <- function(data_list) {
 
   n_sessions <- n_distinct(eye_feet_data$session_id)
 
-  # Create statement for calibration parameters (use first non-NA values)
-  statement <- paste0('_calibrateTrackDistance = ', get_first_non_na(eye_feet_data$`_calibrateTrackDistance`), '\n',
-                      '_calibrateTrackDistancePupil = ', get_first_non_na(eye_feet_data$`_calibrateTrackDistancePupil`), '\n',
-                      'viewingDistanceWhichEye = ', get_first_non_na(eye_feet_data$viewingDistanceWhichEye), '\n',
-                      'viewingDistanceWhichPoint = ', get_first_non_na(eye_feet_data$viewingDistanceWhichPoint))
+  # Create statement for calibration parameters (safe, short)
+  statement <- distanceCalibrationResults$statement
+  param_tbl <- build_param_table(eye_feet_data)
+  print("statement")
+  print(statement)
+  print(param_tbl)
 
   # Create the plot
   tryCatch({
@@ -1020,9 +1194,12 @@ plot_foot_position_during_calibration <- function(data_list) {
       # Screen annotation (moved close to screen outline, same size as Y label, not bold)
       annotate("text", x = screen_width_cm/2, y = -y_margin_cm*0.1,
                label = "Screen", hjust = 0.5, vjust = 0.5, size = 4, color = "black") +
-      # Calibration parameters statement (bottom right corner)
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
-                          label = statement, hjust = 1, vjust = 0, size = 3, color = "black") +
+      # Calibration parameters (bottom right corner)
+      ggpp::geom_text_npc(
+        data = NULL,
+        aes(npcx = "right", npcy = "bottom"),
+        label = statement
+      ) +
       # Summary statistics (pushed further down to avoid clipping)
       annotate("text", x = x_min+1, y = y_min + 1,
                label = paste0("N = ", nrow(eye_feet_data), "\n",
@@ -1119,13 +1296,10 @@ get_bs_vd <- function(data_list) {
   return(bs_vwing_ds)
 }
 
-plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  distance <- get_measured_distance_data(data_list)
-  sizeCheck <- get_sizeCheck_data(data_list)
-  statement <- paste0('_calibrateTrackDistance = ', get_first_non_na(distance$`_calibrateTrackDistance`), '\n',
-                      '_calibrateTrackDistancePupil = ', get_first_non_na(distance$`_calibrateTrackDistancePupil`), '\n',
-                      'viewingDistanceWhichEye = ', get_first_non_na(distance$viewingDistanceWhichEye), '\n',
-                      'viewingDistanceWhichPoint = ', get_first_non_na(distance$viewingDistanceWhichPoint))
+plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+  distance <- distanceCalibrationResults$distance
+  sizeCheck <- distanceCalibrationResults$sizeCheck
+  statement <- distanceCalibrationResults$statement
   if (nrow(distance) == 0) {return(NULL)}
   
   if (nrow(sizeCheck) > 0) {
@@ -1205,7 +1379,18 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels=as.integer) +
+      scale_x_log10(
+        limits = c(min_val, max_val),
+        breaks = function(lims) {
+          lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
+          hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
+          if (is.na(lo) || is.na(hi)) return(NULL)
+          lo <- max(10, lo)
+          br <- seq(lo, hi, by = 10)
+          br[!(br %in% c(60, 80, 100, 110))]
+        },
+        labels = scales::label_number(accuracy = 1)
+      ) +
       scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
@@ -1246,10 +1431,19 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
     geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-    scale_x_log10(limits = c(min_val, max_val),
-                  breaks = scales::log_breaks(n=8),
-                  expand = expansion(mult = c(0.05, 0.05)),
-                  labels=as.integer) + 
+    scale_x_log10(
+      limits = c(min_val, max_val),
+      breaks = function(lims) {
+        lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
+        hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
+        if (is.na(lo) || is.na(hi)) return(NULL)
+        lo <- max(10, lo)
+        br <- seq(lo, hi, by = 10)
+        br[!(br %in% c(60, 80, 100, 110))]
+      },
+      expand = expansion(mult = c(0.05, 0.05)),
+      labels = scales::label_number(accuracy = 1)
+    ) + 
     scale_y_log10(limits = c(minFrac, maxFrac),
                    breaks = seq(0.6, 1.4, by = 0.1)) + 
     scale_color_manual(values= colorPalette) + 
@@ -1279,7 +1473,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
       )
 
     # Get camera data for factorVpxCm
-    camera_data <- get_cameraResolutionXY(data_list)
+    camera_data <- distanceCalibrationResults$camera
 
     if (nrow(ipd_data) > 0 && nrow(camera_data) > 0) {
       # Join with camera data to get factorVpxCm
@@ -1298,7 +1492,9 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         # Create prediction line across the x-range
         crossing(calibrateTrackDistanceRequestedCm = seq(min_val, max_val, length.out = 100)) %>%
         mutate(predictedIpdVpx = factorVpxCm / calibrateTrackDistanceRequestedCm)
-
+      
+      minX = max(5, min_val - 5)
+      maxX = max_val + 10
       p3 <- ggplot() +
         # Add predicted lines first (so they appear behind the data)
         geom_line(data = prediction_data,
@@ -1323,7 +1519,11 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         ggpp::geom_text_npc(aes(npcx="left",
                                 npcy="top"),
                             label = paste0('N=', n_distinct(ipd_data$participant))) +
-        scale_x_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels=as.integer) +
+        scale_x_log10(
+          limits = c(minX, maxX),
+          breaks = c(10, 20, 30, 40, 50, 70, 90, 120),
+          labels = scales::label_number(accuracy = 1)
+        ) +
         scale_y_log10(breaks = scales::log_breaks(n=8)) +
         coord_fixed(ratio = 1) +  # Equal log scale spacing on both axes
         scale_color_manual(values= colorPalette) +
@@ -1337,9 +1537,8 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
         )) +
         theme_classic() +
         theme(
-          legend.position = "right",
+          legend.position = "top",
           legend.box = "vertical",
-          legend.justification = "left",
           legend.text = element_text(size = 6),
           legend.spacing.y = unit(0, "lines"),
           legend.key.size = unit(0.4, "cm"),
@@ -1371,7 +1570,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
       )
     
     # Get camera data for factorVpxCm (horizontal lines)
-    camera_data <- get_cameraResolutionXY(data_list)
+    camera_data <- distanceCalibrationResults$camera
     
     if (nrow(ipd_product_data) > 0 && nrow(camera_data) > 0) {
       # Join with camera data to get factorVpxCm for horizontal lines
@@ -1415,9 +1614,11 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
                      size = 2.5, alpha = 0.8) +
           ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                               label = paste0('N=', n_distinct(ipd_product_data_valid$participant))) +
-          scale_x_log10(limits = c(min_val, max_val), 
-                        breaks = scales::log_breaks(n = 8), 
-                        labels = as.integer) +
+          scale_x_log10(
+            limits = c(min_val, max_val), 
+            breaks = c(10, 20, 30, 40, 50, 70, 90, 120),
+            labels = scales::label_number(accuracy = 1)
+          ) +
           scale_y_log10(breaks = scales::log_breaks(n = 8)) +
           scale_color_manual(values = colorPalette) +
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -1447,19 +1648,19 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   }
 
   # Plot 4: Eye feet position vs distance error
-  p4_result <- plot_eye_feet_position(data_list)
+  p4_result <- plot_eye_feet_position(distanceCalibrationResults)
   p4 <- if (!is.null(p4_result)) p4_result$plot else NULL
   
   # Plot 4b: Foot position during calibration (colored by participant, no clipping)
-  p4b <- plot_foot_position_during_calibration(data_list)
+  p4b <- plot_foot_position_during_calibration(distanceCalibrationResults)
   
   # Plot 5: Calibrated vs. median factorVpxCm
   p5 <- NULL
   if ("calibrateTrackDistanceIpdVpx" %in% names(distance) && nrow(distance) > 0) {
     # Get calibration data for factorVpxCm (Y-axis)
-    camera_data <- get_cameraResolutionXY(data_list)
+    camera_data <- distanceCalibrationResults$camera
     # Get distance check data for median factorVpxCm (X-axis)
-    check_data <- get_distanceCheck_factorVpxCm(data_list)
+    check_data <- distanceCalibrationResults$check_factor
     
     if (nrow(camera_data) > 0 && nrow(check_data) > 0) {
       # Join calibration and check data by participant
@@ -1518,9 +1719,9 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   p6 <- NULL
   if ("calibrateTrackDistanceIpdVpx" %in% names(distance) && nrow(distance) > 0) {
     # Get camera data for factorVpxCm
-    camera_data <- get_cameraResolutionXY(data_list)
+    camera_data <- distanceCalibrationResults$camera
     # Get blindspot diameter data
-    blindspot_data <- get_calibrateTrackDistanceBlindspotDiameterDeg(data_list)
+    blindspot_data <- distanceCalibrationResults$blindspot
     
     if (nrow(camera_data) > 0 && nrow(blindspot_data) > 0) {
       # Join distance data with camera data
@@ -1606,7 +1807,7 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   
   # Calculate heights based on legend complexity
   n_participants <- n_distinct(distance_individual$participant)
-  base_height <- 6
+  base_height <- 7
   plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.06)
 
   # Eye feet position plot has complex legend too
@@ -1615,22 +1816,18 @@ plot_distance <- function(data_list,calibrateTrackDistanceCheckLengthSDLogAllowe
   return(list(
     credit_card_vs_requested = list(plot = p1, height = plot_height),
     credit_card_fraction = list(plot = p2, height = plot_height),
-    ipd_vs_requested = list(plot = p3, height = if (!is.null(p3)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
-    ipd_product_vs_requested = list(plot = p3b, height = if (!is.null(p3b)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
+    ipd_vs_requested = list(plot = p3, height = if (!is.null(p3)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
+    ipd_product_vs_requested = list(plot = p3b, height = if (!is.null(p3b)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     eye_feet_position = list(plot = p4, height = eye_feet_height),
     foot_position_calibration = list(plot = p4b, height = plot_height),
-    calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
-    calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 6, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL)
+    calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
+    calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL)
   ))
 }
 
-plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  sizeCheck <- get_sizeCheck_data(data_list)
-  
-  statement <- paste0('_calibrateTrackDistance = ', get_first_non_na(sizeCheck$`_calibrateTrackDistance`), '\n',
-                      '_calibrateTrackDistancePupil = ', get_first_non_na(sizeCheck$`_calibrateTrackDistancePupil`), '\n',
-                      'viewingDistanceWhichEye = ', get_first_non_na(sizeCheck$viewingDistanceWhichEye), '\n',
-                      'viewingDistanceWhichPoint = ', get_first_non_na(sizeCheck$viewingDistanceWhichPoint))
+plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+  sizeCheck <- distanceCalibrationResults$sizeCheck
+  statement <- distanceCalibrationResults$statement
   # Check if the data is empty
   if (nrow(sizeCheck) == 0) {
     return(NULL)
@@ -1724,14 +1921,15 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                alpha = 0.3) +
       # Stacked colored points (histogram style with discrete stacks)
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3) + 
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") + 
       scale_color_manual(values= colorPalette) +
       scale_y_continuous(expand = expansion(mult = c(0, 0.1)), 
                          breaks = function(x) seq(0, ceiling(max(x)), by = 1)) + 
       scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=8)) +
       annotation_logticks(sides = "b") +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
-                          label = paste0('N=', n_distinct(sdLogDensity_data$participant))) + 
+                          label = paste0('N=', n_distinct(sdLogDensity_data$participant)),
+                          size = 3, family = "sans", fontface = "plain") + 
       guides(color = guide_legend(
         ncol = 3,  
         title = "",
@@ -1807,7 +2005,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
     h2 <- ggplot(ruler_dotplot, aes(x = lengthCm)) +
       # Stacked colored points (dot plot style)
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3) + 
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") + 
       scale_color_manual(values = colorPalette) +
       scale_y_continuous(limits = c(0, max_count + 1), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
       scale_x_log10(limits=c(minX, maxX),
@@ -1819,7 +2017,8 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                           mid = unit(0.15, "cm"), 
                           long = unit(0.2, "cm")) +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
-                          label = paste0('N=', n_distinct(ruler_dotplot$participant))) + 
+                          label = paste0('N=', n_distinct(ruler_dotplot$participant)),
+                          size = 3, family = "sans", fontface = "plain") + 
       guides(color = guide_legend(
         ncol = 3,  
         title = "",
@@ -1884,9 +2083,21 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
                size = 2) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
-                        label = paste0('N=', n_distinct(sizeCheck_avg$participant))) + 
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
-    scale_x_log10(breaks = scales::log_breaks(n=8)) +
+                        label = paste0('N=', n_distinct(sizeCheck_avg$participant)),
+                        size = 3, family = "sans", fontface = "plain") + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement,
+                        size = 3, family = "sans", fontface = "plain") + 
+    scale_x_log10(
+      breaks = function(lims) {
+        lo <- floor(min(sizeCheck_avg$SizeCheckRequestedCm, na.rm = TRUE) / 10) * 10
+        hi <- ceiling(max(sizeCheck_avg$SizeCheckRequestedCm, na.rm = TRUE) / 10) * 10
+        if (is.na(lo) || is.na(hi)) return(NULL)
+        lo <- max(10, lo)
+        br <- seq(lo, hi, by = 10)
+        br[!(br %in% c(60, 80, 100, 110))]
+      },
+      labels = scales::label_number(accuracy = 1)
+    ) +
     scale_y_log10(breaks = scales::log_breaks(n=8),
                   limits = c(ymin,ymax)) +
     annotation_logticks(size = 0.3, 
@@ -1936,8 +2147,10 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
              alpha = 0.3) +
     geom_point(aes(x = sdLogDensity, y = ratio, color = participant), size = 2) +
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                        label = paste0("N=", dplyr::n_distinct(sdLogDensity_data$participant))) +
-    ggpp::geom_text_npc(aes(npcx="right", npcy="bottom"), label = statement) +
+                        label = paste0("N=", dplyr::n_distinct(sdLogDensity_data$participant)),
+                        size = 3, family = "sans", fontface = "plain") +
+    ggpp::geom_text_npc(aes(npcx="right", npcy="bottom"), label = statement,
+                        size = 3, family = "sans", fontface = "plain") +
     scale_color_manual(values = colorPalette) +
     scale_x_log10(limits = c(x_left, NA),
                   expand = expansion(mult = c(0, 0.05)),
@@ -1968,7 +2181,7 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   n_participants_ruler <- if (nrow(ruler) > 0) n_distinct(ruler$participant) else 0
 
   # Base height calculation: more participants = more legend space (in inches)
-  base_height <- 6
+  base_height <- 7
   plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants, n_participants_hist, n_participants_ruler), per_row = 3, row_increase = 0.06)
 
   # Histograms have top legends; reduce overall height to half
@@ -1983,13 +2196,10 @@ plot_sizeCheck <- function(data_list, calibrateTrackDistanceCheckLengthSDLogAllo
   ))
 }
 
-plot_distance_production <- function(data_list, participant_info,calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  distance <- get_measured_distance_data(data_list)
-  sizeCheck <- get_sizeCheck_data(data_list)
-  statement <- paste0('_calibrateTrackDistance = ', get_first_non_na(distance$`_calibrateTrackDistance`), '\n',
-                      '_calibrateTrackDistancePupil = ', get_first_non_na(distance$`_calibrateTrackDistancePupil`), '\n',
-                      'viewingDistanceWhichEye = ', get_first_non_na(distance$viewingDistanceWhichEye), '\n',
-                      'viewingDistanceWhichPoint = ', get_first_non_na(distance$viewingDistanceWhichPoint))
+plot_distance_production <- function(distanceCalibrationResults, participant_info, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+  distance <- distanceCalibrationResults$distance
+  sizeCheck <- distanceCalibrationResults$sizeCheck
+  statement <- distanceCalibrationResults$statement
         
   
   if (nrow(distance) == 0) {return(NULL)}
@@ -2106,8 +2316,18 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(limits = c(min_val, max_val),
-                    breaks = scales::log_breaks(n=8)) +
+      scale_x_log10(
+        limits = c(min_val, max_val),
+        breaks = function(lims) {
+          lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
+          hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
+          if (is.na(lo) || is.na(hi)) return(NULL)
+          lo <- max(10, lo)
+          br <- seq(lo, hi, by = 10)
+          br[!(br %in% c(60, 80, 100, 110))]
+        },
+        labels = scales::label_number(accuracy = 1)
+      ) +
       scale_y_log10(limits = c(min_val, max_val),
                     breaks = scales::log_breaks(n=8)) +
       annotation_logticks() + 
@@ -2150,9 +2370,19 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
     geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(limits = c(min_val, max_val),
-                    breaks = scales::pretty_breaks(n=8),
-                    expand = expansion(mult = c(0.05, 0.05))) +
+      scale_x_log10(
+        limits = c(min_val, max_val),
+        breaks = function(lims) {
+          lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
+          hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
+          if (is.na(lo) || is.na(hi)) return(NULL)
+          lo <- max(10, lo)
+          br <- seq(lo, hi, by = 10)
+          br[!(br %in% c(60, 80, 100, 110))]
+        },
+        labels = scales::label_number(accuracy = 1),
+        expand = expansion(mult = c(0.05, 0.05))
+      ) +
       scale_y_log10(limits = c(minFrac,maxFrac),
                     breaks = seq(0.6, 1.4, by = 0.1)) +
       annotation_logticks() +
@@ -2208,7 +2438,18 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
       geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
       scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                             labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8), labels=as.integer) +
+      scale_x_log10(
+        limits = c(min_val, max_val),
+        breaks = function(lims) {
+          lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
+          hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
+          if (is.na(lo) || is.na(hi)) return(NULL)
+          lo <- max(10, lo)
+          br <- seq(lo, hi, by = 10)
+          br[!(br %in% c(60, 80, 100, 110))]
+        },
+        labels = scales::label_number(accuracy = 1)
+      ) +
       scale_y_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) +
       annotation_logticks() + 
       scale_color_manual(values= colorPalette) +
@@ -2272,10 +2513,19 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
       geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
       scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                             labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(limits = c(min_val, max_val),
-                    breaks = scales::log_breaks(n=8),
-                    expand = expansion(mult = c(0.05, 0.05)),
-                    labels=as.integer) +
+      scale_x_log10(
+        limits = c(min_val, max_val),
+        breaks = function(lims) {
+          lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
+          hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
+          if (is.na(lo) || is.na(hi)) return(NULL)
+          lo <- max(10, lo)
+          br <- seq(lo, hi, by = 10)
+          br[!(br %in% c(60, 80, 100, 110))]
+        },
+        labels = scales::label_number(accuracy = 1),
+        expand = expansion(mult = c(0.05, 0.05))
+      ) +
       scale_y_log10(limits = c(minFrac,maxFrac),
                     breaks = seq(0.6, 1.4, by = 0.1)) +
       annotation_logticks() + 
@@ -2317,8 +2567,8 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
 
       if (nrow(error_vs_object_data) > 0) {
         # Calculate scale limits
-        x_min <- max(1, min(error_vs_object_data$objectLengthCm) * 0.8)
-        x_max <- max(error_vs_object_data$objectLengthCm) * 1.2
+        x_min <- max(1, min(error_vs_object_data$objectLengthCm) * 0.8 - 10)
+        x_max <- max(error_vs_object_data$objectLengthCm) * 1.2 + 10
         y_min <- max(0.1, min(error_vs_object_data$production_fraction) * 0.8)
         y_max <- min(2.0, max(error_vs_object_data$production_fraction) * 1.2)
 
@@ -2327,8 +2577,12 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
           geom_hline(yintercept = 1, linetype = "dashed", color = "red", alpha = 0.7) +
           ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                               label = paste0('N=', n_distinct(error_vs_object_data$participant))) +
-          scale_x_log10(limits = c(x_min, x_max), breaks = scales::log_breaks(n=8)) +
-           scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
+          scale_x_log10(
+            limits = c(x_min, x_max),
+            breaks = c(10, 20, 30, 40, 50, 70, 90, 120),
+            labels = scales::label_number(accuracy = 1)
+          ) +
+          scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
           annotation_logticks() +
           scale_color_manual(values = colorPalette) +
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -2349,7 +2603,7 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
   }
 
   # Plot 6: Error vs. blindspot diameter (spotDeg)
-  blindspot_data <- get_calibrateTrackDistanceBlindspotDiameterDeg(data_list)
+  blindspot_data <- distanceCalibrationResults$blindspot
   p6 <- NULL
   if (nrow(distance_avg) > 0 && nrow(blindspot_data) > 0) {
     # Join distance_avg with blindspot_data
@@ -2399,7 +2653,7 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
   n_participants <- if (nrow(distance_avg) > 0) n_distinct(distance_avg$participant) else 0
 
   # Base height calculation: more participants = more legend space (in inches)
-  base_height <- 6
+  base_height <- 7
   plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.06)
 
   return(list(
@@ -2407,12 +2661,12 @@ plot_distance_production <- function(data_list, participant_info,calibrateTrackD
     production_fraction = list(plot = p2, height = plot_height),
     raw_production_vs_requested = list(plot = p3, height = plot_height),
     individual_production_fraction = list(plot = p4, height = plot_height),
-    error_vs_object_size = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 6, n_items = n_distinct(error_vs_object_data$participant), per_row = 3, row_increase = 0.06) else NULL),
-    error_vs_blindspot_diameter = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 6, n_items = n_distinct(error_vs_blindspot_data$participant), per_row = 3, row_increase = 0.06) else NULL)
+    error_vs_object_size = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 7, n_items = n_distinct(error_vs_object_data$participant), per_row = 3, row_increase = 0.06) else NULL),
+    error_vs_blindspot_diameter = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 7, n_items = n_distinct(error_vs_blindspot_data$participant), per_row = 3, row_increase = 0.06) else NULL)
   ))
 }
 
-objectCm_hist <- function(participant_info) {
+objectCm_hist <- function(participant_info, distanceCalibrationResults) {
   dt <- participant_info %>%
     mutate(
       # Clean the objectLengthCm strings before converting to numeric
@@ -2421,6 +2675,9 @@ objectCm_hist <- function(participant_info) {
     ) %>%
     filter(!is.na(objectLengthCm)) 
   if (nrow(dt) == 0) return(NULL)
+  
+  # Build statement consistent with other plots (reuse global if available)
+  statement <- distanceCalibrationResults$statement
   
   # Create dot plot style like SD histogram
   bin_width <- (max(dt$objectLengthCm) - min(dt$objectLengthCm)) / 20  # Adjust bin width based on data range
@@ -2449,7 +2706,7 @@ objectCm_hist <- function(participant_info) {
   p <- ggplot(object_dotplot, aes(x = objectLengthCm)) +
     # Stacked colored points (dot plot style)
     geom_point(aes(x = bin_center, y = dot_y, color = PavloviaParticipantID), size = 3, alpha = 0.8) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = 'calibrateTrackDistance = object', size = 2) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") + 
     scale_color_manual(values = colorPalette) +
     scale_y_continuous(limits = c(0, max_count + 1), 
                        expand = expansion(mult = c(0, 0.1)), 

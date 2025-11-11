@@ -790,7 +790,7 @@ shinyServer(function(input, output, session) {
     static_calls <- list(
       list(plot = sizeCheckPlot()$sd_hist$plot, height = sizeCheckPlot()$sd_hist$height, fname = 'sd-log-density-histogram'),
       list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'ruler-length-cm-dotplot'),
-      list(plot = objectCm_hist(df_list()$participant_info)$plot, height = objectCm_hist(df_list()$participant_info)$height, fname = 'object-length-cm-dotplot')
+      list(plot = objectCm_hist(df_list()$participant_info, distanceCalibration())$plot, height = objectCm_hist(df_list()$participant_info, distanceCalibration())$height, fname = 'object-length-cm-dotplot')
     )
     
     # Conditionally add blindspot plots if they exist
@@ -1887,14 +1887,14 @@ shinyServer(function(input, output, session) {
             
             # Save the error plot to a temp file
             outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = error_plot,
-              device = svglite,
-              width = 6,
-              height = 4,
-              unit = 'in'
-            )
+              ggsave(
+                file = outfile,
+                plot = error_plot,
+                device = svglite,
+                width = 6,
+                height = 4,
+                unit = 'in'
+              )
             list(
               src = outfile,
               contenttype = 'svg',
@@ -2136,14 +2136,14 @@ shinyServer(function(input, output, session) {
       output[[paste0("dot", jj)]] <- renderImage({
           tryCatch({
             outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot =  plots[[jj]],
-              device = svglite,
-              width = 6,
-              height = if (!is.null(heights) && length(heights) >= jj && !is.null(heights[[jj]])) heights[[jj]] else 4,
-              unit = 'in'
-            )
+              ggsave(
+                file = outfile,
+                plot =  plots[[jj]],
+                device = svglite,
+                width = 6,
+                height = if (!is.null(heights) && length(heights) >= jj && !is.null(heights[[jj]])) heights[[jj]] else 4,
+                unit = 'in'
+              )
             list(src = outfile, contenttype = 'svg')
           }, error = function(e) {
             error_plot <- ggplot() +
