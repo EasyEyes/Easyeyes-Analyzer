@@ -785,6 +785,7 @@ shinyServer(function(input, output, session) {
     
     # SD histogram and distance-related dot plots go here with larger sizing
     bs_vd <- bs_vd_hist(distanceCalibration())
+    dist_plots <- plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
     
     # Build static_calls list, starting with always-present plots
     static_calls <- list(
@@ -792,6 +793,16 @@ shinyServer(function(input, output, session) {
       list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'ruler-length-cm-dotplot'),
       list(plot = objectCm_hist(df_list()$participant_info, distanceCalibration())$plot, height = objectCm_hist(df_list()$participant_info, distanceCalibration())$height, fname = 'object-length-cm-dotplot')
     )
+    
+    # Add calibrated_over_median histogram if available
+    if (!is.null(dist_plots$calibrated_over_median_hist) &&
+        !is.null(dist_plots$calibrated_over_median_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = dist_plots$calibrated_over_median_hist$plot,
+        height = dist_plots$calibrated_over_median_hist$height,
+        fname = 'factorVpxCm-over-median-histogram'
+      )
+    }
     
     # Conditionally add blindspot plots if they exist
     if (!is.null(bs_vd$mean_plot)) {

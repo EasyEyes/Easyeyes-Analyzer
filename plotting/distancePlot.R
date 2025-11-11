@@ -1805,6 +1805,118 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
+  # Plot 7: Histogram of factorVpxCm / medianFactorVpxCm (colored by participant)
+  p7 <- NULL
+  if (nrow(distance) > 0 &&
+      "camera" %in% names(distanceCalibrationResults) &&
+      "check_factor" %in% names(distanceCalibrationResults) &&
+      nrow(distanceCalibrationResults$camera) > 0 &&
+      nrow(distanceCalibrationResults$check_factor) > 0) {
+    
+    camera_data <- distanceCalibrationResults$camera %>%
+      select(PavloviaParticipantID, factorVpxCm) %>%
+      filter(!is.na(factorVpxCm), is.finite(factorVpxCm))
+    check_data <- distanceCalibrationResults$check_factor %>%
+      select(PavloviaParticipantID, medianFactorVpxCm) %>%
+      filter(!is.na(medianFactorVpxCm), is.finite(medianFactorVpxCm))
+    
+    ratio_data <- camera_data %>%
+      inner_join(check_data, by = "PavloviaParticipantID") %>%
+      mutate(
+        participant = PavloviaParticipantID,
+        ratio = factorVpxCm / medianFactorVpxCm
+      ) %>%
+      filter(is.finite(ratio), ratio > 0)
+    
+    if (nrow(ratio_data) > 0) {
+      # SD of log10(ratio)
+      sd_log10_ratio <- sd(log10(ratio_data$ratio), na.rm = TRUE)
+      
+      # Dot-stack histogram in log space
+      bin_w_log <- 0.02  # ~4.6% per bin
+      ratio_data <- ratio_data %>%
+        mutate(
+          log_ratio = log10(ratio),
+          bin_center_log = round(log_ratio / bin_w_log) * bin_w_log,
+          bin_center = 10^bin_center_log
+        ) %>%
+        arrange(bin_center, participant) %>%
+        group_by(bin_center) %>%
+        mutate(
+          stack_position = row_number(),
+          dot_y = stack_position
+        ) %>%
+        ungroup()
+      
+      max_count <- max(ratio_data$dot_y)
+      x_min <- min(ratio_data$bin_center, na.rm = TRUE) * 0.95
+      x_max <- max(ratio_data$bin_center, na.rm = TRUE) * 1.05
+      
+      p7 <- ggplot(ratio_data, aes(x = ratio)) +
+        # Dot stacked points
+        geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                            label = statement, size = 3, family = "sans", fontface = "plain") +
+        scale_color_manual(values = colorPalette) +
+        scale_y_continuous(
+          limits = c(0, max(5, max_count + 1)),
+          expand = expansion(mult = c(0, 0.1)),
+          breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+        ) +
+        scale_x_log10(
+          limits = c(x_min, x_max),
+          labels = scales::label_number(accuracy = 0.01)
+        ) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(ratio_data$participant),
+                                           '\nSD(log10) = ', format(round(sd_log10_ratio, 4), nsmall = 4)),
+                            size = 3, family = "sans", fontface = "plain") +
+        guides(color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 2),
+          keywidth = unit(0.3, "cm"),
+          keyheight = unit(0.3, "cm")
+        )) +
+        labs(
+          subtitle = 'Histogram of factorVpxCm / median(factorVpxCm)',
+          x = "factorVpxCm / median(factorVpxCm)",
+          y = "Count"
+        ) +
+        theme_bw() +
+        theme(
+          legend.key.size = unit(0, "mm"),
+          legend.title = element_text(size = 7),
+          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+          legend.box.spacing = unit(0, "lines"),
+          legend.spacing.y = unit(-10, "lines"),
+          legend.spacing.x = unit(0, "lines"),
+          legend.key.height = unit(0, "lines"),
+          legend.key.width = unit(0, "mm"),
+          legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = 'left',
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+          plot.caption = element_text(size = 10),
+          plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14)
+        )
+    }
+  }
+  
   # Calculate heights based on legend complexity
   n_participants <- n_distinct(distance_individual$participant)
   base_height <- 7
@@ -1821,7 +1933,14 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     eye_feet_position = list(plot = p4, height = eye_feet_height),
     foot_position_calibration = list(plot = p4b, height = plot_height),
     calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
-    calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL)
+    calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
+    calibrated_over_median_hist = list(
+      plot = p7,
+      height = if (!is.null(p7)) {
+        compute_auto_height(base_height = 1.6, n_items = n_distinct(ratio_data$participant), per_row = 3, row_increase = 0.05) +
+          0.28 * max(max_count, 4)
+      } else NULL
+    )
   ))
 }
 
@@ -1920,10 +2039,11 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
                fill = "lightgreen", 
                alpha = 0.3) +
       # Stacked colored points (histogram style with discrete stacks)
-      geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
+      geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") + 
       scale_color_manual(values= colorPalette) +
-      scale_y_continuous(expand = expansion(mult = c(0, 0.1)), 
+      scale_y_continuous(limits = c(0, max(5, max_count + 1)),
+                         expand = expansion(mult = c(0, 0.1)), 
                          breaks = function(x) seq(0, ceiling(max(x)), by = 1)) + 
       scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=8)) +
       annotation_logticks(sides = "b") +
@@ -2004,10 +2124,10 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
     
     h2 <- ggplot(ruler_dotplot, aes(x = lengthCm)) +
       # Stacked colored points (dot plot style)
-      geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
+      geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") + 
       scale_color_manual(values = colorPalette) +
-      scale_y_continuous(limits = c(0, max_count + 1), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
+    scale_y_continuous(limits = c(0, max(5, max_count + 1)), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
       scale_x_log10(limits=c(minX, maxX),
                     breaks = scales::log_breaks(n=8)) +
       annotation_logticks(sides = "b", 
@@ -2185,14 +2305,20 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants, n_participants_hist, n_participants_ruler), per_row = 3, row_increase = 0.06)
 
   # Histograms have top legends; reduce overall height to half
-  hist_base <- base_height * 0.6
-  hist_height <- compute_auto_height(base_height = hist_base, n_items = max(n_participants_hist, n_participants_ruler), per_row = 3, row_increase = 0.05)
+  hist_base <- 1.7
+  # Compute extra height separately for each dotted histogram
+  h1_max_stack <- if (nrow(sdLogDensity_data) > 0) max(sdLogDensity_data$dot_y, na.rm = TRUE) else 0
+  h2_max_stack <- if (exists("ruler_dotplot")) max(ruler_dotplot$dot_y, na.rm = TRUE) else 0
+  h1_stack_for_height <- max(h1_max_stack, 4)
+  h2_stack_for_height <- max(h2_max_stack, 4)
+  h1_height <- compute_auto_height(base_height = hist_base, n_items = n_participants_hist, per_row = 3, row_increase = 0.05) + 0.28 * h1_stack_for_height
+  h2_height <- compute_auto_height(base_height = hist_base, n_items = n_participants_ruler, per_row = 3, row_increase = 0.05) + 0.28 * h2_stack_for_height
 
   return(list(
     density_vs_length = list(plot = p1, height = plot_height),
     density_ratio_vs_sd = list(plot = p2, height = plot_height),
-    sd_hist = list(plot = h1, height = hist_height),
-    ruler_hist = list(plot = h2, height = hist_height)
+    sd_hist = list(plot = h1, height = h1_height),
+    ruler_hist = list(plot = h2, height = h2_height)
   ))
 }
 
@@ -2349,7 +2475,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
   
   # Plot 2: Production-measured as fraction of requested distance
     minFrac <- max(0.1, min(0.5, floor(distance_avg$production_fraction * 10) / 10))
-    maxFrac <- max(1.5, ceiling(distance_avg$production_fraction * 10) / 10)
+    maxFrac <- min(1.5, ceiling(distance_avg$production_fraction * 10) / 10)
   p2 <- ggplot() + 
     geom_line(data=distance_avg, 
               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
@@ -2384,7 +2510,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
         expand = expansion(mult = c(0.05, 0.05))
       ) +
       scale_y_log10(limits = c(minFrac,maxFrac),
-                    breaks = seq(0.6, 1.4, by = 0.1)) +
+                    breaks = c(seq(0.5, 1.5, by = 0.1),1.7,2.0)) +
       annotation_logticks() +
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
@@ -2450,7 +2576,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
         },
         labels = scales::label_number(accuracy = 1)
       ) +
-      scale_y_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) +
+      scale_y_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=10), labels = scales::label_number(accuracy = 10)) +
       annotation_logticks() + 
       scale_color_manual(values= colorPalette) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
@@ -2705,7 +2831,7 @@ objectCm_hist <- function(participant_info, distanceCalibrationResults) {
   
   p <- ggplot(object_dotplot, aes(x = objectLengthCm)) +
     # Stacked colored points (dot plot style)
-    geom_point(aes(x = bin_center, y = dot_y, color = PavloviaParticipantID), size = 3, alpha = 0.8) +
+    geom_point(aes(x = bin_center, y = dot_y, color = PavloviaParticipantID), size = 6, alpha = 0.85) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") + 
     scale_color_manual(values = colorPalette) +
     scale_y_continuous(limits = c(0, max_count + 1), 
@@ -2756,8 +2882,8 @@ objectCm_hist <- function(participant_info, distanceCalibrationResults) {
   # Calculate height based on legend complexity
   n_participants <- n_distinct(object_dotplot$PavloviaParticipantID)
   # Use inches for height (consistent with other plots)
-  base_height <- 8/3
-  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.25)
+  base_height <- 1.6
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.05) + 0.28 * max(max_count, 4)
 
   return(list(plot = p, height = plot_height))
 }
@@ -2794,12 +2920,12 @@ bs_vd_hist <- function(data_list) {
 
   p1 <- ggplot(mean_dotplot, aes(x = m)) +
     # Stacked colored points (dot plot style)
-    geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
+    geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = 'calibrateTrackDistance = blindspot', size = 2) +
     scale_color_manual(values = colorPalette) +
     scale_x_continuous(breaks = scales::pretty_breaks(n = 8),
                        labels = scales::label_number()) +
-    scale_y_continuous(limits = c(0, max_count_mean + 1),
+  scale_y_continuous(limits = c(0, max(5, max_count_mean + 1)),
                        expand = expansion(mult = c(0, 0.1)),
                        breaks = function(x) seq(0, ceiling(max(x)), by = 2)) +
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
@@ -2871,12 +2997,12 @@ bs_vd_hist <- function(data_list) {
 
   p2 <- ggplot(sd_dotplot, aes(x = sd)) +
     # Stacked colored points (dot plot style)
-    geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 3, alpha = 0.8) +
+    geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = 'calibrateTrackDistance = blindspot', size = 2) +
     scale_color_manual(values = colorPalette) +
     scale_x_continuous(breaks = scales::pretty_breaks(n = 8),
                        labels = scales::label_number()) +
-    scale_y_continuous(limits = c(0, max_count_sd + 1),
+  scale_y_continuous(limits = c(0, max(5, max_count_sd + 1)),
                        expand = expansion(mult = c(0, 0.1)),
                        breaks = function(x) seq(0, ceiling(max(x)), by = 2)) +
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
@@ -2925,8 +3051,9 @@ bs_vd_hist <- function(data_list) {
   n_participants_mean <- if (nrow(mean_dotplot) > 0) n_distinct(mean_dotplot$participant) else 0
   n_participants_sd <- if (nrow(sd_dotplot) > 0) n_distinct(sd_dotplot$participant) else 0
 
-  base_height <- 8/3  # Reduce to 2/3 of original height
-  plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants_mean, n_participants_sd), per_row = 4, row_increase = 0.25)
+  base_height <- 1.6
+  plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants_mean, n_participants_sd), per_row = 3, row_increase = 0.05) + 
+    0.28 * max(max_count_mean, max_count_sd, 4)
   print(paste("returning bs_vd_hist with height:", plot_height))
 
   return(list(
