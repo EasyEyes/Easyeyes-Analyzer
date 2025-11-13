@@ -19,6 +19,23 @@ compute_auto_height <- function(base_height, n_items, per_row, row_increase) {
   return(base_height * height_factor)
 }
 
+# Helper to compute log-scale axis breaks that grow by ~growth and snap to 10s
+compute_log10_breaks <- function(min_val, max_val, growth = 1.1, skip = c(60, 80, 100, 110)) {
+  lo_break <- max(10, floor(min_val / 10) * 10)
+  hi_break <- ceiling(max_val / 10) * 10
+  breaks_seq <- c()
+  cur_break <- lo_break
+  while (is.finite(cur_break) && cur_break <= hi_break) {
+    breaks_seq <- c(breaks_seq, cur_break)
+    next_break <- ceiling((cur_break * growth) / 10) * 10
+    if (!is.finite(next_break) || next_break <= cur_break) {
+      next_break <- cur_break + 10
+    }
+    cur_break <- next_break
+  }
+  breaks_seq[!(breaks_seq %in% skip)]
+}
+
 # Safe helpers for building short, clean, single-string labels
 safe_first <- function(x) {
   x <- as.character(x)
@@ -1347,6 +1364,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   max_val <- 5 * ceiling(max(c(distance_individual$calibrateTrackDistanceRequestedCm_jitter,
                                distance_individual$calibrateTrackDistanceMeasuredCm), na.rm = TRUE) / 5)
   
+  # Precompute log-scale-aware breaks using helper
+  breaks_seq_10 <- compute_log10_breaks(min_val, max_val, growth = 1.1)
+  
   # Calculate dynamic y-axis limits for the fraction plot based on actual data
   minFrac <- max(0.1, min(0.5, floor(distance_individual$credit_card_fraction * 10) / 10))
   maxFrac <- max(1.5, ceiling(distance_individual$credit_card_fraction * 10) / 10)
@@ -1378,14 +1398,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(
         limits = c(min_val, max_val),
-        breaks = function(lims) {
-          lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
-          hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
-          if (is.na(lo) || is.na(hi)) return(NULL)
-          lo <- max(10, lo)
-          br <- seq(lo, hi, by = 10)
-          br[!(br %in% c(60, 80, 100, 110))]
-        },
+        breaks = breaks_seq_10,
         labels = scales::label_number(accuracy = 1)
       ) +
       scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) + 
@@ -1430,14 +1443,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
     scale_x_log10(
       limits = c(min_val, max_val),
-      breaks = function(lims) {
-        lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
-        hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
-        if (is.na(lo) || is.na(hi)) return(NULL)
-        lo <- max(10, lo)
-        br <- seq(lo, hi, by = 10)
-        br[!(br %in% c(60, 80, 100, 110))]
-      },
+      breaks = breaks_seq_10,
       expand = expansion(mult = c(0.05, 0.05)),
       labels = scales::label_number(accuracy = 1)
     ) + 
@@ -1856,7 +1862,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                             label = statement, size = 3, family = "sans", fontface = "plain") +
         scale_color_manual(values = colorPalette) +
         scale_y_continuous(
-          limits = c(0, max(5, max_count + 1)),
+          limits = c(0, max(6, max_count + 1)),
           expand = expansion(mult = c(0, 0.1)),
           breaks = function(x) seq(0, ceiling(max(x)), by = 1)
         ) +
@@ -1935,7 +1941,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       plot = p7,
       height = if (!is.null(p7)) {
         compute_auto_height(base_height = 1.6, n_items = n_distinct(ratio_data$participant), per_row = 3, row_increase = 0.05) +
-          0.28 * max(max_count, 4)
+          0.28 * max(max_count, 6)
       } else NULL
     )
   ))
@@ -2039,7 +2045,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") + 
       scale_color_manual(values= colorPalette) +
-      scale_y_continuous(limits = c(0, max(5, max_count + 1)),
+      scale_y_continuous(limits = c(0, max(6, max_count + 1)),
                          expand = expansion(mult = c(0, 0.1)), 
                          breaks = function(x) seq(0, ceiling(max(x)), by = 1)) + 
       scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=8)) +
@@ -2124,7 +2130,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") + 
       scale_color_manual(values = colorPalette) +
-    scale_y_continuous(limits = c(0, max(5, max_count + 1)), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
+    scale_y_continuous(limits = c(0, max(6, max_count + 1)), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
       scale_x_log10(limits=c(minX, maxX),
                     breaks = scales::log_breaks(n=8)) +
       annotation_logticks(sides = "b", 
@@ -2306,8 +2312,8 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   # Compute extra height separately for each dotted histogram
   h1_max_stack <- if (nrow(sdLogDensity_data) > 0) max(sdLogDensity_data$dot_y, na.rm = TRUE) else 0
   h2_max_stack <- if (exists("ruler_dotplot")) max(ruler_dotplot$dot_y, na.rm = TRUE) else 0
-  h1_stack_for_height <- max(h1_max_stack, 4)
-  h2_stack_for_height <- max(h2_max_stack, 4)
+  h1_stack_for_height <- max(h1_max_stack, 6)
+  h2_stack_for_height <- max(h2_max_stack, 6)
   h1_height <- compute_auto_height(base_height = hist_base, n_items = n_participants_hist, per_row = 3, row_increase = 0.05) + 0.28 * h1_stack_for_height
   h2_height <- compute_auto_height(base_height = hist_base, n_items = n_participants_ruler, per_row = 3, row_increase = 0.05) + 0.28 * h2_stack_for_height
 
@@ -2880,7 +2886,7 @@ objectCm_hist <- function(participant_info, distanceCalibrationResults) {
   n_participants <- n_distinct(object_dotplot$PavloviaParticipantID)
   # Use inches for height (consistent with other plots)
   base_height <- 1.6
-  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.05) + 0.28 * max(max_count, 4)
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.05) + 0.28 * max(max_count, 6)
 
   return(list(plot = p, height = plot_height))
 }
@@ -2922,7 +2928,7 @@ bs_vd_hist <- function(data_list) {
     scale_color_manual(values = colorPalette) +
     scale_x_continuous(breaks = scales::pretty_breaks(n = 8),
                        labels = scales::label_number()) +
-  scale_y_continuous(limits = c(0, max(5, max_count_mean + 1)),
+  scale_y_continuous(limits = c(0, max(6, max_count_mean + 1)),
                        expand = expansion(mult = c(0, 0.1)),
                        breaks = function(x) seq(0, ceiling(max(x)), by = 2)) +
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
@@ -2999,7 +3005,7 @@ bs_vd_hist <- function(data_list) {
     scale_color_manual(values = colorPalette) +
     scale_x_continuous(breaks = scales::pretty_breaks(n = 8),
                        labels = scales::label_number()) +
-  scale_y_continuous(limits = c(0, max(5, max_count_sd + 1)),
+  scale_y_continuous(limits = c(0, max(6, max_count_sd + 1)),
                        expand = expansion(mult = c(0, 0.1)),
                        breaks = function(x) seq(0, ceiling(max(x)), by = 2)) +
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
@@ -3050,7 +3056,7 @@ bs_vd_hist <- function(data_list) {
 
   base_height <- 1.6
   plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants_mean, n_participants_sd), per_row = 3, row_increase = 0.05) + 
-    0.28 * max(max_count_mean, max_count_sd, 4)
+    0.28 * max(max_count_mean, max_count_sd, 6)
   print(paste("returning bs_vd_hist with height:", plot_height))
 
   return(list(

@@ -842,11 +842,13 @@ shinyServer(function(input, output, session) {
   }) %>% bindCache(input$file$datapath, minRulerCm(), calibrateTrackDistanceCheckLengthSDLogAllowed())
   
   # Progressive rendering controls for heavy grids
-  dotRenderCount  <- reactiveVal(0)
-  histRenderCount <- reactiveVal(0)
+  dotRenderCount  <- reactiveVal(0)           # for output$dotPlots
+  histRenderCount <- reactiveVal(0)          # for output$histograms
   plotsRenderCount <- reactiveVal(0)
   qualityHistRenderCount <- reactiveVal(0)
   timingHistRenderCount <- reactiveVal(0)
+  scatterRenderCount <- reactiveVal(0)       # for output$scatters
+  distanceScatterRenderCount <- reactiveVal(0) # for output$distanceScatters
   
   # Reset counters when data changes
   observeEvent(dotPlots(),     { dotRenderCount(0) }, ignoreInit = FALSE)
@@ -854,12 +856,16 @@ shinyServer(function(input, output, session) {
   observeEvent(agePlots(),     { plotsRenderCount(0) }, ignoreInit = FALSE)
   observeEvent(histogramsQuality(), { qualityHistRenderCount(0) }, ignoreInit = FALSE)
   observeEvent(timingHistograms(),  { timingHistRenderCount(0) }, ignoreInit = FALSE)
+  observeEvent(scatterDiagrams(),   { scatterRenderCount(0) }, ignoreInit = FALSE)
+  observeEvent(scatterDistance(),   { distanceScatterRenderCount(0) }, ignoreInit = FALSE)
   observeEvent(files(), {
     dotRenderCount(0)
     histRenderCount(0)
     plotsRenderCount(0)
     qualityHistRenderCount(0)
     timingHistRenderCount(0)
+    scatterRenderCount(0)
+    distanceScatterRenderCount(0)
   }, ignoreInit = TRUE)
   
   # Incrementally allow more plots to render
@@ -910,6 +916,26 @@ shinyServer(function(input, output, session) {
     if (current < total) {
       invalidateLater(200, session)
       timingHistRenderCount(current + 1)
+    }
+  })
+  
+  observe({
+    total <- length(scatterDiagrams()$plotList)
+    current <- scatterRenderCount()
+    if (is.null(total) || total <= 0) return()
+    if (current < total) {
+      invalidateLater(200, session)
+      scatterRenderCount(current + 1)
+    }
+  })
+  
+  observe({
+    total <- length(scatterDistance()$plotList)
+    current <- distanceScatterRenderCount()
+    if (is.null(total) || total <= 0) return()
+    if (current < total) {
+      invalidateLater(200, session)
+      distanceScatterRenderCount(current + 1)
     }
   })
   
@@ -3112,6 +3138,7 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("scatter", ii)]] <- renderImage({
+          req(ii <= scatterRenderCount())
           # outfile <- tempfile(fileext = '.svg')
           # ggsave(
           #   file = outfile,
@@ -3245,7 +3272,7 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("distanceScatter", ii)]] <- renderImage({
-          req(ii <= dotRenderCount())
+          req(ii <= distanceScatterRenderCount())
           tryCatch({
             outfile <- tempfile(fileext = '.svg')
             ggsave(
