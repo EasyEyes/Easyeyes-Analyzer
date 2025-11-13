@@ -2092,16 +2092,23 @@ shinyServer(function(input, output, session) {
        
       output[[paste0("hist", jj)]] <- renderImage({
         req(jj <= histRenderCount())
-        outfile <- tempfile(fileext = '.svg')
+        tmp_svg <- tempfile(fileext = '.svg')
         ggsave(
-          file = outfile,
+          file = tmp_svg,
           plot =  plots[[jj]],
           device = svglite,
           width = 2.5,
           height = 2.5,
-          unit = 'in'
+          unit = 'in',
+          limitsize = FALSE
         )
-        list(src = outfile, contenttype = 'svg')
+        disp_w <- 380
+        scale <- 2
+        png_w <- disp_w * scale
+        png_h <- disp_w * scale
+        outfile <- tempfile(fileext = ".png")
+        rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+        list(src = outfile, contenttype = 'image/png', width = disp_w, height = disp_w)
           # tryCatch({
           #   outfile <- tempfile(fileext = '.svg')
           #   ggsave(
@@ -2157,24 +2164,24 @@ shinyServer(function(input, output, session) {
           ),
           content = function(file) {
             if (input$fileType == "png") {
-              tmp_svg <- tempfile(fileext = ".svg")
-              ggsave(tmp_svg,
-                     plot   = plots[[jj]] + hist_theme,
-                     device = svglite,
-                     width  = 2.5,
-                     height = 2.5,
-                     unit   = "in",
-                     limitsize = FALSE)
-              rsvg::rsvg_png(tmp_svg, file,
-                             width  = 900 * 3/4,
-                             height = 900 * 2.5/4)
+              # 2.5 in at 360 dpi ≈ 900 px
+              ggsave(
+                filename = file,
+                plot = plots[[jj]] + hist_theme,
+                device = ragg::agg_png,
+                width = 2.5,
+                height = 2.5,
+                units = "in",
+                dpi = 360,
+                limitsize = FALSE
+              )
             } else {
               ggsave(
                 file,
                 plot   = plots[[jj]] + hist_theme,
                 width  = 2.5,
                 height = 2.5,
-                unit   = "in",
+                units  = "in",
                 limitsize = FALSE,
                 device   = if (input$fileType == "svg") svglite::svglite else input$fileType
               )
@@ -2249,16 +2256,24 @@ shinyServer(function(input, output, session) {
       output[[paste0("dot", jj)]] <- renderImage({
           req(jj <= dotRenderCount())
           tryCatch({
-            outfile <- tempfile(fileext = '.svg')
-              ggsave(
-                file = outfile,
-                plot =  plots[[jj]],
-                device = svglite,
-                width = 6,
-                height = if (!is.null(heights) && length(heights) >= jj && !is.null(heights[[jj]])) heights[[jj]] else 4,
-                unit = 'in'
-              )
-            list(src = outfile, contenttype = 'svg')
+            tmp_svg <- tempfile(fileext = '.svg')
+            height_in <- if (!is.null(heights) && length(heights) >= jj && !is.null(heights[[jj]])) heights[[jj]] else 4
+            ggsave(
+              file = tmp_svg,
+              plot =  plots[[jj]],
+              device = svglite,
+              width = 6,
+              height = height_in,
+              unit = 'in',
+              limitsize = FALSE
+            )
+            disp_w <- 600
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((height_in / 6) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
           }, error = function(e) {
             error_plot <- ggplot() +
               annotate(
@@ -2300,24 +2315,23 @@ shinyServer(function(input, output, session) {
           ),
           content = function(file) {
             if (input$fileType == "png") {
-              tmp_svg <- tempfile(fileext = ".svg")
-              ggsave(tmp_svg,
-                     plot   = plots[[jj]],
-                     device = svglite,
-                     width  = 6,
-                     height = 4,
-                     unit   = "in",
-                     limitsize = FALSE)
-              rsvg::rsvg_png(tmp_svg, file,
-                             width  = 1800,    # 6 * 300 DPI
-                             height = 1200)    # 4 * 300 DPI
+              ggsave(
+                filename = file,
+                plot = plots[[jj]],
+                device = ragg::agg_png,
+                width = 6,
+                height = 4,
+                units = "in",
+                dpi = 300,
+                limitsize = FALSE
+              )
             } else {
               ggsave(
                 file,
                 plot   = plots[[jj]],
                 width  = 6,
                 height = 4,
-                unit   = "in",
+                units  = "in",
                 limitsize = FALSE,
                 device   = if (input$fileType == "svg") svglite::svglite else input$fileType
               )
@@ -2409,18 +2423,23 @@ shinyServer(function(input, output, session) {
         output[[paste0("qualityHist", ii)]] <- renderImage({
           req(ii <= qualityHistRenderCount())
           tryCatch({
-            outfile <- tempfile(fileext = '.svg')
+            tmp_svg <- tempfile(fileext = '.svg')
             ggsave(
-              file = outfile,
+              file = tmp_svg,
               plot = histogramsQuality()$plotList[[ii]] + hist_theme,
               device = svglite,
               width = 4,
-              # Reduced width
               height = 3.5,
-              # Reduced height
-              unit = 'in'
+              unit = 'in',
+              limitsize = FALSE
             )
-            list(src = outfile, contenttype = 'svg')
+            disp_w <- 560  # 4 in * 140 px/in display
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((3.5 / 4) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
           }, error = function(e) {
             error_plot <- ggplot() +
               annotate(
@@ -2584,18 +2603,23 @@ shinyServer(function(input, output, session) {
         output[[paste0("timingHist", ii)]] <- renderImage({
           req(ii <= timingHistRenderCount())
           tryCatch({
-            outfile <- tempfile(fileext = '.svg')
+            tmp_svg <- tempfile(fileext = '.svg')
             ggsave(
-              file = outfile,
+              file = tmp_svg,
               plot = timingHistograms()$plotList[[ii]] + hist_theme,
               device = svglite,
               width = 4,
-              # Reduced width
               height = 3.5,
-              # Reduced height
-              unit = 'in'
+              unit = 'in',
+              limitsize = FALSE
             )
-            list(src = outfile, contenttype = 'svg')
+            disp_w <- 560
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((3.5 / 4) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
           }, error = function(e) {
             message(e)
             error_plot <- ggplot() +
@@ -3155,9 +3179,9 @@ shinyServer(function(input, output, session) {
           # list(src = outfile,
           #      contenttype = 'svg')
           tryCatch({
-            outfile <- tempfile(fileext = '.svg')
+            tmp_svg <- tempfile(fileext = '.svg')
             ggsave(
-              file = outfile,
+              file = tmp_svg,
               plot = scatterDiagrams()$plotList[[ii]] +
                 plt_theme_scatter +
                 scale_color_manual(values = colorPalette),
@@ -3167,10 +3191,13 @@ shinyServer(function(input, output, session) {
               limitsize = F,
               device = svglite
             )
-
-            list(src = outfile,
-                 contenttype = 'svg')
-
+            disp_w <- 700
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- png_w
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = disp_w)
           }, error = function(e) {
           handle_plot_error(e, paste0("scatter", ii), experiment_names(), scatterDiagrams()$fileNames[[ii]])
           })
@@ -3187,21 +3214,16 @@ shinyServer(function(input, output, session) {
             ),
             content = function(file) {
               if (input$fileType == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
-                  tmp_svg,
-                  plot = scatterDiagrams()$plotList[[ii]] +
-                    plt_theme_scatter +
-                    scale_color_manual(values = colorPalette),
+                  filename = file,
+                  plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter + scale_color_manual(values = colorPalette),
+                  device = ragg::agg_png,
                   width = 12,
                   height = 8,
-                  unit = "in",
-                  limitsize = F,
-                  device = svglite
+                  units = "in",
+                  dpi = 200,
+                  limitsize = FALSE
                 )
-                rsvg::rsvg_png(tmp_svg, file,
-                               width = 2400,
-                               height = 1600)
               } else {
                 ggsave(
                   file,
@@ -3210,7 +3232,7 @@ shinyServer(function(input, output, session) {
                     scale_color_manual(values = colorPalette),
                   width = 12,
                   height = 8,
-                  unit = "in",
+                  units = "in",
                   limitsize = F,
                   device = ifelse(
                     input$fileType == "svg",
@@ -3274,21 +3296,26 @@ shinyServer(function(input, output, session) {
         output[[paste0("distanceScatter", ii)]] <- renderImage({
           req(ii <= distanceScatterRenderCount())
           tryCatch({
-            outfile <- tempfile(fileext = '.svg')
+            height_in <- scatterDistance()$heights[[ii]]
+            tmp_svg <- tempfile(fileext = '.svg')
             ggsave(
-              file = outfile,
+              file = tmp_svg,
               plot = scatterDistance()$plotList[[ii]] +
                 plt_theme_scatter +
                 scale_color_manual(values = colorPalette),
               width = 7,
-              height = scatterDistance()$heights[[ii]],
+              height = height_in,
               unit = 'in',
               limitsize = F,
               device = svglite
             )
-
-            list(src = outfile,
-                 contenttype = 'svg')
+            disp_w <- 700
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((height_in / 7) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
 
           }, error = function(e) {
           handle_plot_error(e, paste0("distanceScatter", ii), experiment_names(), scatterDistance()$fileNames[[ii]])

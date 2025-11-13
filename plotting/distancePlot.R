@@ -117,7 +117,10 @@ get_cameraResolutionXY <- function(data_list) {
     factorVpxCm = ""
     if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
 
-      distanceCalibration <- fromJSON(sort(data_list[[i]]$distanceCalibrationJSON)[1])
+      distanceCalibration <- fromJSON(
+        sort(data_list[[i]]$distanceCalibrationJSON)[1],
+        simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+      )
 
      for (j in 1:length(distanceCalibration)) {
        # Accept both new and legacy field names; prefer new if present
@@ -181,7 +184,10 @@ get_distanceCheck_factorVpxCm <- function(data_list) {
       }
       
       tryCatch({
-        distanceCheck <- fromJSON(sort(data_list[[i]]$distanceCheckJSON)[1])
+        distanceCheck <- fromJSON(
+          sort(data_list[[i]]$distanceCheckJSON)[1],
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        )
         
         # Extract measuredFactorVpxCm (new) or measuredFactorCameraPxCm (legacy) from distanceCheckJSON
         measured_vals <- NULL
@@ -365,14 +371,381 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     }
   }
   
-  # Compute all derived datasets once
-  sizeCheck <- get_sizeCheck_data(filtered_data_list)
-  distance <- get_measured_distance_data(filtered_data_list)
-  eye_feet <- get_eye_feet_position_data(filtered_data_list)
-  feet_calib <- get_foot_position_during_calibration_data(filtered_data_list)
-  check_factor <- get_distanceCheck_factorVpxCm(filtered_data_list)
-  camera <- get_cameraResolutionXY(filtered_data_list)
-  blindspot <- get_calibrateTrackDistanceBlindspotDiameterDeg(filtered_data_list)
+  # Previous implementation (kept for reference; now inlined below):
+  # sizeCheck <- get_sizeCheck_data(filtered_data_list)
+  # distance <- get_measured_distance_data(filtered_data_list)
+  # eye_feet <- get_eye_feet_position_data(filtered_data_list)
+  # feet_calib <- get_foot_position_during_calibration_data(filtered_data_list)
+  # check_factor <- get_distanceCheck_factorVpxCm(filtered_data_list)
+  # camera <- get_cameraResolutionXY(filtered_data_list)
+  # blindspot <- get_calibrateTrackDistanceBlindspotDiameterDeg(filtered_data_list)
+  # statement <- make_statement(sizeCheck)
+  
+  # Compute all derived datasets once (single pass per session where possible)
+  sizeCheck <- tibble()
+  distance <- tibble()
+  eye_feet <- tibble()
+  feet_calib <- tibble()
+  check_factor <- tibble()
+  camera <- get_cameraResolutionXY(filtered_data_list)  # reused elsewhere; keep helper
+  blindspot <- tibble()
+  
+  for (i in seq_along(filtered_data_list)) {
+    dl <- filtered_data_list[[i]]
+    
+    # -------- sizeCheck (credit card + production) --------
+    if (all(c('SizeCheckEstimatedPxPerCm','SizeCheckRequestedCm') %in% names(dl))) {
+      t_sc <- dl %>%
+        select(`_calibrateTrackDistance`,
+               `_calibrateTrackDistancePupil`,
+               `_calibrateTrackDistanceAllowedRatio`,
+               `_calibrateTrackDistanceShowLengthBool`,
+               `_calibrateTrackDistanceTimes`,
+               calibrateScreenSizeAllowedRatio,
+               calibrateScreenSizeTimes,
+               viewingDistanceWhichEye,
+               viewingDistanceWhichPoint,
+               participant,
+               SizeCheckEstimatedPxPerCm,
+               SizeCheckRequestedCm,
+               rulerLength,
+               rulerUnit,
+               pxPerCm) %>%
+        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>%
+        distinct() %>%
+        filter(!is.na(SizeCheckEstimatedPxPerCm),
+               !is.na(SizeCheckRequestedCm),
+               SizeCheckEstimatedPxPerCm != '',
+               SizeCheckRequestedCm != '')
+      if (nrow(t_sc) > 0) {
+        t_sc <- t_sc %>%
+          mutate(
+            SizeCheckEstimatedPxPerCm = gsub("\\[|\\]|\"", "", SizeCheckEstimatedPxPerCm),
+            SizeCheckRequestedCm = gsub("\\[|\\]|\"", "", SizeCheckRequestedCm)
+          ) %>%
+          mutate(measured_list = strsplit(SizeCheckEstimatedPxPerCm, ","), 
+                 requested_list = strsplit(SizeCheckRequestedCm, ",")) %>%
+          unnest(c(measured_list, requested_list)) %>%
+          mutate(
+            SizeCheckEstimatedPxPerCm = as.numeric(trimws(measured_list)),
+            SizeCheckRequestedCm = as.numeric(trimws(requested_list))
+          ) %>%
+          select(-measured_list, -requested_list)
+        if (nrow(t_sc) > 0) {
+          t_sc <- t_sc %>% mutate(
+            SizeCheckEstimatedPxPerCm = as.numeric(SizeCheckEstimatedPxPerCm),
+            SizeCheckRequestedCm = as.numeric(SizeCheckRequestedCm)
+          )
+          sizeCheck <- rbind(sizeCheck, t_sc)
+        }
+      }
+    }
+    
+    # -------- measured distance (credit card) --------
+    if ('calibrateTrackDistanceIpdCameraPx' %in% names(dl)) {
+      dl$calibrateTrackDistanceIpdVpx <- dl$calibrateTrackDistanceIpdCameraPx
+    }
+    if (all(c('calibrateTrackDistanceMeasuredCm','calibrateTrackDistanceRequestedCm') %in% names(dl))) {
+      t_dist <- dl %>%
+        select(`_calibrateTrackDistanceAllowedRatio`,
+               `_calibrateTrackDistanceShowLengthBool`,
+               `_calibrateTrackDistanceTimes`,
+               calibrateScreenSizeAllowedRatio,
+               calibrateScreenSizeTimes,
+               `_calibrateTrackDistance`,
+               `_calibrateTrackDistancePupil`,
+               viewingDistanceWhichEye,
+               viewingDistanceWhichPoint,
+               participant,
+               calibrateTrackDistanceMeasuredCm,
+               calibrateTrackDistanceRequestedCm,
+               calibrateTrackDistanceIpdVpx) %>%
+        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>%
+        filter(!is.na(calibrateTrackDistanceMeasuredCm),
+               !is.na(calibrateTrackDistanceRequestedCm),
+               calibrateTrackDistanceMeasuredCm != '',
+               calibrateTrackDistanceRequestedCm != '') %>%
+        distinct()
+      if (nrow(t_dist) > 0) {
+        t_dist <- t_dist %>%
+          mutate(
+            calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
+            calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm),
+            calibrateTrackDistanceIpdVpx = gsub("\\[|\\]|\"", "", calibrateTrackDistanceIpdVpx)
+          ) %>%
+          mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","),
+                 requested_list = strsplit(calibrateTrackDistanceRequestedCm, ","),
+                 ipd_list = strsplit(calibrateTrackDistanceIpdVpx, ",")) %>%
+          unnest(c(measured_list, requested_list, ipd_list)) %>%
+          mutate(
+            calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
+            calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
+            calibrateTrackDistanceIpdVpx = as.numeric(trimws(ipd_list))
+          ) %>%
+          select(-measured_list, -requested_list, -ipd_list) %>%
+          mutate(
+            calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
+            calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm),
+            calibrateTrackDistanceIpdVpx = if ("calibrateTrackDistanceIpdVpx" %in% names(.)) calibrateTrackDistanceIpdVpx else NA,
+            order = row_number()
+          )
+        distance <- rbind(distance, t_dist)
+      }
+    }
+    
+    # -------- eye feet position (runtime XYPx field) --------
+    if ("calibrateTrackDistanceEyeFeetXYPx" %in% names(dl)) {
+      t_raw <- dl %>%
+        select(experiment, participant,
+               `_calibrateTrackDistanceAllowedRatio`,
+               `_calibrateTrackDistanceShowLengthBool`,
+               `_calibrateTrackDistanceTimes`,
+               calibrateScreenSizeAllowedRatio,
+               calibrateScreenSizeTimes,
+               `_calibrateTrackDistance`,
+               `_calibrateTrackDistancePupil`,
+               viewingDistanceWhichEye,
+               viewingDistanceWhichPoint,
+               pxPerCm, screenWidthPx, screenHeightPx,
+               calibrateTrackDistanceMeasuredCm,
+               calibrateTrackDistanceRequestedCm,
+               calibrateTrackDistanceEyeFeetXYPx) %>%
+        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>%
+        distinct()
+      if (nrow(t_raw) > 0 && !all(is.na(t_raw$calibrateTrackDistanceEyeFeetXYPx))) {
+        eye_feet_raw <- t_raw$calibrateTrackDistanceEyeFeetXYPx[1]
+        coords_str <- gsub("\\[|\\]", "", eye_feet_raw)
+        coords_numbers <- as.numeric(unlist(strsplit(coords_str, ",")))
+        coords_numbers <- coords_numbers[!is.na(coords_numbers)]
+        if (length(coords_numbers) %% 4 == 0) {
+          n_coord_measurements <- length(coords_numbers) / 4
+          t <- t_raw %>%
+            filter(!is.na(calibrateTrackDistanceMeasuredCm),
+                   !is.na(calibrateTrackDistanceRequestedCm),
+                   !is.na(calibrateTrackDistanceEyeFeetXYPx),
+                   calibrateTrackDistanceMeasuredCm != '',
+                   calibrateTrackDistanceRequestedCm != '',
+                   calibrateTrackDistanceEyeFeetXYPx != '') %>%
+            mutate(
+              calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
+              calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm)
+            ) %>%
+            mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","), 
+                   requested_list = strsplit(calibrateTrackDistanceRequestedCm, ",")) %>%
+            unnest(c(measured_list, requested_list)) %>%
+            mutate(
+              calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
+              calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
+              measurement_index = row_number()
+            ) %>%
+            select(-measured_list, -requested_list)
+          coords_df <- tibble(
+            measurement_idx = rep(1:n_coord_measurements, each = 4),
+            coord_type = rep(c("left_x", "left_y", "right_x", "right_y"), n_coord_measurements),
+            coord_value = coords_numbers
+          ) %>% pivot_wider(names_from = coord_type, values_from = coord_value)
+          if (n_coord_measurements > nrow(t)) {
+            coords_df <- coords_df[1:nrow(t), ]
+          } else if (n_coord_measurements < nrow(t)) {
+            t <- t[1:n_coord_measurements, ]
+          }
+          t <- cbind(t, coords_df) %>%
+            select(-measurement_idx) %>%
+            mutate(
+              avg_eye_x_px = (left_x + right_x) / 2,
+              avg_eye_y_px = (left_y + right_y) / 2,
+              distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
+            )
+          if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
+            t <- t %>% mutate(pxPerCm = as.numeric(pxPerCm),
+                              avg_eye_x_cm = avg_eye_x_px / pxPerCm,
+                              avg_eye_y_cm = avg_eye_y_px / pxPerCm)
+          } else {
+            default_pxPerCm <- 37.8
+            t <- t %>% mutate(pxPerCm = default_pxPerCm,
+                              avg_eye_x_cm = avg_eye_x_px / default_pxPerCm,
+                              avg_eye_y_cm = avg_eye_y_px / default_pxPerCm)
+          }
+          t <- t %>% mutate(data_list_index = i)
+          eye_feet <- rbind(eye_feet, t)
+        }
+      }
+    }
+    
+    # -------- feet position during calibration (from distanceCalibrationJSON) --------
+    if ("distanceCalibrationJSON" %in% names(dl)) {
+      t_meta <- dl %>%
+        select(participant,  
+               `_calibrateTrackDistanceAllowedRatio`,
+               `_calibrateTrackDistanceShowLengthBool`,
+               `_calibrateTrackDistanceTimes`,
+               calibrateScreenSizeAllowedRatio,
+               calibrateScreenSizeTimes,
+               `_calibrateTrackDistance`,
+               `_calibrateTrackDistancePupil`,
+               viewingDistanceWhichEye,
+               viewingDistanceWhichPoint,
+               pxPerCm, screenWidthPx, screenHeightPx,
+               calibrateTrackDistanceMeasuredCm, 
+               calibrateTrackDistanceRequestedCm,
+               distanceCalibrationJSON) %>%
+        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>%
+        distinct()
+      if (nrow(t_meta) > 0 && !all(is.na(t_meta$distanceCalibrationJSON))) {
+        tryCatch({
+          distanceCalibration <- fromJSON(
+            sort(t_meta$distanceCalibrationJSON)[1],
+            simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+          )
+          # feet coords
+          eye_feet_coords <- list()
+          spot_degrees <- c()
+          for (j in seq_along(distanceCalibration)) {
+            cal <- distanceCalibration[[j]]
+            if (!is.null(cal$leftEyeFootXYPx) && !is.null(cal$rightEyeFootXYPx)) {
+              eye_feet_coords[[length(eye_feet_coords) + 1]] <- list(
+                left_x = cal$leftEyeFootXYPx[1],
+                left_y = cal$leftEyeFootXYPx[2],
+                right_x = cal$rightEyeFootXYPx[1],
+                right_y = cal$rightEyeFootXYPx[2]
+              )
+            }
+            if (!is.null(cal$spotDeg)) {
+              spot_degrees <- c(spot_degrees, as.numeric(cal$spotDeg))
+            }
+          }
+          if (length(eye_feet_coords) > 0) {
+            coords_df <- tibble(
+              measurement_idx = 1:length(eye_feet_coords),
+              left_x = sapply(eye_feet_coords, function(x) x$left_x),
+              left_y = sapply(eye_feet_coords, function(x) x$left_y),
+              right_x = sapply(eye_feet_coords, function(x) x$right_x),
+              right_y = sapply(eye_feet_coords, function(x) x$right_y)
+            )
+            t <- t_meta %>%
+              filter(!is.na(calibrateTrackDistanceMeasuredCm),
+                     !is.na(calibrateTrackDistanceRequestedCm),
+                     calibrateTrackDistanceMeasuredCm != '',
+                     calibrateTrackDistanceRequestedCm != '') %>%
+              mutate(
+                calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
+                calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm)
+              ) %>%
+              mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","), 
+                     requested_list = strsplit(calibrateTrackDistanceRequestedCm, ",")) %>%
+              unnest(c(measured_list, requested_list)) %>%
+              mutate(
+                calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
+                calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
+                measurement_index = row_number()
+              ) %>%
+              select(-measured_list, -requested_list)
+            n_measurements <- nrow(coords_df)
+            if (n_measurements > nrow(t)) {
+              coords_df <- coords_df[1:nrow(t), ]
+            } else if (n_measurements < nrow(t)) {
+              t <- t[1:n_measurements, ]
+            }
+            t <- cbind(t, coords_df) %>%
+              select(-measurement_idx) %>%
+              mutate(
+                avg_eye_x_px = (left_x + right_x) / 2,
+                avg_eye_y_px = (left_y + right_y) / 2,
+                distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
+              )
+            if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
+              t <- t %>% mutate(pxPerCm = as.numeric(pxPerCm),
+                                avg_eye_x_cm = avg_eye_x_px / pxPerCm,
+                                avg_eye_y_cm = avg_eye_y_px / pxPerCm)
+            } else {
+              default_pxPerCm <- 37.8
+              t <- t %>% mutate(pxPerCm = default_pxPerCm,
+                                avg_eye_x_cm = avg_eye_x_px / default_pxPerCm,
+                                avg_eye_y_cm = avg_eye_y_px / default_pxPerCm)
+            }
+            t <- t %>% mutate(data_list_index = i)
+            feet_calib <- rbind(feet_calib, t)
+          }
+          if (length(spot_degrees) > 0) {
+            t_bs <- t_meta[1,] %>% 
+              mutate(`_calibrateTrackDistanceBlindspotDiameterDeg` = spot_degrees[1]) %>%
+              select(participant, `_calibrateTrackDistanceBlindspotDiameterDeg`)
+            blindspot <- rbind(blindspot, t_bs)
+          }
+        }, error = function(e) {})
+      }
+    }
+    
+    # -------- distance check median factorVpxCm --------
+    if ("distanceCheckJSON" %in% names(dl)) {
+      tryCatch({
+        distanceCheck <- fromJSON(
+          sort(dl$distanceCheckJSON)[1],
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        )
+        measured_vals <- NULL
+        if (!is.null(distanceCheck$measuredFactorVpxCm)) {
+          measured_vals <- distanceCheck$measuredFactorVpxCm
+        } else if (!is.null(distanceCheck$measuredFactorCameraPxCm)) {
+          measured_vals <- distanceCheck$measuredFactorCameraPxCm
+        }
+        if (!is.null(measured_vals)) {
+          measuredFactorVpxCmVals <- suppressWarnings(as.numeric(measured_vals))
+          measuredFactorVpxCmVals <- measuredFactorVpxCmVals[!is.na(measuredFactorVpxCmVals)]
+          if (length(measuredFactorVpxCmVals) > 0) {
+            medianFactorVpxCm <- median(measuredFactorVpxCmVals)
+            t <- dl %>%
+              mutate(medianFactorVpxCm = medianFactorVpxCm) %>%
+              select(participant, medianFactorVpxCm) %>%
+              rename(PavloviaParticipantID = participant) %>%
+              distinct() %>%
+              filter(!is.na(medianFactorVpxCm))
+            if (nrow(t) > 0) check_factor <- rbind(check_factor, t)
+          }
+        }
+      }, error = function(e) {})
+    }
+  }
+  
+  sizeCheck <- sizeCheck %>% as_tibble()
+  distance <- distance %>% as_tibble()
+  eye_feet <- eye_feet %>% as_tibble()
+  feet_calib <- feet_calib %>% as_tibble()
+  check_factor <- check_factor %>% distinct()
+  blindspot <- blindspot %>% distinct()
+  
   statement <- make_statement(sizeCheck)
   
   return(list(
@@ -477,9 +850,9 @@ get_measured_distance_data <- function(data_list) {
                calibrateScreenSizeAllowedRatio,
                calibrateScreenSizeTimes,
                `_calibrateTrackDistance`,
-               `_calibrateTrackDistancePupil`,
-               viewingDistanceWhichEye,
-               viewingDistanceWhichPoint,
+             `_calibrateTrackDistancePupil`,
+             viewingDistanceWhichEye,
+             viewingDistanceWhichPoint,
              participant,
              calibrateTrackDistanceMeasuredCm,
              calibrateTrackDistanceRequestedCm,
@@ -775,7 +1148,10 @@ get_foot_position_during_calibration_data <- function(data_list) {
 
     # Parse distanceCalibrationJSON first before filtering
     tryCatch({
-      distanceCalibration <- fromJSON(sort(t$distanceCalibrationJSON)[1])
+      distanceCalibration <- fromJSON(
+        sort(t$distanceCalibrationJSON)[1],
+        simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+      )
 
       # Extract eye foot coordinates from each calibration
       eye_feet_coords <- list()
@@ -1444,7 +1820,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     scale_x_log10(
       limits = c(min_val, max_val),
       breaks = breaks_seq_10,
-      expand = expansion(mult = c(0.05, 0.05)),
+                  expand = expansion(mult = c(0.05, 0.05)),
       labels = scales::label_number(accuracy = 1)
     ) + 
     scale_y_log10(limits = c(minFrac, maxFrac),
@@ -1495,7 +1871,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         # Create prediction line across the x-range
         crossing(calibrateTrackDistanceRequestedCm = seq(min_val, max_val, length.out = 100)) %>%
         mutate(predictedIpdVpx = factorVpxCm / calibrateTrackDistanceRequestedCm)
-      
+
       minX = max(5, min_val - 5)
       maxX = max_val + 10
       p3 <- ggplot() +
@@ -1675,41 +2051,41 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         filter(!is.na(factorVpxCm), !is.na(medianFactorVpxCm),
                is.finite(factorVpxCm), is.finite(medianFactorVpxCm))
         
-      if (nrow(plot_data) > 0) {
+        if (nrow(plot_data) > 0) {
         # Calculate symmetric scale limits to ensure equal axes (slope 1 equality line)
         min_val_all <- min(c(plot_data$medianFactorVpxCm, plot_data$factorVpxCm), na.rm = TRUE) * 0.9
         max_val_all <- max(c(plot_data$medianFactorVpxCm, plot_data$factorVpxCm), na.rm = TRUE) * 1.1
         
         p5 <- ggplot(plot_data, aes(x = medianFactorVpxCm, y = factorVpxCm)) +
-          geom_point(aes(color = participant), size = 3, alpha = 0.8) +
-          geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
-          ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                              label = paste0('N=', n_distinct(plot_data$participant))) +
+            geom_point(aes(color = participant), size = 3, alpha = 0.8) +
+            geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
+            ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                                label = paste0('N=', n_distinct(plot_data$participant))) +
           scale_x_log10(limits = c(min_val_all, max_val_all), 
-                        breaks = scales::log_breaks(n = 8)) +
+                          breaks = scales::log_breaks(n = 8)) +
           scale_y_log10(limits = c(min_val_all, max_val_all), 
-                        breaks = scales::log_breaks(n = 8)) +
+                          breaks = scales::log_breaks(n = 8)) +
           coord_fixed(ratio = 1) +  # Force 1:1 aspect ratio for symmetric axes
-          annotation_logticks() +
-          scale_color_manual(values = colorPalette) +
-          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-          guides(color = guide_legend(
-            ncol = 3,
-            title = "",
-            override.aes = list(size = 1.5),
-            keywidth = unit(0.8, "lines"),
-            keyheight = unit(0.6, "lines")
-          )) +
-          theme_classic() +
-          theme(
-            legend.position = "right",
-            legend.box = "vertical",
-            legend.justification = "left",
-            legend.text = element_text(size = 6),
-            legend.spacing.y = unit(0, "lines"),
-            legend.key.size = unit(0.4, "cm"),
-            plot.margin = margin(5, 5, 5, 5, "pt")
-          ) +
+            annotation_logticks() +
+            scale_color_manual(values = colorPalette) +
+            ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+            guides(color = guide_legend(
+              ncol = 3,
+              title = "",
+              override.aes = list(size = 1.5),
+              keywidth = unit(0.8, "lines"),
+              keyheight = unit(0.6, "lines")
+            )) +
+            theme_classic() +
+            theme(
+              legend.position = "right",
+              legend.box = "vertical",
+              legend.justification = "left",
+              legend.text = element_text(size = 6),
+              legend.spacing.y = unit(0, "lines"),
+              legend.key.size = unit(0.4, "cm"),
+              plot.margin = margin(5, 5, 5, 5, "pt")
+            ) +
           labs(subtitle = 'Calibrated vs. median factorVpxCm',
                x = 'Median factorVpxCm from distance checking (per session)',
                y = 'FactorVpxCm from calibration',
@@ -2711,7 +3087,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
             breaks = c(10, 20, 30, 40, 50, 70, 90, 120),
             labels = scales::label_number(accuracy = 1)
           ) +
-          scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
+           scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
           annotation_logticks() +
           scale_color_manual(values = colorPalette) +
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +

@@ -239,6 +239,22 @@ get_N_text <- function(data) {
   return(paste0(unique(t$text), collapse='\n'))
 }
 
+# Helper: return a PNG image response for renderImage using ragg
+render_png_response <- function(plot, width, height, units = "in", dpi = 144, limitsize = FALSE) {
+  outfile <- tempfile(fileext = ".png")
+  ggplot2::ggsave(
+    filename  = outfile,
+    plot      = plot,
+    device    = ragg::agg_png,
+    width     = width,
+    height    = height,
+    units     = units,
+    dpi       = dpi,
+    limitsize = limitsize
+  )
+  list(src = outfile, contenttype = "image/png")
+}
+
 # Enhanced error logging function for debugging
 log_detailed_error <- function(e, plot_id = "Unknown Plot") {
   cat("\n=== DETAILED ERROR INFORMATION ===\n")
