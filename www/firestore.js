@@ -1,4 +1,6 @@
-document.addEventListener("DOMContentLoaded", async function () {
+document.addEventListener("DOMContentLoaded", function () {
+  let profilesLoaded = false;
+  async function loadProfiles() {
   // window.alert = function (message) {
   //   // Do nothing or log the message to console
   //   console.log("Alert suppressed:", message);
@@ -927,4 +929,29 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   document.getElementById("profilePlot").innerHTML =
     "<p style = 'font-size:20px'> Hit refresh or use selector to retrieve profiles <p>";
+  } // end loadProfiles
+  function isVisible(el) {
+    return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  }
+  function tryLoadProfiles() {
+    if (profilesLoaded) return;
+    const plotEl = document.getElementById("profilePlot");
+    if (isVisible(plotEl)) {
+      profilesLoaded = true;
+      loadProfiles();
+    }
+  }
+  setTimeout(tryLoadProfiles, 0);
+  document.body.addEventListener('shown.bs.tab', tryLoadProfiles, true);
+  document.addEventListener('click', tryLoadProfiles, true);
+  const plotEl = document.getElementById("profilePlot");
+  if (plotEl && plotEl.parentElement) {
+    const obs = new MutationObserver(tryLoadProfiles);
+    obs.observe(plotEl.parentElement, { attributes: true, attributeFilter: ['style','class'], subtree: true });
+  }
+  if (window.Shiny && Shiny.addCustomMessageHandler) {
+    Shiny.addCustomMessageHandler('loadProfiles', function (message) {
+      tryLoadProfiles();
+    });
+  }
 });

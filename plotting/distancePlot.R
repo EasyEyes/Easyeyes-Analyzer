@@ -1135,9 +1135,6 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
   # Create statement for calibration parameters (safe, short)
   statement <- distanceCalibrationResults$statement
   param_tbl <- build_param_table(eye_feet_data)
-  print("statement")
-  print(statement)
-  print(param_tbl)
 
   # Create the plot
   tryCatch({

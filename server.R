@@ -154,7 +154,7 @@ shinyServer(function(input, output, session) {
       )
       return(NULL)
     }
-  })
+  }) %>% bindCache(input$file$datapath)
   
   output$fileStatusMessage <- renderUI({
     if (!is.null(files())) {
@@ -253,7 +253,7 @@ shinyServer(function(input, output, session) {
   
   distanceCalibration <- reactive({
     get_distance_calibration(files()$data_list, minRulerCm())
-  })
+  }) %>% bindCache(input$file$datapath, minRulerCm())
   
   crowdingBySide <- reactive({
     if (is.null(files())) {
@@ -839,12 +839,84 @@ shinyServer(function(input, output, session) {
       fileNames = fileNames,
       heights = heights
     ))
+  }) %>% bindCache(input$file$datapath, minRulerCm(), calibrateTrackDistanceCheckLengthSDLogAllowed())
+  
+  # Progressive rendering controls for heavy grids
+  dotRenderCount  <- reactiveVal(0)
+  histRenderCount <- reactiveVal(0)
+  plotsRenderCount <- reactiveVal(0)
+  qualityHistRenderCount <- reactiveVal(0)
+  timingHistRenderCount <- reactiveVal(0)
+  
+  # Reset counters when data changes
+  observeEvent(dotPlots(),     { dotRenderCount(0) }, ignoreInit = FALSE)
+  observeEvent(histograms(),   { histRenderCount(0) }, ignoreInit = FALSE)
+  observeEvent(agePlots(),     { plotsRenderCount(0) }, ignoreInit = FALSE)
+  observeEvent(histogramsQuality(), { qualityHistRenderCount(0) }, ignoreInit = FALSE)
+  observeEvent(timingHistograms(),  { timingHistRenderCount(0) }, ignoreInit = FALSE)
+  observeEvent(files(), {
+    dotRenderCount(0)
+    histRenderCount(0)
+    plotsRenderCount(0)
+    qualityHistRenderCount(0)
+    timingHistRenderCount(0)
+  }, ignoreInit = TRUE)
+  
+  # Incrementally allow more plots to render
+  observe({
+    total <- length(dotPlots()$plotList)
+    current <- dotRenderCount()
+    if (is.null(total) || total <= 0) return()
+    if (current < total) {
+      invalidateLater(200, session)
+      dotRenderCount(current + 1)
+    }
+  })
+  
+  observe({
+    total <- length(histograms()$plotList)
+    current <- histRenderCount()
+    if (is.null(total) || total <= 0) return()
+    if (current < total) {
+      invalidateLater(200, session)
+      histRenderCount(current + 1)
+    }
+  })
+  
+  observe({
+    total <- length(agePlots()$plotList)
+    current <- plotsRenderCount()
+    if (is.null(total) || total <= 0) return()
+    if (current < total) {
+      invalidateLater(200, session)
+      plotsRenderCount(current + 1)
+    }
+  })
+  
+  observe({
+    total <- length(histogramsQuality()$plotList)
+    current <- qualityHistRenderCount()
+    if (is.null(total) || total <= 0) return()
+    if (current < total) {
+      invalidateLater(200, session)
+      qualityHistRenderCount(current + 1)
+    }
+  })
+  
+  observe({
+    total <- length(timingHistograms()$plotList)
+    current <- timingHistRenderCount()
+    if (is.null(total) || total <= 0) return()
+    if (current < total) {
+      invalidateLater(200, session)
+      timingHistRenderCount(current + 1)
+    }
   })
   
   #### scatterDiagrams ####
   sizeCheckPlot <- reactive({
     plot_sizeCheck(distanceCalibration(),calibrateTrackDistanceCheckLengthSDLogAllowed())
-  }) 
+  }) %>% bindCache(input$file$datapath, minRulerCm(), calibrateTrackDistanceCheckLengthSDLogAllowed())
   
   scatterDistance <- reactive({
     if (is.null(input$file) | is.null(files())) {
@@ -893,7 +965,7 @@ shinyServer(function(input, output, session) {
       fileNames = fileNames,
       heights = heights
     ))
-  })
+  }) %>% bindCache(input$file$datapath, minRulerCm(), calibrateTrackDistanceCheckLengthSDLogAllowed())
 
   scatterDiagrams <- reactive({
     if (is.null(input$file) | is.null(files())) {
@@ -1865,6 +1937,7 @@ shinyServer(function(input, output, session) {
         i <- j
         output[[paste0("p", i)]] <-
           renderImage({
+          req(i <= plotsRenderCount())
           tryCatch({
             outfile <- tempfile(fileext = '.svg')
             ggsave(
@@ -1992,6 +2065,7 @@ shinyServer(function(input, output, session) {
         jj <- j
        
       output[[paste0("hist", jj)]] <- renderImage({
+        req(jj <= histRenderCount())
         outfile <- tempfile(fileext = '.svg')
         ggsave(
           file = outfile,
@@ -2046,6 +2120,8 @@ shinyServer(function(input, output, session) {
           # })
           
         }, deleteFile = TRUE)
+        outputOptions(output, paste0("hist", jj), suspendWhenHidden = TRUE)
+        outputOptions(output, paste0("p", i), suspendWhenHidden = TRUE)
         
         output[[paste0("downloadHist", jj)]] <- downloadHandler(
           filename = paste0(
@@ -2145,6 +2221,7 @@ shinyServer(function(input, output, session) {
         jj <- j
        
       output[[paste0("dot", jj)]] <- renderImage({
+          req(jj <= dotRenderCount())
           tryCatch({
             outfile <- tempfile(fileext = '.svg')
               ggsave(
@@ -2187,6 +2264,7 @@ shinyServer(function(input, output, session) {
           })
         
       }, deleteFile = TRUE)
+      outputOptions(output, paste0("dot", jj), suspendWhenHidden = TRUE)
         
         output[[paste0("downloadDot", jj)]] <- downloadHandler(
           filename = paste0(
@@ -2303,6 +2381,7 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("qualityHist", ii)]] <- renderImage({
+          req(ii <= qualityHistRenderCount())
           tryCatch({
             outfile <- tempfile(fileext = '.svg')
             ggsave(
@@ -2349,6 +2428,7 @@ shinyServer(function(input, output, session) {
           })
           
         }, deleteFile = TRUE)
+        outputOptions(output, paste0("qualityHist", ii), suspendWhenHidden = TRUE)
         
         output[[paste0("downloadQualityHist", ii)]] <-
           downloadHandler(
@@ -2476,6 +2556,7 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("timingHist", ii)]] <- renderImage({
+          req(ii <= timingHistRenderCount())
           tryCatch({
             outfile <- tempfile(fileext = '.svg')
             ggsave(
@@ -2523,6 +2604,7 @@ shinyServer(function(input, output, session) {
           })
           
         }, deleteFile = TRUE)
+        outputOptions(output, paste0("timingHist", ii), suspendWhenHidden = TRUE)
         
         output[[paste0("downloadTimingHist", ii)]] <-
           downloadHandler(
@@ -3067,6 +3149,7 @@ shinyServer(function(input, output, session) {
           })
           
         }, deleteFile = TRUE)
+        outputOptions(output, paste0("scatter", ii), suspendWhenHidden = TRUE)
         output[[paste0("downloadScatter", ii)]] <-
           downloadHandler(
             filename = paste0(
@@ -3162,6 +3245,7 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("distanceScatter", ii)]] <- renderImage({
+          req(ii <= dotRenderCount())
           tryCatch({
             outfile <- tempfile(fileext = '.svg')
             ggsave(
@@ -3184,6 +3268,7 @@ shinyServer(function(input, output, session) {
           })
           
         }, deleteFile = TRUE)
+        outputOptions(output, paste0("distanceScatter", ii), suspendWhenHidden = TRUE)
         output[[paste0("downloadDistanceScatter", ii)]] <-
           downloadHandler(
             filename = paste0(
