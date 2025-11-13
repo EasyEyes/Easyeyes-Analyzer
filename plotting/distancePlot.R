@@ -119,16 +119,24 @@ get_cameraResolutionXY <- function(data_list) {
 
       distanceCalibration <- fromJSON(
         sort(data_list[[i]]$distanceCalibrationJSON)[1],
-        simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        simplifyVector = FALSE, simplifyDataFrame = FALSE, flatten = FALSE
       )
+
+     # Ensure distanceCalibration is a list
+     if (!is.list(distanceCalibration)) {
+       distanceCalibration <- list(distanceCalibration)
+     }
 
      for (j in 1:length(distanceCalibration)) {
        # Accept both new and legacy field names; prefer new if present
        val <- NULL
-       if (!is.null(distanceCalibration[[j]]$factorVpxCm)) {
-         val <- distanceCalibration[[j]]$factorVpxCm
-       } else if (!is.null(distanceCalibration[[j]]$factorCameraPxCm)) {
-         val <- distanceCalibration[[j]]$factorCameraPxCm
+       # Check if element is a list before using $ operator
+       if (is.list(distanceCalibration[[j]])) {
+         if (!is.null(distanceCalibration[[j]]$factorVpxCm)) {
+           val <- distanceCalibration[[j]]$factorVpxCm
+         } else if (!is.null(distanceCalibration[[j]]$factorCameraPxCm)) {
+           val <- distanceCalibration[[j]]$factorCameraPxCm
+         }
        }
        if (!is.null(val)) {
          factorVpxCmList = c(factorVpxCmList, val)
