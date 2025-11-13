@@ -787,14 +787,10 @@ shinyServer(function(input, output, session) {
     bs_vd <- bs_vd_hist(distanceCalibration())
     dist_plots <- plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
     
-    # Build static_calls list, starting with always-present plots
-    static_calls <- list(
-      list(plot = sizeCheckPlot()$sd_hist$plot, height = sizeCheckPlot()$sd_hist$height, fname = 'sd-log-density-histogram'),
-      list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'ruler-length-cm-dotplot'),
-      list(plot = objectCm_hist(df_list()$participant_info, distanceCalibration())$plot, height = objectCm_hist(df_list()$participant_info, distanceCalibration())$height, fname = 'object-length-cm-dotplot')
-    )
+    # Build static_calls list, starting with calibrated_over_median histogram first
+    static_calls <- list()
     
-    # Add calibrated_over_median histogram if available
+    # Add calibrated_over_median histogram first if available
     if (!is.null(dist_plots$calibrated_over_median_hist) &&
         !is.null(dist_plots$calibrated_over_median_hist$plot)) {
       static_calls[[length(static_calls) + 1]] <- list(
@@ -803,6 +799,11 @@ shinyServer(function(input, output, session) {
         fname = 'factorVpxCm-over-median-histogram'
       )
     }
+    
+    # Add other always-present plots
+    static_calls[[length(static_calls) + 1]] <- list(plot = sizeCheckPlot()$sd_hist$plot, height = sizeCheckPlot()$sd_hist$height, fname = 'sd-log-density-histogram')
+    static_calls[[length(static_calls) + 1]] <- list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'ruler-length-cm-dotplot')
+    static_calls[[length(static_calls) + 1]] <- list(plot = objectCm_hist(df_list()$participant_info, distanceCalibration())$plot, height = objectCm_hist(df_list()$participant_info, distanceCalibration())$height, fname = 'object-length-cm-dotplot')
     
     # Conditionally add blindspot plots if they exist
     if (!is.null(bs_vd$mean_plot)) {
@@ -967,10 +968,10 @@ shinyServer(function(input, output, session) {
       list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'error-vs-blindspot-diameter-plot'),
       list(plot = distance_plots$ipd_vs_requested$plot, height = distance_plots$ipd_vs_requested$height, fname = 'calibrateTrackDistanceIpdVpx-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_plots$ipd_product_vs_requested$plot, height = distance_plots$ipd_product_vs_requested$height, fname = 'ipd-product-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_plots$eye_feet_position$plot, height = distance_plots$eye_feet_position$height, fname = 'eye-feet-position-vs-distance-error-plot'),
-      list(plot = distance_plots$foot_position_calibration$plot, height = distance_plots$foot_position_calibration$height, fname = 'foot-position-during-calibration-plot'),
       list(plot = distance_plots$calibrated_vs_mean$plot, height = distance_plots$calibrated_vs_mean$height, fname = 'calibrated-vs-mean-factorVpxCm-plot'),
-      list(plot = distance_plots$calibrated_over_mean_vs_spot$plot, height = distance_plots$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter-plot')
+      list(plot = distance_plots$calibrated_over_mean_vs_spot$plot, height = distance_plots$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter-plot'),
+      list(plot = distance_plots$eye_feet_position$plot, height = distance_plots$eye_feet_position$height, fname = 'eye-feet-position-vs-distance-error-plot'),
+      list(plot = distance_plots$foot_position_calibration$plot, height = distance_plots$foot_position_calibration$height, fname = 'foot-position-during-calibration-plot')
     )
 
     heights <- list()

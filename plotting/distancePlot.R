@@ -263,6 +263,13 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     merged_data <- merged_data %>% mutate(ok = NA_character_)
   }
 
+  # Calculate median factorVpxCm across all participants for normalization
+  median_factorVpxCm <- merged_data %>%
+    mutate(factorVpxCm_numeric = suppressWarnings(as.numeric(factorVpxCm))) %>%
+    filter(!is.na(factorVpxCm_numeric)) %>%
+    pull(factorVpxCm_numeric) %>%
+    median(na.rm = TRUE)
+  
   merged_data <- merged_data %>%
     mutate(
       ok_priority = case_when(
@@ -285,9 +292,14 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
       ratio_tmp = ifelse(!is.na(factorVpxCm) & !is.na(cameraHeightPx) & cameraHeightPx != 0,
                          factorVpxCm / cameraHeightPx, NA_real_),
       ratio_round = round(ratio_tmp, 1),
-      `factorVpxCm/cameraHeightPx` = ifelse(is.na(ratio_round), NA_character_, format(ratio_round, nsmall = 1))
+      `factorVpxCm/cameraHeightPx` = ifelse(is.na(ratio_round), NA_character_, format(ratio_round, nsmall = 1)),
+      # Add new column: factorVpxCm/median(factorVpxCm)
+      ratio_over_median_tmp = ifelse(!is.na(factorVpxCm) & !is.na(median_factorVpxCm) & median_factorVpxCm != 0,
+                                      factorVpxCm / median_factorVpxCm, NA_real_),
+      ratio_over_median_round = round(ratio_over_median_tmp, 3),
+      `factorVpxCm/median(factorVpxCm)` = ifelse(is.na(ratio_over_median_round), NA_character_, format(ratio_over_median_round, nsmall = 3))
     ) %>%
-    select(-cameraResolution_clean, -cameraResolution_split, -ratio_tmp, -ratio_round, -cameraHeightPx) %>%
+    select(-cameraResolution_clean, -cameraResolution_split, -ratio_tmp, -ratio_round, -cameraHeightPx, -ratio_over_median_tmp, -ratio_over_median_round) %>%
     arrange(ok_priority, PavloviaParticipantID) %>%
     select(-ok_priority)
   
@@ -2248,7 +2260,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ) +
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                             label = paste0('N=', n_distinct(ratio_data$participant),
-                                           '\nSD(log10) = ', format(round(sd_log10_ratio, 4), nsmall = 4)),
+                                           '\nSD(log10(x)) = ', format(round(sd_log10_ratio, 3), nsmall = 3)),
                             size = 3, family = "sans", fontface = "plain") +
         guides(color = guide_legend(
           ncol = 3,
