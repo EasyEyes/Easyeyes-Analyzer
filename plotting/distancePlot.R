@@ -234,6 +234,182 @@ get_distanceCheck_factorVpxCm <- function(data_list) {
   return(df %>% distinct())
 }
 
+# Helper function to extract raw pxPerCm array from calibrateScreenSizeJSON
+get_raw_pxPerCm_data <- function(data_list, sizeCheck) {
+  df <- tibble()
+  if (is.null(data_list) || length(data_list) == 0) return(df)
+  
+  for (i in 1:length(data_list)) {
+    if ("calibrateScreenSizeJSON" %in% names(data_list[[i]])) {
+      # Skip if participant column doesn't exist
+      if (!"participant" %in% names(data_list[[i]]) || 
+          all(is.na(data_list[[i]]$participant)) || 
+          all(data_list[[i]]$participant == "")) {
+        next
+      }
+      
+      tryCatch({
+        participant_id <- first(na.omit(data_list[[i]]$participant))
+        
+        screenSizeJSON <- fromJSON(
+          sort(data_list[[i]]$calibrateScreenSizeJSON)[1],
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        )
+        
+        # Extract pxPerCm or convert from ppi
+        pxPerCm_vals <- NULL
+        if (!is.null(screenSizeJSON$pxPerCm)) {
+          pxPerCm_vals <- as.numeric(screenSizeJSON$pxPerCm)
+        } else if (!is.null(screenSizeJSON$ppi)) {
+          pxPerCm_vals <- as.numeric(screenSizeJSON$ppi) / 2.54
+        }
+        
+        if (!is.null(pxPerCm_vals) && length(pxPerCm_vals) > 0) {
+          # Get median of SizeCheckEstimatedPxPerCm for this participant
+          participant_sizeCheck <- sizeCheck %>%
+            filter(participant == participant_id, !is.na(SizeCheckEstimatedPxPerCm), is.finite(SizeCheckEstimatedPxPerCm))
+          
+          if (nrow(participant_sizeCheck) > 0) {
+            medianEstimated <- median(participant_sizeCheck$SizeCheckEstimatedPxPerCm, na.rm = TRUE)
+            
+            # Create one row per measurement
+            t <- tibble(
+              participant = participant_id,
+              pxPerCm = pxPerCm_vals,
+              medianEstimated = medianEstimated,
+              relative = pxPerCm / medianEstimated
+            ) %>%
+              filter(is.finite(relative), relative > 0)
+            
+            if (nrow(t) > 0) {
+              df <- rbind(df, t)
+            }
+          }
+        }
+      }, error = function(e) {
+        # Skip if JSON parsing fails
+      })
+    }
+  }
+  return(df)
+}
+
+# Helper function to extract raw objectMeasuredCm array from distanceCalibrationTJSON
+get_raw_objectMeasuredCm_data <- function(data_list) {
+  df <- tibble()
+  if (is.null(data_list) || length(data_list) == 0) return(df)
+  
+  for (i in 1:length(data_list)) {
+    if ("distanceCalibrationTJSON" %in% names(data_list[[i]])) {
+      # Skip if participant column doesn't exist
+      if (!"participant" %in% names(data_list[[i]]) || 
+          all(is.na(data_list[[i]]$participant)) || 
+          all(data_list[[i]]$participant == "")) {
+        next
+      }
+      
+      tryCatch({
+        participant_id <- first(na.omit(data_list[[i]]$participant))
+        
+        distanceCalibJSON <- fromJSON(
+          sort(data_list[[i]]$distanceCalibrationTJSON)[1],
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        )
+        
+        # Extract objectMeasuredCm from COMMON section
+        objectMeasuredCm_vals <- NULL
+        if (!is.null(distanceCalibJSON$COMMON) && 
+            !is.null(distanceCalibJSON$COMMON$objectMeasuredCm)) {
+          objectMeasuredCm_vals <- as.numeric(distanceCalibJSON$COMMON$objectMeasuredCm)
+        }
+        
+        objectMeasuredCm_vals <- objectMeasuredCm_vals[!is.na(objectMeasuredCm_vals)]
+        
+        if (length(objectMeasuredCm_vals) > 0) {
+          # Calculate median for this participant
+          median_val <- median(objectMeasuredCm_vals, na.rm = TRUE)
+          
+          # Create one row per measurement
+          t <- tibble(
+            participant = participant_id,
+            objectMeasuredCm = objectMeasuredCm_vals,
+            medianObjectCm = median_val,
+            relative = objectMeasuredCm / median_val
+          ) %>%
+            filter(is.finite(relative), relative > 0)
+          
+          if (nrow(t) > 0) {
+            df <- rbind(df, t)
+          }
+        }
+      }, error = function(e) {
+        # Skip if JSON parsing fails
+      })
+    }
+  }
+  return(df)
+}
+
+# Helper function to extract raw factorVpxCm array from distanceCalibrationTJSON
+get_raw_factorVpxCm_data <- function(data_list, check_factor) {
+  df <- tibble()
+  if (is.null(data_list) || length(data_list) == 0) return(df)
+  
+  for (i in 1:length(data_list)) {
+    if ("distanceCalibrationTJSON" %in% names(data_list[[i]])) {
+      # Skip if participant column doesn't exist
+      if (!"participant" %in% names(data_list[[i]]) || 
+          all(is.na(data_list[[i]]$participant)) || 
+          all(data_list[[i]]$participant == "")) {
+        next
+      }
+      
+      tryCatch({
+        participant_id <- first(na.omit(data_list[[i]]$participant))
+        
+        distanceCalibJSON <- fromJSON(
+          sort(data_list[[i]]$distanceCalibrationTJSON)[1],
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        )
+        
+        # Extract factorVpxCm array (it's at the top level, not in COMMON)
+        factorVpxCm_vals <- NULL
+        if (!is.null(distanceCalibJSON$factorVpxCm)) {
+          factorVpxCm_vals <- as.numeric(distanceCalibJSON$factorVpxCm)
+        }
+        
+        factorVpxCm_vals <- factorVpxCm_vals[!is.na(factorVpxCm_vals)]
+        
+        if (length(factorVpxCm_vals) > 0) {
+          # Get medianFactorVpxCm from check_factor data for this participant
+          participant_check <- check_factor %>%
+            filter(PavloviaParticipantID == participant_id, !is.na(medianFactorVpxCm), is.finite(medianFactorVpxCm))
+          
+          if (nrow(participant_check) > 0) {
+            medianFactorVpxCm <- first(participant_check$medianFactorVpxCm)
+            
+            # Create one row per measurement
+            t <- tibble(
+              participant = participant_id,
+              factorVpxCm = factorVpxCm_vals,
+              medianFactorVpxCm = medianFactorVpxCm,
+              relative = factorVpxCm / medianFactorVpxCm
+            ) %>%
+              filter(is.finite(relative), relative > 0)
+            
+            if (nrow(t) > 0) {
+              df <- rbind(df, t)
+            }
+          }
+        }
+      }, error = function(e) {
+        # Skip if JSON parsing fails
+      })
+    }
+  }
+  return(df)
+}
+
 get_merged_participant_distance_info <- function(data_or_results, participant_info) {
   # Get camera resolution data (support both raw data_list and precomputed results)
   camera_data <- if (is.list(data_or_results) && "camera" %in% names(data_or_results)) {
@@ -309,7 +485,12 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     ) %>%
     select(-cameraResolution_clean, -cameraResolution_split, -ratio_tmp, -ratio_round, -cameraHeightPx, -ratio_over_median_tmp, -ratio_over_median_round) %>%
     arrange(ok_priority, PavloviaParticipantID) %>%
-    select(-ok_priority)
+    select(-ok_priority) %>%
+    # Move Object and Comment columns to the end if they exist
+    {if("Object" %in% names(.) && "Comment" %in% names(.)) relocate(., Object, Comment, .after = last_col()) 
+     else if("Object" %in% names(.)) relocate(., Object, .after = last_col())
+     else if("Comment" %in% names(.)) relocate(., Comment, .after = last_col())
+     else .}
   
   
   return(merged_data)
@@ -325,6 +506,9 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       feet_calib = tibble(),
       check_factor = tibble(),
       camera = tibble(),
+      raw_pxPerCm = tibble(),
+      raw_objectMeasuredCm = tibble(),
+      raw_factorVpxCm = tibble(),
       statement = ""
     ))
   }
@@ -377,6 +561,9 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       feet_calib = tibble(),
       check_factor = tibble(),
       camera = tibble(),
+      raw_pxPerCm = tibble(),
+      raw_objectMeasuredCm = tibble(),
+      raw_factorVpxCm = tibble(),
       statement = ""
     ))
   }
@@ -768,6 +955,11 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   
   statement <- make_statement(sizeCheck)
   
+  # Extract raw array data for new histograms
+  raw_pxPerCm <- get_raw_pxPerCm_data(filtered_data_list, sizeCheck)
+  raw_objectMeasuredCm <- get_raw_objectMeasuredCm_data(filtered_data_list)
+  raw_factorVpxCm <- get_raw_factorVpxCm_data(filtered_data_list, check_factor)
+  
   return(list(
     filtered = filtered_data_list,
     sizeCheck = sizeCheck,
@@ -777,6 +969,9 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     check_factor = check_factor,
     camera = camera,
     blindspot = blindspot,
+    raw_pxPerCm = raw_pxPerCm,
+    raw_objectMeasuredCm = raw_objectMeasuredCm,
+    raw_factorVpxCm = raw_factorVpxCm,
     statement = statement
   ))
 }
@@ -1809,9 +2004,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     ),
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
     coord_fixed() +  
-    labs(subtitle = 'Credit-card-measured vs. requested distance',
+    labs(subtitle = 'Measured vs. requested distance',
          x = 'Requested distance (cm)',
-         y = 'Credit-card-measured distance (cm)',
+         y = 'Measured distance (cm)',
            caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
   
   }
@@ -1855,9 +2050,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       keyheight = unit(0.8, "lines")
     ),
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-    labs(subtitle = 'Credit-card-measured over requested distance',
+    labs(subtitle = 'Measured over requested distance',
          x = 'Requested distance (cm)',
-         y = 'Credit-card-measured over requested distance',
+         y = 'Measured over requested distance',
          caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
 
   # Plot 3: IPD (camera px) vs requested distance (individual data)
@@ -2106,7 +2301,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
               legend.key.size = unit(0.4, "cm"),
               plot.margin = margin(5, 5, 5, 5, "pt")
             ) +
-          labs(subtitle = 'Calibrated vs. median factorVpxCm',
+          labs(subtitle = 'Calibrated vs. remeasured',
                x = 'Median factorVpxCm from distance checking (per session)',
                y = 'FactorVpxCm from calibration',
                caption = 'Dashed line shows y=x (perfect agreement)\nMedian calculated from measuredFactorVpxCm in distanceCheckJSON')
@@ -2278,8 +2473,302 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keyheight = unit(0.3, "cm")
         )) +
         labs(
-          subtitle = 'Histogram of factorVpxCm / median(factorVpxCm)',
-          x = "factorVpxCm / median(factorVpxCm)",
+          subtitle = 'Histogram of factorVpxCm / remeasured',
+          x = "factorVpxCm / remeasured",
+          y = "Count"
+        ) +
+        theme_bw() +
+        theme(
+          legend.key.size = unit(0, "mm"),
+          legend.title = element_text(size = 7),
+          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+          legend.box.spacing = unit(0, "lines"),
+          legend.spacing.y = unit(-10, "lines"),
+          legend.spacing.x = unit(0, "lines"),
+          legend.key.height = unit(0, "lines"),
+          legend.key.width = unit(0, "mm"),
+          legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = 'left',
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+          plot.caption = element_text(size = 10),
+          plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14)
+        )
+    }
+  }
+  
+  # Plot 8: Histogram of raw pxPerCm / remeasured
+  p8 <- NULL
+  p8_max_count <- 0
+  if ("raw_pxPerCm" %in% names(distanceCalibrationResults) &&
+      nrow(distanceCalibrationResults$raw_pxPerCm) > 0) {
+    
+    raw_pxPerCm_data <- distanceCalibrationResults$raw_pxPerCm %>%
+      filter(is.finite(relative), relative > 0)
+    
+    if (nrow(raw_pxPerCm_data) > 0) {
+      # SD of log10(relative)
+      sd_log10_relative <- sd(log10(raw_pxPerCm_data$relative), na.rm = TRUE)
+      
+      # Dot-stack histogram in log space
+      bin_w_log <- 0.02  # ~4.6% per bin
+      raw_pxPerCm_data <- raw_pxPerCm_data %>%
+        mutate(
+          log_relative = log10(relative),
+          bin_center_log = round(log_relative / bin_w_log) * bin_w_log,
+          bin_center = 10^bin_center_log
+        ) %>%
+        arrange(bin_center, participant) %>%
+        group_by(bin_center) %>%
+        mutate(
+          stack_position = row_number(),
+          dot_y = stack_position
+        ) %>%
+        ungroup()
+      
+      p8_max_count <- max(raw_pxPerCm_data$dot_y)
+      x_min <- min(raw_pxPerCm_data$bin_center, na.rm = TRUE) * 0.95
+      x_max <- max(raw_pxPerCm_data$bin_center, na.rm = TRUE) * 1.05
+      
+      p8 <- ggplot(raw_pxPerCm_data, aes(x = relative)) +
+        # Dot stacked points
+        geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                            label = statement, size = 3, family = "sans", fontface = "plain") +
+        scale_color_manual(values = colorPalette) +
+        scale_y_continuous(
+          limits = c(0, max(6, p8_max_count + 1)),
+          expand = expansion(mult = c(0, 0.1)),
+          breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+        ) +
+        scale_x_log10(
+          limits = c(x_min, x_max),
+          labels = scales::label_number(accuracy = 0.01)
+        ) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(raw_pxPerCm_data$participant),
+                                           '\nSD(log10(x)) = ', format(round(sd_log10_relative, 3), nsmall = 3)),
+                            size = 3, family = "sans", fontface = "plain") +
+        guides(color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 2),
+          keywidth = unit(0.3, "cm"),
+          keyheight = unit(0.3, "cm")
+        )) +
+        labs(
+          subtitle = 'Histogram of raw pxPerCm / remeasured',
+          x = "pxPerCm / remeasured",
+          y = "Count"
+        ) +
+        theme_bw() +
+        theme(
+          legend.key.size = unit(0, "mm"),
+          legend.title = element_text(size = 7),
+          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+          legend.box.spacing = unit(0, "lines"),
+          legend.spacing.y = unit(-10, "lines"),
+          legend.spacing.x = unit(0, "lines"),
+          legend.key.height = unit(0, "lines"),
+          legend.key.width = unit(0, "mm"),
+          legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = 'left',
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+          plot.caption = element_text(size = 10),
+          plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14)
+        )
+    }
+  }
+  
+  # Plot 9: Histogram of raw objectMeasuredCm / median
+  p9 <- NULL
+  p9_max_count <- 0
+  if ("raw_objectMeasuredCm" %in% names(distanceCalibrationResults) &&
+      nrow(distanceCalibrationResults$raw_objectMeasuredCm) > 0) {
+    
+    raw_objectCm_data <- distanceCalibrationResults$raw_objectMeasuredCm %>%
+      filter(is.finite(relative), relative > 0)
+    
+    if (nrow(raw_objectCm_data) > 0) {
+      # SD of log10(relative)
+      sd_log10_relative <- sd(log10(raw_objectCm_data$relative), na.rm = TRUE)
+      
+      # Dot-stack histogram in log space
+      bin_w_log <- 0.02  # ~4.6% per bin
+      raw_objectCm_data <- raw_objectCm_data %>%
+        mutate(
+          log_relative = log10(relative),
+          bin_center_log = round(log_relative / bin_w_log) * bin_w_log,
+          bin_center = 10^bin_center_log
+        ) %>%
+        arrange(bin_center, participant) %>%
+        group_by(bin_center) %>%
+        mutate(
+          stack_position = row_number(),
+          dot_y = stack_position
+        ) %>%
+        ungroup()
+      
+      p9_max_count <- max(raw_objectCm_data$dot_y)
+      x_min <- min(raw_objectCm_data$bin_center, na.rm = TRUE) * 0.95
+      x_max <- max(raw_objectCm_data$bin_center, na.rm = TRUE) * 1.05
+      
+      p9 <- ggplot(raw_objectCm_data, aes(x = relative)) +
+        # Dot stacked points
+        geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                            label = statement, size = 3, family = "sans", fontface = "plain") +
+        scale_color_manual(values = colorPalette) +
+        scale_y_continuous(
+          limits = c(0, max(6, p9_max_count + 1)),
+          expand = expansion(mult = c(0, 0.1)),
+          breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+        ) +
+        scale_x_log10(
+          limits = c(x_min, x_max),
+          labels = scales::label_number(accuracy = 0.01)
+        ) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(raw_objectCm_data$participant),
+                                           '\nSD(log10(x)) = ', format(round(sd_log10_relative, 3), nsmall = 3)),
+                            size = 3, family = "sans", fontface = "plain") +
+        guides(color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 2),
+          keywidth = unit(0.3, "cm"),
+          keyheight = unit(0.3, "cm")
+        )) +
+        labs(
+          subtitle = 'Histogram of raw objectMeasuredCm / median',
+          x = "objectMeasuredCm / median",
+          y = "Count"
+        ) +
+        theme_bw() +
+        theme(
+          legend.key.size = unit(0, "mm"),
+          legend.title = element_text(size = 7),
+          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+          legend.box.spacing = unit(0, "lines"),
+          legend.spacing.y = unit(-10, "lines"),
+          legend.spacing.x = unit(0, "lines"),
+          legend.key.height = unit(0, "lines"),
+          legend.key.width = unit(0, "mm"),
+          legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = 'left',
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+          plot.caption = element_text(size = 10),
+          plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14)
+        )
+    }
+  }
+  
+  # Plot 10: Histogram of raw factorVpxCm / remeasured (from array data)
+  p10 <- NULL
+  p10_max_count <- 0
+  if ("raw_factorVpxCm" %in% names(distanceCalibrationResults) &&
+      nrow(distanceCalibrationResults$raw_factorVpxCm) > 0) {
+    
+    raw_factor_data <- distanceCalibrationResults$raw_factorVpxCm %>%
+      filter(is.finite(relative), relative > 0)
+    
+    if (nrow(raw_factor_data) > 0) {
+      # SD of log10(relative)
+      sd_log10_relative <- sd(log10(raw_factor_data$relative), na.rm = TRUE)
+      
+      # Dot-stack histogram in log space
+      bin_w_log <- 0.02  # ~4.6% per bin
+      raw_factor_data <- raw_factor_data %>%
+        mutate(
+          log_relative = log10(relative),
+          bin_center_log = round(log_relative / bin_w_log) * bin_w_log,
+          bin_center = 10^bin_center_log
+        ) %>%
+        arrange(bin_center, participant) %>%
+        group_by(bin_center) %>%
+        mutate(
+          stack_position = row_number(),
+          dot_y = stack_position
+        ) %>%
+        ungroup()
+      
+      p10_max_count <- max(raw_factor_data$dot_y)
+      x_min <- min(raw_factor_data$bin_center, na.rm = TRUE) * 0.95
+      x_max <- max(raw_factor_data$bin_center, na.rm = TRUE) * 1.05
+      
+      p10 <- ggplot(raw_factor_data, aes(x = relative)) +
+        # Dot stacked points
+        geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                            label = statement, size = 3, family = "sans", fontface = "plain") +
+        scale_color_manual(values = colorPalette) +
+        scale_y_continuous(
+          limits = c(0, max(6, p10_max_count + 1)),
+          expand = expansion(mult = c(0, 0.1)),
+          breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+        ) +
+        scale_x_log10(
+          limits = c(x_min, x_max),
+          labels = scales::label_number(accuracy = 0.01)
+        ) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(raw_factor_data$participant),
+                                           '\nSD(log10(x)) = ', format(round(sd_log10_relative, 3), nsmall = 3)),
+                            size = 3, family = "sans", fontface = "plain") +
+        guides(color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 2),
+          keywidth = unit(0.3, "cm"),
+          keyheight = unit(0.3, "cm")
+        )) +
+        labs(
+          subtitle = 'Histogram of raw factorVpxCm / remeasured',
+          x = "factorVpxCm / remeasured",
           y = "Count"
         ) +
         theme_bw() +
@@ -2338,6 +2827,27 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       height = if (!is.null(p7)) {
         compute_auto_height(base_height = 1.6, n_items = n_distinct(ratio_data$participant), per_row = 3, row_increase = 0.05) +
           0.28 * max(max_count, 6)
+      } else NULL
+    ),
+    raw_pxPerCm_hist = list(
+      plot = p8,
+      height = if (!is.null(p8)) {
+        compute_auto_height(base_height = 1.6, n_items = n_distinct(raw_pxPerCm_data$participant), per_row = 3, row_increase = 0.05) +
+          0.28 * max(p8_max_count, 6)
+      } else NULL
+    ),
+    raw_objectMeasuredCm_hist = list(
+      plot = p9,
+      height = if (!is.null(p9)) {
+        compute_auto_height(base_height = 1.6, n_items = n_distinct(raw_objectCm_data$participant), per_row = 3, row_increase = 0.05) +
+          0.28 * max(p9_max_count, 6)
+      } else NULL
+    ),
+    raw_factorVpxCm_hist = list(
+      plot = p10,
+      height = if (!is.null(p10)) {
+        compute_auto_height(base_height = 1.6, n_items = n_distinct(raw_factor_data$participant), per_row = 3, row_increase = 0.05) +
+          0.28 * max(p10_max_count, 6)
       } else NULL
     )
   ))

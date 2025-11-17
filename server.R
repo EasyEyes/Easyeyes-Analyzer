@@ -800,6 +800,36 @@ shinyServer(function(input, output, session) {
       )
     }
     
+    # Add raw pxPerCm histogram if available
+    if (!is.null(dist_plots$raw_pxPerCm_hist) &&
+        !is.null(dist_plots$raw_pxPerCm_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = dist_plots$raw_pxPerCm_hist$plot,
+        height = dist_plots$raw_pxPerCm_hist$height,
+        fname = 'raw-pxPerCm-over-remeasured-histogram'
+      )
+    }
+    
+    # Add raw objectMeasuredCm histogram if available
+    if (!is.null(dist_plots$raw_objectMeasuredCm_hist) &&
+        !is.null(dist_plots$raw_objectMeasuredCm_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = dist_plots$raw_objectMeasuredCm_hist$plot,
+        height = dist_plots$raw_objectMeasuredCm_hist$height,
+        fname = 'raw-objectMeasuredCm-over-median-histogram'
+      )
+    }
+    
+    # Add raw factorVpxCm histogram if available
+    if (!is.null(dist_plots$raw_factorVpxCm_hist) &&
+        !is.null(dist_plots$raw_factorVpxCm_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = dist_plots$raw_factorVpxCm_hist$plot,
+        height = dist_plots$raw_factorVpxCm_hist$height,
+        fname = 'raw-factorVpxCm-over-remeasured-histogram'
+      )
+    }
+    
     # Add other always-present plots
     static_calls[[length(static_calls) + 1]] <- list(plot = sizeCheckPlot()$sd_hist$plot, height = sizeCheckPlot()$sd_hist$height, fname = 'sd-log-density-histogram')
     static_calls[[length(static_calls) + 1]] <- list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'ruler-length-cm-dotplot')
