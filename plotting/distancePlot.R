@@ -528,7 +528,19 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   }
   
   if (length(participant_info_list) == 0) {
-    return(data_list)
+    return(list(
+      filtered = list(),
+      sizeCheck = tibble(),
+      distance = tibble(),
+      eye_feet = tibble(),
+      feet_calib = tibble(),
+      check_factor = tibble(),
+      camera = tibble(),
+      raw_pxPerCm = tibble(),
+      raw_objectMeasuredCm = tibble(),
+      raw_factorVpxCm = tibble(),
+      statement = ""
+    ))
   }
   
   # Combine and process ruler information
@@ -1902,6 +1914,8 @@ get_bs_vd <- function(data_list) {
 }
 
 plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+  print('inside plot_distance')
+  print(distanceCalibrationResults)
   distance <- distanceCalibrationResults$distance
   sizeCheck <- distanceCalibrationResults$sizeCheck
   statement <- distanceCalibrationResults$statement

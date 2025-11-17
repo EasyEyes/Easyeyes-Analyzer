@@ -14,8 +14,7 @@ calculate_anova <- function(df_list){
     mutate(measure = log_WPM) %>%  
     group_by(participant, font) %>% 
     summarize(measure = mean(measure, rm.na=T),.groups = "drop")
-  print('inside calculate_anova')
-  print(reading)
+
   comfort <- df_list$QA %>%
     filter(grepl('CMFRT', questionAndAnswerNickname)) %>%
     mutate(measure = as.numeric(arabic_to_western(questionAndAnswerResponse)),

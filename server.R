@@ -2126,17 +2126,19 @@ shinyServer(function(input, output, session) {
         tmp_svg <- tempfile(fileext = '.svg')
         ggsave(
           file = tmp_svg,
-          plot =  plots[[jj]],
+          plot =  plots[[jj]] + hist_theme,
           device = svglite,
-          width = 2.5,
-          height = 2.5,
+          width = 3.5,
+          height = 3.5,
           unit = 'in',
           limitsize = FALSE
         )
-        disp_w <- 380
+        # Fit image to the container width to avoid horizontal scrollbars
+        disp_w <- session$clientData[[paste0("output_", "hist", jj, "_width")]]
+        if (is.null(disp_w) || is.na(disp_w) || disp_w <= 0) disp_w <- 380
         scale <- 2
-        png_w <- disp_w * scale
-        png_h <- disp_w * scale
+        png_w <- round(disp_w * scale)
+        png_h <- round(disp_w * scale)
         outfile <- tempfile(fileext = ".png")
         rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
         list(src = outfile, contenttype = 'image/png', width = disp_w, height = disp_w)
@@ -2185,7 +2187,6 @@ shinyServer(function(input, output, session) {
           
         }, deleteFile = TRUE)
         outputOptions(output, paste0("hist", jj), suspendWhenHidden = TRUE)
-        outputOptions(output, paste0("p", i), suspendWhenHidden = TRUE)
         
         output[[paste0("downloadHist", jj)]] <- downloadHandler(
           filename = paste0(
@@ -2245,7 +2246,7 @@ shinyServer(function(input, output, session) {
       # --- row of plots ---
       plot_cells <- lapply(idx, function(j) {
         shinycssloaders::withSpinner(
-          plotOutput(paste0("dot", j),
+          imageOutput(paste0("dot", j),
                      width  = "100%",
                      height = "100%"),
           type = 4
@@ -2464,9 +2465,11 @@ shinyServer(function(input, output, session) {
               unit = 'in',
               limitsize = FALSE
             )
-            disp_w <- 560  # 4 in * 140 px/in display
+            # Fit image to the container width to avoid horizontal scrollbars
+            disp_w <- session$clientData[[paste0("output_", "qualityHist", ii, "_width")]]
+            if (is.null(disp_w) || is.na(disp_w) || disp_w <= 0) disp_w <- 560
             scale <- 2
-            png_w <- disp_w * scale
+            png_w <- round(disp_w * scale)
             png_h <- round((3.5 / 4) * png_w)
             outfile <- tempfile(fileext = ".png")
             rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
@@ -2644,9 +2647,11 @@ shinyServer(function(input, output, session) {
               unit = 'in',
               limitsize = FALSE
             )
-            disp_w <- 560
+            # Fit image to the container width to avoid horizontal scrollbars
+            disp_w <- session$clientData[[paste0("output_", "timingHist", ii, "_width")]]
+            if (is.null(disp_w) || is.na(disp_w) || disp_w <= 0) disp_w <- 560
             scale <- 2
-            png_w <- disp_w * scale
+            png_w <- round(disp_w * scale)
             png_h <- round((3.5 / 4) * png_w)
             outfile <- tempfile(fileext = ".png")
             rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
