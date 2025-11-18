@@ -846,22 +846,34 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         tryCatch({
           distanceCalibration <- fromJSON(
             sort(t_meta$distanceCalibrationJSON)[1],
-            simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+            simplifyVector = FALSE, simplifyDataFrame = FALSE, flatten = FALSE
           )
           # feet coords
           eye_feet_coords <- list()
           spot_degrees <- c()
           for (j in seq_along(distanceCalibration)) {
-            cal <- distanceCalibration[[j]]
-            if (!is.null(cal$leftEyeFootXYPx) && !is.null(cal$rightEyeFootXYPx)) {
+            cal_str <- distanceCalibration[[j]]
+            
+            # If it's a character string, parse it as JSON
+            if (is.character(cal_str)) {
+              tryCatch({
+                cal <- fromJSON(cal_str, simplifyVector = FALSE, simplifyDataFrame = FALSE, flatten = FALSE)
+              }, error = function(e) {
+                cal <<- NULL
+              })
+            } else {
+              cal <- cal_str
+            }
+            
+            if (is.list(cal) && !is.null(cal$leftEyeFootXYPx) && !is.null(cal$rightEyeFootXYPx)) {
               eye_feet_coords[[length(eye_feet_coords) + 1]] <- list(
-                left_x = cal$leftEyeFootXYPx[1],
-                left_y = cal$leftEyeFootXYPx[2],
-                right_x = cal$rightEyeFootXYPx[1],
-                right_y = cal$rightEyeFootXYPx[2]
+                left_x = cal$leftEyeFootXYPx[[1]],
+                left_y = cal$leftEyeFootXYPx[[2]],
+                right_x = cal$rightEyeFootXYPx[[1]],
+                right_y = cal$rightEyeFootXYPx[[2]]
               )
             }
-            if (!is.null(cal$spotDeg)) {
+            if (is.list(cal) && !is.null(cal$spotDeg)) {
               spot_degrees <- c(spot_degrees, as.numeric(cal$spotDeg))
             }
           }
