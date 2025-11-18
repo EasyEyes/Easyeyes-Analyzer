@@ -2457,8 +2457,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ungroup()
       
       max_count <- max(ratio_data$dot_y)
-      x_min <- min(ratio_data$bin_center, na.rm = TRUE) * 0.95
-      x_max <- max(ratio_data$bin_center, na.rm = TRUE) * 1.05
+      x_min <- min(ratio_data$bin_center, na.rm = TRUE) 
+      x_max <- max(ratio_data$bin_center, na.rm = TRUE)  
       
       p7 <- ggplot(ratio_data, aes(x = ratio)) +
         # Dot stacked points
@@ -2471,10 +2471,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           expand = expansion(mult = c(0, 0.1)),
           breaks = function(x) seq(0, ceiling(max(x)), by = 1)
         ) +
-        scale_x_log10(
-          limits = c(x_min, x_max),
-          labels = scales::label_number(accuracy = 0.01)
-        ) +
+        scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=8)) +
+        annotation_logticks(sides = "b") +
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                             label = paste0('N=', n_distinct(ratio_data$participant),
                                            '\nSD(log10(x)) = ', format(round(sd_log10_ratio, 3), nsmall = 3)),
@@ -2555,8 +2553,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ungroup()
       
       p8_max_count <- max(raw_pxPerCm_data$dot_y)
-      x_min <- min(raw_pxPerCm_data$bin_center, na.rm = TRUE) * 0.95
-      x_max <- max(raw_pxPerCm_data$bin_center, na.rm = TRUE) * 1.05
+      x_min <- min(raw_pxPerCm_data$bin_center, na.rm = TRUE) 
+      x_max <- max(raw_pxPerCm_data$bin_center, na.rm = TRUE)
       
       p8 <- ggplot(raw_pxPerCm_data, aes(x = relative)) +
         # Dot stacked points
@@ -2569,10 +2567,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           expand = expansion(mult = c(0, 0.1)),
           breaks = function(x) seq(0, ceiling(max(x)), by = 1)
         ) +
-        scale_x_log10(
-          limits = c(x_min, x_max),
-          labels = scales::label_number(accuracy = 0.01)
-        ) +
+        scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=8)) +
+        annotation_logticks(sides = "b") +
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                             label = paste0('N=', n_distinct(raw_pxPerCm_data$participant),
                                            '\nSD(log10(x)) = ', format(round(sd_log10_relative, 3), nsmall = 3)),
@@ -2653,8 +2649,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ungroup()
       
       p9_max_count <- max(raw_objectCm_data$dot_y)
-      x_min <- min(raw_objectCm_data$bin_center, na.rm = TRUE) * 0.95
-      x_max <- max(raw_objectCm_data$bin_center, na.rm = TRUE) * 1.05
+      x_min <- min(raw_objectCm_data$bin_center, na.rm = TRUE)
+      x_max <- max(raw_objectCm_data$bin_center, na.rm = TRUE)
       
       p9 <- ggplot(raw_objectCm_data, aes(x = relative)) +
         # Dot stacked points
@@ -2667,10 +2663,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           expand = expansion(mult = c(0, 0.1)),
           breaks = function(x) seq(0, ceiling(max(x)), by = 1)
         ) +
-        scale_x_log10(
-          limits = c(x_min, x_max),
-          labels = scales::label_number(accuracy = 0.01)
-        ) +
+        scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=9)) +
+        annotation_logticks(sides = "b") +
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                             label = paste0('N=', n_distinct(raw_objectCm_data$participant),
                                            '\nSD(log10(x)) = ', format(round(sd_log10_relative, 3), nsmall = 3)),
@@ -2751,8 +2745,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ungroup()
       
       p10_max_count <- max(raw_factor_data$dot_y)
-      x_min <- min(raw_factor_data$bin_center, na.rm = TRUE) * 0.95
-      x_max <- max(raw_factor_data$bin_center, na.rm = TRUE) * 1.05
+      x_min <- min(raw_factor_data$bin_center, na.rm = TRUE)
+      x_max <- max(raw_factor_data$bin_center, na.rm = TRUE)
       
       p10 <- ggplot(raw_factor_data, aes(x = relative)) +
         # Dot stacked points
@@ -2765,10 +2759,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           expand = expansion(mult = c(0, 0.1)),
           breaks = function(x) seq(0, ceiling(max(x)), by = 1)
         ) +
-        scale_x_log10(
-          limits = c(x_min, x_max),
-          labels = scales::label_number(accuracy = 0.01)
-        ) +
+        scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=10)) +
+        annotation_logticks(sides = "b") +
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                             label = paste0('N=', n_distinct(raw_factor_data$participant),
                                            '\nSD(log10(x)) = ', format(round(sd_log10_relative, 3), nsmall = 3)),

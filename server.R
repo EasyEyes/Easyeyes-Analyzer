@@ -1374,22 +1374,24 @@ shinyServer(function(input, output, session) {
                 scrollX = TRUE,
                 fixedHeader = TRUE,
         columnDefs = list(
-          list(width = '100px', targets = 0),  # pavloviaParticipantID
-          list(width = '80px', targets = 1),   # _calibrateTrackDistancePupil
-          list(width = '80px', targets = 2),   # factorVpxCm
-          list(width = '80px', targets = 3),   # cameraResolutionXY
-          list(width = '40px', targets = 4),   # ok
-          list(width = '50px', targets = 5),   # device type
-          list(width = '50px', targets = 6),   # system
-          list(width = '50px', targets = 7),   # browser
-          list(width = '60px', targets = 8),   # Prolific min
-          list(width = '60px', targets = 9),   # screenWidthCm
-          list(width = '50px', targets = 10),  # rulerCm
-          list(width = '50px', targets = 11),  # pxPerCm
-          list(width = '50px', targets = 12),  # objectLengthCm
-          list(width = '80px', targets = 13),  # Object
-          list(width = '80px', targets = 14),  # Object
-          list(width = '500px', targets = 15)  # Comment - wide and left-aligned
+          list(width = '100px', targets = 0),  # PavloviaParticipantID
+          list(width = '80px', targets = 1),   # _calibrateTrackDistance
+          list(width = '80px', targets = 2),   # _calibrateTrackDistancePupil
+          list(width = '80px', targets = 3),   # factorVpxCm
+          list(width = '80px', targets = 4),   # cameraResolutionXY
+          list(width = '40px', targets = 5),   # ok
+          list(width = '50px', targets = 6),   # device type
+          list(width = '50px', targets = 7),   # system
+          list(width = '50px', targets = 8),   # browser
+          list(width = '60px', targets = 9),   # Prolific min
+          list(width = '60px', targets = 10),  # screenWidthCm
+          list(width = '50px', targets = 11),  # rulerCm
+          list(width = '50px', targets = 12),  # pxPerCm
+          list(width = '50px', targets = 13),  # objectLengthCm
+          list(width = '60px', targets = 14),  # factorVpxCm/cameraHeightPx
+          list(width = '60px', targets = 15),  # factorVpxCm/median(factorVpxCm)
+          list(width = '200px', targets = 16), # Object - wider column
+          list(width = '500px', targets = 17)  # Comment - widest column, left-aligned
         ),
         initComplete = JS(
           "function(settings, json) {",
@@ -1397,8 +1399,10 @@ shinyServer(function(input, output, session) {
           "$(this.api().table().body()).css({'font-size': '12px', 'padding': '2px 4px'});",
           "$('td').css({'text-align': 'center'});",
           "$('th').css({'text-align': 'center'});",
-          "$('td:nth-child(15)').css('text-align', 'left');",  # Comment column left-aligned
-          "$('th:nth-child(15)').css('text-align', 'left');",  # Comment header left-aligned
+          "$('td:nth-child(17)').css('text-align', 'left');",  # Object column left-aligned
+          "$('th:nth-child(17)').css('text-align', 'left');",  # Object header left-aligned
+          "$('td:nth-child(18)').css('text-align', 'left');",  # Comment column left-aligned
+          "$('th:nth-child(18)').css('text-align', 'left');",  # Comment header left-aligned
           "}"
         )
       ),
@@ -5148,6 +5152,15 @@ shinyServer(function(input, output, session) {
         for (i in seq_along(scatterDiagrams()$plotList)) {
           plotFileName <- paste0(short_exp_name, scatterDiagrams()$fileNames[[i]], '.', input$fileType)
           savePlot(scatterDiagrams()$plotList[[i]] + plt_theme_scatter, plotFileName, input$fileType)
+          fileNames <- c(fileNames, plotFileName)
+        }
+      }
+      
+      # Save distance scatter plots
+      if (length(scatterDistance()$plotList) > 0) {
+        for (i in seq_along(scatterDistance()$plotList)) {
+          plotFileName <- paste0(short_exp_name, scatterDistance()$fileNames[[i]], '.', input$fileType)
+          savePlot(scatterDistance()$plotList[[i]] + plt_theme_scatter, plotFileName, input$fileType)
           fileNames <- c(fileNames, plotFileName)
         }
       }
