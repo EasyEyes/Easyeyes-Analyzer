@@ -1432,17 +1432,24 @@ shinyServer(function(input, output, session) {
     }
     
     tryCatch({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       p <- add_experiment_title(corrMatrix()$plot, experiment_names())
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = p,
         device = svglite,
         width = corrMatrix()$width,
         height = corrMatrix()$height
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      # Convert SVG to PNG at display width preserving aspect
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- if (!is.null(corrMatrix()$width) && corrMatrix()$width > 0) (corrMatrix()$height / corrMatrix()$width) else 1
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
     }, error = function(e) {
       handle_plot_error(e, "corrMatrixPlot", experiment_names(), "Correlation Matrix Plot")
     })
@@ -1455,17 +1462,23 @@ shinyServer(function(input, output, session) {
     }
     
     tryCatch({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       p <- add_experiment_title(corrMatrix()$n_plot, experiment_names())
       ggsave(
-        file   = outfile,
+        file   = tmp_svg,
         plot   = p,   
         device = svglite,
         width  = corrMatrix()$width,
         height = corrMatrix()$height
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- if (!is.null(corrMatrix()$width) && corrMatrix()$width > 0) (corrMatrix()$height / corrMatrix()$width) else 1
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
     }, error = function(e) {
       handle_plot_error(e, "nMatrixPlot", experiment_names(), "N Matrix Plot")
     })
@@ -1477,32 +1490,47 @@ shinyServer(function(input, output, session) {
       return(NULL)
     }
     
-    outfile <- tempfile(fileext = '.svg')
-    p <- add_experiment_title(durationCorrMatrix()$plot, experiment_names())
-    ggsave(
-      file = outfile,
-      plot = p,
-      device = svg,
-      width = durationCorrMatrix()$width,
-      height = durationCorrMatrix()$height
-    )
-    list(src = outfile,
-         contenttype = 'svg')
+    tryCatch({
+      tmp_svg <- tempfile(fileext = '.svg')
+      p <- add_experiment_title(durationCorrMatrix()$plot, experiment_names())
+      ggsave(
+        file = tmp_svg,
+        plot = p,
+        device = svglite,
+        width = durationCorrMatrix()$width,
+        height = durationCorrMatrix()$height
+      )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- if (!is.null(durationCorrMatrix()$width) && durationCorrMatrix()$width > 0) (durationCorrMatrix()$height / durationCorrMatrix()$width) else 1
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
+    }, error = function(e) {
+      handle_plot_error(e, "durationCorrMatrixPlot", experiment_names(), "Duration Correlation Matrix")
+    })
   }, deleteFile = TRUE)
   
   output$durationHist <- renderImage({
     tryCatch({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot =  duration_lateness_hist()$duration,
         device = svglite,
         width = 6,
         height = 4,
         unit = 'in'
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((4/6) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
     }, error = function(e) {
       handle_plot_error(e, "durationHist", experiment_names(), "Duration Histogram")
     })
@@ -1511,17 +1539,22 @@ shinyServer(function(input, output, session) {
   
   output$latenessHist <- renderImage({
     tryCatch({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot =  duration_lateness_hist()$lateness,
         device = svglite,
         width = 6,
         height = 4,
         unit = 'in'
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((4/6) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
     }, error = function(e) {
       handle_plot_error(e, "latenessHist", experiment_names(), "Lateness Histogram")
     })
@@ -1537,17 +1570,22 @@ shinyServer(function(input, output, session) {
   
   output$durationByID <- renderImage({
     tryCatch({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot =  durationPlot()$participant,
         device = svglite,
         width = 6,
         height = 4,
         unit = 'in'
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((4/6) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
     }, error = function(e) {
       handle_plot_error(e, "durationByID", experiment_names(), "Duration by Participant ID")
     })
@@ -1555,17 +1593,22 @@ shinyServer(function(input, output, session) {
   
   output$durationByFont <- renderImage({
     tryCatch({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot =  durationPlot()$font,
         device = svglite,
         width = 6,
         height = 4,
         unit = 'in'
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((4/6) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
     }, error = function(e) {
       handle_plot_error(e, "durationByFont", experiment_names(), "Duration by Font")
     })
@@ -1573,17 +1616,22 @@ shinyServer(function(input, output, session) {
   
   output$durationWithFontPadding <- renderImage({
     tryCatch({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = durationPlot()$fontPadding,
         device = svglite,
         width = 6,
         height = 4,
         unit = 'in'
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((4/6) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
     }, error = function(e) {
       error_plot <- ggplot() +
         annotate(
@@ -1602,33 +1650,43 @@ shinyServer(function(input, output, session) {
         )
       
       # Save the error plot to a temp file
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = error_plot,
         device = svglite,
         width = 6,
         height = 4,
         unit = 'in'
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((4/6) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
     })
   }, deleteFile = TRUE)
   
   output$latenessByID <- renderImage({
     tryCatch({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot =  latenessPlot()$participant,
         device = svglite,
         width = 6,
         height = 4,
         unit = 'in'
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((4/6) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
     }, error = function(e) {
       handle_plot_error(e, "latenessByID", experiment_names(), "Lateness by Participant ID")
     })
@@ -1636,17 +1694,22 @@ shinyServer(function(input, output, session) {
   
   output$latenessByFont <- renderImage({
     tryCatch({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = latenessPlot()$font,
         device = svglite,
         width = 6,
         height = 4,
         unit = 'in'
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((4/6) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
     }, error = function(e) {
       handle_plot_error(e, "latenessByFont", experiment_names(), "Lateness by Font")
     })
@@ -1654,17 +1717,22 @@ shinyServer(function(input, output, session) {
   
   output$latenessWithFontPadding <- renderImage({
     tryCatch({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = latenessPlot()$fontPadding,
         device = svglite,
         width = 6,
         height = 4,
         unit = 'in'
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((4/6) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
     }, error = function(e) {
       error_plot <- ggplot() +
         annotate(
@@ -1681,17 +1749,22 @@ shinyServer(function(input, output, session) {
         labs(subtitle = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding')
       
       # Save the error plot to a temp file
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = error_plot,
         device = svglite,
         width = 6,
         height = 4,
         unit = 'in'
       )
-      list(src = outfile,
-           contenttype = 'svg')
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((4/6) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
     })
   }, deleteFile = TRUE)
 
@@ -4174,9 +4247,9 @@ shinyServer(function(input, output, session) {
   })
   
   output$stairPlot <- renderImage({
-    outfile <- tempfile(fileext = '.svg')
+    tmp_svg <- tempfile(fileext = '.svg')
     ggsave(
-      file = outfile,
+      file = tmp_svg,
       plot = stairPlot()$plot + plt_theme,
       width = 8,
       height = stairPlot()$height,
@@ -4184,8 +4257,17 @@ shinyServer(function(input, output, session) {
       unit = 'in',
       device = svglite
     )
+    disp_w <- 700
+    scale <- 2
+    png_w <- disp_w * scale
+    aspect <- (stairPlot()$height / 8)
+    png_h <- round(png_w * aspect)
+    outfile <- tempfile(fileext = ".png")
+    rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
     list(src = outfile,
-         contenttype = 'svg')
+         contenttype = 'image/png',
+         width = disp_w,
+         height = round(png_h/scale))
   }, deleteFile = TRUE)
   
   output$downloadStairPlot <- downloadHandler(
@@ -4236,10 +4318,16 @@ shinyServer(function(input, output, session) {
         file_list <- input$fileJSON$data
         jsonFile  <- fromJSON(file_list[1], simplifyDataFrame = FALSE)
         p         <- get_autocorrelation_plot(jsonFile, sound_data())
-        outfile   <- tempfile(fileext = ".svg")
-        ggsave(file = outfile, plot = p)
+        tmp_svg   <- tempfile(fileext = ".svg")
+        ggsave(file = tmp_svg, plot = p, device = svglite::svglite, width = 8, height = 8, units = "in")
         removeModal()
-        list(src = outfile, contentType = "image/svg+xml", alt = "autocorrelation")
+        disp_w <- 700
+        scale <- 2
+        png_w <- disp_w * scale
+        png_h <- png_w
+        outfile <- tempfile(fileext = ".png")
+        rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+        list(src = outfile, contenttype = "image/png", width = disp_w, height = disp_w, alt = "autocorrelation")
       }, deleteFile = TRUE)
 
       # flip flag, update button
@@ -4275,17 +4363,26 @@ shinyServer(function(input, output, session) {
       )
     
     output$sound_level_plot <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = sound_level_plot()[[1]],
         width = sound_level_plot()[[2]],
         height = sound_level_plot()[[3]],
-        device = svg,
+        device = svglite::svglite,
         units = "in"
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- if (!is.null(sound_level_plot()[[2]]) && sound_level_plot()[[2]] > 0) (sound_level_plot()[[3]] / sound_level_plot()[[2]]) else 1
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "1000 Hz plot")
     }, deleteFile = TRUE)
     
@@ -4305,44 +4402,74 @@ shinyServer(function(input, output, session) {
     # }, deleteFile = TRUE)
     
     output$`record freq plot component` <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = record_freq_component_plot()$plot,
         height = record_freq_component_plot()$height,
         width = 8.5,
-        units = "in"
+        units = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- (record_freq_component_plot()$height / 8.5)
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "Power Spectral Density")
     }, deleteFile = TRUE)
     
     output$`power variation` <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = recording_variation()$plot,
         height = recording_variation()$height,
         width = 8,
-        units = "in"
+        units = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- (recording_variation()$height / 8)
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "Power Spectral Density")
     }, deleteFile = TRUE)
     
     output$`volume power variation` <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = volume_power_variation()$plot,
         height = volume_power_variation()$height,
         width = 8,
-        units = "in"
+        units = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- (volume_power_variation()$height / 8)
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "Power variation")
     }, deleteFile = TRUE)
     
@@ -4371,44 +4498,74 @@ shinyServer(function(input, output, session) {
     # }, deleteFile = TRUE)
     
     output$componentIIR0To10 <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = componentIIRPlots()$ten +
           sound_theme_display,
         height = 6,
-        unit = "in"
+        width = 8,
+        unit = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((6/8) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "IIR 0 to 10 ms")
     }, deleteFile = TRUE)
     
     output$componentIIR0To50 <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = componentIIRPlots()$fifty +
           sound_theme_display,
         height = 6,
-        unit = "in"
+        width = 8,
+        unit = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((6/8) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "IIR 0 to 50 ms")
     }, deleteFile = TRUE)
     
     output$componentIIR0To400 <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = componentIIRPlots()$schroeder +
           sound_theme_display,
         height = 5,
+        width = 8,
         unit = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((5/8) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "IIR schroeder")
     }, deleteFile = TRUE)
     
@@ -4416,54 +4573,94 @@ shinyServer(function(input, output, session) {
     #### IR ####
     
     output$componentIRPSD <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = componentIR_PSD_plot()$plot,
         height =  componentIR_PSD_plot()$height,
-        width = 8
+        width = 8,
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- (componentIR_PSD_plot()$height / 8)
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "IIR two")
     }, deleteFile = TRUE)
     
     output$componentIR0To6 <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = irPlots()[[1]],
         height = 6,
+        width = 8,
         unit = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((6/8) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "IIR two")
     }, deleteFile = TRUE)
     
     output$componentIR0To50 <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = irPlots()[[2]],
         height = 6,
+        width = 8,
         unit = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((6/8) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "IIR two")
     }, deleteFile = TRUE)
     
     output$componentIR0To400 <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = irPlots()[[3]],
         height = 5,
+        width = 8,
         unit = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      png_h <- round((5/8) * png_w)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "IIR two")
     }, deleteFile = TRUE)
     
@@ -4493,9 +4690,9 @@ shinyServer(function(input, output, session) {
     # }, deleteFile = TRUE)
     
     output$cumSumPowerPlotComponent <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = cumSumPowerPlot()$p_component +
           add_transducerTable_component(
             sound_data()[[7]],
@@ -4511,10 +4708,21 @@ shinyServer(function(input, output, session) {
             leftShift = 0.02
           ),
         height = cumSumPowerPlot()$height_component,
+        width = 8,
         unit = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- (cumSumPowerPlot()$height_component / 8)
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "IIR two")
     }, deleteFile = TRUE)
     
@@ -4584,16 +4792,26 @@ shinyServer(function(input, output, session) {
     )
     
     output$profilePlot <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = p$plot,
         height = p$height,
         width = 8,
-        unit = "in"
+        unit = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- (p$height / 8)
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "profile plot")
     }, deleteFile = TRUE)
     
@@ -4667,16 +4885,26 @@ shinyServer(function(input, output, session) {
     )
     
     output$shiftedProfilePlot <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = p$shiftedPlot,
         height = p$height,
         width = 8,
-        unit = "in"
+        unit = "in",
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- (p$height / 8)
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "profile plot")
     }, deleteFile = TRUE)
     
@@ -4723,17 +4951,27 @@ shinyServer(function(input, output, session) {
     )
     
     output$profileAvgPlot <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
+      tmp_svg <- tempfile(fileext = '.svg')
       ggsave(
-        file = outfile,
+        file = tmp_svg,
         plot = p$avgPlot,
         height = p$avgHeight,
         width = 8,
         unit = "in",
-        limitsize = FALSE
+        limitsize = FALSE,
+        device = svglite::svglite
       )
+      disp_w <- 700
+      scale <- 2
+      png_w <- disp_w * scale
+      aspect <- (p$avgHeight / 8)
+      png_h <- round(png_w * aspect)
+      outfile <- tempfile(fileext = ".png")
+      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
       list(src = outfile,
-           contenttype = 'svg',
+           contenttype = 'image/png',
+           width = disp_w,
+           height = round(png_h/scale),
            alt = "profile plot")
     }, deleteFile = TRUE)
     
