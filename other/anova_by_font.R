@@ -130,11 +130,11 @@ calculate_anova <- function(df_list){
   )
   
   # Print all results
-  print_results(results$reading, "reading")
-  print_results(results$crowding, "crowding") 
-  print_results(results$rsvp, "rsvp")
-  print_results(results$beauty, "beauty")
-  print_results(results$comfort, "comfort")
+  # print_results(results$reading, "reading")
+  # print_results(results$crowding, "crowding") 
+  # print_results(results$rsvp, "rsvp")
+  # print_results(results$beauty, "beauty")
+  # print_results(results$comfort, "comfort")
   
   return(results)
 }

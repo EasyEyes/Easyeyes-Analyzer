@@ -102,11 +102,23 @@ build_param_table <- function(df) {
 
 # Helper to get first non-NA calibration parameter value
 get_first_non_na <- function(values) {
-  non_na_values <- values[!is.na(values)]
+  non_na_values <- values[!is.na(values) & values != ""]
   if (length(non_na_values) > 0) {
     return(non_na_values[1])
   }
   return(NA)
+}
+
+sanitize_json_string <- function(x) {
+  if (is.null(x) || is.na(x)) return(NA_character_)
+  s <- trimws(as.character(x))
+  if (nchar(s) >= 2 && substr(s, 1, 1) == '"' && substr(s, nchar(s), nchar(s)) == '"') {
+    s <- substr(s, 2, nchar(s) - 1)
+  }
+  if (grepl('""', s, fixed = TRUE)) {
+    s <- gsub('""', '"', s, fixed = TRUE)
+  }
+  s
 }
 
 get_cameraResolutionXY <- function(data_list) {
@@ -116,11 +128,17 @@ get_cameraResolutionXY <- function(data_list) {
     factorVpxCmList = c()
     factorVpxCm = ""
     if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
+      raw_json <- get_first_non_na(data_list[[i]]$distanceCalibrationJSON)
+      json_txt <- sanitize_json_string(raw_json)
 
-      distanceCalibration <- fromJSON(
-        sort(data_list[[i]]$distanceCalibrationJSON)[1],
-        simplifyVector = FALSE, simplifyDataFrame = FALSE, flatten = FALSE
+      distanceCalibration <- tryCatch(
+        jsonlite::fromJSON(
+          json_txt,
+          simplifyVector = FALSE, simplifyDataFrame = FALSE, flatten = FALSE
+        ),
+        error = function(e) NULL
       )
+      if (is.null(distanceCalibration)) next
 
      # Ensure distanceCalibration is a list
      if (!is.list(distanceCalibration)) {
@@ -192,8 +210,10 @@ get_distanceCheck_factorVpxCm <- function(data_list) {
       }
       
       tryCatch({
+        raw_json <- get_first_non_na(data_list[[i]]$distanceCheckJSON)
+        json_txt <- sanitize_json_string(raw_json)
         distanceCheck <- fromJSON(
-          sort(data_list[[i]]$distanceCheckJSON)[1],
+          json_txt,
           simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
         )
         
@@ -251,8 +271,10 @@ get_raw_pxPerCm_data <- function(data_list, sizeCheck) {
       tryCatch({
         participant_id <- first(na.omit(data_list[[i]]$participant))
         
+        raw_json <- get_first_non_na(data_list[[i]]$calibrateScreenSizeJSON)
+        json_txt <- sanitize_json_string(raw_json)
         screenSizeJSON <- fromJSON(
-          sort(data_list[[i]]$calibrateScreenSizeJSON)[1],
+          json_txt,
           simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
         )
         
@@ -311,8 +333,10 @@ get_raw_objectMeasuredCm_data <- function(data_list) {
       tryCatch({
         participant_id <- first(na.omit(data_list[[i]]$participant))
         
+        raw_json <- get_first_non_na(data_list[[i]]$distanceCalibrationTJSON)
+        json_txt <- sanitize_json_string(raw_json)
         distanceCalibJSON <- fromJSON(
-          sort(data_list[[i]]$distanceCalibrationTJSON)[1],
+          json_txt,
           simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
         )
         
@@ -367,8 +391,10 @@ get_raw_factorVpxCm_data <- function(data_list, check_factor) {
       tryCatch({
         participant_id <- first(na.omit(data_list[[i]]$participant))
         
+        raw_json <- get_first_non_na(data_list[[i]]$distanceCalibrationTJSON)
+        json_txt <- sanitize_json_string(raw_json)
         distanceCalibJSON <- fromJSON(
-          sort(data_list[[i]]$distanceCalibrationTJSON)[1],
+          json_txt,
           simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
         )
         
@@ -453,7 +479,7 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     filter(!is.na(factorVpxCm_numeric)) %>%
     pull(factorVpxCm_numeric) %>%
     median(na.rm = TRUE)
-  
+
   merged_data <- merged_data %>%
     mutate(
       ok_priority = case_when(
@@ -844,8 +870,10 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         distinct()
       if (nrow(t_meta) > 0 && !all(is.na(t_meta$distanceCalibrationJSON))) {
         tryCatch({
+          raw_json <- get_first_non_na(t_meta$distanceCalibrationJSON)
+          json_txt <- sanitize_json_string(raw_json)
           distanceCalibration <- fromJSON(
-            sort(t_meta$distanceCalibrationJSON)[1],
+            json_txt,
             simplifyVector = FALSE, simplifyDataFrame = FALSE, flatten = FALSE
           )
           # feet coords
@@ -857,7 +885,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
             # If it's a character string, parse it as JSON
             if (is.character(cal_str)) {
               tryCatch({
-                cal <- fromJSON(cal_str, simplifyVector = FALSE, simplifyDataFrame = FALSE, flatten = FALSE)
+                cal <- fromJSON(sanitize_json_string(cal_str), simplifyVector = FALSE, simplifyDataFrame = FALSE, flatten = FALSE)
               }, error = function(e) {
                 cal <<- NULL
               })
@@ -898,8 +926,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                      requested_list = strsplit(calibrateTrackDistanceRequestedCm, ",")) %>%
               unnest(c(measured_list, requested_list)) %>%
               mutate(
-                calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
-                calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
+                calibrateTrackDistanceMeasuredCm = suppressWarnings(as.numeric(trimws(measured_list))),
+                calibrateTrackDistanceRequestedCm = suppressWarnings(as.numeric(trimws(requested_list))),
                 measurement_index = row_number()
               ) %>%
               select(-measured_list, -requested_list)
@@ -942,8 +970,10 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     # -------- distance check median factorVpxCm --------
     if ("distanceCheckJSON" %in% names(dl)) {
       tryCatch({
+        raw_json <- get_first_non_na(dl$distanceCheckJSON)
+        json_txt <- sanitize_json_string(raw_json)
         distanceCheck <- fromJSON(
-          sort(dl$distanceCheckJSON)[1],
+          json_txt,
           simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
         )
         measured_vals <- NULL
@@ -1387,8 +1417,10 @@ get_foot_position_during_calibration_data <- function(data_list) {
 
     # Parse distanceCalibrationJSON first before filtering
     tryCatch({
+      raw_json <- get_first_non_na(t$distanceCalibrationJSON)
+      json_txt <- sanitize_json_string(raw_json)
       distanceCalibration <- fromJSON(
-        sort(t$distanceCalibrationJSON)[1],
+        json_txt,
         simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
       )
 
@@ -1863,7 +1895,9 @@ get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
       if (nrow(t) > 0) {
         tryCatch({
           # Parse distanceCalibrationJSON to extract spotDeg
-          distanceCalibration <- fromJSON(sort(t$distanceCalibrationJSON)[1])
+          raw_json <- get_first_non_na(t$distanceCalibrationJSON)
+          json_txt <- sanitize_json_string(raw_json)
+          distanceCalibration <- fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
 
           # Extract spotDeg from each calibration
           spot_degrees <- c()
@@ -1926,8 +1960,7 @@ get_bs_vd <- function(data_list) {
 }
 
 plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  print('inside plot_distance')
-  print(distanceCalibrationResults)
+
   distance <- distanceCalibrationResults$distance
   sizeCheck <- distanceCalibrationResults$sizeCheck
   statement <- distanceCalibrationResults$statement

@@ -187,7 +187,18 @@ get_webGL <- function(data_list) {
   webGL <- tibble()
   for (i in 1:length(data_list)) {
     if ('WebGL_Report' %in% names(data_list[[i]])) {
-      t <- fromJSON(unique(data_list[[i]]$WebGL_Report[!is.na(data_list[[i]]$WebGL_Report)]))
+      json_candidates <- unique(data_list[[i]]$WebGL_Report[!is.na(data_list[[i]]$WebGL_Report)])
+      if (length(json_candidates) == 0) next
+      json_txt <- as.character(json_candidates[1])
+      json_txt <- trimws(json_txt)
+      if (nchar(json_txt) >= 2 && substr(json_txt, 1, 1) == '"' && substr(json_txt, nchar(json_txt), nchar(json_txt)) == '"') {
+        json_txt <- substr(json_txt, 2, nchar(json_txt) - 1)
+      }
+      if (grepl('""', json_txt, fixed = TRUE)) {
+        json_txt <- gsub('""', '"', json_txt, fixed = TRUE)
+      }
+      t <- tryCatch(jsonlite::fromJSON(json_txt), error = function(e) NULL)
+      if (is.null(t)) next
       if ('maxTextureSize' %in% names(t)) {
         df <- data.frame(
           participant = data_list[[i]]$participant[1],

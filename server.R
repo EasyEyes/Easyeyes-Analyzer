@@ -2000,9 +2000,9 @@ shinyServer(function(input, output, session) {
           renderImage({
           req(i <= plotsRenderCount())
           tryCatch({
-            outfile <- tempfile(fileext = '.svg')
+            tmp_svg <- tempfile(fileext = '.svg')
             ggsave(
-              file = outfile,
+              file = tmp_svg,
               plot = plotList[[i]] + plt_theme,
               width = 6,
               height = 6,
@@ -2010,10 +2010,13 @@ shinyServer(function(input, output, session) {
               limitsize = F,
               device = svglite
             )
-            
-            list(src = outfile,
-                 contenttype = 'svg')
-            
+            disp_w <- 700
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((6 / 6) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
           }, error = function(e) {
             # Show error in a ggplot-friendly way
             error_plot <- ggplot() +
@@ -2031,20 +2034,22 @@ shinyServer(function(input, output, session) {
               labs(subtitle=fileNames[[i]])
             
             # Save the error plot to a temp file
-            outfile <- tempfile(fileext = '.svg')
-              ggsave(
-                file = outfile,
-                plot = error_plot,
-                device = svglite,
-                width = 6,
-                height = 4,
-                unit = 'in'
-              )
-            list(
-              src = outfile,
-              contenttype = 'svg',
-              alt = paste0("Error in ", fileNames[[i]])
+            tmp_svg <- tempfile(fileext = '.svg')
+            ggsave(
+              file = tmp_svg,
+              plot = error_plot,
+              device = svglite,
+              width = 6,
+              height = 4,
+              unit = 'in'
             )
+            disp_w <- 700
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((4 / 6) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
           })
         
       }, deleteFile = TRUE)
@@ -3341,8 +3346,7 @@ shinyServer(function(input, output, session) {
             ggsave(
               file = tmp_svg,
               plot = scatterDistance()$plotList[[ii]] +
-                plt_theme_scatter +
-                scale_color_manual(values = colorPalette),
+                plt_theme_scatter,
               width = 7,
               height = height_in,
               unit = 'in',
@@ -3377,8 +3381,7 @@ shinyServer(function(input, output, session) {
                 ggsave(
                   tmp_svg,
                   plot = scatterDistance()$plotList[[ii]] +
-                    plt_theme_scatter +
-                    scale_color_manual(values = colorPalette),
+                    plt_theme_scatter,
                   width = 12,
                   height = scatterDistance()$heights[[ii]] * 1.5,  # Scale up for download
                   unit = "in",
@@ -3459,9 +3462,9 @@ shinyServer(function(input, output, session) {
         ii <- j
         output[[paste0("violin", ii)]] <- renderImage({
           tryCatch({
-            outfile <- tempfile(fileext = '.svg')
+            tmp_svg <- tempfile(fileext = '.svg')
             ggsave(
-              file = outfile,
+              file = tmp_svg,
               plot = violinPlots()$plotList[[ii]] +
                 plt_theme,
               width = 8,
@@ -3470,7 +3473,13 @@ shinyServer(function(input, output, session) {
               device = svglite,
               limitsize = FALSE
             )
-            list(src = outfile, contenttype = 'svg')
+            disp_w <- 700
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((6 / 8) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
           }, error = function(e) {
             # Show error in a ggplot-friendly way
             error_plot <- ggplot() +
@@ -3488,20 +3497,22 @@ shinyServer(function(input, output, session) {
               labs(subtitle=violinPlots()$fileNames[[ii]])
             
             # Save the error plot to a temp file
-            outfile <- tempfile(fileext = '.svg')
+            tmp_svg <- tempfile(fileext = '.svg')
             ggsave(
-              file = outfile,
+              file = tmp_svg,
               plot = error_plot,
               device = svglite,
               width = 6,
               height = 4,
               unit = 'in'
             )
-            list(
-              src = outfile,
-              contenttype = 'svg',
-              alt = paste0("Error in ", violinPlots()$fileNames[[ii]])
-            )
+            disp_w <- 700
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((4 / 6) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
           })
         }, deleteFile = TRUE)
         
@@ -3600,9 +3611,9 @@ shinyServer(function(input, output, session) {
         ii <- j
         output[[paste0("fontComparison", ii)]] <- renderImage({
           tryCatch({
-            outfile <- tempfile(fileext = '.svg')
+            tmp_svg <- tempfile(fileext = '.svg')
             ggsave(
-              file = outfile,
+              file = tmp_svg,
               plot = fontComparisonPlots()$plotList[[ii]] +
                 plt_theme,
               width = 8,
@@ -3611,7 +3622,13 @@ shinyServer(function(input, output, session) {
               device = svglite,
               limitsize = FALSE
             )
-            list(src = outfile, contenttype = 'svg')
+            disp_w <- 700
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((6 / 8) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
           }, error = function(e) {
             # Show error in a ggplot-friendly way
             error_plot <- ggplot() +
@@ -3629,20 +3646,22 @@ shinyServer(function(input, output, session) {
               labs(subtitle=fontComparisonPlots()$fileNames[[ii]])
             
             # Save the error plot to a temp file
-            outfile <- tempfile(fileext = '.svg')
+            tmp_svg <- tempfile(fileext = '.svg')
             ggsave(
-              file = outfile,
+              file = tmp_svg,
               plot = error_plot,
               device = svglite,
               width = 6,
               height = 4,
               unit = 'in'
             )
-            list(
-              src = outfile,
-              contenttype = 'svg',
-              alt = paste0("Error in ", fontComparisonPlots()$fileNames[[ii]])
-            )
+            disp_w <- 700
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((4 / 6) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
           })
         }, deleteFile = TRUE)
         
@@ -3739,17 +3758,56 @@ shinyServer(function(input, output, session) {
       local({
         ii <- j
         output[[paste0("qualityScatter", ii)]] <- renderImage({
-          outfile <- tempfile(fileext = '.svg')
-          save_plot_with_error_handling(
-            plot = scatterQuality()$plotList[[ii]] + plt_theme_scatter,
-            filename = outfile,
-            width = 6,
-            height = 6,
-            size = 5,
-            unit = 'in',
-            colorPalette = colorPalette,
-            plotTitle = scatterQuality()$fileNames[[ii]]
-          )
+          tryCatch({
+            tmp_svg <- tempfile(fileext = '.svg')
+            ggsave(
+              file = tmp_svg,
+              plot = scatterQuality()$plotList[[ii]] +
+                plt_theme_scatter,
+              width = 7,
+              height = 6,
+              unit = 'in',
+              device = svglite,
+              limitsize = FALSE
+            )
+            disp_w <- 700
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((6 / 7) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
+          }, error = function(e) {
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                color = "red",
+                size = 5,
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              theme_void() +
+              labs(subtitle=scatterQuality()$fileNames[[ii]])
+            tmp_svg <- tempfile(fileext = '.svg')
+            ggsave(
+              file = tmp_svg,
+              plot = error_plot,
+              device = svglite,
+              width = 6,
+              height = 4,
+              unit = 'in'
+            )
+            disp_w <- 700
+            scale <- 2
+            png_w <- disp_w * scale
+            png_h <- round((4 / 6) * png_w)
+            outfile <- tempfile(fileext = ".png")
+            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
+          })
         }, deleteFile = TRUE)
         output[[paste0("downloadQualityScatter", ii)]] <-
           downloadHandler(
@@ -3861,15 +3919,23 @@ shinyServer(function(input, output, session) {
         output[[paste0("scatterTimeParticipant", ii)]] <-
           renderImage({
             tryCatch({
-              outfile <- tempfile(fileext = '.svg')
+              height_in <- 12.5
+              tmp_svg <- tempfile(fileext = '.svg')
               ggsave(
-                file = outfile,
+                file = tmp_svg,
                 plot = scatterTimeParticipant()$plotList[[ii]],
                 device = svglite,
-                height = 12.5,
+                width = 7,
+                height = height_in,
                 unit = 'in'
               )
-              list(src = outfile, contenttype = 'svg')
+              disp_w <- 700
+              scale <- 2
+              png_w <- disp_w * scale
+              png_h <- round((height_in / 7) * png_w)
+              outfile <- tempfile(fileext = ".png")
+              rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+              list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
             }, error = function(e) {
               # Show error in a ggplot-friendly way
               error_plot <- ggplot() +
@@ -3887,20 +3953,22 @@ shinyServer(function(input, output, session) {
                 labs(subtitle=scatterTimeParticipant()$fileNames[[ii]])
               
               # Save the error plot to a temp file
-              outfile <- tempfile(fileext = '.svg')
+              tmp_svg <- tempfile(fileext = '.svg')
               ggsave(
-                file = outfile,
+                file = tmp_svg,
                 plot = error_plot,
                 device = svglite,
                 width = 6,
                 height = 4,
                 unit = 'in'
               )
-              list(
-                src = outfile,
-                contenttype = 'svg',
-                alt = paste0("Error in ", scatterTimeParticipant()$fileNames[[ii]])
-              )
+              disp_w <- 700
+              scale <- 2
+              png_w <- disp_w * scale
+              png_h <- round((4 / 6) * png_w)
+              outfile <- tempfile(fileext = ".png")
+              rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+              list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
             })
             
           }, deleteFile = TRUE)
@@ -3999,15 +4067,24 @@ shinyServer(function(input, output, session) {
         output[[paste0("scatterTime", ii)]] <-
           renderImage({
             tryCatch({
-              outfile <- tempfile(fileext = '.svg')
+              tmp_svg <- tempfile(fileext = '.svg')
               ggsave(
-                file = outfile,
+                file = tmp_svg,
                 plot = scatterTime()$plotList[[ii]] +
                   plt_theme_scatter,
+                width = 7,
+                height = 6,
                 unit = 'in',
                 limitsize = F,
+                device = svglite
               )
-              list(src = outfile, contenttype = 'svg')
+              disp_w <- 700
+              scale <- 2
+              png_w <- disp_w * scale
+              png_h <- round((6 / 7) * png_w)
+              outfile <- tempfile(fileext = ".png")
+              rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+              list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
             }, error = function(e) {
               # Show error in a ggplot-friendly way
               error_plot <- ggplot() +
@@ -4025,20 +4102,22 @@ shinyServer(function(input, output, session) {
                 labs(subtitle=scatterTime()$fileNames[[ii]])
               
               # Save the error plot to a temp file
-              outfile <- tempfile(fileext = '.svg')
+              tmp_svg <- tempfile(fileext = '.svg')
               ggsave(
-                file = outfile,
+                file = tmp_svg,
                 plot = error_plot,
                 device = svglite,
                 width = 6,
                 height = 4,
                 unit = 'in'
               )
-              list(
-                src = outfile,
-                contenttype = 'svg',
-                alt = paste0("Error in ", scatterTime()$fileNames[[ii]])
-              )
+              disp_w <- 700
+              scale <- 2
+              png_w <- disp_w * scale
+              png_h <- round((4 / 6) * png_w)
+              outfile <- tempfile(fileext = ".png")
+              rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+              list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
             })
             
           }, deleteFile = TRUE)

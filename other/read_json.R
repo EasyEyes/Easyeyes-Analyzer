@@ -1525,13 +1525,6 @@ plot_sound_level <- function(sound_data) {
     minX = floor(min(volume_task$`in (dB)`)/10) * 10
     maxX = max(volume_task$`in (dB)`)
 
-    # DEBUG
-    print(paste0("threshold: ", threshold))
-    print(paste0("minY: ", minY))
-    print(paste0("maxY: ", maxY))
-    print(paste0("minX: ", minX))
-    print(paste0("maxX: ", maxX))
-
     thd_data <- filter(volume_task, `in (dB)` > -45)
     thdMax <- ceiling(max(thd_data$`THD (%)`) / 0.5) * 0.5
     # thdMax = 1

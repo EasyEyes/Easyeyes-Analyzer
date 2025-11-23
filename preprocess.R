@@ -49,19 +49,19 @@ check_empty_archive <- function(file) {
   }
 
   # List contents; if this fails, return NA
-  info <- tryCatch(utils::unzip(path, list = TRUE), error = function(e) e)
+  info <- tryCatch(zip::zip_list(path), error = function(e) e)
   if (inherits(info, "error")) {
     warning(sprintf("Couldn't read archive '%s': %s", basename(path), conditionMessage(info)))
     return(NA)
   }
 
   # Drop directories and Mac metadata
-  info <- info[!grepl("/$", info$Name), , drop = FALSE]           # remove directory entries
-  info <- info[!grepl("^__MACOSX/", info$Name), , drop = FALSE]   # remove __MACOSX
+  info <- info[!grepl("/$", info$filename), , drop = FALSE]           # remove directory entries
+  info <- info[!grepl("^__MACOSX/", info$filename), , drop = FALSE]   # remove __MACOSX
 
   # Empty if no files remain, or all remaining files are 0 bytes
   if (nrow(info) == 0) return(TRUE)
-  has_nonempty_file <- any(!is.na(info$Length) & info$Length > 0)
+  has_nonempty_file <- any(!is.na(info$uncompressed_size) & info$uncompressed_size > 0)
   return(!has_nonempty_file)
 }
 
@@ -428,7 +428,7 @@ read_files <- function(file){
         }
         
       } else {
-        pretest <- read_csv(file_list[i])
+        pretest <- data.table::fread(file_list[i], data.table = FALSE, showProgress = FALSE)
       }
       
       if ('PavloviaSessionID' %in% names(pretest)) {
@@ -472,8 +472,8 @@ read_files <- function(file){
     }
 
     if (grepl(".csv", file_names[i]) & !grepl("pretest.csv", file_names[i])){ 
-      try({t <- readr::read_csv(file_list[i],show_col_types = FALSE)}, silent = TRUE)
-      if(nrow(t) == 0) {
+      try({t <- data.table::fread(file_list[i], data.table = FALSE, showProgress = FALSE)}, silent = TRUE)
+      if(!is.data.frame(t) || is.null(nrow(t)) || is.na(nrow(t)) || nrow(t) == 0) {
         t <- tibble(placeholder = "")
       }
       if (!'Submission id' %in% names(t)){
@@ -549,25 +549,40 @@ read_files <- function(file){
       }
       
       # Proceed with processing non-empty zip file
-      file_names <- unzip(file_list[i], list = TRUE)$Name
+      zl <- zip::zip_list(file_list[i])
+      file_names <- zl$filename
       file_names <- file_names[!grepl("^~", basename(file_names))]
-      all_csv <- file_names[grepl(".csv", file_names)]
-      all_csv <- all_csv[!grepl("__MACOSX", all_csv) & !grepl("cursor", all_csv) & !grepl("pretest.csv", all_csv)]
-      all_pretest <- file_names[grepl("pretest.csv", file_names) | grepl("pretest.xlsx", file_names)]
+      all_csv <- file_names[grepl(".csv$", file_names, ignore.case = TRUE)]
+      all_csv <- all_csv[!grepl("__MACOSX", all_csv) & !grepl("cursor", all_csv) & !grepl("pretest\\.csv$", all_csv, ignore.case = TRUE)]
+      all_pretest <- file_names[grepl("pretest\\.csv$", file_names, ignore.case = TRUE) | grepl("pretest\\.xlsx$", file_names, ignore.case = TRUE)]
       all_pretest <- all_pretest[!grepl("__MACOSX", all_pretest)]
       m <- length(all_csv)
       tmp <- tempdir()
-      unzip(file_list[i], exdir = tmp)
       for (k in 1 : m) {
-        file_path <- file.path(tmp,all_csv[k])
-        try({t <- readr::read_csv(file_path,show_col_types = FALSE)}, silent = TRUE)
-        if(nrow(t) == 0) {
+        # Stream CSV directly from zip without extracting to disk; fallback to extracting just this file
+        cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_csv[k]))
+        read_ok <- TRUE
+        t <- tryCatch(
+          data.table::fread(cmd = cmd, data.table = FALSE, showProgress = FALSE),
+          error = function(e) { read_ok <<- FALSE; e }
+        )
+        if (!read_ok || inherits(t, "error")) {
+          try(unzip(file_list[i], files = all_csv[k], exdir = tmp), silent = TRUE)
+          file_path <- file.path(tmp, all_csv[k])
+          try({t <- data.table::fread(file_path, data.table = FALSE, showProgress = FALSE)}, silent = TRUE)
+        }
+        if(!is.data.frame(t) || is.null(nrow(t)) || is.na(nrow(t)) || nrow(t) == 0) {
           t <- tibble(placeholder = "")
         }
         if (!'Submission id' %in% names(t)) {
           t <- ensure_columns(t, all_csv[k])
-          inf <- file.info(file_path)
-          t$kb <- round(inf$size / 1024)
+          # Use uncompressed size from zip listing where available
+          size_row <- zl$uncompressed_size[match(all_csv[k], zl$filename)]
+          if (!is.na(size_row) && length(size_row) == 1) {
+            t$kb <- round(size_row / 1024)
+          } else {
+            t$kb <- NA
+          }
          
           info <- t %>% 
             dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
@@ -618,8 +633,10 @@ read_files <- function(file){
         }
       }
       if (length(all_pretest) > 0) {
-        file_path = file.path(tmp,all_pretest[1] )
-        if (grepl("pretest.xlsx", all_pretest[1])) {
+        if (grepl("pretest.xlsx$", all_pretest[1], ignore.case = TRUE)) {
+          # Extract only the xlsx and read it
+          try(unzip(file_list[i], files = all_pretest[1], exdir = tmp), silent = TRUE)
+          file_path = file.path(tmp, all_pretest[1])
           pretest <- readxl::read_xlsx(file_path, col_types = 'text')
           column_names <- names(pretest)
           date_columns <- grep('date', column_names, ignore.case = TRUE, value = TRUE)
@@ -630,7 +647,9 @@ read_files <- function(file){
           }
         } 
         else {
-          pretest <- readr::read_csv(file_path,show_col_types = FALSE)
+          # Stream pretest.csv directly from the zip
+          cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_pretest[1]))
+          pretest <- data.table::fread(cmd = cmd, data.table = FALSE, showProgress = FALSE)
         }
         
         if ('PavloviaSessionID' %in% names(pretest)) {

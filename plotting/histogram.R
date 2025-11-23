@@ -6,7 +6,6 @@ get_fluency_histogram <- function(fluency){
     return(NULL)
   }
   
-  print('inside fluency')
   fluency$accuracy <- factor(fluency$accuracy, levels = c(0,0.2,0.4,0.6,0.8,1))
 
   ggplot(data = fluency %>% count(accuracy, .drop = F), aes(x = accuracy, y = n)) +
@@ -515,15 +514,11 @@ add_questsd_hist <- function(quest, lists) {
 get_reading_CQ_hist <- function(reading_pre, minCQAccuracy) {
   # plot histogram of CQAccuracy
   # Add vertical line at minCQAccuracy
-  print('[get_reading_CQ_hist] start')
-  print(paste('[get_reading_CQ_hist] minCQAccuracy =', as.character(minCQAccuracy)))
-  print(paste('[get_reading_CQ_hist] input rows =', ifelse(is.null(reading_pre), 'NULL', nrow(reading_pre))))
+
   reading_pre <- reading_pre %>%
     filter(!is.na(CQAccuracy) & is.finite(CQAccuracy))
 
-  print(paste('[get_reading_CQ_hist] rows after filter =', nrow(reading_pre)))
   if (nrow(reading_pre) == 0) {
-    print('[get_reading_CQ_hist] no data after filtering; returning NULL')
     return(NULL)
   }
 
@@ -544,7 +539,6 @@ get_reading_CQ_hist <- function(reading_pre, minCQAccuracy) {
                 sd   = sd(CQAccuracy),
                 .groups = "drop")
     stats_sub$N <- n_combo
-    print(paste('[get_reading_CQ_hist] computed N (distinct experiment,participant,block) =', n_combo))
 
     p <- ggplot(df, aes(x = CQAccuracy)) +
       geom_histogram(color = NA, fill = "gray80") +
@@ -577,22 +571,21 @@ get_reading_CQ_hist <- function(reading_pre, minCQAccuracy) {
     p
   }
 
-  print(paste('[get_reading_CQ_hist] conditionName present =', "conditionName" %in% names(reading_pre)))
   if ("conditionName" %in% names(reading_pre)) {
     reading_list <- split(reading_pre, reading_pre$conditionName)
-    print(paste('[get_reading_CQ_hist] unique conditions =', length(reading_list)))
+
     hist_list <- lapply(names(reading_list), function(cond) {
       full_title    <- paste("Histogram of comprehension accuracy", cond)
       wrapped_title <- wrap_words(full_title, 25)
       make_plot(reading_list[[cond]], wrapped_title)
     })
     names(hist_list) <- names(reading_list)
-    print(paste('[get_reading_CQ_hist] returning list of plots, length =', length(hist_list)))
+
     return(hist_list)
   } else {
     subtitle_text <- wrap_words("Histogram of comprehension accuracy", 25)
     p <- make_plot(reading_pre, subtitle_text)
-    print('[get_reading_CQ_hist] returning single plot')
+
     return(p)
   }
 }

@@ -145,11 +145,6 @@ crowding_scatter_plot <- function(crowding_L_R){
     })
   )
   
-  print("Unique fonts in data:")
-  print(unique(df$font))
-  print("Unique shortConditionName levels:")
-  print(levels(df$shortConditionName))
-  
   # build the plot using shortConditionName for color (to preserve legend info)
   p <- ggplot(df,
               aes(
@@ -180,9 +175,6 @@ crowding_scatter_plot <- function(crowding_L_R){
   unique_fonts <- sort(unique(df$font))
   font_palette <- font_color_palette(unique_fonts)
   
-  print("Font palette:")
-  print(font_palette)
-  
   # Map each shortConditionName to its font's color
   condition_to_color <- setNames(
     font_palette[sapply(levels(df$shortConditionName), function(x) {
@@ -191,8 +183,6 @@ crowding_scatter_plot <- function(crowding_L_R){
     levels(df$shortConditionName)
   )
   
-  print("Condition to color mapping:")
-  print(condition_to_color)
   
   # Apply the color mapping
   p <- p + scale_color_manual(values = condition_to_color) +
