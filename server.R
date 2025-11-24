@@ -1362,49 +1362,46 @@ shinyServer(function(input, output, session) {
   #### Merged Participant Distance Table ####
   
   output$mergedParticipantDistanceTable <- DT::renderDataTable({
-    datatable(mergedParticipantDistanceTable(),
-              class = list(stripe = FALSE, 'compact'),
-              selection = 'none',
-              extensions = 'FixedHeader',
-              filter = "top",
-              escape = FALSE,
-              options = list(
-                autoWidth = TRUE,
-                paging = FALSE,
-                scrollX = TRUE,
-                fixedHeader = TRUE,
-        columnDefs = list(
-          list(width = '100px', targets = 0),  # PavloviaParticipantID
-          list(width = '80px', targets = 1),   # _calibrateTrackDistance
-          list(width = '80px', targets = 2),   # _calibrateTrackDistancePupil
-          list(width = '80px', targets = 3),   # factorVpxCm
-          list(width = '80px', targets = 4),   # cameraResolutionXY
-          list(width = '40px', targets = 5),   # ok
-          list(width = '50px', targets = 6),   # device type
-          list(width = '50px', targets = 7),   # system
-          list(width = '50px', targets = 8),   # browser
-          list(width = '60px', targets = 9),   # Prolific min
-          list(width = '60px', targets = 10),  # screenWidthCm
-          list(width = '50px', targets = 11),  # rulerCm
-          list(width = '50px', targets = 12),  # pxPerCm
-          list(width = '50px', targets = 13),  # objectLengthCm
-          list(width = '60px', targets = 14),  # factorVpxCm/cameraHeightPx
-          list(width = '60px', targets = 15),  # factorVpxCm/median(factorVpxCm)
-          list(width = '200px', targets = 16), # Object - wider column
-          list(width = '500px', targets = 17)  # Comment - widest column, left-aligned
-        ),
-        initComplete = JS(
-          "function(settings, json) {",
-          "$(this.api().table().header()).css({'font-size': '13px', 'padding': '2px 4px'});",
-          "$(this.api().table().body()).css({'font-size': '12px', 'padding': '2px 4px'});",
-          "$('td').css({'text-align': 'center'});",
-          "$('th').css({'text-align': 'center'});",
-          "$('td:nth-child(17)').css('text-align', 'left');",  # Object column left-aligned
-          "$('th:nth-child(17)').css('text-align', 'left');",  # Object header left-aligned
-          "$('td:nth-child(18)').css('text-align', 'left');",  # Comment column left-aligned
-          "$('th:nth-child(18)').css('text-align', 'left');",  # Comment header left-aligned
-          "}"
-        )
+    table_data <- mergedParticipantDistanceTable()
+    # Build column width definitions safely for available columns only
+    predefined_widths <- c(
+      '100px','80px','80px','80px','80px','40px','50px','50px','50px',
+      '60px','60px','50px','50px','50px','60px','60px','200px','500px'
+    )
+    num_cols <- ncol(table_data)
+    safe_widths <- predefined_widths[seq_len(min(length(predefined_widths), num_cols))]
+    # Create columnDefs without targeting non-existent columns
+    column_defs <- lapply(seq_along(safe_widths), function(i) {
+      list(width = safe_widths[[i]], targets = i - 1L)
+    })
+    # Compute indices (1-based for nth-child) of Object/Comment columns if present
+    object_idx <- if ("Object" %in% names(table_data)) which(names(table_data) == "Object")[1] else NA_integer_
+    comment_idx <- if ("Comment" %in% names(table_data)) which(names(table_data) == "Comment")[1] else NA_integer_
+    # Build initComplete JS that only aligns existing columns
+    js_align <- paste0(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'font-size': '13px', 'padding': '2px 4px'});",
+      "$(this.api().table().body()).css({'font-size': '12px', 'padding': '2px 4px'});",
+      "$('td').css({'text-align': 'center'});",
+      "$('th').css({'text-align': 'center'});",
+      if (!is.na(object_idx)) sprintf("$('td:nth-child(%d)').css('text-align','left');$('th:nth-child(%d)').css('text-align','left');", object_idx, object_idx) else "",
+      if (!is.na(comment_idx)) sprintf("$('td:nth-child(%d)').css('text-align','left');$('th:nth-child(%d)').css('text-align','left');", comment_idx, comment_idx) else "",
+      "}"
+    )
+    datatable(
+      table_data,
+      class = list(stripe = FALSE, 'compact'),
+      selection = 'none',
+      extensions = 'FixedHeader',
+      filter = "top",
+      escape = FALSE,
+      options = list(
+        autoWidth = TRUE,
+        paging = FALSE,
+        scrollX = TRUE,
+        fixedHeader = TRUE,
+        columnDefs = column_defs,
+        initComplete = JS(js_align)
       ),
       rownames = FALSE
     )
