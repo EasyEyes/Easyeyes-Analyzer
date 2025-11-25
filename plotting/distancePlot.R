@@ -19,23 +19,6 @@ compute_auto_height <- function(base_height, n_items, per_row, row_increase) {
   return(base_height * height_factor)
 }
 
-# Helper to compute log-scale axis breaks that grow by ~growth and snap to 10s
-compute_log10_breaks <- function(min_val, max_val, growth = 1.1, skip = c(60, 80, 100, 110)) {
-  lo_break <- max(10, floor(min_val / 10) * 10)
-  hi_break <- ceiling(max_val / 10) * 10
-  breaks_seq <- c()
-  cur_break <- lo_break
-  while (is.finite(cur_break) && cur_break <= hi_break) {
-    breaks_seq <- c(breaks_seq, cur_break)
-    next_break <- ceiling((cur_break * growth) / 10) * 10
-    if (!is.finite(next_break) || next_break <= cur_break) {
-      next_break <- cur_break + 10
-    }
-    cur_break <- next_break
-  }
-  breaks_seq[!(breaks_seq %in% skip)]
-}
-
 # Safe helpers for building short, clean, single-string labels
 safe_first <- function(x) {
   x <- as.character(x)
@@ -2014,9 +1997,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   max_val <- 5 * ceiling(max(c(distance_individual$calibrateTrackDistanceRequestedCm_jitter,
                                distance_individual$calibrateTrackDistanceMeasuredCm), na.rm = TRUE) / 5)
   
-  # Precompute log-scale-aware breaks using helper
-  breaks_seq_10 <- compute_log10_breaks(min_val, max_val, growth = 1.1)
-  
   # Calculate dynamic y-axis limits for the fraction plot based on actual data
   minFrac <- max(0.1, min(0.5, floor(distance_individual$credit_card_fraction * 10) / 10))
   maxFrac <- max(1.5, ceiling(distance_individual$credit_card_fraction * 10) / 10)
@@ -2048,7 +2028,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(
         limits = c(min_val, max_val),
-        breaks = breaks_seq_10,
+        breaks = scales::log_breaks(n = 6),
         labels = scales::label_number(accuracy = 1)
       ) +
       scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) + 
@@ -2093,7 +2073,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
     scale_x_log10(
       limits = c(min_val, max_val),
-      breaks = breaks_seq_10,
+      breaks = scales::log_breaks(n = 6),
                   expand = expansion(mult = c(0.05, 0.05)),
       labels = scales::label_number(accuracy = 1)
     ) + 
@@ -2174,7 +2154,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                             label = paste0('N=', n_distinct(ipd_data$participant))) +
         scale_x_log10(
           limits = c(minX, maxX),
-          breaks = c(10, 20, 30, 40, 50, 70, 90, 120),
+          breaks = scales::log_breaks(n = 6),
           labels = scales::label_number(accuracy = 1)
         ) +
         scale_y_log10(breaks = scales::log_breaks(n=8)) +
@@ -2197,9 +2177,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           legend.key.size = unit(0.4, "cm"),
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
-        labs(subtitle = 'IPD (camera px) vs. requested distance',
+        labs(subtitle = 'IPD (vpx) vs. requested distance',
              x = 'Requested distance (cm)',
-             y = 'IPD (camera px)',
+             y = 'IPD (vpx)',
              caption = 'Thick solid lines: predicted IPD = factorVpxCm/requestedDistance\nThin solid lines: measured data\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
     } else {
       p3 <- NULL
@@ -2269,7 +2249,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                               label = paste0('N=', n_distinct(ipd_product_data_valid$participant))) +
           scale_x_log10(
             limits = c(min_val, max_val), 
-            breaks = c(10, 20, 30, 40, 50, 70, 90, 120),
+            breaks = scales::log_breaks(n = 6),
             labels = scales::label_number(accuracy = 1)
           ) +
           scale_y_log10(breaks = scales::log_breaks(n = 8)) +
@@ -3404,14 +3384,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(
         limits = c(min_val, max_val),
-        breaks = function(lims) {
-          lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
-          hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
-          if (is.na(lo) || is.na(hi)) return(NULL)
-          lo <- max(10, lo)
-          br <- seq(lo, hi, by = 10)
-          br[!(br %in% c(60, 80, 100, 110))]
-        },
+        breaks = scales::log_breaks(n = 6),
         labels = scales::label_number(accuracy = 1)
       ) +
       scale_y_log10(limits = c(min_val, max_val),
@@ -3458,14 +3431,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(
         limits = c(min_val, max_val),
-        breaks = function(lims) {
-          lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
-          hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
-          if (is.na(lo) || is.na(hi)) return(NULL)
-          lo <- max(10, lo)
-          br <- seq(lo, hi, by = 10)
-          br[!(br %in% c(60, 80, 100, 110))]
-        },
+        breaks = scales::log_breaks(n = 6),
         labels = scales::label_number(accuracy = 1),
         expand = expansion(mult = c(0.05, 0.05))
       ) +
@@ -3526,14 +3492,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
                             labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(
         limits = c(min_val, max_val),
-        breaks = function(lims) {
-          lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
-          hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
-          if (is.na(lo) || is.na(hi)) return(NULL)
-          lo <- max(10, lo)
-          br <- seq(lo, hi, by = 10)
-          br[!(br %in% c(60, 80, 100, 110))]
-        },
+        breaks = scales::log_breaks(n = 6),
         labels = scales::label_number(accuracy = 1)
       ) +
       scale_y_log10(limits = c(min_val, max_val),breaks = scales::log_breaks(n=10), labels = scales::label_number(accuracy = 10)) +
@@ -3601,14 +3560,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
                             labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(
         limits = c(min_val, max_val),
-        breaks = function(lims) {
-          lo <- floor(min(lims, na.rm = TRUE) / 10) * 10
-          hi <- ceiling(max(lims, na.rm = TRUE) / 10) * 10
-          if (is.na(lo) || is.na(hi)) return(NULL)
-          lo <- max(10, lo)
-          br <- seq(lo, hi, by = 10)
-          br[!(br %in% c(60, 80, 100, 110))]
-        },
+        breaks = scales::log_breaks(n = 6),
         labels = scales::label_number(accuracy = 1),
         expand = expansion(mult = c(0.05, 0.05))
       ) +
