@@ -163,12 +163,14 @@ generate_threshold <-
         select(-lowerCaseParticipant) %>% 
         mutate(`Skilled reader?` = ifelse(is.na(`Skilled reader?`), 'unkown', `Skilled reader?`))
       if (!'ParticipantCode' %in% names(reading)) {
-        reading$ParticipantCode = reading$participant
+        reading <- reading %>% mutate(ParticipantCode = participant)
       }
     } else {
-      reading$ParticipantCode = reading$participant
-      reading$Grade = -1
-      reading$`Skilled reader?` = 'unkown'
+      # Use mutate instead of direct assignment to handle empty tibbles
+      reading <- reading %>% 
+        mutate(ParticipantCode = participant,
+               Grade = -1,
+               `Skilled reader?` = 'unkown')
     }
     
     
@@ -176,10 +178,26 @@ generate_threshold <-
     
     all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
       summary_list[[i]] %>% mutate(order = i)
-    } %>% 
-      filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
-      mutate(participant = as.character(participant),
-             block_condition = as.character(block_condition)) %>% 
+    }
+    
+    # Check if participant column exists before filtering
+    if (!"participant" %in% names(all_summary)) {
+      # Create empty all_summary with expected structure
+      all_summary <- tibble(
+        staircaseName = character(), experiment = character(), participant = character(),
+        block = integer(), block_condition = character(), conditionName = character(),
+        targetKind = character(), font = character(), thresholdParameter = character(),
+        questMeanAtEndOfTrialsLoop = numeric(), questSDAtEndOfTrialsLoop = numeric(),
+        order = integer()
+      )
+    } else {
+      all_summary <- all_summary %>% 
+        filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
+        mutate(participant = as.character(participant),
+               block_condition = as.character(block_condition))
+    }
+    
+    all_summary <- all_summary %>%
       # apply questSD filter
       left_join(NQuestTrials, by = c('participant', 'block_condition')) %>% 
       filter(questSDAtEndOfTrialsLoop <= maxQuestSD) %>% 
@@ -210,7 +228,7 @@ generate_threshold <-
       }
       
       if (!'ParticipantCode' %in% names(all_summary)) {
-        all_summary$ParticipantCode = all_summary$participant
+        all_summary <- all_summary %>% mutate(ParticipantCode = participant)
       }
     } else {
       all_summary <- all_summary %>% 
@@ -469,7 +487,8 @@ generate_threshold <-
         summarize(accuracy = mean(readWordIdentifiedBool),
                   .groups="drop")
       reading <- reading %>% left_join(reading_accuracy, by = c("participant", "block_condition") )
-      reading$accuracy = factor(reading$accuracy, levels = c(0,0.2,0.4,0.6,0.8,1))
+      # Use mutate to handle empty tibbles safely
+      reading <- reading %>% mutate(accuracy = factor(accuracy, levels = c(0,0.2,0.4,0.6,0.8,1)))
     }
     
     fluency <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
@@ -494,7 +513,8 @@ generate_threshold <-
         mutate(lowerCaseParticipant = tolower(participant)) %>% 
         left_join(select(pretest, Grade, lowerCaseParticipant), by = 'lowerCaseParticipant')
     } else {
-      age$Grade = NA
+      # Use mutate instead of direct assignment to handle empty tibbles
+      age <- age %>% mutate(Grade = NA_real_)
     }
     
     ##### console logs #####
