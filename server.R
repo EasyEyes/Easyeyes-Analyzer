@@ -1390,16 +1390,16 @@ shinyServer(function(input, output, session) {
     )
     datatable(
       table_data,
-      class = list(stripe = FALSE, 'compact'),
-      selection = 'none',
-      extensions = 'FixedHeader',
-      filter = "top",
-      escape = FALSE,
-      options = list(
-        autoWidth = TRUE,
-        paging = FALSE,
-        scrollX = TRUE,
-        fixedHeader = TRUE,
+              class = list(stripe = FALSE, 'compact'),
+              selection = 'none',
+              extensions = 'FixedHeader',
+              filter = "top",
+              escape = FALSE,
+              options = list(
+                autoWidth = TRUE,
+                paging = FALSE,
+                scrollX = TRUE,
+                fixedHeader = TRUE,
         columnDefs = column_defs,
         initComplete = JS(js_align)
       ),
@@ -1947,7 +1947,7 @@ shinyServer(function(input, output, session) {
         )
         
         list(src = outfile,
-             contenttype = 'svg')
+             contenttype = 'image/svg+xml')
       } else {
         NULL
       }
@@ -1973,7 +1973,7 @@ shinyServer(function(input, output, session) {
         )
         
         list(src = outfile,
-             contenttype = 'svg')
+             contenttype = 'image/svg+xml')
       } else {
         NULL
       }
@@ -1999,7 +1999,7 @@ shinyServer(function(input, output, session) {
         )
         
         list(src = outfile,
-             contenttype = 'svg')
+             contenttype = 'image/svg+xml')
       } else {
         NULL
       }

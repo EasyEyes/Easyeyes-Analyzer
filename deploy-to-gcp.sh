@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-PROJECT_ID="YOUR_PROJECT_ID"  # Replace with your GCP project ID
+PROJECT_ID="praxis-zoo-380019"  # Replace with your GCP project ID
 IMAGE_NAME="easyeyes-analyzer"
 REGION="us-central1"
 SERVICE_NAME="easyeyes-analyzer"

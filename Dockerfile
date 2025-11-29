@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y \
     libcurl4-gnutls-dev \
     libssl-dev \
     libxml2-dev \
+    librsvg2-2 \
+    librsvg2-dev \
+    libzmq5 \
+    libzmq3-dev \
     libfontconfig1-dev \
     libharfbuzz-dev \
     libfribidi-dev \

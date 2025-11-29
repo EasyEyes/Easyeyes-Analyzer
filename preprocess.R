@@ -741,7 +741,8 @@ read_files <- function(file){
     
     unique_participantCode = unique(data_list[[i]]$ParticipantCode)
     if (length(unique_participantCode) > 1) {
-      data_list[[i]]$ParticipantCode = unique(data_list[[i]]$ParticipantCode[!is.na(data_list[[i]]$ParticipantCode)])
+
+      data_list[[i]]$ParticipantCode = get_first_non_na(data_list[[i]]$ParticipantCode)
     } else {
       data_list[[i]]$ParticipantCode = ''
     }
@@ -749,8 +750,8 @@ read_files <- function(file){
     unique_Birthdate = unique(data_list[[i]]$BirthMonthYear)
     unique_BirthYear = unique(data_list[[i]]$BirthYear)
     if (length(unique_Birthdate) > 1) {
-      data_list[[i]]$BirthMonthYear = unique(data_list[[i]]$BirthMonthYear[!is.na(data_list[[i]]$BirthMonthYear) & data_list[[i]]$BirthMonthYear != ""])
-      clean_date <- gsub("([0-9]{2})h([0-9]{2})\\.([0-9]{2})\\.([0-9]{3})", "\\1:\\2:\\3.\\4", data_list[[i]]$date[1])
+      data_list[[i]]$BirthMonthYear = get_first_non_na(data_list[[i]]$BirthMonthYear)
+      clean_date <- gsub("([0-9]{2})h([0-9]{2})\\.([0-9]{2})\\.([0-9]{3})", "\\1:\\2:\\3.\\4", get_first_non_na(data_list[[i]]$date))
       clean_date <- sub("_", "T", clean_date)
       
       # Parse with parse_date_time

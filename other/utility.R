@@ -11,6 +11,16 @@ ptToPx <- function(pt, pxPerCm) {
   return ((2.54 * pt) / 72) * pxPerCm
 }
 
+# Helper to get first non-NA calibration parameter value
+get_first_non_na <- function(values) {
+  non_na_values <- values[!is.na(values) & values != ""]
+  if (length(non_na_values) > 0) {
+    return(non_na_values[1])
+  }
+  return(NA)
+}
+
+
 # Helper function to add experiment name to plot title
 add_experiment_title <- function(plot, experiment_name) {
   short_name <- get_short_experiment_name(experiment_name)

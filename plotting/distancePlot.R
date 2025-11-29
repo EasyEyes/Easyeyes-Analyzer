@@ -83,15 +83,6 @@ build_param_table <- function(df) {
   out
 }
 
-# Helper to get first non-NA calibration parameter value
-get_first_non_na <- function(values) {
-  non_na_values <- values[!is.na(values) & values != ""]
-  if (length(non_na_values) > 0) {
-    return(non_na_values[1])
-  }
-  return(NA)
-}
-
 sanitize_json_string <- function(x) {
   if (is.null(x) || is.na(x)) return(NA_character_)
   s <- trimws(as.character(x))
