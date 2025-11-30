@@ -56,19 +56,25 @@ plot_font_comparison <- function(df_list) {
     select(participant, font, measure)
   
   comfort_data <- df_list$QA %>%
-    filter(grepl('CMFRT', questionAndAnswerNickname)) %>%
+     filter(!is.na(questionAndAnswerNickname) & substr(questionAndAnswerNickname, 1, 5) == "CMFRT") %>%
     mutate(measure = as.numeric(arabic_to_western(questionAndAnswerResponse)),
-           font = case_when(
-             questionAndAnswerNickname=="CMFRTAlAwwal" ~ "Al-Awwal-Regular.ttf",
-             questionAndAnswerNickname=="CMFRTmajalla" ~ "majalla.ttf",
-             questionAndAnswerNickname=="CMFRTAmareddine" ~ "SaudiTextv1-Regular.otf",
-             questionAndAnswerNickname=="CMFRTMakdessi" ~ "SaudiTextv2-Regular.otf",
-             questionAndAnswerNickname=="CMFRTKafa" ~ "SaudiTextv3-Regular.otf",
-             questionAndAnswerNickname=="CMFRTSaudi" ~ "Saudi-Regular.ttf",
-             questionAndAnswerNickname=="CMFRTSaudiTextv1" ~ "SaudiTextv1-Regular.otf",
-             questionAndAnswerNickname=="CMFRTSaudiTextv2" ~ "SaudiTextv2-Regular.otf",
-             questionAndAnswerNickname=="CMFRTSaudiTextv3" ~ "SaudiTextv3-Regular.otf",
-             TRUE ~ questionAndAnswerNickname
+           font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
+                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTB-Nazanin" ~ "B-NAZANIN.TTF",
+                            questionAndAnswerNickname=="CMFRT-Nazanin" ~ "B-NAZANIN.TTF",
+                            questionAndAnswerNickname=="CMFRT-Titr" ~ "Titr.bold.woff2",
+                            questionAndAnswerNickname=="CMFRT-Kalameh" ~ "Kalameh-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRT-IranNastaliq" ~ "IranNastaliq.ttf",
+                            questionAndAnswerNickname=="CMFRT-Moalla" ~ "Moalla.ttf",
+                            questionAndAnswerNickname=="CMFRT-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
+                            TRUE ~ questionAndAnswerNickname  # fallback for any unmatched cases
            )) %>%
     filter(!is.na(measure)) %>%
     select(participant, font, measure)
@@ -80,6 +86,12 @@ plot_font_comparison <- function(df_list) {
              conditionName=="beauty-Al-Awwal" ~ "Al-Awwal-Regular.ttf",
              conditionName=="beauty-majalla" ~ "majalla.ttf",
              conditionName=="beauty-Saudi" ~ "Saudi-Regular.ttf",
+             conditionName=="beauty-Nazanin" ~ "B-NAZANIN.TTF",
+             conditionName=="beauty-Titr" ~ "Titr.bold.woff2",
+             conditionName=="beauty-Kalameh" ~ "Kalameh-Regular.ttf",
+             conditionName=="beauty-IranNastaliq" ~ "IranNastaliq.ttf",
+             conditionName=="beauty-Moalla" ~ "Moalla.ttf",
+             conditionName=="beauty-MJ_Hoor" ~ "Mj-Hoor_0.ttf",
              conditionName=="beauty-SaudiTextv1" ~ "SaudiTextv1-Regular.otf",
              conditionName=="beauty-SaudiTextv2" ~ "SaudiTextv2-Regular.otf",
              conditionName=="beauty-SaudiTextv3" ~ "SaudiTextv3-Regular.otf",

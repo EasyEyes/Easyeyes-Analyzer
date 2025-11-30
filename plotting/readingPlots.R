@@ -412,43 +412,60 @@ plot_reading_rsvp <- function(reading, rsvp) {
   minXY = min(t$X, t$Y, na.rm = T) * 0.95
   maxXY = max(t$X, t$Y, na.rm = T) * 1.05
   # Generate the plot
-  p <- ggplot(t, aes(x = X, y = Y, color = Grade)) + 
-    geom_point(size = 3) +  # Point size fixed for clarity
-    geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +  # Black regression line
-    scale_x_log10(limits = c(minXY, maxXY),
-                  expand = c(0,0)) +
-    scale_y_log10(limits = c(minXY, maxXY),
-                  expand = c(0,0)) +
-    annotation_logticks(
-      sides = "bl", 
-      short = unit(2, "pt"), 
-      mid   = unit(2, "pt"), 
-      long  = unit(7, "pt")
-    ) +
-    labs(
-      x = "RSVP reading (w/min)",
-      y = "Reading (w/min)",
-      subtitle = 'Reading vs RSVP reading\ncolored by grade'
-    ) +
-    coord_fixed() + 
-    theme_bw() +
-    theme(legend.position = 'top') +
-    annotation_logticks(
-      sides = "bl", 
-      short = unit(2, "pt"), 
-      mid   = unit(2, "pt"), 
-      long  = unit(7, "pt")
-    ) +
-    guides(color = guide_legend(title = "Grade")) +
-    ggpp::geom_text_npc(aes(npcx = 'left',
-                            npcy = 'top',
-                            label = paste0(
-                              t$N[1],  # Using the first value of N (constant for the group)
-                              "\nR = ", round(r_value, 2),
-                              "\nR_factor_out_age = ", R_factor_out_age,
-                              "\nslope = ", round(slope, 2)
-                            ))) + 
-    color_scale(n = n_distinct(t$Grade))  # Apply color_scale dynamically
+  grades_non_na <- t$Grade[!is.na(t$Grade)]
+  all_grade_neg1 <- length(grades_non_na) > 0 && all(grades_non_na == -1)
+  
+  if (all_grade_neg1) {
+    p <- ggplot(t, aes(x = X, y = Y)) + 
+      geom_point(size = 3) +
+      geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +
+      scale_x_log10(limits = c(minXY, maxXY), expand = c(0,0)) +
+      scale_y_log10(limits = c(minXY, maxXY), expand = c(0,0)) +
+      annotation_logticks(sides = "bl", short = unit(2, "pt"), mid = unit(2, "pt"), long = unit(7, "pt")) +
+      labs(
+        x = "RSVP reading (w/min)",
+        y = "Reading (w/min)",
+        subtitle = "Reading vs RSVP reading"
+      ) +
+      coord_fixed() +
+      theme_bw() +
+      theme(legend.position = 'top') +
+      annotation_logticks(sides = "bl", short = unit(2, "pt"), mid = unit(2, "pt"), long = unit(7, "pt")) +
+      ggpp::geom_text_npc(aes(npcx = 'left',
+                              npcy = 'top',
+                              label = paste0(
+                                t$N[1],
+                                "\nR = ", round(r_value, 2),
+                                "\nR_factor_out_age = ", R_factor_out_age,
+                                "\nslope = ", round(slope, 2)
+                              )))
+  } else {
+    p <- ggplot(t, aes(x = X, y = Y, color = Grade)) + 
+      geom_point(size = 3) +
+      geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +
+      scale_x_log10(limits = c(minXY, maxXY), expand = c(0,0)) +
+      scale_y_log10(limits = c(minXY, maxXY), expand = c(0,0)) +
+      annotation_logticks(sides = "bl", short = unit(2, "pt"), mid = unit(2, "pt"), long = unit(7, "pt")) +
+      labs(
+        x = "RSVP reading (w/min)",
+        y = "Reading (w/min)",
+        subtitle = "Reading vs RSVP reading\ncolored by grade"
+      ) +
+      coord_fixed() +
+      theme_bw() +
+      theme(legend.position = 'top') +
+      annotation_logticks(sides = "bl", short = unit(2, "pt"), mid = unit(2, "pt"), long = unit(7, "pt")) +
+      guides(color = guide_legend(title = "Grade")) +
+      ggpp::geom_text_npc(aes(npcx = 'left',
+                              npcy = 'top',
+                              label = paste0(
+                                t$N[1],
+                                "\nR = ", round(r_value, 2),
+                                "\nR_factor_out_age = ", R_factor_out_age,
+                                "\nslope = ", round(slope, 2)
+                              ))) + 
+      color_scale(n = n_distinct(t$Grade))
+  }
   
   return(p)
 }

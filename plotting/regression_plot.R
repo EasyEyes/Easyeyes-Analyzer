@@ -141,18 +141,32 @@ regression_reading_plot <- function(df_list){
     # 1) compute N & R per font
     stats_font <- peripheral %>%
       group_by(font) %>%
+      mutate(N = n()) %>% 
+      ungroup() %>% 
+      group_by(font, targetKind, N) %>% 
       summarize(
-        N = n(),
-        # correlate on log-log scale
         R = cor(log10(crowding_distance),
                 avg_log_WPM,
                 use = "complete.obs"),
         .groups = "drop"
-      ) %>%
+      )  %>%
       mutate(
-        label = paste0(font, ", N=", N, ", R=", sprintf("%.2f", R))
+        R = round(R, 2)
       )
-    
+    print(stats_font)
+    reading_stats <- stats_font %>% filter(targetKind == "reading")
+    rsvp_stats <- stats_font %>% filter(targetKind == "rsvpReading")
+    stats_font <- reading_stats %>%
+      full_join(rsvp_stats, by = "font") %>%
+      mutate(
+        font_safe = ifelse(is.na(font), "", font),
+        N_safe = ifelse(is.na(N.x), "NA", as.character(N.y)),
+        R_reading = ifelse(is.na(R.x), "NA", sprintf("%.2f", R.x)),
+        R_rsvp = ifelse(is.na(R.y), "NA", sprintf("%.2f", R.y)),
+        label = paste0(font_safe, ", N=", N_safe, ", R_reading=", R_reading, ", R_rsvp=", R_rsvp)
+      ) %>%
+      select(-font_safe, -N_safe, -R_reading, -R_rsvp)
+    print(stats_font)
     # 2) rename font factor to include N & R
     peripheral <- peripheral %>%
       mutate(
@@ -160,6 +174,8 @@ regression_reading_plot <- function(df_list){
                             levels = stats_font$font,
                             labels = stats_font$label)
       )
+    
+    print(peripheral %>% filter(is.na(font_label)), n = 100)
     
     # 3) build Ecc caption
     eccs     <- sort(unique(peripheral$targetEccentricityXDeg))
@@ -193,7 +209,7 @@ regression_reading_plot <- function(df_list){
         label = paste0(ecc_label, "\nN=", nrow(peripheral)),
         inherit.aes = FALSE
       ) +
-      guides(color = guide_legend(ncol = 2, title = "")) +
+      guides(color = guide_legend(ncol = 1, title = "")) +
       theme_bw() +
       theme(
         axis.text.x = element_text(angle = 45, hjust = 1),

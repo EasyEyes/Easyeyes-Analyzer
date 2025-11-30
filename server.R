@@ -540,7 +540,7 @@ shinyServer(function(input, output, session) {
     plot_calls <- list(
       list(plot = peripheral_crowding_age_plots[[1]], fname = 'peripheral-crowding-vs-age-by-grade'),
       list(plot = peripheral_crowding_age_plots[[2]], fname = 'peripheral-crowding-ave-vs-age-by-grade'),
-      list(plot = get_foveal_crowding_vs_age(df_list()$crowding), 'foveal-crowding-vs-age-by-grade'),
+      list(plot = get_foveal_crowding_vs_age(df_list()$crowding), fname = 'foveal-crowding-vs-age-by-grade'),
       list(plot = get_repeatedLetter_vs_age(df_list()$repeatedLetters), fname = 'repeated-letter-crowding-vs-age-by-grade'),
       list(plot = plot_reading_age(df_list()$reading), fname = 'reading-vs-age-by-grade'),
       list(plot = plot_rsvp_age(df_list()$rsvp), fname = 'rsvp-reading-vs-age-by-grade'),
@@ -1352,7 +1352,13 @@ shinyServer(function(input, output, session) {
   outputOptions(output, 'isDuration', suspendWhenHidden = FALSE)
   outputOptions(output, 'jsonUploaded', suspendWhenHidden = FALSE)
   
-  
+  #### color font ####
+  colorFont <- reactive({
+    generate_color_for_font
+    unique_fonts = unique(df_list()$quest$font, df_list()$reading$font)
+    unique_fonts = unique_fonts[!is.na(unique_fonts) & unique_fonts != ""]
+    return(tibble(font = unique_fonts, color = colorPalette[1:length(unique_fonts)]))
+  })
   #### cameraResolutionXYTable ####
   
   output$cameraResolutionXYTable <- renderTable({
@@ -2126,8 +2132,17 @@ shinyServer(function(input, output, session) {
 
         
         output[[paste0("downloadP", i)]] <- downloadHandler(
-          filename = paste0(get_short_experiment_name(experiment_names()), fileNames[[i]], ".", input$fileType),
+          filename = function() {
+            idx <- i
+            base <- if (!is.null(fileNames) && length(fileNames) >= idx && !is.null(fileNames[[idx]])) {
+              fileNames[[idx]]
+            } else {
+              paste0("plot-", idx)
+            }
+            paste0(get_short_experiment_name(experiment_names()), base, ".", input$fileType)
+          },
           content = function(file) {
+            if (i > length(plotList) || is.null(plotList[[i]])) return(invisible(NULL))
             plot <- plotList[[i]] + plt_theme
             savePlot(
               plot = plot,

@@ -37,12 +37,14 @@ plot_violins <- function(df_list) {
                             conditionName=="beauty-Nazanin" ~"B-NAZANIN.TTF",
                             conditionName=="beauty-Kalameh" ~"Kalameh-Regular.ttf",
                             conditionName=="beauty-IranNastaliq" ~"IranNastaliq.ttf",
+                            conditionName=="beauty-Moalla" ~"Moalla.ttf",
+                            conditionName=="beauty-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
                             .default = conditionName
            )) %>% 
     filter(!is.na(y))
   
-  cmfrt = df_list$QA %>% 
-    filter(grepl('CMFRT',questionAndAnswerNickname)) %>%
+  comfort = df_list$QA %>% 
+     filter(!is.na(questionAndAnswerNickname) & substr(questionAndAnswerNickname, 1, 5) == "CMFRT") %>%
     mutate(y = as.numeric(arabic_to_western(questionAndAnswerResponse)),
            font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
                             questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
@@ -50,15 +52,17 @@ plot_violins <- function(df_list) {
                             questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.otf",
                             questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRTB-Nazanin" ~ "B-NAZANIN.TTF",
+                            questionAndAnswerNickname=="CMFRT-Nazanin" ~ "B-NAZANIN.TTF",
+                            questionAndAnswerNickname=="CMFRT-Titr" ~ "Titr.bold.woff2",
+                            questionAndAnswerNickname=="CMFRT-Kalameh" ~ "Kalameh-Regular.ttf",
+                            questionAndAnswerNickname=="CMFRT-IranNastaliq" ~ "IranNastaliq.ttf",
+                            questionAndAnswerNickname=="CMFRT-Moalla" ~ "Moalla.ttf",
+                            questionAndAnswerNickname=="CMFRT-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
-                            questionAndAnswerNickname=="CMFRTB-Nazanin" ~"B-NAZANIN.TTF",
-                            questionAndAnswerNickname=="CMFRT-Titr" ~"Titr.bold.woff2",
-                            questionAndAnswerNickname=="CMFRT-Kalameh" ~"Kalameh-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRT-IranNastaliq" ~"IranNastaliq.ttf",
-                            questionAndAnswerNickname=="CMFRT-Moalla" ~"Moalla.ttf",
-                            .default = questionAndAnswerNickname
+                            TRUE ~ questionAndAnswerNickname  # fallback for any unmatched cases
            ))
   print("inside plot_violins")
   create_plot <- function(data, ylabel, title, xlimits = NULL) {
@@ -175,6 +179,6 @@ plot_violins <- function(df_list) {
     crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
     acuity = create_plot(acuity, "acuity (deg)", "Acuity Threshold by Font"),
     beauty = create_plot(beauty, "Beauty Rating", "Beauty Rating by Font"),
-    cmfrt = create_plot(cmfrt, "Comfort Rating", "Comfort Rating by Font")
+    cmfrt = create_plot(comfort, "Comfort Rating", "Comfort Rating by Font")
   ))
 }

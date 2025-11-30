@@ -99,6 +99,7 @@ plot_font_aggregated_reading_rsvp_crowding <- function(allData) {
   p <- ggplot(font_aggregated, aes(x = mean_crowding, y = mean_reading_speed,
                                     color = font_label, shape = targetKind)) +
     theme_classic() +
+    scale_color_manual(values = font_color_palette(unique(font_aggregated$font))) +
     scale_y_log10(
       breaks = y_breaks,
       limits = c(yMin, yMax),
