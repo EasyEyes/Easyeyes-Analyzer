@@ -30,7 +30,7 @@ calculate_anova <- function(df_list){
                             questionAndAnswerNickname=="CMFRT-Kalameh" ~ "Kalameh-Regular.ttf",
                             questionAndAnswerNickname=="CMFRT-IranNastaliq" ~ "IranNastaliq.ttf",
                             questionAndAnswerNickname=="CMFRT-Moalla" ~ "Moalla.ttf",
-                            questionAndAnswerNickname=="CMFRT-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
+                            questionAndAnswerNickname=="CMFRT-MJ_Hoor" ~ "Mj-Hoor_0.ttf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",

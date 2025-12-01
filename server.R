@@ -718,12 +718,14 @@ shinyServer(function(input, output, session) {
       list(plot = violins$crowding, fname = 'crowding-violin-by-font-plot'),
       list(plot = violins$acuity, fname = 'acuity-violin-by-font-plot'),
       list(plot = violins$beauty, fname = 'beauty-violin-by-font-plot'),
-      list(plot = violins$cmfrt, fname = 'comfort-violin-by-font-plot')
+      list(plot = violins$cmfrt, fname = 'comfort-violin-by-font-plot'),
+      list(plot = violins$familiarity, fname = 'familiarity-violin-by-font-plot')
     )
     
     for (call in plot_calls) {
       plot <- call$plot
       if (!is.null(plot)) {
+        # Avoid overriding color scale for plots that define their own font colors
         plot <- plot + scale_color_manual(values = colorPalette)
         plot <- add_experiment_title(plot, experiment_names())
       }
@@ -754,7 +756,8 @@ shinyServer(function(input, output, session) {
       list(plot = font_comparisons$crowding, fname = 'crowding-font-comparison-plot'),
       list(plot = font_comparisons$comfort, fname = 'comfort-font-comparison-plot'),
       list(plot = font_comparisons$beauty, fname = 'beauty-font-comparison-plot'),
-      list(plot = font_comparisons$acuity, fname = 'acuity-font-comparison-plot')
+      list(plot = font_comparisons$acuity, fname = 'acuity-font-comparison-plot'),
+      list(plot = font_comparisons$familiarity, fname = 'familiarity-font-comparison-plot')
     )
     
     for (call in plot_calls) {
@@ -951,7 +954,9 @@ shinyServer(function(input, output, session) {
   })
   
   observe({
-    total <- length(scatterDiagrams()$plotList)
+    plots_obj <- scatterDiagrams()
+    if (!is.list(plots_obj) || is.null(plots_obj$plotList)) return()
+    total <- length(plots_obj$plotList)
     current <- scatterRenderCount()
     if (is.null(total) || total <= 0) return()
     if (current < total) {
@@ -1061,15 +1066,24 @@ shinyServer(function(input, output, session) {
       list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade'),
       list(plot = plot_badLatenessTrials_vs_memory(files()$data_list,conditionNames()), fname="badLatenessTrials-vs-deviceMemoryGB-by-participant"),
       list(plot = minDegPlots()$scatter, fname="foveal-crowding-vs-spacingMinDeg"),
-      list(plot = comfort_vs_crowding_scatter(df_list()), fname = 'comfort-vs-crowding-scatter'),
-      list(plot = beauty_vs_crowding_scatter(df_list()), fname = 'beauty-vs-crowding-scatter'),
-      list(plot = beauty_vs_comfort_scatter(df_list()), fname = 'beauty-vs-comfort-scatter')
+      list(plot = comfort_vs_crowding_scatter(df_list(), colorFont()), fname = 'comfort-vs-crowding-scatter'),
+      list(plot = beauty_vs_crowding_scatter(df_list(), colorFont()), fname = 'beauty-vs-crowding-scatter'),
+      list(plot = beauty_vs_comfort_scatter(df_list(), colorFont()), fname = 'beauty-vs-comfort-scatter'),
+      list(plot = familiarity_vs_crowding_scatter(df_list(), colorFont()), fname = 'familiarity-vs-crowding-scatter')
     )
 
     for (call in plot_calls) {
       plot <- call$plot
       if (!is.null(plot)) {
-        plot <- plot + scale_color_manual(values = colorPalette)
+        # Keep custom font colors for these plots; don't override their color scales here
+        if (!(call$fname %in% c('comfort-vs-crowding-scatter',
+                                'beauty-vs-crowding-scatter',
+                                'beauty-vs-comfort-scatter',
+                                'familiarity-vs-crowding-scatter'))) {
+          plot <- plot + scale_color_manual(values = colorPalette)
+        } else {
+          plot <- plot
+        }
         plot <- add_experiment_title(plot, experiment_names())
       }
       res <- append_plot_list(l, fileNames, plot, call$fname)
@@ -1354,10 +1368,20 @@ shinyServer(function(input, output, session) {
   
   #### color font ####
   colorFont <- reactive({
-    generate_color_for_font
-    unique_fonts = unique(df_list()$quest$font, df_list()$reading$font)
-    unique_fonts = unique_fonts[!is.na(unique_fonts) & unique_fonts != ""]
-    return(tibble(font = unique_fonts, color = colorPalette[1:length(unique_fonts)]))
+    # Collect fonts from available datasets and return a tibble(font, color)
+    fonts <- unique(na.omit(c(
+      if ('quest' %in% names(df_list())) df_list()$quest$font else NULL,
+      if ('reading' %in% names(df_list())) df_list()$reading$font else NULL
+    )))
+    fonts <- fonts[fonts != ""]
+    if (length(fonts) == 0) {
+      return(tibble(font = character(), color = character()))
+    }
+    cols <- rep(colorPalette, length.out = length(fonts))
+    t <- tibble(font = fonts, color = cols)
+    print("color font")
+    print(t)
+    return(t)
   })
   #### cameraResolutionXYTable ####
   

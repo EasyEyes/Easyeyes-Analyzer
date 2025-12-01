@@ -371,7 +371,6 @@ plot_reading_rsvp <- function(reading, rsvp) {
     group_by(participant, targetKind) %>% 
     summarize(avg_log_WPM = mean(log10(avg_wordPerMin), na.rm = TRUE), .groups = "drop") %>% 
     left_join(rsvp, by = 'participant') %>% 
-    filter(!is.na(age)) %>%  # Drop rows with NA age
     mutate(
       N = paste0('N = ', n()),
       Grade = as.character(Grade),
@@ -391,10 +390,11 @@ plot_reading_rsvp <- function(reading, rsvp) {
   
   # Compute R_factor_out_age
   if (nrow(t) > 1) {
-    vars <- t %>% dplyr::select(X, Y, age)
+    vars <- t %>% dplyr::select(X, Y, age) %>% 
+       filter(!is.na(age)) # Drop rows with NA age
     
     cor_mat <- cor(vars, use = "pairwise.complete.obs")
-    print("cor_mat")
+
     if (is.na(det(cor_mat))) {
       R_factor_out_age <- NA
     } else if (det(cor_mat) < .Machine$double.eps) {

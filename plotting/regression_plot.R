@@ -153,7 +153,6 @@ regression_reading_plot <- function(df_list){
       mutate(
         R = round(R, 2)
       )
-    print(stats_font)
     reading_stats <- stats_font %>% filter(targetKind == "reading")
     rsvp_stats <- stats_font %>% filter(targetKind == "rsvpReading")
     stats_font <- reading_stats %>%
@@ -166,7 +165,7 @@ regression_reading_plot <- function(df_list){
         label = paste0(font_safe, ", N=", N_safe, ", R_reading=", R_reading, ", R_rsvp=", R_rsvp)
       ) %>%
       select(-font_safe, -N_safe, -R_reading, -R_rsvp)
-    print(stats_font)
+
     # 2) rename font factor to include N & R
     peripheral <- peripheral %>%
       mutate(
@@ -174,8 +173,6 @@ regression_reading_plot <- function(df_list){
                             levels = stats_font$font,
                             labels = stats_font$label)
       )
-    
-    print(peripheral %>% filter(is.na(font_label)), n = 100)
     
     # 3) build Ecc caption
     eccs     <- sort(unique(peripheral$targetEccentricityXDeg))

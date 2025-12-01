@@ -58,12 +58,32 @@ plot_violins <- function(df_list) {
                             questionAndAnswerNickname=="CMFRT-Kalameh" ~ "Kalameh-Regular.ttf",
                             questionAndAnswerNickname=="CMFRT-IranNastaliq" ~ "IranNastaliq.ttf",
                             questionAndAnswerNickname=="CMFRT-Moalla" ~ "Moalla.ttf",
-                            questionAndAnswerNickname=="CMFRT-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
+                            questionAndAnswerNickname=="CMFRT-MJ_Hoor" ~ "Mj-Hoor_0.ttf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
                             TRUE ~ questionAndAnswerNickname  # fallback for any unmatched cases
            ))
+  
+  familiarity_data = df_list$QA %>%
+    filter(grepl('familiarity', tolower(questionAndAnswerNickname))) %>%
+    mutate(y = as.numeric(arabic_to_western(questionAndAnswerResponse)),
+           font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
+                            conditionName=="beauty-majalla" ~"majalla.ttf",
+                            conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
+                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.otf",
+                            conditionName=="beauty-Titr" ~"Titr.bold.woff2",
+                            conditionName=="beauty-Nazanin" ~"B-NAZANIN.TTF",
+                            conditionName=="beauty-Kalameh" ~"Kalameh-Regular.ttf",
+                            conditionName=="beauty-IranNastaliq" ~"IranNastaliq.ttf",
+                            conditionName=="beauty-Moalla" ~"Moalla.ttf",
+                            conditionName=="beauty-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
+                            .default = conditionName
+           )) %>% 
+    filter(!is.na(y))
+  
   print("inside plot_violins")
   create_plot <- function(data, ylabel, title, xlimits = NULL) {
     p <- NULL
@@ -179,6 +199,7 @@ plot_violins <- function(df_list) {
     crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
     acuity = create_plot(acuity, "acuity (deg)", "Acuity Threshold by Font"),
     beauty = create_plot(beauty, "Beauty Rating", "Beauty Rating by Font"),
-    cmfrt = create_plot(comfort, "Comfort Rating", "Comfort Rating by Font")
+    cmfrt = create_plot(comfort, "Comfort Rating", "Comfort Rating by Font"),
+    familiarity = create_plot(familiarity_data, "familiarity", "Familiarity by Font")
   ))
 }

@@ -70,7 +70,7 @@ plot_font_comparison <- function(df_list) {
                             questionAndAnswerNickname=="CMFRT-Kalameh" ~ "Kalameh-Regular.ttf",
                             questionAndAnswerNickname=="CMFRT-IranNastaliq" ~ "IranNastaliq.ttf",
                             questionAndAnswerNickname=="CMFRT-Moalla" ~ "Moalla.ttf",
-                            questionAndAnswerNickname=="CMFRT-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
+                            questionAndAnswerNickname=="CMFRT-MJ_Hoor" ~ "Mj-Hoor_0.ttf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
                             questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
@@ -81,6 +81,27 @@ plot_font_comparison <- function(df_list) {
   
   beauty_data <- df_list$QA %>%
     filter(grepl('bty', tolower(questionAndAnswerNickname))) %>%
+    mutate(measure = as.numeric(arabic_to_western(questionAndAnswerResponse)),
+           font = case_when(
+             conditionName=="beauty-Al-Awwal" ~ "Al-Awwal-Regular.ttf",
+             conditionName=="beauty-majalla" ~ "majalla.ttf",
+             conditionName=="beauty-Saudi" ~ "Saudi-Regular.ttf",
+             conditionName=="beauty-Nazanin" ~ "B-NAZANIN.TTF",
+             conditionName=="beauty-Titr" ~ "Titr.bold.woff2",
+             conditionName=="beauty-Kalameh" ~ "Kalameh-Regular.ttf",
+             conditionName=="beauty-IranNastaliq" ~ "IranNastaliq.ttf",
+             conditionName=="beauty-Moalla" ~ "Moalla.ttf",
+             conditionName=="beauty-MJ_Hoor" ~ "Mj-Hoor_0.ttf",
+             conditionName=="beauty-SaudiTextv1" ~ "SaudiTextv1-Regular.otf",
+             conditionName=="beauty-SaudiTextv2" ~ "SaudiTextv2-Regular.otf",
+             conditionName=="beauty-SaudiTextv3" ~ "SaudiTextv3-Regular.otf",
+             TRUE ~ conditionName
+           )) %>%
+    filter(!is.na(measure)) %>%
+    select(participant, font, measure)
+  
+  familiarity_data <- df_list$QA %>%
+    filter(grepl('familiarity', tolower(questionAndAnswerNickname))) %>%
     mutate(measure = as.numeric(arabic_to_western(questionAndAnswerResponse)),
            font = case_when(
              conditionName=="beauty-Al-Awwal" ~ "Al-Awwal-Regular.ttf",
@@ -233,12 +254,13 @@ plot_font_comparison <- function(df_list) {
 
   # Build plots (ylims now dynamic—don’t pass them)
   plots <- list(
-    rsvp    = create_font_plot(rsvp_data,    "RSVP",   "RSVP Reading Speed (WPM)",           use_log_scale = TRUE,  use_geometric_mean = TRUE),
+    rsvp    = create_font_plot(rsvp_data,    "RSVP",   "RSVP Reading Speed (WPM)",            use_log_scale = TRUE,  use_geometric_mean = TRUE),
     crowding= create_font_plot(crowding_data,"Crowding","Crowding Distance (deg)",            use_log_scale = TRUE,  use_geometric_mean = TRUE),
     reading = create_font_plot(reading_data, "Reading","Ordinary Reading Speed (WPM)",        use_log_scale = TRUE,  use_geometric_mean = TRUE),
     acuity  = create_font_plot(acuity_data,  "Acuity", "Acuity Threshold (deg)",              use_log_scale = TRUE,  use_geometric_mean = TRUE),
     comfort = create_font_plot(comfort_data, "Comfort","Comfort Rating",                      use_log_scale = FALSE, use_geometric_mean = FALSE),
-    beauty  = create_font_plot(beauty_data,  "Beauty", "Beauty Rating",                       use_log_scale = FALSE, use_geometric_mean = FALSE)
+    beauty  = create_font_plot(beauty_data,  "Beauty", "Beauty Rating",                       use_log_scale = FALSE, use_geometric_mean = FALSE),
+    familiarity  = create_font_plot(familiarity_data,  "Familiarity", "Familiarity",          use_log_scale = FALSE, use_geometric_mean = FALSE)
   )
 
   return(plots)
