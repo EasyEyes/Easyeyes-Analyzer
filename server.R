@@ -1076,30 +1076,34 @@ shinyServer(function(input, output, session) {
       list(plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp), fname = 'reading-vs-RSVP-reading-plot'),
       list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade'),
       list(plot = plot_badLatenessTrials_vs_memory(files()$data_list,conditionNames()), fname="badLatenessTrials-vs-deviceMemoryGB-by-participant"),
-      list(plot = minDegPlots()$scatter, fname="foveal-crowding-vs-spacingMinDeg"),
-      list(plot = comfort_vs_crowding_scatter(df_list(), colorFont()), fname = 'comfort-vs-crowding-scatter'),
-      list(plot = beauty_vs_crowding_scatter(df_list(), colorFont()), fname = 'beauty-vs-crowding-scatter'),
-      list(plot = beauty_vs_comfort_scatter(df_list(), colorFont()), fname = 'beauty-vs-comfort-scatter'),
-      list(plot = familiarity_vs_crowding_scatter(df_list(), colorFont()), fname = 'familiarity-vs-crowding-scatter')
+      list(plot = minDegPlots()$scatter, fname="foveal-crowding-vs-spacingMinDeg")
     )
 
     for (call in plot_calls) {
       plot <- call$plot
       if (!is.null(plot)) {
-        # Keep custom font colors for these plots; don't override their color scales here
-        if (!(call$fname %in% c('comfort-vs-crowding-scatter',
-                                'beauty-vs-crowding-scatter',
-                                'beauty-vs-comfort-scatter',
-                                'familiarity-vs-crowding-scatter'))) {
-          plot <- plot + scale_color_manual(values = colorPalette)
-        } else {
-          plot <- plot
-        }
+        plot <- plot + scale_color_manual(values = colorPalette)
         plot <- add_experiment_title(plot, experiment_names())
+        res <- append_plot_list(l, fileNames, plot, call$fname)
+        l <- res$plotList
+        fileNames <- res$fileNames
       }
-      res <- append_plot_list(l, fileNames, plot, call$fname)
-      l <- res$plotList
-      fileNames <- res$fileNames
+    }
+    
+    comfort_beauty_plots <- list(
+      list(plot = comfort_vs_crowding_scatter(df_list(), colorFont()), fname = 'comfort-vs-crowding-scatter'),
+      list(plot = beauty_vs_crowding_scatter(df_list(), colorFont()), fname = 'beauty-vs-crowding-scatter'),
+      list(plot = beauty_vs_comfort_scatter(df_list(), colorFont()), fname = 'beauty-vs-comfort-scatter'),
+      list(plot = familiarity_vs_crowding_scatter(df_list(), colorFont()), fname = 'familiarity-vs-crowding-scatter')
+    )
+    
+    for (call in comfort_beauty_plots) {
+      if (!is.null(call$plot)) {
+        plot <- add_experiment_title(call$plot, experiment_names())
+        res <- append_plot_list(l, fileNames, plot, call$fname)
+        l <- res$plotList
+        fileNames <- res$fileNames
+      }
     }
 
     return(list(
@@ -2325,23 +2329,22 @@ shinyServer(function(input, output, session) {
           ),
           content = function(file) {
             if (input$fileType == "png") {
-              # 2.5 in at 360 dpi ≈ 900 px
               ggsave(
                 filename = file,
                 plot = plots[[jj]] + hist_theme,
                 device = ragg::agg_png,
-                width = 2.5,
-                height = 2.5,
+                width = 3.5,
+                height = 3.5,
                 units = "in",
-                dpi = 360,
+                dpi = 200,
                 limitsize = FALSE
               )
             } else {
               ggsave(
                 file,
                 plot   = plots[[jj]] + hist_theme,
-                width  = 2.5,
-                height = 2.5,
+                width  = 3.5,
+                height = 3.5,
                 units  = "in",
                 limitsize = FALSE,
                 device   = if (input$fileType == "svg") svglite::svglite else input$fileType
@@ -3348,8 +3351,7 @@ shinyServer(function(input, output, session) {
             ggsave(
               file = tmp_svg,
               plot = scatterDiagrams()$plotList[[ii]] +
-                plt_theme_scatter +
-                scale_color_manual(values = colorPalette),
+                plt_theme_scatter,
               width = 7,
               height = 7,
               unit = 'in',
@@ -3381,10 +3383,10 @@ shinyServer(function(input, output, session) {
               if (input$fileType == "png") {
                 ggsave(
                   filename = file,
-                  plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter + scale_color_manual(values = colorPalette),
+                  plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
                   device = ragg::agg_png,
-                  width = 12,
-                  height = 8,
+                  width = 7,
+                  height = 7,
                   units = "in",
                   dpi = 200,
                   limitsize = FALSE
@@ -3393,10 +3395,9 @@ shinyServer(function(input, output, session) {
                 ggsave(
                   file,
                   plot = scatterDiagrams()$plotList[[ii]] +
-                    plt_theme_scatter +
-                    scale_color_manual(values = colorPalette),
-                  width = 12,
-                  height = 8,
+                    plt_theme_scatter,
+                  width = 7,
+                  height = 7,
                   units = "in",
                   limitsize = F,
                   device = ifelse(

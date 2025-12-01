@@ -16,7 +16,7 @@ fontColors_perisan <- tibble(
   c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00",
   "#F781BF"),
   font = c("B-NAZANIN.TTF", "IranNastaliq.ttf", "Kalameh-Regular.ttf", "Mj-Hoor_0.ttf",
-           "Moalla.ttf", "Titr.bold.woff2")
+           "Titr.bold.woff2","Moalla.ttf")
 )
 
 reading_speed_vs_retention <- function(reading){
