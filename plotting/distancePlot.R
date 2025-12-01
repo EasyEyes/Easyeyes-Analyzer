@@ -33,6 +33,38 @@ safe_first_num <- function(x, digits = NULL) {
   if (is.null(digits)) as.character(x[1]) else format(round(x[1], digits), nsmall = digits)
 }
 
+coerce_to_logical <- function(x) {
+  vapply(x, function(val) {
+    if (is.null(val) || length(val) == 0 || is.na(val)) return(NA)
+    if (is.logical(val)) return(val[1])
+    if (is.numeric(val)) return(!is.na(val[1]) && val[1] != 0)
+    val_chr <- tolower(trimws(as.character(val[1])))
+    val_chr <- gsub("\\[|\\]|\"|'", "", val_chr)
+    val_chr <- strsplit(val_chr, ",")[[1]][1]
+    val_chr <- trimws(val_chr)
+    if (val_chr %in% c("true", "t", "1", "yes", "y")) return(TRUE)
+    if (val_chr %in% c("false", "f", "0", "no", "n")) return(FALSE)
+    return(NA)
+  }, logical(1))
+}
+
+extract_width_px <- function(res_str) {
+  vapply(res_str, function(val) {
+    if (is.null(val) || length(val) == 0 || is.na(val) || val == "") return(NA_real_)
+    clean <- gsub("\\[|\\]|\"|'", "", val[1])
+    parts <- unlist(strsplit(clean, "[,xX ]+"))
+    parts <- parts[nzchar(parts)]
+    if (length(parts) == 0) return(NA_real_)
+    nums <- suppressWarnings(as.numeric(parts))
+    nums <- nums[is.finite(nums)]
+    if (length(nums) == 0) return(NA_real_)
+    if (length(nums) >= 2) {
+      return(max(nums[1:2]))
+    }
+    return(nums[1])
+  }, numeric(1))
+}
+
 make_statement <- function(df) {
   paste(
     paste0("_calibrateTrackDistance = ",               safe_first(df[["_calibrateTrackDistance"]])),
@@ -943,6 +975,10 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     
     # -------- distance check median factorVpxCm --------
     if ("distanceCheckJSON" %in% names(dl)) {
+      check_bool_val <- NA
+      if ("_calibrateTrackDistanceCheckBool" %in% names(dl)) {
+        check_bool_val <- coerce_to_logical(get_first_non_na(dl$`_calibrateTrackDistanceCheckBool`))
+      }
       tryCatch({
         raw_json <- get_first_non_na(dl$distanceCheckJSON)
         json_txt <- sanitize_json_string(raw_json)
@@ -962,8 +998,9 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           if (length(measuredFactorVpxCmVals) > 0) {
             medianFactorVpxCm <- median(measuredFactorVpxCmVals)
             t <- dl %>%
-              mutate(medianFactorVpxCm = medianFactorVpxCm) %>%
-              select(participant, medianFactorVpxCm) %>%
+              mutate(medianFactorVpxCm = medianFactorVpxCm,
+                     calibrateTrackDistanceCheckBool = check_bool_val) %>%
+              select(participant, medianFactorVpxCm, calibrateTrackDistanceCheckBool) %>%
               rename(PavloviaParticipantID = participant) %>%
               distinct() %>%
               filter(!is.na(medianFactorVpxCm))
@@ -2827,6 +2864,170 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
+  # Plot 11: Histogram and scatter of fVpx/widthVpx for distance check sessions
+  fvpx_over_width_hist <- NULL
+  fvpx_over_width_scatter <- NULL
+  fvpx_over_width_data <- tibble()
+  fvpx_over_width_max_count <- 0
+  if ("check_factor" %in% names(distanceCalibrationResults) &&
+      "camera" %in% names(distanceCalibrationResults) &&
+      nrow(distanceCalibrationResults$check_factor) > 0 &&
+      nrow(distanceCalibrationResults$camera) > 0) {
+    
+    check_data <- distanceCalibrationResults$check_factor
+    if (!"calibrateTrackDistanceCheckBool" %in% names(check_data)) {
+      check_data <- check_data %>% mutate(calibrateTrackDistanceCheckBool = NA)
+    }
+    
+    check_data <- check_data %>%
+      mutate(
+        calibrateTrackDistanceCheckBool = coerce_to_logical(calibrateTrackDistanceCheckBool),
+        medianFactorVpxCm = suppressWarnings(as.numeric(medianFactorVpxCm))
+      ) %>%
+      filter(!is.na(calibrateTrackDistanceCheckBool),
+             calibrateTrackDistanceCheckBool,
+             !is.na(medianFactorVpxCm),
+             is.finite(medianFactorVpxCm))
+    
+    if (nrow(check_data) > 0) {
+      ipd_cm_assumed <- 6.3
+      fvpx_over_width_data <- check_data %>%
+        left_join(distanceCalibrationResults$camera %>%
+                    select(PavloviaParticipantID, cameraResolutionXY),
+                  by = "PavloviaParticipantID") %>%
+        mutate(
+          widthVpx = extract_width_px(cameraResolutionXY), # take largest of first two resolution entries as horizontal width
+          widthVpx = suppressWarnings(as.numeric(widthVpx)),
+          fvpx_over_width = medianFactorVpxCm / (ipd_cm_assumed * widthVpx)
+        ) %>%
+        filter(!is.na(widthVpx), widthVpx > 0,
+               !is.na(fvpx_over_width), is.finite(fvpx_over_width)) %>%
+        mutate(participant = PavloviaParticipantID)
+      
+      if (nrow(fvpx_over_width_data) > 0) {
+        # Histogram (dot-stacked)
+        bin_width <- 0.02
+        fvpx_over_width_data <- fvpx_over_width_data %>%
+          mutate(
+            bin_center = floor(fvpx_over_width / bin_width) * bin_width + bin_width/2
+          ) %>%
+          arrange(bin_center, participant) %>%
+          group_by(bin_center) %>%
+          mutate(
+            stack_position = row_number(),
+            dot_y = stack_position
+          ) %>%
+          ungroup()
+        
+        fvpx_over_width_max_count <- max(fvpx_over_width_data$dot_y)
+        x_min <- min(fvpx_over_width_data$bin_center, na.rm = TRUE)
+        x_max <- max(fvpx_over_width_data$bin_center, na.rm = TRUE)
+        
+        p11 <- ggplot(fvpx_over_width_data, aes(x = fvpx_over_width)) +
+          geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                              label = statement, size = 3, family = "sans", fontface = "plain") +
+          scale_color_manual(values = colorPalette) +
+          scale_y_continuous(
+            limits = c(0, max(8, fvpx_over_width_max_count + 1)),
+            expand = expansion(mult = c(0, 0.1)),
+            breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+          ) +
+          scale_x_continuous(limits = c(x_min, x_max)) +
+          ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                              label = paste0('N=', n_distinct(fvpx_over_width_data$participant),
+                                             '\nipdCm = ', ipd_cm_assumed),
+                              size = 3, family = "sans", fontface = "plain") +
+          guides(color = guide_legend(
+            ncol = 3,
+            title = "",
+            override.aes = list(size = 2),
+            keywidth = unit(0.3, "cm"),
+            keyheight = unit(0.3, "cm")
+          )) +
+          labs(
+            subtitle = 'Histogram of fVpx/widthVpx',
+            x = "fVpx/widthVpx",
+            y = "Count",
+            caption = paste0('fVpx/widthVpx = median(factorVpxCm)/(', ipd_cm_assumed, ' x camera widthVpx) during distance checking')
+          ) +
+          theme_bw() +
+          theme(
+            legend.key.size = unit(0, "mm"),
+            legend.title = element_text(size = 7),
+            legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+            legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+            legend.box.spacing = unit(0, "lines"),
+            legend.spacing.y = unit(-10, "lines"),
+            legend.spacing.x = unit(0, "lines"),
+            legend.key.height = unit(0, "lines"),
+            legend.key.width = unit(0, "mm"),
+            legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+            legend.margin = margin(0, 0, 0, 0),
+            legend.position = "top",
+            legend.box = "vertical",
+            legend.justification = 'left',
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(),
+            panel.background = element_blank(),
+            axis.title = element_text(size = 12),
+            axis.text = element_text(size = 12),
+            axis.line = element_line(colour = "black"),
+            axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+            axis.text.y = element_text(size = 10),
+            plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+            plot.title.position = "plot",
+            plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+            plot.caption = element_text(size = 10),
+            plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+            strip.text = element_text(size = 14)
+          )
+        
+        fvpx_over_width_hist <- list(
+          plot = p11,
+          height = compute_auto_height(base_height = 1.5, n_items = n_distinct(fvpx_over_width_data$participant), per_row = 3, row_increase = 0.05) +
+            0.24 * max(fvpx_over_width_max_count, 8)
+        )
+        
+        median_ratio_fw <- median(fvpx_over_width_data$fvpx_over_width, na.rm = TRUE)
+        p12 <- ggplot(fvpx_over_width_data, aes(x = widthVpx, y = fvpx_over_width)) +
+          geom_point(aes(color = participant), size = 3, alpha = 0.85) +
+          geom_hline(yintercept = median_ratio_fw, linetype = "dashed") +
+          ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
+                              label = paste0('N=', n_distinct(fvpx_over_width_data$participant),
+                                             '\nmedian=', format(round(median_ratio_fw, 3), nsmall = 3)),
+                              size = 3) +
+          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+          scale_color_manual(values = colorPalette) +
+          scale_x_continuous(expand = expansion(mult = c(0.02, 0.05)),
+                             breaks = scales::pretty_breaks(n = 6)) +
+          scale_y_continuous(expand = expansion(mult = c(0.05, 0.1)),
+                             breaks = scales::pretty_breaks(n = 6)) +
+          labs(
+            subtitle = 'fVpx/widthVpx vs. camera width',
+            x = 'Camera width (px)',
+            y = 'fVpx/widthVpx',
+            caption = 'One point per session with distance checking enabled (_calibrateTrackDistanceCheckBool = TRUE)'
+          ) +
+          theme_classic() +
+          theme(
+            legend.position = "right",
+            legend.box = "vertical",
+            legend.justification = "left",
+            legend.text = element_text(size = 6),
+            legend.spacing.y = unit(0, "lines"),
+            legend.key.size = unit(0.4, "cm"),
+            plot.margin = margin(5, 5, 5, 5, "pt")
+          )
+        
+        fvpx_over_width_scatter <- list(
+          plot = p12,
+          height = compute_auto_height(base_height = 7, n_items = n_distinct(fvpx_over_width_data$participant), per_row = 3, row_increase = 0.06)
+        )
+      }
+    }
+  }
+  
   # Calculate heights based on legend complexity
   n_participants <- n_distinct(distance_individual$participant)
   base_height <- 7
@@ -2871,7 +3072,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         compute_auto_height(base_height = 1.5, n_items = n_distinct(raw_factor_data$participant), per_row = 3, row_increase = 0.05) +
           0.24 * max(p10_max_count, 8)
       } else NULL
-    )
+    ),
+    fvpx_over_width_hist = fvpx_over_width_hist,
+    fvpx_over_width_scatter = fvpx_over_width_scatter
   ))
 }
 
@@ -3964,4 +4167,3 @@ bs_vd_hist <- function(data_list) {
     sd_plot = list(plot = p2, height = plot_height)
   ))
 }
-
