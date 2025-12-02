@@ -37,7 +37,8 @@ ordinary_mean_se <- function(x) {
 }
 
 # Main function to create font comparison plots (fixed)
-plot_font_comparison <- function(df_list) {
+# font_colors_map: optional tibble with columns font,color OR named vector font->color
+plot_font_comparison <- function(df_list, font_colors_map = NULL) {
   # Extract data for each measure
   crowding_data <- df_list$crowding %>%
     mutate(measure = 10^log_crowding_distance_deg) %>%
@@ -134,12 +135,33 @@ plot_font_comparison <- function(df_list) {
      font_levels <- summary_data %>% arrange(font) %>% pull(font) %>% as.character()
      summary_data$font <- factor(summary_data$font, levels = font_levels)
 
-    # colors (assume you have font_color_palette; fallback to rainbow)
-    font_colors <- if (exists("font_color_palette")) {
-      font_color_palette(levels(summary_data$font))
+    # colors from provided mapping; fallback if missing
+    if (!is.null(font_colors_map)) {
+      if (is.data.frame(font_colors_map) && all(c("font","color") %in% names(font_colors_map))) {
+        cols_map <- stats::setNames(font_colors_map$color, font_colors_map$font)
+      } else if (is.vector(font_colors_map) && !is.null(names(font_colors_map))) {
+        cols_map <- font_colors_map
+      } else {
+        cols_map <- NULL
+      }
     } else {
-      cols <- grDevices::rainbow(length(levels(summary_data$font)))
-      names(cols) <- levels(summary_data$font); cols
+      cols_map <- NULL
+    }
+    needed <- levels(summary_data$font)
+    if (!is.null(cols_map)) {
+      # Use mapped where available, fill missing with a palette
+      missing <- setdiff(needed, names(cols_map))
+      if (length(missing) > 0) {
+        fill <- grDevices::rainbow(length(missing))
+        names(fill) <- missing
+        cols_map <- c(cols_map, fill)
+      }
+      font_colors <- cols_map[needed]
+      names(font_colors) <- needed
+    } else {
+      cols <- grDevices::rainbow(length(needed))
+      names(cols) <- needed
+      font_colors <- cols
     }
 
     # ---- dynamic y-limits ----

@@ -96,7 +96,7 @@ prepare_regression_acuity <- function(df_list){
   
   return(dt)
 }
-regression_reading_plot <- function(df_list){
+regression_reading_plot <- function(df_list, font_colors_map = NULL){
   t <- prepare_regression_data(df_list)
   # Foveal subset (unchanged)
   foveal <- t %>%
@@ -104,9 +104,32 @@ regression_reading_plot <- function(df_list){
   
   p1 <- NULL
   if (nrow(foveal) > 0) {
-    p1 <- ggplot(foveal, aes(x = crowding_distance, 
-                             y = 10^(avg_log_WPM), 
-                             color = paste(targetKind, font),
+    # Build simple label per font for foveal
+    foveal_stats <- foveal %>%
+      group_by(font) %>%
+      summarise(N = n(), .groups = "drop") %>%
+      mutate(label = paste0(font, ", N=", N))
+    foveal <- foveal %>%
+      mutate(font_label = factor(font,
+                                 levels = foveal_stats$font,
+                                 labels = foveal_stats$label))
+    # Base colors by font
+    base_cols <- NULL
+    if (!is.null(font_colors_map)) {
+      if (is.data.frame(font_colors_map) && all(c("font","color") %in% names(font_colors_map))) {
+        base_cols <- stats::setNames(font_colors_map$color, font_colors_map$font)
+      } else if (is.vector(font_colors_map) && !is.null(names(font_colors_map))) {
+        base_cols <- font_colors_map
+      }
+    }
+    # Map label -> color via font
+    foveal_label_cols <- NULL
+    if (!is.null(base_cols)) {
+      foveal_label_cols <- stats::setNames(base_cols[foveal_stats$font], foveal_stats$label)
+    }
+    p1 <- ggplot(foveal, aes(x = crowding_distance,
+                             y = 10^(avg_log_WPM),
+                             color = font_label,
                              shape = targetKind)) +
       geom_point() +
       geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
@@ -130,6 +153,16 @@ regression_reading_plot <- function(df_list){
         axis.text.x = element_text(angle = 45, hjust = 1),
         plot.margin     = margin(10, 10, 10, 10)
       )
+    if (!is.null(foveal_label_cols)) {
+      foveal_levels <- names(foveal_label_cols)
+      foveal$font_label <- factor(foveal$font_label, levels = foveal_levels)
+      p1 <- p1 + scale_color_manual(
+        values = foveal_label_cols,
+        breaks = foveal_levels,
+        limits = foveal_levels,
+        drop = FALSE
+      )
+    }
   }
   
   # Peripheral subset with new legend + subtitle
@@ -159,7 +192,7 @@ regression_reading_plot <- function(df_list){
       full_join(rsvp_stats, by = "font") %>%
       mutate(
         font_safe = ifelse(is.na(font), "", font),
-        N_safe = ifelse(is.na(N.x), "NA", as.character(N.y)),
+        N_safe = ifelse(is.na(N.x), as.character(N.y), as.character(N.x)),
         R_reading = ifelse(is.na(R.x), "NA", sprintf("%.2f", R.x)),
         R_rsvp = ifelse(is.na(R.y), "NA", sprintf("%.2f", R.y)),
         label = paste0(font_safe, ", N=", N_safe, ", R_reading=", R_reading, ", R_rsvp=", R_rsvp)
@@ -179,6 +212,22 @@ regression_reading_plot <- function(df_list){
     eccs_int <- as.integer(round(eccs))
     ecc_label <- paste0("X ecc = ", paste(eccs_int, collapse = ", "), " deg")
     
+    # Build label -> color mapping via base font colors
+    base_cols <- NULL
+    if (!is.null(font_colors_map)) {
+      if (is.data.frame(font_colors_map) && all(c("font","color") %in% names(font_colors_map))) {
+        base_cols <- stats::setNames(font_colors_map$color, font_colors_map$font)
+      } else if (is.vector(font_colors_map) && !is.null(names(font_colors_map))) {
+        base_cols <- font_colors_map
+      }
+    }
+    label_cols <- NULL
+    if (!is.null(base_cols)) {
+      label_cols <- stats::setNames(base_cols[stats_font$font], stats_font$label)
+    }
+    # ensure factor levels strictly follow stats_font order
+    label_levels <- stats_font$label
+    peripheral$font_label <- factor(peripheral$font_label, levels = label_levels)
     p2 <- ggplot(data= peripheral) +
       geom_point(aes(
         x = crowding_distance,
@@ -212,6 +261,16 @@ regression_reading_plot <- function(df_list){
         axis.text.x = element_text(angle = 45, hjust = 1),
         plot.margin     = margin(10, 10, 10, 10)
       )
+    if (!is.null(label_cols)) {
+      p2 <- p2 + scale_color_manual(
+        values = label_cols,
+        breaks = label_levels,
+        limits = label_levels,
+        drop = FALSE
+      )
+    } else {
+      p2 <- p2 + scale_color_manual(values = colorPalette)
+    }
   }
   
   return(list(foveal = p1, peripheral = p2))

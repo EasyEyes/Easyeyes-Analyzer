@@ -749,7 +749,7 @@ shinyServer(function(input, output, session) {
     print('inside font comparison plots')
     l <- list()
     fileNames <- list()
-    font_comparisons <- plot_font_comparison(df_list())
+    font_comparisons <- plot_font_comparison(df_list(), colorFont())
     plot_calls <- list(
       list(plot = font_comparisons$reading, fname = 'reading-font-comparison-plot'),
       list(plot = font_comparisons$rsvp, fname = 'rsvp-font-comparison-plot'),
@@ -1052,7 +1052,7 @@ shinyServer(function(input, output, session) {
     foveal_crowding_acuity_plots <- foveal_crowding_vs_acuity_diag()
     peripheral_plots <- peripheral_plot(df_list())
     #crowding_vs_acuity_plots <- crowding_vs_acuity_plot(df_list())
-    regression_plots <- regression_reading_plot(df_list())
+    regression_plots <- regression_reading_plot(df_list(), colorFont())
     test_retest_plots <- get_test_retest(df_list())
   aud_plots <- plot_auditory_crowding(df_list()$quest_all_thresholds, df_list()$crowding)
     
@@ -1383,20 +1383,22 @@ shinyServer(function(input, output, session) {
   
   #### color font ####
   colorFont <- reactive({
-    # Collect fonts from available datasets and return a tibble(font, color)
+    # Collect fonts from all relevant datasets and return a tibble(font, color)
     fonts <- unique(na.omit(c(
-      if ('quest' %in% names(df_list())) df_list()$quest$font else NULL,
-      if ('reading' %in% names(df_list())) df_list()$reading$font else NULL
+      if ('quest'        %in% names(df_list())) df_list()$quest$font else NULL,
+      if ('reading'      %in% names(df_list())) df_list()$reading$font else NULL,
+      if ('comfort'      %in% names(df_list())) df_list()$comfort$font else NULL,
+      if ('beauty'       %in% names(df_list())) df_list()$beauty$font else NULL,
+      if ('familiarity'  %in% names(df_list())) df_list()$familiarity$font else NULL
     )))
     fonts <- fonts[fonts != ""]
     if (length(fonts) == 0) {
       return(tibble(font = character(), color = character()))
     }
+    # Assign colors deterministically by sorted font order
+    fonts <- sort(unique(fonts))
     cols <- rep(colorPalette, length.out = length(fonts))
-    t <- tibble(font = fonts, color = cols)
-    print("color font")
-    print(t)
-    return(t)
+    tibble(font = fonts, color = cols)
   })
   #### cameraResolutionXYTable ####
   
