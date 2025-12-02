@@ -158,22 +158,8 @@ comfort_vs_crowding_scatter <- function(df_list, font_colors = NULL) {
 # Scatter plot: Beauty vs Crowding  
 beauty_vs_crowding_scatter <- function(df_list, font_colors = NULL) {
   # Get beauty data from QA
-  beauty_data <- df_list$QA %>%
-    filter(grepl('bty', tolower(questionAndAnswerNickname))) %>%
-    mutate(beauty_rating = as.numeric(arabic_to_western(questionAndAnswerResponse)),
-           font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
-                            conditionName=="beauty-majalla" ~"majalla.ttf",
-                            conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
-                            conditionName=="beauty-Nazanin" ~"B-NAZANIN.TTF",
-                            conditionName=="beauty-Titr" ~ "Titr.bold.woff2",
-                            conditionName=="beauty-Kalameh" ~ "Kalameh-Regular.ttf",
-                            conditionName=="beauty-IranNastaliq" ~ "IranNastaliq.ttf",
-                            conditionName=="beauty-Moalla" ~ "Moalla.ttf",
-                            conditionName=="beauty-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
-                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.ttf",
-                            TRUE ~ conditionName)) %>%
+  beauty_data <- df_list$beauty %>%
+    mutate(beauty_rating = questionAndAnswerResponse) %>%
     filter(!is.na(beauty_rating)) %>%
     group_by(participant, font) %>%
     summarize(beauty_rating = mean(beauty_rating), .groups = "drop")
@@ -250,51 +236,19 @@ beauty_vs_crowding_scatter <- function(df_list, font_colors = NULL) {
 # Scatter plot: Beauty vs Comfort
 beauty_vs_comfort_scatter <- function(df_list, font_colors = NULL) {
   # Get beauty data from QA
-  beauty_data <- df_list$QA %>%
-    filter(grepl('bty', tolower(questionAndAnswerNickname))) %>%
-    mutate(beauty_rating = as.numeric(arabic_to_western(questionAndAnswerResponse)),
-           font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
-                            conditionName=="beauty-majalla" ~"majalla.ttf",
-                            conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
-                            conditionName=="beauty-Nazanin" ~"B-NAZANIN.TTF",
-                            conditionName=="beauty-Titr" ~ "Titr.bold.woff2",
-                            conditionName=="beauty-Kalameh" ~ "Kalameh-Regular.ttf",
-                            conditionName=="beauty-IranNastaliq" ~ "IranNastaliq.ttf",
-                            conditionName=="beauty-Moalla" ~ "Moalla.ttf",
-                            conditionName=="beauty-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
-                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.ttf",
-                            TRUE ~ conditionName)) %>%
+  beauty_data <- df_list$beauty %>%
+    mutate(beauty_rating = questionAndAnswerResponse) %>%
     filter(!is.na(beauty_rating)) %>%
     group_by(participant, font) %>%
     summarize(beauty_rating = mean(beauty_rating), .groups = "drop")
-  
+
   # Get comfort data from QA
-  comfort_data <- df_list$QA %>%
-     filter(!is.na(questionAndAnswerNickname) & substr(questionAndAnswerNickname, 1, 5) == "CMFRT") %>%
-    mutate(comfort_rating = as.numeric(arabic_to_western(questionAndAnswerResponse)),
-           font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
-                            questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.otf",
-                            questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.otf",
-                            questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.otf",
-                            questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRTB-Nazanin" ~ "B-NAZANIN.TTF",
-                            questionAndAnswerNickname=="CMFRT-Nazanin" ~ "B-NAZANIN.TTF",
-                            questionAndAnswerNickname=="CMFRT-Titr" ~ "Titr.bold.woff2",
-                            questionAndAnswerNickname=="CMFRT-Kalameh" ~ "Kalameh-Regular.ttf",
-                            questionAndAnswerNickname=="CMFRT-IranNastaliq" ~ "IranNastaliq.ttf",
-                            questionAndAnswerNickname=="CMFRT-Moalla" ~ "Moalla.ttf",
-                            questionAndAnswerNickname=="CMFRT-MJ_Hoor" ~ "Mj-Hoor_0.ttf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
-                            questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
-                            TRUE ~ questionAndAnswerNickname  # fallback for any unmatched cases
-           )) %>%
+  comfort_data <- df_list$comfort %>%
+    mutate(comfort_rating = questionAndAnswerResponse) %>%
     filter(!is.na(comfort_rating)) %>%
     group_by(participant, font) %>%
     summarize(comfort_rating = mean(comfort_rating), .groups = "drop")
+  
   
   # Join beauty and comfort data (only for common fonts)
   combined_data <- beauty_data %>%
@@ -360,22 +314,8 @@ beauty_vs_comfort_scatter <- function(df_list, font_colors = NULL) {
 # Scatter plot: Beauty vs Crowding  
 familiarity_vs_crowding_scatter <- function(df_list, font_colors = NULL) {
   # Get beauty data from QA
-  familiarity_data <- df_list$QA %>%
-    filter(grepl('familiarity', tolower(questionAndAnswerNickname))) %>%
-    mutate(familiarity = as.numeric(arabic_to_western(questionAndAnswerResponse)),
-           font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
-                            conditionName=="beauty-majalla" ~"majalla.ttf",
-                            conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
-                            conditionName=="beauty-Nazanin" ~"B-NAZANIN.TTF",
-                            conditionName=="beauty-Titr" ~ "Titr.bold.woff2",
-                            conditionName=="beauty-Kalameh" ~ "Kalameh-Regular.ttf",
-                            conditionName=="beauty-IranNastaliq" ~ "IranNastaliq.ttf",
-                            conditionName=="beauty-Moalla" ~ "Moalla.ttf",
-                            conditionName=="beauty-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
-                            conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.ttf",
-                            conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.ttf",
-                            TRUE ~ conditionName)) %>%
+  familiarity_data <- df_list$familiarity %>%
+    mutate(familiarity = questionAndAnswerResponse) %>%
     filter(!is.na(familiarity)) %>%
     group_by(participant, font) %>%
     summarize(familiarity = mean(familiarity), .groups = "drop")

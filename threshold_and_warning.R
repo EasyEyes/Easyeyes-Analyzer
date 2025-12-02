@@ -747,15 +747,77 @@ generate_threshold <-
     
     #### Generate ratings summary stat table ####
     
-    ratings <- QA %>% 
+    ratings_raw <- QA %>% 
       select(-c(questionAndAnswerQuestion,questionAndAnswerCorrectAnswer)) %>% 
       mutate(questionAndAnswerResponse = as.numeric(arabic_to_western(questionAndAnswerResponse))) %>% 
       filter(!is.na(questionAndAnswerResponse)) %>% 
-      group_by(block, block_condition, conditionName, questionAndAnswerNickname) %>% 
-      summarize(`mean rating` = mean(questionAndAnswerResponse, rm.na = T), .groups = "drop") %>% 
-      mutate(`mean rating` = ifelse(questionAndAnswerNickname == 'BirthYear', year(today()) - `mean rating`,`mean rating`)) %>% 
-      arrange(block, block_condition) %>% 
-      select(-block)
+      mutate(type =  case_when(substr(questionAndAnswerNickname, 1, 5) == "CMFRT" ~ "CMFRT",
+                               grepl('bty', tolower(questionAndAnswerNickname))   ~ "BTY",
+                               grepl('familiarity', tolower(questionAndAnswerNickname)) ~ "FAMILIARITY",
+                               .default = "")) 
+
+    comfort <- ratings_raw %>% 
+      filter(type == "CMFRT") %>% 
+      mutate(font = case_when(questionAndAnswerNickname=="CMFRTAlAwwal" ~"Al-Awwal-Regular.ttf",
+                               questionAndAnswerNickname=="CMFRTmajalla" ~"majalla.ttf",
+                               questionAndAnswerNickname=="CMFRTAmareddine" ~"SaudiTextv1-Regular.otf",
+                               questionAndAnswerNickname=="CMFRTMakdessi" ~"SaudiTextv2-Regular.otf",
+                               questionAndAnswerNickname=="CMFRTKafa" ~"SaudiTextv3-Regular.otf",
+                               questionAndAnswerNickname=="CMFRTSaudi" ~"Saudi-Regular.ttf",
+                               questionAndAnswerNickname=="CMFRTB-Nazanin" ~ "B-NAZANIN.TTF",
+                               questionAndAnswerNickname=="CMFRT-Nazanin" ~ "B-NAZANIN.TTF",
+                               questionAndAnswerNickname=="CMFRT-Titr" ~ "Titr.bold.woff2",
+                               questionAndAnswerNickname=="CMFRT-Kalameh" ~ "Kalameh-Regular.ttf",
+                               questionAndAnswerNickname=="CMFRT-IranNastaliq" ~ "IranNastaliq.ttf",
+                               questionAndAnswerNickname=="CMFRT-Moalla" ~ "Moalla.ttf",
+                               questionAndAnswerNickname=="CMFRT-MJ_Hoor" ~ "Mj-Hoor_0.ttf",
+                               questionAndAnswerNickname=="CMFRTSaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                               questionAndAnswerNickname=="CMFRTSaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                               questionAndAnswerNickname=="CMFRTSaudiTextv3" ~"SaudiTextv3-Regular.otf",
+                               TRUE ~ questionAndAnswerNickname  # fallback for any unmatched cases
+                               ))
+    
+    beauty <- ratings_raw %>% 
+      filter(type == "BTY") %>% 
+      mutate(font = case_when(conditionName=="beauty-Al-Awwal" ~"Al-Awwal-Regular.ttf",
+                       conditionName=="beauty-majalla" ~"majalla.ttf",
+                       conditionName=="beauty-Saudi" ~"Saudi-Regular.ttf",
+                       conditionName=="beauty-Nazanin" ~"B-NAZANIN.TTF",
+                       conditionName=="beauty-Titr" ~ "Titr.bold.woff2",
+                       conditionName=="beauty-Kalameh" ~ "Kalameh-Regular.ttf",
+                       conditionName=="beauty-IranNastaliq" ~ "IranNastaliq.ttf",
+                       conditionName=="beauty-Moalla" ~ "Moalla.ttf",
+                       conditionName=="beauty-MJ-Hoor" ~ "Mj-Hoor_0.ttf",
+                       conditionName=="beauty-SaudiTextv1" ~"SaudiTextv1-Regular.otf",
+                       conditionName=="beauty-SaudiTextv2" ~"SaudiTextv2-Regular.otf",
+                       conditionName=="beauty-SaudiTextv3" ~"SaudiTextv3-Regular.otf",
+                       TRUE ~ conditionName  # fallback for any unmatched cases
+      ))
+    
+    familiarity <- ratings_raw %>% 
+      filter(type == "FAMILIARITY") %>% 
+      mutate(font = case_when(
+        conditionName=="beauty-Al-Awwal" ~ "Al-Awwal-Regular.ttf",
+        conditionName=="beauty-majalla" ~ "majalla.ttf",
+        conditionName=="beauty-Saudi" ~ "Saudi-Regular.ttf",
+        conditionName=="beauty-Nazanin" ~ "B-NAZANIN.TTF",
+        conditionName=="beauty-Titr" ~ "Titr.bold.woff2",
+        conditionName=="beauty-Kalameh" ~ "Kalameh-Regular.ttf",
+        conditionName=="beauty-IranNastaliq" ~ "IranNastaliq.ttf",
+        conditionName=="beauty-Moalla" ~ "Moalla.ttf",
+        conditionName=="beauty-MJ_Hoor" ~ "Mj-Hoor_0.ttf",
+        conditionName=="beauty-SaudiTextv1" ~ "SaudiTextv1-Regular.otf",
+        conditionName=="beauty-SaudiTextv2" ~ "SaudiTextv2-Regular.otf",
+        conditionName=="beauty-SaudiTextv3" ~ "SaudiTextv3-Regular.otf",
+        TRUE ~ conditionName
+      ))
+
+    ratings <- rbind(comfort,beauty,familiarity) %>% 
+      group_by(type,font) %>% 
+      summarize(N = n(),
+                Mean = mean(questionAndAnswerResponse,na.rm = T),
+                SD = sd(questionAndAnswerResponse, na.rm = T))
+    
     
     
     threshold_all <- all_summary %>%
@@ -880,6 +942,9 @@ generate_threshold <-
                 threshold_each = threshold_each, 
                 all_summary = all_summary,
                 ratings = ratings,
+                comfort = comfort,
+                beauty = beauty,
+                familiarity = familiarity,
                 QA = QA %>% select(-block),
                 participant_info = participant_info,
                 reading_pre = reading_pre

@@ -5723,6 +5723,19 @@ shinyServer(function(input, output, session) {
     }
   )
   
+  output$ratingSummary <- downloadHandler(
+    filename = function() {
+      ifelse(
+        experiment_names() == "",
+        "RatingSummary.xlsx",
+        paste0(get_short_experiment_name(experiment_names()), "RatingSummary.xlsx")
+      )
+    },
+    content = function(filename) {
+      openxlsx::write.xlsx(df_list()$ratings, file = filename)  # Using openxlsx
+    }
+  )
+  
   output$`sound_data` <- downloadHandler(
     filename = function() {
       ifelse(
