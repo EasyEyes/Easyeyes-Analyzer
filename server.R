@@ -803,6 +803,26 @@ shinyServer(function(input, output, session) {
       )
     }
     
+    # Add raw factorVpxCm histogram if available (2nd)
+    if (!is.null(dist_plots$raw_factorVpxCm_hist) &&
+        !is.null(dist_plots$raw_factorVpxCm_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = dist_plots$raw_factorVpxCm_hist$plot,
+        height = dist_plots$raw_factorVpxCm_hist$height,
+        fname = 'raw-factorVpxCm-over-remeasured-histogram'
+      )
+    }
+    
+    # Add fVpx/widthVpx histogram if available (3rd)
+    if (!is.null(dist_plots$fvpx_over_width_hist) &&
+        !is.null(dist_plots$fvpx_over_width_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = dist_plots$fvpx_over_width_hist$plot,
+        height = dist_plots$fvpx_over_width_hist$height,
+        fname = 'fvpx-over-horizontalVpx-histogram'
+      )
+    }
+    
     # Add raw pxPerCm histogram if available
     if (!is.null(dist_plots$raw_pxPerCm_hist) &&
         !is.null(dist_plots$raw_pxPerCm_hist$plot)) {
@@ -820,26 +840,6 @@ shinyServer(function(input, output, session) {
         plot = dist_plots$raw_objectMeasuredCm_hist$plot,
         height = dist_plots$raw_objectMeasuredCm_hist$height,
         fname = 'raw-objectMeasuredCm-over-median-histogram'
-      )
-    }
-    
-    # Add raw factorVpxCm histogram if available
-    if (!is.null(dist_plots$raw_factorVpxCm_hist) &&
-        !is.null(dist_plots$raw_factorVpxCm_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = dist_plots$raw_factorVpxCm_hist$plot,
-        height = dist_plots$raw_factorVpxCm_hist$height,
-        fname = 'raw-factorVpxCm-over-remeasured-histogram'
-      )
-    }
-    
-    # Add fVpx/widthVpx histogram if available
-    if (!is.null(dist_plots$fvpx_over_width_hist) &&
-        !is.null(dist_plots$fvpx_over_width_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = dist_plots$fvpx_over_width_hist$plot,
-        height = dist_plots$fvpx_over_width_hist$height,
-        fname = 'fvpx-over-widthVpx-histogram'
       )
     }
     

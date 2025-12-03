@@ -497,27 +497,23 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
       )
     ) %>%
     mutate(
-      # Parse camera height px from cameraResolutionXY string; take the first numeric entry
-      cameraResolution_clean = ifelse(is.na(cameraResolutionXY) | cameraResolutionXY == "", NA_character_, gsub("\\[|\\]|\"|'", "", cameraResolutionXY)),
-      cameraResolution_split = ifelse(is.na(cameraResolution_clean), NA, cameraResolution_clean),
-      cameraResolution_split = ifelse(is.na(cameraResolution_split), list(NA_character_), strsplit(cameraResolution_clean, "[,xX ]+")),
-      cameraHeightPx = suppressWarnings(as.numeric(sapply(cameraResolution_split, function(v) if (length(v) >= 1) trimws(v[1]) else NA_character_))),
       # Coerce to numeric to avoid non-numeric errors during division
       factorVpxCm = suppressWarnings(as.numeric(factorVpxCm)),
-      cameraHeightPx = suppressWarnings(as.numeric(cameraHeightPx)),
-      ratio_tmp = ifelse(!is.na(factorVpxCm) & !is.na(cameraHeightPx) & cameraHeightPx != 0,
-                         factorVpxCm / cameraHeightPx, NA_real_),
-      ratio_round = round(ratio_tmp, 1),
-      `factorVpxCm/cameraHeightPx` = ifelse(is.na(ratio_round), NA_character_, format(ratio_round, nsmall = 1)),
-      # Add new column: factorVpxCm/median(factorVpxCm)
+      # Rename factorVpxCm to fVpx*ipdCm/horizontalVpx (same value, new name)
+      `fVpx*ipdCm/horizontalVpx` = factorVpxCm,
+      # Add new column: fVpx*ipdCm / median(fVpx*ipdCm)
       ratio_over_median_tmp = ifelse(!is.na(factorVpxCm) & !is.na(median_factorVpxCm) & median_factorVpxCm != 0,
                                       factorVpxCm / median_factorVpxCm, NA_real_),
       ratio_over_median_round = round(ratio_over_median_tmp, 3),
-      `factorVpxCm/median(factorVpxCm)` = ifelse(is.na(ratio_over_median_round), NA_character_, format(ratio_over_median_round, nsmall = 3))
+      `fVpx*ipdCm / median(fVpx*ipdCm)` = ifelse(is.na(ratio_over_median_round), NA_character_, format(ratio_over_median_round, nsmall = 3))
     ) %>%
-    select(-cameraResolution_clean, -cameraResolution_split, -ratio_tmp, -ratio_round, -cameraHeightPx, -ratio_over_median_tmp, -ratio_over_median_round) %>%
+    select(-factorVpxCm, -ratio_over_median_tmp, -ratio_over_median_round) %>%
     arrange(ok_priority, PavloviaParticipantID) %>%
     select(-ok_priority) %>%
+    # Move the two fVpx columns side by side
+    {if("fVpx*ipdCm/horizontalVpx" %in% names(.) && "fVpx*ipdCm / median(fVpx*ipdCm)" %in% names(.)) 
+       relocate(., `fVpx*ipdCm / median(fVpx*ipdCm)`, .after = `fVpx*ipdCm/horizontalVpx`)
+     else .} %>%
     # Move Object and Comment columns to the end if they exist
     {if("Object" %in% names(.) && "Comment" %in% names(.)) relocate(., Object, Comment, .after = last_col()) 
      else if("Object" %in% names(.)) relocate(., Object, .after = last_col())
@@ -2208,7 +2204,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         labs(subtitle = 'IPD (vpx) vs. requested distance',
              x = 'Requested distance (cm)',
              y = 'IPD (vpx)',
-             caption = 'Thick solid lines: predicted IPD = factorVpxCm/requestedDistance\nThin solid lines: measured data\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
+             caption = 'Thick solid lines: predicted IPD = fVpx*ipdCm/requestedDistance\nThin solid lines: measured data\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
     } else {
       p3 <- NULL
     }
@@ -2303,7 +2299,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           labs(subtitle = 'IPD × requested distance vs. requested distance',
                x = 'Requested distance (cm)',
                y = 'IPD × requested distance (px·cm)',
-               caption = 'Thick faint lines: calibrated factorVpxCm (constant per session)\nThin lines with points: measured IPD × distance\nLogarithmic horizontal jitter added to reduce overlap')
+               caption = 'Thick faint lines: calibrated fVpx*ipdCm (constant per session)\nThin lines with points: measured IPD × distance\nLogarithmic horizontal jitter added to reduce overlap')
       }
     }
   }
@@ -2369,9 +2365,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
               plot.margin = margin(5, 5, 5, 5, "pt")
             ) +
           labs(subtitle = 'Calibrated vs. remeasured',
-               x = 'Median factorVpxCm from distance checking (per session)',
-               y = 'FactorVpxCm from calibration',
-               caption = 'Dashed line shows y=x (perfect agreement)\nMedian calculated from measuredFactorVpxCm in distanceCheckJSON')
+               x = 'Median fVpx*ipdCm from distance checking (per session)',
+               y = 'FVpx*ipdCm from calibration',
+               caption = 'Dashed line shows y=x (perfect agreement)\nMedian calculated from measured fVpx*ipdCm in distanceCheckJSON')
       }
     }
   }
@@ -2457,9 +2453,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
               legend.key.size = unit(0.4, "cm"),
               plot.margin = margin(5, 5, 5, 5, "pt")
             ) +
-            labs(subtitle = 'Calibrated over mean factorVpxCm vs. spot diameter',
+            labs(subtitle = 'Calibrated over mean fVpx*ipdCm vs. spot diameter',
                  x = 'Spot diameter (deg)',
-                 y = 'FactorVpxCm over geometric mean',
+                 y = 'fVpx*ipdCm over geometric mean',
                  caption = 'Dashed line shows y=1 (perfect agreement with session mean)\nGeometric mean = 10^mean(log10(measuredEyeToCameraCm × ipdVpx))')
         }
       }
@@ -2538,8 +2534,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keyheight = unit(0.3, "cm")
         )) +
         labs(
-          subtitle = 'Histogram of factorVpxCm / remeasured',
-          x = "factorVpxCm / remeasured",
+          subtitle = 'Histogram of fVpx*ipdCm / remeasured',
+          x = "fVpx*ipdCm / remeasured",
           y = "Count"
         ) +
         theme_bw() +
@@ -2826,8 +2822,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keyheight = unit(0.3, "cm")
         )) +
         labs(
-          subtitle = 'Histogram of raw factorVpxCm / remeasured',
-          x = "factorVpxCm / remeasured",
+          subtitle = 'Histogram of raw fVpx*ipdCm / remeasured',
+          x = "fVpx*ipdCm / remeasured",
           y = "Count"
         ) +
         theme_bw() +
@@ -2925,8 +2921,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         
         p11 <- ggplot(fvpx_over_width_data, aes(x = fvpx_over_width)) +
           geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
-          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
-                              label = statement, size = 3, family = "sans", fontface = "plain") +
           scale_color_manual(values = colorPalette) +
           scale_y_continuous(
             limits = c(0, max(8, fvpx_over_width_max_count + 1)),
@@ -2937,25 +2931,25 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                               label = paste0('N=', n_distinct(fvpx_over_width_data$participant),
                                              '\nipdCm = ', ipd_cm_assumed),
-                              size = 3, family = "sans", fontface = "plain") +
+                              size = 5, family = "sans", fontface = "plain") +
           guides(color = guide_legend(
             ncol = 3,
             title = "",
-            override.aes = list(size = 2),
-            keywidth = unit(0.3, "cm"),
-            keyheight = unit(0.3, "cm")
+            override.aes = list(size = 3),
+            keywidth = unit(0.5, "cm"),
+            keyheight = unit(0.5, "cm")
           )) +
           labs(
-            subtitle = 'Histogram of fVpx/widthVpx',
-            x = "fVpx/widthVpx",
+            subtitle = 'Histogram of fVpx/horizontalVpx',
+            x = "fVpx/horizontalVpx",
             y = "Count",
-            caption = paste0('fVpx/widthVpx = median(factorVpxCm)/(', ipd_cm_assumed, ' x camera widthVpx) during distance checking')
+            caption = paste0('fVpx/horizontalVpx = median(fVpx*ipdCm)/(', ipd_cm_assumed, ' x camera horizontalVpx)\nduring distance checking')
           ) +
           theme_bw() +
           theme(
             legend.key.size = unit(0, "mm"),
-            legend.title = element_text(size = 7),
-            legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+            legend.title = element_text(size = 12),
+            legend.text = element_text(size = 11, margin = margin(t = 0, b = 0)),
             legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
             legend.box.spacing = unit(0, "lines"),
             legend.spacing.y = unit(-10, "lines"),
@@ -2970,23 +2964,23 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             panel.grid.major = element_blank(),
             panel.grid.minor = element_blank(),
             panel.background = element_blank(),
-            axis.title = element_text(size = 12),
-            axis.text = element_text(size = 12),
+            axis.title = element_text(size = 16),
+            axis.text = element_text(size = 14),
             axis.line = element_line(colour = "black"),
-            axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
-            axis.text.y = element_text(size = 10),
-            plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+            axis.text.x = element_text(size = 14, angle = 0, hjust=0, vjust=1),
+            axis.text.y = element_text(size = 14),
+            plot.title = element_text(size = 14, hjust = 0, margin = margin(b = 0)),
             plot.title.position = "plot",
-            plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
-            plot.caption = element_text(size = 10),
+            plot.subtitle = element_text(size = 16, hjust = 0, margin = margin(t = 0)),
+            plot.caption = element_text(size = 12),
             plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
-            strip.text = element_text(size = 14)
+            strip.text = element_text(size = 16)
           )
         
         fvpx_over_width_hist <- list(
           plot = p11,
-          height = compute_auto_height(base_height = 1.5, n_items = n_distinct(fvpx_over_width_data$participant), per_row = 3, row_increase = 0.05) +
-            0.24 * max(fvpx_over_width_max_count, 8)
+          height = compute_auto_height(base_height = 3.5, n_items = n_distinct(fvpx_over_width_data$participant), per_row = 3, row_increase = 0.1) +
+            0.35 * max(fvpx_over_width_max_count, 8)
         )
         
         median_ratio_fw <- median(fvpx_over_width_data$fvpx_over_width, na.rm = TRUE)
@@ -3004,9 +2998,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           scale_y_continuous(expand = expansion(mult = c(0.05, 0.1)),
                              breaks = scales::pretty_breaks(n = 6)) +
           labs(
-            subtitle = 'fVpx/widthVpx vs. camera width',
+            subtitle = 'fVpx/horizontalVpx vs. camera width',
             x = 'Camera width (px)',
-            y = 'fVpx/widthVpx',
+            y = 'fVpx/horizontalVpx',
             caption = 'One point per session with distance checking enabled (_calibrateTrackDistanceCheckBool = TRUE)'
           ) +
           theme_classic() +
