@@ -1670,7 +1670,7 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
         },
         name = "",
         guide = guide_legend(
-          ncol = 3,  # Keep 3 columns to stay within plot width
+          ncol = 4,  # Keep 3 columns to stay within plot width
           byrow = TRUE,
           key.spacing.y = unit(0.07, "cm"),
           key.spacing.x = unit(0.07, "cm")
@@ -2527,7 +2527,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                                            '\nSD(log10(x)) = ', format(round(sd_log10_ratio, 3), nsmall = 3)),
                             size = 3, family = "sans", fontface = "plain") +
         guides(color = guide_legend(
-          ncol = 3,
+          ncol = 4,
           title = "",
           override.aes = list(size = 2),
           keywidth = unit(0.3, "cm"),
@@ -2541,8 +2541,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         theme_bw() +
         theme(
           legend.key.size = unit(0, "mm"),
-          legend.title = element_text(size = 7),
-          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
           legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
           legend.box.spacing = unit(0, "lines"),
           legend.spacing.y = unit(-10, "lines"),
@@ -2637,8 +2637,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         theme_bw() +
         theme(
           legend.key.size = unit(0, "mm"),
-          legend.title = element_text(size = 7),
-          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
           legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
           legend.box.spacing = unit(0, "lines"),
           legend.spacing.y = unit(-10, "lines"),
@@ -2733,8 +2733,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         theme_bw() +
         theme(
           legend.key.size = unit(0, "mm"),
-          legend.title = element_text(size = 7),
-          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
           legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
           legend.box.spacing = unit(0, "lines"),
           legend.spacing.y = unit(-10, "lines"),
@@ -2829,8 +2829,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         theme_bw() +
         theme(
           legend.key.size = unit(0, "mm"),
-          legend.title = element_text(size = 7),
-          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
           legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
           legend.box.spacing = unit(0, "lines"),
           legend.spacing.y = unit(-10, "lines"),
@@ -2921,35 +2921,37 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         
         p11 <- ggplot(fvpx_over_width_data, aes(x = fvpx_over_width)) +
           geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
+                              label = statement, size = 3, family = "sans", fontface = "plain") +
           scale_color_manual(values = colorPalette) +
           scale_y_continuous(
-            limits = c(0, max(8, fvpx_over_width_max_count + 1)),
-            expand = expansion(mult = c(0, 0.1)),
-            breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+            limits = c(0.5, fvpx_over_width_max_count + 0.5),
+            expand = expansion(mult = c(0, 0)),
+            breaks = function(x) seq(1, ceiling(max(x)), by = 1)
           ) +
           scale_x_continuous(limits = c(x_min, x_max)) +
           ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                               label = paste0('N=', n_distinct(fvpx_over_width_data$participant),
                                              '\nipdCm = ', ipd_cm_assumed),
-                              size = 5, family = "sans", fontface = "plain") +
+                              size = 4, family = "sans", fontface = "plain") +
           guides(color = guide_legend(
-            ncol = 3,
+            ncol = 4,
             title = "",
-            override.aes = list(size = 3),
-            keywidth = unit(0.5, "cm"),
-            keyheight = unit(0.5, "cm")
+            override.aes = list(size = 2),
+            keywidth = unit(0.3, "cm"),
+            keyheight = unit(0.3, "cm")
           )) +
           labs(
             subtitle = 'Histogram of fVpx/horizontalVpx',
-            x = "fVpx/horizontalVpx",
+            x = "fVpx / horizontalVpx",
             y = "Count",
-            caption = paste0('fVpx/horizontalVpx = median(fVpx*ipdCm)/(', ipd_cm_assumed, ' x camera horizontalVpx)\nduring distance checking')
+            caption = paste0('fVpx/horizontalVpx = median(fVpx*ipdCm)/(', ipd_cm_assumed, ' x horizontalVpx)\nduring distance checking')
           ) +
           theme_bw() +
           theme(
             legend.key.size = unit(0, "mm"),
-            legend.title = element_text(size = 12),
-            legend.text = element_text(size = 11, margin = margin(t = 0, b = 0)),
+            legend.title = element_text(size = 6),
+            legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
             legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
             legend.box.spacing = unit(0, "lines"),
             legend.spacing.y = unit(-10, "lines"),
@@ -2964,23 +2966,23 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             panel.grid.major = element_blank(),
             panel.grid.minor = element_blank(),
             panel.background = element_blank(),
-            axis.title = element_text(size = 16),
-            axis.text = element_text(size = 14),
+            axis.title = element_text(size = 14),
+            axis.text = element_text(size = 12),
             axis.line = element_line(colour = "black"),
-            axis.text.x = element_text(size = 14, angle = 0, hjust=0, vjust=1),
-            axis.text.y = element_text(size = 14),
-            plot.title = element_text(size = 14, hjust = 0, margin = margin(b = 0)),
+            axis.text.x = element_text(size = 12, angle = 0, hjust=0, vjust=1),
+            axis.text.y = element_text(size = 12),
+            plot.title = element_text(size = 12, hjust = 0, margin = margin(b = 0)),
             plot.title.position = "plot",
-            plot.subtitle = element_text(size = 16, hjust = 0, margin = margin(t = 0)),
-            plot.caption = element_text(size = 12),
+            plot.subtitle = element_text(size = 14, hjust = 0, margin = margin(t = 0)),
+            plot.caption = element_text(size = 11),
             plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
-            strip.text = element_text(size = 16)
+            strip.text = element_text(size = 14)
           )
         
         fvpx_over_width_hist <- list(
           plot = p11,
-          height = compute_auto_height(base_height = 3.5, n_items = n_distinct(fvpx_over_width_data$participant), per_row = 3, row_increase = 0.1) +
-            0.35 * max(fvpx_over_width_max_count, 8)
+          height = compute_auto_height(base_height = 2.0, n_items = n_distinct(fvpx_over_width_data$participant), per_row = 3, row_increase = 0.08) +
+            0.4 * fvpx_over_width_max_count
         )
         
         median_ratio_fw <- median(fvpx_over_width_data$fvpx_over_width, na.rm = TRUE)
@@ -3179,7 +3181,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
                           label = paste0('N=', n_distinct(sdLogDensity_data$participant)),
                           size = 3, family = "sans", fontface = "plain") + 
       guides(color = guide_legend(
-        ncol = 3,  
+        ncol = 4,  
         title = "",
         override.aes = list(size = 2),  # Increase legend dot size
         keywidth = unit(0.3, "cm"),     # Add some width for the dots
@@ -3192,8 +3194,8 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
       ) +
       theme_bw() +
       theme(legend.key.size = unit(0, "mm"),
-            legend.title = element_text(size = 7),
-            legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+            legend.title = element_text(size = 6),
+            legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
             legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
             legend.box.spacing = unit(0, "lines"),
             legend.spacing.y = unit(-10, "lines"),
@@ -3268,7 +3270,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
                           label = paste0('N=', n_distinct(ruler_dotplot$participant)),
                           size = 3, family = "sans", fontface = "plain") + 
       guides(color = guide_legend(
-        ncol = 3,  
+        ncol = 4,  
         title = "",
         override.aes = list(size = 2),
         keywidth = unit(0.3, "cm"),
@@ -3279,8 +3281,8 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
            y = "Count") +
       theme_bw() +
       theme(legend.key.size = unit(0, "mm"),
-            legend.title = element_text(size = 7),
-            legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+            legend.title = element_text(size = 6),
+            legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
             legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
             legend.box.spacing = unit(0, "lines"),
             legend.spacing.y = unit(-10, "lines"),
@@ -3355,7 +3357,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
                         long = unit(0.2, "cm")) + 
     scale_color_manual(values= colorPalette) + 
     guides(color = guide_legend(
-      ncol = 3,  
+      ncol = 4,  
       title = "",
       override.aes = list(size = 2),  
       keywidth = unit(1.2, "lines"),  
@@ -3409,7 +3411,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
                   breaks = scales::log_breaks(n=8)) +
     annotation_logticks() +
     guides(
-      color = guide_legend(ncol = 3, title = "",
+      color = guide_legend(ncol = 4, title = "",
                            override.aes = list(size = 2),
                            keywidth = grid::unit(1.2, "lines"),
                            keyheight = grid::unit(0.8, "lines")),
@@ -3581,7 +3583,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
-      ncol = 3,  # SAME AS CREDIT CARD: More columns to fit more participants horizontally
+      ncol = 4,  # SAME AS CREDIT CARD: More columns to fit more participants horizontally
       title = "",
       override.aes = list(size = 2),  # SAME AS CREDIT CARD: Smaller points in legend
       keywidth = unit(1.2, "lines"),  # SAME AS CREDIT CARD: Reduce key width
@@ -3629,7 +3631,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
-      ncol = 3,
+      ncol = 4,
       title = "",
       override.aes = list(size = 2),
       keywidth = unit(1.2, "lines"),
@@ -3688,7 +3690,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
       scale_color_manual(values= colorPalette) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
       guides(color = guide_legend(
-        ncol = 3,
+        ncol = 4,
         title = "",
         override.aes = list(size = 2),
         keywidth = unit(1.2, "lines"),
@@ -3758,7 +3760,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
       scale_color_manual(values= colorPalette) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
       guides(color = guide_legend(
-        ncol = 3,
+        ncol = 4,
         title = "",
         override.aes = list(size = 2),
         keywidth = unit(1.2, "lines"),
@@ -3813,7 +3815,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
           scale_color_manual(values = colorPalette) +
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
           guides(color = guide_legend(
-            ncol = 3,
+            ncol = 4,
             title = "",
             override.aes = list(size = 2),
             keywidth = unit(1.2, "lines"),
@@ -3860,7 +3862,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
         scale_color_manual(values = colorPalette) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
         guides(color = guide_legend(
-          ncol = 3,
+          ncol = 4,
           title = "",
           override.aes = list(size = 2),
           keywidth = unit(1.2, "lines"),
@@ -3940,7 +3942,7 @@ objectCm_hist <- function(participant_info, distanceCalibrationResults) {
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
                         label = paste0('N=', n_distinct(object_dotplot$PavloviaParticipantID))) + 
     guides(color = guide_legend(
-      ncol = 3,  
+      ncol = 4,  
       title = "",
       override.aes = list(size = 2),
       keywidth = unit(0.3, "cm"),
@@ -3951,8 +3953,8 @@ objectCm_hist <- function(participant_info, distanceCalibrationResults) {
          y = "Count") +
     theme_bw() +
     theme(legend.key.size = unit(0, "mm"),
-          legend.title = element_text(size = 7),
-          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
           legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
           legend.box.spacing = unit(0, "lines"),
           legend.spacing.y = unit(-10, "lines"),
@@ -4031,7 +4033,7 @@ bs_vd_hist <- function(data_list) {
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                         label = paste0('N=', n_participants_mean)) +
     guides(color = guide_legend(
-      ncol = 3,
+      ncol = 4,
       title = "",
       override.aes = list(size = 2),
       keywidth = unit(0.3, "cm"),
@@ -4042,8 +4044,8 @@ bs_vd_hist <- function(data_list) {
          y = "Count") +
     theme_bw() +
     theme(legend.key.size = unit(0, "mm"),
-          legend.title = element_text(size = 7),
-          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
           legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
           legend.box.spacing = unit(0, "lines"),
           legend.spacing.y = unit(-10, "lines"),
@@ -4108,7 +4110,7 @@ bs_vd_hist <- function(data_list) {
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                         label = paste0('N=', n_participants_sd)) +
     guides(color = guide_legend(
-      ncol = 3,
+      ncol = 4,
       title = "",
       override.aes = list(size = 2),
       keywidth = unit(0.3, "cm"),
@@ -4119,8 +4121,8 @@ bs_vd_hist <- function(data_list) {
          y = "Count") +
     theme_bw() +
     theme(legend.key.size = unit(0, "mm"),
-          legend.title = element_text(size = 7),
-          legend.text = element_text(size = 8, margin = margin(t = 0, b = 0)),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
           legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
           legend.box.spacing = unit(0, "lines"),
           legend.spacing.y = unit(-10, "lines"),
