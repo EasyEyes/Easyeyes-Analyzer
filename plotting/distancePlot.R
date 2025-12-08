@@ -169,6 +169,7 @@ get_cameraResolutionXY <- function(data_list) {
       # Take the average of the last two factorVpxCm values (fallback to single if only one)
       factorVpxCmVals <- suppressWarnings(as.numeric(factorVpxCmList))
       factorVpxCmVals <- factorVpxCmVals[!is.na(factorVpxCmVals)]
+      
       if (length(factorVpxCmVals) >= 2) {
         factorVpxCm <- mean(tail(factorVpxCmVals, 2))
       } else if (length(factorVpxCmVals) == 1) {
@@ -216,6 +217,8 @@ get_distanceCheck_factorVpxCm <- function(data_list) {
       }
       
       tryCatch({
+        participant_id <- first(na.omit(data_list[[i]]$participant))
+        
         raw_json <- get_first_non_na(data_list[[i]]$distanceCheckJSON)
         json_txt <- sanitize_json_string(raw_json)
         distanceCheck <- fromJSON(
@@ -230,6 +233,7 @@ get_distanceCheck_factorVpxCm <- function(data_list) {
         } else if (!is.null(distanceCheck$measuredFactorCameraPxCm)) {
           measured_vals <- distanceCheck$measuredFactorCameraPxCm
         }
+        
         if (!is.null(measured_vals)) {
           measuredFactorVpxCm <- measured_vals
           
@@ -450,6 +454,14 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     get_cameraResolutionXY(data_or_results)
   }
   
+  # BUG FIX: Get check_factor data for remeasured median (instead of global participant median)
+  check_factor_data <- if (is.list(data_or_results) && "check_factor" %in% names(data_or_results)) {
+    data_or_results$check_factor %>%
+      select(PavloviaParticipantID, medianFactorVpxCm) %>%
+      filter(!is.na(medianFactorVpxCm), is.finite(medianFactorVpxCm))
+  } else {
+    tibble(PavloviaParticipantID = character(), medianFactorVpxCm = numeric())
+  }
   
   # If no participant_info provided, return just camera data
   if (is.null(participant_info) || nrow(participant_info) == 0) {
@@ -473,18 +485,15 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
   # Perform full outer join to include all participants from both tables
   merged_data <- camera_data %>%
     left_join(participant_info_clean, by = "PavloviaParticipantID")
+  
+  # BUG FIX: Join with check_factor to get per-participant remeasured median
+  merged_data <- merged_data %>%
+    left_join(check_factor_data, by = "PavloviaParticipantID")
 
   # Ensure 'ok' column exists to avoid errors in case_when
   if (!"ok" %in% names(merged_data)) {
     merged_data <- merged_data %>% mutate(ok = NA_character_)
   }
-
-  # Calculate median factorVpxCm across all participants for normalization
-  median_factorVpxCm <- merged_data %>%
-    mutate(factorVpxCm_numeric = suppressWarnings(as.numeric(factorVpxCm))) %>%
-    filter(!is.na(factorVpxCm_numeric)) %>%
-    pull(factorVpxCm_numeric) %>%
-    median(na.rm = TRUE)
 
   merged_data <- merged_data %>%
     mutate(
@@ -501,18 +510,19 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
       factorVpxCm = suppressWarnings(as.numeric(factorVpxCm)),
       # Rename factorVpxCm to fVpx*ipdCm/horizontalVpx (same value, new name)
       `fVpx*ipdCm/horizontalVpx` = factorVpxCm,
-      # Add new column: fVpx*ipdCm / median(fVpx*ipdCm)
-      ratio_over_median_tmp = ifelse(!is.na(factorVpxCm) & !is.na(median_factorVpxCm) & median_factorVpxCm != 0,
-                                      factorVpxCm / median_factorVpxCm, NA_real_),
-      ratio_over_median_round = round(ratio_over_median_tmp, 3),
-      `fVpx*ipdCm / median(fVpx*ipdCm)` = ifelse(is.na(ratio_over_median_round), NA_character_, format(ratio_over_median_round, nsmall = 3))
+      # BUG FIX: Divide by per-participant remeasured median (from check_factor), not global median
+      # This makes the table column match the histogram denominator
+      ratio_over_remeasured_tmp = ifelse(!is.na(factorVpxCm) & !is.na(medianFactorVpxCm) & medianFactorVpxCm != 0,
+                                          factorVpxCm / medianFactorVpxCm, NA_real_),
+      ratio_over_remeasured_round = round(ratio_over_remeasured_tmp, 3),
+      `fVpx*ipdCm / remeasured` = ifelse(is.na(ratio_over_remeasured_round), NA_character_, format(ratio_over_remeasured_round, nsmall = 3))
     ) %>%
-    select(-factorVpxCm, -ratio_over_median_tmp, -ratio_over_median_round) %>%
+    select(-factorVpxCm, -ratio_over_remeasured_tmp, -ratio_over_remeasured_round, -medianFactorVpxCm) %>%
     arrange(ok_priority, PavloviaParticipantID) %>%
     select(-ok_priority) %>%
     # Move the two fVpx columns side by side
-    {if("fVpx*ipdCm/horizontalVpx" %in% names(.) && "fVpx*ipdCm / median(fVpx*ipdCm)" %in% names(.)) 
-       relocate(., `fVpx*ipdCm / median(fVpx*ipdCm)`, .after = `fVpx*ipdCm/horizontalVpx`)
+    {if("fVpx*ipdCm/horizontalVpx" %in% names(.) && "fVpx*ipdCm / remeasured" %in% names(.)) 
+       relocate(., `fVpx*ipdCm / remeasured`, .after = `fVpx*ipdCm/horizontalVpx`)
      else .} %>%
     # Move Object and Comment columns to the end if they exist
     {if("Object" %in% names(.) && "Comment" %in% names(.)) relocate(., Object, Comment, .after = last_col()) 
@@ -783,7 +793,9 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
                `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>%
         distinct()
-      if (nrow(t_raw) > 0 && !all(is.na(t_raw$calibrateTrackDistanceEyeFeetXYPx))) {
+      has_eye_feet_col <- "calibrateTrackDistanceEyeFeetXYPx" %in% names(t_raw)
+      
+      if (nrow(t_raw) > 0 && has_eye_feet_col && !all(is.na(t_raw$calibrateTrackDistanceEyeFeetXYPx))) {
         eye_feet_raw <- t_raw$calibrateTrackDistanceEyeFeetXYPx[1]
         coords_str <- gsub("\\[|\\]", "", eye_feet_raw)
         coords_numbers <- as.numeric(unlist(strsplit(coords_str, ",")))
@@ -907,6 +919,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
               spot_degrees <- c(spot_degrees, as.numeric(cal$spotDeg))
             }
           }
+          
           if (length(eye_feet_coords) > 0) {
             coords_df <- tibble(
               measurement_idx = 1:length(eye_feet_coords),
@@ -976,23 +989,29 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         check_bool_val <- coerce_to_logical(get_first_non_na(dl$`_calibrateTrackDistanceCheckBool`))
       }
       tryCatch({
+        participant_id_debug <- if("participant" %in% names(dl)) first(na.omit(dl$participant)) else "UNKNOWN"
+        
         raw_json <- get_first_non_na(dl$distanceCheckJSON)
         json_txt <- sanitize_json_string(raw_json)
         distanceCheck <- fromJSON(
           json_txt,
           simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
         )
+        
         measured_vals <- NULL
         if (!is.null(distanceCheck$measuredFactorVpxCm)) {
           measured_vals <- distanceCheck$measuredFactorVpxCm
         } else if (!is.null(distanceCheck$measuredFactorCameraPxCm)) {
           measured_vals <- distanceCheck$measuredFactorCameraPxCm
         }
+        
         if (!is.null(measured_vals)) {
           measuredFactorVpxCmVals <- suppressWarnings(as.numeric(measured_vals))
           measuredFactorVpxCmVals <- measuredFactorVpxCmVals[!is.na(measuredFactorVpxCmVals)]
+          
           if (length(measuredFactorVpxCmVals) > 0) {
             medianFactorVpxCm <- median(measuredFactorVpxCmVals)
+            
             t <- dl %>%
               mutate(medianFactorVpxCm = medianFactorVpxCm,
                      calibrateTrackDistanceCheckBool = check_bool_val) %>%
@@ -1003,7 +1022,79 @@ get_distance_calibration <- function(data_list, minRulerCm) {
             if (nrow(t) > 0) check_factor <- rbind(check_factor, t)
           }
         }
-      }, error = function(e) {})
+        
+        # -------- ALSO extract foot positions from distanceCheckJSON for feet_calib --------
+        # distanceCheckJSON has leftEyeFootXYPx and rightEyeFootXYPx arrays
+        if (!is.null(distanceCheck$leftEyeFootXYPx) && !is.null(distanceCheck$rightEyeFootXYPx)) {
+          left_foot <- distanceCheck$leftEyeFootXYPx
+          right_foot <- distanceCheck$rightEyeFootXYPx
+          
+          # These are arrays of [x,y] coordinates for each measurement
+          # Convert to data frame
+          n_measurements <- length(left_foot) / 2  # Each measurement has x,y
+          
+          if (n_measurements > 0 && length(left_foot) == length(right_foot)) {
+            # Reshape arrays - they might be flat [x1,y1,x2,y2,...] or nested [[x1,y1],[x2,y2],...]
+            if (is.list(left_foot)) {
+              # Nested format
+              coords_list <- lapply(1:length(left_foot), function(idx) {
+                list(
+                  left_x = left_foot[[idx]][1],
+                  left_y = left_foot[[idx]][2],
+                  right_x = right_foot[[idx]][1],
+                  right_y = right_foot[[idx]][2]
+                )
+              })
+            } else {
+              # Flat format [x1,y1,x2,y2,...]
+              n_pts <- length(left_foot) / 2
+              coords_list <- lapply(1:n_pts, function(idx) {
+                base_idx <- (idx - 1) * 2 + 1
+                list(
+                  left_x = left_foot[base_idx],
+                  left_y = left_foot[base_idx + 1],
+                  right_x = right_foot[base_idx],
+                  right_y = right_foot[base_idx + 1]
+                )
+              })
+            }
+            
+            if (length(coords_list) > 0) {
+              check_coords_df <- tibble(
+                measurement_idx = 1:length(coords_list),
+                left_x = sapply(coords_list, function(x) as.numeric(x$left_x)),
+                left_y = sapply(coords_list, function(x) as.numeric(x$left_y)),
+                right_x = sapply(coords_list, function(x) as.numeric(x$right_x)),
+                right_y = sapply(coords_list, function(x) as.numeric(x$right_y))
+              ) %>% filter(!is.na(left_x), !is.na(right_x))
+              
+              if (nrow(check_coords_df) > 0) {
+                # Get pxPerCm from the data
+                pxPerCm_val <- if (!is.null(distanceCheck$pxPerCm)) as.numeric(distanceCheck$pxPerCm[1]) else 37.8
+                
+                t_check_feet <- check_coords_df %>%
+                  mutate(
+                    participant = participant_id_debug,
+                    avg_eye_x_px = (left_x + right_x) / 2,
+                    avg_eye_y_px = (left_y + right_y) / 2,
+                    pxPerCm = pxPerCm_val,
+                    avg_eye_x_cm = avg_eye_x_px / pxPerCm,
+                    avg_eye_y_cm = avg_eye_y_px / pxPerCm,
+                    distance_ratio = 1.0,  # No measured/requested for check data, use 1.0
+                    data_list_index = i,
+                    measurement_index = measurement_idx
+                  ) %>%
+                  select(-measurement_idx)
+                
+                feet_calib <- rbind(feet_calib, t_check_feet)
+              }
+            }
+          }
+        }
+        
+      }, error = function(e) {
+        # Silently skip if JSON parsing fails
+      })
     }
   }
   
@@ -1557,7 +1648,6 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
   eye_feet_data <- eye_feet_data %>%
     filter(!is.na(avg_eye_x_px), !is.na(avg_eye_y_px),
            !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm), !is.na(distance_ratio))
-  
 
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
@@ -1632,6 +1722,7 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
 
   p <- NULL
   # Create the plot directly without test plots
+  tryCatch({
     p <- ggplot(eye_feet_data, aes(x = foot_x_cm_clipped, y = foot_y_cm_clipped)) +
       # Add screen boundary rectangle (quarter thickness)
       geom_rect(aes(xmin = 0, xmax = screen_width_cm,
@@ -1725,7 +1816,9 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
                              "Mean = ", round(mean(eye_feet_data$distance_ratio, na.rm = TRUE), 3), "\n",
                              "SD = ", round(sd(eye_feet_data$distance_ratio, na.rm = TRUE), 3)),
                hjust = 0, vjust = 1, size = 3, color = "black")
-
+  }, error = function(e) {
+    p <<- NULL
+  })
 
   # Calculate height based on legend complexity (in inches)
   n_sessions <- n_distinct(eye_feet_data$session_id)
@@ -1875,14 +1968,17 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
                              "Mean = ", round(mean_ratio, 3), "\n",
                              "SD = ", round(sd_ratio, 3)),
                hjust = 0, vjust = 1, size = 3, color = "black")
-
   }, error = function(e) {
-    return(NULL)
+    p <<- NULL
   })
 
-  # Return the plot or NULL if creation failed
+  # Calculate height based on number of participants
+  base_height <- 7
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_sessions, per_row = 3, row_increase = 0.08)
+
+  # Return the plot WITH height (expected by calling code)
   if(exists("p") && !is.null(p)) {
-    return(p)
+    return(list(plot = p, height = plot_height))
   } else {
     return(NULL)
   }
@@ -2309,7 +2405,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   p4 <- if (!is.null(p4_result)) p4_result$plot else NULL
   
   # Plot 4b: Foot position during calibration (colored by participant, no clipping)
-  p4b <- plot_foot_position_during_calibration(distanceCalibrationResults)
+  p4b_result <- plot_foot_position_during_calibration(distanceCalibrationResults)
+  p4b <- if (!is.null(p4b_result)) p4b_result$plot else NULL
+  p4b_height <- if (!is.null(p4b_result)) p4b_result$height else NULL
   
   # Plot 5: Calibrated vs. median factorVpxCm
   p5 <- NULL
@@ -2364,7 +2462,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
               legend.key.size = unit(0.4, "cm"),
               plot.margin = margin(5, 5, 5, 5, "pt")
             ) +
-          labs(subtitle = 'Calibrated vs. remeasured',
+          labs(subtitle = ' FVpx to fVpx',
                x = 'Median fVpx*ipdCm from distance checking (per session)',
                y = 'FVpx*ipdCm from calibration',
                caption = 'Dashed line shows y=x (perfect agreement)\nMedian calculated from measured fVpx*ipdCm in distanceCheckJSON')
@@ -2462,40 +2560,44 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
-  # Plot 7: Histogram of factorVpxCm / medianFactorVpxCm (colored by participant)
+  # Plot 7: Histogram of fVpx*ipdCm / remeasured (MEDIAN per participant)
+  # BUG FIX: Use raw_factorVpxCm data and compute MEDIAN ratio per participant
+  # This ensures the summary histogram shows the median of individual ratios,
+  # consistent with the raw histogram (Plot 10)
   p7 <- NULL
   if (nrow(distance) > 0 &&
-      "camera" %in% names(distanceCalibrationResults) &&
-      "check_factor" %in% names(distanceCalibrationResults) &&
-      nrow(distanceCalibrationResults$camera) > 0 &&
-      nrow(distanceCalibrationResults$check_factor) > 0) {
+      "raw_factorVpxCm" %in% names(distanceCalibrationResults) &&
+      nrow(distanceCalibrationResults$raw_factorVpxCm) > 0) {
     
-    camera_data <- distanceCalibrationResults$camera %>%
-      select(PavloviaParticipantID, factorVpxCm) %>%
-      filter(!is.na(factorVpxCm), is.finite(factorVpxCm))
-    check_data <- distanceCalibrationResults$check_factor %>%
-      select(PavloviaParticipantID, medianFactorVpxCm) %>%
-      filter(!is.na(medianFactorVpxCm), is.finite(medianFactorVpxCm))
+    # Use raw data (same source as Plot 10) and compute MEDIAN ratio per participant
+    raw_data <- distanceCalibrationResults$raw_factorVpxCm %>%
+      filter(is.finite(relative), relative > 0)
     
-    ratio_data <- camera_data %>%
-      inner_join(check_data, by = "PavloviaParticipantID") %>%
-      mutate(
-        participant = PavloviaParticipantID,
-        ratio = factorVpxCm / medianFactorVpxCm
+    # Compute MEDIAN ratio per participant (fixes bug where last value was shown instead of median)
+    ratio_data <- raw_data %>%
+      group_by(participant) %>%
+      summarize(
+        ratio = median(relative, na.rm = TRUE),  # Use MEDIAN of raw ratios
+        .groups = "drop"
       ) %>%
-      filter(is.finite(ratio), ratio > 0)
+      filter(is.finite(ratio), ratio > 0) %>%
+      mutate(PavloviaParticipantID = participant)
     
     if (nrow(ratio_data) > 0) {
       # SD of log10(ratio)
       sd_log10_ratio <- sd(log10(ratio_data$ratio), na.rm = TRUE)
       
-      # Dot-stack histogram in log space
-      bin_w_log <- 0.02  # ~4.6% per bin
+      # For summary histogram (one value per participant), use actual values without binning
+      # This ensures displayed positions match table values exactly
+      # Only use binning for stacking when multiple participants have very similar values
+      bin_w_log <- 0.005  # ~1.2% per bin - small enough for precise positioning
       ratio_data <- ratio_data %>%
         mutate(
           log_ratio = log10(ratio),
           bin_center_log = round(log_ratio / bin_w_log) * bin_w_log,
-          bin_center = 10^bin_center_log
+          bin_center = 10^bin_center_log,
+          # Store actual value for display
+          actual_ratio = ratio
         ) %>%
         arrange(bin_center, participant) %>%
         group_by(bin_center) %>%
@@ -2506,12 +2608,12 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ungroup()
       
       max_count <- max(ratio_data$dot_y)
-      x_min <- min(ratio_data$bin_center, na.rm = TRUE) 
-      x_max <- max(ratio_data$bin_center, na.rm = TRUE)  
+      x_min <- min(ratio_data$actual_ratio, na.rm = TRUE) * 0.95  # Add margin
+      x_max <- max(ratio_data$actual_ratio, na.rm = TRUE) * 1.05  # Add margin  
       
       p7 <- ggplot(ratio_data, aes(x = ratio)) +
-        # Dot stacked points
-        geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+        # Dot stacked points - use actual_ratio for precise positioning (matches table values)
+        geom_point(aes(x = actual_ratio, y = dot_y, color = participant), size = 6, alpha = 0.85) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
                             label = statement, size = 3, family = "sans", fontface = "plain") +
         scale_color_manual(values = colorPalette) +
@@ -2534,9 +2636,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keyheight = unit(0.3, "cm")
         )) +
         labs(
-          subtitle = 'Histogram of fVpx*ipdCm / remeasured',
-          x = "fVpx*ipdCm / remeasured",
-          y = "Count"
+          subtitle = 'Histogram of median(fVpx*ipdCm / remeasured)',
+          x = "median(fVpx*ipdCm / remeasured)",
+          y = "Count",
+          caption = "Each dot = median ratio for one participant"
         ) +
         theme_bw() +
         theme(
@@ -2996,12 +3099,13 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
           scale_color_manual(values = colorPalette) +
           scale_x_continuous(expand = expansion(mult = c(0.02, 0.05)),
-                             breaks = scales::pretty_breaks(n = 6)) +
+                             breaks = scales::pretty_breaks(n = 6),
+                             labels = scales::label_number(accuracy = 1)) +
           scale_y_continuous(expand = expansion(mult = c(0.05, 0.1)),
                              breaks = scales::pretty_breaks(n = 6)) +
           labs(
-            subtitle = 'fVpx/horizontalVpx vs. camera width',
-            x = 'Camera width (px)',
+            subtitle = 'fVpx/horizontalVpx vs. horizontalVpx',
+            x = 'HorizontalVpx (px)',
             y = 'fVpx/horizontalVpx',
             caption = 'One point per session with distance checking enabled (_calibrateTrackDistanceCheckBool = TRUE)'
           ) +
@@ -3038,7 +3142,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     ipd_vs_requested = list(plot = p3, height = if (!is.null(p3)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     ipd_product_vs_requested = list(plot = p3b, height = if (!is.null(p3b)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     eye_feet_position = list(plot = p4, height = eye_feet_height),
-    foot_position_calibration = list(plot = p4b, height = plot_height),
+    foot_position_calibration = list(plot = p4b, height = if (!is.null(p4b_height)) p4b_height else plot_height),
     calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     calibrated_over_median_hist = list(
@@ -3364,9 +3468,9 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
       keyheight = unit(0.8, "lines")  
     ),
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-    labs(subtitle = 'Measured pixel density vs requested length',
+    labs(subtitle = 'Remeasured pixel density vs. requested length',
          x = 'Requested length (cm)',
-         y = 'Measured pixel density (px/cm)')
+         y = 'Remeasured pixel density (px/cm)')
   
   # smallest positive x so the rect shows up on a log scale
   # Compute positive finite bounds for a log–log plot
@@ -3418,9 +3522,9 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
       linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))
     ) +
     labs(
-      subtitle = "Credit card pixel density re mean production vs.\nSD of log produced pixel density",
+      subtitle = "Credit card pixel density re remeasured vs.\nSD log remeasured pixel density",
       x = "SD of log10 pixel density",
-      y = "Credit card pixel density"
+      y = "Credit card pixel density re remeasured"
     )
   
   
