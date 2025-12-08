@@ -2480,10 +2480,13 @@ shinyServer(function(input, output, session) {
             ".", input$fileType
           ),
           content = function(file) {
+            # Apply download-specific styling (defined in constant.R)
+            download_plot <- apply_download_styling(plots[[jj]])
+            
             if (input$fileType == "png") {
               ggsave(
                 filename = file,
-                plot = plots[[jj]],
+                plot = download_plot,
                 device = ragg::agg_png,
                 width = 6,
                 height = 4,
@@ -2494,7 +2497,7 @@ shinyServer(function(input, output, session) {
             } else {
               ggsave(
                 file,
-                plot   = plots[[jj]],
+                plot   = download_plot,
                 width  = 6,
                 height = 4,
                 units  = "in",

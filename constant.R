@@ -240,6 +240,55 @@ stacked_theme <- theme(
   plot.margin = margin(5, 5, 5, 5, "pt")
 )
 
+##### Download plot styling (larger fonts for saved/exported plots) #####
+
+# Theme with larger font sizes for downloaded plots
+download_plot_theme <- theme(
+  axis.title = element_text(size = 18),        # Axis labels (x, y) - larger
+
+  axis.text = element_text(size = 14),         # Axis tick numbers
+  legend.text = element_text(size = 12),       # Legend text
+  legend.title = element_text(size = 14),      # Legend title
+  plot.title = element_text(size = 20),        # Main title
+  plot.subtitle = element_text(size = 16),     # Subtitle
+  plot.caption = element_text(size = 12),      # Caption
+  strip.text = element_text(size = 14)         # Facet labels
+)
+
+# Legend guide settings for downloaded plots (more columns)
+download_legend_ncol <- 6
+
+# Text size multiplier for annotated text inside plots
+download_text_size_multiplier <- 1.5
+
+# Function to apply download-specific styling to a plot
+apply_download_styling <- function(plot) {
+  # Apply theme and legend guides
+ styled_plot <- plot + 
+    guides(color = guide_legend(
+      ncol = download_legend_ncol,
+      title = "",
+      override.aes = list(size = 2),
+      keywidth = unit(1.2, "lines"),
+      keyheight = unit(0.8, "lines")
+    )) +
+    download_plot_theme
+  
+  # Increase font size for annotated text inside the plot (geom_text, geom_text_npc, etc.)
+  for (i in seq_along(styled_plot$layers)) {
+    layer <- styled_plot$layers[[i]]
+    # Check if this is a text-based geom
+    if (inherits(layer$geom, c("GeomText", "GeomLabel", "GeomTextNpc", "GeomLabelNpc"))) {
+      # Scale up the text size
+      current_size <- layer$aes_params$size
+      if (is.null(current_size)) current_size <- 3.88  # ggplot2 default
+      styled_plot$layers[[i]]$aes_params$size <- current_size * download_text_size_multiplier
+    }
+  }
+  
+  return(styled_plot)
+}
+
 
 
 
