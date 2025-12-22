@@ -8,7 +8,7 @@ set -e
 # Configuration
 PROJECT_ID="praxis-zoo-380019"  # Replace with your GCP project ID
 IMAGE_NAME="easyeyes-analyzer"
-REGION="us-central1"
+REGION="us-east1"               # US East Coast (South Carolina)
 SERVICE_NAME="easyeyes-analyzer"
 
 echo "🚀 Starting deployment to Google Cloud Platform..."
@@ -48,7 +48,7 @@ gcloud run deploy $SERVICE_NAME \
     --platform managed \
     --region $REGION \
     --allow-unauthenticated \
-    --memory 2Gi \
+    --memory 16Gi \
     --cpu 2 \
     --timeout 3600 \
     --max-instances 10 \

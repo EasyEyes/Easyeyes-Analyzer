@@ -37,9 +37,13 @@ brew install docker
    # Open deploy-to-gcp.sh and replace YOUR_PROJECT_ID with your actual GCP project ID
    nano deploy-to-gcp.sh
    ```
-   Change line 8:
+   Update the variables near the top of the script:
    ```bash
    PROJECT_ID="your-actual-project-id"  # Replace with your GCP project ID
+   REGION="us-east1"                    # Use US East Coast (South Carolina)
+   # In the Cloud Run deploy command, set:
+   # --memory 16Gi                     # Increase memory to 16 GiB
+   # --cpu 2                           # (optional) adjust CPU if needed
    ```
 
 2. **Authenticate with GCP:**
@@ -76,9 +80,9 @@ brew install docker
    gcloud run deploy easyeyes-analyzer \
      --image gcr.io/YOUR_PROJECT_ID/easyeyes-analyzer \
      --platform managed \
-     --region us-central1 \
+     --region us-east1 \
      --allow-unauthenticated \
-     --memory 2Gi \
+     --memory 16Gi \
      --cpu 2 \
      --timeout 3600 \
      --max-instances 10 \
@@ -100,8 +104,8 @@ This repository includes the following deployment files:
 You can modify the following in `deploy-to-gcp.sh`:
 
 ```bash
-# Memory options: 1Gi, 2Gi, 4Gi, 8Gi
---memory 2Gi
+# Memory options: 1Gi, 2Gi, 4Gi, 8Gi, 16Gi
+--memory 16Gi
 
 # CPU options: 1, 2, 4
 --cpu 2
@@ -162,7 +166,7 @@ Cloud Build will automatically create a new version and deploy it.
 gcloud run domain-mappings create \
   --service easyeyes-analyzer \
   --domain your-domain.com \
-  --region us-central1
+  --region us-east1
 ```
 
 ### 2. Configure DNS:
@@ -175,7 +179,7 @@ Google automatically provisions SSL certificates for custom domains.
 
 ### View logs:
 ```bash
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=easyeyes-analyzer" --limit 50
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=easyeyes-analyzer AND resource.labels.location=us-east1" --limit 50
 ```
 
 ### Monitor in Console:
@@ -220,10 +224,10 @@ docker build -t easyeyes-test .
 docker run -p 3838:3838 easyeyes-test
 
 # Check Cloud Run service status
-gcloud run services describe easyeyes-analyzer --region us-central1
+gcloud run services describe easyeyes-analyzer --region us-east1
 
 # View recent deployments
-gcloud run revisions list --service easyeyes-analyzer --region us-central1
+gcloud run revisions list --service easyeyes-analyzer --region us-east1
 ```
 
 ## 🔒 Security Considerations
@@ -234,7 +238,7 @@ Remove `--allow-unauthenticated` and set up IAM authentication:
 gcloud run services add-iam-policy-binding easyeyes-analyzer \
   --member="user:specific-user@gmail.com" \
   --role="roles/run.invoker" \
-  --region us-central1
+  --region us-east1
 ```
 
 ### 2. Environment Variables:
@@ -242,7 +246,7 @@ For sensitive configuration:
 ```bash
 gcloud run services update easyeyes-analyzer \
   --set-env-vars="API_KEY=your-secret-key" \
-  --region us-central1
+  --region us-east1
 ```
 
 ### 3. VPC Integration:
@@ -250,7 +254,7 @@ For database connections or private resources:
 ```bash
 gcloud run services update easyeyes-analyzer \
   --vpc-connector=your-vpc-connector \
-  --region us-central1
+  --region us-east1
 ```
 
 ## 📚 Additional Resources

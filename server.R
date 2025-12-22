@@ -2480,29 +2480,31 @@ shinyServer(function(input, output, session) {
             ".", input$fileType
           ),
           content = function(file) {
-            # Apply download-specific styling (defined in constant.R)
-            download_plot <- apply_download_styling(plots[[jj]])
-            
-            if (input$fileType == "png") {
+            # Match on-screen sizing: save SVG then rasterize at 2x scale
+            height_in <- if (!is.null(heights) && length(heights) >= jj && !is.null(heights[[jj]])) heights[[jj]] else 4
+            if (tolower(input$fileType) == "png") {
+              tmp_svg <- tempfile(fileext = ".svg")
               ggsave(
-                filename = file,
-                plot = download_plot,
-                device = ragg::agg_png,
+                file = tmp_svg,
+                plot = plots[[jj]],
+                device = svglite,
                 width = 6,
-                height = 4,
+                height = height_in,
                 units = "in",
-                dpi = 300,
                 limitsize = FALSE
               )
+              png_w <- 1200  # 6in * 200dpi * scale(1)
+              png_h <- round((height_in / 6) * png_w)
+              rsvg::rsvg_png(tmp_svg, file, width = png_w, height = png_h)
             } else {
               ggsave(
                 file,
-                plot   = download_plot,
+                plot   = plots[[jj]],
                 width  = 6,
-                height = 4,
+                height = height_in,
                 units  = "in",
                 limitsize = FALSE,
-                device   = if (input$fileType == "svg") svglite::svglite else input$fileType
+                device   = if (tolower(input$fileType) == "svg") svglite::svglite else input$fileType
               )
             }
           }
@@ -3502,33 +3504,31 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
-              if (input$fileType == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+              height_in <- scatterDistance()$heights[[ii]]
+              if (tolower(input$fileType) == "png") {
+                tmp_svg <- tempfile(fileext = ".svg")
                 ggsave(
-                  tmp_svg,
-                  plot = scatterDistance()$plotList[[ii]] +
-                    plt_theme_scatter,
-                  width = 12,
-                  height = scatterDistance()$heights[[ii]] * 1.5,  # Scale up for download
+                  file = tmp_svg,
+                  plot = scatterDistance()$plotList[[ii]] + plt_theme_scatter,
+                  width = 7,
+                  height = height_in,
                   unit = "in",
                   limitsize = F,
                   device = svglite
                 )
-                rsvg::rsvg_png(tmp_svg, file,
-                               width = 2400,
-                               height = 1600)
+                png_w <- 1400  # 7in * 200dpi
+                png_h <- round((height_in / 7) * png_w)
+                rsvg::rsvg_png(tmp_svg, file, width = png_w, height = png_h)
               } else {
                 ggsave(
                   file,
-                  plot = scatterDistance()$plotList[[ii]] +
-                    plt_theme_scatter +
-                    scale_color_manual(values = colorPalette),
-                  width = 12,
-                  height = scatterDistance()$heights[[ii]] * 1.5,  # Scale up for download
+                  plot = scatterDistance()$plotList[[ii]] + plt_theme_scatter,
+                  width = 7,
+                  height = height_in,
                   unit = "in",
                   limitsize = F,
                   device = ifelse(
-                    input$fileType == "svg",
+                    tolower(input$fileType) == "svg",
                     svglite::svglite,
                     input$fileType
                   )
