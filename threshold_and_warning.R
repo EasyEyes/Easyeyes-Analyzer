@@ -643,6 +643,57 @@ generate_threshold <-
       distinct(participant, questionAndAnswerResponse) %>%
       rename(Object = questionAndAnswerResponse)
     
+    # Extract objectName from distanceCalibrationTJSON.COMMON for "paper" method
+    # This provides the object name when _calibrateDistance is "paper"
+    object_name_from_json <- tibble(participant = character(), ObjectFromJSON = character())
+    for (i in 1:length(data_list)) {
+      if ("distanceCalibrationTJSON" %in% names(data_list[[i]])) {
+        tryCatch({
+          participant_id <- first(na.omit(data_list[[i]]$participant))
+          if (is.na(participant_id) || participant_id == "") next
+          
+          raw_json <- data_list[[i]]$distanceCalibrationTJSON
+          raw_json <- raw_json[!is.na(raw_json) & raw_json != ""]
+          if (length(raw_json) == 0) next
+          
+          json_txt <- raw_json[1]
+          # Sanitize JSON string (same logic as sanitize_json_string in distancePlot.R)
+          json_txt <- trimws(as.character(json_txt))
+          # Remove outer quotes if present
+          if (nchar(json_txt) >= 2 && substr(json_txt, 1, 1) == '"' && substr(json_txt, nchar(json_txt), nchar(json_txt)) == '"') {
+            json_txt <- substr(json_txt, 2, nchar(json_txt) - 1)
+          }
+          # Fix CSV escaping: replace doubled quotes with single quotes
+          json_txt <- gsub('""', '"', json_txt, fixed = TRUE)
+          json_txt <- gsub("\\\\n", " ", json_txt)
+          json_txt <- gsub("\\\\t", " ", json_txt)
+          json_txt <- gsub("\n", " ", json_txt)
+          json_txt <- gsub("\t", " ", json_txt)
+          
+          parsed_json <- jsonlite::fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
+          
+          # Extract objectName from COMMON section
+          if (!is.null(parsed_json$COMMON) && !is.null(parsed_json$COMMON$objectName)) {
+            obj_name <- parsed_json$COMMON$objectName
+            if (length(obj_name) > 0 && !is.na(obj_name[1]) && obj_name[1] != "") {
+              object_name_from_json <- rbind(object_name_from_json, 
+                tibble(participant = participant_id, ObjectFromJSON = obj_name[1]))
+            }
+          }
+        }, error = function(e) {
+          # Skip if JSON parsing fails
+        })
+      }
+    }
+    
+    # Merge Q&A objects with JSON objects (Q&A takes priority)
+    if (nrow(object_name_from_json) > 0) {
+      objects_data <- objects_data %>%
+        full_join(object_name_from_json, by = "participant") %>%
+        mutate(Object = ifelse(is.na(Object) | Object == "", ObjectFromJSON, Object)) %>%
+        select(participant, Object)
+    }
+    
     sessions_data <- generate_summary_table(data_list, stairs, pretest, prolific)
     
     # Extract the 6 needed columns from sessions data
