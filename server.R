@@ -1410,16 +1410,24 @@ shinyServer(function(input, output, session) {
   
   output$mergedParticipantDistanceTable <- DT::renderDataTable({
     table_data <- mergedParticipantDistanceTable()
-    # Build column width definitions safely for available columns only
-    predefined_widths <- c(
-      '100px','80px','80px','80px','80px','40px','50px','50px','50px',
-      '60px','60px','50px','50px','50px','60px','60px','200px','500px'
+    
+    col_names <- names(table_data)
+    
+  
+    named_widths <- c(
+      "PavloviaParticipantID" = "100px",
+      "Object" = "200px",      
+      "Comment" = "500px"    
     )
-    num_cols <- ncol(table_data)
-    safe_widths <- predefined_widths[seq_len(min(length(predefined_widths), num_cols))]
-    # Create columnDefs without targeting non-existent columns
-    column_defs <- lapply(seq_along(safe_widths), function(i) {
-      list(width = safe_widths[[i]], targets = i - 1L)
+    
+
+    default_width <- "60px"
+    
+    # Build columnDefs list
+    column_defs <- lapply(seq_along(col_names), function(i) {
+      col_name <- col_names[i]
+      width <- if (col_name %in% names(named_widths)) named_widths[[col_name]] else default_width
+      list(width = width, targets = i - 1L)
     })
     # Compute indices (1-based for nth-child) of Object/Comment columns if present
     object_idx <- if ("Object" %in% names(table_data)) which(names(table_data) == "Object")[1] else NA_integer_
