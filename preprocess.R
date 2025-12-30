@@ -38,9 +38,6 @@ normalize_distance_column_names <- function(df) {
     }
   }
   
-  # Also check for distanceCalibrationTJSON that might need aliasing 
-  # (though this name likely hasn't changed)
-  
   return(df)
 }
 

@@ -65,6 +65,60 @@ extract_width_px <- function(res_str) {
   }, numeric(1))
 }
 
+# Helper function to extract parameters from distanceCalibrationTJSON.COMMON section
+# and populate the corresponding columns in the dataframe
+extract_common_params_from_TJSON <- function(df) {
+  if (!"distanceCalibrationTJSON" %in% names(df)) return(df)
+  
+  raw_json <- get_first_non_na(df$distanceCalibrationTJSON)
+  if (is.null(raw_json) || is.na(raw_json) || raw_json == "") return(df)
+  
+  tryCatch({
+    json_txt <- sanitize_json_string(raw_json)
+    parsed <- jsonlite::fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
+    
+    common <- parsed$COMMON
+    if (is.null(common)) return(df)
+    
+    # Map new names (in COMMON) to old column names (used internally)
+    # Format: list("new_name_in_COMMON" = "old_column_name")
+    param_mapping <- list(
+      "_calibrateDistance" = "_calibrateTrackDistance",
+      "_calibrateDistancePupil" = "_calibrateTrackDistancePupil",
+      "_calibrateDistanceAllowedRatio" = "_calibrateTrackDistanceAllowedRatio",
+      "_calibrateDistanceShowLengthBool" = "_calibrateTrackDistanceShowLengthBool",
+      "_calibrateDistanceTimes" = "_calibrateTrackDistanceTimes",
+      "_viewingDistanceWhichEye" = "viewingDistanceWhichEye",
+      "_viewingDistanceWhichPoint" = "viewingDistanceWhichPoint",
+      "_calibrateScreenSizeAllowedRatio" = "calibrateScreenSizeAllowedRatio",
+      "_calibrateScreenSizeTimes" = "calibrateScreenSizeTimes"
+    )
+    
+    for (new_name in names(param_mapping)) {
+      old_col <- param_mapping[[new_name]]
+      
+      # Get value from COMMON section
+      val <- common[[new_name]]
+      
+      # If we have a value from COMMON and the column is empty/missing, populate it
+      if (!is.null(val) && length(val) > 0) {
+        val_str <- as.character(val[1])
+        if (!is.na(val_str) && val_str != "" && val_str != "NULL" && val_str != "null") {
+          # Check if current column value is empty
+          current_val <- if (old_col %in% names(df)) safe_first(df[[old_col]]) else ""
+          if (current_val == "" || is.na(current_val)) {
+            df[[old_col]] <- val_str
+          }
+        }
+      }
+    }
+  }, error = function(e) {
+    # If JSON parsing fails, return dataframe unchanged
+  })
+  
+  return(df)
+}
+
 make_statement <- function(df) {
   paste(
     paste0("_calibrateDistance = ",               safe_first(df[["_calibrateTrackDistance"]])),
@@ -134,10 +188,31 @@ get_cameraResolutionXY <- function(data_list) {
   for (i in 1:length(data_list)) {
     factorVpxCmList = c()
     factorVpxCm = ""
-    if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
+    
+    # Primary source: distanceCalibrationTJSON (new format)
+    if ("distanceCalibrationTJSON" %in% names(data_list[[i]])) {
+      raw_json <- get_first_non_na(data_list[[i]]$distanceCalibrationTJSON)
+      json_txt <- sanitize_json_string(raw_json)
+      
+      distanceCalibration <- tryCatch(
+        jsonlite::fromJSON(
+          json_txt,
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        ),
+        error = function(e) NULL
+      )
+      
+      if (!is.null(distanceCalibration)) {
+        # distanceCalibrationTJSON has factorVpxCm as a top-level array
+        if (!is.null(distanceCalibration$factorVpxCm)) {
+          factorVpxCmList <- as.numeric(distanceCalibration$factorVpxCm)
+        }
+      }
+    } else if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
+      # Fallback: distanceCalibrationJSON (old format) for backward compatibility
       raw_json <- get_first_non_na(data_list[[i]]$distanceCalibrationJSON)
       json_txt <- sanitize_json_string(raw_json)
-
+      
       distanceCalibration <- tryCatch(
         jsonlite::fromJSON(
           json_txt,
@@ -145,39 +220,42 @@ get_cameraResolutionXY <- function(data_list) {
         ),
         error = function(e) NULL
       )
-      if (is.null(distanceCalibration)) next
-
-     # Ensure distanceCalibration is a list
-     if (!is.list(distanceCalibration)) {
-       distanceCalibration <- list(distanceCalibration)
-     }
-
-     for (j in 1:length(distanceCalibration)) {
-       # Accept both new and legacy field names; prefer new if present
-       val <- NULL
-       # Check if element is a list before using $ operator
-       if (is.list(distanceCalibration[[j]])) {
-         if (!is.null(distanceCalibration[[j]]$factorVpxCm)) {
-           val <- distanceCalibration[[j]]$factorVpxCm
-         } else if (!is.null(distanceCalibration[[j]]$factorCameraPxCm)) {
-           val <- distanceCalibration[[j]]$factorCameraPxCm
-         }
-       }
-       if (!is.null(val)) {
-         factorVpxCmList = c(factorVpxCmList, val)
-       }
-     }
-      # Take the average of the last two factorVpxCm values (fallback to single if only one)
-      factorVpxCmVals <- suppressWarnings(as.numeric(factorVpxCmList))
-      factorVpxCmVals <- factorVpxCmVals[!is.na(factorVpxCmVals)]
       
-      if (length(factorVpxCmVals) >= 2) {
-        factorVpxCm <- mean(tail(factorVpxCmVals, 2))
-      } else if (length(factorVpxCmVals) == 1) {
-        factorVpxCm <- factorVpxCmVals[1]
-      } else {
-        factorVpxCm <- NA_real_
+      if (!is.null(distanceCalibration)) {
+        # Ensure distanceCalibration is a list
+        if (!is.list(distanceCalibration)) {
+          distanceCalibration <- list(distanceCalibration)
+        }
+        
+        for (j in 1:length(distanceCalibration)) {
+          val <- NULL
+          if (is.list(distanceCalibration[[j]])) {
+            if (!is.null(distanceCalibration[[j]]$factorVpxCm)) {
+              val <- distanceCalibration[[j]]$factorVpxCm
+            } else if (!is.null(distanceCalibration[[j]]$factorCameraPxCm)) {
+              val <- distanceCalibration[[j]]$factorCameraPxCm
+            }
+          }
+          if (!is.null(val)) {
+            factorVpxCmList <- c(factorVpxCmList, val)
+          }
+        }
+        if (length(factorVpxCmList) > 0) {
+        }
       }
+    } else {
+    }
+    
+    # Take the average of the last two factorVpxCm values (fallback to single if only one)
+    factorVpxCmVals <- suppressWarnings(as.numeric(factorVpxCmList))
+    factorVpxCmVals <- factorVpxCmVals[!is.na(factorVpxCmVals)]
+    
+    if (length(factorVpxCmVals) >= 2) {
+      factorVpxCm <- mean(tail(factorVpxCmVals, 2))
+    } else if (length(factorVpxCmVals) == 1) {
+      factorVpxCm <- factorVpxCmVals[1]
+    } else {
+      factorVpxCm <- NA_real_
     }
 
     t <- data_list[[i]] %>%
@@ -625,6 +703,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       filter(participant %in% valid_participants)
     
     if (nrow(filtered_data) > 0) {
+      # Extract COMMON parameters from distanceCalibrationTJSON to populate empty columns
+      filtered_data <- extract_common_params_from_TJSON(filtered_data)
       filtered_data_list[[length(filtered_data_list) + 1]] <- filtered_data
     }
   }
@@ -856,8 +936,141 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       }
     }
     
-    # -------- feet position during calibration (from distanceCalibrationJSON) --------
-    if ("distanceCalibrationJSON" %in% names(dl)) {
+    # -------- feet position during calibration (from distanceCalibrationTJSON) --------
+    if ("distanceCalibrationTJSON" %in% names(dl)) {
+      t_meta <- dl %>%
+        select(participant,  
+               `_calibrateTrackDistanceAllowedRatio`,
+               `_calibrateTrackDistanceShowLengthBool`,
+               `_calibrateTrackDistanceTimes`,
+               calibrateScreenSizeAllowedRatio,
+               calibrateScreenSizeTimes,
+               `_calibrateTrackDistance`,
+               `_calibrateTrackDistancePupil`,
+               viewingDistanceWhichEye,
+               viewingDistanceWhichPoint,
+               pxPerCm, screenWidthPx, screenHeightPx,
+               calibrateTrackDistanceMeasuredCm, 
+               calibrateTrackDistanceRequestedCm,
+               distanceCalibrationTJSON) %>%
+        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>%
+        distinct()
+      if (nrow(t_meta) > 0 && !all(is.na(t_meta$distanceCalibrationTJSON))) {
+        tryCatch({
+          raw_json <- get_first_non_na(t_meta$distanceCalibrationTJSON)
+          json_txt <- sanitize_json_string(raw_json)
+          distanceCalibration <- fromJSON(
+            json_txt,
+            simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+          )
+          # feet coords - distanceCalibrationTJSON has arrays at top level
+          eye_feet_coords <- list()
+          spot_degrees <- c()
+          
+          # Extract leftEyeFootXYPx and rightEyeFootXYPx arrays
+          left_eye_foot <- distanceCalibration$leftEyeFootXYPx
+          right_eye_foot <- distanceCalibration$rightEyeFootXYPx
+          spot_deg_array <- distanceCalibration$spotDeg
+          
+          if (!is.null(left_eye_foot) && !is.null(right_eye_foot)) {
+            # Handle both matrix format [[x1,y1],[x2,y2],...] and list format
+            if (is.matrix(left_eye_foot)) {
+              n_coords <- nrow(left_eye_foot)
+              for (j in 1:n_coords) {
+                eye_feet_coords[[j]] <- list(
+                  left_x = left_eye_foot[j, 1],
+                  left_y = left_eye_foot[j, 2],
+                  right_x = right_eye_foot[j, 1],
+                  right_y = right_eye_foot[j, 2]
+                )
+              }
+            } else if (is.list(left_eye_foot) && length(left_eye_foot) > 0) {
+              n_coords <- length(left_eye_foot)
+              for (j in 1:n_coords) {
+                eye_feet_coords[[j]] <- list(
+                  left_x = left_eye_foot[[j]][1],
+                  left_y = left_eye_foot[[j]][2],
+                  right_x = right_eye_foot[[j]][1],
+                  right_y = right_eye_foot[[j]][2]
+                )
+              }
+            }
+          }
+          
+          if (!is.null(spot_deg_array)) {
+            spot_degrees <- as.numeric(spot_deg_array)
+          }
+          
+          if (length(eye_feet_coords) > 0) {
+            coords_df <- tibble(
+              measurement_idx = 1:length(eye_feet_coords),
+              left_x = sapply(eye_feet_coords, function(x) x$left_x),
+              left_y = sapply(eye_feet_coords, function(x) x$left_y),
+              right_x = sapply(eye_feet_coords, function(x) x$right_x),
+              right_y = sapply(eye_feet_coords, function(x) x$right_y)
+            )
+            t <- t_meta %>%
+              filter(!is.na(calibrateTrackDistanceMeasuredCm),
+                     !is.na(calibrateTrackDistanceRequestedCm),
+                     calibrateTrackDistanceMeasuredCm != '',
+                     calibrateTrackDistanceRequestedCm != '') %>%
+              mutate(
+                calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
+                calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm)
+              ) %>%
+              mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","), 
+                     requested_list = strsplit(calibrateTrackDistanceRequestedCm, ",")) %>%
+              unnest(c(measured_list, requested_list)) %>%
+              mutate(
+                calibrateTrackDistanceMeasuredCm = suppressWarnings(as.numeric(trimws(measured_list))),
+                calibrateTrackDistanceRequestedCm = suppressWarnings(as.numeric(trimws(requested_list))),
+                measurement_index = row_number()
+              ) %>%
+              select(-measured_list, -requested_list)
+            n_measurements <- nrow(coords_df)
+            if (n_measurements > nrow(t)) {
+              coords_df <- coords_df[1:nrow(t), ]
+            } else if (n_measurements < nrow(t)) {
+              t <- t[1:n_measurements, ]
+            }
+            t <- cbind(t, coords_df) %>%
+              select(-measurement_idx) %>%
+              mutate(
+                avg_eye_x_px = (left_x + right_x) / 2,
+                avg_eye_y_px = (left_y + right_y) / 2,
+                distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
+              )
+            if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
+              t <- t %>% mutate(pxPerCm = as.numeric(pxPerCm),
+                                avg_eye_x_cm = avg_eye_x_px / pxPerCm,
+                                avg_eye_y_cm = avg_eye_y_px / pxPerCm)
+            } else {
+              default_pxPerCm <- 37.8
+              t <- t %>% mutate(pxPerCm = default_pxPerCm,
+                                avg_eye_x_cm = avg_eye_x_px / default_pxPerCm,
+                                avg_eye_y_cm = avg_eye_y_px / default_pxPerCm)
+            }
+            t <- t %>% mutate(data_list_index = i)
+            feet_calib <- rbind(feet_calib, t)
+          }
+          if (length(spot_degrees) > 0 && !all(is.na(spot_degrees))) {
+            t_bs <- t_meta[1,] %>% 
+              mutate(`_calibrateTrackDistanceBlindspotDiameterDeg` = spot_degrees[1]) %>%
+              select(participant, `_calibrateTrackDistanceBlindspotDiameterDeg`)
+            blindspot <- rbind(blindspot, t_bs)
+          }
+        }, error = function(e) {})
+      }
+    } else if ("distanceCalibrationJSON" %in% names(dl)) {
+      # Fallback: distanceCalibrationJSON (old format) for backward compatibility
       t_meta <- dl %>%
         select(participant,  
                `_calibrateTrackDistanceAllowedRatio`,
@@ -891,7 +1104,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
             json_txt,
             simplifyVector = FALSE, simplifyDataFrame = FALSE, flatten = FALSE
           )
-          # feet coords
+          # feet coords - old format has nested calibration objects
           eye_feet_coords <- list()
           spot_degrees <- c()
           for (j in seq_along(distanceCalibration)) {
@@ -1480,79 +1693,168 @@ get_foot_position_during_calibration_data <- function(data_list) {
 
   for (i in 1:length(data_list)) {
     available_cols <- names(data_list[[i]])
+    coords_df <- NULL
+    t <- NULL
 
-    # Check if we have the required columns - using distanceCalibrationJSON
-    if (!("distanceCalibrationJSON" %in% available_cols)) {
-      next
-    }
+    # Try distanceCalibrationTJSON first (new format)
+    if ("distanceCalibrationTJSON" %in% available_cols) {
 
-    t <- data_list[[i]] %>%
-      select(participant,  
-             `_calibrateTrackDistanceAllowedRatio`,
-             `_calibrateTrackDistanceShowLengthBool`,
-             `_calibrateTrackDistanceTimes`,
-             calibrateScreenSizeAllowedRatio,
-             calibrateScreenSizeTimes,
-             `_calibrateTrackDistance`,
-             `_calibrateTrackDistancePupil`,
-             viewingDistanceWhichEye,
-             viewingDistanceWhichPoint,
-             pxPerCm, 
-             screenWidthPx, 
-             screenHeightPx,
-             calibrateTrackDistanceMeasuredCm, 
-             calibrateTrackDistanceRequestedCm,
-             distanceCalibrationJSON) %>%
-      mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
-             `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
-             `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
-             calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
-             calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
-             `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
-             `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
-             `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
-             `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>% 
-      distinct()
+      t <- data_list[[i]] %>%
+        select(participant,  
+               `_calibrateTrackDistanceAllowedRatio`,
+               `_calibrateTrackDistanceShowLengthBool`,
+               `_calibrateTrackDistanceTimes`,
+               calibrateScreenSizeAllowedRatio,
+               calibrateScreenSizeTimes,
+               `_calibrateTrackDistance`,
+               `_calibrateTrackDistancePupil`,
+               viewingDistanceWhichEye,
+               viewingDistanceWhichPoint,
+               pxPerCm, 
+               screenWidthPx, 
+               screenHeightPx,
+               calibrateTrackDistanceMeasuredCm, 
+               calibrateTrackDistanceRequestedCm,
+               distanceCalibrationTJSON) %>%
+        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>% 
+        distinct()
 
-    # Parse distanceCalibrationJSON first before filtering
-    tryCatch({
-      raw_json <- get_first_non_na(t$distanceCalibrationJSON)
-      json_txt <- sanitize_json_string(raw_json)
-      distanceCalibration <- fromJSON(
-        json_txt,
-        simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
-      )
+      # Parse distanceCalibrationTJSON
+      tryCatch({
+        raw_json <- get_first_non_na(t$distanceCalibrationTJSON)
+        json_txt <- sanitize_json_string(raw_json)
+        distanceCalibration <- fromJSON(
+          json_txt,
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        )
 
-      # Extract eye foot coordinates from each calibration
-      eye_feet_coords <- list()
-      for (j in 1:length(distanceCalibration)) {
-        cal <- distanceCalibration[[j]]
-        if (!is.null(cal$leftEyeFootXYPx) && !is.null(cal$rightEyeFootXYPx)) {
-          eye_feet_coords[[length(eye_feet_coords) + 1]] <- list(
-            left_x = cal$leftEyeFootXYPx[1],
-            left_y = cal$leftEyeFootXYPx[2],
-            right_x = cal$rightEyeFootXYPx[1],
-            right_y = cal$rightEyeFootXYPx[2]
+        # Extract eye foot coordinates - distanceCalibrationTJSON has arrays at top level
+        eye_feet_coords <- list()
+        left_eye_foot <- distanceCalibration$leftEyeFootXYPx
+        right_eye_foot <- distanceCalibration$rightEyeFootXYPx
+        
+        if (!is.null(left_eye_foot) && !is.null(right_eye_foot)) {
+          # Handle both matrix format [[x1,y1],[x2,y2],...] and list format
+          if (is.matrix(left_eye_foot)) {
+            n_coords <- nrow(left_eye_foot)
+            for (j in 1:n_coords) {
+              eye_feet_coords[[j]] <- list(
+                left_x = left_eye_foot[j, 1],
+                left_y = left_eye_foot[j, 2],
+                right_x = right_eye_foot[j, 1],
+                right_y = right_eye_foot[j, 2]
+              )
+            }
+          } else if (is.list(left_eye_foot) && length(left_eye_foot) > 0) {
+            n_coords <- length(left_eye_foot)
+            for (j in 1:n_coords) {
+              eye_feet_coords[[j]] <- list(
+                left_x = left_eye_foot[[j]][1],
+                left_y = left_eye_foot[[j]][2],
+                right_x = right_eye_foot[[j]][1],
+                right_y = right_eye_foot[[j]][2]
+              )
+            }
+          }
+        }
+
+        if (length(eye_feet_coords) > 0) {
+          # Create coordinate data frame
+          coords_df <- tibble(
+            measurement_idx = 1:length(eye_feet_coords),
+            left_x = sapply(eye_feet_coords, function(x) x$left_x),
+            left_y = sapply(eye_feet_coords, function(x) x$left_y),
+            right_x = sapply(eye_feet_coords, function(x) x$right_x),
+            right_y = sapply(eye_feet_coords, function(x) x$right_y)
           )
         }
-      }
 
-      if (length(eye_feet_coords) == 0) {
-        next  # Skip this iteration if no eye foot coordinates found
-      }
+      }, error = function(e) {
+        # Skip this iteration if JSON parsing fails
+      })
+    } else if ("distanceCalibrationJSON" %in% available_cols) {
+      # Fallback: distanceCalibrationJSON (old format) for backward compatibility
 
-      # Create coordinate data frame
-      coords_df <- tibble(
-        measurement_idx = 1:length(eye_feet_coords),
-        left_x = sapply(eye_feet_coords, function(x) x$left_x),
-        left_y = sapply(eye_feet_coords, function(x) x$left_y),
-        right_x = sapply(eye_feet_coords, function(x) x$right_x),
-        right_y = sapply(eye_feet_coords, function(x) x$right_y)
-      )
+      t <- data_list[[i]] %>%
+        select(participant,  
+               `_calibrateTrackDistanceAllowedRatio`,
+               `_calibrateTrackDistanceShowLengthBool`,
+               `_calibrateTrackDistanceTimes`,
+               calibrateScreenSizeAllowedRatio,
+               calibrateScreenSizeTimes,
+               `_calibrateTrackDistance`,
+               `_calibrateTrackDistancePupil`,
+               viewingDistanceWhichEye,
+               viewingDistanceWhichPoint,
+               pxPerCm, 
+               screenWidthPx, 
+               screenHeightPx,
+               calibrateTrackDistanceMeasuredCm, 
+               calibrateTrackDistanceRequestedCm,
+               distanceCalibrationJSON) %>%
+        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>% 
+        distinct()
 
-    }, error = function(e) {
-      next  # Skip this iteration if JSON parsing fails
-    })
+      # Parse distanceCalibrationJSON (old format - nested calibration objects)
+      tryCatch({
+        raw_json <- get_first_non_na(t$distanceCalibrationJSON)
+        json_txt <- sanitize_json_string(raw_json)
+        distanceCalibration <- fromJSON(
+          json_txt,
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        )
+
+        # Extract eye foot coordinates from each calibration object
+        eye_feet_coords <- list()
+        for (j in 1:length(distanceCalibration)) {
+          cal <- distanceCalibration[[j]]
+          if (!is.null(cal$leftEyeFootXYPx) && !is.null(cal$rightEyeFootXYPx)) {
+            eye_feet_coords[[length(eye_feet_coords) + 1]] <- list(
+              left_x = cal$leftEyeFootXYPx[1],
+              left_y = cal$leftEyeFootXYPx[2],
+              right_x = cal$rightEyeFootXYPx[1],
+              right_y = cal$rightEyeFootXYPx[2]
+            )
+          }
+        }
+
+        if (length(eye_feet_coords) > 0) {
+          # Create coordinate data frame
+          coords_df <- tibble(
+            measurement_idx = 1:length(eye_feet_coords),
+            left_x = sapply(eye_feet_coords, function(x) x$left_x),
+            left_y = sapply(eye_feet_coords, function(x) x$left_y),
+            right_x = sapply(eye_feet_coords, function(x) x$right_x),
+            right_y = sapply(eye_feet_coords, function(x) x$right_y)
+          )
+        }
+
+      }, error = function(e) {
+        # Skip this iteration if JSON parsing fails
+      })
+    } else {
+      next  # No distance calibration JSON found
+    }
+    
+    if (is.null(coords_df) || nrow(coords_df) == 0 || is.null(t)) {
+      next
+    }
 
     # Now filter after JSON parsing
     t <- t %>%
@@ -1986,12 +2288,46 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
 }
 
 get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
-  # Get _calibrateTrackDistanceBlindspotDiameterDeg from distanceCalibrationJSON
+  # Get _calibrateTrackDistanceBlindspotDiameterDeg from distanceCalibrationTJSON or fallback to distanceCalibrationJSON
   blindspot_diameter_data <- tibble()
   if (is.null(data_list) || length(data_list) == 0) return(blindspot_diameter_data)
 
   for (i in 1:length(data_list)) {
-    if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
+    if ("distanceCalibrationTJSON" %in% names(data_list[[i]])) {
+      t <- data_list[[i]] %>%
+        select(participant, distanceCalibrationTJSON) %>%
+        filter(!is.na(distanceCalibrationTJSON), distanceCalibrationTJSON != "")
+
+      if (nrow(t) > 0) {
+        tryCatch({
+          # Parse distanceCalibrationTJSON to extract spotDeg
+          raw_json <- get_first_non_na(t$distanceCalibrationTJSON)
+          json_txt <- sanitize_json_string(raw_json)
+          distanceCalibration <- fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
+
+          # Extract spotDeg - in distanceCalibrationTJSON, spotDeg is a top-level array
+          spot_degrees <- c()
+          if (!is.null(distanceCalibration$spotDeg)) {
+            spot_degrees <- as.numeric(distanceCalibration$spotDeg)
+            spot_degrees <- spot_degrees[!is.na(spot_degrees)]
+          }
+
+          if (length(spot_degrees) > 0) {
+            # Use the first (or average) spotDeg value
+            spot_deg <- spot_degrees[1]  # or mean(spot_degrees) if you want average
+
+            blindspot_entry <- t[1,] %>%  # Take first row for participant info
+              mutate(`_calibrateTrackDistanceBlindspotDiameterDeg` = spot_deg) %>%
+              select(participant, `_calibrateTrackDistanceBlindspotDiameterDeg`)
+
+            blindspot_diameter_data <- rbind(blindspot_diameter_data, blindspot_entry)
+          }
+        }, error = function(e) {
+          # Skip if JSON parsing fails
+        })
+      }
+    } else if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
+      # Fallback: distanceCalibrationJSON (old format) for backward compatibility
       t <- data_list[[i]] %>%
         select(participant, distanceCalibrationJSON) %>%
         filter(!is.na(distanceCalibrationJSON), distanceCalibrationJSON != "")
@@ -2003,7 +2339,7 @@ get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
           json_txt <- sanitize_json_string(raw_json)
           distanceCalibration <- fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
 
-          # Extract spotDeg from each calibration
+          # Extract spotDeg from each calibration object
           spot_degrees <- c()
           for (j in 1:length(distanceCalibration)) {
             cal <- distanceCalibration[[j]]
@@ -2011,6 +2347,7 @@ get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
               spot_degrees <- c(spot_degrees, as.numeric(cal$spotDeg))
             }
           }
+          spot_degrees <- spot_degrees[!is.na(spot_degrees)]
 
           if (length(spot_degrees) > 0) {
             # Use the first (or average) spotDeg value
