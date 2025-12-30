@@ -67,11 +67,11 @@ extract_width_px <- function(res_str) {
 
 make_statement <- function(df) {
   paste(
-    paste0("_calibrateTrackDistance = ",               safe_first(df[["_calibrateTrackDistance"]])),
-    paste0("_calibrateTrackDistancePupil = ",          safe_first(df[["_calibrateTrackDistancePupil"]])),
-    paste0("_calibrateTrackDistanceAllowedRatio = ",   safe_first(df[["_calibrateTrackDistanceAllowedRatio"]])),
-    paste0("_calibrateTrackDistanceShowLengthBool = ", safe_first(df[["_calibrateTrackDistanceShowLengthBool"]])),
-    paste0("_calibrateTrackDistanceTimes = ",          safe_first(df[["_calibrateTrackDistanceTimes"]])),
+    paste0("_calibrateDistance = ",               safe_first(df[["_calibrateTrackDistance"]])),
+    paste0("_calibrateDistancePupil = ",          safe_first(df[["_calibrateTrackDistancePupil"]])),
+    paste0("_calibrateDistanceAllowedRatio = ",   safe_first(df[["_calibrateTrackDistanceAllowedRatio"]])),
+    paste0("_calibrateDistanceShowLengthBool = ", safe_first(df[["_calibrateTrackDistanceShowLengthBool"]])),
+    paste0("_calibrateDistanceTimes = ",          safe_first(df[["_calibrateTrackDistanceTimes"]])),
     paste0("calibrateScreenSizeAllowedRatio = ",       safe_first(df[["calibrateScreenSizeAllowedRatio"]])),
     paste0("calibrateScreenSizeTimes = ",              safe_first(df[["calibrateScreenSizeTimes"]])),
     paste0("viewingDistanceWhichEye = ",               safe_first(df[["viewingDistanceWhichEye"]])),
@@ -87,12 +87,13 @@ build_param_table <- function(df) {
     x <- x[!is.na(x) & x != "" & x != "NA"]
     if (length(x)) x[1] else ""
   }
+  # Display labels use new naming (without "Track"), but internal columns still use old names
   keys <- c(
-    "_calibrateTrackDistance",
-    "_calibrateTrackDistancePupil",
-    "_calibrateTrackDistanceAllowedRatio",
-    "_calibrateTrackDistanceShowLengthBool",
-    "_calibrateTrackDistanceTimes",
+    "_calibrateDistance",
+    "_calibrateDistancePupil",
+    "_calibrateDistanceAllowedRatio",
+    "_calibrateDistanceShowLengthBool",
+    "_calibrateDistanceTimes",
     "calibrateScreenSizeAllowedRatio",
     "calibrateScreenSizeTimes",
     "viewingDistanceWhichEye",
@@ -3107,7 +3108,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             subtitle = 'fVpx/horizontalVpx vs. horizontalVpx',
             x = 'HorizontalVpx (px)',
             y = 'fVpx/horizontalVpx',
-            caption = 'One point per session with distance checking enabled (_calibrateTrackDistanceCheckBool = TRUE)'
+            caption = 'One point per session with distance checking enabled (_calibrateDistanceCheckBool = TRUE)'
           ) +
           theme_classic() +
           theme(

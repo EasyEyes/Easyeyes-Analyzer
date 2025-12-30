@@ -3,6 +3,47 @@ library(stringr)
 library(readr)
 source('./plotting/simulatedRSVP.R')
 
+# Helper function to normalize column names from new "Distance" format to old "TrackDistance" format
+# This provides backward compatibility: new data files use "calibrateDistance..." while 
+# the plotting code expects "calibrateTrackDistance..."
+normalize_distance_column_names <- function(df) {
+  if (is.null(df) || !is.data.frame(df) || ncol(df) == 0) return(df)
+  
+  col_names <- names(df)
+  
+  # Mapping from new names (without "Track") to old names (with "Track")
+  # Pattern: calibrateDistance* -> calibrateTrackDistance*
+  # Pattern: _calibrateDistance* -> _calibrateTrackDistance*
+  
+  # For columns that start with "_calibrateDistance" but not "_calibrateTrackDistance"
+  new_underscore_pattern <- "^_calibrateDistance(?!Check)"  # Don't match _calibrateDistanceCheck which should become _calibrateTrackDistanceCheck
+  new_underscore_cols <- grep("^_calibrateDistance", col_names, value = TRUE)
+  new_underscore_cols <- new_underscore_cols[!grepl("^_calibrateTrackDistance", new_underscore_cols)]
+  
+  for (col in new_underscore_cols) {
+    old_col <- sub("^_calibrateDistance", "_calibrateTrackDistance", col)
+    if (!old_col %in% col_names) {
+      df[[old_col]] <- df[[col]]
+    }
+  }
+  
+  # For columns that start with "calibrateDistance" but not "calibrateTrackDistance"
+  new_cols <- grep("^calibrateDistance", col_names, value = TRUE)
+  new_cols <- new_cols[!grepl("^calibrateTrackDistance", new_cols)]
+  
+  for (col in new_cols) {
+    old_col <- sub("^calibrateDistance", "calibrateTrackDistance", col)
+    if (!old_col %in% names(df)) {
+      df[[old_col]] <- df[[col]]
+    }
+  }
+  
+  # Also check for distanceCalibrationTJSON that might need aliasing 
+  # (though this name likely hasn't changed)
+  
+  return(df)
+}
+
 impute_column <- function(df, colname, preceding_value) {
   col <- df[[colname]]
   
@@ -184,6 +225,9 @@ check_file_names <- function(file) {
 }
 
 ensure_columns <- function(t, file_name = NULL) {
+  # First, normalize new "Distance" column names to old "TrackDistance" format for compatibility
+  t <- normalize_distance_column_names(t)
+  
   # Helper to add a column if missing
   add_col <- function(df, col, value) {
     if (!col %in% colnames(df)) df[[col]] <- value

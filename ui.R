@@ -148,7 +148,7 @@ shinyUI(
           ),
           div(
             style = "display: flex; align-items: center; gap: 5px;",
-            tags$span("calibrateTrackDistanceCheckLengthSDLogAllowed:"),
+            tags$span("calibrateDistanceCheckLengthSDLogAllowed:"),
             numericInput(
               'calibrateTrackDistanceCheckLengthSDLogAllowed',
               NULL,
