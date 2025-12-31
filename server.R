@@ -1001,6 +1001,7 @@ shinyServer(function(input, output, session) {
     # Distance-specific plots
     distance_production_plots <- plot_distance_production(distanceCalibration(), df_list()$participant_info, calibrateTrackDistanceCheckLengthSDLogAllowed())
     distance_plots <- plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed())
+    ipd_plots <- plot_ipd_vs_eyeToFootCm(distanceCalibration())
     
     plot_calls <- list(
       list(plot = sizeCheckPlot()$density_vs_length$plot, height = sizeCheckPlot()$density_vs_length$height, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
@@ -1017,7 +1018,10 @@ shinyServer(function(input, output, session) {
       list(plot = distance_plots$calibrated_vs_mean$plot, height = distance_plots$calibrated_vs_mean$height, fname = 'calibrated-vs-mean-factorVpxCm-plot'),
       list(plot = distance_plots$calibrated_over_mean_vs_spot$plot, height = distance_plots$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter-plot'),
       list(plot = distance_plots$eye_feet_position$plot, height = distance_plots$eye_feet_position$height, fname = 'eye-feet-position-vs-distance-error-plot'),
-      list(plot = distance_plots$foot_position_calibration$plot, height = distance_plots$foot_position_calibration$height, fname = 'foot-position-during-calibration-plot')
+      list(plot = distance_plots$foot_position_calibration$plot, height = distance_plots$foot_position_calibration$height, fname = 'foot-position-during-calibration-plot'),
+      list(plot = ipd_plots$ipd_vs_eyeToFootCm$plot, height = ipd_plots$ipd_vs_eyeToFootCm$height, fname = 'ipd-vs-eyeToFootCm-plot'),
+      list(plot = ipd_plots$ipdVpx_times_eyeToFootCm_vs_eyeToFootCm$plot, height = ipd_plots$ipdVpx_times_eyeToFootCm_vs_eyeToFootCm$height, fname = 'ipdVpx-times-eyeToFootCm-vs-eyeToFootCm-plot')
+
     )
 
     heights <- list()

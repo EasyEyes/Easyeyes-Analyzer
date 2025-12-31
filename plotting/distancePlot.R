@@ -736,7 +736,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       raw_pxPerCm = tibble(),
       raw_objectMeasuredCm = tibble(),
       raw_factorVpxCm = tibble(),
-      statement = ""
+      statement = "",
+      TJSON = tibble()
     ))
   }
   
@@ -839,6 +840,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   check_factor <- tibble()
   camera <- get_cameraResolutionXY(filtered_data_list)  # reused elsewhere; keep helper
   blindspot <- tibble()
+  TJSON <- tibble()
   
   for (i in seq_along(filtered_data_list)) {
     dl <- filtered_data_list[[i]]
@@ -1422,15 +1424,41 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         # Silently skip if JSON parsing fails
       })
     }
+    #### TJSON data ####
+    available_cols <- names(dl)
+    if ("distanceCalibrationTJSON" %in% available_cols) {
+      
+      t <- dl %>%
+        select(participant,distanceCalibrationTJSON) %>%
+        distinct()
+      
+      # Parse distanceCalibrationTJSON
+      tryCatch({
+        raw_json <- get_first_non_na(t$distanceCalibrationTJSON)
+        json_txt <- sanitize_json_string(raw_json)
+        t_tjson <- fromJSON(
+          json_txt,
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        )
+        tmp <- tibble(participant = t$participant, 
+                      rightEyeToFootCm = t_tjson$rightEyeToFootCm,
+                      leftEyeToFootCm = t_tjson$leftEyeToFootCm,
+                      factorVpxCm = t_tjson$factorVpxCm,
+                      ipdVpx = t_tjson$ipdVpx)
+        TJSON <- rbind(TJSON, tmp)
+      }, error = function(e) {
+        # Skip this iteration if JSON parsing fails
+      })
+    }
   }
-  
+  print('inside get_distanace_calibration')
   sizeCheck <- sizeCheck %>% as_tibble()
   distance <- distance %>% as_tibble()
   eye_feet <- eye_feet %>% as_tibble()
   feet_calib <- feet_calib %>% as_tibble()
   check_factor <- check_factor %>% distinct()
   blindspot <- blindspot %>% distinct()
-  
+  TJSON <- TJSON %>% distinct()
   statement <- make_statement(sizeCheck)
   
   # Extract raw array data for new histograms
@@ -1440,7 +1468,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   
   # Compute camera resolution stats (SD and count of width values)
   camera_res_stats <- get_camera_resolution_stats(filtered_data_list)
-  
+  print('TJSON')
+  print(TJSON)
   return(list(
     filtered = filtered_data_list,
     sizeCheck = sizeCheck,
@@ -1454,7 +1483,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     raw_pxPerCm = raw_pxPerCm,
     raw_objectMeasuredCm = raw_objectMeasuredCm,
     raw_factorVpxCm = raw_factorVpxCm,
-    statement = statement
+    statement = statement,
+    TJSON = TJSON
   ))
 }
 
@@ -4720,4 +4750,124 @@ bs_vd_hist <- function(data_list) {
     mean_plot = list(plot = p1, height = plot_height),
     sd_plot = list(plot = p2, height = plot_height)
   ))
+}
+
+plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
+  print('inside plot_ipd_vs_eyeToFootCm')
+      ipd_data <- distanceCalibrationResults$TJSON %>%
+      mutate(eyeToFootCm = (leftEyeToFootCm + rightEyeToFootCm)/2,
+             ipdVpx_times_eyeToFootCm = ipdVpx * eyeToFootCm)
+
+      if (nrow(ipd_data) == 0) {
+        return(list(ipd_vs_eyeToFootCm = list(plot = NULL, 
+                                      height =NULL),
+              ipdVpx_times_eyeToFootCm_vs_eyeToFootCm = list(plot = NULL, 
+                                      height =NULL)))
+      }
+      p1 <- ggplot() +
+        geom_line(data = ipd_data,
+                  aes(x = eyeToFootCm,
+                      y = factorVpxCm / eyeToFootCm,
+                      color = participant,
+                      group = participant),
+                  linewidth = 0.75, alpha = 0.8, linetype = "solid") +
+        geom_line(data=ipd_data,
+                  aes(x = eyeToFootCm,
+                      y = ipdVpx,
+                      color = participant,
+                      group = participant),
+                  linewidth = 0.5, alpha = 0.7) +
+        geom_point(data=ipd_data,
+                   aes(x = eyeToFootCm,
+                       y = ipdVpx,
+                       color = participant),
+                   size = 2) +
+        ggpp::geom_text_npc(aes(npcx="left",
+                                npcy="top"),
+                            label = paste0('N=', n_distinct(ipd_data$participant))) +
+        scale_x_log10(
+          # limits = c(minX, maxX),
+          breaks = scales::log_breaks(n = 6),
+          labels = scales::label_number(accuracy = 1)
+        ) +
+        scale_y_log10(breaks = scales::log_breaks(n=8)) +
+        scale_color_manual(values= colorPalette) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = distanceCalibrationResults$statement) +
+        guides(color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 1.5),
+          keywidth = unit(0.8, "lines"),
+          keyheight = unit(0.6, "lines")
+        )) +
+        theme_classic() +
+        theme(
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.text = element_text(size = 6),
+          legend.spacing.y = unit(0, "lines"),
+          legend.key.size = unit(0.4, "cm"),
+          plot.margin = margin(5, 5, 5, 5, "pt")
+        ) +
+        labs(subtitle = 'IPD (vpx) vs. EyeToFoot distance (cm)',
+             x = 'EyeToFoot distance (cm)',
+             y = 'IPD (vpx)',
+             caption = 'Thick solid lines: ipdVpx = factorVpxCm / eyeToFootCm')
+
+  print('done p1')
+   p2 <- ggplot() +
+        geom_line(data = ipd_data,
+                  aes(x = eyeToFootCm,
+                      y = factorVpxCm / eyeToFootCm,
+                      color = participant,
+                      group = participant),
+                  linewidth = 0.75, alpha = 0.8, linetype = "solid") +
+        geom_line(data=ipd_data,
+                  aes(x = eyeToFootCm,
+                      y = ipdVpx_times_eyeToFootCm,
+                      color = participant,
+                      group = participant),
+                  linewidth = 0.5, alpha = 0.7) +
+        geom_point(data=ipd_data,
+                   aes(x = eyeToFootCm,
+                       y = ipdVpx,
+                       color = participant),
+                   size = 2) +
+        ggpp::geom_text_npc(aes(npcx="left",
+                                npcy="top"),
+                            label = paste0('N=', n_distinct(ipd_data$participant))) +
+        scale_x_log10(
+          # limits = c(minX, maxX),
+          breaks = scales::log_breaks(n = 6),
+          labels = scales::label_number(accuracy = 1)
+        ) +
+        scale_y_log10(breaks = scales::log_breaks(n=8)) +
+        scale_color_manual(values= colorPalette) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = distanceCalibrationResults$statement) +
+        guides(color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 1.5),
+          keywidth = unit(0.8, "lines"),
+          keyheight = unit(0.6, "lines")
+        )) +
+        theme_classic() +
+        theme(
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.text = element_text(size = 6),
+          legend.spacing.y = unit(0, "lines"),
+          legend.key.size = unit(0.4, "cm"),
+          plot.margin = margin(5, 5, 5, 5, "pt")
+        ) +
+        labs(subtitle = '(IPD * EyeToFoot distance) vs. EyeToFoot distance (cm)',
+             x = 'EyeToFoot distance (cm)',
+             y = 'IPD * EyeToFoot distance',
+             caption = 'Thick solid lines: ipdVpx = factorVpxCm / eyeToFootCm')
+
+  p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(ipd_data$participant), per_row = 3, row_increase = 0.06)
+  return(list(ipd_vs_eyeToFootCm = list(plot = p1, 
+                                      height =p_height),
+              ipdVpx_times_eyeToFootCm_vs_eyeToFootCm = list(plot = p2, 
+                                      height =p_height)))
 }
