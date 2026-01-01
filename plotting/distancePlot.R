@@ -737,7 +737,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       raw_objectMeasuredCm = tibble(),
       raw_factorVpxCm = tibble(),
       statement = "",
-      TJSON = tibble()
+      TJSON = tibble(),
+      checkJSON = tibble()
     ))
   }
   
@@ -768,7 +769,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       raw_pxPerCm = tibble(),
       raw_objectMeasuredCm = tibble(),
       raw_factorVpxCm = tibble(),
-      statement = ""
+      statement = "",
+      checkJSON = tibble()
     ))
   }
   
@@ -806,7 +808,9 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       raw_pxPerCm = tibble(),
       raw_objectMeasuredCm = tibble(),
       raw_factorVpxCm = tibble(),
-      statement = ""
+      statement = "",
+      TJSON = tibble(),
+      checkJSON = tibble()
     ))
   }
   
@@ -841,6 +845,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   camera <- get_cameraResolutionXY(filtered_data_list)  # reused elsewhere; keep helper
   blindspot <- tibble()
   TJSON <- tibble()
+  checkJSON <- tibble()
   
   for (i in seq_along(filtered_data_list)) {
     dl <- filtered_data_list[[i]]
@@ -1450,17 +1455,47 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         # Skip this iteration if JSON parsing fails
       })
     }
+
+    #### checkJSON data ####
+    if ("distanceCheckJSON" %in% available_cols) {
+      
+      t <- dl %>%
+        select(participant,distanceCheckJSON) %>%
+        distinct()
+      
+      # Parse distanceCheckJSON
+      tryCatch({
+        raw_json <- get_first_non_na(t$distanceCheckJSON)
+        json_txt <- sanitize_json_string(raw_json)
+
+        t_checkJson <- fromJSON(
+          json_txt,
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        )
+
+        tmp <- tibble(
+          participant   = t$participant[1],
+          eyesToPointCm = t_checkJson$eyesToPointCm,
+          footToPointCm = t_checkJson$footToPointCm,
+          ipdVpx        = t_checkJson$ipdVpx,
+          factorVpxCm   = t_checkJson$factorVpxCm
+        )
+        checkJSON <- rbind(checkJSON, tmp)
+      }, error = function(e) {
+        # Skip this iteration if JSON parsing fails
+      })
+    }
   }
-  print('inside get_distanace_calibration')
+  
+  
   sizeCheck <- sizeCheck %>% as_tibble()
   distance <- distance %>% as_tibble()
   eye_feet <- eye_feet %>% as_tibble()
   feet_calib <- feet_calib %>% as_tibble()
   check_factor <- check_factor %>% distinct()
   blindspot <- blindspot %>% distinct()
-  TJSON <- TJSON %>% distinct()
   statement <- make_statement(sizeCheck)
-  
+
   # Extract raw array data for new histograms
   raw_pxPerCm <- get_raw_pxPerCm_data(filtered_data_list, sizeCheck)
   raw_objectMeasuredCm <- get_raw_objectMeasuredCm_data(filtered_data_list)
@@ -1468,8 +1503,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   
   # Compute camera resolution stats (SD and count of width values)
   camera_res_stats <- get_camera_resolution_stats(filtered_data_list)
-  print('TJSON')
-  print(TJSON)
+
   return(list(
     filtered = filtered_data_list,
     sizeCheck = sizeCheck,
@@ -1484,7 +1518,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     raw_objectMeasuredCm = raw_objectMeasuredCm,
     raw_factorVpxCm = raw_factorVpxCm,
     statement = statement,
-    TJSON = TJSON
+    TJSON = TJSON,
+    checkJSON = checkJSON
   ))
 }
 
@@ -4754,53 +4789,69 @@ bs_vd_hist <- function(data_list) {
 
 plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   print('inside plot_ipd_vs_eyeToFootCm')
-      ipd_data <- distanceCalibrationResults$TJSON %>%
+      ipd_TJSON <- distanceCalibrationResults$TJSON %>%
       mutate(eyeToFootCm = (leftEyeToFootCm + rightEyeToFootCm)/2,
-             ipdVpx_times_eyeToFootCm = ipdVpx * eyeToFootCm)
+             ipdVpx_times_eyeToFootCm = ipdVpx * eyeToFootCm,
+             type = 'TJSON') %>%
+      select(participant, eyeToFootCm, ipdVpx, ipdVpx_times_eyeToFootCm, factorVpxCm, type)
 
-      if (nrow(ipd_data) == 0) {
+      ipd_checkJSON <- distanceCalibrationResults$checkJSON %>%
+      mutate(eyeToFootCm = sqrt(eyesToPointCm^2 -footToPointCm^2),
+             ipdVpx_times_eyeToFootCm = ipdVpx * eyeToFootCm,
+             type = 'check') %>%
+      select(participant, eyeToFootCm, ipdVpx, ipdVpx_times_eyeToFootCm, factorVpxCm, type)
+
+    ipd_data <- rbind(ipd_TJSON, ipd_checkJSON)
+
+      if (nrow(ipd_TJSON) == 0) {
         return(list(ipd_vs_eyeToFootCm = list(plot = NULL, 
                                       height =NULL),
               ipdVpx_times_eyeToFootCm_vs_eyeToFootCm = list(plot = NULL, 
                                       height =NULL)))
       }
+    
       p1 <- ggplot() +
-        geom_line(data = ipd_data,
-                  aes(x = eyeToFootCm,
-                      y = factorVpxCm / eyeToFootCm,
-                      color = participant,
-                      group = participant),
-                  linewidth = 0.75, alpha = 0.8, linetype = "solid") +
-        geom_line(data=ipd_data,
+        geom_line(data = ipd_data %>% arrange(participant, type, eyeToFootCm),
                   aes(x = eyeToFootCm,
                       y = ipdVpx,
                       color = participant,
-                      group = participant),
-                  linewidth = 0.5, alpha = 0.7) +
-        geom_point(data=ipd_data,
+                      group = interaction(participant, type)),
+                  linewidth = 0.75, alpha = 0.8, linetype = "solid") +
+        geom_smooth(data = ipd_data %>% arrange(participant, type, eyeToFootCm),
+                    aes(x = eyeToFootCm,
+                        y = ipdVpx,
+                        color = participant,
+                        group = participant),
+                    method = "lm", se = FALSE,
+                    linewidth = 0.75, linetype = "solid", alpha = 0.8) +
+        geom_point(data = ipd_data,
                    aes(x = eyeToFootCm,
                        y = ipdVpx,
-                       color = participant),
+                       color = participant,
+                       shape = type),
                    size = 2) +
         ggpp::geom_text_npc(aes(npcx="left",
                                 npcy="top"),
                             label = paste0('N=', n_distinct(ipd_data$participant))) +
         scale_x_log10(
-          # limits = c(minX, maxX),
           breaks = scales::log_breaks(n = 6),
-          labels = scales::label_number(accuracy = 1)
+          labels = scales::label_number(accuracy = 10)
         ) +
         scale_y_log10(breaks = scales::log_breaks(n=8)) +
+        scale_shape_manual(values = c(TJSON = 16, check = 1)) +
         scale_color_manual(values= colorPalette) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = distanceCalibrationResults$statement) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", 
+                                             npcy = "bottom"), 
+                                             label = distanceCalibrationResults$statement) +
         guides(color = guide_legend(
           ncol = 3,
           title = "",
           override.aes = list(size = 1.5),
           keywidth = unit(0.8, "lines"),
           keyheight = unit(0.6, "lines")
-        )) +
-        theme_classic() +
+        ),
+        shape = guide_legend(title = "")) +
+        theme_bw() +
         theme(
           legend.position = "top",
           legend.box = "vertical",
@@ -4810,28 +4861,23 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
         labs(subtitle = 'IPD (vpx) vs. EyeToFoot distance (cm)',
-             x = 'EyeToFoot distance (cm)',
-             y = 'IPD (vpx)',
+             x = 'eyeToFootCm',
+             y = 'ipdVpx',
              caption = 'Thick solid lines: ipdVpx = factorVpxCm / eyeToFootCm')
 
   print('done p1')
    p2 <- ggplot() +
-        geom_line(data = ipd_data,
-                  aes(x = eyeToFootCm,
-                      y = factorVpxCm / eyeToFootCm,
-                      color = participant,
-                      group = participant),
-                  linewidth = 0.75, alpha = 0.8, linetype = "solid") +
-        geom_line(data=ipd_data,
+        geom_line(data = ipd_data %>% arrange(participant, type, eyeToFootCm),
                   aes(x = eyeToFootCm,
                       y = ipdVpx_times_eyeToFootCm,
                       color = participant,
-                      group = participant),
-                  linewidth = 0.5, alpha = 0.7) +
-        geom_point(data=ipd_data,
+                      group = interaction(participant, type)),
+                  linewidth = 0.75, alpha = 0.8, linetype = "solid") +
+        geom_point(data = ipd_data,
                    aes(x = eyeToFootCm,
-                       y = ipdVpx,
-                       color = participant),
+                       y = ipdVpx_times_eyeToFootCm,
+                       color = participant,
+                       shape = type),
                    size = 2) +
         ggpp::geom_text_npc(aes(npcx="left",
                                 npcy="top"),
@@ -4842,6 +4888,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
           labels = scales::label_number(accuracy = 1)
         ) +
         scale_y_log10(breaks = scales::log_breaks(n=8)) +
+        scale_shape_manual(values = c(TJSON = 16, check = 1)) +
         scale_color_manual(values= colorPalette) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = distanceCalibrationResults$statement) +
         guides(color = guide_legend(
@@ -4850,7 +4897,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
           override.aes = list(size = 1.5),
           keywidth = unit(0.8, "lines"),
           keyheight = unit(0.6, "lines")
-        )) +
+        ),
+        shape = guide_legend(title = "")) +
         theme_classic() +
         theme(
           legend.position = "top",
@@ -4860,10 +4908,9 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
           legend.key.size = unit(0.4, "cm"),
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
-        labs(subtitle = '(IPD * EyeToFoot distance) vs. EyeToFoot distance (cm)',
-             x = 'EyeToFoot distance (cm)',
-             y = 'IPD * EyeToFoot distance',
-             caption = 'Thick solid lines: ipdVpx = factorVpxCm / eyeToFootCm')
+        labs(subtitle = '(ipdVpx * eyeToFootCm) vs. eyeToFootCm',
+             x = 'eyeToFootCm',
+             y = 'IPD * EyeToFoot distance')
 
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(ipd_data$participant), per_row = 3, row_increase = 0.06)
   return(list(ipd_vs_eyeToFootCm = list(plot = p1, 

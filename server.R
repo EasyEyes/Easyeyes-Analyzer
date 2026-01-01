@@ -3502,6 +3502,7 @@ shinyServer(function(input, output, session) {
             list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
 
           }, error = function(e) {
+            print(e)
           handle_plot_error(e, paste0("distanceScatter", ii), experiment_names(), scatterDistance()$fileNames[[ii]])
           })
           
