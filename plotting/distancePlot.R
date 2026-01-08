@@ -583,31 +583,34 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     mutate(
       # Coerce to numeric to avoid non-numeric errors during division
       factorVpxCm = suppressWarnings(as.numeric(factorVpxCm)),
-      # Rename factorVpxCm to fVpx*ipdCm/horizontalVpx (same value, new name)
-      `fVpx*ipdCm/horizontalVpx` = factorVpxCm,
-      # BUG FIX: Divide by per-participant remeasured median (from check_factor), not global median
-      # This makes the table column match the histogram denominator
-      ratio_over_remeasured_tmp = ifelse(!is.na(factorVpxCm) & !is.na(medianFactorVpxCm) & medianFactorVpxCm != 0,
-                                         factorVpxCm / medianFactorVpxCm, NA_real_),
-      ratio_over_remeasured_round = round(ratio_over_remeasured_tmp, 3),
-      `fVpx*ipdCm / remeasured` = ifelse(is.na(ratio_over_remeasured_round), NA_character_, format(ratio_over_remeasured_round, nsmall = 3))
+      # Extract horizontal width in viewport pixels from cameraResolutionXY
+      widthVpx = extract_width_px(cameraResolutionXY),
+      widthVpx = suppressWarnings(as.numeric(widthVpx)),
+      # Calculate fVpx/horizontalVpx: factorVpxCm / widthVpx
+      fvpx_over_width_tmp = ifelse(!is.na(factorVpxCm) & !is.na(widthVpx) & widthVpx > 0,
+                                    factorVpxCm / widthVpx, NA_real_),
+      `fVpx/horizontalVpx` = round(fvpx_over_width_tmp, 2),
+      # Calculate fVpx calibration/check: ratio of calibration to check values
+      calibration_check_ratio_tmp = ifelse(!is.na(factorVpxCm) & !is.na(medianFactorVpxCm) & medianFactorVpxCm != 0,
+                                            factorVpxCm / medianFactorVpxCm, NA_real_),
+      `fVpx calibration/check` = ifelse(is.na(calibration_check_ratio_tmp), NA_character_, format(round(calibration_check_ratio_tmp, 3), nsmall = 3))
     ) %>%
-    select(-factorVpxCm, -ratio_over_remeasured_tmp, -ratio_over_remeasured_round, -medianFactorVpxCm) %>%
+    select(-factorVpxCm, -widthVpx, -fvpx_over_width_tmp, -calibration_check_ratio_tmp, -medianFactorVpxCm) %>%
     arrange(ok_priority, PavloviaParticipantID) %>%
     select(-ok_priority) %>%
     # Move the two fVpx columns side by side
-    {if("fVpx*ipdCm/horizontalVpx" %in% names(.) && "fVpx*ipdCm / remeasured" %in% names(.)) 
-      relocate(., `fVpx*ipdCm / remeasured`, .after = `fVpx*ipdCm/horizontalVpx`)
-      else .} %>%
+    {if("fVpx/horizontalVpx" %in% names(.) && "fVpx calibration/check" %in% names(.)) 
+       relocate(., `fVpx calibration/check`, .after = `fVpx/horizontalVpx`)
+     else .} %>%
     # Move cameraResolutionXSD and cameraResolutionN after cameraResolutionXY if it exists
     {if("cameraResolutionXY" %in% names(.) && "cameraResolutionXSD" %in% names(.)) 
-      relocate(., cameraResolutionXSD, cameraResolutionN, .after = cameraResolutionXY)
-      else .} %>%
+       relocate(., cameraResolutionXSD, cameraResolutionN, .after = cameraResolutionXY)
+     else .} %>%
     # Move Object and Comment columns to the end if they exist
     {if("Object" %in% names(.) && "Comment" %in% names(.)) relocate(., Object, Comment, .after = last_col()) 
-      else if("Object" %in% names(.)) relocate(., Object, .after = last_col())
-      else if("Comment" %in% names(.)) relocate(., Comment, .after = last_col())
-      else .}
+     else if("Object" %in% names(.)) relocate(., Object, .after = last_col())
+     else if("Comment" %in% names(.)) relocate(., Comment, .after = last_col())
+     else .}
   
   
   return(merged_data)
@@ -1222,9 +1225,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         participant_id_debug <- if("participant" %in% names(dl)) first(na.omit(dl$participant)) else "UNKNOWN"
         measured_vals <- NULL
         if (!is.null(distanceCheck$measuredFactorVpxCm)) {
-          eyesToFootCm <- sqrt(distanceCheck$eyesToPointCm^2 -distanceCheck$footToPointCm^2)
-          measured_fVpx <- eyesToFootCm * distanceCheck$ipdVpx / t_tjson$ipdCm[1]
-          measured_vals <- measured_fVpx * distanceCheck$ipdVpx
+          # Use measuredFactorVpxCm directly from JSON (consistent with how calibration uses factorVpxCm)
+          measured_vals <- distanceCheck$measuredFactorVpxCm
         } else if (!is.null(distanceCheck$measuredFactorCameraPxCm)) {
           measured_vals <- distanceCheck$measuredFactorCameraPxCm
         }
@@ -1296,6 +1298,21 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                 # Get pxPerCm from the data
                 pxPerCm_val <- if (!is.null(distanceCheck$pxPerCm)) as.numeric(distanceCheck$pxPerCm[1]) else 37.8
                 
+                # Extract measuredEyesToPointCm and requestedEyesToPointCm for correct distance ratio
+                measured_eyes_vals <- suppressWarnings(as.numeric(distanceCheck$eyesToPointCm))
+                requested_eyes_vals <- suppressWarnings(as.numeric(distanceCheck$requestedEyesToPointCm))
+                
+                # Compute distance ratio per measurement
+                n_check_measurements <- nrow(check_coords_df)
+                if (length(measured_eyes_vals) >= n_check_measurements && length(requested_eyes_vals) >= n_check_measurements) {
+                  distance_ratio_vals <- measured_eyes_vals[1:n_check_measurements] / requested_eyes_vals[1:n_check_measurements]
+                } else if (length(measured_eyes_vals) > 0 && length(requested_eyes_vals) > 0) {
+                  # Use mean ratio if arrays don't match
+                  distance_ratio_vals <- rep(mean(measured_eyes_vals, na.rm = TRUE) / mean(requested_eyes_vals, na.rm = TRUE), n_check_measurements)
+                } else {
+                  distance_ratio_vals <- rep(NA_real_, n_check_measurements)
+                }
+                
                 t_check_feet <- check_coords_df %>%
                   mutate(
                     participant = participant_id_debug,
@@ -1304,7 +1321,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                     pxPerCm = pxPerCm_val,
                     avg_eye_x_cm = avg_eye_x_px / pxPerCm,
                     avg_eye_y_cm = avg_eye_y_px / pxPerCm,
-                    distance_ratio = 1.0,  # No measured/requested for check data, use 1.0
+                    distance_ratio = distance_ratio_vals,  # Use measuredEyesToPointCm / requestedEyesToPointCm
                     data_list_index = i,
                     measurement_index = measurement_idx
                   ) %>%
@@ -1343,9 +1360,15 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       
       # Parse distanceCheckJSON
         print('inside checkJSON')
+        # Extract measuredEyesToPointCm and requestedEyesToPointCm for correct distance ratio
+        measuredEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$eyesToPointCm))
+        requestedEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$requestedEyesToPointCm))
+        
         tmp <- tibble(
           participant   = first(na.omit(dl$participant)),
-          eyesToPointCm = suppressWarnings(as.numeric(distanceCheck$eyesToPointCm)),
+          measuredEyesToPointCm = measuredEyesToPointCm_vals,
+          requestedEyesToPointCm = requestedEyesToPointCm_vals,
+          eyesToPointCm = measuredEyesToPointCm_vals,  # Keep for backward compatibility
           footToPointCm = suppressWarnings(as.numeric(distanceCheck$footToPointCm)),
           ipdVpx        = suppressWarnings(as.numeric(distanceCheck$ipdVpx)),
           factorVpxCm   = suppressWarnings(as.numeric(distanceCheck$factorVpxCm)),
@@ -1357,7 +1380,10 @@ get_distance_calibration <- function(data_list, minRulerCm) {
             fVpx = ifelse(is.finite(ipdCm) & is.finite(ipdVpx) & is.finite(eyeToFootCm),
                           eyeToFootCm * ipdVpx / ipdCm, NA_real_),
             factorVpxCm = ifelse(is.na(factorVpxCm) & is.finite(fVpx) & is.finite(ipdVpx),
-                                 fVpx * ipdVpx, factorVpxCm)
+                                 fVpx * ipdVpx, factorVpxCm),
+            # Compute correct distance ratio: measured / requested eyesToPointCm
+            distance_ratio = ifelse(is.finite(measuredEyesToPointCm) & is.finite(requestedEyesToPointCm) & requestedEyesToPointCm > 0,
+                                    measuredEyesToPointCm / requestedEyesToPointCm, NA_real_)
           )
         print('tmp')
         print(tmp)
@@ -2000,16 +2026,24 @@ get_foot_position_during_calibration_data <- function(data_list) {
 
 plot_eye_feet_position <- function(distanceCalibrationResults) {
   
-  eye_feet_data <- distanceCalibrationResults$eye_feet
+  # Use feet_calib (check data) which has the correct distance_ratio 
+  # computed from measuredEyesToPointCm / requestedEyesToPointCm
+  eye_feet_data <- distanceCalibrationResults$feet_calib
+  
+  # Fallback to eye_feet if feet_calib is empty
+  if (nrow(eye_feet_data) == 0) {
+    eye_feet_data <- distanceCalibrationResults$eye_feet
+  }
   
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
   }
   
-  # Filter out rows with invalid coordinates
+  # Filter out rows with invalid coordinates and distance_ratio
   eye_feet_data <- eye_feet_data %>%
     filter(!is.na(avg_eye_x_px), !is.na(avg_eye_y_px),
-           !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm), !is.na(distance_ratio))
+           !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm), 
+           !is.na(distance_ratio), is.finite(distance_ratio))
   
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
@@ -2611,72 +2645,58 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
          y = 'Measured over requested distance',
          caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
   
-  # Plot 3: IPD (camera px) vs requested distance (individual data)
-  if ("calibrateTrackDistanceIpdVpx" %in% names(distance)) {
-    ipd_data <- distance %>%
-      filter(!is.na(calibrateTrackDistanceIpdVpx),
-             !is.na(calibrateTrackDistanceRequestedCm)) %>%
-      arrange(participant, order) %>%  # Ensure proper ordering
-      mutate(
-        # Add logarithmic jitter to requested distance for better visualization (unbiased for log scales)
-        calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
-      )
+  # Plot 4: Eye feet position vs distance error
+  p4_result <- plot_eye_feet_position(distanceCalibrationResults)
+  p4 <- if (!is.null(p4_result)) p4_result$plot else NULL
+  
+  # Plot 4b: Foot position during calibration (colored by participant, no clipping)
+  p4b_result <- plot_foot_position_during_calibration(distanceCalibrationResults)
+  p4b <- if (!is.null(p4b_result)) p4b_result$plot else NULL
+  p4b_height <- if (!is.null(p4b_result)) p4b_result$height else NULL
+  
+  # Plot 5: Check vs. calibration of focal length (fVpx)
+  p5 <- NULL
+  # Use TJSON (calibration) and checkJSON (check) data which have fVpx computed correctly
+  tjson_data <- distanceCalibrationResults$TJSON
+  check_json_data <- distanceCalibrationResults$checkJSON
+  
+  if (nrow(tjson_data) > 0 && nrow(check_json_data) > 0) {
+    # Get median fVpx per participant from calibration (TJSON)
+    calib_fVpx <- tjson_data %>%
+      filter(!is.na(fVpx), is.finite(fVpx)) %>%
+      group_by(participant) %>%
+      summarize(fVpx_calibration = median(fVpx, na.rm = TRUE), .groups = "drop")
     
-    # Get camera data for factorVpxCm
-    camera_data <- distanceCalibrationResults$camera
+    # Get median fVpx per participant from check (checkJSON)
+    check_fVpx <- check_json_data %>%
+      filter(!is.na(fVpx), is.finite(fVpx)) %>%
+      group_by(participant) %>%
+      summarize(fVpx_check = median(fVpx, na.rm = TRUE), .groups = "drop")
     
-    if (nrow(ipd_data) > 0 && nrow(camera_data) > 0) {
-      # Join with camera data to get factorVpxCm
-      ipd_data <- ipd_data %>%
-        left_join(camera_data %>% select(PavloviaParticipantID, factorVpxCm),
-                  by = c("participant" = "PavloviaParticipantID"))
+    # Join calibration and check data by participant
+    plot_data <- calib_fVpx %>%
+      inner_join(check_fVpx, by = "participant") %>%
+      filter(!is.na(fVpx_calibration), !is.na(fVpx_check),
+             is.finite(fVpx_calibration), is.finite(fVpx_check))
+    
+    if (nrow(plot_data) > 0) {
+      # Calculate symmetric scale limits to ensure equal axes (slope 1 equality line)
+      min_val_all <- min(c(plot_data$fVpx_calibration, plot_data$fVpx_check), na.rm = TRUE) * 0.9
+      max_val_all <- max(c(plot_data$fVpx_calibration, plot_data$fVpx_check), na.rm = TRUE) * 1.1
       
-      # Create prediction data for each participant
-      prediction_data <- ipd_data %>%
-        filter(!is.na(factorVpxCm)) %>%  # factorVpxCm is already numeric
-        group_by(participant) %>%
-        summarize(
-          factorVpxCm = first(factorVpxCm),
-          .groups = "drop"
-        ) %>%
-        # Create prediction line across the x-range
-        crossing(calibrateTrackDistanceRequestedCm = seq(min_val, max_val, length.out = 100)) %>%
-        mutate(predictedIpdVpx = factorVpxCm / calibrateTrackDistanceRequestedCm)
-      
-      minX = max(5, min_val - 5)
-      maxX = max_val + 10
-      p3 <- ggplot() +
-        # Add predicted lines first (so they appear behind the data)
-        geom_line(data = prediction_data,
-                  aes(x = calibrateTrackDistanceRequestedCm,
-                      y = predictedIpdVpx,
-                      color = participant,
-                      group = participant),
-                  linewidth = 0.75, alpha = 0.8, linetype = "solid") +
-        # Measured data lines (made thinner)
-        geom_line(data=ipd_data,
-                  aes(x = calibrateTrackDistanceRequestedCm_jitter,
-                      y = calibrateTrackDistanceIpdVpx,
-                      color = participant,
-                      group = participant),
-                  linewidth = 0.5, alpha = 0.7) +
-        # Measured data points
-        geom_point(data=ipd_data,
-                   aes(x = calibrateTrackDistanceRequestedCm_jitter,
-                       y = calibrateTrackDistanceIpdVpx,
-                       color = participant),
-                   size = 2) +
-        ggpp::geom_text_npc(aes(npcx="left",
-                                npcy="top"),
-                            label = paste0('N=', n_distinct(ipd_data$participant))) +
-        scale_x_log10(
-          limits = c(minX, maxX),
-          breaks = scales::log_breaks(n = 6),
-          labels = scales::label_number(accuracy = 1)
-        ) +
-        scale_y_log10(breaks = scales::log_breaks(n=8)) +
-        coord_fixed(ratio = 1) +  # Equal log scale spacing on both axes
-        scale_color_manual(values= colorPalette) +
+      # X-axis = fVpx from calibration, Y-axis = fVpx from check
+      p5 <- ggplot(plot_data, aes(x = fVpx_calibration, y = fVpx_check)) +
+        geom_point(aes(color = participant), size = 3, alpha = 0.8) +
+        geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(plot_data$participant))) +
+        scale_x_log10(limits = c(min_val_all, max_val_all), 
+                      breaks = scales::log_breaks(n = 8)) +
+        scale_y_log10(limits = c(min_val_all, max_val_all), 
+                      breaks = scales::log_breaks(n = 8)) +
+        coord_fixed(ratio = 1) +  # Force 1:1 aspect ratio for symmetric axes
+        annotation_logticks() +
+        scale_color_manual(values = colorPalette) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
         guides(color = guide_legend(
           ncol = 3,
@@ -2687,183 +2707,18 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         )) +
         theme_classic() +
         theme(
-          legend.position = "top",
+          legend.position = "right",
           legend.box = "vertical",
+          legend.justification = "left",
           legend.text = element_text(size = 6),
           legend.spacing.y = unit(0, "lines"),
           legend.key.size = unit(0.4, "cm"),
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
-        labs(subtitle = 'IPD (vpx) vs. requested distance',
-             x = 'Requested distance (cm)',
-             y = 'IPD (vpx)',
-             caption = 'Thick solid lines: predicted IPD = fVpx*ipdCm/requestedDistance\nThin solid lines: measured data\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
-    } else {
-      p3 <- NULL
-    }
-  } else {
-    p3 <- NULL
-  }
-  
-  # Plot 3b: IPD * requested distance vs. requested distance (should equal factorVpxCm)
-  p3b <- NULL
-  if ("calibrateTrackDistanceIpdVpx" %in% names(distance)) {
-    ipd_product_data <- distance %>%
-      filter(!is.na(calibrateTrackDistanceIpdVpx),
-             !is.na(calibrateTrackDistanceRequestedCm)) %>%
-      arrange(participant, order) %>%
-      mutate(
-        # Calculate IPD * distance product
-        ipd_distance_product = calibrateTrackDistanceIpdVpx * calibrateTrackDistanceRequestedCm,
-        # Add logarithmic jitter to requested distance for better visualization
-        calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
-      )
-    
-    # Get camera data for factorVpxCm (horizontal lines)
-    camera_data <- distanceCalibrationResults$camera
-    
-    if (nrow(ipd_product_data) > 0 && nrow(camera_data) > 0) {
-      # Join with camera data to get factorVpxCm for horizontal lines
-      ipd_product_data <- ipd_product_data %>%
-        left_join(camera_data %>% select(PavloviaParticipantID, factorVpxCm),
-                  by = c("participant" = "PavloviaParticipantID"))
-      
-      # Filter to data with valid factorVpxCm
-      ipd_product_data_valid <- ipd_product_data %>%
-        filter(!is.na(factorVpxCm))
-      
-      if (nrow(ipd_product_data_valid) > 0) {
-        # Create horizontal line data (one per participant with their factorVpxCm)
-        horizontal_lines <- ipd_product_data_valid %>%
-          group_by(participant, factorVpxCm) %>%
-          summarize(
-            min_distance = min(calibrateTrackDistanceRequestedCm, na.rm = TRUE),
-            max_distance = max(calibrateTrackDistanceRequestedCm, na.rm = TRUE),
-            .groups = "drop"
-          )
-        
-        p3b <- ggplot() +
-          # Horizontal lines for calibrated factorVpxCm (behind data)
-          geom_segment(data = horizontal_lines,
-                       aes(x = min_distance, xend = max_distance,
-                           y = factorVpxCm, yend = factorVpxCm,
-                           color = participant),
-                       linewidth = 1.2, alpha = 0.5, linetype = "solid") +
-          # Connected lines for measured IPD * distance
-          geom_line(data = ipd_product_data_valid,
-                    aes(x = calibrateTrackDistanceRequestedCm_jitter,
-                        y = ipd_distance_product,
-                        color = participant,
-                        group = participant),
-                    linewidth = 0.6, alpha = 0.8) +
-          # Points for measured IPD * distance
-          geom_point(data = ipd_product_data_valid,
-                     aes(x = calibrateTrackDistanceRequestedCm_jitter,
-                         y = ipd_distance_product,
-                         color = participant),
-                     size = 2.5, alpha = 0.8) +
-          ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                              label = paste0('N=', n_distinct(ipd_product_data_valid$participant))) +
-          scale_x_log10(
-            limits = c(min_val, max_val), 
-            breaks = scales::log_breaks(n = 6),
-            labels = scales::label_number(accuracy = 1)
-          ) +
-          scale_y_log10(breaks = scales::log_breaks(n = 8)) +
-          scale_color_manual(values = colorPalette) +
-          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-          guides(color = guide_legend(
-            ncol = 3,
-            title = "",
-            override.aes = list(size = 1.5),
-            keywidth = unit(0.8, "lines"),
-            keyheight = unit(0.6, "lines")
-          )) +
-          theme_classic() +
-          theme(
-            legend.position = "right",
-            legend.box = "vertical",
-            legend.justification = "left",
-            legend.text = element_text(size = 6),
-            legend.spacing.y = unit(0, "lines"),
-            legend.key.size = unit(0.4, "cm"),
-            plot.margin = margin(5, 5, 5, 5, "pt")
-          ) +
-          labs(subtitle = 'IPD × requested distance vs. requested distance',
-               x = 'Requested distance (cm)',
-               y = 'IPD × requested distance (px·cm)',
-               caption = 'Thick faint lines: calibrated fVpx*ipdCm (constant per session)\nThin lines with points: measured IPD × distance\nLogarithmic horizontal jitter added to reduce overlap')
-      }
-    }
-  }
-  
-  # Plot 4: Eye feet position vs distance error
-  p4_result <- plot_eye_feet_position(distanceCalibrationResults)
-  p4 <- if (!is.null(p4_result)) p4_result$plot else NULL
-  
-  # Plot 4b: Foot position during calibration (colored by participant, no clipping)
-  p4b_result <- plot_foot_position_during_calibration(distanceCalibrationResults)
-  p4b <- if (!is.null(p4b_result)) p4b_result$plot else NULL
-  p4b_height <- if (!is.null(p4b_result)) p4b_result$height else NULL
-  
-  # Plot 5: Calibrated vs. median factorVpxCm
-  p5 <- NULL
-  if ("calibrateTrackDistanceIpdVpx" %in% names(distance) && nrow(distance) > 0) {
-    # Get calibration data for factorVpxCm (Y-axis)
-    camera_data <- distanceCalibrationResults$camera
-    # Get distance check data for median factorVpxCm (X-axis)
-    check_data <- distanceCalibrationResults$check_factor
-    
-    if (nrow(camera_data) > 0 && nrow(check_data) > 0) {
-      # Join calibration and check data by participant
-      plot_data <- camera_data %>%
-        select(PavloviaParticipantID, factorVpxCm) %>%
-        inner_join(check_data %>% select(PavloviaParticipantID, medianFactorVpxCm),
-                   by = "PavloviaParticipantID") %>%
-        rename(participant = PavloviaParticipantID) %>%
-        filter(!is.na(factorVpxCm), !is.na(medianFactorVpxCm),
-               is.finite(factorVpxCm), is.finite(medianFactorVpxCm))
-      
-      if (nrow(plot_data) > 0) {
-        # Calculate symmetric scale limits to ensure equal axes (slope 1 equality line)
-        min_val_all <- min(c(plot_data$medianFactorVpxCm, plot_data$factorVpxCm), na.rm = TRUE) * 0.9
-        max_val_all <- max(c(plot_data$medianFactorVpxCm, plot_data$factorVpxCm), na.rm = TRUE) * 1.1
-        
-        p5 <- ggplot(plot_data, aes(x = medianFactorVpxCm, y = factorVpxCm)) +
-          geom_point(aes(color = participant), size = 3, alpha = 0.8) +
-          geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
-          ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                              label = paste0('N=', n_distinct(plot_data$participant))) +
-          scale_x_log10(limits = c(min_val_all, max_val_all), 
-                        breaks = scales::log_breaks(n = 8)) +
-          scale_y_log10(limits = c(min_val_all, max_val_all), 
-                        breaks = scales::log_breaks(n = 8)) +
-          coord_fixed(ratio = 1) +  # Force 1:1 aspect ratio for symmetric axes
-          annotation_logticks() +
-          scale_color_manual(values = colorPalette) +
-          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-          guides(color = guide_legend(
-            ncol = 3,
-            title = "",
-            override.aes = list(size = 1.5),
-            keywidth = unit(0.8, "lines"),
-            keyheight = unit(0.6, "lines")
-          )) +
-          theme_classic() +
-          theme(
-            legend.position = "right",
-            legend.box = "vertical",
-            legend.justification = "left",
-            legend.text = element_text(size = 6),
-            legend.spacing.y = unit(0, "lines"),
-            legend.key.size = unit(0.4, "cm"),
-            plot.margin = margin(5, 5, 5, 5, "pt")
-          ) +
-          labs(subtitle = ' FVpx to fVpx',
-               x = 'Median fVpx*ipdCm from distance checking (per session)',
-               y = 'FVpx*ipdCm from calibration',
-               caption = 'Dashed line shows y=x (perfect agreement)\nMedian calculated from measured fVpx*ipdCm in distanceCheckJSON')
-      }
+        labs(subtitle = 'Check vs. calibration of focal length',
+             x = 'fVpx from calibration',
+             y = 'fVpx from check',
+             caption = 'Dashed line shows y=x (perfect agreement)')
     }
   }
   
@@ -3386,19 +3241,33 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
              is.finite(medianFactorVpxCm))
     
     if (nrow(check_data) > 0) {
-      ipd_cm_assumed <- 6.3
-      fvpx_over_width_data <- check_data %>%
-        left_join(distanceCalibrationResults$camera %>%
-                    select(PavloviaParticipantID, cameraResolutionXY),
-                  by = "PavloviaParticipantID") %>%
-        mutate(
-          widthVpx = extract_width_px(cameraResolutionXY), # take largest of first two resolution entries as horizontal width
-          widthVpx = suppressWarnings(as.numeric(widthVpx)),
-          fvpx_over_width = medianFactorVpxCm / (ipd_cm_assumed * widthVpx)
-        ) %>%
-        filter(!is.na(widthVpx), widthVpx > 0,
-               !is.na(fvpx_over_width), is.finite(fvpx_over_width)) %>%
-        mutate(participant = PavloviaParticipantID)
+      # Use checkJSON data which has fVpx computed correctly
+      check_json_data <- distanceCalibrationResults$checkJSON
+      
+      if (nrow(check_json_data) > 0) {
+        # Get median fVpx per participant from check data
+        check_fVpx_median <- check_json_data %>%
+          filter(!is.na(fVpx), is.finite(fVpx)) %>%
+          group_by(participant) %>%
+          summarize(median_fVpx = median(fVpx, na.rm = TRUE), .groups = "drop")
+        
+        fvpx_over_width_data <- check_data %>%
+          left_join(distanceCalibrationResults$camera %>%
+                      select(PavloviaParticipantID, cameraResolutionXY),
+                    by = "PavloviaParticipantID") %>%
+          left_join(check_fVpx_median, by = c("PavloviaParticipantID" = "participant")) %>%
+          mutate(
+            widthVpx = extract_width_px(cameraResolutionXY), # take largest of first two resolution entries as horizontal width
+            widthVpx = suppressWarnings(as.numeric(widthVpx)),
+            # Use correctly computed fVpx from checkJSON, not medianFactorVpxCm
+            fvpx_over_width = median_fVpx / widthVpx
+          ) %>%
+          filter(!is.na(widthVpx), widthVpx > 0,
+                 !is.na(fvpx_over_width), is.finite(fvpx_over_width)) %>%
+          mutate(participant = PavloviaParticipantID)
+      } else {
+        fvpx_over_width_data <- tibble()
+      }
       
       if (nrow(fvpx_over_width_data) > 0) {
         # Histogram (dot-stacked)
@@ -3431,8 +3300,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ) +
           scale_x_continuous(limits = c(x_min, x_max)) +
           ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                              label = paste0('N=', n_distinct(fvpx_over_width_data$participant),
-                                             '\nipdCm = ', ipd_cm_assumed),
+                              label = paste0('N=', n_distinct(fvpx_over_width_data$participant)),
                               size = 4, family = "sans", fontface = "plain") +
           guides(color = guide_legend(
             ncol = 4,
@@ -3445,7 +3313,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             subtitle = 'Histogram of fVpx/horizontalVpx',
             x = "fVpx / horizontalVpx",
             y = "Count",
-            caption = paste0('fVpx/horizontalVpx = median(fVpx*ipdCm)/(', ipd_cm_assumed, ' x horizontalVpx)\nduring distance checking')
+            caption = 'fVpx/horizontalVpx = median(fVpx) / horizontalVpx\nfVpx from check data'
           ) +
           theme_bw() +
           theme(
@@ -3502,9 +3370,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                              breaks = scales::pretty_breaks(n = 6)) +
           labs(
             subtitle = 'fVpx/horizontalVpx vs. horizontalVpx',
-            x = 'HorizontalVpx (px)',
+            x = 'horizontalVpx (px)',
             y = 'fVpx/horizontalVpx',
-            caption = 'One point per session with distance checking enabled (_calibrateDistanceCheckBool = TRUE)'
+            caption = 'One point per session with distance checking enabled (_calibrateDistanceCheckBool = TRUE)\nfVpx from check data'
           ) +
           theme_classic() +
           theme(
@@ -3536,8 +3404,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   return(list(
     credit_card_vs_requested = list(plot = p1, height = plot_height),
     credit_card_fraction = list(plot = p2, height = plot_height),
-    ipd_vs_requested = list(plot = p3, height = if (!is.null(p3)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
-    ipd_product_vs_requested = list(plot = p3b, height = if (!is.null(p3b)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     eye_feet_position = list(plot = p4, height = eye_feet_height),
     foot_position_calibration = list(plot = p4b, height = if (!is.null(p4b_height)) p4b_height else plot_height),
     calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
@@ -4668,12 +4534,13 @@ bs_vd_hist <- function(data_list) {
 plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   print('inside plot_ipd_vs_eyeToFootCm')
  
+  # Use "calibration" instead of "TJSON" for legend
   ipd_TJSON <- distanceCalibrationResults$TJSON %>%
     mutate(ipdVpx_times_eyeToFootCm = ipdVpx * eyeToFootCm,
-           type = 'TJSON') %>%
+           type = 'calibration') %>%
     select(participant, eyeToFootCm, ipdVpx, ipdVpx_times_eyeToFootCm, factorVpxCm, type)
   
-  print(distanceCalibrationResults$checkJSON )
+  print(distanceCalibrationResults$checkJSON)
   ipd_checkJSON <- distanceCalibrationResults$checkJSON %>%
     mutate(ipdVpx_times_eyeToFootCm = ipdVpx * eyeToFootCm,
            type = 'check') %>%
@@ -4683,52 +4550,77 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   
   if (nrow(ipd_TJSON) == 0) {
     return(list(ipd_vs_eyeToFootCm = list(plot = NULL, 
-                                          height =NULL),
+                                          height = NULL),
                 ipdVpx_times_eyeToFootCm_vs_eyeToFootCm = list(plot = NULL, 
-                                                               height =NULL)))
+                                                               height = NULL)))
   }
   
+  # Get calibration focal length (factorVpxCm) per participant for the focal length line
+  # Use median factorVpxCm from calibration data per participant
+  focal_length_data <- ipd_TJSON %>%
+    group_by(participant) %>%
+    summarize(focal_length = median(factorVpxCm, na.rm = TRUE), .groups = "drop") %>%
+    filter(!is.na(focal_length), is.finite(focal_length))
+  
+  # Create focal length curve data for Plot 2 (ipdVpx vs eyeToFootCm)
+  # ipdVpx = factorVpxCm / eyeToFootCm (thin lens formula)
+  x_range <- range(ipd_data$eyeToFootCm, na.rm = TRUE)
+  focal_curve_data <- focal_length_data %>%
+    crossing(eyeToFootCm = seq(x_range[1] * 0.9, x_range[2] * 1.1, length.out = 100)) %>%
+    mutate(ipdVpx_focal = focal_length / eyeToFootCm)
+  
+  # Create focal length horizontal line data for Plot 1 (ipdVpx*eyeToFootCm vs eyeToFootCm)
+  # ipdVpx * eyeToFootCm = factorVpxCm (constant = focal length)
+  focal_hline_data <- focal_length_data %>%
+    crossing(eyeToFootCm = x_range) %>%
+    mutate(product_focal = focal_length)
+  
+  # Plot 2: ipdVpx vs. eyesToFootCm
   p1 <- ggplot() +
+    # Data lines: solid for calibration, dashed for check
     geom_line(data = ipd_data %>% arrange(participant, type, eyeToFootCm),
               aes(x = eyeToFootCm,
                   y = ipdVpx,
                   color = participant,
+                  linetype = type,
                   group = interaction(participant, type)),
-              linewidth = 0.75, alpha = 0.8, linetype = "solid") +
-    geom_smooth(data = ipd_data %>% arrange(participant, type, eyeToFootCm),
-                aes(x = eyeToFootCm,
-                    y = ipdVpx,
-                    color = participant,
-                    group = participant),
-                method = "lm", se = FALSE,
-                linewidth = 0.75, linetype = "solid", alpha = 0.8) +
+              linewidth = 0.75, alpha = 0.8) +
+    # Focal length curve (dotted) - one per participant
+    geom_line(data = focal_curve_data,
+              aes(x = eyeToFootCm,
+                  y = ipdVpx_focal,
+                  color = participant,
+                  group = participant),
+              linewidth = 0.75, linetype = "dotted", alpha = 0.8) +
+    # Points with shapes for calibration vs check
     geom_point(data = ipd_data,
                aes(x = eyeToFootCm,
                    y = ipdVpx,
                    color = participant,
                    shape = type),
                size = 2) +
-    ggpp::geom_text_npc(aes(npcx="left",
-                            npcy="top"),
+    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                         label = paste0('N=', n_distinct(ipd_data$participant))) +
     scale_x_log10(
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 10)
     ) +
-    scale_y_log10(breaks = scales::log_breaks(n=8)) +
-    scale_shape_manual(values = c(TJSON = 16, check = 1)) +
-    scale_color_manual(values= colorPalette) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", 
-                                         npcy = "bottom"), 
+    scale_y_log10(breaks = scales::log_breaks(n = 8)) +
+    # Shape: filled circle for calibration, open circle for check
+    scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
+                       labels = c(calibration = "calibration", check = "check")) +
+    # Linetype: solid for calibration, dashed for check
+    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "dashed"),
+                          labels = c(calibration = "calibration", check = "check")) +
+    scale_color_manual(values = colorPalette) +
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
                         label = distanceCalibrationResults$statement) +
-    guides(color = guide_legend(
-      ncol = 3,
-      title = "",
-      override.aes = list(size = 1.5),
-      keywidth = unit(0.8, "lines"),
-      keyheight = unit(0.6, "lines")
-    ),
-    shape = guide_legend(title = "")) +
+    guides(
+      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5),
+                           keywidth = unit(0.8, "lines"), keyheight = unit(0.6, "lines")),
+      shape = guide_legend(title = "", override.aes = list(size = 2)),
+      linetype = guide_legend(title = "", override.aes = list(linewidth = 0.75))
+    ) +
     theme_bw() +
     theme(
       legend.position = "top",
@@ -4741,42 +4633,56 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     labs(subtitle = 'ipdVpx vs. eyesToFootCm',
          x = 'eyeToFootCm',
          y = 'ipdVpx',
-         caption = 'Thick solid lines: ipdVpx = factorVpxCm / eyeToFootCm')
+         caption = 'Dotted lines: focal length from calibration (ipdVpx = factorVpxCm / eyeToFootCm)')
   
   print('done p1')
+  
+  # Plot 1: (ipdVpx*eyesToFootCm) vs. eyesToFootCm
   p2 <- ggplot() +
+    # Data lines: solid for calibration, dashed for check
     geom_line(data = ipd_data %>% arrange(participant, type, eyeToFootCm),
               aes(x = eyeToFootCm,
                   y = ipdVpx_times_eyeToFootCm,
                   color = participant,
+                  linetype = type,
                   group = interaction(participant, type)),
-              linewidth = 0.75, alpha = 0.8, linetype = "solid") +
+              linewidth = 0.75, alpha = 0.8) +
+    # Focal length horizontal line (dotted) - one per participant at y = factorVpxCm
+    geom_line(data = focal_hline_data,
+              aes(x = eyeToFootCm,
+                  y = product_focal,
+                  color = participant,
+                  group = participant),
+              linewidth = 0.75, linetype = "dotted", alpha = 0.8) +
+    # Points with shapes for calibration vs check
     geom_point(data = ipd_data,
                aes(x = eyeToFootCm,
                    y = ipdVpx_times_eyeToFootCm,
                    color = participant,
                    shape = type),
                size = 2) +
-    ggpp::geom_text_npc(aes(npcx="left",
-                            npcy="top"),
+    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                         label = paste0('N=', n_distinct(ipd_data$participant))) +
     scale_x_log10(
-      # limits = c(minX, maxX),
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 1)
     ) +
-    scale_y_log10(breaks = scales::log_breaks(n=8)) +
-    scale_shape_manual(values = c(TJSON = 16, check = 1)) +
-    scale_color_manual(values= colorPalette) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = distanceCalibrationResults$statement) +
-    guides(color = guide_legend(
-      ncol = 3,
-      title = "",
-      override.aes = list(size = 1.5),
-      keywidth = unit(0.8, "lines"),
-      keyheight = unit(0.6, "lines")
-    ),
-    shape = guide_legend(title = "")) +
+    scale_y_log10(breaks = scales::log_breaks(n = 8)) +
+    # Shape: filled circle for calibration, open circle for check
+    scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
+                       labels = c(calibration = "calibration", check = "check")) +
+    # Linetype: solid for calibration, dashed for check
+    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "dashed"),
+                          labels = c(calibration = "calibration", check = "check")) +
+    scale_color_manual(values = colorPalette) +
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
+                        label = distanceCalibrationResults$statement) +
+    guides(
+      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5),
+                           keywidth = unit(0.8, "lines"), keyheight = unit(0.6, "lines")),
+      shape = guide_legend(title = "", override.aes = list(size = 2)),
+      linetype = guide_legend(title = "", override.aes = list(linewidth = 0.75))
+    ) +
     theme_classic() +
     theme(
       legend.position = "top",
@@ -4788,11 +4694,12 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     ) +
     labs(subtitle = '(ipdVpx*eyesToFootCm) vs. eyesToFootCm',
          x = 'eyeToFootCm',
-         y = 'ipdVpx*eyesToFootCm')
+         y = 'ipdVpx*eyesToFootCm',
+         caption = 'Dotted lines: focal length from calibration (ipdVpx * eyeToFootCm = factorVpxCm)')
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(ipd_data$participant), per_row = 3, row_increase = 0.06)
   return(list(ipd_vs_eyeToFootCm = list(plot = p1, 
-                                        height =p_height),
+                                        height = p_height),
               ipdVpx_times_eyeToFootCm_vs_eyeToFootCm = list(plot = p2, 
-                                                             height =p_height)))
+                                                             height = p_height)))
 }

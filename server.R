@@ -1012,8 +1012,6 @@ shinyServer(function(input, output, session) {
       list(plot = distance_production_plots$individual_production_fraction$plot, height = distance_production_plots$individual_production_fraction$height, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$error_vs_object_size$plot, height = distance_production_plots$error_vs_object_size$height, fname = 'error-vs-object-size-plot'),
       list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'error-vs-blindspot-diameter-plot'),
-      list(plot = distance_plots$ipd_vs_requested$plot, height = distance_plots$ipd_vs_requested$height, fname = 'calibrateTrackDistanceIpdVpx-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_plots$ipd_product_vs_requested$plot, height = distance_plots$ipd_product_vs_requested$height, fname = 'ipd-product-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_plots$fvpx_over_width_scatter$plot, height = distance_plots$fvpx_over_width_scatter$height, fname = 'fvpx-over-widthVpx-vs-camera-width-plot'),
       list(plot = distance_plots$calibrated_vs_mean$plot, height = distance_plots$calibrated_vs_mean$height, fname = 'calibrated-vs-mean-factorVpxCm-plot'),
       list(plot = distance_plots$calibrated_over_mean_vs_spot$plot, height = distance_plots$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter-plot'),
