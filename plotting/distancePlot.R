@@ -2255,9 +2255,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
               legend.key.size = unit(0.4, "cm"),
               plot.margin = margin(5, 5, 5, 5, "pt")
             ) +
-        labs(subtitle = 'Check vs. calibration of focal length',
-             x = 'fVpx from calibration',
-             y = 'fVpx from check',
+        labs(subtitle = 'Focal length check vs. calibration',
+             x = 'fVpx calibration',
+             y = 'fVpx check',
              caption = 'Dashed line shows y=x (perfect agreement)')
     }
   }
