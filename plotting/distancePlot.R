@@ -200,8 +200,8 @@ get_cameraResolutionXY <- function(data_list) {
     # Compute factorVpxCm from distanceCalibrationTJSON if available
     if ("distanceCalibrationTJSON" %in% names(data_list[[i]])) {
       tryCatch({
-        raw_json <- get_first_non_na(data_list[[i]]$distanceCalibrationTJSON)
-        json_txt <- sanitize_json_string(raw_json)
+      raw_json <- get_first_non_na(data_list[[i]]$distanceCalibrationTJSON)
+      json_txt <- sanitize_json_string(raw_json)
         t_tjson <- fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
 
         tmp <- tibble(
@@ -220,26 +220,26 @@ get_cameraResolutionXY <- function(data_list) {
         )
 
         factorVpxCmVals <- tmp$factorVpxCm[!is.na(tmp$factorVpxCm)]
-        if (length(factorVpxCmVals) >= 2) {
-          factorVpxCm <- mean(tail(factorVpxCmVals, 2))
-        } else if (length(factorVpxCmVals) == 1) {
-          factorVpxCm <- factorVpxCmVals[1]
+      if (length(factorVpxCmVals) >= 2) {
+        factorVpxCm <- mean(tail(factorVpxCmVals, 2))
+      } else if (length(factorVpxCmVals) == 1) {
+        factorVpxCm <- factorVpxCmVals[1]
         }
       }, error = function(e) {})
     }
 
     # Select and filter data
-    t <- data_list[[i]] %>%
+            t <- data_list[[i]] %>%
       mutate(factorVpxCm = !!factorVpxCm) %>%
       select(participant, `_calibrateTrackDistance`, `_calibrateTrackDistancePupil`, factorVpxCm, cameraResolutionXY) %>%
-      rename(PavloviaParticipantID = participant) %>%
-      distinct() %>%
+              rename(PavloviaParticipantID = participant) %>%
+              distinct() %>%
       filter(!is.na(cameraResolutionXY), cameraResolutionXY != "", !is.na(factorVpxCm))
-
-    if (nrow(t) > 0) {
-      df <- rbind(df, t)
-    }
-  }
+            
+            if (nrow(t) > 0) {
+              df <- rbind(df, t)
+            }
+          }
 
   return(df %>% distinct())
 }
@@ -406,14 +406,14 @@ get_raw_factorVpxCm_data <- function(data_list, check_factor) {
         ungroup() %>%
         mutate(relative = factorVpxCm / medianFactorVpxCm) %>%
         select(participant, factorVpxCm, medianFactorVpxCm, relative) %>%
-        filter(is.finite(relative), relative > 0)
-        
+              filter(is.finite(relative), relative > 0)
+            
         if (nrow(tmp) > 0) {
           df <- rbind(df, tmp)
         }
       }
 
-    }
+  }
   return(df)
 }
 
@@ -430,7 +430,7 @@ get_camera_resolution_stats <- function(data_list) {
     if (!"participant" %in% names(dl)) next
     participant_id <- get_first_non_na(dl$participant)
     if (is.null(participant_id) || is.na(participant_id) || participant_id == "") next
-    
+   
     all_widths <- c()
     
     # extract from distanceCalibrationTJSON
@@ -564,12 +564,12 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     merged_data <- merged_data %>%
       mutate(cameraResolutionXSD = NA_real_, cameraResolutionN = NA_integer_)
   }
-  
+
   # Ensure 'ok' column exists to avoid errors in case_when
   if (!"ok" %in% names(merged_data)) {
     merged_data <- merged_data %>% mutate(ok = NA_character_)
   }
-  
+
   merged_data <- merged_data %>%
     mutate(
       ok_priority = case_when(
@@ -592,7 +592,7 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
       `fVpx/horizontalVpx` = round(fvpx_over_width_tmp, 2),
       # Calculate fVpx calibration/check: ratio of calibration to check values
       calibration_check_ratio_tmp = ifelse(!is.na(factorVpxCm) & !is.na(medianFactorVpxCm) & medianFactorVpxCm != 0,
-                                            factorVpxCm / medianFactorVpxCm, NA_real_),
+                                          factorVpxCm / medianFactorVpxCm, NA_real_),
       `fVpx calibration/check` = ifelse(is.na(calibration_check_ratio_tmp), NA_character_, format(round(calibration_check_ratio_tmp, 3), nsmall = 3))
     ) %>%
     select(-factorVpxCm, -widthVpx, -fvpx_over_width_tmp, -calibration_check_ratio_tmp, -medianFactorVpxCm) %>%
@@ -1207,13 +1207,13 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       if ("_calibrateTrackDistanceCheckBool" %in% names(dl)) {
         check_bool_val <- coerce_to_logical(get_first_non_na(dl$`_calibrateTrackDistanceCheckBool`))
       }
-      raw_json <- get_first_non_na(dl$distanceCheckJSON)
-      json_txt <- sanitize_json_string(raw_json)
-      distanceCheck <- fromJSON(
-        json_txt,
-        simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
-      )
-      
+        raw_json <- get_first_non_na(dl$distanceCheckJSON)
+        json_txt <- sanitize_json_string(raw_json)
+        distanceCheck <- fromJSON(
+          json_txt,
+          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+        )
+        
       raw_json <- get_first_non_na(t$distanceCalibrationTJSON)
       json_txt <- sanitize_json_string(raw_json)
       t_tjson <- fromJSON(
@@ -1336,7 +1336,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       }, error = function(e) {
         # Silently skip if JSON parsing fails
       })
-      #### TJSON data ####
+    #### TJSON data ####
         tmp <- tibble(
           participant      = first(na.omit(dl$participant)),
           rightEyeToFootCm = t_tjson$rightEyeToFootCm,
@@ -1378,7 +1378,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
             eyeToFootCm = ifelse(is.finite(eyesToPointCm) & is.finite(footToPointCm) & eyesToPointCm >= footToPointCm,
                                  sqrt(eyesToPointCm^2 - footToPointCm^2), NA_real_),
             fVpx = ifelse(is.finite(ipdCm) & is.finite(ipdVpx) & is.finite(eyeToFootCm),
-                          eyeToFootCm * ipdVpx / ipdCm, NA_real_),
+                          ipdVpx * ipdCm / eyeToFootCm, NA_real_),
+                          #eyeToFootCm * ipdVpx / ipdCm
             factorVpxCm = ifelse(is.na(factorVpxCm) & is.finite(fVpx) & is.finite(ipdVpx),
                                  fVpx * ipdVpx, factorVpxCm),
             # Compute correct distance ratio: measured / requested eyesToPointCm
@@ -1487,7 +1488,7 @@ get_sizeCheck_data <- function(data_list) {
       df <- rbind(t, df)
     }
   }
-  
+
   if (nrow(df) > 0) {
     df <- df %>% mutate(
       SizeCheckEstimatedPxPerCm = as.numeric(SizeCheckEstimatedPxPerCm),
@@ -1516,13 +1517,13 @@ get_measured_distance_data <- function(data_list) {
                calibrateScreenSizeAllowedRatio,
                calibrateScreenSizeTimes,
                `_calibrateTrackDistance`,
-               `_calibrateTrackDistancePupil`,
-               viewingDistanceWhichEye,
-               viewingDistanceWhichPoint,
-               participant,
-               calibrateTrackDistanceMeasuredCm,
-               calibrateTrackDistanceRequestedCm,
-               calibrateTrackDistanceIpdVpx) %>%
+             `_calibrateTrackDistancePupil`,
+             viewingDistanceWhichEye,
+             viewingDistanceWhichPoint,
+             participant,
+             calibrateTrackDistanceMeasuredCm,
+             calibrateTrackDistanceRequestedCm,
+             calibrateTrackDistanceIpdVpx) %>%
       mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
              `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
              `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
@@ -1537,8 +1538,8 @@ get_measured_distance_data <- function(data_list) {
              !is.na(calibrateTrackDistanceRequestedCm),
              calibrateTrackDistanceMeasuredCm != '',
              calibrateTrackDistanceRequestedCm != '') %>% 
-      distinct()
-    
+        distinct()
+
     if (nrow(t) > 0) {
       # Convert JSON-like lists into strings and remove extra characters
       t <- t %>%
@@ -1592,7 +1593,7 @@ get_eye_feet_position_data <- function(data_list) {
   
   for (i in 1:length(data_list)) {
     available_cols <- names(data_list[[i]])
-    
+
     # Check if we have the required columns
     if (!("calibrateTrackDistanceEyeFeetXYPx" %in% available_cols)) {
       next
@@ -1630,7 +1631,7 @@ get_eye_feet_position_data <- function(data_list) {
                `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
                `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
                `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)
-        ) %>% 
+                ) %>% 
         distinct()
       
       # Check if we have the required data
@@ -1644,20 +1645,20 @@ get_eye_feet_position_data <- function(data_list) {
       
       # Parse the eye feet coordinates first
       eye_feet_raw <- t_raw$calibrateTrackDistanceEyeFeetXYPx[1]
-      
+
       # Manual parsing approach - extract all numbers
       coords_str <- gsub("\\[|\\]", "", eye_feet_raw)
-      
+
       coords_numbers <- as.numeric(unlist(strsplit(coords_str, ",")))
       coords_numbers <- coords_numbers[!is.na(coords_numbers)]
       
       # Check if we have the right number of coordinates (4 per measurement: left_x, left_y, right_x, right_y)
       n_coord_measurements <- length(coords_numbers) / 4
-      
+
       if (length(coords_numbers) %% 4 != 0) {
         return(tibble())  # Return empty if parsing fails
       }
-      
+
       # Now filter the data based on successful coordinate parsing
       t <- t_raw %>%
         filter(!is.na(calibrateTrackDistanceMeasuredCm),
@@ -1686,7 +1687,7 @@ get_eye_feet_position_data <- function(data_list) {
           ) %>%
           select(-measured_list, -requested_list)
         
-        
+
         # Create coordinate data frame
         coords_df <- tibble(
           measurement_idx = rep(1:n_coord_measurements, each = 4),
@@ -1724,7 +1725,7 @@ get_eye_feet_position_data <- function(data_list) {
     }, error = function(e) {
       return(tibble())
     })
-    
+
     # Convert pixels to cm if pxPerCm is available (only if we have data)
     if (exists("t") && nrow(t) > 0) {
       if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
@@ -1763,7 +1764,7 @@ get_eye_feet_position_data <- function(data_list) {
     df <- df %>%
       mutate(
         session_from_data_index = paste0("Session_", data_list_index)
-      )
+    )
   }
   
   
@@ -1775,15 +1776,15 @@ get_foot_position_during_calibration_data <- function(data_list) {
   if(length(data_list) == 0) {
     return(df)
   }
-  
+
   for (i in 1:length(data_list)) {
     available_cols <- names(data_list[[i]])
     coords_df <- NULL
     t <- NULL
-    
+
     # Try distanceCalibrationTJSON first (new format)
     if ("distanceCalibrationTJSON" %in% available_cols) {
-      
+
       t <- data_list[[i]] %>%
         select(participant,  
                `_calibrateTrackDistanceAllowedRatio`,
@@ -1811,7 +1812,7 @@ get_foot_position_during_calibration_data <- function(data_list) {
                `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
                `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>% 
         distinct()
-      
+
       # Parse distanceCalibrationTJSON
       tryCatch({
         raw_json <- get_first_non_na(t$distanceCalibrationTJSON)
@@ -1820,7 +1821,7 @@ get_foot_position_during_calibration_data <- function(data_list) {
           json_txt,
           simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
         )
-        
+
         # Extract eye foot coordinates - distanceCalibrationTJSON has arrays at top level
         eye_feet_coords <- list()
         left_eye_foot <- distanceCalibration$leftEyeFootXYPx
@@ -1850,7 +1851,7 @@ get_foot_position_during_calibration_data <- function(data_list) {
             }
           }
         }
-        
+
         if (length(eye_feet_coords) > 0) {
           # Create coordinate data frame
           coords_df <- tibble(
@@ -1861,76 +1862,76 @@ get_foot_position_during_calibration_data <- function(data_list) {
             right_y = sapply(eye_feet_coords, function(x) x$right_y)
           )
         }
-        
+
       }, error = function(e) {
         # Skip this iteration if JSON parsing fails
       })
     } else if ("distanceCalibrationJSON" %in% available_cols) {
       # Fallback: distanceCalibrationJSON (old format) for backward compatibility
-      
-      t <- data_list[[i]] %>%
-        select(participant,  
-               `_calibrateTrackDistanceAllowedRatio`,
-               `_calibrateTrackDistanceShowLengthBool`,
-               `_calibrateTrackDistanceTimes`,
-               calibrateScreenSizeAllowedRatio,
-               calibrateScreenSizeTimes,
-               `_calibrateTrackDistance`,
-               `_calibrateTrackDistancePupil`,
-               viewingDistanceWhichEye,
-               viewingDistanceWhichPoint,
-               pxPerCm, 
-               screenWidthPx, 
-               screenHeightPx,
-               calibrateTrackDistanceMeasuredCm, 
-               calibrateTrackDistanceRequestedCm,
-               distanceCalibrationJSON) %>%
-        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
-               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
-               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
-               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
-               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
-               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
-               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
-               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
-               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>% 
-        distinct()
-      
+
+    t <- data_list[[i]] %>%
+      select(participant,  
+             `_calibrateTrackDistanceAllowedRatio`,
+             `_calibrateTrackDistanceShowLengthBool`,
+             `_calibrateTrackDistanceTimes`,
+             calibrateScreenSizeAllowedRatio,
+             calibrateScreenSizeTimes,
+             `_calibrateTrackDistance`,
+             `_calibrateTrackDistancePupil`,
+             viewingDistanceWhichEye,
+             viewingDistanceWhichPoint,
+             pxPerCm, 
+             screenWidthPx, 
+             screenHeightPx,
+             calibrateTrackDistanceMeasuredCm, 
+             calibrateTrackDistanceRequestedCm,
+             distanceCalibrationJSON) %>%
+      mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
+             `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
+             `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
+             calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
+             calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
+             `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
+             `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
+             `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
+             `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>% 
+      distinct()
+
       # Parse distanceCalibrationJSON (old format - nested calibration objects)
-      tryCatch({
-        raw_json <- get_first_non_na(t$distanceCalibrationJSON)
-        json_txt <- sanitize_json_string(raw_json)
-        distanceCalibration <- fromJSON(
-          json_txt,
-          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
-        )
-        
+    tryCatch({
+      raw_json <- get_first_non_na(t$distanceCalibrationJSON)
+      json_txt <- sanitize_json_string(raw_json)
+      distanceCalibration <- fromJSON(
+        json_txt,
+        simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+      )
+
         # Extract eye foot coordinates from each calibration object
-        eye_feet_coords <- list()
-        for (j in 1:length(distanceCalibration)) {
-          cal <- distanceCalibration[[j]]
-          if (!is.null(cal$leftEyeFootXYPx) && !is.null(cal$rightEyeFootXYPx)) {
-            eye_feet_coords[[length(eye_feet_coords) + 1]] <- list(
-              left_x = cal$leftEyeFootXYPx[1],
-              left_y = cal$leftEyeFootXYPx[2],
-              right_x = cal$rightEyeFootXYPx[1],
-              right_y = cal$rightEyeFootXYPx[2]
-            )
-          }
-        }
-        
-        if (length(eye_feet_coords) > 0) {
-          # Create coordinate data frame
-          coords_df <- tibble(
-            measurement_idx = 1:length(eye_feet_coords),
-            left_x = sapply(eye_feet_coords, function(x) x$left_x),
-            left_y = sapply(eye_feet_coords, function(x) x$left_y),
-            right_x = sapply(eye_feet_coords, function(x) x$right_x),
-            right_y = sapply(eye_feet_coords, function(x) x$right_y)
+      eye_feet_coords <- list()
+      for (j in 1:length(distanceCalibration)) {
+        cal <- distanceCalibration[[j]]
+        if (!is.null(cal$leftEyeFootXYPx) && !is.null(cal$rightEyeFootXYPx)) {
+          eye_feet_coords[[length(eye_feet_coords) + 1]] <- list(
+            left_x = cal$leftEyeFootXYPx[1],
+            left_y = cal$leftEyeFootXYPx[2],
+            right_x = cal$rightEyeFootXYPx[1],
+            right_y = cal$rightEyeFootXYPx[2]
           )
         }
-        
-      }, error = function(e) {
+      }
+
+        if (length(eye_feet_coords) > 0) {
+      # Create coordinate data frame
+      coords_df <- tibble(
+        measurement_idx = 1:length(eye_feet_coords),
+        left_x = sapply(eye_feet_coords, function(x) x$left_x),
+        left_y = sapply(eye_feet_coords, function(x) x$left_y),
+        right_x = sapply(eye_feet_coords, function(x) x$right_x),
+        right_y = sapply(eye_feet_coords, function(x) x$right_y)
+      )
+        }
+
+    }, error = function(e) {
         # Skip this iteration if JSON parsing fails
       })
     } else {
@@ -1940,14 +1941,14 @@ get_foot_position_during_calibration_data <- function(data_list) {
     if (is.null(coords_df) || nrow(coords_df) == 0 || is.null(t)) {
       next
     }
-    
+
     # Now filter after JSON parsing
     t <- t %>%
       filter(!is.na(calibrateTrackDistanceMeasuredCm),
              !is.na(calibrateTrackDistanceRequestedCm),
              calibrateTrackDistanceMeasuredCm != '',
              calibrateTrackDistanceRequestedCm != '')
-    
+
     if (nrow(t) > 0) {
       # Process the measured and requested distances (these are JSON arrays)
       t <- t %>%
@@ -1965,7 +1966,7 @@ get_foot_position_during_calibration_data <- function(data_list) {
           measurement_index = row_number()
         ) %>%
         select(-measured_list, -requested_list)
-      
+
       # Match measurements - if we have more coordinates than distance measurements, trim
       n_measurements <- nrow(coords_df)
       if (n_measurements > nrow(t)) {
@@ -1974,7 +1975,7 @@ get_foot_position_during_calibration_data <- function(data_list) {
         # Pad with NAs or truncate distance data
         t <- t[1:n_measurements, ]
       }
-      
+
       # Combine data
       t <- cbind(t, coords_df) %>%
         select(-measurement_idx) %>%
@@ -1985,7 +1986,7 @@ get_foot_position_during_calibration_data <- function(data_list) {
           # Calculate measured over requested ratio
           distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
         )
-      
+
       # Convert pixels to cm if pxPerCm is available
       if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
         t <- t %>%
@@ -2004,21 +2005,21 @@ get_foot_position_during_calibration_data <- function(data_list) {
             avg_eye_y_cm = avg_eye_y_px / default_pxPerCm
           )
       }
-      
+
       # Add a data_list_index to help distinguish sessions
       t <- t %>%
         mutate(data_list_index = i)
-      
+
       df <- rbind(df, t)
     }
   }
-  
+
   # Add session detection based on data_list_index for cases where experiment names are the same
   if (nrow(df) > 0) {
     df <- df %>%
       mutate(
         session_from_data_index = paste0("Session_", data_list_index)
-      )
+    )
   }
   
   return(df)
@@ -2032,19 +2033,19 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
   
   # Fallback to eye_feet if feet_calib is empty
   if (nrow(eye_feet_data) == 0) {
-    eye_feet_data <- distanceCalibrationResults$eye_feet
+  eye_feet_data <- distanceCalibrationResults$eye_feet
   }
-  
+
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
   }
-  
+
   # Filter out rows with invalid coordinates and distance_ratio
   eye_feet_data <- eye_feet_data %>%
     filter(!is.na(avg_eye_x_px), !is.na(avg_eye_y_px),
            !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm), 
            !is.na(distance_ratio), is.finite(distance_ratio))
-  
+
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
   }
@@ -2070,7 +2071,7 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
     screen_height_cm <- max_y_px / typical_pxPerCm
     
   }
-  
+
   # Add 50% margin around screen as specified in Trello
   # For W=30.20, H=19.61, limits should be x:[-15.10, 45.30], y:[-9.81, 29.42]
   x_margin_cm <- 0.5 * screen_width_cm
@@ -2109,13 +2110,13 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
       # Always use actual participant names - no artificial limits
       session_limited = factor(session_id)
     )
-  
+
   n_sessions <- n_distinct(eye_feet_data$session_id)
-  
+
   # Create statement for calibration parameters (safe, short)
   statement <- make_statement(eye_feet_data)
   param_tbl <- build_param_table(eye_feet_data)
-  
+
   p <- NULL
   # Create the plot directly without test plots
   tryCatch({
@@ -2208,19 +2209,19 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
       # Summary statistics (pushed further down to avoid clipping)
       annotate("text", x = x_min+1, y = y_min + 1,
                label = paste0("N = ", nrow(eye_feet_data), "\n",
-                              "Sessions= ", n_sessions, "\n",
-                              "Mean = ", round(mean(eye_feet_data$distance_ratio, na.rm = TRUE), 3), "\n",
-                              "SD = ", round(sd(eye_feet_data$distance_ratio, na.rm = TRUE), 3)),
+                             "Sessions= ", n_sessions, "\n",
+                             "Mean = ", round(mean(eye_feet_data$distance_ratio, na.rm = TRUE), 3), "\n",
+                             "SD = ", round(sd(eye_feet_data$distance_ratio, na.rm = TRUE), 3)),
                hjust = 0, vjust = 1, size = 3, color = "black")
   }, error = function(e) {
     p <<- NULL
   })
-  
+
   # Calculate height based on legend complexity (in inches)
   n_sessions <- n_distinct(eye_feet_data$session_id)
   base_height <- 7
   plot_height <- compute_auto_height(base_height = base_height, n_items = n_sessions, per_row = 3, row_increase = 0.08)
-  
+
   # Return the plot or NULL if creation failed
   if(!is.null(p)) {
     return(list(plot = p, height = plot_height))
@@ -2231,16 +2232,16 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
 
 plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
   eye_feet_data <- distanceCalibrationResults$feet_calib
-  
+
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
   }
-  
+
   # Filter out rows with invalid coordinates
   eye_feet_data <- eye_feet_data %>%
     filter(!is.na(left_x), !is.na(left_y), !is.na(right_x), !is.na(right_y),
            !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm), !is.na(distance_ratio))
-  
+
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
   }
@@ -2265,7 +2266,7 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
     screen_width_cm <- max_x_px / typical_pxPerCm
     screen_height_cm <- max_y_px / typical_pxPerCm
   }
-  
+
   # Calculate plot range to fit all data without clipping
   # Add 50% margin around screen OR expand to fit all data, whichever is larger
   x_margin_cm <- 0.5 * screen_width_cm
@@ -2289,13 +2290,13 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
       # Create session identifier for color
       session_id = as.character(participant)
     )
-  
+
   n_sessions <- n_distinct(eye_feet_data$session_id)
-  
+
   # Create statement for calibration parameters (safe, short)
   statement <- distanceCalibrationResults$statement
   param_tbl <- build_param_table(eye_feet_data)
-  
+
   # Create the plot
   tryCatch({
     p <- ggplot(eye_feet_data, aes(x = avg_eye_x_cm, y = avg_eye_y_cm)) +
@@ -2360,18 +2361,18 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
       # Summary statistics (pushed further down to avoid clipping)
       annotate("text", x = x_min+1, y = y_min + 1,
                label = paste0("N = ", nrow(eye_feet_data), "\n",
-                              "Sessions= ", n_sessions, "\n",
-                              "Mean = ", round(mean_ratio, 3), "\n",
-                              "SD = ", round(sd_ratio, 3)),
+                             "Sessions= ", n_sessions, "\n",
+                             "Mean = ", round(mean_ratio, 3), "\n",
+                             "SD = ", round(sd_ratio, 3)),
                hjust = 0, vjust = 1, size = 3, color = "black")
   }, error = function(e) {
     p <<- NULL
   })
-  
+
   # Calculate height based on number of participants
   base_height <- 7
   plot_height <- compute_auto_height(base_height = base_height, n_items = n_sessions, per_row = 3, row_increase = 0.08)
-  
+
   # Return the plot WITH height (expected by calling code)
   if(exists("p") && !is.null(p)) {
     return(list(plot = p, height = plot_height))
@@ -2384,35 +2385,35 @@ get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
   # Get _calibrateTrackDistanceBlindspotDiameterDeg from distanceCalibrationTJSON or fallback to distanceCalibrationJSON
   blindspot_diameter_data <- tibble()
   if (is.null(data_list) || length(data_list) == 0) return(blindspot_diameter_data)
-  
+
   for (i in 1:length(data_list)) {
     if ("distanceCalibrationTJSON" %in% names(data_list[[i]])) {
       t <- data_list[[i]] %>%
         select(participant, distanceCalibrationTJSON) %>%
         filter(!is.na(distanceCalibrationTJSON), distanceCalibrationTJSON != "")
-      
+
       if (nrow(t) > 0) {
         tryCatch({
           # Parse distanceCalibrationTJSON to extract spotDeg
           raw_json <- get_first_non_na(t$distanceCalibrationTJSON)
           json_txt <- sanitize_json_string(raw_json)
           distanceCalibration <- fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
-          
+
           # Extract spotDeg - in distanceCalibrationTJSON, spotDeg is a top-level array
           spot_degrees <- c()
           if (!is.null(distanceCalibration$spotDeg)) {
             spot_degrees <- as.numeric(distanceCalibration$spotDeg)
             spot_degrees <- spot_degrees[!is.na(spot_degrees)]
           }
-          
+
           if (length(spot_degrees) > 0) {
             # Use the first (or average) spotDeg value
             spot_deg <- spot_degrees[1]  # or mean(spot_degrees) if you want average
-            
+
             blindspot_entry <- t[1,] %>%  # Take first row for participant info
               mutate(`_calibrateTrackDistanceBlindspotDiameterDeg` = spot_deg) %>%
               select(participant, `_calibrateTrackDistanceBlindspotDiameterDeg`)
-            
+
             blindspot_diameter_data <- rbind(blindspot_diameter_data, blindspot_entry)
           }
         }, error = function(e) {
@@ -2424,14 +2425,14 @@ get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
       t <- data_list[[i]] %>%
         select(participant, distanceCalibrationJSON) %>%
         filter(!is.na(distanceCalibrationJSON), distanceCalibrationJSON != "")
-      
+
       if (nrow(t) > 0) {
         tryCatch({
           # Parse distanceCalibrationJSON to extract spotDeg
           raw_json <- get_first_non_na(t$distanceCalibrationJSON)
           json_txt <- sanitize_json_string(raw_json)
           distanceCalibration <- fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
-          
+
           # Extract spotDeg from each calibration object
           spot_degrees <- c()
           for (j in 1:length(distanceCalibration)) {
@@ -2441,15 +2442,15 @@ get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
             }
           }
           spot_degrees <- spot_degrees[!is.na(spot_degrees)]
-          
+
           if (length(spot_degrees) > 0) {
             # Use the first (or average) spotDeg value
             spot_deg <- spot_degrees[1]  # or mean(spot_degrees) if you want average
-            
+
             blindspot_entry <- t[1,] %>%  # Take first row for participant info
               mutate(`_calibrateTrackDistanceBlindspotDiameterDeg` = spot_deg) %>%
               select(participant, `_calibrateTrackDistanceBlindspotDiameterDeg`)
-            
+
             blindspot_diameter_data <- rbind(blindspot_diameter_data, blindspot_entry)
           }
         }, error = function(e) {
@@ -2458,7 +2459,7 @@ get_calibrateTrackDistanceBlindspotDiameterDeg <- function(data_list) {
       }
     }
   }
-  
+
   return(blindspot_diameter_data %>% distinct())
 }
 
@@ -2494,45 +2495,27 @@ get_bs_vd <- function(data_list) {
 }
 
 plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  
-  distance <- distanceCalibrationResults$distance
-  sizeCheck <- distanceCalibrationResults$sizeCheck
+
+  distance <- distanceCalibrationResults$checkJSON
   statement <- distanceCalibrationResults$statement
   if (nrow(distance) == 0) {return(NULL)}
   
-  if (nrow(sizeCheck) > 0) {
-    sdLogDensity_data <- sizeCheck %>%
-      group_by(participant) %>%
-      summarize(
-        sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
-        .groups = "drop"
-      ) %>%
-      filter(!is.na(sdLogDensity)) %>% 
-      mutate(reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed))
-  } else {
-    sdLogDensity_data <- tibble()
-  }
   
   # Prepare individual measurements for plotting (not averaged)
   distance_individual <- distance %>%
     mutate(
       # Add consistent logarithmic horizontal jitter to x-axis variable (unbiased for log scales)
-      calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
+      checkDistanceRequestedCm = as.numeric(requestedEyesToPointCm),
+      checkDistanceMeasuredCm = as.numeric(eyesToPointCm),
+      CheckDistanceRequestedCm_jitter = add_log_jitter(checkDistanceRequestedCm, jitter_percent = 2, seed = 42)
     )
-  
-  if (nrow(sdLogDensity_data) > 0) {
-    distance_individual <- distance_individual %>% 
-      left_join(sdLogDensity_data, by = "participant")
-  } else {
-    distance_individual <- distance_individual %>% mutate(reliableBool = TRUE)
-  }
-  
+
   # Calculate the ratio Y/X for the second plot
   distance_individual <- distance_individual %>%
     mutate(
-      credit_card_fraction = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
+      credit_card_fraction = checkDistanceMeasuredCm / checkDistanceRequestedCm
     )
-  
+
   # Calculate mean and SD of the ratio for reporting
   mean_fraction <- mean(distance_individual$credit_card_fraction, na.rm = TRUE)
   sd_fraction <- sd(distance_individual$credit_card_fraction, na.rm = TRUE)
@@ -2540,13 +2523,13 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # Format for display
   mean_formatted <- format(round(mean_fraction, 3), nsmall = 3)
   sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
-  
-  # Use appropriate scale limits for cleaner axis display - use JITTERED values
-  min_val <- 5 * floor(min(c(distance_individual$calibrateTrackDistanceRequestedCm_jitter, 
-                             distance_individual$calibrateTrackDistanceMeasuredCm), na.rm = TRUE) / 5) 
+
+     # Use appropriate scale limits for cleaner axis display - use JITTERED values
+  min_val <- 5 * floor(min(c(distance_individual$CheckDistanceRequestedCm_jitter, 
+                              distance_individual$checkDistanceMeasuredCm), na.rm = TRUE) / 5) 
   min_val = max(10, min_val)
-  max_val <- 5 * ceiling(max(c(distance_individual$calibrateTrackDistanceRequestedCm_jitter,
-                               distance_individual$calibrateTrackDistanceMeasuredCm), na.rm = TRUE) / 5)
+  max_val <- 5 * ceiling(max(c(distance_individual$CheckDistanceRequestedCm_jitter,
+                               distance_individual$checkDistanceMeasuredCm), na.rm = TRUE) / 5)
   
   # Calculate dynamic y-axis limits for the fraction plot based on actual data
   minFrac <- max(0.1, min(0.5, floor(distance_individual$credit_card_fraction * 10) / 10))
@@ -2554,63 +2537,61 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   
   # Plot 1: Credit-card-measured vs requested distance (INDIVIDUAL MEASUREMENTS)
   distance_individual <- distance_individual %>%
-    arrange(participant, order) %>%  # Ensure proper ordering
-    filter(!is.na(calibrateTrackDistanceRequestedCm_jitter),
-           !is.na(calibrateTrackDistanceMeasuredCm))
+    arrange(participant, CheckDistanceRequestedCm_jitter) %>%  # Ensure proper ordering
+    filter(!is.na(CheckDistanceRequestedCm_jitter),
+           !is.na(checkDistanceMeasuredCm))
   p1 <- NULL
   if (nrow(distance_individual) > 0) {
-    p1 <- ggplot() + 
+  p1 <- ggplot() + 
       geom_line(data=distance_individual,
-                aes(x = calibrateTrackDistanceRequestedCm_jitter, 
-                    y = calibrateTrackDistanceMeasuredCm,
-                    color = participant, 
-                    lty = reliableBool,
-                    group = participant), alpha = 0.7) +
+              aes(x = CheckDistanceRequestedCm_jitter, 
+                    y = checkDistanceMeasuredCm,
+                  color = participant, 
+                  group = participant), alpha = 0.7) +
       geom_point(data=distance_individual, 
-                 aes(x = calibrateTrackDistanceRequestedCm_jitter, 
-                     y = calibrateTrackDistanceMeasuredCm,
-                     color = participant), 
-                 size = 2) + 
-      ggpp::geom_text_npc(aes(npcx="left",
-                              npcy="top"),
+               aes(x = CheckDistanceRequestedCm_jitter, 
+                     y = checkDistanceMeasuredCm,
+                   color = participant), 
+               size = 2) + 
+    ggpp::geom_text_npc(aes(npcx="left",
+                            npcy="top"),
                           label = paste0('N=', n_distinct(distance_individual$participant))) + 
-      geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
-      scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
-                            labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
+    scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
+                          labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(
         limits = c(min_val, max_val),
         breaks = scales::log_breaks(n = 6),
         labels = scales::label_number(accuracy = 1)
       ) +
       scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) + 
-      scale_color_manual(values= colorPalette) + 
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
-      guides(color = guide_legend(
-        ncol = 3,  # More columns to fit more participants horizontally
-        title = "",
-        override.aes = list(size = 2),  # Smaller points in legend
-        keywidth = unit(1.2, "lines"),  # Reduce key width
-        keyheight = unit(0.8, "lines")  # Reduce key height
-      ),
-      linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-      coord_fixed() +  
-      labs(subtitle = 'Measured vs. requested distance',
-           x = 'Requested distance (cm)',
-           y = 'Measured distance (cm)',
+    scale_color_manual(values= colorPalette) + 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+    guides(color = guide_legend(
+      ncol = 3,  # More columns to fit more participants horizontally
+      title = "",
+      override.aes = list(size = 2),  # Smaller points in legend
+      keywidth = unit(1.2, "lines"),  # Reduce key width
+      keyheight = unit(0.8, "lines")  # Reduce key height
+    ),
+    linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
+    coord_fixed() +  
+    labs(subtitle = 'Measured vs. requested distance',
+         x = 'Requested distance (cm)',
+         y = 'Measured distance (cm)',
            caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
-    
-  }
   
+  }
+ 
   # Plot 2: Credit-card-measured as fraction of requested distance (INDIVIDUAL MEASUREMENTS)
   p2 <- ggplot() + 
     geom_line(data=distance_individual,
-              aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+              aes(x = CheckDistanceRequestedCm_jitter, 
                   y = credit_card_fraction,
                   color = participant, 
-                  lty = reliableBool,
                   group = participant), alpha = 0.7) +
     geom_point(data=distance_individual, 
-               aes(x = calibrateTrackDistanceRequestedCm_jitter, 
+               aes(x = CheckDistanceRequestedCm_jitter, 
                    y = credit_card_fraction,
                    color = participant), 
                size = 2) + 
@@ -2625,11 +2606,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     scale_x_log10(
       limits = c(min_val, max_val),
       breaks = scales::log_breaks(n = 6),
-      expand = expansion(mult = c(0.05, 0.05)),
+                  expand = expansion(mult = c(0.05, 0.05)),
       labels = scales::label_number(accuracy = 1)
     ) + 
     scale_y_log10(limits = c(minFrac, maxFrac),
-                  breaks = seq(0.6, 1.4, by = 0.1)) + 
+                   breaks = seq(0.6, 1.4, by = 0.1)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
@@ -2644,7 +2625,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
          x = 'Requested distance (cm)',
          y = 'Measured over requested distance',
          caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
-  
+
   # Plot 4: Eye feet position vs distance error
   p4_result <- plot_eye_feet_position(distanceCalibrationResults)
   p4 <- if (!is.null(p4_result)) p4_result$plot else NULL
@@ -2673,48 +2654,48 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       group_by(participant) %>%
       summarize(fVpx_check = median(fVpx, na.rm = TRUE), .groups = "drop")
     
-    # Join calibration and check data by participant
+      # Join calibration and check data by participant
     plot_data <- calib_fVpx %>%
       inner_join(check_fVpx, by = "participant") %>%
       filter(!is.na(fVpx_calibration), !is.na(fVpx_check),
              is.finite(fVpx_calibration), is.finite(fVpx_check))
-    
-    if (nrow(plot_data) > 0) {
-      # Calculate symmetric scale limits to ensure equal axes (slope 1 equality line)
+        
+        if (nrow(plot_data) > 0) {
+        # Calculate symmetric scale limits to ensure equal axes (slope 1 equality line)
       min_val_all <- min(c(plot_data$fVpx_calibration, plot_data$fVpx_check), na.rm = TRUE) * 0.9
       max_val_all <- max(c(plot_data$fVpx_calibration, plot_data$fVpx_check), na.rm = TRUE) * 1.1
-      
+        
       # X-axis = fVpx from calibration, Y-axis = fVpx from check
       p5 <- ggplot(plot_data, aes(x = fVpx_calibration, y = fVpx_check)) +
-        geom_point(aes(color = participant), size = 3, alpha = 0.8) +
-        geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(plot_data$participant))) +
-        scale_x_log10(limits = c(min_val_all, max_val_all), 
-                      breaks = scales::log_breaks(n = 8)) +
-        scale_y_log10(limits = c(min_val_all, max_val_all), 
-                      breaks = scales::log_breaks(n = 8)) +
-        coord_fixed(ratio = 1) +  # Force 1:1 aspect ratio for symmetric axes
-        annotation_logticks() +
-        scale_color_manual(values = colorPalette) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-        guides(color = guide_legend(
-          ncol = 3,
-          title = "",
-          override.aes = list(size = 1.5),
-          keywidth = unit(0.8, "lines"),
-          keyheight = unit(0.6, "lines")
-        )) +
-        theme_classic() +
-        theme(
-          legend.position = "right",
-          legend.box = "vertical",
-          legend.justification = "left",
-          legend.text = element_text(size = 6),
-          legend.spacing.y = unit(0, "lines"),
-          legend.key.size = unit(0.4, "cm"),
-          plot.margin = margin(5, 5, 5, 5, "pt")
-        ) +
+            geom_point(aes(color = participant), size = 3, alpha = 0.8) +
+            geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
+            ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                                label = paste0('N=', n_distinct(plot_data$participant))) +
+          scale_x_log10(limits = c(min_val_all, max_val_all), 
+                          breaks = scales::log_breaks(n = 8)) +
+          scale_y_log10(limits = c(min_val_all, max_val_all), 
+                          breaks = scales::log_breaks(n = 8)) +
+          coord_fixed(ratio = 1) +  # Force 1:1 aspect ratio for symmetric axes
+            annotation_logticks() +
+            scale_color_manual(values = colorPalette) +
+            ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+            guides(color = guide_legend(
+              ncol = 3,
+              title = "",
+              override.aes = list(size = 1.5),
+              keywidth = unit(0.8, "lines"),
+              keyheight = unit(0.6, "lines")
+            )) +
+            theme_classic() +
+            theme(
+              legend.position = "right",
+              legend.box = "vertical",
+              legend.justification = "left",
+              legend.text = element_text(size = 6),
+              legend.spacing.y = unit(0, "lines"),
+              legend.key.size = unit(0.4, "cm"),
+              plot.margin = margin(5, 5, 5, 5, "pt")
+            ) +
         labs(subtitle = 'Check vs. calibration of focal length',
              x = 'fVpx from calibration',
              y = 'fVpx from check',
@@ -2773,7 +2754,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           
           plot_data <- plot_data %>%
             mutate(spotDeg_jitter = add_log_jitter(spotDeg, jitter_percent = 0.5, seed = 42))
-          
+
           p6 <- ggplot(plot_data, aes(x = spotDeg_jitter, y = ratio)) +
             geom_point(aes(color = participant), size = 3, alpha = 0.8) +
             geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.8) +
@@ -3251,20 +3232,20 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           group_by(participant) %>%
           summarize(median_fVpx = median(fVpx, na.rm = TRUE), .groups = "drop")
         
-        fvpx_over_width_data <- check_data %>%
-          left_join(distanceCalibrationResults$camera %>%
-                      select(PavloviaParticipantID, cameraResolutionXY),
-                    by = "PavloviaParticipantID") %>%
+      fvpx_over_width_data <- check_data %>%
+        left_join(distanceCalibrationResults$camera %>%
+                    select(PavloviaParticipantID, cameraResolutionXY),
+                  by = "PavloviaParticipantID") %>%
           left_join(check_fVpx_median, by = c("PavloviaParticipantID" = "participant")) %>%
-          mutate(
-            widthVpx = extract_width_px(cameraResolutionXY), # take largest of first two resolution entries as horizontal width
-            widthVpx = suppressWarnings(as.numeric(widthVpx)),
+        mutate(
+          widthVpx = extract_width_px(cameraResolutionXY), # take largest of first two resolution entries as horizontal width
+          widthVpx = suppressWarnings(as.numeric(widthVpx)),
             # Use correctly computed fVpx from checkJSON, not medianFactorVpxCm
             fvpx_over_width = median_fVpx / widthVpx
-          ) %>%
-          filter(!is.na(widthVpx), widthVpx > 0,
-                 !is.na(fvpx_over_width), is.finite(fvpx_over_width)) %>%
-          mutate(participant = PavloviaParticipantID)
+        ) %>%
+        filter(!is.na(widthVpx), widthVpx > 0,
+               !is.na(fvpx_over_width), is.finite(fvpx_over_width)) %>%
+        mutate(participant = PavloviaParticipantID)
       } else {
         fvpx_over_width_data <- tibble()
       }
@@ -3397,10 +3378,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   n_participants <- n_distinct(distance_individual$participant)
   base_height <- 7
   plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.06)
-  
+
   # Eye feet position plot has complex legend too
   eye_feet_height <- if (!is.null(p4_result)) p4_result$height else 4
-  
+
   return(list(
     credit_card_vs_requested = list(plot = p1, height = plot_height),
     credit_card_fraction = list(plot = p2, height = plot_height),
@@ -3486,8 +3467,8 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
       sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
       .groups = "drop"
     ) %>%
-    filter(!is.na(sdLogDensity)) %>% 
-    mutate(ratio = pxPerCm / avg_estimated)
+      filter(!is.na(sdLogDensity)) %>% 
+  mutate(ratio = pxPerCm / avg_estimated)
   
   
   if (nrow(sdLogDensity_data) > 0) {
@@ -3499,8 +3480,8 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
       mutate(
         # Assign each participant to a bin that doesn't cross zero
         bin_center = ifelse(sdLogDensity >= 0,
-                            floor(sdLogDensity / bin_width) * bin_width + bin_width/2,
-                            ceiling(sdLogDensity / bin_width) * bin_width - bin_width/2)
+                           floor(sdLogDensity / bin_width) * bin_width + bin_width/2,
+                           ceiling(sdLogDensity / bin_width) * bin_width - bin_width/2)
       ) %>%
       arrange(bin_center, participant) %>%
       group_by(bin_center) %>%
@@ -3624,7 +3605,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
       geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") + 
       scale_color_manual(values = colorPalette) +
-      scale_y_continuous(limits = c(0, max(8, max_count + 1)), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
+    scale_y_continuous(limits = c(0, max(8, max_count + 1)), expand = expansion(mult = c(0, 0.1)), breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
       scale_x_log10(limits=c(minX, maxX),
                     breaks = scales::log_breaks(n=8)) +
       annotation_logticks(sides = "b", 
@@ -3669,7 +3650,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
             axis.line = element_line(colour = "black"),
             axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
             axis.text.y = element_text(size = 10),
-            plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+                  plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
             plot.title.position = "plot",
             plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
             plot.caption = element_text(size = 10),
@@ -3684,7 +3665,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
     mutate(reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed))
   ymin = max(5,floor(min(sizeCheck_avg$avg_estimated) / 10 - 1) * 10)
   ymax = ceiling(max(sizeCheck_avg$avg_estimated) / 10 + 1) * 10
-  
+
   p1 <- ggplot(data=sizeCheck_avg) + 
     geom_line(aes(x = SizeCheckRequestedCm_jitter, 
                   y = avg_estimated,
@@ -3796,11 +3777,11 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   n_participants <- if (nrow(sizeCheck_avg) > 0) n_distinct(sizeCheck_avg$participant) else 0
   n_participants_hist <- if (nrow(sdLogDensity_data) > 0) n_distinct(sdLogDensity_data$participant) else 0
   n_participants_ruler <- if (nrow(ruler) > 0) n_distinct(ruler$participant) else 0
-  
+
   # Base height calculation: more participants = more legend space (in inches)
   base_height <- 7
   plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants, n_participants_hist, n_participants_ruler), per_row = 3, row_increase = 0.06)
-  
+
   # Histograms have top legends; reduce overall height to half
   hist_base <- 1.5
   # Compute extra height separately for each dotted histogram
@@ -3810,7 +3791,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   h2_stack_for_height <- max(h2_max_stack, 8)
   h1_height <- compute_auto_height(base_height = hist_base, n_items = n_participants_hist, per_row = 3, row_increase = 0.05) + 0.24 * h1_stack_for_height
   h2_height <- compute_auto_height(base_height = hist_base, n_items = n_participants_ruler, per_row = 3, row_increase = 0.05) + 0.24 * h2_stack_for_height
-  
+
   return(list(
     density_vs_length = list(plot = p1, height = plot_height),
     density_ratio_vs_sd = list(plot = p2, height = plot_height),
@@ -3820,206 +3801,37 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
 }
 
 plot_distance_production <- function(distanceCalibrationResults, participant_info, calibrateTrackDistanceCheckLengthSDLogAllowed) {
-  distance <- distanceCalibrationResults$distance
-  sizeCheck <- distanceCalibrationResults$sizeCheck
+  distance <- distanceCalibrationResults$checkJSON
   statement <- distanceCalibrationResults$statement
+  print('inside distance production plots')
+  if (nrow(distance) == 0) {
+    print('no distance data')
+    return(NULL)
+    }
   
-  
-  if (nrow(distance) == 0) {return(NULL)}
-  
-  # Calculate density ratio data (same as credit card plot's sdLogDensity_data calculation)
-  if (nrow(sizeCheck) > 0) {
-    densityRatio_data <- sizeCheck %>%
-      group_by(participant, pxPerCm) %>%
-      summarize(
-        avg_estimated = 10^median(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
-        sdLogDensity = sd(log10(SizeCheckEstimatedPxPerCm), na.rm = TRUE),
-        .groups = "drop"
-      ) %>%
-      filter(!is.na(sdLogDensity)) %>%
-      mutate(
-        densityRatio = pxPerCm / avg_estimated,
-        reliableBool = (sdLogDensity <= calibrateTrackDistanceCheckLengthSDLogAllowed)
-      )
-    
-    sdLogDensity_data <- densityRatio_data %>%
-      select(participant, sdLogDensity, reliableBool)
-    
-  } else {
-    densityRatio_data <- tibble()
-    sdLogDensity_data <- tibble()
-  }
-  
-  
-  
-  
-  # Average Measured Distance per Participant per Requested Distance (SAME AS CREDIT CARD)
+  # Average Measured Distance per Participant per Requested Distance
   distance_avg <- distance %>%
-    group_by(participant, calibrateTrackDistanceRequestedCm) %>%
+    group_by(participant, requestedEyesToPointCm) %>%
     summarize(
-      creditCardMeasuredCm = mean(calibrateTrackDistanceMeasuredCm, na.rm = TRUE),
+      checkDistanceMeasuredCm = mean(measuredEyesToPointCm, na.rm = TRUE),
       .groups = "drop"
     ) %>%
     mutate(
-      # Add consistent logarithmic horizontal jitter to x-axis variable (SAME AS CREDIT CARD)
-      calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
-    )
-  
-  # Join with density ratio data
-  if (nrow(densityRatio_data) > 0) {
-    distance_avg <- distance_avg %>% 
-      left_join(densityRatio_data %>% select(participant, densityRatio), by = "participant") %>%
-      left_join(sdLogDensity_data, by = "participant")
-  } else {
-    distance_avg <- distance_avg %>% 
-      mutate(densityRatio = 1, reliableBool = TRUE)
-  }
-  
-  # Apply production correction and calculate ratio
-  distance_avg <- distance_avg %>%
-    mutate(
-      avg_measured = ifelse(!is.na(densityRatio), densityRatio * creditCardMeasuredCm, creditCardMeasuredCm),
-      # Calculate the ratio Y/X for the second plot
-      production_fraction = avg_measured / calibrateTrackDistanceRequestedCm
-    ) %>% 
-    filter(is.finite(avg_measured))
-  
-  # Calculate mean and SD of the ratio for reporting
-  mean_fraction <- mean(distance_avg$production_fraction, na.rm = TRUE)
-  sd_fraction <- sd(distance_avg$production_fraction, na.rm = TRUE)
-  
-  # Format for display
-  mean_formatted <- format(round(mean_fraction, 3), nsmall = 3)
-  sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
-  
-  # Calculate scale limits using INDIVIDUAL data that will actually be plotted
-  # This ensures all individual points are visible
-  
-  # Get individual data for limit calculation (same as what gets plotted)
-  individual_data_for_limits <- distance %>%
-    arrange(participant, order) %>%
-    left_join(densityRatio_data %>% select(participant, densityRatio, pxPerCm), by = "participant") %>%
-    left_join(sdLogDensity_data %>% select(participant, reliableBool), by = "participant") %>%
-    mutate(
-      product_measured = ifelse(!is.na(densityRatio),
-                                calibrateTrackDistanceMeasuredCm * densityRatio,
-                                calibrateTrackDistanceMeasuredCm),
-      calibrateTrackDistanceRequestedCm_jitter = add_log_jitter(calibrateTrackDistanceRequestedCm, jitter_percent = 2, seed = 42)
+      # Add logarithmic horizontal jitter to x-axis variable
+      checkDistanceRequestedCm_jitter = add_log_jitter(requestedEyesToPointCm, jitter_percent = 2, seed = 42),
+      checkDistanceRequestedCm = requestedEyesToPointCm,
+      # Calculate production ratio: measured / requested distance
+      production_fraction = checkDistanceMeasuredCm / requestedEyesToPointCm
     ) %>%
-    filter(is.finite(product_measured))
-  
-  raw_min <- min(c(individual_data_for_limits$calibrateTrackDistanceRequestedCm_jitter,
-                   individual_data_for_limits$product_measured), na.rm = TRUE)
-  raw_max <- max(c(individual_data_for_limits$calibrateTrackDistanceRequestedCm_jitter,
-                   individual_data_for_limits$product_measured), na.rm = TRUE)
-  
-  min_val <- 5 * floor(raw_min / 5)
-  min_val = max(10, min_val)
-  max_val <- 5 * ceiling(raw_max / 5)
-  
-  p1 <- NULL
-  p2 <- NULL 
-  if (nrow(distance_avg) > 0) {
-    # Plot 1: Production-measured vs requested distance
-    p1 <- ggplot() + 
-      geom_line(data=distance_avg, 
-                aes(x = calibrateTrackDistanceRequestedCm_jitter, 
-                    y = avg_measured,
-                    color = participant, 
-                    lty = reliableBool,
-                    group = participant), alpha = 0.7) +
-      geom_point(data=distance_avg, 
-                 aes(x = calibrateTrackDistanceRequestedCm_jitter, 
-                     y = avg_measured,
-                     color = participant), 
-                 size = 2) + 
-      ggpp::geom_text_npc(aes(npcx="left",
-                              npcy="top"),
-                          label = paste0('N=', n_distinct(distance_avg$participant))) + 
-      geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
-      scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
-                            labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(
-        limits = c(min_val, max_val),
-        breaks = scales::log_breaks(n = 6),
-        labels = scales::label_number(accuracy = 1)
-      ) +
-      scale_y_log10(limits = c(min_val, max_val),
-                    breaks = scales::log_breaks(n=8)) +
-      annotation_logticks() + 
-      scale_color_manual(values= colorPalette) + 
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
-      guides(color = guide_legend(
-        ncol = 4,  # SAME AS CREDIT CARD: More columns to fit more participants horizontally
-        title = "",
-        override.aes = list(size = 2),  # SAME AS CREDIT CARD: Smaller points in legend
-        keywidth = unit(1.2, "lines"),  # SAME AS CREDIT CARD: Reduce key width
-        keyheight = unit(0.8, "lines")  # SAME AS CREDIT CARD: Reduce key height
-      ),
-      linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-      coord_fixed() +  # SAME AS CREDIT CARD
-      labs(subtitle = 'Averge Production-measured vs.\nrequested distance',  # ONLY LABEL DIFFERENCE
-           x = 'Requested distance (cm)',                              # SAME AS CREDIT CARD
-           y = 'production-measured distance (cm)',
-           caption = "Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)")
+      filter(is.finite(production_fraction))
     
-    # Plot 2: Production-measured as fraction of requested distance
-    minFrac <- max(0.1, min(0.5, floor(distance_avg$production_fraction * 10) / 10))
-    maxFrac <- min(1.5, ceiling(distance_avg$production_fraction * 10) / 10)
-    p2 <- ggplot() + 
-      geom_line(data=distance_avg, 
-                aes(x = calibrateTrackDistanceRequestedCm_jitter, 
-                    y = production_fraction,
-                    color = participant, 
-                    lty = reliableBool,
-                    group = participant), alpha = 0.7) +
-      geom_point(data=distance_avg, 
-                 aes(x = calibrateTrackDistanceRequestedCm_jitter, 
-                     y = production_fraction,
-                     color = participant), 
-                 size = 2) + 
-      ggpp::geom_text_npc(aes(npcx="left",
-                              npcy="top"),
-                          label = paste0('N=', n_distinct(distance_avg$participant), '\n',
-                                         'Mean=', mean_formatted, '\n',
-                                         'SD=', sd_formatted)) + 
-      geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
-      scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
-                            labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
-      scale_x_log10(
-        limits = c(min_val, max_val),
-        breaks = scales::log_breaks(n = 6),
-        labels = scales::label_number(accuracy = 1),
-        expand = expansion(mult = c(0.05, 0.05))
-      ) +
-      scale_y_log10(limits = c(minFrac,maxFrac),
-                    breaks = c(seq(0.5, 1.5, by = 0.1),1.7,2.0)) +
-      annotation_logticks() +
-      scale_color_manual(values= colorPalette) + 
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
-      guides(color = guide_legend(
-        ncol = 4,
-        title = "",
-        override.aes = list(size = 2),
-        keywidth = unit(1.2, "lines"),
-        keyheight = unit(0.8, "lines")
-      ),
-      linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-      labs(subtitle = 'Production-measured over requested distance',
-           x = 'Requested distance (cm)',
-           y = 'Production-measured over requested distance',
-           caption = 'Logarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
-    
-  }
-  
-  # Plot 5: Error vs. object size (Production-measured over requested distance vs objectLengthCm)
-  # Only show this plot when _calibrateTrackDistance=object (i.e., when objectLengthCm has valid values)
+  # Plot 1: Error vs. object size (check distance accuracy vs object size)
   p5 <- NULL
   if (nrow(distance_avg) > 0 && !is.null(participant_info) && nrow(participant_info) > 0) {
-    # Check if objectLengthCm column has any valid (non-NA) values
+    # Check if objectLengthCm has valid values
     has_valid_object_lengths <- any(!is.na(participant_info$objectLengthCm) & 
-                                      participant_info$objectLengthCm != "" & 
-                                      participant_info$objectLengthCm != "NA")
+                                   participant_info$objectLengthCm != "" & 
+                                   participant_info$objectLengthCm != "NA")
     
     if (has_valid_object_lengths) {
       # Join with participant_info to get objectLengthCm
@@ -4029,45 +3841,43 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
         filter(!is.na(objectLengthCm), !is.na(production_fraction), 
                objectLengthCm != "", objectLengthCm != "NA") %>% 
         mutate(objectLengthCm = as.numeric(objectLengthCm))
-      
+
+      print('error_vs_object_data')
+      print(error_vs_object_data)
+
       if (nrow(error_vs_object_data) > 0) {
         # Calculate scale limits
         x_min <- max(1, min(error_vs_object_data$objectLengthCm) * 0.8 - 10)
         x_max <- max(error_vs_object_data$objectLengthCm) * 1.2 + 10
         y_min <- max(0.1, min(error_vs_object_data$production_fraction) * 0.8)
         y_max <- min(2.0, max(error_vs_object_data$production_fraction) * 1.2)
-        
+
         p5 <- ggplot(error_vs_object_data, aes(x = objectLengthCm, y = production_fraction)) +
           geom_point(aes(color = participant), size = 3, alpha = 0.8) +
           geom_hline(yintercept = 1, linetype = "dashed", color = "red", alpha = 0.7) +
           ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                               label = paste0('N=', n_distinct(error_vs_object_data$participant))) +
-          scale_x_log10(
-            limits = c(x_min, x_max),
+          scale_x_log10(limits = c(x_min, x_max),
             breaks = c(10, 20, 30, 40, 50, 70, 90, 120),
-            labels = scales::label_number(accuracy = 1)
-          ) +
-          scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
+                        labels = scales::label_number(accuracy = 1)) +
+           scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
           annotation_logticks() +
           scale_color_manual(values = colorPalette) +
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-          guides(color = guide_legend(
-            ncol = 4,
-            title = "",
+          guides(color = guide_legend(ncol = 4, title = "",
             override.aes = list(size = 2),
             keywidth = unit(1.2, "lines"),
-            keyheight = unit(0.8, "lines")
-          )) +
+                                      keyheight = unit(0.8, "lines"))) +
           coord_fixed() +
           labs(subtitle = 'Error vs. object size',
                x = 'Object length (cm)',
-               y = 'Production-measured over requested distance',
+               y = 'Check measured / requested distance',
                caption = 'Red dashed line shows perfect accuracy (ratio = 1.0)')
       }
     }
   }
-  
-  # Plot 6: Error vs. blindspot diameter (spotDeg)
+ 
+  # Plot 2: Error vs. blindspot diameter
   blindspot_data <- distanceCalibrationResults$blindspot
   p6 <- NULL
   if (nrow(distance_avg) > 0 && nrow(blindspot_data) > 0) {
@@ -4076,18 +3886,16 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
       left_join(blindspot_data, by = "participant") %>%
       filter(!is.na(`_calibrateTrackDistanceBlindspotDiameterDeg`), 
              !is.na(production_fraction)) %>%
-      rename(spotDeg = `_calibrateTrackDistanceBlindspotDiameterDeg`)
-    
+      rename(spotDeg = `_calibrateTrackDistanceBlindspotDiameterDeg`) %>%
+      mutate(spotDeg_jitter = add_log_jitter(spotDeg, jitter_percent = 0.5, seed = 42))
+
     if (nrow(error_vs_blindspot_data) > 0) {
       # Calculate scale limits
       x_min <- max(0.1, min(error_vs_blindspot_data$spotDeg) * 0.8)
       x_max <- max(error_vs_blindspot_data$spotDeg) * 1.2
       y_min <- max(0.1, min(error_vs_blindspot_data$production_fraction) * 0.8)
       y_max <- min(2.0, max(error_vs_blindspot_data$production_fraction) * 1.2)
-      
-      error_vs_blindspot_data <- error_vs_blindspot_data %>%
-        mutate(spotDeg_jitter = add_log_jitter(spotDeg, jitter_percent = 0.5, seed = 42))
-      
+
       p6 <- ggplot(error_vs_blindspot_data, aes(x = spotDeg_jitter, y = production_fraction)) +
         geom_point(aes(color = participant), size = 3, alpha = 0.8) +
         geom_hline(yintercept = 1, linetype = "dashed", color = "red", alpha = 0.7) +
@@ -4098,34 +3906,35 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
         annotation_logticks() +
         scale_color_manual(values = colorPalette) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-        guides(color = guide_legend(
-          ncol = 4,
-          title = "",
-          override.aes = list(size = 2),
-          keywidth = unit(1.2, "lines"),
-          keyheight = unit(0.8, "lines")
-        )) +
-        labs(subtitle = 'Error vs. spot diameter',
-             x = 'Spot diameter (deg)',
-             y = 'Production-measured over requested distance',
+        guides(color = guide_legend(ncol = 4, title = "",
+                                    override.aes = list(size = 2),
+                                    keywidth = unit(1.2, "lines"),
+                                    keyheight = unit(0.8, "lines"))) +
+        labs(subtitle = 'Check distance error vs. blindspot diameter',
+             x = 'Blindspot diameter (deg)',
+             y = 'Check measured / requested distance',
              caption = 'Red dashed line shows perfect accuracy (ratio = 1.0)')
     }
   }
-  
-  
-  
+
   # Calculate heights based on legend complexity
   n_participants <- if (nrow(distance_avg) > 0) n_distinct(distance_avg$participant) else 0
-  
-  # Base height calculation: more participants = more legend space (in inches)
   base_height <- 7
   plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.06)
-  
+
   return(list(
-    production_vs_requested = list(plot = p1, height = plot_height),
-    production_fraction = list(plot = p2, height = plot_height),
-    error_vs_object_size = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 7, n_items = n_distinct(error_vs_object_data$participant), per_row = 3, row_increase = 0.06) else NULL),
-    error_vs_blindspot_diameter = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 7, n_items = n_distinct(error_vs_blindspot_data$participant), per_row = 3, row_increase = 0.06) else NULL)
+    error_vs_object_size = list(
+      plot = p5,
+      height = if (!is.null(p5)) compute_auto_height(base_height = 7,
+                                                     n_items = n_distinct(error_vs_object_data$participant),
+                                                     per_row = 3, row_increase = 0.06) else NULL
+    ),
+    error_vs_blindspot_diameter = list(
+      plot = p6,
+      height = if (!is.null(p6)) compute_auto_height(base_height = 7,
+                                                     n_items = n_distinct(error_vs_blindspot_data$participant),
+                                                     per_row = 3, row_increase = 0.06) else NULL
+    )
   ))
 }
 
@@ -4215,13 +4024,13 @@ objectCm_hist <- function(participant_info, distanceCalibrationResults) {
           plot.caption = element_text(size = 10),
           plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
           strip.text = element_text(size = 14))
-  
+
   # Calculate height based on legend complexity
   n_participants <- n_distinct(object_dotplot$PavloviaParticipantID)
   # Use inches for height (consistent with other plots)
   base_height <- 1.5
   plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.05) + 0.24 * max(max_count, 8)
-  
+
   return(list(plot = p, height = plot_height))
 }
 
@@ -4229,15 +4038,15 @@ bs_vd_hist <- function(data_list) {
   # get blindspot viewing distance data
   dt <- get_bs_vd(data_list)
   if (nrow(dt) == 0) return(list(mean_plot = NULL, sd_plot = NULL))
-  
+
   # Plot 1: MEAN of left and right viewing distances measured in blindspot-based calibration
   bin_width_mean <- (max(dt$m) - min(dt$m)) / 20  # Adjust bin width based on data range
-  
+
   # Handle case where all values are the same (bin_width = 0)
   if (bin_width_mean == 0) {
     bin_width_mean <- max(dt$m) * 0.01  # Use 1% of value as bin width
   }
-  
+
   mean_dotplot <- dt %>%
     mutate(
       # Create bins for stacking
@@ -4250,11 +4059,11 @@ bs_vd_hist <- function(data_list) {
       dot_y = stack_position
     ) %>%
     ungroup()
-  
+
   max_count_mean <- max(mean_dotplot$dot_y)
   n_participants_mean <- n_distinct(mean_dotplot$participant)
   print(paste("mean_dotplot rows:", nrow(mean_dotplot), ", max_count_mean:", max_count_mean, ", n_participants_mean:", n_participants_mean))
-  
+
   p1 <- ggplot(mean_dotplot, aes(x = m)) +
     # Stacked colored points (dot plot style)
     geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
@@ -4262,7 +4071,7 @@ bs_vd_hist <- function(data_list) {
     scale_color_manual(values = colorPalette) +
     scale_x_continuous(breaks = scales::pretty_breaks(n = 8),
                        labels = scales::label_number()) +
-    scale_y_continuous(limits = c(0, max(8, max_count_mean + 1)),
+  scale_y_continuous(limits = c(0, max(8, max_count_mean + 1)),
                        expand = expansion(mult = c(0, 0.1)),
                        breaks = function(x) seq(0, ceiling(max(x)), by = 2)) +
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
@@ -4306,15 +4115,15 @@ bs_vd_hist <- function(data_list) {
           plot.caption = element_text(size = 10),
           plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
           strip.text = element_text(size = 14))
-  
+
   # Plot 2: SD of log10 of left and right viewing distances measured in blindspot-based calibration
   bin_width_sd <- (max(dt$sd) - min(dt$sd)) / 20  # Adjust bin width based on data range
-  
+
   # Handle case where all values are the same (bin_width = 0)
   if (bin_width_sd == 0) {
     bin_width_sd <- max(dt$sd) * 0.01  # Use 1% of value as bin width
   }
-  
+
   sd_dotplot <- dt %>%
     mutate(
       # Create bins for stacking
@@ -4327,11 +4136,11 @@ bs_vd_hist <- function(data_list) {
       dot_y = stack_position
     ) %>%
     ungroup()
-  
+
   max_count_sd <- max(sd_dotplot$dot_y)
   n_participants_sd <- n_distinct(sd_dotplot$participant)
   print(paste("sd_dotplot rows:", nrow(sd_dotplot), ", max_count_sd:", max_count_sd, ", n_participants_sd:", n_participants_sd))
-  
+
   p2 <- ggplot(sd_dotplot, aes(x = sd)) +
     # Stacked colored points (dot plot style)
     geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
@@ -4339,7 +4148,7 @@ bs_vd_hist <- function(data_list) {
     scale_color_manual(values = colorPalette) +
     scale_x_continuous(breaks = scales::pretty_breaks(n = 8),
                        labels = scales::label_number()) +
-    scale_y_continuous(limits = c(0, max(8, max_count_sd + 1)),
+  scale_y_continuous(limits = c(0, max(8, max_count_sd + 1)),
                        expand = expansion(mult = c(0, 0.1)),
                        breaks = function(x) seq(0, ceiling(max(x)), by = 2)) +
     ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
@@ -4383,16 +4192,16 @@ bs_vd_hist <- function(data_list) {
           plot.caption = element_text(size = 10),
           plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
           strip.text = element_text(size = 14))
-  
+
   # Calculate heights based on legend complexity
   n_participants_mean <- if (nrow(mean_dotplot) > 0) n_distinct(mean_dotplot$participant) else 0
   n_participants_sd <- if (nrow(sd_dotplot) > 0) n_distinct(sd_dotplot$participant) else 0
-  
+
   base_height <- 1.5
   plot_height <- compute_auto_height(base_height = base_height, n_items = max(n_participants_mean, n_participants_sd), per_row = 3, row_increase = 0.05) + 
     0.24 * max(max_count_mean, max_count_sd, 8)
   print(paste("returning bs_vd_hist with height:", plot_height))
-  
+
   return(list(
     mean_plot = list(plot = p1, height = plot_height),
     sd_plot = list(plot = p2, height = plot_height)
@@ -4445,8 +4254,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   p1 <- ggplot() +
     # Data lines: solid for calibration, dashed for check
     geom_line(data = ipd_data %>% arrange(participant, type, eyeToFootCm),
-              aes(x = eyeToFootCm,
-                  y = ipdVpx,
+                  aes(x = eyeToFootCm,
+                      y = ipdVpx,
                   color = participant,
                   linetype = type,
                   group = interaction(participant, type)),
@@ -4455,13 +4264,13 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     geom_line(data = focal_curve_data,
               aes(x = eyeToFootCm,
                   y = ipdVpx_focal,
-                  color = participant,
-                  group = participant),
+                      color = participant,
+                      group = participant),
               linewidth = 0.75, linetype = "dotted", alpha = 0.8) +
     # Points with shapes for calibration vs check
     geom_point(data = ipd_data,
                aes(x = eyeToFootCm,
-                   y = ipdVpx,
+                      y = ipdVpx,
                    color = participant,
                    shape = type),
                size = 2) +
@@ -4517,22 +4326,22 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     geom_line(data = focal_hline_data,
               aes(x = eyeToFootCm,
                   y = product_focal,
-                  color = participant,
-                  group = participant),
+                      color = participant,
+                      group = participant),
               linewidth = 0.75, linetype = "dotted", alpha = 0.8) +
     # Points with shapes for calibration vs check
     geom_point(data = ipd_data,
-               aes(x = eyeToFootCm,
+                   aes(x = eyeToFootCm,
                    y = ipdVpx_times_eyeToFootCm,
                    color = participant,
                    shape = type),
-               size = 2) +
+                   size = 2) +
     ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                        label = paste0('N=', n_distinct(ipd_data$participant))) +
-    scale_x_log10(
-      breaks = scales::log_breaks(n = 6),
-      labels = scales::label_number(accuracy = 1)
-    ) +
+                            label = paste0('N=', n_distinct(ipd_data$participant))) +
+        scale_x_log10(
+          breaks = scales::log_breaks(n = 6),
+          labels = scales::label_number(accuracy = 1)
+        ) +
     scale_y_log10(breaks = scales::log_breaks(n = 8)) +
     # Shape: filled circle for calibration, open circle for check
     scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
@@ -4549,15 +4358,15 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
       shape = guide_legend(title = "", override.aes = list(size = 2)),
       linetype = guide_legend(title = "", override.aes = list(linewidth = 0.75))
     ) +
-    theme_classic() +
-    theme(
-      legend.position = "top",
-      legend.box = "vertical",
-      legend.text = element_text(size = 6),
-      legend.spacing.y = unit(0, "lines"),
-      legend.key.size = unit(0.4, "cm"),
-      plot.margin = margin(5, 5, 5, 5, "pt")
-    ) +
+        theme_classic() +
+        theme(
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.text = element_text(size = 6),
+          legend.spacing.y = unit(0, "lines"),
+          legend.key.size = unit(0.4, "cm"),
+          plot.margin = margin(5, 5, 5, 5, "pt")
+        ) +
     labs(subtitle = '(ipdVpx*eyesToFootCm) vs. eyesToFootCm',
          x = 'eyeToFootCm',
          y = 'ipdVpx*eyesToFootCm',
