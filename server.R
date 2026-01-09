@@ -1008,8 +1008,6 @@ shinyServer(function(input, output, session) {
       list(plot = sizeCheckPlot()$density_ratio_vs_sd$plot, height = sizeCheckPlot()$density_ratio_vs_sd$height, fname = 'ratio-vs-sdLogDensity-plot'),
       list(plot = distance_plots$credit_card_vs_requested$plot, height = distance_plots$credit_card_vs_requested$height, fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_plots$credit_card_fraction$plot, height = distance_plots$credit_card_fraction$height, fname = 'calibrateTrackDistanceMeasuredCm-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_production_plots$raw_production_vs_requested$plot, height = distance_production_plots$raw_production_vs_requested$height, fname = 'calibrateTrackDistanceIndividualProduction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_production_plots$individual_production_fraction$plot, height = distance_production_plots$individual_production_fraction$height, fname = 'calibrateTrackDistanceIndividualProduction-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$error_vs_object_size$plot, height = distance_production_plots$error_vs_object_size$height, fname = 'error-vs-object-size-plot'),
       list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'error-vs-blindspot-diameter-plot'),
       list(plot = distance_plots$fvpx_over_width_scatter$plot, height = distance_plots$fvpx_over_width_scatter$height, fname = 'fvpx-over-widthVpx-vs-camera-width-plot'),
