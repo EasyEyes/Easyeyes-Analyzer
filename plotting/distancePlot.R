@@ -1590,13 +1590,12 @@ get_measured_distance_data <- function(data_list) {
 
 plot_eye_feet_position <- function(distanceCalibrationResults) {
   
-  # Use feet_calib (check data) which has the correct distance_ratio 
-  # computed from measuredEyesToPointCm / requestedEyesToPointCm
-  eye_feet_data <- distanceCalibrationResults$feet_calib
-  
-  # Fallback to eye_feet if feet_calib is empty
-  if (nrow(eye_feet_data) == 0) {
+  # Use eye_feet (calibration data) for "during calibration" plot
   eye_feet_data <- distanceCalibrationResults$eye_feet
+  
+  # Fallback to feet_calib if eye_feet is empty
+  if (nrow(eye_feet_data) == 0) {
+    eye_feet_data <- distanceCalibrationResults$feet_calib
   }
 
   if (nrow(eye_feet_data) == 0) {
@@ -1755,7 +1754,7 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
       ) +
       # # Labels - set these LAST to ensure they stick
       labs(
-        subtitle = "Measured over requested distance vs. foot position",
+        subtitle = "Measured over requested distance vs.\nfoot position during calibration",
         x = "Eye foot X (cm)",
         y = "Eye foot Y (cm)",
         caption = "Rectangle shows screen boundaries. Points beyond 50% margin are clipped to plot area.\nOrigin (0,0) is at top-left corner of screen."
@@ -1786,6 +1785,169 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
   plot_height <- compute_auto_height(base_height = base_height, n_items = n_sessions, per_row = 3, row_increase = 0.08)
 
   # Return the plot or NULL if creation failed
+  if(!is.null(p)) {
+    return(list(plot = p, height = plot_height))
+  } else {
+    return(NULL)
+  }
+}
+
+# Plot: Measured over requested distance vs. foot position during check
+# Similar to plot_eye_feet_position but uses check data (feet_calib)
+plot_eye_feet_position_during_check <- function(distanceCalibrationResults) {
+  
+  # Use feet_calib (check data) for "during check" plot
+  eye_feet_data <- distanceCalibrationResults$feet_calib
+  
+  if (nrow(eye_feet_data) == 0) {
+    return(NULL)
+  }
+
+  # Filter out rows with invalid coordinates and distance_ratio
+  eye_feet_data <- eye_feet_data %>%
+    filter(!is.na(avg_eye_x_px), !is.na(avg_eye_y_px),
+           !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm), 
+           !is.na(distance_ratio), is.finite(distance_ratio))
+
+  if (nrow(eye_feet_data) == 0) {
+    return(NULL)
+  }
+  
+  # Get actual screen dimensions from the data if available
+  typical_pxPerCm <- median(eye_feet_data$pxPerCm, na.rm = TRUE)
+  
+  # Try to get screen dimensions from screenWidthPx/screenHeightPx columns if available
+  if ("screenWidthPx" %in% names(eye_feet_data) && "screenHeightPx" %in% names(eye_feet_data)) {
+    screen_width_px <- median(as.numeric(eye_feet_data$screenWidthPx), na.rm = TRUE)
+    screen_height_px <- median(as.numeric(eye_feet_data$screenHeightPx), na.rm = TRUE)
+    screen_width_cm <- screen_width_px / typical_pxPerCm
+    screen_height_cm <- screen_height_px / typical_pxPerCm
+  } else {
+    # Fallback: estimate from eye position data
+    max_x_px <- max(eye_feet_data$avg_eye_x_px, na.rm = TRUE)
+    max_y_px <- max(eye_feet_data$avg_eye_y_px, na.rm = TRUE)
+    screen_width_cm <- max_x_px / typical_pxPerCm
+    screen_height_cm <- max_y_px / typical_pxPerCm
+  }
+
+  # Add 50% margin around screen
+  x_margin_cm <- 0.5 * screen_width_cm
+  y_margin_cm <- 0.5 * screen_height_cm
+  x_min <- -x_margin_cm
+  x_max <- screen_width_cm + x_margin_cm
+  y_min <- -y_margin_cm
+  y_max <- screen_height_cm + y_margin_cm
+  
+  # Add extra padding to Y-axis to prevent point cutoff
+  y_padding <- 0.1 * (y_max - y_min)
+  y_min_padded <- y_min - y_padding
+  y_max_padded <- y_max + y_padding
+  
+  # Prepare data for plotting
+  eye_feet_data <- eye_feet_data %>%
+    mutate(
+      foot_x_cm_clipped = pmax(x_min, pmin(x_max, avg_eye_x_cm)),
+      foot_y_cm_clipped = pmax(y_min, pmin(y_max, avg_eye_y_cm)),
+      ratio_continuous = pmax(0.7, pmin(1.4, distance_ratio)),
+      session_id = as.character(participant)
+    )
+  
+  eye_feet_data <- eye_feet_data %>%
+    mutate(session_limited = factor(session_id))
+
+  n_sessions <- n_distinct(eye_feet_data$session_id)
+  statement <- make_statement(eye_feet_data)
+
+  p <- NULL
+  tryCatch({
+    p <- ggplot(eye_feet_data, aes(x = foot_x_cm_clipped, y = foot_y_cm_clipped)) +
+      geom_rect(aes(xmin = 0, xmax = screen_width_cm,
+                    ymin = 0, ymax = screen_height_cm),
+                fill = NA, color = "black", linewidth = 0.3, alpha = 0.7) +
+      geom_point(aes(fill = ratio_continuous, shape = session_limited), 
+                 size = 4, alpha = 0.9, color = "black", stroke = 0.2) +
+      scale_fill_gradientn(
+        colors = c("#3B4CC0", "#89A1F0", "#FDE725", "#F07E26", "#B2182B"),
+        values = scales::rescale(log10(c(0.7, 0.85, 1.0, 1.2, 1.4))),
+        limits = c(0.7, 1.4),
+        trans = "log10",
+        oob = scales::squish,
+        name = "Measured over requested",
+        breaks = seq(0.7, 1.4, by = 0.1),
+        labels = c("0.7", "", "", "1.0", "", "", "", "1.4"),
+        guide = guide_colorbar(
+          barheight = unit(0.5, "cm"),
+          barwidth = unit(5, "cm"),
+          title.position = "top",
+          ticks.colour = "black",
+          ticks.linewidth = 0.75,
+          ticks.position = "outward"
+        )
+      ) +
+      scale_shape_manual(
+        values = {
+          all_shapes <- c(21, 22, 23, 24, 25)
+          n_participants <- nlevels(eye_feet_data$session_limited)
+          rep(all_shapes, length.out = n_participants)
+        },
+        name = "",
+        guide = guide_legend(
+          ncol = 4,
+          byrow = TRUE,
+          key.spacing.y = unit(0.07, "cm"),
+          key.spacing.x = unit(0.07, "cm")
+        )
+      ) +
+      scale_y_reverse(limits = c(y_max_padded, y_min_padded), expand = c(0,0)) +
+      coord_fixed(xlim = c(x_min, x_max), expand = FALSE) +
+      theme_bw() +
+      theme(
+        legend.position = "bottom",
+        legend.box = "horizontal",
+        legend.justification = "center",
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(size = 16, hjust = 0.5),
+        axis.title = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
+        legend.key.height = unit(0.4, "cm"),
+        legend.key.width = unit(0.4, "cm"),
+        legend.margin = margin(l = 2, r = 2, t = 5, b = 5),
+        legend.background = element_rect(fill = NA, colour = NA),
+        plot.margin = margin(t = 20, r = 20, b = 40, l = 20, "pt"),
+        axis.line.x = element_line(color = "black"),
+        axis.line.y = element_line(color = "black"),
+        axis.line.x.top = element_blank(),
+        axis.line.y.right = element_blank()
+      ) +
+      labs(
+        subtitle = "Measured over requested distance vs.\nfoot position during check",
+        x = "Eye foot X (cm)",
+        y = "Eye foot Y (cm)",
+        caption = "Rectangle shows screen boundaries. Points beyond 50% margin are clipped to plot area.\nOrigin (0,0) is at top-left corner of screen."
+      ) +
+      annotate("text", x = screen_width_cm/2, y = -y_margin_cm*0.1,
+               label = "Screen", hjust = 0.5, vjust = 0.5, size = 4, color = "black") +
+      ggpp::geom_text_npc(
+        data = NULL,
+        aes(npcx = "right", npcy = "bottom"),
+        label = statement
+      ) +
+      annotate("text", x = x_min+1, y = y_min + 1,
+               label = paste0("N = ", nrow(eye_feet_data), "\n",
+                             "Sessions= ", n_sessions, "\n",
+                             "Mean = ", round(mean(eye_feet_data$distance_ratio, na.rm = TRUE), 3), "\n",
+                             "SD = ", round(sd(eye_feet_data$distance_ratio, na.rm = TRUE), 3)),
+               hjust = 0, vjust = 1, size = 3, color = "black")
+  }, error = function(e) {
+    p <<- NULL
+  })
+
+  n_sessions <- n_distinct(eye_feet_data$session_id)
+  base_height <- 7
+  plot_height <- compute_auto_height(base_height = base_height, n_items = n_sessions, per_row = 3, row_increase = 0.08)
+
   if(!is.null(p)) {
     return(list(plot = p, height = plot_height))
   } else {
@@ -3943,4 +4105,259 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
                                         height = p_height),
               ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = p2, 
                                                              height = p_height)))
+}
+
+# =============================================================================
+# NEW PLOTS: Distance geometry analysis
+# =============================================================================
+
+# Plot 1: footToPointCm vs. requestedEyesToFootCm
+# Shows vertical foot position as function of requested horizontal distance
+# For every snapshot (calibration and check)
+plot_footToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResults) {
+  
+  # Combine calibration (TJSON) and check (checkJSON) data
+  # TJSON doesn't have requestedEyesToFootCm directly, so we need to compute it
+  # For calibration, requestedEyesToFootCm = eyeToFootCm (the baseline)
+  
+  tjson_data <- distanceCalibrationResults$TJSON
+  check_data <- distanceCalibrationResults$checkJSON
+  
+  # Prepare TJSON data (calibration)
+  if (nrow(tjson_data) > 0) {
+    tjson_plot <- tjson_data %>%
+      mutate(
+        requestedEyesToFootCm = eyeToFootCm,  # During calibration, requested == measured
+        footToPointCm = NA_real_,  # TJSON doesn't have footToPointCm directly
+        type = 'calibration'
+      ) %>%
+      select(participant, requestedEyesToFootCm, footToPointCm, ipdVpx, type) %>%
+      filter(is.finite(requestedEyesToFootCm))
+  } else {
+    tjson_plot <- tibble()
+  }
+  
+  # Prepare checkJSON data
+  if (nrow(check_data) > 0) {
+    check_plot <- check_data %>%
+      mutate(type = 'check') %>%
+      select(participant, requestedEyesToFootCm, footToPointCm, ipdVpx, type) %>%
+      filter(is.finite(requestedEyesToFootCm), is.finite(footToPointCm))
+  } else {
+    check_plot <- tibble()
+  }
+  
+  # Combine data
+  plot_data <- rbind(
+    if (nrow(tjson_plot) > 0 && "footToPointCm" %in% names(tjson_plot)) tjson_plot else tibble(),
+    if (nrow(check_plot) > 0) check_plot else tibble()
+  )
+  
+  # Filter to only rows with valid footToPointCm
+  plot_data <- plot_data %>%
+    filter(is.finite(footToPointCm), is.finite(requestedEyesToFootCm))
+  
+  if (nrow(plot_data) == 0) {
+    return(list(plot = NULL, height = NULL))
+  }
+  
+  # Create the plot
+  p <- ggplot(plot_data, aes(x = requestedEyesToFootCm, y = footToPointCm)) +
+    geom_point(aes(color = participant, shape = type), size = 2.5, alpha = 0.8) +
+    geom_line(aes(color = participant, linetype = type, group = interaction(participant, type)),
+              linewidth = 0.5, alpha = 0.6) +
+    scale_x_log10(
+      breaks = scales::log_breaks(n = 6),
+      labels = scales::label_number(accuracy = 1)
+    ) +
+    scale_y_log10(
+      breaks = scales::log_breaks(n = 6),
+      labels = scales::label_number(accuracy = 1)
+    ) +
+    scale_shape_manual(name = "", values = c(calibration = 16, check = 1)) +
+    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "dashed")) +
+    scale_color_manual(values = colorPalette) +
+    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                        label = paste0('N=', n_distinct(plot_data$participant))) +
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
+                        label = distanceCalibrationResults$statement) +
+    guides(
+      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5)),
+      shape = guide_legend(title = ""),
+      linetype = guide_legend(title = "")
+    ) +
+    theme_bw() +
+    theme(
+      legend.position = "top",
+      legend.box = "vertical",
+      legend.text = element_text(size = 6),
+      legend.spacing.y = unit(0, "lines"),
+      legend.key.size = unit(0.4, "cm"),
+      plot.margin = margin(5, 5, 5, 5, "pt")
+    ) +
+    labs(
+      subtitle = 'footToPointCm vs. requestedEyesToFootCm',
+      x = 'requestedEyesToFootCm (cm)',
+      y = 'footToPointCm (cm)',
+      caption = 'Vertical foot position vs. requested horizontal distance'
+    )
+  
+  p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
+  
+  return(list(plot = p, height = p_height))
+}
+
+# Plot 2: eyeToPointCm vs. requestedEyesToFootCm  
+# Shows measured line-of-sight distance as function of requested horizontal distance
+plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResults) {
+  
+  check_data <- distanceCalibrationResults$checkJSON
+  
+  if (nrow(check_data) == 0) {
+    return(list(plot = NULL, height = NULL))
+  }
+  
+  # Prepare data - eyesToPointCm is the measured eyes-to-point distance
+  plot_data <- check_data %>%
+    mutate(
+      eyeToPointCm = eyesToPointCm,  # Rename for clarity
+      type = 'check'
+    ) %>%
+    select(participant, requestedEyesToFootCm, eyeToPointCm, ipdVpx, type) %>%
+    filter(is.finite(requestedEyesToFootCm), is.finite(eyeToPointCm))
+  
+  if (nrow(plot_data) == 0) {
+    return(list(plot = NULL, height = NULL))
+  }
+  
+  # Create the plot
+  p <- ggplot(plot_data, aes(x = requestedEyesToFootCm, y = eyeToPointCm)) +
+    geom_point(aes(color = participant), size = 2.5, alpha = 0.8) +
+    geom_line(aes(color = participant, group = participant),
+              linewidth = 0.5, alpha = 0.6) +
+    # Add identity line (if eyeToPointCm == requestedEyesToFootCm, perfect horizontal viewing)
+    geom_abline(slope = 1, intercept = 0, linetype = "dotted", color = "gray50") +
+    scale_x_log10(
+      breaks = scales::log_breaks(n = 6),
+      labels = scales::label_number(accuracy = 1)
+    ) +
+    scale_y_log10(
+      breaks = scales::log_breaks(n = 6),
+      labels = scales::label_number(accuracy = 1)
+    ) +
+    scale_color_manual(values = colorPalette) +
+    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                        label = paste0('N=', n_distinct(plot_data$participant))) +
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
+                        label = distanceCalibrationResults$statement) +
+    guides(
+      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5))
+    ) +
+    theme_bw() +
+    theme(
+      legend.position = "top",
+      legend.box = "vertical",
+      legend.text = element_text(size = 6),
+      legend.spacing.y = unit(0, "lines"),
+      legend.key.size = unit(0.4, "cm"),
+      plot.margin = margin(5, 5, 5, 5, "pt")
+    ) +
+    labs(
+      subtitle = 'eyeToPointCm vs. requestedEyesToFootCm',
+      x = 'requestedEyesToFootCm (cm)',
+      y = 'eyeToPointCm (cm)',
+      caption = 'Measured line-of-sight distance vs. requested horizontal distance.\nDotted line: y = x (horizontal viewing)'
+    )
+  
+  p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
+  
+  return(list(plot = p, height = p_height))
+}
+
+# Plot 3: eyesToFootCm (estimated via ipdVpx) vs. requestedEyesToFootCm
+# This is the key plot showing: "Is the participant at the requested distance?"
+# eyesToFootCm = fVpx * ipdCm / ipdVpx
+# where fVpx is saved from calibration and ipdCm = 6.3 cm (standard IPD)
+plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults) {
+  
+  # Get calibration data to extract fVpx per participant
+  tjson_data <- distanceCalibrationResults$TJSON
+  check_data <- distanceCalibrationResults$checkJSON
+  
+  # Standard interpupillary distance
+  ipdCm_standard <- 6.3
+  
+  # Get median fVpx per participant from calibration
+  if (nrow(tjson_data) > 0) {
+    fVpx_per_participant <- tjson_data %>%
+      group_by(participant) %>%
+      summarize(fVpx_calibration = median(fVpx, na.rm = TRUE), .groups = "drop") %>%
+      filter(is.finite(fVpx_calibration))
+  } else {
+    fVpx_per_participant <- tibble(participant = character(), fVpx_calibration = numeric())
+  }
+  
+  if (nrow(check_data) == 0 || nrow(fVpx_per_participant) == 0) {
+    return(list(plot = NULL, height = NULL))
+  }
+  
+  # Join check data with calibration fVpx and compute estimated eyesToFootCm
+  plot_data <- check_data %>%
+    left_join(fVpx_per_participant, by = "participant") %>%
+    mutate(
+      # Estimated horizontal distance from camera measurements
+      # eyesToFootCm = fVpx * ipdCm / ipdVpx
+      eyesToFootCm_estimated = fVpx_calibration * ipdCm_standard / ipdVpx
+    ) %>%
+    select(participant, requestedEyesToFootCm, eyesToFootCm_estimated, ipdVpx, fVpx_calibration) %>%
+    filter(is.finite(requestedEyesToFootCm), is.finite(eyesToFootCm_estimated))
+  
+  if (nrow(plot_data) == 0) {
+    return(list(plot = NULL, height = NULL))
+  }
+  
+  # Create the plot
+  p <- ggplot(plot_data, aes(x = requestedEyesToFootCm, y = eyesToFootCm_estimated)) +
+    # Identity line (perfect agreement)
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", linewidth = 0.8) +
+    # Data points
+    geom_point(aes(color = participant), size = 2.5, alpha = 0.8) +
+    geom_line(aes(color = participant, group = participant),
+              linewidth = 0.5, alpha = 0.6) +
+    scale_x_log10(
+      breaks = scales::log_breaks(n = 6),
+      labels = scales::label_number(accuracy = 1)
+    ) +
+    scale_y_log10(
+      breaks = scales::log_breaks(n = 6),
+      labels = scales::label_number(accuracy = 1)
+    ) +
+    scale_color_manual(values = colorPalette) +
+    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                        label = paste0('N=', n_distinct(plot_data$participant))) +
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
+                        label = distanceCalibrationResults$statement) +
+    guides(
+      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5))
+    ) +
+    theme_bw() +
+    theme(
+      legend.position = "top",
+      legend.box = "vertical",
+      legend.text = element_text(size = 6),
+      legend.spacing.y = unit(0, "lines"),
+      legend.key.size = unit(0.4, "cm"),
+      plot.margin = margin(5, 5, 5, 5, "pt")
+    ) +
+    labs(
+      subtitle = 'eyesToFootCm (via ipdVpx) vs. requestedEyesToFootCm',
+      x = 'requestedEyesToFootCm (cm)',
+      y = 'eyesToFootCm (cm)',
+      caption = paste0('eyesToFootCm = fVpx * ipdCm / ipdVpx, where ipdCm = ', ipdCm_standard, ' cm\n',
+                       'Dashed line: perfect agreement (estimated = requested)')
+    )
+  
+  p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
+  
+  return(list(plot = p, height = p_height))
 }
