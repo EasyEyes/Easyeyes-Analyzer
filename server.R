@@ -1015,8 +1015,8 @@ shinyServer(function(input, output, session) {
       list(plot = distance_plots$calibrated_over_mean_vs_spot$plot, height = distance_plots$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter-plot'),
       list(plot = distance_plots$eye_feet_position$plot, height = distance_plots$eye_feet_position$height, fname = 'eye-feet-position-vs-distance-error-plot'),
       list(plot = distance_plots$foot_position_calibration$plot, height = distance_plots$foot_position_calibration$height, fname = 'foot-position-during-calibration-plot'),
-      list(plot = ipd_plots$ipd_vs_eyeToFootCm$plot, height = ipd_plots$ipd_vs_eyeToFootCm$height, fname = 'ipd-vs-eyeToFootCm-plot'),
-      list(plot = ipd_plots$ipdVpx_times_eyeToFootCm_vs_eyeToFootCm$plot, height = ipd_plots$ipdVpx_times_eyeToFootCm_vs_eyeToFootCm$height, fname = 'ipdVpx-times-eyeToFootCm-vs-eyeToFootCm-plot')
+      list(plot = ipd_plots$ipd_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipd_vs_requestedEyesToFootCm$height, fname = 'ipd-vs-requestedEyesToFootCm-plot'),
+      list(plot = ipd_plots$ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height, fname = 'ipdVpx-times-requestedEyesToFootCm-vs-requestedEyesToFootCm-plot')
 
     )
 

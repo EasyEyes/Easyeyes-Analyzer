@@ -1375,8 +1375,12 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           ipdCm         = first(na.omit(t_tjson$ipdCm))
         ) %>%
           mutate(
+            # Measured eyesToFootCm (derived from measured eyesToPointCm)
             eyeToFootCm = ifelse(is.finite(eyesToPointCm) & is.finite(footToPointCm) & eyesToPointCm >= footToPointCm,
                                  sqrt(eyesToPointCm^2 - footToPointCm^2), NA_real_),
+            # Requested eyesToFootCm (derived from requested eyesToPointCm)
+            requestedEyesToFootCm = ifelse(is.finite(requestedEyesToPointCm) & is.finite(footToPointCm) & requestedEyesToPointCm >= footToPointCm,
+                                           sqrt(requestedEyesToPointCm^2 - footToPointCm^2), NA_real_),
             fVpx = ifelse(is.finite(ipdCm) & is.finite(ipdVpx) & is.finite(eyeToFootCm),
                           eyeToFootCm * ipdVpx / ipdCm, NA_real_),
             factorVpxCm = ifelse(is.na(factorVpxCm) & is.finite(fVpx) & is.finite(ipdVpx),
@@ -3770,22 +3774,25 @@ bs_vd_hist <- function(data_list) {
 plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
  
   # Use "calibration" instead of "TJSON" for legend
+  # For calibration data, requestedEyesToFootCm = eyeToFootCm (calibration establishes the baseline)
   ipd_TJSON <- distanceCalibrationResults$TJSON %>%
-    mutate(ipdVpx_times_eyeToFootCm = ipdVpx * eyeToFootCm,
+    mutate(requestedEyesToFootCm = eyeToFootCm,  # During calibration, requested == measured
+           ipdVpx_times_requestedEyesToFootCm = ipdVpx * requestedEyesToFootCm,
            type = 'calibration') %>%
-    select(participant, eyeToFootCm, ipdVpx, ipdVpx_times_eyeToFootCm, factorVpxCm, type)
+    select(participant, requestedEyesToFootCm, ipdVpx, ipdVpx_times_requestedEyesToFootCm, factorVpxCm, type)
   
+  # For check data, use the actual requestedEyesToFootCm (derived from requestedEyesToPointCm)
   ipd_checkJSON <- distanceCalibrationResults$checkJSON %>%
-    mutate(ipdVpx_times_eyeToFootCm = ipdVpx * eyeToFootCm,
+    mutate(ipdVpx_times_requestedEyesToFootCm = ipdVpx * requestedEyesToFootCm,
            type = 'check') %>%
-    select(participant, eyeToFootCm, ipdVpx, ipdVpx_times_eyeToFootCm, factorVpxCm, type)
+    select(participant, requestedEyesToFootCm, ipdVpx, ipdVpx_times_requestedEyesToFootCm, factorVpxCm, type)
   
   ipd_data <- rbind(ipd_TJSON, ipd_checkJSON)
   
   if (nrow(ipd_TJSON) == 0) {
-    return(list(ipd_vs_eyeToFootCm = list(plot = NULL, 
+    return(list(ipd_vs_requestedEyesToFootCm = list(plot = NULL, 
                                           height = NULL),
-                ipdVpx_times_eyeToFootCm_vs_eyeToFootCm = list(plot = NULL, 
+                ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = NULL, 
                                                                height = NULL)))
   }
   
@@ -3796,24 +3803,24 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     summarize(focal_length = median(factorVpxCm, na.rm = TRUE), .groups = "drop") %>%
     filter(!is.na(focal_length), is.finite(focal_length))
   
-  # Create focal length curve data for Plot 2 (ipdVpx vs eyeToFootCm)
-  # ipdVpx = factorVpxCm / eyeToFootCm (thin lens formula)
-  x_range <- range(ipd_data$eyeToFootCm, na.rm = TRUE)
+  # Create focal length curve data for Plot 2 (ipdVpx vs requestedEyesToFootCm)
+  # ipdVpx = factorVpxCm / requestedEyesToFootCm (thin lens formula)
+  x_range <- range(ipd_data$requestedEyesToFootCm, na.rm = TRUE)
   focal_curve_data <- focal_length_data %>%
-    crossing(eyeToFootCm = seq(x_range[1] * 0.9, x_range[2] * 1.1, length.out = 100)) %>%
-    mutate(ipdVpx_focal = focal_length / eyeToFootCm)
+    crossing(requestedEyesToFootCm = seq(x_range[1] * 0.9, x_range[2] * 1.1, length.out = 100)) %>%
+    mutate(ipdVpx_focal = focal_length / requestedEyesToFootCm)
   
-  # Create focal length horizontal line data for Plot 1 (ipdVpx*eyeToFootCm vs eyeToFootCm)
-  # ipdVpx * eyeToFootCm = factorVpxCm (constant = focal length)
+  # Create focal length horizontal line data for Plot 1 (ipdVpx*requestedEyesToFootCm vs requestedEyesToFootCm)
+  # ipdVpx * requestedEyesToFootCm = factorVpxCm (constant = focal length)
   focal_hline_data <- focal_length_data %>%
-    crossing(eyeToFootCm = x_range) %>%
+    crossing(requestedEyesToFootCm = x_range) %>%
     mutate(product_focal = focal_length)
   
-  # Plot 2: ipdVpx vs. eyesToFootCm
+  # Plot 2: ipdVpx vs. requestedEyesToFootCm
   p1 <- ggplot() +
     # Data lines: solid for calibration, dashed for check
-    geom_line(data = ipd_data %>% arrange(participant, type, eyeToFootCm),
-                  aes(x = eyeToFootCm,
+    geom_line(data = ipd_data %>% arrange(participant, type, requestedEyesToFootCm),
+                  aes(x = requestedEyesToFootCm,
                       y = ipdVpx,
                   color = participant,
                   linetype = type,
@@ -3821,14 +3828,14 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
               linewidth = 0.75, alpha = 0.8) +
     # Focal length curve (dotted) - one per participant
     geom_line(data = focal_curve_data,
-              aes(x = eyeToFootCm,
+              aes(x = requestedEyesToFootCm,
                   y = ipdVpx_focal,
                       color = participant,
                       group = participant),
               linewidth = 0.75, linetype = "dotted", alpha = 0.8) +
     # Points with shapes for calibration vs check
     geom_point(data = ipd_data,
-               aes(x = eyeToFootCm,
+               aes(x = requestedEyesToFootCm,
                       y = ipdVpx,
                    color = participant,
                    shape = type),
@@ -3864,34 +3871,34 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
       legend.key.size = unit(0.4, "cm"),
       plot.margin = margin(5, 5, 5, 5, "pt")
     ) +
-    labs(subtitle = 'ipdVpx vs. eyesToFootCm',
-         x = 'eyeToFootCm',
+    labs(subtitle = 'ipdVpx vs. requestedEyesToFootCm',
+         x = 'requestedEyesToFootCm',
          y = 'ipdVpx',
-         caption = 'Dotted lines: focal length from calibration (ipdVpx = factorVpxCm / eyeToFootCm)')
+         caption = 'Dotted lines: focal length from calibration (ipdVpx = factorVpxCm / requestedEyesToFootCm)')
   
   print('done p1')
   
-  # Plot 1: (ipdVpx*eyesToFootCm) vs. eyesToFootCm
+  # Plot 1: (ipdVpx*requestedEyesToFootCm) vs. requestedEyesToFootCm
   p2 <- ggplot() +
     # Data lines: solid for calibration, dashed for check
-    geom_line(data = ipd_data %>% arrange(participant, type, eyeToFootCm),
-              aes(x = eyeToFootCm,
-                  y = ipdVpx_times_eyeToFootCm,
+    geom_line(data = ipd_data %>% arrange(participant, type, requestedEyesToFootCm),
+              aes(x = requestedEyesToFootCm,
+                  y = ipdVpx_times_requestedEyesToFootCm,
                   color = participant,
                   linetype = type,
                   group = interaction(participant, type)),
               linewidth = 0.75, alpha = 0.8) +
     # Focal length horizontal line (dotted) - one per participant at y = factorVpxCm
     geom_line(data = focal_hline_data,
-              aes(x = eyeToFootCm,
+              aes(x = requestedEyesToFootCm,
                   y = product_focal,
                       color = participant,
                       group = participant),
               linewidth = 0.75, linetype = "dotted", alpha = 0.8) +
     # Points with shapes for calibration vs check
     geom_point(data = ipd_data,
-                   aes(x = eyeToFootCm,
-                   y = ipdVpx_times_eyeToFootCm,
+                   aes(x = requestedEyesToFootCm,
+                   y = ipdVpx_times_requestedEyesToFootCm,
                    color = participant,
                    shape = type),
                    size = 2) +
@@ -3926,14 +3933,14 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
           legend.key.size = unit(0.4, "cm"),
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
-    labs(subtitle = '(ipdVpx*eyesToFootCm) vs. eyesToFootCm',
-         x = 'eyeToFootCm',
-         y = 'ipdVpx*eyesToFootCm',
-         caption = 'Dotted lines: focal length from calibration (ipdVpx * eyeToFootCm = factorVpxCm)')
+    labs(subtitle = '(ipdVpx*requestedEyesToFootCm) vs.\nrequestedEyesToFootCm',
+         x = 'requestedEyesToFootCm',
+         y = 'ipdVpx*requestedEyesToFootCm',
+         caption = 'Dotted lines: focal length from calibration (ipdVpx * requestedEyesToFootCm = factorVpxCm)')
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(ipd_data$participant), per_row = 3, row_increase = 0.06)
-  return(list(ipd_vs_eyeToFootCm = list(plot = p1, 
+  return(list(ipd_vs_requestedEyesToFootCm = list(plot = p1, 
                                         height = p_height),
-              ipdVpx_times_eyeToFootCm_vs_eyeToFootCm = list(plot = p2, 
+              ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = p2, 
                                                              height = p_height)))
 }
