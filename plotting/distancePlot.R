@@ -2529,8 +2529,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ungroup()
       
       max_count <- max(ratio_data$dot_y)
-      x_min <- min(ratio_data$actual_ratio, na.rm = TRUE) * 0.95  # Add margin
-      x_max <- max(ratio_data$actual_ratio, na.rm = TRUE) * 1.05  # Add margin  
+      x_min <- min(ratio_data$actual_ratio, na.rm = TRUE) - 0.002  # Add margin
+      x_max <- max(ratio_data$actual_ratio, na.rm = TRUE) + 0.002 # Add margin  
       
       p7 <- ggplot(ratio_data, aes(x = ratio)) +
         # Dot stacked points - use actual_ratio for precise positioning (matches table values)
