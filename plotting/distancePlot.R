@@ -2352,8 +2352,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       min_val_all <- min(c(plot_data$fVpx_calibration, plot_data$fVpx_check), na.rm = TRUE) * 0.9
       max_val_all <- max(c(plot_data$fVpx_calibration, plot_data$fVpx_check), na.rm = TRUE) * 1.1
         
-      # X-axis = fVpx from calibration, Y-axis = fVpx from check
-      p5 <- ggplot(plot_data, aes(x = fVpx_calibration, y = fVpx_check)) +
+      # X-axis = fVpx from check (more reliable), Y-axis = fVpx from calibration
+      p5 <- ggplot(plot_data, aes(x = fVpx_check, y = fVpx_calibration)) +
             geom_point(aes(color = participant), size = 3, alpha = 0.8) +
             geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
             ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
@@ -2383,10 +2383,65 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
               legend.key.size = unit(0.4, "cm"),
               plot.margin = margin(5, 5, 5, 5, "pt")
             ) +
-        labs(subtitle = 'Focal length check vs. calibration',
-             x = 'fVpx calibration',
-             y = 'fVpx check',
+        labs(subtitle = 'Focal length: calibration vs. check',
+             x = 'fVpx check',
+             y = 'fVpx calibration',
              caption = 'Dashed line shows y=x (perfect agreement)')
+    }
+  }
+  
+  # Plot 5b: Focal length ratio (calibration/check) vs. check
+  p5b <- NULL
+  if (!is.null(p5) && exists("plot_data") && nrow(plot_data) > 0) {
+    # Calculate the ratio of calibration to check
+    ratio_data_p5b <- plot_data %>%
+      mutate(fVpx_ratio = fVpx_calibration / fVpx_check) %>%
+      filter(is.finite(fVpx_ratio))
+    
+    if (nrow(ratio_data_p5b) > 0) {
+      # Calculate x-axis limits
+      x_min <- min(ratio_data_p5b$fVpx_check, na.rm = TRUE) * 0.9
+      x_max <- max(ratio_data_p5b$fVpx_check, na.rm = TRUE) * 1.1
+      
+      # Calculate y-axis limits (ratio should be close to 1)
+      y_min <- min(ratio_data_p5b$fVpx_ratio, na.rm = TRUE) * 0.95
+      y_max <- max(ratio_data_p5b$fVpx_ratio, na.rm = TRUE) * 1.05
+      # Ensure y=1 is visible
+      y_min <- min(y_min, 0.95)
+      y_max <- max(y_max, 1.05)
+      
+      p5b <- ggplot(ratio_data_p5b, aes(x = fVpx_check, y = fVpx_ratio)) +
+        geom_point(aes(color = participant), size = 3, alpha = 0.8) +
+        geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.8) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(ratio_data_p5b$participant))) +
+        scale_x_log10(limits = c(x_min, x_max), 
+                      breaks = scales::log_breaks(n = 8)) +
+        scale_y_continuous(limits = c(y_min, y_max)) +
+        annotation_logticks(sides = "b") +
+        scale_color_manual(values = colorPalette) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+        guides(color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 1.5),
+          keywidth = unit(0.8, "lines"),
+          keyheight = unit(0.6, "lines")
+        )) +
+        theme_classic() +
+        theme(
+          legend.position = "right",
+          legend.box = "vertical",
+          legend.justification = "left",
+          legend.text = element_text(size = 6),
+          legend.spacing.y = unit(0, "lines"),
+          legend.key.size = unit(0.4, "cm"),
+          plot.margin = margin(5, 5, 5, 5, "pt")
+        ) +
+        labs(subtitle = 'Focal length: calibration/check vs. check',
+             x = 'fVpx check',
+             y = 'fVpx calibration / fVpx check',
+             caption = 'Dashed line shows y=1 (perfect agreement)')
     }
   }
   
@@ -3074,6 +3129,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     eye_feet_position = list(plot = p4, height = eye_feet_height),
     foot_position_calibration = list(plot = p4b, height = if (!is.null(p4b_height)) p4b_height else plot_height),
     calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
+    calibration_over_check_vs_check = list(plot = p5b, height = if (!is.null(p5b)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     calibrated_over_median_hist = list(
       plot = p7,
@@ -3935,7 +3991,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   
   # Plot 2: ipdVpx vs. requestedEyesToFootCm
   p1 <- ggplot() +
-    # Data lines: solid for calibration, dashed for check
+    # Data lines: solid for both calibration and check
     geom_line(data = ipd_data %>% arrange(participant, type, requestedEyesToFootCm),
                   aes(x = requestedEyesToFootCm,
                       y = ipdVpx,
@@ -3967,8 +4023,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     # Shape: filled circle for calibration, open circle for check
     scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
                        labels = c(calibration = "calibration", check = "check")) +
-    # Linetype: solid for calibration, dashed for check
-    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "dashed"),
+    # Linetype: solid for both calibration and check
+    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "solid"),
                           labels = c(calibration = "calibration", check = "check")) +
     scale_color_manual(values = colorPalette) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
@@ -3995,7 +4051,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   
   # Plot 1: (ipdVpx*requestedEyesToFootCm) vs. requestedEyesToFootCm
   p2 <- ggplot() +
-    # Data lines: solid for calibration, dashed for check
+    # Data lines: solid for both calibration and check
     geom_line(data = ipd_data %>% arrange(participant, type, requestedEyesToFootCm),
               aes(x = requestedEyesToFootCm,
                   y = ipdVpx_times_requestedEyesToFootCm,
@@ -4027,8 +4083,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     # Shape: filled circle for calibration, open circle for check
     scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
                        labels = c(calibration = "calibration", check = "check")) +
-    # Linetype: solid for calibration, dashed for check
-    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "dashed"),
+    # Linetype: solid for both calibration and check
+    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "solid"),
                           labels = c(calibration = "calibration", check = "check")) +
     scale_color_manual(values = colorPalette) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
@@ -4128,7 +4184,7 @@ plot_footToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResul
       labels = scales::label_number(accuracy = 1)
     ) +
     scale_shape_manual(name = "", values = c(calibration = 16, check = 1)) +
-    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "dashed")) +
+    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "solid")) +
     scale_color_manual(values = colorPalette) +
     ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                         label = paste0('N=', n_distinct(plot_data$participant))) +
