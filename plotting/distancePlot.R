@@ -216,7 +216,7 @@ get_cameraResolutionXY <- function(data_list) {
           fVpx = ifelse(is.finite(ipdCm) & is.finite(ipdVpx) & is.finite(eyeToFootCm),
                         eyeToFootCm * ipdVpx / ipdCm, NA_real_),
           factorVpxCm = ifelse(is.na(factorVpxCm) & is.finite(fVpx) & is.finite(ipdVpx),
-                               fVpx * ipdVpx, factorVpxCm)
+                               fVpx * ipdCm, factorVpxCm)
         )
 
         factorVpxCmVals <- tmp$factorVpxCm[!is.na(tmp$factorVpxCm)]
@@ -586,7 +586,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       camera_res_stats = tibble(),
       raw_pxPerCm = tibble(),
       raw_objectMeasuredCm = tibble(),
-      raw_factorVpxCm = tibble(),
+      raw_fVpx = tibble(),
       statement = "",
       TJSON = tibble(),
       checkJSON = tibble()
@@ -619,7 +619,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       camera_res_stats = tibble(),
       raw_pxPerCm = tibble(),
       raw_objectMeasuredCm = tibble(),
-      raw_factorVpxCm = tibble(),
+      raw_fVpx = tibble(),
       statement = "",
       TJSON = tibble(),
       checkJSON = tibble()
@@ -659,7 +659,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       camera_res_stats = tibble(),
       raw_pxPerCm = tibble(),
       raw_objectMeasuredCm = tibble(),
-      raw_factorVpxCm = tibble(),
+      raw_fVpx = tibble(),
       statement = "",
       TJSON = tibble(),
       checkJSON = tibble()
@@ -1307,7 +1307,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
             fVpx = ifelse(is.finite(ipdCm) & is.finite(ipdVpx) & is.finite(eyeToFootCm),
                           eyeToFootCm * ipdVpx / ipdCm, NA_real_),
             factorVpxCm = ifelse(is.na(factorVpxCm) & is.finite(fVpx) & is.finite(ipdVpx),
-                                 fVpx * ipdVpx, factorVpxCm)
+                                 fVpx * ipdVCm, factorVpxCm)
           )
 
         TJSON <- rbind(TJSON, tmp)
@@ -1340,7 +1340,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
             fVpx = ifelse(is.finite(ipdCm) & is.finite(ipdVpx) & is.finite(eyeToFootCm),
                           eyeToFootCm * ipdVpx / ipdCm, NA_real_),
             factorVpxCm = ifelse(is.na(factorVpxCm) & is.finite(fVpx) & is.finite(ipdVpx),
-                                 fVpx * ipdVpx, factorVpxCm),
+                                 fVpx * ipdCm, factorVpxCm),
             # Compute correct distance ratio: measured / requested eyesToPointCm
             distance_ratio = ifelse(is.finite(measuredEyesToPointCm) & is.finite(requestedEyesToPointCm) & requestedEyesToPointCm > 0,
                                     measuredEyesToPointCm / requestedEyesToPointCm, NA_real_)
@@ -1362,14 +1362,14 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   # Extract raw array data for new histograms
   raw_pxPerCm <- get_raw_pxPerCm_data(filtered_data_list, sizeCheck)
   raw_objectMeasuredCm <- get_raw_objectMeasuredCm_data(filtered_data_list)
-  median_factorVpxCm <- checkJSON %>% 
+  median_fVpx <- checkJSON %>% 
   group_by(participant) %>% 
-  summarize(medianFactorVpxCm = median(factorVpxCm, na.rm = TRUE), .groups = "drop")
-  raw_factorVpxCm <- TJSON %>%
-   select(participant, factorVpxCm) %>%
-   left_join(median_factorVpxCm, by = "participant") %>%
-   mutate(relative = factorVpxCm / medianFactorVpxCm) %>%
-   select(participant, factorVpxCm, medianFactorVpxCm, relative) %>%
+  summarize(medianfVpx = median(fVpx, na.rm = TRUE), .groups = "drop")
+  raw_fVpx <- TJSON %>%
+   select(participant, fVpx) %>%
+   left_join(median_fVpx, by = "participant") %>%
+   mutate(relative = fVpx / medianfVpx) %>%
+   select(participant, fVpx, medianfVpx, relative) %>%
    filter(is.finite(relative), relative > 0)
   # Compute camera resolution stats (SD and count of width values)
   camera_res_stats <- get_camera_resolution_stats(filtered_data_list)
@@ -1386,7 +1386,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     blindspot = blindspot,
     raw_pxPerCm = raw_pxPerCm,
     raw_objectMeasuredCm = raw_objectMeasuredCm,
-    raw_factorVpxCm = raw_factorVpxCm,
+    raw_fVpx = raw_fVpx,
     statement = statement,
     TJSON = TJSON,
     checkJSON = checkJSON
@@ -2535,17 +2535,17 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
-  # Plot 7: Histogram of fVpx*ipdCm / remeasured (MEDIAN per participant)
-  # BUG FIX: Use raw_factorVpxCm data and compute MEDIAN ratio per participant
+  # Plot 7: Histogram of fVpx median(calibration) / median(check)
+  # BUG FIX: Use raw_fVpx data and compute MEDIAN ratio per participant
   # This ensures the summary histogram shows the median of individual ratios,
   # consistent with the raw histogram (Plot 10)
   p7 <- NULL
   if (nrow(distance) > 0 &&
-      "raw_factorVpxCm" %in% names(distanceCalibrationResults) &&
-      nrow(distanceCalibrationResults$raw_factorVpxCm) > 0) {
+      "raw_fVpx" %in% names(distanceCalibrationResults) &&
+      nrow(distanceCalibrationResults$raw_fVpx) > 0) {
     
     # Use raw data (same source as Plot 10) and compute MEDIAN ratio per participant
-    raw_data <- distanceCalibrationResults$raw_factorVpxCm %>%
+    raw_data <- distanceCalibrationResults$raw_fVpx %>%
       filter(is.finite(relative), relative > 0)
     
     # Compute MEDIAN ratio per participant (fixes bug where last value was shown instead of median)
@@ -2568,7 +2568,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       # For summary histogram (one value per participant), use actual values without binning
       # This ensures displayed positions match table values exactly
       # Only use binning for stacking when multiple participants have very similar values
-      bin_w_linear <- 0.0001
+      bin_w_linear <- 0.01
       ratio_data <- ratio_data %>%
         mutate(
           bin_center = round(ratio / bin_w_linear) * bin_w_linear,
@@ -2584,8 +2584,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ungroup()
       
       max_count <- max(ratio_data$dot_y)
-      x_min <- min(ratio_data$actual_ratio, na.rm = TRUE) - 0.002  # Add margin
-      x_max <- max(ratio_data$actual_ratio, na.rm = TRUE) + 0.002 # Add margin  
+      x_min <- min(ratio_data$actual_ratio, na.rm = TRUE) - 0.01  # Add margin
+      x_max <- max(ratio_data$actual_ratio, na.rm = TRUE) + 0.01 # Add margin  
       
       p7 <- ggplot(ratio_data, aes(x = ratio)) +
         # Dot stacked points - use actual_ratio for precise positioning (matches table values)
@@ -2613,7 +2613,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         )) +
         labs(
           subtitle = 'Histogram of fVpx: median(calibration)/median(check)',
-          x = "median(fVpx*ipdCm / remeasured)",
+          x = "median(calibration)/median(check)",
           y = "Count",
           caption = "Each dot = median ratio for one participant"
         ) +
@@ -2843,13 +2843,13 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
-  # Plot 10: Histogram of raw factorVpxCm / remeasured (from array data)
+  # Plot 10: Histogram of fVpx calibration / median(check) (from array data)
   p10 <- NULL
   p10_max_count <- 0
-  if ("raw_factorVpxCm" %in% names(distanceCalibrationResults) &&
-      nrow(distanceCalibrationResults$raw_factorVpxCm) > 0) {
+  if ("raw_fVpx" %in% names(distanceCalibrationResults) &&
+      nrow(distanceCalibrationResults$raw_fVpx) > 0) {
     
-    raw_factor_data <- distanceCalibrationResults$raw_factorVpxCm %>%
+    raw_factor_data <- distanceCalibrationResults$raw_fVpx %>%
       filter(is.finite(relative), relative > 0)
     
     if (nrow(raw_factor_data) > 0) {
@@ -2900,7 +2900,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         )) +
         labs(
           subtitle = 'Histogram of fVpx: calibration/median(check)',
-          x = "fVpx*ipdCm / remeasured",
+          x = "calibration/median(check)",
           y = "Count"
         ) +
         theme_bw() +
@@ -3114,7 +3114,83 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       }
     }
   }
-  
+  # plot 13: fVpx second vs first
+  p13 <- NULL
+  if ("raw_fVpx" %in% names(distanceCalibrationResults) &&
+      nrow(distanceCalibrationResults$raw_fVpx) > 0) {
+
+    # Prepare data: get first and second fVpx for each participant
+    fvpx_comparison_data <- distanceCalibrationResults$raw_fVpx %>%
+      filter(is.finite(fVpx)) %>%
+      group_by(participant) %>%
+      arrange(participant) %>%  # Ensure consistent ordering
+      mutate(measurement_order = row_number()) %>%
+      filter(measurement_order <= 2) %>%  # Only keep first two measurements
+      ungroup()
+
+    # Only proceed if we have participants with at least 2 measurements
+    if (nrow(fvpx_comparison_data) > 0) {
+      # Pivot to get first and second measurements side by side
+      fvpx_wide <- fvpx_comparison_data %>%
+        select(participant, fVpx, measurement_order) %>%
+        pivot_wider(names_from = measurement_order, values_from = fVpx,
+                   names_prefix = "fVpx_") %>%
+        filter(!is.na(fVpx_1) & !is.na(fVpx_2))
+
+      if (nrow(fvpx_wide) > 0) {
+        p13 <- ggplot(fvpx_wide, aes(x = fVpx_1, y = fVpx_2, color = participant)) +
+          geom_point(size = 4, alpha = 0.8) +
+          geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50", linewidth = 1) +  # Equality line
+          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                              label = statement, size = 3, family = "sans", fontface = "plain") +
+          scale_color_manual(values = colorPalette) +
+          labs(
+            subtitle = 'fVpx calibration: second vs. first',
+            x = "First fVpx",
+            y = "Second fVpx"
+          ) +
+          guides(color = guide_legend(
+            ncol = 4,
+            title = "",
+            override.aes = list(size = 2),
+            keywidth = unit(0.3, "cm"),
+            keyheight = unit(0.3, "cm")
+          )) +
+          theme_bw() +
+          theme(
+            legend.key.size = unit(0, "mm"),
+            legend.title = element_text(size = 6),
+            legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
+            legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+            legend.box.spacing = unit(0, "lines"),
+            legend.spacing.y = unit(-10, "lines"),
+            legend.spacing.x = unit(0, "lines"),
+            legend.key.height = unit(0, "lines"),
+            legend.key.width = unit(0, "mm"),
+            legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+            legend.margin = margin(0, 0, 0, 0),
+            legend.position = "top",
+            legend.box = "vertical",
+            legend.justification = 'left',
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(),
+            panel.background = element_blank(),
+            axis.title = element_text(size = 12),
+            axis.text = element_text(size = 12),
+            axis.line = element_line(colour = "black"),
+            axis.text.x = element_text(size = 10, angle = 0, hjust = 0, vjust = 1),
+            axis.text.y = element_text(size = 10),
+            plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+            plot.title.position = "plot",
+            plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+            plot.caption = element_text(size = 10),
+            plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+            strip.text = element_text(size = 14)
+          )
+      }
+    }
+  }
+
   # Calculate heights based on legend complexity
   n_participants <- n_distinct(distance_individual$participant)
   base_height <- 7
@@ -3152,11 +3228,17 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           0.24 * max(p9_max_count, 8)
       } else NULL
     ),
-    raw_factorVpxCm_hist = list(
+    raw_fVpx_hist = list(
       plot = p10,
       height = if (!is.null(p10)) {
         compute_auto_height(base_height = 1.5, n_items = n_distinct(raw_factor_data$participant), per_row = 3, row_increase = 0.05) +
           0.24 * max(p10_max_count, 8)
+      } else NULL
+    ),
+    fvpx_second_vs_first = list(
+      plot = p13,
+      height = if (!is.null(p13)) {
+        compute_auto_height(base_height = 7, n_items = n_distinct(fvpx_wide$participant), per_row = 3, row_increase = 0.06)
       } else NULL
     ),
     fvpx_over_width_hist = fvpx_over_width_hist,

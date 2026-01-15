@@ -803,13 +803,23 @@ shinyServer(function(input, output, session) {
       )
     }
     
-    # Add raw factorVpxCm histogram if available (2nd)
-    if (!is.null(dist_plots$raw_factorVpxCm_hist) &&
-        !is.null(dist_plots$raw_factorVpxCm_hist$plot)) {
+    # Add raw fVpx histogram if available (2nd)
+    if (!is.null(dist_plots$raw_fVpx_hist) &&
+        !is.null(dist_plots$raw_fVpx_hist$plot)) {
       static_calls[[length(static_calls) + 1]] <- list(
-        plot = dist_plots$raw_factorVpxCm_hist$plot,
-        height = dist_plots$raw_factorVpxCm_hist$height,
-        fname = 'raw-factorVpxCm-over-remeasured-histogram'
+        plot = dist_plots$raw_fVpx_hist$plot,
+        height = dist_plots$raw_fVpx_hist$height,
+        fname = 'raw-fVpx-over-remeasured-histogram'
+      )
+    }
+
+    # Add fVpx second vs first scatter plot if available (3rd)
+    if (!is.null(dist_plots$fvpx_second_vs_first) &&
+        !is.null(dist_plots$fvpx_second_vs_first$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = dist_plots$fvpx_second_vs_first$plot,
+        height = dist_plots$fvpx_second_vs_first$height,
+        fname = 'fvpx-second-vs-first-scatter-plot'
       )
     }
     
@@ -1019,6 +1029,7 @@ shinyServer(function(input, output, session) {
       list(plot = distance_plots$fvpx_over_width_scatter$plot, height = distance_plots$fvpx_over_width_scatter$height, fname = 'fvpx-over-widthVpx-vs-camera-width-plot'),
       list(plot = distance_plots$calibrated_vs_mean$plot, height = distance_plots$calibrated_vs_mean$height, fname = 'calibrated-vs-mean-factorVpxCm-plot'),
       list(plot = distance_plots$calibration_over_check_vs_check$plot, height = distance_plots$calibration_over_check_vs_check$height, fname = 'focal-length-calibration-over-check-vs-check-plot'),
+      list(plot = distance_plots$fvpx_second_vs_first$plot, height = distance_plots$fvpx_second_vs_first$height, fname = 'fvpx-second-vs-first-scatter-plot'),
       list(plot = distance_plots$calibrated_over_mean_vs_spot$plot, height = distance_plots$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter-plot'),
       list(plot = distance_plots$eye_feet_position$plot, height = distance_plots$eye_feet_position$height, fname = 'eye-feet-position-vs-distance-error-during-calibration-plot'),
       list(plot = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$plot else NULL, height = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$height else NULL, fname = 'eye-feet-position-vs-distance-error-during-check-plot'),
