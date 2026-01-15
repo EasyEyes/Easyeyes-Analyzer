@@ -2392,7 +2392,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   
   # Plot 5b: Focal length ratio (calibration/check) vs. check
   p5b <- NULL
-  if (!is.null(p5) && exists("plot_data") && nrow(plot_data) > 0) {
+  # Reuse plot_data from p5 if it exists (already filtered and validated)
+  if (!is.null(p5) && nrow(plot_data) > 0) {
     # Calculate the ratio of calibration to check
     ratio_data_p5b <- plot_data %>%
       mutate(fVpx_ratio = fVpx_calibration / fVpx_check) %>%
@@ -4060,9 +4061,10 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   
   # Create focal length curve data for Plot 2 (ipdVpx vs requestedEyesToFootCm)
   # ipdVpx = factorVpxCm / requestedEyesToFootCm (thin lens formula)
+  # Use fewer points (20 instead of 100) to reduce memory - curves are smooth anyway
   x_range <- range(ipd_data$requestedEyesToFootCm, na.rm = TRUE)
   focal_curve_data <- focal_length_data %>%
-    crossing(requestedEyesToFootCm = seq(x_range[1] * 0.9, x_range[2] * 1.1, length.out = 100)) %>%
+    crossing(requestedEyesToFootCm = seq(x_range[1] * 0.9, x_range[2] * 1.1, length.out = 20)) %>%
     mutate(ipdVpx_focal = focal_length / requestedEyesToFootCm)
   
   # Create focal length horizontal line data for Plot 1 (ipdVpx*requestedEyesToFootCm vs requestedEyesToFootCm)
