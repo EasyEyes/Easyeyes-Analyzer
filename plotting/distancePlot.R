@@ -555,10 +555,10 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
       # Extract horizontal width in viewport pixels from cameraResolutionXY
       widthVpx = extract_width_px(cameraResolutionXY),
       widthVpx = suppressWarnings(as.numeric(widthVpx)),
-      # Calculate fVideo: fVpx / widthVpx
+      # Calculate fOverWidth: fVpx / widthVpx
       fvpx_over_width_tmp = ifelse(!is.na(fVpx_calibration) & !is.na(widthVpx) & widthVpx > 0,
                                     fVpx_calibration / widthVpx, NA_real_),
-      `fVideo` = round(fvpx_over_width_tmp, 2),
+      `fOverWidth` = round(fvpx_over_width_tmp, 2),
       # Calculate fVpx calibration/check: ratio of calibration to check values
       calibration_check_ratio_tmp = ifelse(!is.na(fVpx_calibration) & !is.na(fVpx_check) & fVpx_check != 0,
                                           fVpx_calibration / fVpx_check, NA_real_),
@@ -569,8 +569,8 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     arrange(ok_priority, PavloviaParticipantID) %>%
     select(-ok_priority) %>%
     # Move the two fVpx columns side by side
-    {if("fVideo" %in% names(.) && "fVpx calibration/check" %in% names(.)) 
-       relocate(., `fVpx calibration/check`, .after = `fVideo`)
+    {if("fOverWidth" %in% names(.) && "fVpx calibration/check" %in% names(.)) 
+       relocate(., `fVpx calibration/check`, .after = `fOverWidth`)
      else .} %>%
     # Move cameraResolutionXSD and cameraResolutionN after cameraResolutionXY if it exists
     {if("cameraResolutionXY" %in% names(.) && "cameraResolutionXSD" %in% names(.)) 
@@ -2188,8 +2188,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
               plot.margin = margin(5, 5, 5, 5, "pt")
             ) +
         labs(subtitle = 'Focal length: calibration vs. check',
-             x = 'fVideo: check',
-             y = 'fVpx calibration',
+             x = 'fOverWidth: check',
+             y = 'fOverWidth: calibration',
              caption = 'Dashed line shows y=x (perfect agreement)')
     }
   }
@@ -2244,8 +2244,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
         labs(subtitle = 'Focal length: calibration/check vs. check',
-             x = 'fVideo: check',
-             y = 'fVideo: calibration / check',
+             x = 'fOverWidth: check',
+             y = 'fOverWidth: calibration / check',
              caption = 'Dashed line shows y=1 (perfect agreement)')
     }
   }
@@ -2414,7 +2414,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keyheight = unit(0.3, "cm")
         )) +
         labs(
-          subtitle = 'histogram of fVideo median(calibration)/median(check)',
+          subtitle = 'histogram of fOverWidth median(calibration)/median(check)',
           x = "median(calibration)/median(check)",
           y = "Count",
           caption = "Each dot = median ratio for one participant"
@@ -2834,10 +2834,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             keyheight = unit(0.3, "cm")
           )) +
           labs(
-            subtitle = 'Histogram of fVideo',
-            x = "fVpx / horizontalVpx",
+            subtitle = 'Histogram of fOverWidth',
+            x = "fOverWidth",
             y = "Count",
-            caption = 'fVideo = median(fVpx) / horizontalVpx\nfVpx from check data'
+            caption = 'fOverWidth = median(fVpx) / horizontalVpx\nfVpx from check data'
           ) +
           theme_bw() +
           theme(
@@ -2893,9 +2893,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           scale_y_continuous(expand = expansion(mult = c(0.05, 0.1)),
                              breaks = scales::pretty_breaks(n = 6)) +
           labs(
-            subtitle = 'fVideo vs. horizontalVpx',
+            subtitle = 'fOverWidth vs. horizontalVpx',
             x = 'horizontalVpx (px)',
-            y = 'fVideo',
+            y = 'fOverWidth',
             caption = 'One point per session with distance checking enabled (_calibrateDistanceCheckBool = TRUE)\nfVpx from check data'
           ) +
           theme_classic() +
@@ -2948,8 +2948,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           scale_color_manual(values = colorPalette) +
           labs(
             subtitle = 'Focal length second vs. first calibration',
-            x = "First fVideo",
-            y = "Second fVideo"
+            x = "First fOverWidth calibration",
+            y = "Second fOverWidth calibration"
           ) +
           guides(color = guide_legend(
             ncol = 4,
@@ -3929,9 +3929,9 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
       legend.key.size = unit(0.4, "cm"),
       plot.margin = margin(5, 5, 5, 5, "pt")
     ) +
-    labs(subtitle = 'ipdVideo vs. requestedEyesToFootCm',
+    labs(subtitle = 'ipdOverWidth vs. requestedEyesToFootCm',
          x = 'requestedEyesToFootCm',
-         y = 'ipdVideo',
+         y = 'ipdOverWidth',
          caption = 'Dotted lines: focal length from calibration (ipdVpx = factorVpxCm / requestedEyesToFootCm)')
   
   # Plot 1: (ipdVpx*requestedEyesToFootCm) vs. requestedEyesToFootCm
@@ -3989,10 +3989,10 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
           legend.key.size = unit(0.4, "cm"),
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
-    labs(subtitle = '(ipdVideo*requestedEyesToFootCm) vs.\nrequestedEyesToFootCm',
+    labs(subtitle = '(ipdOverWidth*requestedEyesToFootCm) vs.\nrequestedEyesToFootCm',
          x = 'requestedEyesToFootCm',
-         y = 'ipdVideo*requestedEyesToFootCm',
-         caption = 'Dotted lines: focal length from calibration (ipdVideo * requestedEyesToFootCm = factorVpxCm)')
+         y = 'ipdOverWidth*requestedEyesToFootCm',
+         caption = 'Dotted lines: focal length from calibration (ipdOverWidth * requestedEyesToFootCm = factorVpxCm)')
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(ipd_data$participant), per_row = 3, row_increase = 0.06)
   return(list(ipd_vs_requestedEyesToFootCm = list(plot = p1, 
