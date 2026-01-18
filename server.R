@@ -1015,7 +1015,6 @@ shinyServer(function(input, output, session) {
     
     # New plots: foot position during check and distance geometry
     eye_feet_check_plot <- plot_eye_feet_position_during_check(distanceCalibration())
-    footToPoint_plot <- plot_footToPointCm_vs_requestedEyesToFootCm(distanceCalibration())
     eyeToPoint_plot <- plot_eyeToPointCm_vs_requestedEyesToFootCm(distanceCalibration())
     eyesToFoot_estimated_plot <- plot_eyesToFootCm_estimated_vs_requested(distanceCalibration())
     
@@ -1037,7 +1036,6 @@ shinyServer(function(input, output, session) {
       list(plot = ipd_plots$ipd_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipd_vs_requestedEyesToFootCm$height, fname = 'ipd-vs-requestedEyesToFootCm-plot'),
       list(plot = ipd_plots$ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height, fname = 'ipdVpx-times-requestedEyesToFootCm-vs-requestedEyesToFootCm-plot'),
       # New distance geometry plots
-      list(plot = if(!is.null(footToPoint_plot)) footToPoint_plot$plot else NULL, height = if(!is.null(footToPoint_plot)) footToPoint_plot$height else NULL, fname = 'footToPointCm-vs-requestedEyesToFootCm-plot'),
       list(plot = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$plot else NULL, height = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$height else NULL, fname = 'eyeToPointCm-vs-requestedEyesToFootCm-plot'),
       list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-estimated-vs-requestedEyesToFootCm-plot')
 
