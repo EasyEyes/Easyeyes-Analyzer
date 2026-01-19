@@ -237,7 +237,9 @@ get_cameraResolutionXY <- function(data_list) {
               `_calibrateTrackDistancePupil`,
               factorVpxCm,
               cameraResolutionXY) %>%
-              rename(PavloviaParticipantID = participant) %>%
+              rename(PavloviaParticipantID = participant,
+                     `_calibrateDistancePupil` = `_calibrateTrackDistancePupil`,
+                     `_calibrateDistance` = `_calibrateTrackDistance`) %>%
               distinct() %>%
       filter(!is.na(cameraResolutionXY), cameraResolutionXY != "", !is.na(factorVpxCm)) %>%
       mutate(widthVpx = extract_width_px(cameraResolutionXY), # take largest of first two resolution entries as horizontal width
@@ -561,19 +563,18 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
       # Calculate fOverWidth: fVpx / widthVpx
       fvpx_over_width_tmp = ifelse(!is.na(fVpx_calibration) & !is.na(widthVpx) & widthVpx > 0,
                                     fVpx_calibration / widthVpx, NA_real_),
-      `fOverWidth` = round(fvpx_over_width_tmp, 2),
-      # Calculate fVpx calibration/check: ratio of calibration to check values
+      `fOverWidth` = round(fvpx_over_width_tmp, 3),
+      # Calculate fOverWidth calibration/check: ratio of calibration to check values
       calibration_check_ratio_tmp = ifelse(!is.na(fVpx_calibration) & !is.na(fVpx_check) & fVpx_check != 0,
                                           fVpx_calibration / fVpx_check, NA_real_),
-      `fVpx calibration/check` = ifelse(is.na(calibration_check_ratio_tmp), NA_character_, format(round(calibration_check_ratio_tmp, 3), nsmall = 3))
+      `fOverWidth calibration/check` = ifelse(is.na(calibration_check_ratio_tmp), NA_character_, format(round(calibration_check_ratio_tmp, 3), nsmall = 3))
     ) %>%
-    rename(fVpx = fVpx_check) %>%
-    select(-fVpx_calibration, -widthVpx, -fvpx_over_width_tmp, -calibration_check_ratio_tmp, factorVpxCm) %>%
+    select(-fVpx_calibration, -fVpx_check, -widthVpx, -fvpx_over_width_tmp, -calibration_check_ratio_tmp, -factorVpxCm) %>%
     arrange(ok_priority, PavloviaParticipantID) %>%
     select(-ok_priority) %>%
-    # Move the two fVpx columns side by side
-    {if("fOverWidth" %in% names(.) && "fVpx calibration/check" %in% names(.)) 
-       relocate(., `fVpx calibration/check`, .after = `fOverWidth`)
+    # Move the two fOverWidth columns side by side
+    {if("fOverWidth" %in% names(.) && "fOverWidth calibration/check" %in% names(.)) 
+       relocate(., `fOverWidth calibration/check`, .after = `fOverWidth`)
      else .} %>%
     # Move cameraResolutionXSD and cameraResolutionN after cameraResolutionXY if it exists
     {if("cameraResolutionXY" %in% names(.) && "cameraResolutionXSD" %in% names(.)) 
@@ -2498,6 +2499,17 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       x_min <- min(raw_pxPerCm_data$bin_center, na.rm = TRUE) 
       x_max <- max(raw_pxPerCm_data$bin_center, na.rm = TRUE)
       
+      # Calculate appropriate breaks for the data range
+      log_range <- log10(x_max) - log10(x_min)
+      if (log_range < 0.1) {
+        # For very narrow ranges, create custom breaks that fit the data
+        n_breaks <- 5
+        log_breaks_custom <- seq(log10(x_min), log10(x_max), length.out = n_breaks)
+        x_breaks <- 10^log_breaks_custom
+      } else {
+        x_breaks <- scales::log_breaks(n = 8)(c(x_min, x_max))
+      }
+      
       p8 <- ggplot(raw_pxPerCm_data, aes(x = relative)) +
         # Dot stacked points
         geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
@@ -2509,7 +2521,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           expand = expansion(mult = c(0, 0.1)),
           breaks = function(x) seq(0, ceiling(max(x)), by = 1)
         ) +
-        scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=8)) +
+        scale_x_log10(limits = c(x_min, x_max), breaks = x_breaks) +
         annotation_logticks(sides = "b") +
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                             label = paste0('N=', n_distinct(raw_pxPerCm_data$participant),
@@ -2950,19 +2962,132 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         filter(!is.na(fOverWidth_1) & !is.na(fOverWidth_2))
 
       if (nrow(fOverWidth_wide) > 0) {
+        # Calculate common axis limits centered around the equality line
+        all_values <- c(fOverWidth_wide$fOverWidth_1, fOverWidth_wide$fOverWidth_2)
+        axis_min <- min(all_values, na.rm = TRUE)
+        axis_max <- max(all_values, na.rm = TRUE)
+        axis_range <- axis_max - axis_min
+        axis_padding <- axis_range * 0.1  # 10% padding
+        common_min <- axis_min - axis_padding
+        common_max <- axis_max + axis_padding
+        
         p13 <- ggplot(fOverWidth_wide, 
                       aes(x = fOverWidth_1, 
                       y = fOverWidth_2, 
                       color = participant)) +
           geom_point(size = 4, alpha = 0.8) +
-          geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50", linewidth = 1) +  # Equality line
+          geom_abline(slope = 1, intercept = 0, linetype = "solid", color = "gray50", linewidth = 1) +  # Equality line
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
                               label = statement, size = 3, family = "sans", fontface = "plain") +
           scale_color_manual(values = colorPalette) +
+          scale_x_continuous(limits = c(common_min, common_max)) +
+          scale_y_continuous(limits = c(common_min, common_max)) +
+          coord_fixed(ratio = 1) +  # Equal scales
           labs(
             subtitle = 'Focal length second vs. first calibration',
             x = "First fOverWidth calibration",
             y = "Second fOverWidth calibration"
+          ) +
+          guides(color = guide_legend(
+            ncol = 4,
+            title = "",
+            override.aes = list(size = 2),
+            keywidth = unit(0.3, "cm"),
+            keyheight = unit(0.3, "cm")
+          )) +
+          theme_bw() +
+          theme(
+            legend.key.size = unit(0, "mm"),
+            legend.title = element_text(size = 6),
+            legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
+            legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+            legend.box.spacing = unit(0, "lines"),
+            legend.spacing.y = unit(-10, "lines"),
+            legend.spacing.x = unit(0, "lines"),
+            legend.key.height = unit(0, "lines"),
+            legend.key.width = unit(0, "mm"),
+            legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+            legend.margin = margin(0, 0, 0, 0),
+            legend.position = "top",
+            legend.box = "vertical",
+            legend.justification = 'left',
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(),
+            panel.background = element_blank(),
+            axis.title = element_text(size = 12),
+            axis.text = element_text(size = 12),
+            axis.line = element_line(colour = "black"),
+            axis.text.x = element_text(size = 10, angle = 0, hjust = 0, vjust = 1),
+            axis.text.y = element_text(size = 10),
+            plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+            plot.title.position = "plot",
+            plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+            plot.caption = element_text(size = 10),
+            plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+            strip.text = element_text(size = 14)
+          )
+      }
+    }
+  }
+
+  # plot 14: fOverWidth second/first ratio vs first
+  p14 <- NULL
+  p14_data <- NULL
+  if ("raw_fVpx" %in% names(distanceCalibrationResults) &&
+      nrow(distanceCalibrationResults$raw_fVpx) > 0) {
+
+    # Prepare data: get first and second fOverWidth for each participant
+    fOverWidth_ratio_data <- distanceCalibrationResults$raw_fVpx %>%
+      filter(is.finite(fOverWidth)) %>%
+      group_by(participant) %>%
+      arrange(participant) %>%  # Ensure consistent ordering
+      mutate(measurement_order = row_number()) %>%
+      filter(measurement_order <= 2) %>%  # Only keep first two measurements
+      ungroup()
+
+    # Only proceed if we have participants with at least 2 measurements
+    if (nrow(fOverWidth_ratio_data) > 0) {
+      # Pivot to get first and second measurements side by side
+      fOverWidth_ratio_wide <- fOverWidth_ratio_data %>%
+        select(participant, fOverWidth, measurement_order) %>%
+        pivot_wider(names_from = measurement_order, values_from = fOverWidth,
+                   names_prefix = "fOverWidth_") %>%
+        filter(!is.na(fOverWidth_1) & !is.na(fOverWidth_2)) %>%
+        mutate(ratio_second_first = fOverWidth_2 / fOverWidth_1)
+
+      if (nrow(fOverWidth_ratio_wide) > 0) {
+        p14_data <- fOverWidth_ratio_wide
+        
+        # Calculate x-axis limits (same as original plot)
+        x_min <- min(fOverWidth_ratio_wide$fOverWidth_1, na.rm = TRUE)
+        x_max <- max(fOverWidth_ratio_wide$fOverWidth_1, na.rm = TRUE)
+        x_range <- x_max - x_min
+        x_padding <- x_range * 0.1  # 10% padding
+        x_axis_min <- x_min - x_padding
+        x_axis_max <- x_max + x_padding
+        
+        # Calculate y-axis limits for ratio (centered around 1.0)
+        y_min <- min(fOverWidth_ratio_wide$ratio_second_first, na.rm = TRUE)
+        y_max <- max(fOverWidth_ratio_wide$ratio_second_first, na.rm = TRUE)
+        y_range <- max(abs(y_max - 1), abs(y_min - 1))
+        y_axis_min <- 1 - y_range * 1.2
+        y_axis_max <- 1 + y_range * 1.2
+        
+        p14 <- ggplot(fOverWidth_ratio_wide, 
+                      aes(x = fOverWidth_1, 
+                      y = ratio_second_first, 
+                      color = participant)) +
+          geom_point(size = 4, alpha = 0.8) +
+          geom_hline(yintercept = 1, linetype = "solid", color = "gray50", linewidth = 1) +  # Reference line at ratio = 1
+          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                              label = statement, size = 3, family = "sans", fontface = "plain") +
+          scale_color_manual(values = colorPalette) +
+          scale_x_continuous(limits = c(x_axis_min, x_axis_max)) +
+          scale_y_continuous(limits = c(y_axis_min, y_axis_max)) +
+          labs(
+            subtitle = 'Focal length calibration: second/first vs. first',
+            x = "First fOverWidth calibration",
+            y = "fOverWidth calibration: second/first"
           ) +
           guides(color = guide_legend(
             ncol = 4,
@@ -3054,6 +3179,12 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       plot = p13,
       height = if (!is.null(p13)) {
         compute_auto_height(base_height = 7, n_items = n_distinct(fOverWidth_wide$participant), per_row = 3, row_increase = 0.06)
+      } else NULL
+    ),
+    fOverWidth_ratio_vs_first = list(
+      plot = p14,
+      height = if (!is.null(p14) && !is.null(p14_data)) {
+        compute_auto_height(base_height = 7, n_items = n_distinct(p14_data$participant), per_row = 3, row_increase = 0.06)
       } else NULL
     ),
     fOverWidth_hist = fvpx_over_width_hist,
@@ -3310,7 +3441,6 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
     geom_line(aes(x = SizeCheckRequestedCm_jitter, 
                   y = avg_estimated,
                   color = participant,
-                  linetype = type,
                   group = interaction(participant, type)), 
               alpha = 0.7) +
     geom_point(aes(x = SizeCheckRequestedCm_jitter, 
@@ -3849,20 +3979,20 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   ipd_TJSON <- distanceCalibrationResults$TJSON %>%
     left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
     mutate(ipdOverWidth = ipdVpx / widthVpx) %>%
-    filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth)) %>%
+    filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth), !is.na(ipdCm), is.finite(ipdCm), ipdCm > 0) %>%
     mutate(requestedEyesToFootCm = eyeToFootCm,  # During calibration, requested == measured
-           ipdOverWidth_times_requestedEyesToFootCm = ipdOverWidth * requestedEyesToFootCm,
+           ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm = ipdOverWidth * requestedEyesToFootCm / ipdCm,
            type = 'calibration') %>%
-    select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm, factorVpxCm, type)
+    select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type)
   
   # For check data, use the actual requestedEyesToFootCm (derived from requestedEyesToPointCm)
   ipd_checkJSON <- distanceCalibrationResults$checkJSON %>%
     left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
     mutate(ipdOverWidth = ipdVpx / widthVpx) %>%
-    filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth)) %>%
-    mutate(ipdOverWidth_times_requestedEyesToFootCm = ipdOverWidth * requestedEyesToFootCm,
+    filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth), !is.na(ipdCm), is.finite(ipdCm), ipdCm > 0) %>%
+    mutate(ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm = ipdOverWidth * requestedEyesToFootCm / ipdCm,
            type = 'check') %>%
-    select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm, factorVpxCm, type)
+    select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type)
   
   ipd_data <- rbind(ipd_TJSON, ipd_checkJSON)
   
@@ -3873,13 +4003,20 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
                                                                height = NULL)))
   }
   
-  # Get calibration focal length (factorVpxCm) per participant for the focal length line
-  # Use median factorVpxCm from calibration data per participant
+  # Get calibration focal length (factorVpxCm) and ipdCm per participant for the focal length line
+  # Use median factorVpxCm and ipdCm from calibration data per participant
+  # Need to get ipdCm from original TJSON data (before selection)
+  ipdCm_data <- distanceCalibrationResults$TJSON %>%
+    group_by(participant) %>%
+    summarize(median_ipdCm = median(ipdCm, na.rm = TRUE), .groups = "drop") %>%
+    filter(!is.na(median_ipdCm), is.finite(median_ipdCm), median_ipdCm > 0)
+  
   focal_length_data <- ipd_TJSON %>%
     group_by(participant) %>%
     summarize(focal_length = median(factorVpxCm, na.rm = TRUE), .groups = "drop") %>%
     filter(!is.na(focal_length), is.finite(focal_length)) %>%
     left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
+    left_join(ipdCm_data, by = "participant") %>%
     mutate(focal_length_over_width = focal_length / widthVpx)
   
   # Create focal length curve data for Plot 2 (ipdVpx vs requestedEyesToFootCm)
@@ -3890,11 +4027,12 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     crossing(requestedEyesToFootCm = seq(x_range[1] * 0.9, x_range[2] * 1.1, length.out = 20)) %>%
     mutate(ipdOverWidth_focal = focal_length_over_width / requestedEyesToFootCm)
   
-  # Create focal length horizontal line data for Plot 1 (ipdVpx*requestedEyesToFootCm vs requestedEyesToFootCm)
-  # ipdVpx * requestedEyesToFootCm = factorVpxCm (constant = focal length)
+  # Create focal length horizontal line data for Plot 1 (ipdVpx*requestedEyesToFootCm/ipdCm vs requestedEyesToFootCm)
+  # ipdVpx * requestedEyesToFootCm / ipdCm = factorVpxCm / ipdCm (constant)
   focal_hline_data <- focal_length_data %>%
+    filter(!is.na(median_ipdCm), is.finite(median_ipdCm), median_ipdCm > 0) %>%
     crossing(requestedEyesToFootCm = x_range) %>%
-    mutate(product_focal_over_width = focal_length_over_width)
+    mutate(product_focal_over_width = focal_length_over_width / median_ipdCm)
   
   # Plot 2: ipdVpx vs. requestedEyesToFootCm
   p1 <- ggplot() +
@@ -3956,12 +4094,12 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
          y = 'ipdOverWidth',
          caption = 'Dotted lines: focal length from calibration (ipdVpx = factorVpxCm / requestedEyesToFootCm)')
   
-  # Plot 1: (ipdVpx*requestedEyesToFootCm) vs. requestedEyesToFootCm
+  # Plot 1: (ipdVpx*requestedEyesToFootCm/ipdCm) vs. requestedEyesToFootCm
   p2 <- ggplot() +
     # Data lines: solid for both calibration and check
     geom_line(data = ipd_data %>% arrange(participant, type, requestedEyesToFootCm),
               aes(x = requestedEyesToFootCm,
-                  y = ipdOverWidth_times_requestedEyesToFootCm,
+                  y = ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm,
                   color = participant,
                   linetype = type,
                   group = interaction(participant, type)),
@@ -3976,7 +4114,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     # Points with shapes for calibration vs check
     geom_point(data = ipd_data,
                    aes(x = requestedEyesToFootCm,
-                   y = ipdOverWidth_times_requestedEyesToFootCm,
+                   y = ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm,
                    color = participant,
                    shape = type),
                    size = 2) +
@@ -4011,16 +4149,134 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
           legend.key.size = unit(0.4, "cm"),
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
-    labs(subtitle = '(ipdOverWidth*requestedEyesToFootCm) vs.\nrequestedEyesToFootCm',
+    labs(subtitle = '(ipdOverWidth*requestedEyesToFootCm/ipdCm) vs.\nrequestedEyesToFootCm',
          x = 'requestedEyesToFootCm',
-         y = 'ipdOverWidth*requestedEyesToFootCm',
-         caption = 'Dotted lines: focal length from calibration (ipdOverWidth * requestedEyesToFootCm = factorVpxCm)')
+         y = 'ipdOverWidth*requestedEyesToFootCm/ipdCm',
+         caption = 'Dotted lines: focal length from calibration (ipdOverWidth * requestedEyesToFootCm / ipdCm = factorVpxCm/ipdCm)')
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(ipd_data$participant), per_row = 3, row_increase = 0.06)
   return(list(ipdOverWidth_vs_requestedEyesToFootCm = list(plot = p1, 
                                         height = p_height),
               ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = p2, 
                                                              height = p_height)))
+}
+
+# =============================================================================
+# NEW PLOT: fOverWidth vs requestedEyesToFootCm (log-log)
+# =============================================================================
+# Shows fOverWidth (fVpx / widthVpx) as a function of requestedEyesToFootCm
+# One point per snapshot, calibration points connected, check points connected
+
+plot_fOverWidth_vs_requestedEyesToFootCm <- function(distanceCalibrationResults) {
+  
+  camera <- distanceCalibrationResults$camera
+  
+  # Prepare calibration data (TJSON)
+  # For calibration, requestedEyesToFootCm = eyeToFootCm (calibration establishes baseline)
+  calib_data <- distanceCalibrationResults$TJSON %>%
+    left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
+    filter(!is.na(fVpx), is.finite(fVpx), !is.na(widthVpx), widthVpx > 0) %>%
+    mutate(
+      fOverWidth = fVpx / widthVpx,
+      requestedEyesToFootCm = eyeToFootCm,  # During calibration, requested == measured
+      type = 'calibration'
+    ) %>%
+    filter(is.finite(fOverWidth), is.finite(requestedEyesToFootCm), 
+           fOverWidth > 0, requestedEyesToFootCm > 0) %>%
+    group_by(participant) %>%
+    mutate(snapshot_order = row_number()) %>%
+    ungroup() %>%
+    select(participant, fOverWidth, requestedEyesToFootCm, type, snapshot_order)
+  
+  # Prepare check data (checkJSON)
+  check_data <- distanceCalibrationResults$checkJSON %>%
+    left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
+    filter(!is.na(fVpx), is.finite(fVpx), !is.na(widthVpx), widthVpx > 0) %>%
+    mutate(
+      fOverWidth = fVpx / widthVpx,
+      type = 'check'
+    ) %>%
+    filter(is.finite(fOverWidth), is.finite(requestedEyesToFootCm),
+           fOverWidth > 0, requestedEyesToFootCm > 0) %>%
+    group_by(participant) %>%
+    mutate(snapshot_order = row_number()) %>%
+    ungroup() %>%
+    select(participant, fOverWidth, requestedEyesToFootCm, type, snapshot_order)
+  
+  # Combine data
+  plot_data <- rbind(calib_data, check_data)
+  
+  if (nrow(plot_data) == 0) {
+    return(list(plot = NULL, height = NULL))
+  }
+  
+  # Create the log-log plot
+  p <- ggplot() +
+    # Data lines: solid for both calibration and check, with linetype mapping for legend
+    geom_line(data = plot_data %>% arrange(participant, type, snapshot_order),
+              aes(x = requestedEyesToFootCm, y = fOverWidth,
+                  color = participant, linetype = type,
+                  group = interaction(participant, type)),
+              linewidth = 0.75, alpha = 0.8) +
+    # Points with shapes for calibration vs check
+    geom_point(data = plot_data,
+               aes(x = requestedEyesToFootCm, y = fOverWidth,
+                   color = participant, shape = type),
+               size = 2) +
+    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                        label = paste0('N=', n_distinct(plot_data$participant))) +
+    scale_x_log10(
+      breaks = scales::log_breaks(n = 6),
+      labels = scales::label_number(accuracy = 1)
+    ) +
+    scale_y_log10(
+      breaks = scales::log_breaks(n = 8),
+      labels = scales::label_number(accuracy = 0.01)
+    ) +
+    # Shape: filled circle for calibration (16), hollow/open circle for check (1)
+    scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
+                       labels = c(calibration = "calibration", check = "check")) +
+    # Linetype: solid for both calibration and check
+    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "solid"),
+                          labels = c(calibration = "calibration", check = "check")) +
+    scale_color_manual(values = colorPalette) +
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
+                        label = distanceCalibrationResults$statement) +
+    guides(
+      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5),
+                           keywidth = unit(0.8, "lines"), keyheight = unit(0.6, "lines")),
+      shape = guide_legend(title = "", override.aes = list(size = 2)),
+      linetype = guide_legend(title = "", override.aes = list(linewidth = 0.75))
+    ) +
+    labs(subtitle = 'fOverWidth vs. requestedEyesToFootCm',
+         x = 'requestedEyesToFootCm (cm)',
+         y = 'fOverWidth') +
+    theme_bw() +
+    theme(
+      legend.position = "top",
+      legend.box = "vertical",
+      legend.text = element_text(size = 6),
+      legend.spacing.y = unit(0, "lines"),
+      legend.key.size = unit(0.4, "cm"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_blank(),
+      axis.title = element_text(size = 12),
+      axis.text = element_text(size = 12),
+      axis.line = element_line(colour = "black"),
+      axis.text.x = element_text(size = 10, angle = 0, hjust = 0.5, vjust = 1),
+      axis.text.y = element_text(size = 10),
+      plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+      plot.title.position = "plot",
+      plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+      plot.caption = element_text(size = 10),
+      plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+      strip.text = element_text(size = 14)
+    )
+  
+  p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
+  
+  return(list(plot = p, height = p_height))
 }
 
 # =============================================================================

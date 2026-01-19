@@ -800,7 +800,7 @@ shinyServer(function(input, output, session) {
       static_calls[[length(static_calls) + 1]] <- list(
         plot = distancePlots()$calibrated_over_median_hist$plot,
         height = distancePlots()$calibrated_over_median_hist$height,
-        fname = 'factorVpxCm-over-median-histogram'
+        fname = 'histogram-of-fOverWidth-median-calibration-median-check'
       )
     }
     
@@ -810,7 +810,7 @@ shinyServer(function(input, output, session) {
       static_calls[[length(static_calls) + 1]] <- list(
         plot = distancePlots()$raw_fOverWidth_hist$plot,
         height = distancePlots()$raw_fOverWidth_hist$height,
-        fname = 'raw-fVpx-over-remeasured-histogram'
+        fname = 'histogram-of-fVpx-calibration-median-check'
       )
     }
 
@@ -820,7 +820,7 @@ shinyServer(function(input, output, session) {
       static_calls[[length(static_calls) + 1]] <- list(
         plot = distancePlots()$fvpx_second_vs_first$plot,
         height = distancePlots()$fvpx_second_vs_first$height,
-        fname = 'fvpx-second-vs-first-scatter-plot'
+        fname = 'focal-length-second-vs-first-calibration-scatter'
       )
     }
     
@@ -830,7 +830,7 @@ shinyServer(function(input, output, session) {
       static_calls[[length(static_calls) + 1]] <- list(
         plot = distancePlots()$fvpx_over_width_hist$plot,
         height = distancePlots()$fvpx_over_width_hist$height,
-        fname = 'fvpx-over-horizontalVpx-histogram'
+        fname = 'histogram-of-fOverWidth'
       )
     }
     
@@ -840,7 +840,7 @@ shinyServer(function(input, output, session) {
       static_calls[[length(static_calls) + 1]] <- list(
         plot = distancePlots()$raw_pxPerCm_hist$plot,
         height = distancePlots()$raw_pxPerCm_hist$height,
-        fname = 'raw-pxPerCm-over-remeasured-histogram'
+        fname = 'histogram-of-raw-pxPerCm-remeasured'
       )
     }
     
@@ -850,21 +850,21 @@ shinyServer(function(input, output, session) {
       static_calls[[length(static_calls) + 1]] <- list(
         plot = distancePlots()$raw_objectMeasuredCm_hist$plot,
         height = distancePlots()$raw_objectMeasuredCm_hist$height,
-        fname = 'raw-objectMeasuredCm-over-median-histogram'
+        fname = 'histogram-of-raw-objectMeasuredCm-median'
       )
     }
     
     # Add other always-present plots
-    static_calls[[length(static_calls) + 1]] <- list(plot = sizeCheckPlot()$sd_hist$plot, height = sizeCheckPlot()$sd_hist$height, fname = 'sd-log-density-histogram')
-    static_calls[[length(static_calls) + 1]] <- list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'ruler-length-cm-dotplot')
-    static_calls[[length(static_calls) + 1]] <- list(plot = objectCm_hist(df_list()$participant_info, distanceCalibration())$plot, height = objectCm_hist(df_list()$participant_info, distanceCalibration())$height, fname = 'object-length-cm-dotplot')
+    static_calls[[length(static_calls) + 1]] <- list(plot = sizeCheckPlot()$sd_hist$plot, height = sizeCheckPlot()$sd_hist$height, fname = 'histogram-of-SD-of-log10-pixel-density')
+    static_calls[[length(static_calls) + 1]] <- list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'histogram-of-ruler-length-cm')
+    static_calls[[length(static_calls) + 1]] <- list(plot = objectCm_hist(df_list()$participant_info, distanceCalibration())$plot, height = objectCm_hist(df_list()$participant_info, distanceCalibration())$height, fname = 'histogram-of-object-length-cm')
     
     # Conditionally add blindspot plots if they exist
     if (!is.null(bs_vd$mean_plot)) {
       static_calls[[length(static_calls) + 1]] <- list(
         plot = bs_vd$mean_plot$plot, 
         height = bs_vd$mean_plot$height, 
-        fname = 'blindspot-viewing-distance-mean-dotplot'
+        fname = 'mean-of-left-and-right-viewing-distances-blindspot'
       )
     }
     
@@ -872,7 +872,7 @@ shinyServer(function(input, output, session) {
       static_calls[[length(static_calls) + 1]] <- list(
         plot = bs_vd$sd_plot$plot, 
         height = bs_vd$sd_plot$height, 
-        fname = 'blindspot-viewing-distance-sd-dotplot'
+        fname = 'SD-of-log10-left-and-right-viewing-distances-blindspot'
       )
     }
     
@@ -1012,6 +1012,7 @@ shinyServer(function(input, output, session) {
     # Distance-specific plots
     distance_production_plots <- plot_distance_production(distanceCalibration(), df_list()$participant_info, calibrateTrackDistanceCheckLengthSDLogAllowed())
     ipd_plots <- plot_ipd_vs_eyeToFootCm(distanceCalibration())
+    fOverWidth_vs_distance_plot <- plot_fOverWidth_vs_requestedEyesToFootCm(distanceCalibration())
     
     # New plots: foot position during check and distance geometry
     eye_feet_check_plot <- plot_eye_feet_position_during_check(distanceCalibration())
@@ -1019,25 +1020,28 @@ shinyServer(function(input, output, session) {
     eyesToFoot_estimated_plot <- plot_eyesToFootCm_estimated_vs_requested(distanceCalibration())
     
     plot_calls <- list(
-      list(plot = sizeCheckPlot()$density_vs_length$plot, height = sizeCheckPlot()$density_vs_length$height, fname = 'SizeCheckEstimatedPxPerCm-vs-SizeCheckRequestedCm-plot'),
-      list(plot = sizeCheckPlot()$density_ratio_vs_sd$plot, height = sizeCheckPlot()$density_ratio_vs_sd$height, fname = 'ratio-vs-sdLogDensity-plot'),
-      list(plot = distancePlots()$credit_card_vs_requested$plot, height = distancePlots()$credit_card_vs_requested$height, fname = 'calibrateTrackDistanceMeasuredCm-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distancePlots()$credit_card_fraction$plot, height = distancePlots()$credit_card_fraction$height, fname = 'calibrateTrackDistanceMeasuredCm-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
-      list(plot = distance_production_plots$error_vs_object_size$plot, height = distance_production_plots$error_vs_object_size$height, fname = 'error-vs-object-size-plot'),
-      list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'error-vs-blindspot-diameter-plot'),
-      list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-camera-width-plot'),
-      list(plot = distancePlots()$calibrated_vs_mean$plot, height = distancePlots()$calibrated_vs_mean$height, fname = 'calibrated-vs-check-fOverWidth-plot'),
-      list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'fOverWidth-calibration-over-check-vs-check-plot'),
-      list(plot = distancePlots()$fOverWidth_second_vs_first$plot, height = distancePlots()$fOverWidth_second_vs_first$height, fname = 'fOverWidth-second-vs-first-scatter-plot'),
-      list(plot = distancePlots()$calibrated_over_mean_vs_spot$plot, height = distancePlots()$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter-plot'),
-      list(plot = distancePlots()$eye_feet_position$plot, height = distancePlots()$eye_feet_position$height, fname = 'eye-feet-position-vs-distance-error-during-calibration-plot'),
-      list(plot = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$plot else NULL, height = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$height else NULL, fname = 'eye-feet-position-vs-distance-error-during-check-plot'),
-      list(plot = distancePlots()$foot_position_calibration$plot, height = distancePlots()$foot_position_calibration$height, fname = 'foot-position-during-calibration-plot'),
-      list(plot = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$height, fname = 'ipdOverWidth-vs-requestedEyesToFootCm-plot'),
-      list(plot = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height, fname = 'ipdOverWidth-times-requestedEyesToFootCm-vs-requestedEyesToFootCm-plot'),
+      list(plot = sizeCheckPlot()$density_vs_length$plot, height = sizeCheckPlot()$density_vs_length$height, fname = 'pixel-density-vs-requested-length'),
+      list(plot = sizeCheckPlot()$density_ratio_vs_sd$plot, height = sizeCheckPlot()$density_ratio_vs_sd$height, fname = 'credit-card-pixel-density-vs-SD-log-remeasured-pixel-density'),
+      list(plot = distancePlots()$credit_card_vs_requested$plot, height = distancePlots()$credit_card_vs_requested$height, fname = 'measured-vs-requested-distance'),
+      list(plot = distancePlots()$credit_card_fraction$plot, height = distancePlots()$credit_card_fraction$height, fname = 'measured-over-requested-distance'),
+      list(plot = distance_production_plots$error_vs_object_size$plot, height = distance_production_plots$error_vs_object_size$height, fname = 'error-vs-object-size'),
+      list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'check-distance-error-vs-blindspot-diameter'),
+      list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-horizontalVpx'),
+      list(plot = distancePlots()$calibrated_vs_mean$plot, height = distancePlots()$calibrated_vs_mean$height, fname = 'focal-length-calibration-vs-check'),
+      list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'focal-length-calibration-over-check-vs-check'),
+      list(plot = distancePlots()$fOverWidth_second_vs_first$plot, height = distancePlots()$fOverWidth_second_vs_first$height, fname = 'focal-length-second-vs-first-calibration'),
+      list(plot = distancePlots()$fOverWidth_ratio_vs_first$plot, height = distancePlots()$fOverWidth_ratio_vs_first$height, fname = 'focal-length-calibration-second-over-first-vs-first'),
+      list(plot = distancePlots()$calibrated_over_mean_vs_spot$plot, height = distancePlots()$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-fVpx-ipdCm-vs-spot-diameter'),
+      list(plot = distancePlots()$eye_feet_position$plot, height = distancePlots()$eye_feet_position$height, fname = 'measured-over-requested-distance-vs-foot-position-during-calibration'),
+      list(plot = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$plot else NULL, height = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$height else NULL, fname = 'measured-over-requested-distance-vs-foot-position-during-check'),
+      list(plot = distancePlots()$foot_position_calibration$plot, height = distancePlots()$foot_position_calibration$height, fname = 'foot-position-during-calibration'),
+      list(plot = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$height, fname = 'ipdOverWidth-vs-requestedEyesToFootCm'),
+      list(plot = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height, fname = 'ipdOverWidth-times-requestedEyesToFootCm-over-ipdCm-vs-requestedEyesToFootCm'),
+      # fOverWidth vs requestedEyesToFootCm plot
+      list(plot = if(!is.null(fOverWidth_vs_distance_plot)) fOverWidth_vs_distance_plot$plot else NULL, height = if(!is.null(fOverWidth_vs_distance_plot)) fOverWidth_vs_distance_plot$height else NULL, fname = 'fOverWidth-vs-requestedEyesToFootCm'),
       # New distance geometry plots
-      list(plot = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$plot else NULL, height = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$height else NULL, fname = 'eyeToPointCm-vs-requestedEyesToFootCm-plot'),
-      list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-estimated-vs-requestedEyesToFootCm-plot')
+      list(plot = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$plot else NULL, height = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$height else NULL, fname = 'eyesToPointCm-vs-requestedEyesToFootCm'),
+      list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-via-ipdVpx-vs-requestedEyesToFootCm')
 
     )
 

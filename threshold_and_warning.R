@@ -567,10 +567,14 @@ generate_threshold <-
     
     for (i in 1:length(data_list)) {
       # Extract data with standardized columns
+      # Check if objectName column exists
+      has_objectName <- "objectName" %in% names(data_list[[i]])
+      
       temp_data <- data_list[[i]] %>% 
         select(participant, pxPerCm,
                rulerLength, rulerUnit, 
-               calibrateTrackDistance, distanceObjectCm) %>%
+               calibrateTrackDistance, distanceObjectCm,
+               any_of("objectName")) %>%
         distinct() %>%
         filter(!is.na(participant)) %>%
         mutate(
@@ -578,10 +582,19 @@ generate_threshold <-
           rulerUnit = as.character(rulerUnit),
           calibrateTrackDistance = as.character(calibrateTrackDistance),
           distanceObjectCm = as.numeric(distanceObjectCm)
-        ) %>%
+        )
+      
+      # Add objectName column if it doesn't exist
+      if (!has_objectName) {
+        temp_data <- temp_data %>% mutate(objectName = NA_character_)
+      } else {
+        temp_data <- temp_data %>% mutate(objectName = as.character(objectName))
+      }
+      
+      temp_data <- temp_data %>%
         select(participant, pxPerCm,
                rulerLength, rulerUnit, 
-               calibrateTrackDistance, distanceObjectCm)
+               calibrateTrackDistance, distanceObjectCm, objectName)
       
       participant_info_list[[i]] <- temp_data
     }
@@ -603,6 +616,7 @@ generate_threshold <-
         calibrateTrackDistance = first(calibrateTrackDistance[!is.na(calibrateTrackDistance)]),
         distanceObjectCm = first(distanceObjectCm[!is.na(distanceObjectCm)]),
         pxPerCm =  first(pxPerCm[!is.na(pxPerCm)]),
+        objectName = first(objectName[!is.na(objectName) & objectName != ""]),
         .groups = "drop"
       )
     
@@ -712,12 +726,20 @@ generate_threshold <-
       full_join(participant_info, by = "participant") %>%
       rename(PavloviaParticipantID = participant) %>%
       mutate(
-        objectLengthCm =format(round(distanceObjectCm), nsmall=0),
+        objectLengthCm = format(round(distanceObjectCm), nsmall=0),
         rulerCm = case_when(
           !is.na(rulerCm) ~ format(round(rulerCm), nsmall = 0),
           .default = NA_character_
         ),
-        screenWidthCm =  format(round(screenWidthCm), nsmall = 0)
+        screenWidthCm = format(round(screenWidthCm), nsmall = 0),
+        # Format pxPerCm with 1 decimal place
+        pxPerCm = ifelse(!is.na(pxPerCm), format(round(as.numeric(pxPerCm), 1), nsmall = 1), NA_character_),
+        # Use objectName from CSV as fallback for Object when empty
+        Object = ifelse(
+          is.na(Object) | Object == "",
+          ifelse(!is.na(objectName) & objectName != "", objectName, NA_character_),
+          Object
+        )
       ) %>%
       select(ok, PavloviaParticipantID, `device type`, system, browser, `Prolific min`, 
              screenWidthCm, rulerCm, pxPerCm, objectLengthCm, Object, Comment) %>%

@@ -16,7 +16,6 @@ normalize_distance_column_names <- function(df) {
   # Pattern: _calibrateDistance* -> _calibrateTrackDistance*
   
   # For columns that start with "_calibrateDistance" but not "_calibrateTrackDistance"
-  new_underscore_pattern <- "^_calibrateDistance(?!Check)"  # Don't match _calibrateDistanceCheck which should become _calibrateTrackDistanceCheck
   new_underscore_cols <- grep("^_calibrateDistance", col_names, value = TRUE)
   new_underscore_cols <- new_underscore_cols[!grepl("^_calibrateTrackDistance", new_underscore_cols)]
   
@@ -365,15 +364,15 @@ ensure_columns <- function(t, file_name = NULL) {
   t$rulerUnit = t$rulerUnit[t$rulerUnit != "" & !is.na(t$rulerUnit)][1]
   t$deviceMemoryGB = sort(t$deviceMemoryGB)[1]
   t$cameraIsTopCenter =  t$cameraIsTopCenter[t$cameraIsTopCenter != "" & !is.na(t$cameraIsTopCenter)][1]
-  t$viewingDistanceWhichEye = sort(t$viewingDistanceWhichEye)[1]
-  t$viewingDistanceWhichPoint = sort(t$viewingDistanceWhichPoint)[1]
+  t$viewingDistanceWhichEye = t$viewingDistanceWhichEye[t$viewingDistanceWhichEye != "" & !is.na(t$viewingDistanceWhichEye)][1]
+  t$viewingDistanceWhichPoint = t$viewingDistanceWhichPoint[t$viewingDistanceWhichPoint != "" & !is.na(t$viewingDistanceWhichPoint)][1]
   t$screenWidthCm = sort(t$screenWidthCm)[1]
   t$distanceObjectCm = sort(t$distanceObjectCm)[1]
   t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
   # calibrateTrackDistance has been renamed as __calibrateTrackDistance
   t$calibrateTrackDistance = t$calibrateTrackDistance[t$calibrateTrackDistance != "" & !is.na(t$calibrateTrackDistance)][1]
   t$`_calibrateTrackDistance` = t$`_calibrateTrackDistance`[t$`_calibrateTrackDistance` != "" & !is.na(t$`_calibrateTrackDistance`)][1]
-  t$`_calibrateTrackDistancePupil` = sort(t$`_calibrateTrackDistancePupil`)[1]
+  t$`_calibrateTrackDistancePupil` = t$`_calibrateTrackDistancePupil`[t$`_calibrateTrackDistancePupil` != "" & !is.na(t$`_calibrateTrackDistancePupil`)][1]
   t$hardwareConcurrency = ifelse(sum(!is.na(t$hardwareConcurrency)) >= 1,
                                  unique(t$hardwareConcurrency[!is.na(t$hardwareConcurrency)& t$hardwareConcurrency != ""]), 
                                  "")
