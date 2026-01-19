@@ -805,11 +805,11 @@ shinyServer(function(input, output, session) {
     }
     
     # Add raw fVpx histogram if available (2nd)
-    if (!is.null(distancePlots()$raw_fVpx_hist) &&
-        !is.null(distancePlots()$raw_fVpx_hist$plot)) {
+    if (!is.null(distancePlots()$raw_fOverWidth_hist) &&
+        !is.null(distancePlots()$raw_fOverWidth_hist$plot)) {
       static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$raw_fVpx_hist$plot,
-        height = distancePlots()$raw_fVpx_hist$height,
+        plot = distancePlots()$raw_fOverWidth_hist$plot,
+        height = distancePlots()$raw_fOverWidth_hist$height,
         fname = 'raw-fVpx-over-remeasured-histogram'
       )
     }
@@ -1025,16 +1025,16 @@ shinyServer(function(input, output, session) {
       list(plot = distancePlots()$credit_card_fraction$plot, height = distancePlots()$credit_card_fraction$height, fname = 'calibrateTrackDistanceMeasuredCm-fraction-vs-calibrateTrackDistanceRequestedCm-plot'),
       list(plot = distance_production_plots$error_vs_object_size$plot, height = distance_production_plots$error_vs_object_size$height, fname = 'error-vs-object-size-plot'),
       list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'error-vs-blindspot-diameter-plot'),
-      list(plot = distancePlots()$fvpx_over_width_scatter$plot, height = distancePlots()$fvpx_over_width_scatter$height, fname = 'fvpx-over-widthVpx-vs-camera-width-plot'),
-      list(plot = distancePlots()$calibrated_vs_mean$plot, height = distancePlots()$calibrated_vs_mean$height, fname = 'calibrated-vs-mean-factorVpxCm-plot'),
-      list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'focal-length-calibration-over-check-vs-check-plot'),
-      list(plot = distancePlots()$fvpx_second_vs_first$plot, height = distancePlots()$fvpx_second_vs_first$height, fname = 'fvpx-second-vs-first-scatter-plot'),
+      list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-camera-width-plot'),
+      list(plot = distancePlots()$calibrated_vs_mean$plot, height = distancePlots()$calibrated_vs_mean$height, fname = 'calibrated-vs-check-fOverWidth-plot'),
+      list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'fOverWidth-calibration-over-check-vs-check-plot'),
+      list(plot = distancePlots()$fOverWidth_second_vs_first$plot, height = distancePlots()$fOverWidth_second_vs_first$height, fname = 'fOverWidth-second-vs-first-scatter-plot'),
       list(plot = distancePlots()$calibrated_over_mean_vs_spot$plot, height = distancePlots()$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter-plot'),
       list(plot = distancePlots()$eye_feet_position$plot, height = distancePlots()$eye_feet_position$height, fname = 'eye-feet-position-vs-distance-error-during-calibration-plot'),
       list(plot = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$plot else NULL, height = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$height else NULL, fname = 'eye-feet-position-vs-distance-error-during-check-plot'),
       list(plot = distancePlots()$foot_position_calibration$plot, height = distancePlots()$foot_position_calibration$height, fname = 'foot-position-during-calibration-plot'),
-      list(plot = ipd_plots$ipd_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipd_vs_requestedEyesToFootCm$height, fname = 'ipd-vs-requestedEyesToFootCm-plot'),
-      list(plot = ipd_plots$ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height, fname = 'ipdVpx-times-requestedEyesToFootCm-vs-requestedEyesToFootCm-plot'),
+      list(plot = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$height, fname = 'ipdOverWidth-vs-requestedEyesToFootCm-plot'),
+      list(plot = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height, fname = 'ipdOverWidth-times-requestedEyesToFootCm-vs-requestedEyesToFootCm-plot'),
       # New distance geometry plots
       list(plot = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$plot else NULL, height = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$height else NULL, fname = 'eyeToPointCm-vs-requestedEyesToFootCm-plot'),
       list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-estimated-vs-requestedEyesToFootCm-plot')
