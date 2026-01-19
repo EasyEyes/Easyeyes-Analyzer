@@ -576,6 +576,10 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     {if("fOverWidth" %in% names(.) && "fOverWidth calibration/check" %in% names(.)) 
        relocate(., `fOverWidth calibration/check`, .after = `fOverWidth`)
      else .} %>%
+    # Move screenResolutionXY before cameraResolutionXY if both exist
+    {if("screenResolutionXY" %in% names(.) && "cameraResolutionXY" %in% names(.)) 
+       relocate(., screenResolutionXY, .before = cameraResolutionXY)
+     else .} %>%
     # Move cameraResolutionXSD and cameraResolutionN after cameraResolutionXY if it exists
     {if("cameraResolutionXY" %in% names(.) && "cameraResolutionXSD" %in% names(.)) 
        relocate(., cameraResolutionXSD, cameraResolutionN, .after = cameraResolutionXY)

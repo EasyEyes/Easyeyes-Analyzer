@@ -710,11 +710,12 @@ generate_threshold <-
     
     sessions_data <- generate_summary_table(data_list, stairs, pretest, prolific)
     
-    # Extract the 6 needed columns from sessions data
+    # Extract the needed columns from sessions data
     sessions_columns <- sessions_data %>%
-      select(`Pavlovia session ID`, `device type`, `Prolific min`, system, browser, ok, screenWidthCm) %>%
+      select(`Pavlovia session ID`, `device type`, `Prolific min`, system, browser, ok, screenWidthCm, resolution) %>%
       rename(
         PavloviaParticipantID = `Pavlovia session ID`,
+        screenResolutionXY = resolution,
       ) %>%
       distinct()
     
@@ -742,7 +743,7 @@ generate_threshold <-
         )
       ) %>%
       select(ok, PavloviaParticipantID, `device type`, system, browser, `Prolific min`, 
-             screenWidthCm, rulerCm, pxPerCm, objectLengthCm, Object, Comment) %>%
+             screenWidthCm, screenResolutionXY, rulerCm, pxPerCm, objectLengthCm, Object, Comment) %>%
       mutate(
         ok_priority = case_when(
           ok == "✅" ~ 1,  # ✅ (white_check_mark) first
