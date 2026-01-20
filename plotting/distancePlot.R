@@ -286,6 +286,12 @@ get_raw_pxPerCm_data <- function(data_list, sizeCheck) {
           pxPerCm_vals <- as.numeric(screenSizeJSON$ppi) / 2.54
         }
         
+        # Extract requestedCm values (credit card dimensions)
+        requestedCm_vals <- NULL
+        if (!is.null(screenSizeJSON$requestedCm)) {
+          requestedCm_vals <- as.numeric(screenSizeJSON$requestedCm)
+        }
+        
         if (!is.null(pxPerCm_vals) && length(pxPerCm_vals) > 0) {
           # Get median of SizeCheckEstimatedPxPerCm for this participant
           participant_sizeCheck <- sizeCheck %>%
@@ -294,14 +300,33 @@ get_raw_pxPerCm_data <- function(data_list, sizeCheck) {
           if (nrow(participant_sizeCheck) > 0) {
             medianEstimated <- median(participant_sizeCheck$SizeCheckEstimatedPxPerCm, na.rm = TRUE)
             
-            # Create one row per measurement
-            t <- tibble(
-              participant = participant_id,
-              pxPerCm = pxPerCm_vals,
-              medianEstimated = medianEstimated,
-              relative = pxPerCm / medianEstimated
-            ) %>%
-              filter(is.finite(relative), relative > 0)
+            # Create one row per measurement, including requestedCm if available
+            if (!is.null(requestedCm_vals) && length(requestedCm_vals) == length(pxPerCm_vals)) {
+              t <- tibble(
+                participant = participant_id,
+                pxPerCm = pxPerCm_vals,
+                requestedCm = requestedCm_vals,
+                medianEstimated = medianEstimated,
+                relative = pxPerCm / medianEstimated
+              ) %>%
+                filter(is.finite(relative), relative > 0)
+            } else {
+              # Fallback: use default credit card dimensions (width=8.56, height=5.398)
+              default_sizes <- c(8.56, 5.398)
+              if (length(pxPerCm_vals) <= 2) {
+                requestedCm_vals <- default_sizes[1:length(pxPerCm_vals)]
+              } else {
+                requestedCm_vals <- rep(8.56, length(pxPerCm_vals))
+              }
+              t <- tibble(
+                participant = participant_id,
+                pxPerCm = pxPerCm_vals,
+                requestedCm = requestedCm_vals,
+                medianEstimated = medianEstimated,
+                relative = pxPerCm / medianEstimated
+              ) %>%
+                filter(is.finite(relative), relative > 0)
+            }
             
             if (nrow(t) > 0) {
               df <- rbind(df, t)
@@ -572,23 +597,40 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     select(-fVpx_calibration, -fVpx_check, -widthVpx, -fvpx_over_width_tmp, -calibration_check_ratio_tmp, -factorVpxCm) %>%
     arrange(ok_priority, PavloviaParticipantID) %>%
     select(-ok_priority) %>%
+    # Move ok, device type, system, browser, Prolific min immediately after PavloviaParticipantID
+    {if("ok" %in% names(.)) relocate(., ok, .after = PavloviaParticipantID) else .} %>%
+    {if("device type" %in% names(.)) relocate(., `device type`, .after = ok) else .} %>%
+    {if("system" %in% names(.)) relocate(., system, .after = `device type`) else .} %>%
+    {if("browser" %in% names(.)) relocate(., browser, .after = system) else .} %>%
+    {if("Prolific min" %in% names(.)) relocate(., `Prolific min`, .after = browser) else .} %>%
+    # Delete cameraResolutionN column
+    {if("cameraResolutionN" %in% names(.)) select(., -cameraResolutionN) else .} %>%
     # Move the two fOverWidth columns side by side
     {if("fOverWidth" %in% names(.) && "fOverWidth calibration/check" %in% names(.)) 
        relocate(., `fOverWidth calibration/check`, .after = `fOverWidth`)
      else .} %>%
-    # Move screenResolutionXY before cameraResolutionXY if both exist
+    # Move screenResolutionXY before cameraResolutionXY if both exist (do this first)
     {if("screenResolutionXY" %in% names(.) && "cameraResolutionXY" %in% names(.)) 
        relocate(., screenResolutionXY, .before = cameraResolutionXY)
      else .} %>%
-    # Move cameraResolutionXSD and cameraResolutionN after cameraResolutionXY if it exists
-    {if("cameraResolutionXY" %in% names(.) && "cameraResolutionXSD" %in% names(.)) 
-       relocate(., cameraResolutionXSD, cameraResolutionN, .after = cameraResolutionXY)
+    # Move pxPerCm before screenResolutionXY
+    {if("pxPerCm" %in% names(.) && "screenResolutionXY" %in% names(.)) 
+       relocate(., pxPerCm, .before = screenResolutionXY)
      else .} %>%
-    # Move Object and Comment columns to the end if they exist
-    {if("Object" %in% names(.) && "Comment" %in% names(.)) relocate(., Object, Comment, .after = last_col()) 
-     else if("Object" %in% names(.)) relocate(., Object, .after = last_col())
-     else if("Comment" %in% names(.)) relocate(., Comment, .after = last_col())
-     else .}
+    # Move screenWidthCm before pxPerCm
+    {if("screenWidthCm" %in% names(.) && "pxPerCm" %in% names(.)) 
+       relocate(., screenWidthCm, .before = pxPerCm)
+     else .} %>%
+    # Move cameraResolutionXSD after cameraResolutionXY if it exists
+    {if("cameraResolutionXY" %in% names(.) && "cameraResolutionXSD" %in% names(.)) 
+       relocate(., cameraResolutionXSD, .after = cameraResolutionXY)
+     else .} %>%
+    # Move Object before objectLengthCm
+    {if("Object" %in% names(.) && "objectLengthCm" %in% names(.)) 
+       relocate(., Object, .before = objectLengthCm)
+     else .} %>%
+    # Move Comment column to the end if it exists
+    {if("Comment" %in% names(.)) relocate(., Comment, .after = last_col()) else .}
   
   
   return(merged_data)
@@ -602,6 +644,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       distance = tibble(),
       eye_feet = tibble(),
       feet_calib = tibble(),
+      feet_check = tibble(),
       check_factor = tibble(),
       camera = tibble(),
       camera_res_stats = tibble(),
@@ -635,6 +678,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       distance = tibble(),
       eye_feet = tibble(),
       feet_calib = tibble(),
+      feet_check = tibble(),
       check_factor = tibble(),
       camera = tibble(),
       camera_res_stats = tibble(),
@@ -675,6 +719,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       distance = tibble(),
       eye_feet = tibble(),
       feet_calib = tibble(),
+      feet_check = tibble(),
       check_factor = tibble(),
       camera = tibble(),
       camera_res_stats = tibble(),
@@ -704,6 +749,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   distance <- tibble()
   eye_feet <- tibble()
   feet_calib <- tibble()
+  feet_check <- tibble()  # Separate tibble for check foot position data
   check_factor <- tibble()
   camera <- get_cameraResolutionXY(filtered_data_list)  # reused elsewhere; keep helper
   blindspot <- tibble()
@@ -1152,6 +1198,10 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                 # Get pxPerCm from the data
                 pxPerCm_val <- if (!is.null(distanceCheck$pxPerCm)) as.numeric(distanceCheck$pxPerCm[1]) else 37.8
                 
+                # Get screen dimensions from the data list
+                screenWidthPx_val <- if ("screenWidthPx" %in% names(dl)) first(na.omit(as.numeric(dl$screenWidthPx))) else NA_real_
+                screenHeightPx_val <- if ("screenHeightPx" %in% names(dl)) first(na.omit(as.numeric(dl$screenHeightPx))) else NA_real_
+                
                 # Extract measuredEyesToPointCm and requestedEyesToPointCm for correct distance ratio
                 measured_eyes_vals <- suppressWarnings(as.numeric(distanceCheck$eyesToPointCm))
                 requested_eyes_vals <- suppressWarnings(as.numeric(distanceCheck$requestedEyesToPointCm))
@@ -1176,12 +1226,14 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                     avg_eye_x_cm = avg_eye_x_px / pxPerCm,
                     avg_eye_y_cm = avg_eye_y_px / pxPerCm,
                     distance_ratio = distance_ratio_vals,  # Use measuredEyesToPointCm / requestedEyesToPointCm
+                    screenWidthPx = screenWidthPx_val,
+                    screenHeightPx = screenHeightPx_val,
                     data_list_index = i,
                     measurement_index = measurement_idx
                   ) %>%
                   select(-measurement_idx)
                 
-                feet_calib <- rbind(feet_calib, t_check_feet)
+                feet_check <- rbind(feet_check, t_check_feet)
               }
             }
           }
@@ -1251,9 +1303,332 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   distance <- distance %>% as_tibble()
   eye_feet <- eye_feet %>% as_tibble()
   feet_calib <- feet_calib %>% as_tibble()
+  feet_check <- feet_check %>% as_tibble()
   check_factor <- check_factor %>% distinct()
   blindspot <- blindspot %>% distinct()
   statement <- make_statement(sizeCheck)
+  
+  # =============================================================================
+  # DEBUG: Invariant checks for distance measurement consistency
+  # =============================================================================
+  # These checks expose semantic inconsistencies between calibration and check
+  # 
+  # Invariant 1: fOverWidth computed two ways should agree
+  #   Method 1: fVpx / widthVpx (where fVpx = eyeToFootCm * ipdVpx / ipdCm)
+  #   Method 2: ipdOverWidth * eyeToFootCm / ipdCm (where ipdOverWidth = ipdVpx / widthVpx)
+  #   These are algebraically identical, so disagreement indicates semantic inconsistency
+  #
+  # Invariant 2: ipdOverWidth * Z should be constant for fixed f and ipdCm
+  #   This catches Z definition errors before computing f
+  # =============================================================================
+  
+  message("\n========== DISTANCE INVARIANT DEBUG LOG ==========\n")
+  
+  # --- CALIBRATION (TJSON) invariant checks ---
+  if (nrow(TJSON) > 0 && nrow(camera) > 0) {
+    message("--- CALIBRATION (TJSON) DATA ---")
+    
+    calib_debug <- TJSON %>%
+      left_join(camera %>% select(PavloviaParticipantID, widthVpx), 
+                by = c("participant" = "PavloviaParticipantID")) %>%
+      filter(!is.na(fVpx), is.finite(fVpx), 
+             !is.na(widthVpx), widthVpx > 0,
+             !is.na(ipdVpx), is.finite(ipdVpx),
+             !is.na(ipdCm), is.finite(ipdCm), ipdCm > 0,
+             !is.na(eyeToFootCm), is.finite(eyeToFootCm), eyeToFootCm > 0) %>%
+      mutate(
+        # Method 1: fOverWidth from pre-computed fVpx
+        fOverWidth_method1 = fVpx / widthVpx,
+        
+        # Method 2: fOverWidth from components (should be identical algebraically)
+        ipdOverWidth = ipdVpx / widthVpx,
+        fOverWidth_method2 = ipdOverWidth * eyeToFootCm / ipdCm,
+        
+        # Invariant 1: Check agreement between two methods
+        fOverWidth_ratio = fOverWidth_method1 / fOverWidth_method2,
+        fOverWidth_pct_diff = abs(fOverWidth_method1 - fOverWidth_method2) / fOverWidth_method1 * 100,
+        
+        # Invariant 2: ipdOverWidth * Z (should be constant for fixed f, ipdCm)
+        # This is proportional to focal length: ipdOverWidth * Z / ipdCm = fOverWidth
+        ipdOverWidth_times_Z = ipdOverWidth * eyeToFootCm,
+        
+        # For reference: what Z value was used
+        Z_used = eyeToFootCm
+      )
+    
+    if (nrow(calib_debug) > 0) {
+      message(sprintf("  Participants: %s", paste(unique(calib_debug$participant), collapse = ", ")))
+      message(sprintf("  N observations: %d", nrow(calib_debug)))
+      
+      # Invariant 1 summary
+      message("\n  INVARIANT 1: fOverWidth method comparison (calibration)")
+      message(sprintf("    fOverWidth_method1 (fVpx/widthVpx):  mean=%.6f, sd=%.6f", 
+                      mean(calib_debug$fOverWidth_method1, na.rm = TRUE),
+                      sd(calib_debug$fOverWidth_method1, na.rm = TRUE)))
+      message(sprintf("    fOverWidth_method2 (ipdOverWidth*Z/ipdCm): mean=%.6f, sd=%.6f",
+                      mean(calib_debug$fOverWidth_method2, na.rm = TRUE),
+                      sd(calib_debug$fOverWidth_method2, na.rm = TRUE)))
+      message(sprintf("    Ratio (method1/method2): mean=%.6f, sd=%.6f, range=[%.6f, %.6f]",
+                      mean(calib_debug$fOverWidth_ratio, na.rm = TRUE),
+                      sd(calib_debug$fOverWidth_ratio, na.rm = TRUE),
+                      min(calib_debug$fOverWidth_ratio, na.rm = TRUE),
+                      max(calib_debug$fOverWidth_ratio, na.rm = TRUE)))
+      message(sprintf("    Percent difference: mean=%.4f%%, max=%.4f%%",
+                      mean(calib_debug$fOverWidth_pct_diff, na.rm = TRUE),
+                      max(calib_debug$fOverWidth_pct_diff, na.rm = TRUE)))
+      
+      # Invariant 2 summary
+      message("\n  INVARIANT 2: ipdOverWidth * Z consistency (calibration)")
+      message(sprintf("    ipdOverWidth * Z: mean=%.4f, sd=%.4f, CV=%.4f%%",
+                      mean(calib_debug$ipdOverWidth_times_Z, na.rm = TRUE),
+                      sd(calib_debug$ipdOverWidth_times_Z, na.rm = TRUE),
+                      sd(calib_debug$ipdOverWidth_times_Z, na.rm = TRUE) / 
+                        mean(calib_debug$ipdOverWidth_times_Z, na.rm = TRUE) * 100))
+      
+      # Per-participant breakdown
+      message("\n  Per-participant details (calibration):")
+      calib_by_participant <- calib_debug %>%
+        group_by(participant) %>%
+        summarize(
+          n = n(),
+          Z_mean = mean(Z_used, na.rm = TRUE),
+          Z_range = paste0("[", round(min(Z_used, na.rm = TRUE), 1), ", ", round(max(Z_used, na.rm = TRUE), 1), "]"),
+          ipdCm = first(ipdCm),
+          ipdOverWidth_mean = mean(ipdOverWidth, na.rm = TRUE),
+          fOverWidth_m1_mean = mean(fOverWidth_method1, na.rm = TRUE),
+          fOverWidth_m2_mean = mean(fOverWidth_method2, na.rm = TRUE),
+          ratio_mean = mean(fOverWidth_ratio, na.rm = TRUE),
+          ipdOverWidth_x_Z_mean = mean(ipdOverWidth_times_Z, na.rm = TRUE),
+          ipdOverWidth_x_Z_sd = sd(ipdOverWidth_times_Z, na.rm = TRUE),
+          .groups = "drop"
+        )
+      
+      for (i in 1:nrow(calib_by_participant)) {
+        row <- calib_by_participant[i, ]
+        message(sprintf("    %s: n=%d, Z=%s cm, ipdCm=%.2f, ipdOverWidth=%.5f",
+                        row$participant, row$n, row$Z_range, row$ipdCm, row$ipdOverWidth_mean))
+        message(sprintf("      fOverWidth: method1=%.5f, method2=%.5f, ratio=%.6f",
+                        row$fOverWidth_m1_mean, row$fOverWidth_m2_mean, row$ratio_mean))
+        message(sprintf("      ipdOverWidth*Z: mean=%.4f, sd=%.4f",
+                        row$ipdOverWidth_x_Z_mean, 
+                        ifelse(is.na(row$ipdOverWidth_x_Z_sd), 0, row$ipdOverWidth_x_Z_sd)))
+      }
+    }
+  }
+  
+  # --- CHECK (checkJSON) invariant checks ---
+  if (nrow(checkJSON) > 0 && nrow(camera) > 0) {
+    message("\n--- CHECK (checkJSON) DATA ---")
+    
+    check_debug <- checkJSON %>%
+      left_join(camera %>% select(PavloviaParticipantID, widthVpx), 
+                by = c("participant" = "PavloviaParticipantID")) %>%
+      filter(!is.na(fVpx), is.finite(fVpx), 
+             !is.na(widthVpx), widthVpx > 0,
+             !is.na(ipdVpx), is.finite(ipdVpx),
+             !is.na(ipdCm), is.finite(ipdCm), ipdCm > 0,
+             !is.na(eyeToFootCm), is.finite(eyeToFootCm), eyeToFootCm > 0) %>%
+      mutate(
+        # Method 1: fOverWidth from pre-computed fVpx
+        fOverWidth_method1 = fVpx / widthVpx,
+        
+        # Method 2: fOverWidth from components
+        ipdOverWidth = ipdVpx / widthVpx,
+        fOverWidth_method2 = ipdOverWidth * eyeToFootCm / ipdCm,
+        
+        # Also compute using requestedEyesToFootCm (the "other" Z)
+        fOverWidth_method3 = ifelse(!is.na(requestedEyesToFootCm) & is.finite(requestedEyesToFootCm),
+                                    ipdOverWidth * requestedEyesToFootCm / ipdCm, NA_real_),
+        
+        # Invariant 1: Check agreement
+        fOverWidth_ratio_m1_m2 = fOverWidth_method1 / fOverWidth_method2,
+        fOverWidth_ratio_m1_m3 = ifelse(!is.na(fOverWidth_method3), 
+                                        fOverWidth_method1 / fOverWidth_method3, NA_real_),
+        fOverWidth_pct_diff_m1_m2 = abs(fOverWidth_method1 - fOverWidth_method2) / fOverWidth_method1 * 100,
+        fOverWidth_pct_diff_m1_m3 = ifelse(!is.na(fOverWidth_method3),
+                                           abs(fOverWidth_method1 - fOverWidth_method3) / fOverWidth_method1 * 100, NA_real_),
+        
+        # Invariant 2: ipdOverWidth * Z products
+        ipdOverWidth_times_measuredZ = ipdOverWidth * eyeToFootCm,
+        ipdOverWidth_times_requestedZ = ifelse(!is.na(requestedEyesToFootCm),
+                                               ipdOverWidth * requestedEyesToFootCm, NA_real_),
+        
+        # For reference
+        Z_measured = eyeToFootCm,
+        Z_requested = requestedEyesToFootCm,
+        Z_ratio = ifelse(!is.na(requestedEyesToFootCm) & requestedEyesToFootCm > 0,
+                         eyeToFootCm / requestedEyesToFootCm, NA_real_)
+      )
+    
+    if (nrow(check_debug) > 0) {
+      message(sprintf("  Participants: %s", paste(unique(check_debug$participant), collapse = ", ")))
+      message(sprintf("  N observations: %d", nrow(check_debug)))
+      
+      # Invariant 1 summary
+      message("\n  INVARIANT 1: fOverWidth method comparison (check)")
+      message("  Method 1: fVpx/widthVpx (fVpx uses measured eyeToFootCm)")
+      message("  Method 2: ipdOverWidth * measured_eyeToFootCm / ipdCm")
+      message("  Method 3: ipdOverWidth * requested_eyeToFootCm / ipdCm")
+      
+      message(sprintf("\n    fOverWidth_method1: mean=%.6f, sd=%.6f", 
+                      mean(check_debug$fOverWidth_method1, na.rm = TRUE),
+                      sd(check_debug$fOverWidth_method1, na.rm = TRUE)))
+      message(sprintf("    fOverWidth_method2: mean=%.6f, sd=%.6f",
+                      mean(check_debug$fOverWidth_method2, na.rm = TRUE),
+                      sd(check_debug$fOverWidth_method2, na.rm = TRUE)))
+      message(sprintf("    fOverWidth_method3: mean=%.6f, sd=%.6f",
+                      mean(check_debug$fOverWidth_method3, na.rm = TRUE),
+                      sd(check_debug$fOverWidth_method3, na.rm = TRUE)))
+      
+      message(sprintf("\n    Ratio m1/m2 (should be ~1.0): mean=%.6f, sd=%.6f, range=[%.6f, %.6f]",
+                      mean(check_debug$fOverWidth_ratio_m1_m2, na.rm = TRUE),
+                      sd(check_debug$fOverWidth_ratio_m1_m2, na.rm = TRUE),
+                      min(check_debug$fOverWidth_ratio_m1_m2, na.rm = TRUE),
+                      max(check_debug$fOverWidth_ratio_m1_m2, na.rm = TRUE)))
+      message(sprintf("    Ratio m1/m3 (reveals Z definition issue): mean=%.6f, sd=%.6f, range=[%.6f, %.6f]",
+                      mean(check_debug$fOverWidth_ratio_m1_m3, na.rm = TRUE),
+                      sd(check_debug$fOverWidth_ratio_m1_m3, na.rm = TRUE),
+                      min(check_debug$fOverWidth_ratio_m1_m3, na.rm = TRUE),
+                      max(check_debug$fOverWidth_ratio_m1_m3, na.rm = TRUE)))
+      
+      # Invariant 2 summary
+      message("\n  INVARIANT 2: ipdOverWidth * Z consistency (check)")
+      message(sprintf("    ipdOverWidth * Z_measured:  mean=%.4f, sd=%.4f, CV=%.4f%%",
+                      mean(check_debug$ipdOverWidth_times_measuredZ, na.rm = TRUE),
+                      sd(check_debug$ipdOverWidth_times_measuredZ, na.rm = TRUE),
+                      sd(check_debug$ipdOverWidth_times_measuredZ, na.rm = TRUE) / 
+                        mean(check_debug$ipdOverWidth_times_measuredZ, na.rm = TRUE) * 100))
+      message(sprintf("    ipdOverWidth * Z_requested: mean=%.4f, sd=%.4f, CV=%.4f%%",
+                      mean(check_debug$ipdOverWidth_times_requestedZ, na.rm = TRUE),
+                      sd(check_debug$ipdOverWidth_times_requestedZ, na.rm = TRUE),
+                      sd(check_debug$ipdOverWidth_times_requestedZ, na.rm = TRUE) / 
+                        mean(check_debug$ipdOverWidth_times_requestedZ, na.rm = TRUE) * 100))
+      
+      # Z comparison
+      message("\n  Z DEFINITION COMPARISON:")
+      message(sprintf("    Z_measured (eyeToFootCm): mean=%.2f, sd=%.2f, range=[%.2f, %.2f]",
+                      mean(check_debug$Z_measured, na.rm = TRUE),
+                      sd(check_debug$Z_measured, na.rm = TRUE),
+                      min(check_debug$Z_measured, na.rm = TRUE),
+                      max(check_debug$Z_measured, na.rm = TRUE)))
+      message(sprintf("    Z_requested (requestedEyesToFootCm): mean=%.2f, sd=%.2f, range=[%.2f, %.2f]",
+                      mean(check_debug$Z_requested, na.rm = TRUE),
+                      sd(check_debug$Z_requested, na.rm = TRUE),
+                      min(check_debug$Z_requested, na.rm = TRUE),
+                      max(check_debug$Z_requested, na.rm = TRUE)))
+      message(sprintf("    Z_measured / Z_requested: mean=%.4f, sd=%.4f, range=[%.4f, %.4f]",
+                      mean(check_debug$Z_ratio, na.rm = TRUE),
+                      sd(check_debug$Z_ratio, na.rm = TRUE),
+                      min(check_debug$Z_ratio, na.rm = TRUE),
+                      max(check_debug$Z_ratio, na.rm = TRUE)))
+      
+      # Per-participant breakdown
+      message("\n  Per-participant details (check):")
+      check_by_participant <- check_debug %>%
+        group_by(participant) %>%
+        summarize(
+          n = n(),
+          ipdCm = first(ipdCm),
+          ipdOverWidth_mean = mean(ipdOverWidth, na.rm = TRUE),
+          Z_measured_range = paste0("[", round(min(Z_measured, na.rm = TRUE), 1), ", ", 
+                                    round(max(Z_measured, na.rm = TRUE), 1), "]"),
+          Z_requested_range = paste0("[", round(min(Z_requested, na.rm = TRUE), 1), ", ", 
+                                     round(max(Z_requested, na.rm = TRUE), 1), "]"),
+          Z_ratio_mean = mean(Z_ratio, na.rm = TRUE),
+          fOverWidth_m1 = mean(fOverWidth_method1, na.rm = TRUE),
+          fOverWidth_m2 = mean(fOverWidth_method2, na.rm = TRUE),
+          fOverWidth_m3 = mean(fOverWidth_method3, na.rm = TRUE),
+          ratio_m1_m2 = mean(fOverWidth_ratio_m1_m2, na.rm = TRUE),
+          ratio_m1_m3 = mean(fOverWidth_ratio_m1_m3, na.rm = TRUE),
+          ipdOverWidth_x_Z_meas = mean(ipdOverWidth_times_measuredZ, na.rm = TRUE),
+          ipdOverWidth_x_Z_req = mean(ipdOverWidth_times_requestedZ, na.rm = TRUE),
+          .groups = "drop"
+        )
+      
+      for (i in 1:nrow(check_by_participant)) {
+        row <- check_by_participant[i, ]
+        message(sprintf("    %s: n=%d, ipdCm=%.2f, ipdOverWidth=%.5f",
+                        row$participant, row$n, row$ipdCm, row$ipdOverWidth_mean))
+        message(sprintf("      Z_measured=%s, Z_requested=%s, Z_ratio=%.4f",
+                        row$Z_measured_range, row$Z_requested_range, row$Z_ratio_mean))
+        message(sprintf("      fOverWidth: m1=%.5f, m2=%.5f, m3=%.5f",
+                        row$fOverWidth_m1, row$fOverWidth_m2, row$fOverWidth_m3))
+        message(sprintf("      ratios: m1/m2=%.4f (should be 1.0), m1/m3=%.4f (reveals Z issue)",
+                        row$ratio_m1_m2, row$ratio_m1_m3))
+        message(sprintf("      ipdOverWidth*Z: measured=%.4f, requested=%.4f",
+                        row$ipdOverWidth_x_Z_meas, row$ipdOverWidth_x_Z_req))
+      }
+    }
+  }
+  
+  # --- CROSS-CHECK: Compare calibration vs check ---
+  if (nrow(TJSON) > 0 && nrow(checkJSON) > 0 && nrow(camera) > 0) {
+    message("\n--- CROSS-CHECK: CALIBRATION vs CHECK ---")
+    
+    # Get median ipdOverWidth*Z from calibration per participant
+    calib_product <- TJSON %>%
+      left_join(camera %>% select(PavloviaParticipantID, widthVpx), 
+                by = c("participant" = "PavloviaParticipantID")) %>%
+      filter(!is.na(ipdVpx), !is.na(widthVpx), !is.na(eyeToFootCm)) %>%
+      mutate(ipdOverWidth_x_Z = (ipdVpx / widthVpx) * eyeToFootCm) %>%
+      group_by(participant) %>%
+      summarize(calib_ipdOverWidth_x_Z = median(ipdOverWidth_x_Z, na.rm = TRUE),
+                calib_fOverWidth = median((eyeToFootCm * ipdVpx / first(ipdCm)) / widthVpx, na.rm = TRUE),
+                .groups = "drop")
+    
+    # Get median from check per participant
+    check_product <- checkJSON %>%
+      left_join(camera %>% select(PavloviaParticipantID, widthVpx), 
+                by = c("participant" = "PavloviaParticipantID")) %>%
+      filter(!is.na(ipdVpx), !is.na(widthVpx), !is.na(eyeToFootCm)) %>%
+      mutate(ipdOverWidth_x_Z_meas = (ipdVpx / widthVpx) * eyeToFootCm,
+             ipdOverWidth_x_Z_req = (ipdVpx / widthVpx) * requestedEyesToFootCm) %>%
+      group_by(participant) %>%
+      summarize(check_ipdOverWidth_x_Z_meas = median(ipdOverWidth_x_Z_meas, na.rm = TRUE),
+                check_ipdOverWidth_x_Z_req = median(ipdOverWidth_x_Z_req, na.rm = TRUE),
+                check_fOverWidth_meas = median((eyeToFootCm * ipdVpx / first(ipdCm)) / widthVpx, na.rm = TRUE),
+                check_fOverWidth_req = median((requestedEyesToFootCm * ipdVpx / first(ipdCm)) / widthVpx, na.rm = TRUE),
+                .groups = "drop")
+    
+    cross_check <- calib_product %>%
+      inner_join(check_product, by = "participant") %>%
+      mutate(
+        # If camera intrinsics are stable, ipdOverWidth*Z should be same for same ipdCm
+        ratio_calib_vs_check_meas = calib_ipdOverWidth_x_Z / check_ipdOverWidth_x_Z_meas,
+        ratio_calib_vs_check_req = calib_ipdOverWidth_x_Z / check_ipdOverWidth_x_Z_req,
+        # fOverWidth should be same between calibration and check (camera intrinsic)
+        fOverWidth_ratio_calib_check_meas = calib_fOverWidth / check_fOverWidth_meas,
+        fOverWidth_ratio_calib_check_req = calib_fOverWidth / check_fOverWidth_req
+      )
+    
+    if (nrow(cross_check) > 0) {
+      message("  Comparing ipdOverWidth*Z between calibration and check:")
+      message(sprintf("    calib vs check(measured Z): mean ratio=%.4f, should be ~1.0 if Z definitions match",
+                      mean(cross_check$ratio_calib_vs_check_meas, na.rm = TRUE)))
+      message(sprintf("    calib vs check(requested Z): mean ratio=%.4f, deviation from 1.0 shows Z definition error",
+                      mean(cross_check$ratio_calib_vs_check_req, na.rm = TRUE)))
+      
+      message("\n  Comparing fOverWidth between calibration and check:")
+      message(sprintf("    calib vs check(measured Z): mean ratio=%.4f, should be ~1.0 (same camera)",
+                      mean(cross_check$fOverWidth_ratio_calib_check_meas, na.rm = TRUE)))
+      message(sprintf("    calib vs check(requested Z): mean ratio=%.4f, deviation reveals absorbed error",
+                      mean(cross_check$fOverWidth_ratio_calib_check_req, na.rm = TRUE)))
+      
+      message("\n  Per-participant cross-check:")
+      for (i in 1:nrow(cross_check)) {
+        row <- cross_check[i, ]
+        message(sprintf("    %s:", row$participant))
+        message(sprintf("      ipdOverWidth*Z: calib=%.4f, check_meas=%.4f, check_req=%.4f",
+                        row$calib_ipdOverWidth_x_Z, row$check_ipdOverWidth_x_Z_meas, row$check_ipdOverWidth_x_Z_req))
+        message(sprintf("      fOverWidth: calib=%.5f, check_meas=%.5f, check_req=%.5f",
+                        row$calib_fOverWidth, row$check_fOverWidth_meas, row$check_fOverWidth_req))
+        message(sprintf("      Ratios: ipdOverWidth*Z calib/check_meas=%.4f, calib/check_req=%.4f",
+                        row$ratio_calib_vs_check_meas, row$ratio_calib_vs_check_req))
+      }
+    }
+  }
+  
+  message("\n========== END DISTANCE INVARIANT DEBUG LOG ==========\n")
   
   # Extract raw array data for new histograms
   raw_pxPerCm <- get_raw_pxPerCm_data(filtered_data_list, sizeCheck)
@@ -1279,6 +1654,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     distance = distance,
     eye_feet = eye_feet,
     feet_calib = feet_calib,
+    feet_check = feet_check,
     check_factor = check_factor,
     camera = camera,
     camera_res_stats = camera_res_stats,
@@ -1653,11 +2029,11 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
 }
 
 # Plot: Measured over requested distance vs. foot position during check
-# Similar to plot_eye_feet_position but uses check data (feet_calib)
+# Uses check data (feet_check) - separate from calibration data (feet_calib)
 plot_eye_feet_position_during_check <- function(distanceCalibrationResults) {
   
-  # Use feet_calib (check data) for "during check" plot
-  eye_feet_data <- distanceCalibrationResults$feet_calib
+  # Use feet_check (check data) for "during check" plot
+  eye_feet_data <- distanceCalibrationResults$feet_check
   
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
@@ -2139,8 +2515,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   p4b <- if (!is.null(p4b_result)) p4b_result$plot else NULL
   p4b_height <- if (!is.null(p4b_result)) p4b_result$height else NULL
   
-  # Plot 5: Check vs. calibration of focal length (fVpx)
-  p5 <- NULL
+  # Plot 5b: Focal length ratio (calibration/check) vs. check
+  p5b <- NULL
   # Use TJSON (calibration) and checkJSON (check) data which have fVpx computed correctly
   tjson_data <- distanceCalibrationResults$TJSON
   check_json_data <- distanceCalibrationResults$checkJSON
@@ -2162,63 +2538,17 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       group_by(participant) %>%
       summarize(fOverWidth_check = median(fOverWidth, na.rm = TRUE), .groups = "drop")
     
-      # Join calibration and check data by participant
-    plot_data <- calib_fVpx %>%
+    # Join calibration and check data by participant
+    plot_data_p5b <- calib_fVpx %>%
       inner_join(check_fVpx, by = "participant") %>%
       filter(!is.na(fOverWidth_calibration), !is.na(fOverWidth_check),
              is.finite(fOverWidth_calibration), is.finite(fOverWidth_check))
-        
-        if (nrow(plot_data) > 0) {
-        # Calculate symmetric scale limits to ensure equal axes (slope 1 equality line)
-      min_val_all <- min(c(plot_data$fOverWidth_calibration, plot_data$fOverWidth_check), na.rm = TRUE) * 0.9
-      max_val_all <- max(c(plot_data$fOverWidth_calibration, plot_data$fOverWidth_check), na.rm = TRUE) * 1.1
-        
-      # X-axis = fVpx from check (more reliable), Y-axis = fVpx from calibration
-      p5 <- ggplot(plot_data, aes(x = fOverWidth_check, y = fOverWidth_calibration)) +
-            geom_point(aes(color = participant), size = 3, alpha = 0.8) +
-            geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
-            ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                                label = paste0('N=', n_distinct(plot_data$participant))) +
-          scale_x_log10(limits = c(min_val_all, max_val_all), 
-                          breaks = scales::log_breaks(n = 8)) +
-          scale_y_log10(limits = c(min_val_all, max_val_all), 
-                          breaks = scales::log_breaks(n = 8)) +
-          coord_fixed(ratio = 1) +  # Force 1:1 aspect ratio for symmetric axes
-            annotation_logticks() +
-            scale_color_manual(values = colorPalette) +
-            ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-            guides(color = guide_legend(
-              ncol = 3,
-              title = "",
-              override.aes = list(size = 1.5),
-              keywidth = unit(0.8, "lines"),
-              keyheight = unit(0.6, "lines")
-            )) +
-            theme_classic() +
-            theme(
-              legend.position = "right",
-              legend.box = "vertical",
-              legend.justification = "left",
-              legend.text = element_text(size = 6),
-              legend.spacing.y = unit(0, "lines"),
-              legend.key.size = unit(0.4, "cm"),
-              plot.margin = margin(5, 5, 5, 5, "pt")
-            ) +
-        labs(subtitle = 'Focal length: calibration vs. check',
-             x = 'fOverWidth: check',
-             y = 'fOverWidth: calibration',
-             caption = 'Dashed line shows y=x (perfect agreement)')
-    }
-  }
-  
-  # Plot 5b: Focal length ratio (calibration/check) vs. check
-  p5b <- NULL
-  # Reuse plot_data from p5 if it exists (already filtered and validated)
-  if (!is.null(p5) && nrow(plot_data) > 0) {
-    # Calculate the ratio of calibration to check
-    ratio_data_p5b <- plot_data %>%
-      mutate(fOverWidth_ratio = fOverWidth_calibration / fOverWidth_check) %>%
-      filter(is.finite(fOverWidth_ratio))
+    
+    if (nrow(plot_data_p5b) > 0) {
+      # Calculate the ratio of calibration to check
+      ratio_data_p5b <- plot_data_p5b %>%
+        mutate(fOverWidth_ratio = fOverWidth_calibration / fOverWidth_check) %>%
+        filter(is.finite(fOverWidth_ratio))
     
     if (nrow(ratio_data_p5b) > 0) {
       # Calculate x-axis limits
@@ -2264,6 +2594,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
              x = 'fOverWidth: check',
              y = 'fOverWidth: calibration / check',
              caption = 'Dashed line shows y=1 (perfect agreement)')
+      }
     }
   }
   
@@ -2729,7 +3060,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keyheight = unit(0.3, "cm")
         )) +
         labs(
-          subtitle = 'Histogram of fVpx: calibration/median(check)',
+          subtitle = 'Histogram of fOverWidth: calibration/median(check)',
           x = "calibration/median(check)",
           y = "Count"
         ) +
@@ -2942,98 +3273,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       }
     }
   }
-  # plot 13: fVpx second vs first
-  p13 <- NULL
-  if ("raw_fVpx" %in% names(distanceCalibrationResults) &&
-      nrow(distanceCalibrationResults$raw_fVpx) > 0) {
-
-    # Prepare data: get first and second fVpx for each participant
-    fOverWidth_comparison_data <- distanceCalibrationResults$raw_fVpx %>%
-      filter(is.finite(fOverWidth)) %>%
-      group_by(participant) %>%
-      arrange(participant) %>%  # Ensure consistent ordering
-      mutate(measurement_order = row_number()) %>%
-      filter(measurement_order <= 2) %>%  # Only keep first two measurements
-      ungroup()
-
-    # Only proceed if we have participants with at least 2 measurements
-    if (nrow(fOverWidth_comparison_data) > 0) {
-      # Pivot to get first and second measurements side by side
-      fOverWidth_wide <- fOverWidth_comparison_data %>%
-        select(participant, fOverWidth, measurement_order) %>%
-        pivot_wider(names_from = measurement_order, values_from = fOverWidth,
-                   names_prefix = "fOverWidth_") %>%
-        filter(!is.na(fOverWidth_1) & !is.na(fOverWidth_2))
-
-      if (nrow(fOverWidth_wide) > 0) {
-        # Calculate common axis limits centered around the equality line
-        all_values <- c(fOverWidth_wide$fOverWidth_1, fOverWidth_wide$fOverWidth_2)
-        axis_min <- min(all_values, na.rm = TRUE)
-        axis_max <- max(all_values, na.rm = TRUE)
-        axis_range <- axis_max - axis_min
-        axis_padding <- axis_range * 0.1  # 10% padding
-        common_min <- axis_min - axis_padding
-        common_max <- axis_max + axis_padding
-        
-        p13 <- ggplot(fOverWidth_wide, 
-                      aes(x = fOverWidth_1, 
-                      y = fOverWidth_2, 
-                      color = participant)) +
-          geom_point(size = 4, alpha = 0.8) +
-          geom_abline(slope = 1, intercept = 0, linetype = "solid", color = "gray50", linewidth = 1) +  # Equality line
-          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
-                              label = statement, size = 3, family = "sans", fontface = "plain") +
-          scale_color_manual(values = colorPalette) +
-          scale_x_continuous(limits = c(common_min, common_max)) +
-          scale_y_continuous(limits = c(common_min, common_max)) +
-          coord_fixed(ratio = 1) +  # Equal scales
-          labs(
-            subtitle = 'Focal length second vs. first calibration',
-            x = "First fOverWidth calibration",
-            y = "Second fOverWidth calibration"
-          ) +
-          guides(color = guide_legend(
-            ncol = 4,
-            title = "",
-            override.aes = list(size = 2),
-            keywidth = unit(0.3, "cm"),
-            keyheight = unit(0.3, "cm")
-          )) +
-          theme_bw() +
-          theme(
-            legend.key.size = unit(0, "mm"),
-            legend.title = element_text(size = 6),
-            legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
-            legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
-            legend.box.spacing = unit(0, "lines"),
-            legend.spacing.y = unit(-10, "lines"),
-            legend.spacing.x = unit(0, "lines"),
-            legend.key.height = unit(0, "lines"),
-            legend.key.width = unit(0, "mm"),
-            legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
-            legend.margin = margin(0, 0, 0, 0),
-            legend.position = "top",
-            legend.box = "vertical",
-            legend.justification = 'left',
-            panel.grid.major = element_blank(),
-            panel.grid.minor = element_blank(),
-            panel.background = element_blank(),
-            axis.title = element_text(size = 12),
-            axis.text = element_text(size = 12),
-            axis.line = element_line(colour = "black"),
-            axis.text.x = element_text(size = 10, angle = 0, hjust = 0, vjust = 1),
-            axis.text.y = element_text(size = 10),
-            plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
-            plot.title.position = "plot",
-            plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
-            plot.caption = element_text(size = 10),
-            plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
-            strip.text = element_text(size = 14)
-          )
-      }
-    }
-  }
-
   # plot 14: fOverWidth second/first ratio vs first
   p14 <- NULL
   p14_data <- NULL
@@ -3082,7 +3321,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                       y = ratio_second_first, 
                       color = participant)) +
           geom_point(size = 4, alpha = 0.8) +
-          geom_hline(yintercept = 1, linetype = "solid", color = "gray50", linewidth = 1) +  # Reference line at ratio = 1
+          geom_hline(yintercept = 1, linetype = "dashed", color = "gray50", linewidth = 1) +  # Reference line at ratio = 1
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
                               label = statement, size = 3, family = "sans", fontface = "plain") +
           scale_color_manual(values = colorPalette) +
@@ -3148,7 +3387,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     credit_card_fraction = list(plot = p2, height = plot_height),
     eye_feet_position = list(plot = p4, height = eye_feet_height),
     foot_position_calibration = list(plot = p4b, height = if (!is.null(p4b_height)) p4b_height else plot_height),
-    calibrated_vs_mean = list(plot = p5, height = if (!is.null(p5)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     calibration_over_check_vs_check = list(plot = p5b, height = if (!is.null(p5b)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     calibrated_over_mean_vs_spot = list(plot = p6, height = if (!is.null(p6)) compute_auto_height(base_height = 7, n_items = n_distinct(distance$participant), per_row = 3, row_increase = 0.06) else NULL),
     calibrated_over_median_hist = list(
@@ -3179,12 +3417,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           0.24 * max(p10_max_count, 8)
       } else NULL
     ),
-    fOverWidth_second_vs_first = list(
-      plot = p13,
-      height = if (!is.null(p13)) {
-        compute_auto_height(base_height = 7, n_items = n_distinct(fOverWidth_wide$participant), per_row = 3, row_increase = 0.06)
-      } else NULL
-    ),
     fOverWidth_ratio_vs_first = list(
       plot = p14,
       height = if (!is.null(p14) && !is.null(p14_data)) {
@@ -3200,8 +3432,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   sizeCheck <- distanceCalibrationResults$sizeCheck
   statement <- distanceCalibrationResults$statement
   raw_pxPerCm <- distanceCalibrationResults$raw_pxPerCm %>%
-   rename(avg_estimated = pxPerCm) %>%
-   select(participant, avg_estimated)
+   select(participant, pxPerCm, requestedCm)
   # Check if the data is empty
   if (nrow(sizeCheck) == 0) {
     return(NULL)
@@ -3436,16 +3667,40 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   } else {
     h2 = NULL
   }
-  pixelDensity_data <- rbind(sizeCheck_avg %>% select(participant, avg_estimated,SizeCheckRequestedCm_jitter) %>% mutate(type = "check"),
-                             raw_pxPerCm %>% mutate(SizeCheckRequestedCm_jitter = 8.56) %>% mutate(type = "calibration") ) 
+  # Prepare calibration data with actual requested sizes
+  calibration_data <- raw_pxPerCm %>%
+    rename(avg_estimated = pxPerCm) %>%
+    mutate(
+      SizeCheckRequestedCm_jitter = add_log_jitter(requestedCm, jitter_percent = 5, seed = 43),
+      type = "calibration"
+    ) %>%
+    select(participant, avg_estimated, SizeCheckRequestedCm_jitter, type)
+  
+  # Combine check and calibration data
+  pixelDensity_data <- rbind(
+    sizeCheck_avg %>% select(participant, avg_estimated, SizeCheckRequestedCm_jitter) %>% mutate(type = "check"),
+    calibration_data
+  )
+  
   ymin = max(5,floor(min(pixelDensity_data$avg_estimated) / 10 - 1) * 10)
   ymax = ceiling(max(pixelDensity_data$avg_estimated) / 10 + 1) * 10
 
   p1 <- ggplot(data=pixelDensity_data) + 
-    geom_line(aes(x = SizeCheckRequestedCm_jitter, 
+    # Solid lines for calibration points
+    geom_line(data = pixelDensity_data %>% filter(type == "calibration"),
+              aes(x = SizeCheckRequestedCm_jitter, 
                   y = avg_estimated,
                   color = participant,
-                  group = interaction(participant, type)), 
+                  group = participant), 
+              linetype = "solid",
+              alpha = 0.7) +
+    # Dashed lines for check points  
+    geom_line(data = pixelDensity_data %>% filter(type == "check"),
+              aes(x = SizeCheckRequestedCm_jitter, 
+                  y = avg_estimated,
+                  color = participant,
+                  group = participant), 
+              linetype = "dashed",
               alpha = 0.7) +
     geom_point(aes(x = SizeCheckRequestedCm_jitter, 
                    y = avg_estimated,
@@ -3461,14 +3716,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement,
                         size = 3, family = "sans", fontface = "plain") + 
     scale_x_log10(
-      breaks = function(lims) {
-        lo <- floor(min(sizeCheck_avg$SizeCheckRequestedCm, na.rm = TRUE) / 10) * 10
-        hi <- ceiling(max(sizeCheck_avg$SizeCheckRequestedCm, na.rm = TRUE) / 10) * 10
-        if (is.na(lo) || is.na(hi)) return(NULL)
-        lo <- max(10, lo)
-        br <- seq(lo, hi, by = 10)
-        br[!(br %in% c(60, 80, 100, 110))]
-      },
+      breaks = scales::log_breaks(n = 8),
       labels = scales::label_number(accuracy = 1)
     ) +
     scale_y_log10(breaks = scales::log_breaks(n=8),
@@ -3625,7 +3873,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
 
         p5 <- ggplot(error_vs_object_data, aes(x = objectLengthCm, y = production_fraction)) +
           geom_point(aes(color = participant), size = 3, alpha = 0.8) +
-          geom_hline(yintercept = 1, linetype = "dashed", color = "red", alpha = 0.7) +
+          geom_hline(yintercept = 1, linetype = "dashed", color = "black", alpha = 0.7) +
           ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                               label = paste0('N=', n_distinct(error_vs_object_data$participant))) +
           scale_x_log10(limits = c(x_min, x_max),
@@ -3643,7 +3891,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
           labs(subtitle = 'Error vs. object size',
                x = 'Object length (cm)',
                y = 'Check measured / requested distance',
-               caption = 'Red dashed line shows perfect accuracy (ratio = 1.0)')
+               caption = 'Dashed line shows perfect accuracy (ratio = 1.0)')
       }
     }
   }
@@ -4315,7 +4563,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
     geom_line(aes(color = participant, group = participant),
               linewidth = 0.5, alpha = 0.6) +
     # Add identity line (if eyesToPointCm == requestedEyesToFootCm, perfect horizontal viewing)
-    geom_abline(slope = 1, intercept = 0, linetype = "dotted", color = "gray50") +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
     scale_x_log10(
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 1)
@@ -4345,7 +4593,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
       subtitle = 'eyesToPointCm vs. requestedEyesToFootCm',
       x = 'requestedEyesToFootCm (cm)',
       y = 'eyesToPointCm (cm)',
-      caption = 'Measured line-of-sight distance vs. requested horizontal distance.\nDotted line: y = x (horizontal viewing)'
+      caption = 'Measured line-of-sight distance vs. requested horizontal distance.\nDashed line: y = x (horizontal viewing)'
     )
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
