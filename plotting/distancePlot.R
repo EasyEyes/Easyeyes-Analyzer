@@ -4557,8 +4557,8 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     ) +
     labs(
       subtitle = 'imageBasedEyesToFootCm vs. rulerBasedEyesToFootCm',
-      x = 'imageBasedEyesToFootCm',
-      y = 'rulerBasedEyesToFootCm',
+      x = 'rulerBasedEyesToFootCm',
+      y = 'imageBasedEyesToFootCm',
       caption = paste0('eyesToFootCm = fVpx * ipdCm / ipdVpx, where ipdCm = ', ipdCm_standard, ' cm\n',
                        'Dashed line: perfect agreement (estimated = requested)')
     )
