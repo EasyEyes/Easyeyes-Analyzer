@@ -1266,7 +1266,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       
       # Parse distanceCheckJSON
         # Extract measuredEyesToPointCm and requestedEyesToPointCm for correct distance ratio
-        measuredEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$eyesToPointCm))
+        measuredEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$rulerBasedEyesToPointCm))
         requestedEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$requestedEyesToPointCm))
         
         tmp <- tibble(
@@ -1275,13 +1275,13 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           requestedEyesToPointCm = requestedEyesToPointCm_vals,
           eyesToPointCm = measuredEyesToPointCm_vals,  # Keep for backward compatibility
           footToPointCm = suppressWarnings(as.numeric(distanceCheck$footToPointCm)),
+          rulerBasedEyesToFootCm = suppressWarnings(as.numeric(distanceCheck$rulerBasedEyesToFootCm)),
           ipdVpx        = suppressWarnings(as.numeric(distanceCheck$ipdVpx)),
           ipdCm         = first(na.omit(t_tjson$ipdCm))
         ) %>%
           mutate(
             # Measured eyesToFootCm (derived from measured eyesToPointCm)
-            eyeToFootCm = ifelse(is.finite(eyesToPointCm) & is.finite(footToPointCm) & eyesToPointCm >= footToPointCm,
-                                 sqrt(eyesToPointCm^2 - footToPointCm^2), NA_real_),
+            eyeToFootCm = rulerBasedEyesToFootCm,
             # Requested eyesToFootCm (derived from requested eyesToPointCm)
             requestedEyesToFootCm = ifelse(is.finite(requestedEyesToPointCm) & is.finite(footToPointCm) & requestedEyesToPointCm >= footToPointCm,
                                            sqrt(requestedEyesToPointCm^2 - footToPointCm^2), NA_real_),
