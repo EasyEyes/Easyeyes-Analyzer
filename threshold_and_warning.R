@@ -708,6 +708,60 @@ generate_threshold <-
         select(participant, Object)
     }
     
+    # Extract objectSuggestion from distanceCalibrationJSON
+    object_suggestion_from_json <- tibble(participant = character(), objectSuggestion = character())
+    for (i in 1:length(data_list)) {
+      json_col <- if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
+        "distanceCalibrationJSON"
+      } else if ("distanceCalibrationTJSON" %in% names(data_list[[i]])) {
+        "distanceCalibrationTJSON"
+      } else {
+        NULL
+      }
+      
+      if (!is.null(json_col)) {
+        tryCatch({
+          participant_id <- first(na.omit(data_list[[i]]$participant))
+          if (is.na(participant_id) || participant_id == "") next
+          
+          raw_json <- data_list[[i]][[json_col]]
+          raw_json <- raw_json[!is.na(raw_json) & raw_json != ""]
+          if (length(raw_json) == 0) next
+          
+          json_txt <- raw_json[1]
+          # Sanitize JSON string
+          json_txt <- trimws(as.character(json_txt))
+          if (nchar(json_txt) >= 2 && substr(json_txt, 1, 1) == '"' && substr(json_txt, nchar(json_txt), nchar(json_txt)) == '"') {
+            json_txt <- substr(json_txt, 2, nchar(json_txt) - 1)
+          }
+          json_txt <- gsub('""', '"', json_txt, fixed = TRUE)
+          json_txt <- gsub("\\\\n", " ", json_txt)
+          json_txt <- gsub("\\\\t", " ", json_txt)
+          json_txt <- gsub("\n", " ", json_txt)
+          json_txt <- gsub("\t", " ", json_txt)
+          
+          parsed_json <- jsonlite::fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
+          
+          # Extract objectSuggestion (top-level array in distanceCalibrationJSON)
+          if (!is.null(parsed_json$objectSuggestion)) {
+            obj_suggestion <- parsed_json$objectSuggestion
+            # Get the first non-empty value from the array
+            non_empty_suggestions <- obj_suggestion[!is.na(obj_suggestion) & obj_suggestion != ""]
+            if (length(non_empty_suggestions) > 0) {
+              object_suggestion_from_json <- rbind(object_suggestion_from_json, 
+                tibble(participant = participant_id, objectSuggestion = non_empty_suggestions[1]))
+            } else {
+              # If all values are empty, still record the participant with empty string
+              object_suggestion_from_json <- rbind(object_suggestion_from_json, 
+                tibble(participant = participant_id, objectSuggestion = ""))
+            }
+          }
+        }, error = function(e) {
+          # Skip if JSON parsing fails
+        })
+      }
+    }
+    
     sessions_data <- generate_summary_table(data_list, stairs, pretest, prolific)
     
     # Extract the needed columns from sessions data
@@ -724,6 +778,7 @@ generate_threshold <-
       rename(participant = PavloviaParticipantID) %>%
       left_join(comments_data, by = "participant") %>%
       left_join(objects_data, by = "participant") %>%
+      left_join(object_suggestion_from_json, by = "participant") %>%
       full_join(participant_info, by = "participant") %>%
       rename(PavloviaParticipantID = participant) %>%
       mutate(
@@ -732,7 +787,7 @@ generate_threshold <-
           !is.na(rulerCm) ~ format(round(rulerCm), nsmall = 0),
           .default = NA_character_
         ),
-        screenWidthCm = format(round(screenWidthCm), nsmall = 0),
+        screenWidthCm = format(round(screenWidthCm, 1), nsmall = 1),
         # Format pxPerCm with 1 decimal place
         pxPerCm = ifelse(!is.na(pxPerCm), format(round(as.numeric(pxPerCm), 1), nsmall = 1), NA_character_),
         # Use objectName from CSV as fallback for Object when empty
@@ -743,7 +798,7 @@ generate_threshold <-
         )
       ) %>%
       select(ok, PavloviaParticipantID, `device type`, system, browser, `Prolific min`, 
-             screenWidthCm, screenResolutionXY, rulerCm, pxPerCm, objectLengthCm, Object, Comment) %>%
+             screenWidthCm, screenResolutionXY, rulerCm, pxPerCm, objectLengthCm, Object, objectSuggestion, Comment) %>%
       mutate(
         ok_priority = case_when(
           ok == "✅" ~ 1,  # ✅ (white_check_mark) first

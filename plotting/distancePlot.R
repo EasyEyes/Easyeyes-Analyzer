@@ -1268,12 +1268,16 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         # Extract measuredEyesToPointCm and requestedEyesToPointCm for correct distance ratio
         measuredEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$rulerBasedEyesToPointCm))
         requestedEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$requestedEyesToPointCm))
+        imageBasedEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$imageBasedEyesToPointCm))
+        rulerBasedEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$rulerBasedEyesToPointCm))
         
         tmp <- tibble(
           participant   = first(na.omit(dl$participant)),
           measuredEyesToPointCm = measuredEyesToPointCm_vals,
           requestedEyesToPointCm = requestedEyesToPointCm_vals,
           eyesToPointCm = measuredEyesToPointCm_vals,  # Keep for backward compatibility
+          imageBasedEyesToPointCm = imageBasedEyesToPointCm_vals,
+          rulerBasedEyesToPointCm = rulerBasedEyesToPointCm_vals,
           footToPointCm = suppressWarnings(as.numeric(distanceCheck$footToPointCm)),
           rulerBasedEyesToFootCm = suppressWarnings(as.numeric(distanceCheck$rulerBasedEyesToFootCm)),
           ipdVpx        = suppressWarnings(as.numeric(distanceCheck$ipdVpx)),
@@ -2387,7 +2391,17 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       # Add consistent logarithmic horizontal jitter to x-axis variable (unbiased for log scales)
       checkDistanceRequestedCm = as.numeric(requestedEyesToPointCm),
       checkDistanceMeasuredCm = as.numeric(eyesToPointCm),
-      CheckDistanceRequestedCm_jitter = add_log_jitter(checkDistanceRequestedCm, jitter_percent = 2, seed = 42)
+      CheckDistanceRequestedCm_jitter = add_log_jitter(checkDistanceRequestedCm, jitter_percent = 2, seed = 42),
+      # For "Measured vs. requested distance" plot (p1):
+      # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm
+      p1_x = as.numeric(rulerBasedEyesToPointCm),
+      p1_y = as.numeric(imageBasedEyesToPointCm),
+      p1_x_jitter = add_log_jitter(p1_x, jitter_percent = 2, seed = 42),
+      # For "Measured over requested distance" plot (p2):
+      # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToPointCm
+      p2_x = as.numeric(rulerBasedEyesToPointCm),
+      p2_y = as.numeric(imageBasedEyesToPointCm) / as.numeric(rulerBasedEyesToPointCm),
+      p2_x_jitter = add_log_jitter(p2_x, jitter_percent = 2, seed = 42)
     )
 
   # Calculate the ratio Y/X for the second plot
@@ -2395,6 +2409,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     mutate(
       credit_card_fraction = checkDistanceMeasuredCm / checkDistanceRequestedCm
     )
+  
 
   # Calculate mean and SD of the ratio for reporting
   mean_fraction <- mean(distance_individual$credit_card_fraction, na.rm = TRUE)
@@ -2411,40 +2426,72 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   max_val <- 5 * ceiling(max(c(distance_individual$CheckDistanceRequestedCm_jitter,
                                distance_individual$checkDistanceMeasuredCm), na.rm = TRUE) / 5)
   
+  # Scale limits for p1 (Measured vs. requested distance plot)
+  p1_min_val <- 5 * floor(min(c(distance_individual$p1_x_jitter, 
+                                 distance_individual$p1_y), na.rm = TRUE) / 5) 
+  p1_min_val = max(10, p1_min_val)
+  p1_max_val <- 5 * ceiling(max(c(distance_individual$p1_x_jitter,
+                                   distance_individual$p1_y), na.rm = TRUE) / 5)
+  
   # Calculate dynamic y-axis limits for the fraction plot based on actual data
   minFrac <- max(0.1, min(0.5, floor(distance_individual$credit_card_fraction * 10) / 10))
   maxFrac <- max(1.5, ceiling(distance_individual$credit_card_fraction * 10) / 10)
   
-  # Plot 1: Credit-card-measured vs requested distance (INDIVIDUAL MEASUREMENTS)
+  # Scale limits for p2 (Measured over requested distance plot)
+  p2_x_min_val <- 5 * floor(min(distance_individual$p2_x_jitter, na.rm = TRUE) / 5)
+  p2_x_min_val <- max(10, p2_x_min_val)
+  p2_x_max_val <- 5 * ceiling(max(distance_individual$p2_x_jitter, na.rm = TRUE) / 5)
+  p2_y_minFrac <- max(0.1, min(0.5, floor(min(distance_individual$p2_y, na.rm = TRUE) * 10) / 10))
+  p2_y_maxFrac <- max(1.5, ceiling(max(distance_individual$p2_y, na.rm = TRUE) * 10) / 10)
+  
+  # Calculate mean and SD for p2 ratio
+  p2_mean_fraction <- mean(distance_individual$p2_y, na.rm = TRUE)
+  p2_sd_fraction <- sd(distance_individual$p2_y, na.rm = TRUE)
+  p2_mean_formatted <- format(round(p2_mean_fraction, 3), nsmall = 3)
+  p2_sd_formatted <- format(round(p2_sd_fraction, 3), nsmall = 3)
+  
+  # Plot 1: Measured vs. requested distance (INDIVIDUAL MEASUREMENTS)
+  # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm
+  p1_data <- distance_individual %>%
+    arrange(participant, p1_x_jitter) %>%
+    filter(!is.na(p1_x_jitter), !is.na(p1_y))
+  
+  # Plot 2 data: Measured over requested distance
+  # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToPointCm
+  p2_data <- distance_individual %>%
+    arrange(participant, p2_x_jitter) %>%
+    filter(!is.na(p2_x_jitter), !is.na(p2_y))
+  
+  # Keep original filter for other plots
   distance_individual <- distance_individual %>%
     arrange(participant, CheckDistanceRequestedCm_jitter) %>%  # Ensure proper ordering
     filter(!is.na(CheckDistanceRequestedCm_jitter),
            !is.na(checkDistanceMeasuredCm))
   p1 <- NULL
-  if (nrow(distance_individual) > 0) {
+  if (nrow(p1_data) > 0) {
   p1 <- ggplot() + 
-      geom_line(data=distance_individual,
-              aes(x = CheckDistanceRequestedCm_jitter, 
-                    y = checkDistanceMeasuredCm,
+      geom_line(data=p1_data,
+              aes(x = p1_x_jitter, 
+                    y = p1_y,
                   color = participant, 
                   group = participant), alpha = 0.7) +
-      geom_point(data=distance_individual, 
-               aes(x = CheckDistanceRequestedCm_jitter, 
-                     y = checkDistanceMeasuredCm,
+      geom_point(data=p1_data, 
+               aes(x = p1_x_jitter, 
+                     y = p1_y,
                    color = participant), 
                size = 2) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
-                          label = paste0('N=', n_distinct(distance_individual$participant))) + 
+                          label = paste0('N=', n_distinct(p1_data$participant))) + 
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
       scale_x_log10(
-        limits = c(min_val, max_val),
+        limits = c(p1_min_val, p1_max_val),
         breaks = scales::log_breaks(n = 6),
         labels = scales::label_number(accuracy = 1)
       ) +
-      scale_y_log10(limits = c(min_val, max_val), breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) + 
+      scale_y_log10(limits = c(p1_min_val, p1_max_val), breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
     guides(color = guide_legend(
@@ -2457,39 +2504,40 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
     coord_fixed() +  
     labs(subtitle = 'Measured vs. requested distance',
-         x = 'Requested distance (cm)',
-         y = 'Measured distance (cm)',
+         x = 'rulerBasedEyesToPointCm (cm)',
+         y = 'imageBasedEyesToPointCm (cm)',
            caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
   
   }
  
-  # Plot 2: Credit-card-measured as fraction of requested distance (INDIVIDUAL MEASUREMENTS)
+  # Plot 2: Measured over requested distance (INDIVIDUAL MEASUREMENTS)
+  # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToPointCm
   p2 <- ggplot() + 
-    geom_line(data=distance_individual,
-              aes(x = CheckDistanceRequestedCm_jitter, 
-                  y = credit_card_fraction,
+    geom_line(data=p2_data,
+              aes(x = p2_x_jitter, 
+                  y = p2_y,
                   color = participant, 
                   group = participant), alpha = 0.7) +
-    geom_point(data=distance_individual, 
-               aes(x = CheckDistanceRequestedCm_jitter, 
-                   y = credit_card_fraction,
+    geom_point(data=p2_data, 
+               aes(x = p2_x_jitter, 
+                   y = p2_y,
                    color = participant), 
                size = 2) + 
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
-                        label = paste0('N=', n_distinct(distance_individual$participant), '\n',
-                                       'Mean=', mean_formatted, '\n',
-                                       'SD=', sd_formatted)) + 
+                        label = paste0('N=', n_distinct(p2_data$participant), '\n',
+                                       'Mean=', p2_mean_formatted, '\n',
+                                       'SD=', p2_sd_formatted)) + 
     geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
     scale_linetype_manual(values = c("TRUE" = "solid", "FALSE" = "dotted"),
                           labels = c("TRUE" = "", "FALSE" = "Dotting of line indicates unreliable length production.")) +
     scale_x_log10(
-      limits = c(min_val, max_val),
+      limits = c(p2_x_min_val, p2_x_max_val),
       breaks = scales::log_breaks(n = 6),
                   expand = expansion(mult = c(0.05, 0.05)),
       labels = scales::label_number(accuracy = 1)
     ) + 
-    scale_y_log10(limits = c(minFrac, maxFrac),
+    scale_y_log10(limits = c(p2_y_minFrac, p2_y_maxFrac),
                    breaks = seq(0.6, 1.4, by = 0.1)) + 
     scale_color_manual(values= colorPalette) + 
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
@@ -2502,8 +2550,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     ),
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
     labs(subtitle = 'Measured over requested distance',
-         x = 'Requested distance (cm)',
-         y = 'Measured over requested distance',
+         x = 'rulerBasedEyesToPointCm (cm)',
+         y = 'imageBasedEyesToPointCm / rulerBasedEyesToPointCm',
          caption = 'Lines connect measurements from the same session.\nLogarithmic horizontal jitter added to reduce overlap (unbiased for log scales)')
 
   # Plot 4: Eye feet position vs distance error
@@ -3846,57 +3894,8 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
       production_fraction = checkDistanceMeasuredCm / requestedEyesToPointCm
     ) %>%
       filter(is.finite(production_fraction))
-    
-  # Plot 1: Error vs. object size (check distance accuracy vs object size)
-  p5 <- NULL
-  if (nrow(distance_avg) > 0 && !is.null(participant_info) && nrow(participant_info) > 0) {
-    # Check if objectLengthCm has valid values
-    has_valid_object_lengths <- any(!is.na(participant_info$objectLengthCm) & 
-                                   participant_info$objectLengthCm != "" & 
-                                   participant_info$objectLengthCm != "NA")
-    
-    if (has_valid_object_lengths) {
-      # Join with participant_info to get objectLengthCm
-      error_vs_object_data <- distance_avg %>%
-        left_join(participant_info %>% select(participant = PavloviaParticipantID, objectLengthCm),
-                  by = "participant") %>%
-        filter(!is.na(objectLengthCm), !is.na(production_fraction), 
-               objectLengthCm != "", objectLengthCm != "NA") %>% 
-        mutate(objectLengthCm = as.numeric(objectLengthCm))
-
-      if (nrow(error_vs_object_data) > 0) {
-        # Calculate scale limits
-        x_min <- max(1, min(error_vs_object_data$objectLengthCm) * 0.8 - 10)
-        x_max <- max(error_vs_object_data$objectLengthCm) * 1.2 + 10
-        y_min <- max(0.1, min(error_vs_object_data$production_fraction) * 0.8)
-        y_max <- min(2.0, max(error_vs_object_data$production_fraction) * 1.2)
-
-        p5 <- ggplot(error_vs_object_data, aes(x = objectLengthCm, y = production_fraction)) +
-          geom_point(aes(color = participant), size = 3, alpha = 0.8) +
-          geom_hline(yintercept = 1, linetype = "dashed", color = "black", alpha = 0.7) +
-          ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                              label = paste0('N=', n_distinct(error_vs_object_data$participant))) +
-          scale_x_log10(limits = c(x_min, x_max),
-            breaks = c(10, 20, 30, 40, 50, 70, 90, 120),
-                        labels = scales::label_number(accuracy = 1)) +
-           scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
-          annotation_logticks() +
-          scale_color_manual(values = colorPalette) +
-          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-          guides(color = guide_legend(ncol = 4, title = "",
-            override.aes = list(size = 2),
-            keywidth = unit(1.2, "lines"),
-                                      keyheight = unit(0.8, "lines"))) +
-          coord_fixed() +
-          labs(subtitle = 'Error vs. object size',
-               x = 'Object length (cm)',
-               y = 'Check measured / requested distance',
-               caption = 'Dashed line shows perfect accuracy (ratio = 1.0)')
-      }
-    }
-  }
  
-  # Plot 2: Error vs. blindspot diameter
+  # Plot: Error vs. blindspot diameter
   blindspot_data <- distanceCalibrationResults$blindspot
   p6 <- NULL
   if (nrow(distance_avg) > 0 && nrow(blindspot_data) > 0) {
@@ -3942,12 +3941,6 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
   plot_height <- compute_auto_height(base_height = base_height, n_items = n_participants, per_row = 3, row_increase = 0.06)
 
   return(list(
-    error_vs_object_size = list(
-      plot = p5,
-      height = if (!is.null(p5)) compute_auto_height(base_height = 7,
-                                                     n_items = n_distinct(error_vs_object_data$participant),
-                                                     per_row = 3, row_increase = 0.06) else NULL
-    ),
     error_vs_blindspot_diameter = list(
       plot = p6,
       height = if (!is.null(p6)) compute_auto_height(base_height = 7,
@@ -4401,9 +4394,9 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
           legend.key.size = unit(0.4, "cm"),
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
-    labs(subtitle = '(ipdOverWidth*requestedEyesToFootCm/ipdCm) vs.\nrequestedEyesToFootCm',
+    labs(subtitle = 'fOverWidth vs. requestedEyesToFootCm',
          x = 'requestedEyesToFootCm',
-         y = 'ipdOverWidth*requestedEyesToFootCm/ipdCm',
+         y = 'fOverWidth',
          caption = 'Dotted lines: focal length from calibration (ipdOverWidth * requestedEyesToFootCm / ipdCm = factorVpxCm/ipdCm)')
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(ipd_data$participant), per_row = 3, row_increase = 0.06)
@@ -4413,130 +4406,13 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
                                                              height = p_height)))
 }
 
-# =============================================================================
-# NEW PLOT: fOverWidth vs requestedEyesToFootCm (log-log)
-# =============================================================================
-# Shows fOverWidth (fVpx / widthVpx) as a function of requestedEyesToFootCm
-# One point per snapshot, calibration points connected, check points connected
-
-plot_fOverWidth_vs_requestedEyesToFootCm <- function(distanceCalibrationResults) {
-  
-  camera <- distanceCalibrationResults$camera
-  
-  # Prepare calibration data (TJSON)
-  # For calibration, requestedEyesToFootCm = eyeToFootCm (calibration establishes baseline)
-  calib_data <- distanceCalibrationResults$TJSON %>%
-    left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
-    filter(!is.na(fVpx), is.finite(fVpx), !is.na(widthVpx), widthVpx > 0) %>%
-    mutate(
-      fOverWidth = fVpx / widthVpx,
-      requestedEyesToFootCm = eyeToFootCm,  # During calibration, requested == measured
-      type = 'calibration'
-    ) %>%
-    filter(is.finite(fOverWidth), is.finite(requestedEyesToFootCm), 
-           fOverWidth > 0, requestedEyesToFootCm > 0) %>%
-    group_by(participant) %>%
-    mutate(snapshot_order = row_number()) %>%
-    ungroup() %>%
-    select(participant, fOverWidth, requestedEyesToFootCm, type, snapshot_order)
-  
-  # Prepare check data (checkJSON)
-  check_data <- distanceCalibrationResults$checkJSON %>%
-    left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
-    filter(!is.na(fVpx), is.finite(fVpx), !is.na(widthVpx), widthVpx > 0) %>%
-    mutate(
-      fOverWidth = fVpx / widthVpx,
-      type = 'check'
-    ) %>%
-    filter(is.finite(fOverWidth), is.finite(requestedEyesToFootCm),
-           fOverWidth > 0, requestedEyesToFootCm > 0) %>%
-    group_by(participant) %>%
-    mutate(snapshot_order = row_number()) %>%
-    ungroup() %>%
-    select(participant, fOverWidth, requestedEyesToFootCm, type, snapshot_order)
-  
-  # Combine data
-  plot_data <- rbind(calib_data, check_data)
-  
-  if (nrow(plot_data) == 0) {
-    return(list(plot = NULL, height = NULL))
-  }
-  
-  # Create the log-log plot
-  p <- ggplot() +
-    # Data lines: solid for both calibration and check, with linetype mapping for legend
-    geom_line(data = plot_data %>% arrange(participant, type, snapshot_order),
-              aes(x = requestedEyesToFootCm, y = fOverWidth,
-                  color = participant, linetype = type,
-                  group = interaction(participant, type)),
-              linewidth = 0.75, alpha = 0.8) +
-    # Points with shapes for calibration vs check
-    geom_point(data = plot_data,
-               aes(x = requestedEyesToFootCm, y = fOverWidth,
-                   color = participant, shape = type),
-               size = 2) +
-    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                        label = paste0('N=', n_distinct(plot_data$participant))) +
-    scale_x_log10(
-      breaks = scales::log_breaks(n = 6),
-      labels = scales::label_number(accuracy = 1)
-    ) +
-    scale_y_log10(
-      breaks = scales::log_breaks(n = 8),
-      labels = scales::label_number(accuracy = 0.01)
-    ) +
-    # Shape: filled circle for calibration (16), hollow/open circle for check (1)
-    scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
-                       labels = c(calibration = "calibration", check = "check")) +
-    # Linetype: solid for both calibration and check
-    scale_linetype_manual(name = "", values = c(calibration = "solid", check = "solid"),
-                          labels = c(calibration = "calibration", check = "check")) +
-    scale_color_manual(values = colorPalette) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
-                        label = distanceCalibrationResults$statement) +
-    guides(
-      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5),
-                           keywidth = unit(0.8, "lines"), keyheight = unit(0.6, "lines")),
-      shape = guide_legend(title = "", override.aes = list(size = 2)),
-      linetype = guide_legend(title = "", override.aes = list(linewidth = 0.75))
-    ) +
-    labs(subtitle = 'fOverWidth vs. requestedEyesToFootCm',
-         x = 'requestedEyesToFootCm (cm)',
-         y = 'fOverWidth') +
-    theme_bw() +
-    theme(
-      legend.position = "top",
-      legend.box = "vertical",
-      legend.text = element_text(size = 6),
-      legend.spacing.y = unit(0, "lines"),
-      legend.key.size = unit(0.4, "cm"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      panel.background = element_blank(),
-      axis.title = element_text(size = 12),
-      axis.text = element_text(size = 12),
-      axis.line = element_line(colour = "black"),
-      axis.text.x = element_text(size = 10, angle = 0, hjust = 0.5, vjust = 1),
-      axis.text.y = element_text(size = 10),
-      plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
-      plot.title.position = "plot",
-      plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
-      plot.caption = element_text(size = 10),
-      plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
-      strip.text = element_text(size = 14)
-    )
-  
-  p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
-  
-  return(list(plot = p, height = p_height))
-}
 
 # =============================================================================
 # NEW PLOTS: Distance geometry analysis
 # =============================================================================
 
-# Plot 2: eyeToPointCm vs. requestedEyesToFootCm  
-# Shows measured line-of-sight distance as function of requested horizontal distance
+# Plot 2: imageBasedEyesToPointCm vs. rulerBasedEyesToFootCm  
+# Shows measured line-of-sight distance as function of ruler-based horizontal distance
 plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResults) {
   
   check_data <- distanceCalibrationResults$checkJSON
@@ -4545,24 +4421,27 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
     return(list(plot = NULL, height = NULL))
   }
   
-  # Prepare data - eyesToPointCm is the measured eyes-to-point distance
+  # Prepare data - use imageBasedEyesToPointCm (vertical) and rulerBasedEyesToFootCm (horizontal)
   plot_data <- check_data %>%
-    mutate(# Rename for clarity
-      type = 'check'
+    mutate(
+      type = 'check',
+      plot_x = as.numeric(rulerBasedEyesToFootCm),
+      plot_y = as.numeric(imageBasedEyesToPointCm)
     ) %>%
-    select(participant, requestedEyesToFootCm, eyesToPointCm, ipdVpx, type) %>%
-    filter(is.finite(requestedEyesToFootCm), is.finite(eyesToPointCm))
+    select(participant, plot_x, plot_y, rulerBasedEyesToFootCm, imageBasedEyesToPointCm, ipdVpx, type) %>%
+    filter(is.finite(plot_x), is.finite(plot_y))
+  
   
   if (nrow(plot_data) == 0) {
     return(list(plot = NULL, height = NULL))
   }
   
   # Create the plot
-  p <- ggplot(plot_data, aes(x = requestedEyesToFootCm, y = eyesToPointCm)) +
+  p <- ggplot(plot_data, aes(x = plot_x, y = plot_y)) +
     geom_point(aes(color = participant), size = 2.5, alpha = 0.8) +
     geom_line(aes(color = participant, group = participant),
               linewidth = 0.5, alpha = 0.6) +
-    # Add identity line (if eyesToPointCm == requestedEyesToFootCm, perfect horizontal viewing)
+    # Add identity line (if imageBasedEyesToPointCm == rulerBasedEyesToFootCm, perfect horizontal viewing)
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
     scale_x_log10(
       breaks = scales::log_breaks(n = 6),
@@ -4590,10 +4469,10 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
       plot.margin = margin(5, 5, 5, 5, "pt")
     ) +
     labs(
-      subtitle = 'eyesToPointCm vs. requestedEyesToFootCm',
-      x = 'requestedEyesToFootCm (cm)',
-      y = 'eyesToPointCm (cm)',
-      caption = 'Measured line-of-sight distance vs. requested horizontal distance.\nDashed line: y = x (horizontal viewing)'
+      subtitle = 'imageBasedEyesToPointCm vs. rulerBasedEyesToFootCm',
+      x = 'rulerBasedEyesToFootCm (cm)',
+      y = 'imageBasedEyesToPointCm (cm)',
+      caption = 'Measured line-of-sight distance vs. ruler-based horizontal distance.\nDashed line: y = x (horizontal viewing)'
     )
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
@@ -4677,9 +4556,9 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
       plot.margin = margin(5, 5, 5, 5, "pt")
     ) +
     labs(
-      subtitle = 'eyesToFootCm (via ipdVpx) vs. requestedEyesToFootCm',
-      x = 'requestedEyesToFootCm (cm)',
-      y = 'eyesToFootCm (cm)',
+      subtitle = 'imageBasedEyesToFootCm vs. rulerBasedEyesToFootCm',
+      x = 'imageBasedEyesToFootCm',
+      y = 'rulerBasedEyesToFootCm',
       caption = paste0('eyesToFootCm = fVpx * ipdCm / ipdVpx, where ipdCm = ', ipdCm_standard, ' cm\n',
                        'Dashed line: perfect agreement (estimated = requested)')
     )
