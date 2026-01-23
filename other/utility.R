@@ -136,15 +136,60 @@ safely_execute <- function(expression, error_message = "Error occurred", return_
   return(result)
 }
 
-append_plot_list <- function(plotList, fileNames, plot, fname, height = NULL, heights = list()) {
+append_plot_list <- function(plotList, fileNames, plot, fname, height = NULL, heights = list(), show_placeholder = TRUE) {
   # Default height in inches
   default_height <- 4
   if (!is.null(plot)) {
     plotList[[length(plotList) + 1]] <- plot
     fileNames[[length(fileNames) + 1]] <- fname
     heights[[length(heights) + 1]] <- ifelse(is.null(height), default_height, height)
+  } else if (show_placeholder) {
+    # Create a placeholder plot showing the missing plot name
+    placeholder_plot <- ggplot() +
+      annotate(
+        "text",
+        x = 0.5,
+        y = 0.6,
+        label = paste0("Plot Missing:\n", fname),
+        hjust = 0.5,
+        vjust = 0.5,
+        size = 5,
+        fontface = "bold",
+        color = "#666666"
+      ) +
+      annotate(
+        "text",
+        x = 0.5,
+        y = 0.35,
+        label = "(Insufficient data or missing required fields)",
+        hjust = 0.5,
+        vjust = 0.5,
+        size = 3.5,
+        color = "#999999"
+      ) +
+      xlim(0, 1) +
+      ylim(0, 1) +
+      theme_void() +
+      theme(
+        panel.border = element_rect(color = "#CCCCCC", fill = NA, linewidth = 1),
+        plot.background = element_rect(fill = "#F8F8F8", color = NA)
+      )
+    
+    # Mark this as a placeholder plot so it can be skipped during download
+    class(placeholder_plot) <- c("placeholder_plot", class(placeholder_plot))
+    
+    plotList[[length(plotList) + 1]] <- placeholder_plot
+    fileNames[[length(fileNames) + 1]] <- fname
+    heights[[length(heights) + 1]] <- 3  # Smaller height for placeholder
   }
   return(list(plotList = plotList, fileNames = fileNames, heights = heights))
+}
+
+# Helper function to check if a plot is a placeholder (empty/no data)
+is_placeholder_plot <- function(plot) {
+  if (is.null(plot)) return(TRUE)
+  if ("placeholder_plot" %in% class(plot)) return(TRUE)
+  return(FALSE)
 }
 
 # Helper function to get a short experiment name for filenames

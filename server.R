@@ -822,16 +822,24 @@ shinyServer(function(input, output, session) {
         height = distancePlots()$fvpx_second_vs_first$height,
         fname = 'focal-length-second-vs-first-calibration-scatter'
       )
+    } else {
+      message("[DEBUG MISSING PLOT] focal-length-second-vs-first-calibration-scatter: fvpx_second_vs_first is NULL=", 
+              is.null(distancePlots()$fvpx_second_vs_first), 
+              ", plot is NULL=", is.null(distancePlots()$fvpx_second_vs_first$plot))
     }
     
-    # Add fVpx/widthVpx histogram if available (3rd)
-    if (!is.null(distancePlots()$fvpx_over_width_hist) &&
-        !is.null(distancePlots()$fvpx_over_width_hist$plot)) {
+    # Add fOverWidth histogram if available (3rd) - renamed from fvpx_over_width_hist
+    if (!is.null(distancePlots()$fOverWidth_hist) &&
+        !is.null(distancePlots()$fOverWidth_hist$plot)) {
       static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$fvpx_over_width_hist$plot,
-        height = distancePlots()$fvpx_over_width_hist$height,
+        plot = distancePlots()$fOverWidth_hist$plot,
+        height = distancePlots()$fOverWidth_hist$height,
         fname = 'histogram-of-fOverWidth'
       )
+    } else {
+      message("[DEBUG MISSING PLOT] histogram-of-fOverWidth: fOverWidth_hist is NULL=", 
+              is.null(distancePlots()$fOverWidth_hist), 
+              ", plot is NULL=", is.null(distancePlots()$fOverWidth_hist$plot))
     }
     
     # Add raw pxPerCm histogram if available
@@ -852,6 +860,10 @@ shinyServer(function(input, output, session) {
         height = distancePlots()$raw_objectMeasuredCm_hist$height,
         fname = 'histogram-of-raw-objectMeasuredCm-median'
       )
+    } else {
+      message("[DEBUG MISSING PLOT] histogram-of-raw-objectMeasuredCm-median: raw_objectMeasuredCm_hist is NULL=", 
+              is.null(distancePlots()$raw_objectMeasuredCm_hist), 
+              ", plot is NULL=", is.null(distancePlots()$raw_objectMeasuredCm_hist$plot))
     }
     
     # Add other always-present plots
@@ -866,6 +878,8 @@ shinyServer(function(input, output, session) {
         height = bs_vd$mean_plot$height, 
         fname = 'mean-of-left-and-right-viewing-distances-blindspot'
       )
+    } else {
+      message("[DEBUG MISSING PLOT] mean-of-left-and-right-viewing-distances-blindspot: bs_vd$mean_plot is NULL (no blindspot data)")
     }
     
     if (!is.null(bs_vd$sd_plot)) {
@@ -874,6 +888,8 @@ shinyServer(function(input, output, session) {
         height = bs_vd$sd_plot$height, 
         fname = 'SD-of-log10-left-and-right-viewing-distances-blindspot'
       )
+    } else {
+      message("[DEBUG MISSING PLOT] SD-of-log10-left-and-right-viewing-distances-blindspot: bs_vd$sd_plot is NULL (no blindspot data)")
     }
     
     heights <- list()
@@ -888,6 +904,9 @@ shinyServer(function(input, output, session) {
       fileNames <- res$fileNames
       heights <- res$heights
     }
+    
+    message("[DEBUG HISTOGRAM SUMMARY] Total histograms added: ", length(l), " out of ", length(static_calls), " in static_calls")
+    message("[DEBUG HISTOGRAM LIST] Plot names: ", paste(fileNames, collapse = ", "))
     
     return(list(
       plotList = l,
@@ -1018,6 +1037,18 @@ shinyServer(function(input, output, session) {
     eyeToPoint_plot <- plot_eyeToPointCm_vs_requestedEyesToFootCm(distanceCalibration())
     eyesToFoot_estimated_plot <- plot_eyesToFootCm_estimated_vs_requested(distanceCalibration())
     
+    # Debug: Check which plot sources are available
+    message("[DEBUG SCATTER SOURCES] distance_production_plots$error_vs_blindspot_diameter is NULL: ", is.null(distance_production_plots$error_vs_blindspot_diameter))
+    message("[DEBUG SCATTER SOURCES] ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm is NULL: ", is.null(ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm))
+    message("[DEBUG SCATTER SOURCES] ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm is NULL: ", is.null(ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm))
+    message("[DEBUG SCATTER SOURCES] eyeToPoint_plot is NULL: ", is.null(eyeToPoint_plot))
+    message("[DEBUG SCATTER SOURCES] eyesToFoot_estimated_plot is NULL: ", is.null(eyesToFoot_estimated_plot))
+    message("[DEBUG SCATTER SOURCES] eye_feet_check_plot is NULL: ", is.null(eye_feet_check_plot))
+    message("[DEBUG SCATTER SOURCES] distancePlots()$fOverWidth_scatter is NULL: ", is.null(distancePlots()$fOverWidth_scatter))
+    message("[DEBUG SCATTER SOURCES] distancePlots()$calibrated_vs_mean is NULL: ", is.null(distancePlots()$calibrated_vs_mean))
+    message("[DEBUG SCATTER SOURCES] distancePlots()$fOverWidth_second_vs_first is NULL: ", is.null(distancePlots()$fOverWidth_second_vs_first))
+    message("[DEBUG SCATTER SOURCES] distancePlots()$calibrated_over_mean_vs_spot is NULL: ", is.null(distancePlots()$calibrated_over_mean_vs_spot))
+    
     plot_calls <- list(
       list(plot = sizeCheckPlot()$density_vs_length$plot, height = sizeCheckPlot()$density_vs_length$height, fname = 'pixel-density-vs-requested-length'),
       list(plot = sizeCheckPlot()$density_ratio_vs_sd$plot, height = sizeCheckPlot()$density_ratio_vs_sd$height, fname = 'credit-card-pixel-density-vs-SD-log-remeasured-pixel-density'),
@@ -1029,12 +1060,12 @@ shinyServer(function(input, output, session) {
       list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'focal-length-calibration-over-check-vs-check'),
       list(plot = distancePlots()$fOverWidth_second_vs_first$plot, height = distancePlots()$fOverWidth_second_vs_first$height, fname = 'focal-length-second-vs-first-calibration'),
       list(plot = distancePlots()$fOverWidth_ratio_vs_first$plot, height = distancePlots()$fOverWidth_ratio_vs_first$height, fname = 'focal-length-calibration-second-over-first-vs-first'),
-      list(plot = distancePlots()$calibrated_over_mean_vs_spot$plot, height = distancePlots()$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-fVpx-ipdCm-vs-spot-diameter'),
+      list(plot = distancePlots()$calibrated_over_mean_vs_spot$plot, height = distancePlots()$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-fOverWidth-ipdCm-vs-spot-diameter'),
       list(plot = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$height, fname = 'ipdOverWidth-vs-requestedEyesToFootCm'),
       list(plot = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height, fname = 'fOverWidth-vs-requestedEyesToFootCm'),
       # New distance geometry plots
       list(plot = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$plot else NULL, height = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$height else NULL, fname = 'eyesToPointCm-vs-requestedEyesToFootCm'),
-      list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-via-ipdVpx-vs-requestedEyesToFootCm'),
+      list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-via-ipdOverWidth-vs-requestedEyesToFootCm'),
       # Foot position plots (at bottom of Distance page)
       list(plot = distancePlots()$foot_position_calibration$plot, height = distancePlots()$foot_position_calibration$height, fname = 'foot-position-during-calibration'),
       list(plot = distancePlots()$eye_feet_position$plot, height = distancePlots()$eye_feet_position$height, fname = 'measured-over-requested-distance-vs-foot-position-during-calibration'),
@@ -1048,12 +1079,16 @@ shinyServer(function(input, output, session) {
       if (!is.null(plot)) {
         plot <- plot + scale_color_manual(values = colorPalette)
         plot <- add_experiment_title(plot, experiment_names())
+      } else {
+        message("[DEBUG MISSING SCATTER] ", call$fname, ": plot is NULL")
       }
       res <- append_plot_list(l, fileNames, plot, call$fname, height = call$height, heights = heights)
       l <- res$plotList
       fileNames <- res$fileNames
       heights <- res$heights
     }
+    
+    message("[DEBUG SCATTER SUMMARY] Total scatter plots added: ", length(l), " out of ", length(plot_calls), " expected")
 
     return(list(
       plotList = l,
@@ -2213,7 +2248,8 @@ shinyServer(function(input, output, session) {
             paste0(get_short_experiment_name(experiment_names()), base, ".", input$fileType)
           },
           content = function(file) {
-            if (i > length(plotList) || is.null(plotList[[i]])) return(invisible(NULL))
+            # Skip download if plot is NULL/NA/placeholder
+            if (i > length(plotList) || is_placeholder_plot(plotList[[i]])) return(invisible(NULL))
             plot <- plotList[[i]] + plt_theme
             savePlot(
               plot = plot,
@@ -2360,6 +2396,9 @@ shinyServer(function(input, output, session) {
             ".", input$fileType
           ),
           content = function(file) {
+            # Skip download if plot is NULL/NA/placeholder
+            if (is_placeholder_plot(plots[[jj]])) return(invisible(NULL))
+            
             if (input$fileType == "png") {
               ggsave(
                 filename = file,
@@ -2406,6 +2445,24 @@ shinyServer(function(input, output, session) {
     
     for (i in seq(1, n, by = nPerRow)) {
       idx <- i:min(i + nPerRow - 1, n)
+      
+      # --- row of plot names (text labels) ---
+      name_cells <- lapply(idx, function(j) {
+        tags$div(
+          style = "font-weight: bold; font-size: 12px; color: #333; padding: 8px 4px 4px 4px; word-wrap: break-word; white-space: normal;",
+          files[[j]]
+        )
+      })
+      if (length(name_cells) < nPerRow)
+        name_cells <- c(name_cells, rep("", nPerRow - length(name_cells)))
+      
+      out[[length(out) + 1]] <- do.call(splitLayout, c(
+        list(
+          cellWidths = rep("50%", nPerRow),
+          style      = "overflow-x: hidden;"
+        ),
+        name_cells
+      ))
       
       # --- row of plots ---
       plot_cells <- lapply(idx, function(j) {
@@ -2510,6 +2567,9 @@ shinyServer(function(input, output, session) {
             ".", input$fileType
           ),
           content = function(file) {
+            # Skip download if plot is NULL/NA/placeholder
+            if (is_placeholder_plot(plots[[jj]])) return(invisible(NULL))
+            
             # Match on-screen sizing: save SVG then rasterize at 2x scale
             height_in <- if (!is.null(heights) && length(heights) >= jj && !is.null(heights[[jj]])) heights[[jj]] else 4
             if (tolower(input$fileType) == "png") {
@@ -2687,6 +2747,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(histogramsQuality()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
@@ -2871,6 +2934,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(timingHistograms()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
@@ -3417,6 +3483,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 ggsave(
                   filename = file,
@@ -3455,9 +3524,33 @@ shinyServer(function(input, output, session) {
   
   output$distanceScatters <- renderUI({
     out <- list()
-    i = 1
-    while (i <= length(scatterDistance()$plotList) - 1) {
-      out[[i]] <-  splitLayout(
+    plots <- scatterDistance()$plotList
+    files <- scatterDistance()$fileNames
+    n <- length(plots)
+    
+    if (n == 0) {
+      return(out)
+    }
+    
+    outIdx <- 1
+    i <- 1
+    while (i <= n - 1) {
+      # --- row of plot names (text labels) ---
+      out[[outIdx]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        tags$div(
+          style = "font-weight: bold; font-size: 12px; color: #333; padding: 8px 4px 4px 4px; word-wrap: break-word; white-space: normal;",
+          files[[i]]
+        ),
+        tags$div(
+          style = "font-weight: bold; font-size: 12px; color: #333; padding: 8px 4px 4px 4px; word-wrap: break-word; white-space: normal;",
+          files[[i + 1]]
+        )
+      )
+      outIdx <- outIdx + 1
+      
+      # --- row of plots ---
+      out[[outIdx]] <- splitLayout(
         cellWidths = c("50%", "50%"),
         shinycssloaders::withSpinner(plotOutput(
           paste0("distanceScatter", i),
@@ -3472,26 +3565,50 @@ shinyServer(function(input, output, session) {
         ),
         type = 4)
       )
-      out[[i + 1]] <- splitLayout(
+      outIdx <- outIdx + 1
+      
+      # --- row of download buttons ---
+      out[[outIdx]] <- splitLayout(
         cellWidths = c("50%", "50%"),
         downloadButton(paste0("downloadDistanceScatter", i), 'Download'),
-        downloadButton(paste0("downloadDistanceScatter", i +
-                                1), 'Download')
+        downloadButton(paste0("downloadDistanceScatter", i + 1), 'Download')
       )
-      i = i + 2
+      outIdx <- outIdx + 1
+      i <- i + 2
     }
-    if (i == length(scatterDistance()$plotList)) {
-      out[[i]] <- splitLayout(
+    
+    # Handle odd number of plots (last single plot)
+    if (i == n) {
+      # --- plot name ---
+      out[[outIdx]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        tags$div(
+          style = "font-weight: bold; font-size: 12px; color: #333; padding: 8px 4px 4px 4px; word-wrap: break-word; white-space: normal;",
+          files[[i]]
+        ),
+        ""
+      )
+      outIdx <- outIdx + 1
+      
+      # --- plot ---
+      out[[outIdx]] <- splitLayout(
         cellWidths = c("50%", "50%"),
         shinycssloaders::withSpinner(plotOutput(
           paste0("distanceScatter", i),
           width = "100%",
           height = "100%"
         ),
-        type = 4)
+        type = 4),
+        ""
       )
-      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                  downloadButton(paste0("downloadDistanceScatter", i), 'Download'))
+      outIdx <- outIdx + 1
+      
+      # --- download button ---
+      out[[outIdx]] <- splitLayout(
+        cellWidths = c("50%", "50%"),
+        downloadButton(paste0("downloadDistanceScatter", i), 'Download'),
+        ""
+      )
     }
     for (j in 1:length(scatterDistance()$plotList)) {
       local({
@@ -3535,6 +3652,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(scatterDistance()$plotList[[ii]])) return(invisible(NULL))
+              
               height_in <- scatterDistance()$heights[[ii]]
               if (tolower(input$fileType) == "png") {
                 tmp_svg <- tempfile(fileext = ".svg")
@@ -3682,6 +3802,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(violinPlots()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
@@ -3831,6 +3954,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
@@ -3976,6 +4102,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(scatterQuality()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
@@ -4141,6 +4270,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(scatterTimeParticipant()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
@@ -4289,6 +4421,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(scatterTime()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
@@ -5493,7 +5628,7 @@ shinyServer(function(input, output, session) {
       
       fileNames <- c()
       
-      # Save correlation matrices
+      # Save correlation matrices (skip NULL/NA plots)
       short_exp_name <- get_short_experiment_name(experiment_names())
       if (!is.null(corrMatrix()$plot)) {
         savePlot(corrMatrix()$plot, 
@@ -5501,12 +5636,16 @@ shinyServer(function(input, output, session) {
                  input$fileType, 
                  width = corrMatrix()$width, 
                  height = corrMatrix()$height)
+        fileNames <- c(fileNames, paste0(short_exp_name, "correlation-matrix.", input$fileType))
         
-        savePlot(corrMatrix()$n_plot, 
-                 paste0(short_exp_name, "pairwise-count-matrix.", input$fileType),
-                 input$fileType, 
-                 width = corrMatrix()$width, 
-                 height = corrMatrix()$height)
+        if (!is.null(corrMatrix()$n_plot)) {
+          savePlot(corrMatrix()$n_plot, 
+                   paste0(short_exp_name, "pairwise-count-matrix.", input$fileType),
+                   input$fileType, 
+                   width = corrMatrix()$width, 
+                   height = corrMatrix()$height)
+          fileNames <- c(fileNames, paste0(short_exp_name, "pairwise-count-matrix.", input$fileType))
+        }
       }
      
       if (!is.null(durationCorrMatrix()$plot)) {
@@ -5515,63 +5654,68 @@ shinyServer(function(input, output, session) {
                  input$fileType, 
                  width = durationCorrMatrix()$width, 
                  height = durationCorrMatrix()$height)
+        fileNames <- c(fileNames, paste0(short_exp_name, "duration-correlation-matrix.", input$fileType))
       }
       
-      fileNames <- c(
-        paste0(short_exp_name, "correlation-matrix.", input$fileType),
-        paste0(short_exp_name, "duration-correlation-matrix.", input$fileType),
-        paste0(short_exp_name, "n-matrix.", input$fileType)
-      )
-      
-      # Save histograms
+      # Save histograms (skip NULL/NA/placeholder plots)
       if (length(histograms()$plotList) > 0) {
         for (i in seq_along(histograms()$plotList)) {
-          plotFileName <- paste0(short_exp_name, histograms()$fileNames[[i]], '.', input$fileType)
-          
-          savePlot(histograms()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
-          fileNames <- c(fileNames, plotFileName)
+          if (!is_placeholder_plot(histograms()$plotList[[i]])) {
+            plotFileName <- paste0(short_exp_name, histograms()$fileNames[[i]], '.', input$fileType)
+            
+            savePlot(histograms()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
+            fileNames <- c(fileNames, plotFileName)
+          }
         }
       }
       
-      # Save dot plots
+      # Save dot plots (skip NULL/NA/placeholder plots)
       if (length(dotPlots()$plotList) > 0) {
         for (i in seq_along(dotPlots()$plotList)) {
-          plotFileName <- paste0(short_exp_name, dotPlots()$fileNames[[i]], '.', input$fileType)
-          
-          # Use larger dimensions for SD histogram to make legend readable
-          if (grepl("sd-log-density-histogram", dotPlots()$fileNames[[i]])) {
-            savePlot(dotPlots()$plotList[[i]], plotFileName, input$fileType, width = 12, height = 8)
-          } else {
-            savePlot(dotPlots()$plotList[[i]], plotFileName, input$fileType, width = 8, height = 6)
+          if (!is_placeholder_plot(dotPlots()$plotList[[i]])) {
+            plotFileName <- paste0(short_exp_name, dotPlots()$fileNames[[i]], '.', input$fileType)
+            
+            # Use larger dimensions for SD histogram to make legend readable
+            if (grepl("sd-log-density-histogram", dotPlots()$fileNames[[i]])) {
+              savePlot(dotPlots()$plotList[[i]], plotFileName, input$fileType, width = 12, height = 8)
+            } else {
+              savePlot(dotPlots()$plotList[[i]], plotFileName, input$fileType, width = 8, height = 6)
+            }
+            fileNames <- c(fileNames, plotFileName)
           }
-          fileNames <- c(fileNames, plotFileName)
         }
       }
       
-      # Save scatter diagrams
+      # Save scatter diagrams (skip NULL/NA/placeholder plots)
       if (length(scatterDiagrams()$plotList) > 0) {
         for (i in seq_along(scatterDiagrams()$plotList)) {
-          plotFileName <- paste0(short_exp_name, scatterDiagrams()$fileNames[[i]], '.', input$fileType)
-          savePlot(scatterDiagrams()$plotList[[i]] + plt_theme_scatter, plotFileName, input$fileType)
-          fileNames <- c(fileNames, plotFileName)
+          if (!is_placeholder_plot(scatterDiagrams()$plotList[[i]])) {
+            plotFileName <- paste0(short_exp_name, scatterDiagrams()$fileNames[[i]], '.', input$fileType)
+            savePlot(scatterDiagrams()$plotList[[i]] + plt_theme_scatter, plotFileName, input$fileType)
+            fileNames <- c(fileNames, plotFileName)
+          }
         }
       }
       
-      # Save distance scatter plots
+      # Save distance scatter plots (skip NULL/NA/placeholder plots)
       if (length(scatterDistance()$plotList) > 0) {
         for (i in seq_along(scatterDistance()$plotList)) {
-          plotFileName <- paste0(short_exp_name, scatterDistance()$fileNames[[i]], '.', input$fileType)
-          savePlot(scatterDistance()$plotList[[i]] + plt_theme_scatter, plotFileName, input$fileType)
-          fileNames <- c(fileNames, plotFileName)
+          if (!is_placeholder_plot(scatterDistance()$plotList[[i]])) {
+            plotFileName <- paste0(short_exp_name, scatterDistance()$fileNames[[i]], '.', input$fileType)
+            savePlot(scatterDistance()$plotList[[i]] + plt_theme_scatter, plotFileName, input$fileType)
+            fileNames <- c(fileNames, plotFileName)
+          }
         }
       }
       
-      # Save age plots
+      # Save age plots (skip NULL/NA/placeholder plots)
       if (length(agePlots()$plotList) > 0) {
         for (i in seq_along(agePlots()$plotList)) {
-          plotFileName <- paste0(short_exp_name, agePlots()$fileNames[[i]], '.', input$fileType)
-          savePlot(agePlots()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
-          fileNames <- c(fileNames, plotFileName)
+          if (!is_placeholder_plot(agePlots()$plotList[[i]])) {
+            plotFileName <- paste0(short_exp_name, agePlots()$fileNames[[i]], '.', input$fileType)
+            savePlot(agePlots()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
+            fileNames <- c(fileNames, plotFileName)
+          }
         }
       }
       
@@ -5640,7 +5784,7 @@ shinyServer(function(input, output, session) {
         for (i in seq_along(ggiraph_plots$plotList)) {
 
           print(ggiraph_plots$fileNames[[i]])
-          if (!is.null(ggiraph_plots$plotList[[i]])) {
+          if (!is_placeholder_plot(ggiraph_plots$plotList[[i]])) {
             plotFileName <- paste0(short_exp_name, ggiraph_plots$fileNames[[i]], '.', input$fileType)
             savePlot(ggiraph_plots$plotList[[i]] + plt_theme_ggiraph, plotFileName, input$fileType)
             fileNames <- c(fileNames, plotFileName)
@@ -5648,21 +5792,25 @@ shinyServer(function(input, output, session) {
         }
       }
       
-      # Save violin plots
+      # Save violin plots (skip NULL/NA/placeholder plots)
       if (length(violinPlots()$plotList) > 0) {
         for (i in seq_along(violinPlots()$plotList)) {
-          plotFileName <- paste0(short_exp_name, violinPlots()$fileNames[[i]], '.', input$fileType)
-          savePlot(violinPlots()$plotList[[i]], plotFileName, input$fileType)
-          fileNames <- c(fileNames, plotFileName)
+          if (!is_placeholder_plot(violinPlots()$plotList[[i]])) {
+            plotFileName <- paste0(short_exp_name, violinPlots()$fileNames[[i]], '.', input$fileType)
+            savePlot(violinPlots()$plotList[[i]], plotFileName, input$fileType)
+            fileNames <- c(fileNames, plotFileName)
+          }
         }
       }
       
-      # Save font comparison plots
+      # Save font comparison plots (skip NULL/NA/placeholder plots)
       if (length(fontComparisonPlots()$plotList) > 0) {
         for (i in seq_along(fontComparisonPlots()$plotList)) {
-          plotFileName <- paste0(short_exp_name, fontComparisonPlots()$fileNames[[i]], '.', input$fileType)
-          savePlot(fontComparisonPlots()$plotList[[i]], plotFileName, input$fileType)
-          fileNames <- c(fileNames, plotFileName)
+          if (!is_placeholder_plot(fontComparisonPlots()$plotList[[i]])) {
+            plotFileName <- paste0(short_exp_name, fontComparisonPlots()$fileNames[[i]], '.', input$fileType)
+            savePlot(fontComparisonPlots()$plotList[[i]], plotFileName, input$fileType)
+            fileNames <- c(fileNames, plotFileName)
+          }
         }
       }
       
@@ -6975,6 +7123,9 @@ shinyServer(function(input, output, session) {
             input$fileType
           ),
           content = function(file) {
+            # Skip download if plot is NULL/NA/placeholder
+            if (is_placeholder_plot(agePlots()$plotList[[ii]])) return(invisible(NULL))
+            
             if (input$fileType == "png") {
               ggsave(
                 "tmp.svg",
@@ -7019,6 +7170,9 @@ shinyServer(function(input, output, session) {
             input$fileType
           ),
           content = function(file) {
+            # Skip download if plot is NULL/NA/placeholder
+            if (is_placeholder_plot(histograms()$plotList[[ii]])) return(invisible(NULL))
+            
             if (input$fileType == "png") {
               ggsave(
                 "tmp.svg",
@@ -7065,6 +7219,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 ggsave(
                   "tmp.svg",
@@ -7112,6 +7269,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
@@ -7160,6 +7320,9 @@ shinyServer(function(input, output, session) {
               input$fileType
             ),
             content = function(file) {
+              # Skip download if plot is NULL/NA/placeholder
+              if (is_placeholder_plot(violinPlots()$plotList[[ii]])) return(invisible(NULL))
+              
               if (input$fileType == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(

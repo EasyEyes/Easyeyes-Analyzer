@@ -210,61 +210,63 @@ get_cameraResolutionXY <- function(data_list) {
         json_participant <- if (!is.null(t_tjson$participant)) t_tjson$participant else NA_character_
         json_date        <- if (!is.null(t_tjson$date)) t_tjson$date else NA_character_
         json_type        <- if (!is.null(t_tjson$json)) t_tjson$json else NA_character_
+
+        # Store fOverWidth and ipdCm for later factorVpxCm computation (after widthVpx is available)
+        fOverWidth_vals <- if (!is.null(t_tjson$fOverWidth)) as.numeric(t_tjson$fOverWidth) else NA_real_
+        ipdCm_vals <- if (!is.null(t_tjson$ipdCm)) as.numeric(t_tjson$ipdCm) else NA_real_
         
-        message(sprintf("[DEBUG get_cameraResolutionXY] distanceCalibrationJSON metadata: experiment=%s, participant=%s, date=%s, json=%s",
-                        json_experiment, json_participant, json_date, json_type))
-
-        tmp <- tibble(
-          # Renamed: rightEyeToFootCm -> objectBasedRightEyeToFootCm
-          objectBasedRightEyeToFootCm = if (!is.null(t_tjson$objectBasedRightEyeToFootCm)) t_tjson$objectBasedRightEyeToFootCm else t_tjson$rightEyeToFootCm,
-          # Renamed: leftEyeToFootCm -> objectBasedLeftEyeToFootCm
-          objectBasedLeftEyeToFootCm  = if (!is.null(t_tjson$objectBasedLeftEyeToFootCm)) t_tjson$objectBasedLeftEyeToFootCm else t_tjson$leftEyeToFootCm,
-          # Renamed: eyesToFootCm -> objectBasedEyesToFootCm (now provided directly in JSON)
-          objectBasedEyesToFootCm     = if (!is.null(t_tjson$objectBasedEyesToFootCm)) t_tjson$objectBasedEyesToFootCm else t_tjson$eyesToFootCm,
-          # New parameters: fOverWidth and ipdOverWidth (4 decimal digits)
-          fOverWidth       = if (!is.null(t_tjson$fOverWidth)) as.numeric(t_tjson$fOverWidth) else NA_real_,
-          ipdOverWidth     = if (!is.null(t_tjson$ipdOverWidth)) as.numeric(t_tjson$ipdOverWidth) else NA_real_,
-          ipdCm            = if (!is.null(t_tjson$ipdCm)) as.numeric(t_tjson$ipdCm) else NA_real_
-        ) %>%
-        mutate(
-          # Use objectBasedEyesToFootCm directly if available, otherwise compute from left/right
-          eyeToFootCm = ifelse(!is.na(objectBasedEyesToFootCm), 
-                               (as.numeric(objectBasedEyesToFootCm)),
-                               (as.numeric(objectBasedLeftEyeToFootCm) + as.numeric(objectBasedRightEyeToFootCm)) / 2),
-          factorVpxCm = fOverWidth * widthVpx * ipdCm
-        )
-
-        factorVpxCmVals <- tmp$factorVpxCm[!is.na(tmp$factorVpxCm)]
-        if (length(factorVpxCmVals) >= 2) {
-          factorVpxCm <- mean(tail(factorVpxCmVals, 2))
-        } else if (length(factorVpxCmVals) == 1) {
-          factorVpxCm <- factorVpxCmVals[1]
-        }
-      }, error = function(e) {})
+        # Get median fOverWidth and ipdCm for this participant
+        fOverWidth_median <- median(fOverWidth_vals[!is.na(fOverWidth_vals)], na.rm = TRUE)
+        ipdCm_median <- median(ipdCm_vals[!is.na(ipdCm_vals)], na.rm = TRUE)
+        
+      }, error = function(e) {
+        fOverWidth_median <<- NA_real_
+        ipdCm_median <<- NA_real_
+      })
     }
+    
+    # Initialize fOverWidth_median and ipdCm_median if not set
+    if (!exists("fOverWidth_median") || !is.finite(fOverWidth_median)) fOverWidth_median <- NA_real_
+    if (!exists("ipdCm_median") || !is.finite(ipdCm_median)) ipdCm_median <- NA_real_
 
-    # Select and filter data
+    # Select and filter data - get cameraResolutionXY first to extract widthVpx
     t <- data_list[[i]] %>%
-      mutate(factorVpxCm = !!factorVpxCm) %>%
       select(participant, 
-             `_calibrateTrackDistance`,
-              `_calibrateTrackDistancePupil`,
-              factorVpxCm,
-              cameraResolutionXY) %>%
-              rename(PavloviaParticipantID = participant,
-                     `_calibrateDistancePupil` = `_calibrateTrackDistancePupil`,
-                     `_calibrateDistance` = `_calibrateTrackDistance`) %>%
-              distinct() %>%
-      filter(!is.na(cameraResolutionXY), cameraResolutionXY != "", !is.na(factorVpxCm)) %>%
-      mutate(widthVpx = extract_width_px(cameraResolutionXY), # take largest of first two resolution entries as horizontal width
-             widthVpx = as.numeric(widthVpx)
-          )
+             any_of(c("_calibrateTrackDistance", "_calibrateTrackDistancePupil", "cameraResolutionXY", "screenResolutionXY"))) %>%
+      rename(PavloviaParticipantID = participant) %>%
+      distinct() %>%
+      filter(!is.na(cameraResolutionXY), cameraResolutionXY != "") %>%
+      mutate(
+        widthVpx = as.numeric(extract_width_px(cameraResolutionXY)),
+        fOverWidth = fOverWidth_median,
+        ipdCm = ipdCm_median,
+        # Now compute factorVpxCm with widthVpx available
+        factorVpxCm = fOverWidth * widthVpx * ipdCm
+      ) %>%
+      # Rename cameraResolutionXY -> cameraResolutionXYVpx for display
+      rename(cameraResolutionXYVpx = cameraResolutionXY) %>%
+      # Rename screenResolutionXY -> screenResolutionXYPx for display (if it exists)
+      {if("screenResolutionXY" %in% names(.)) rename(., screenResolutionXYPx = screenResolutionXY) else .}
+    
+    # Rename columns if they exist
+    if ("_calibrateTrackDistancePupil" %in% names(t)) {
+      t <- t %>% rename(`_calibrateDistancePupil` = `_calibrateTrackDistancePupil`)
+    }
+    if ("_calibrateTrackDistance" %in% names(t)) {
+      t <- t %>% rename(`_calibrateDistance` = `_calibrateTrackDistance`)
+    }
+    
+    message("[DEBUG get_cameraResolutionXY] Participant ", participant_id, 
+            ": fOverWidth=", round(fOverWidth_median, 4),
+            ", ipdCm=", ipdCm_median,
+            ", rows after filter=", nrow(t))
             
-            if (nrow(t) > 0) {
-              df <- rbind(df, t)
-            }
-          }
+    if (nrow(t) > 0) {
+      df <- rbind(df, t)
+    }
+  }
 
+  message("[DEBUG get_cameraResolutionXY] Final camera tibble: ", nrow(df), " rows")
   return(df %>% distinct())
 }
 
@@ -547,9 +549,14 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
   # Prepare participant_info for merging
   participant_info_clean <- participant_info
   
+  # Deduplicate camera_data by PavloviaParticipantID to ensure one row per participant
+  # Keep the first occurrence when there are multiple rows (e.g., from different conditions)
+  camera_data <- camera_data %>%
+    distinct(PavloviaParticipantID, .keep_all = TRUE)
+  
   # Perform full outer join to include all participants from both tables
   merged_data <- camera_data %>%
-    left_join(participant_info_clean, by = "PavloviaParticipantID")
+    full_join(participant_info_clean, by = "PavloviaParticipantID")
   
     
      
@@ -623,28 +630,40 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     {if("fOverWidth" %in% names(.) && "fOverWidth calibration/check" %in% names(.)) 
        relocate(., `fOverWidth calibration/check`, .after = `fOverWidth`)
      else .} %>%
-    # Move screenResolutionXY before cameraResolutionXY if both exist (do this first)
-    {if("screenResolutionXY" %in% names(.) && "cameraResolutionXY" %in% names(.)) 
-       relocate(., screenResolutionXY, .before = cameraResolutionXY)
+    # Rename screenResolutionXY to screenResolutionXYPx if it exists (for display consistency)
+    {if("screenResolutionXY" %in% names(.) && !"screenResolutionXYPx" %in% names(.)) 
+       rename(., screenResolutionXYPx = screenResolutionXY) 
      else .} %>%
-    # Move pxPerCm before screenResolutionXY
-    {if("pxPerCm" %in% names(.) && "screenResolutionXY" %in% names(.)) 
-       relocate(., pxPerCm, .before = screenResolutionXY)
+    # Move screenResolutionXYPx after cameraResolutionXYVpx if both exist
+    {if("screenResolutionXYPx" %in% names(.) && "cameraResolutionXYVpx" %in% names(.)) 
+       relocate(., screenResolutionXYPx, .after = cameraResolutionXYVpx)
+     else .} %>%
+    # Move cameraResolutionXSD after screenResolutionXYPx (or after cameraResolutionXYVpx if no screenResolutionXYPx)
+    {if("cameraResolutionXYVpx" %in% names(.) && "cameraResolutionXSD" %in% names(.)) {
+       if ("screenResolutionXYPx" %in% names(.)) {
+         relocate(., cameraResolutionXSD, .after = screenResolutionXYPx)
+       } else {
+         relocate(., cameraResolutionXSD, .after = cameraResolutionXYVpx)
+       }
+     } else .} %>%
+    # Move pxPerCm before cameraResolutionXYVpx
+    {if("pxPerCm" %in% names(.) && "cameraResolutionXYVpx" %in% names(.)) 
+       relocate(., pxPerCm, .before = cameraResolutionXYVpx)
      else .} %>%
     # Move screenWidthCm before pxPerCm
     {if("screenWidthCm" %in% names(.) && "pxPerCm" %in% names(.)) 
        relocate(., screenWidthCm, .before = pxPerCm)
      else .} %>%
-    # Move cameraResolutionXSD after cameraResolutionXY if it exists
-    {if("cameraResolutionXY" %in% names(.) && "cameraResolutionXSD" %in% names(.)) 
-       relocate(., cameraResolutionXSD, .after = cameraResolutionXY)
-     else .} %>%
+    # Remove objectName if it exists (redundant with Object)
+    {if("objectName" %in% names(.)) select(., -objectName) else .} %>%
     # Move Object before objectLengthCm
     {if("Object" %in% names(.) && "objectLengthCm" %in% names(.)) 
        relocate(., Object, .before = objectLengthCm)
      else .} %>%
     # Move Comment column to the end if it exists
-    {if("Comment" %in% names(.)) relocate(., Comment, .after = last_col()) else .}
+    {if("Comment" %in% names(.)) relocate(., Comment, .after = last_col()) else .} %>%
+    # Ensure one row per participant (final deduplication)
+    distinct(PavloviaParticipantID, .keep_all = TRUE)
   
   
   return(merged_data)
@@ -1133,10 +1152,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         check_json_participant <- if (!is.null(distanceCheck$participant)) distanceCheck$participant else NA_character_
         check_json_date        <- if (!is.null(distanceCheck$date)) distanceCheck$date else NA_character_
         check_json_type        <- if (!is.null(distanceCheck$json)) distanceCheck$json else NA_character_
-        
-        message(sprintf("[DEBUG distanceCheckJSON] metadata: experiment=%s, participant=%s, date=%s, json=%s",
-                        check_json_experiment, check_json_participant, check_json_date, check_json_type))
-        
+
       raw_json <- get_first_non_na(t$distanceCalibrationJSON)
       json_txt <- sanitize_json_string(raw_json)
       t_tjson <- fromJSON(
@@ -1146,12 +1162,59 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       # -------- distance check median factorVpxCm --------
       tryCatch({
         participant_id_debug <- if("participant" %in% names(dl)) first(na.omit(dl$participant)) else "UNKNOWN"
+        
+        # Debug: Show available fields in distanceCheckJSON
+        message("[DEBUG check_factor] Participant ", participant_id_debug, 
+                " distanceCheckJSON fields: ", paste(names(distanceCheck), collapse = ", "))
+        
+        # Try multiple methods to get factorVpxCm values
         measured_vals <- NULL
+        
+        # Method 1: Use measuredFactorVpxCm directly (old schema)
         if (!is.null(distanceCheck$measuredFactorVpxCm)) {
-          # Use measuredFactorVpxCm directly from JSON (consistent with how calibration uses factorVpxCm)
           measured_vals <- distanceCheck$measuredFactorVpxCm
-        } else if (!is.null(distanceCheck$measuredFactorCameraPxCm)) {
+          message("[DEBUG check_factor] Found measuredFactorVpxCm: ", length(measured_vals), " values")
+        } 
+        # Method 2: Use measuredFactorCameraPxCm (old schema alternative)
+        else if (!is.null(distanceCheck$measuredFactorCameraPxCm)) {
           measured_vals <- distanceCheck$measuredFactorCameraPxCm
+          message("[DEBUG check_factor] Found measuredFactorCameraPxCm: ", length(measured_vals), " values")
+        }
+        # Method 3: Compute from fOverWidth (NEW SCHEMA) - factorVpxCm = fOverWidth * widthVpx * ipdCm
+        else if (!is.null(distanceCheck$fOverWidth) && !is.null(distanceCheck$ipdCm)) {
+          fOverWidth_vals <- as.numeric(distanceCheck$fOverWidth)
+          ipdCm_val <- as.numeric(first(distanceCheck$ipdCm))
+          
+          # Get widthVpx from cameraResolutionXYVpx
+          # Handle both list-of-vectors format [[1920,1080],...] and string format ["1920, 1080",...]
+          widthVpx <- NA_real_
+          if (!is.null(distanceCheck$cameraResolutionXYVpx)) {
+            res_first <- distanceCheck$cameraResolutionXYVpx[[1]]
+            if (is.numeric(res_first) && length(res_first) >= 1) {
+              # List of numeric vectors format: [[1920, 1080], ...]
+              widthVpx <- max(res_first[1:min(2, length(res_first))])
+            } else {
+              # String format: ["1920, 1080", ...]
+              widthVpx <- as.numeric(extract_width_px(as.character(res_first)))
+            }
+          }
+          
+          if (!is.na(widthVpx) && !is.na(ipdCm_val)) {
+            measured_vals <- fOverWidth_vals * widthVpx * ipdCm_val
+            message("[DEBUG check_factor] Computed factorVpxCm from fOverWidth*widthVpx*ipdCm: ", 
+                    length(measured_vals), " values (widthVpx=", widthVpx, ", ipdCm=", ipdCm_val, ")")
+          }
+        }
+        # Method 4: Compute from fVpx (if still present) - factorVpxCm = fVpx * ipdCm
+        else if (!is.null(distanceCheck$fVpx) && !is.null(distanceCheck$ipdCm)) {
+          fVpx_vals <- as.numeric(distanceCheck$fVpx)
+          ipdCm_val <- as.numeric(first(distanceCheck$ipdCm))
+          measured_vals <- fVpx_vals * ipdCm_val
+          message("[DEBUG check_factor] Computed factorVpxCm from fVpx*ipdCm: ", 
+                  length(measured_vals), " values (ipdCm=", ipdCm_val, ")")
+        }
+        else {
+          message("[DEBUG check_factor] WARNING: Cannot compute factorVpxCm - missing required fields")
         }
         
         if (!is.null(measured_vals)) {
@@ -1169,6 +1232,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
               distinct() %>%
               filter(!is.na(medianFactorVpxCm))
             if (nrow(t) > 0) check_factor <- rbind(check_factor, t)
+            message("[DEBUG check_factor] Added ", nrow(t), " rows to check_factor (medianFactorVpxCm=", round(medianFactorVpxCm, 2), ")")
           }
         }
         
@@ -1274,10 +1338,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         json_participant <- if (!is.null(t_tjson$participant)) t_tjson$participant else NA_character_
         json_date        <- if (!is.null(t_tjson$date)) t_tjson$date else NA_character_
         json_type        <- if (!is.null(t_tjson$json)) t_tjson$json else NA_character_
-        
-        message(sprintf("[DEBUG TJSON] distanceCalibrationJSON metadata: experiment=%s, participant=%s, date=%s, json=%s",
-                        json_experiment, json_participant, json_date, json_type))
-        
+
         tmp <- tibble(
           participant      = first(na.omit(dl$participant)),
           # Metadata from JSON for debugging
@@ -1285,22 +1346,22 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           json_participant = json_participant,
           json_date        = json_date,
           json_type        = json_type,
-          # Renamed: rightEyeToFootCm -> objectBasedRightEyeToFootCm
-          objectBasedRightEyeToFootCm = if (!is.null(t_tjson$objectBasedRightEyeToFootCm)) t_tjson$objectBasedRightEyeToFootCm else t_tjson$rightEyeToFootCm,
-          # Renamed: leftEyeToFootCm -> objectBasedLeftEyeToFootCm
-          objectBasedLeftEyeToFootCm  = if (!is.null(t_tjson$objectBasedLeftEyeToFootCm)) t_tjson$objectBasedLeftEyeToFootCm else t_tjson$leftEyeToFootCm,
-          # Renamed: eyesToFootCm -> objectBasedEyesToFootCm (now provided directly in JSON)
-          objectBasedEyesToFootCm     = if (!is.null(t_tjson$objectBasedEyesToFootCm)) t_tjson$objectBasedEyesToFootCm else t_tjson$eyesToFootCm,
+          # rightEyeToFootCm renamed to rulerBasedRightEyeToFootCm (uses object of known length as ruler)
+          rulerBasedRightEyeToFootCm = if (!is.null(t_tjson$rulerBasedRightEyeToFootCm)) t_tjson$rulerBasedRightEyeToFootCm else t_tjson$rightEyeToFootCm,
+          # leftEyeToFootCm renamed to rulerBasedLeftEyeToFootCm (uses object of known length as ruler)
+          rulerBasedLeftEyeToFootCm  = if (!is.null(t_tjson$rulerBasedLeftEyeToFootCm)) t_tjson$rulerBasedLeftEyeToFootCm else t_tjson$leftEyeToFootCm,
+          # eyesToFootCm renamed to rulerBasedEyesToFootCm (uses object of known length as ruler)
+          rulerBasedEyesToFootCm     = if (!is.null(t_tjson$rulerBasedEyesToFootCm)) t_tjson$rulerBasedEyesToFootCm else t_tjson$eyesToFootCm,
           # New parameters: fOverWidth and ipdOverWidth (4 decimal digits)
           fOverWidth       = if (!is.null(t_tjson$fOverWidth)) as.numeric(t_tjson$fOverWidth) else NA_real_,
           ipdOverWidth     = if (!is.null(t_tjson$ipdOverWidth)) as.numeric(t_tjson$ipdOverWidth) else NA_real_,
           ipdCm            = if (!is.null(t_tjson$ipdCm)) as.numeric(t_tjson$ipdCm) else NA_real_
         ) %>%
           mutate(
-            # Use objectBasedEyesToFootCm directly if available, otherwise compute from left/right
-            eyeToFootCm = ifelse(!is.na(objectBasedEyesToFootCm), 
-(as.numeric(objectBasedEyesToFootCm)),
-((as.numeric(objectBasedLeftEyeToFootCm) + as.numeric(objectBasedRightEyeToFootCm)) / 2))
+            # Use rulerBasedEyesToFootCm if available, otherwise compute from left/right eye values
+            eyeToFootCm = ifelse(!is.na(rulerBasedEyesToFootCm), 
+(as.numeric(rulerBasedEyesToFootCm)),
+((as.numeric(rulerBasedLeftEyeToFootCm) + as.numeric(rulerBasedRightEyeToFootCm)) / 2))
           )
 
         TJSON <- rbind(TJSON, tmp)
@@ -1322,12 +1383,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         } else {
           NA_real_
         }
-        
-        message(sprintf("[DEBUG checkJSON] Extracted ipdOverWidth (n=%d): %s", 
-                        length(ipdOverWidth_vals),
-                        paste(head(ipdOverWidth_vals, 3), collapse=", ")))
-        message(sprintf("[DEBUG checkJSON] Extracted calibrationFOverWidth: %s", calibrationFOverWidth_val))
-        
+
         tmp <- tibble(
           participant   = first(na.omit(dl$participant)),
           measuredEyesToPointCm = measuredEyesToPointCm_vals,
@@ -1592,11 +1648,11 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           Z_requested_range = paste0("[", round(min(Z_requested, na.rm = TRUE), 1), ", ", 
                                      round(max(Z_requested, na.rm = TRUE), 1), "]"),
           Z_ratio_mean = mean(Z_ratio, na.rm = TRUE),
-          fOverWidth_m1 = mean(fOverWidth_method1, na.rm = TRUE),
-          fOverWidth_m2 = mean(fOverWidth_method2, na.rm = TRUE),
+          fOverWidth_json = mean(fOverWidth_from_json, na.rm = TRUE),
+          fOverWidth_comp = mean(fOverWidth_computed, na.rm = TRUE),
           fOverWidth_m3 = mean(fOverWidth_method3, na.rm = TRUE),
-          ratio_m1_m2 = mean(fOverWidth_ratio_m1_m2, na.rm = TRUE),
-          ratio_m1_m3 = mean(fOverWidth_ratio_m1_m3, na.rm = TRUE),
+          ratio_json_comp = mean(fOverWidth_ratio_json_comp, na.rm = TRUE),
+          ratio_json_m3 = mean(fOverWidth_ratio_json_m3, na.rm = TRUE),
           ipdOverWidth_x_Z_meas = mean(ipdOverWidth_times_measuredZ, na.rm = TRUE),
           ipdOverWidth_x_Z_req = mean(ipdOverWidth_times_requestedZ, na.rm = TRUE),
           .groups = "drop"
@@ -1608,10 +1664,10 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                         row$participant, row$n, row$ipdCm, row$ipdOverWidth_mean))
         message(sprintf("      Z_measured=%s, Z_requested=%s, Z_ratio=%.4f",
                         row$Z_measured_range, row$Z_requested_range, row$Z_ratio_mean))
-        message(sprintf("      fOverWidth: m1=%.5f, m2=%.5f, m3=%.5f",
-                        row$fOverWidth_m1, row$fOverWidth_m2, row$fOverWidth_m3))
-        message(sprintf("      ratios: m1/m2=%.4f (should be 1.0), m1/m3=%.4f (reveals Z issue)",
-                        row$ratio_m1_m2, row$ratio_m1_m3))
+        message(sprintf("      fOverWidth: json=%.5f, computed=%.5f, m3=%.5f",
+                        row$fOverWidth_json, row$fOverWidth_comp, row$fOverWidth_m3))
+        message(sprintf("      ratios: json/comp=%.4f (should be 1.0), json/m3=%.4f (reveals Z issue)",
+                        row$ratio_json_comp, row$ratio_json_m3))
         message(sprintf("      ipdOverWidth*Z: measured=%.4f, requested=%.4f",
                         row$ipdOverWidth_x_Z_meas, row$ipdOverWidth_x_Z_req))
       }
@@ -2636,6 +2692,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   tjson_data <- distanceCalibrationResults$TJSON
   check_json_data <- distanceCalibrationResults$checkJSON
   
+  message("[DEBUG p5b] TJSON rows: ", nrow(tjson_data), ", checkJSON rows: ", nrow(check_json_data))
+  
   if (nrow(tjson_data) > 0 && nrow(check_json_data) > 0) {
     # Get median fOverWidth per participant from calibration (TJSON has fOverWidth directly)
     calib_fOverWidth <- tjson_data %>%
@@ -2643,17 +2701,23 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       group_by(participant) %>%
       summarize(fOverWidth_calibration = median(fOverWidth, na.rm = TRUE), .groups = "drop")
     
+    message("[DEBUG p5b] calib_fOverWidth: ", nrow(calib_fOverWidth), " participants")
+    
     # Get median fOverWidth per participant from check (checkJSON now has fOverWidth directly)
     check_fOverWidth <- check_json_data %>%
       filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
       group_by(participant) %>%
       summarize(fOverWidth_check = median(fOverWidth, na.rm = TRUE), .groups = "drop")
     
+    message("[DEBUG p5b] check_fOverWidth: ", nrow(check_fOverWidth), " participants")
+    
     # Join calibration and check data by participant
     plot_data_p5b <- calib_fOverWidth %>%
       inner_join(check_fOverWidth, by = "participant") %>%
       filter(!is.na(fOverWidth_calibration), !is.na(fOverWidth_check),
              is.finite(fOverWidth_calibration), is.finite(fOverWidth_check))
+    
+    message("[DEBUG p5b] plot_data_p5b after join: ", nrow(plot_data_p5b), " rows")
     
     if (nrow(plot_data_p5b) > 0) {
       # Calculate the ratio of calibration to check
@@ -2709,8 +2773,55 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
+  # Plot 5c: Calibration fOverWidth vs. Check fOverWidth (not ratio)
+  p5c <- NULL
+  if (exists("plot_data_p5b") && nrow(plot_data_p5b) > 0) {
+    # Calculate axis limits
+    all_vals <- c(plot_data_p5b$fOverWidth_calibration, plot_data_p5b$fOverWidth_check)
+    val_min <- min(all_vals, na.rm = TRUE)
+    val_max <- max(all_vals, na.rm = TRUE)
+    val_range <- val_max - val_min
+    axis_min <- val_min - val_range * 0.1
+    axis_max <- val_max + val_range * 0.1
+    
+    p5c <- ggplot(plot_data_p5b, aes(x = fOverWidth_check, y = fOverWidth_calibration)) +
+      geom_point(aes(color = participant), size = 3, alpha = 0.8) +
+      geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray50", linewidth = 0.8) +  # Identity line
+      ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                          label = paste0('N=', n_distinct(plot_data_p5b$participant))) +
+      scale_x_continuous(limits = c(axis_min, axis_max)) +
+      scale_y_continuous(limits = c(axis_min, axis_max)) +
+      coord_fixed() +  # Equal aspect ratio
+      scale_color_manual(values = colorPalette) +
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+      guides(color = guide_legend(
+        ncol = 3,
+        title = "",
+        override.aes = list(size = 1.5),
+        keywidth = unit(0.8, "lines"),
+        keyheight = unit(0.6, "lines")
+      )) +
+      theme_classic() +
+      theme(
+        legend.position = "right",
+        legend.box = "vertical",
+        legend.justification = "left",
+        legend.text = element_text(size = 6),
+        legend.spacing.y = unit(0, "lines"),
+        legend.key.size = unit(0.4, "cm"),
+        plot.margin = margin(5, 5, 5, 5, "pt")
+      ) +
+      labs(subtitle = 'Focal length: calibration vs. check',
+           x = 'fOverWidth: check',
+           y = 'fOverWidth: calibration',
+           caption = 'Dashed line shows y=x (perfect agreement)')
+    message("[DEBUG p5c] Created calibration vs check plot with ", nrow(plot_data_p5b), " participants")
+  }
+  
   # Plot 6: Calibrated over mean factorVpxCm vs. spot diameter
   p6 <- NULL
+  message("[DEBUG p6] distance columns: ", paste(names(distance), collapse=", "))
+  message("[DEBUG p6] calibrateTrackDistanceIpdVpx in distance: ", "calibrateTrackDistanceIpdVpx" %in% names(distance))
   if ("calibrateTrackDistanceIpdVpx" %in% names(distance) && nrow(distance) > 0) {
     # Get camera data
     camera_data <- distanceCalibrationResults$camera
@@ -3209,15 +3320,26 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
-  # Plot 11: Histogram and scatter of fVpx/widthVpx for distance check sessions
-  fvpx_over_width_hist <- NULL
-  fvpx_over_width_scatter <- NULL
-  fvpx_over_width_data <- tibble()
-  fvpx_over_width_max_count <- 0
-  if ("check_factor" %in% names(distanceCalibrationResults) &&
-      "camera" %in% names(distanceCalibrationResults) &&
-      nrow(distanceCalibrationResults$check_factor) > 0 &&
-      nrow(distanceCalibrationResults$camera) > 0) {
+  # Plot 11: Histogram and scatter of fOverWidth for distance check sessions
+  fOverWidth_hist <- NULL
+  fOverWidth_scatter <- NULL
+  fOverWidth_over_width_data <- tibble()
+  fOverWidth_max_count <- 0
+  
+  # Debug: Check prerequisites for fOverWidth histogram/scatter
+  has_check_factor <- "check_factor" %in% names(distanceCalibrationResults)
+  has_camera <- "camera" %in% names(distanceCalibrationResults)
+  check_factor_rows <- if (has_check_factor) nrow(distanceCalibrationResults$check_factor) else 0
+  camera_rows <- if (has_camera) nrow(distanceCalibrationResults$camera) else 0
+  
+  if (!has_check_factor || !has_camera || check_factor_rows == 0 || camera_rows == 0) {
+    message("[DEBUG fOverWidth_hist/scatter] Skipped: check_factor exists=", has_check_factor, 
+            ", camera exists=", has_camera,
+            ", check_factor rows=", check_factor_rows,
+            ", camera rows=", camera_rows)
+  }
+  
+  if (has_check_factor && has_camera && check_factor_rows > 0 && camera_rows > 0) {
     
     check_data <- distanceCalibrationResults$check_factor
     if (!"calibrateTrackDistanceCheckBool" %in% names(check_data)) {
@@ -3234,9 +3356,13 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
              !is.na(medianFactorVpxCm),
              is.finite(medianFactorVpxCm))
     
+    message("[DEBUG fOverWidth_hist/scatter] After filtering check_data: ", nrow(check_data), " rows with calibrateTrackDistanceCheckBool=TRUE")
+    
     if (nrow(check_data) > 0) {
       # Use checkJSON data which now has fOverWidth directly
       check_json_data <- distanceCalibrationResults$checkJSON
+      
+      message("[DEBUG fOverWidth_hist/scatter] checkJSON has ", nrow(check_json_data), " rows, fOverWidth column exists: ", "fOverWidth" %in% names(check_json_data))
       
       if (nrow(check_json_data) > 0) {
         # Get median fOverWidth per participant from check data (fOverWidth now directly in JSON)
@@ -3245,11 +3371,21 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           group_by(participant) %>%
           summarize(median_fOverWidth = median(fOverWidth, na.rm = TRUE), .groups = "drop")
         
+        message("[DEBUG fOverWidth_hist/scatter] check_fOverWidth_median: ", nrow(check_fOverWidth_median), " rows")
+        message("[DEBUG fOverWidth_hist/scatter] camera table: ", nrow(distanceCalibrationResults$camera), " rows, PavloviaParticipantID values: ", 
+                paste(distanceCalibrationResults$camera$PavloviaParticipantID, collapse=", "))
+        message("[DEBUG fOverWidth_hist/scatter] check_data PavloviaParticipantID values: ", paste(check_data$PavloviaParticipantID, collapse=", "))
+        
       fOverWidth_over_width_data <- check_data %>%
         left_join(distanceCalibrationResults$camera %>%
                     select(PavloviaParticipantID, widthVpx),
                   by = "PavloviaParticipantID") %>%
-          left_join(check_fOverWidth_median, by = c("PavloviaParticipantID" = "participant")) %>%
+          left_join(check_fOverWidth_median, by = c("PavloviaParticipantID" = "participant"))
+          
+        message("[DEBUG fOverWidth_hist/scatter] After joins: ", nrow(fOverWidth_over_width_data), " rows, widthVpx NAs: ", 
+                sum(is.na(fOverWidth_over_width_data$widthVpx)), ", median_fOverWidth NAs: ", sum(is.na(fOverWidth_over_width_data$median_fOverWidth)))
+        
+        fOverWidth_over_width_data <- fOverWidth_over_width_data %>%
         mutate(
             # Use fOverWidth directly from checkJSON
             fOverWidth = median_fOverWidth
@@ -3257,6 +3393,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         filter(!is.na(widthVpx), widthVpx > 0,
                !is.na(fOverWidth), is.finite(fOverWidth)) %>%
         mutate(participant = PavloviaParticipantID)
+        
+        message("[DEBUG fOverWidth_hist/scatter] After filter: ", nrow(fOverWidth_over_width_data), " rows for plotting")
       } else {
         fOverWidth_over_width_data <- tibble()
       }
@@ -3342,7 +3480,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         fOverWidth_hist <- list(
           plot = p11,
           height = compute_auto_height(base_height = 2.0, n_items = n_distinct(fOverWidth_over_width_data$participant), per_row = 3, row_increase = 0.08) +
-            0.4 * fvpx_over_width_max_count
+            0.4 * fOverWidth_max_count
         )
         
         median_ratio_fw <- median(fOverWidth_over_width_data$fOverWidth, na.rm = TRUE)
@@ -3379,7 +3517,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         
         fOverWidth_scatter <- list(
           plot = p12,
-          height = compute_auto_height(base_height = 7, n_items = n_distinct(fvpx_over_width_data$participant), per_row = 3, row_increase = 0.06)
+          height = compute_auto_height(base_height = 7, n_items = n_distinct(fOverWidth_over_width_data$participant), per_row = 3, row_increase = 0.06)
         )
       }
     }
@@ -3411,6 +3549,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
 
       if (nrow(fOverWidth_ratio_wide) > 0) {
         p14_data <- fOverWidth_ratio_wide
+        
+        message("[DEBUG fOverWidth_second_vs_first] Found ", nrow(fOverWidth_ratio_wide), " participants with 2 calibration measurements")
         
         # Calculate x-axis limits (same as original plot)
         x_min <- min(fOverWidth_ratio_wide$fOverWidth_1, na.rm = TRUE)
@@ -3485,6 +3625,75 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
 
+  # Plot 15: fOverWidth second vs first (scatter plot)
+  p15 <- NULL
+  p15_data <- NULL
+  if (!is.null(p14_data) && nrow(p14_data) > 0) {
+    p15_data <- p14_data
+    
+    # Calculate axis limits for second vs first plot
+    all_vals <- c(p15_data$fOverWidth_1, p15_data$fOverWidth_2)
+    val_min <- min(all_vals, na.rm = TRUE)
+    val_max <- max(all_vals, na.rm = TRUE)
+    val_range <- val_max - val_min
+    axis_min <- val_min - val_range * 0.1
+    axis_max <- val_max + val_range * 0.1
+    
+    p15 <- ggplot(p15_data, 
+                  aes(x = fOverWidth_1, 
+                      y = fOverWidth_2, 
+                      color = participant)) +
+      geom_point(size = 4, alpha = 0.8) +
+      geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray50", linewidth = 1) +  # Identity line
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                          label = statement, size = 3, family = "sans", fontface = "plain") +
+      scale_color_manual(values = colorPalette) +
+      scale_x_continuous(limits = c(axis_min, axis_max)) +
+      scale_y_continuous(limits = c(axis_min, axis_max)) +
+      coord_fixed() +  # Equal aspect ratio
+      labs(
+        subtitle = 'Focal length calibration: second vs. first',
+        x = "First fOverWidth calibration",
+        y = "Second fOverWidth calibration"
+      ) +
+      guides(color = guide_legend(
+        ncol = 4,
+        title = "",
+        override.aes = list(size = 2),
+        keywidth = unit(0.3, "cm"),
+        keyheight = unit(0.3, "cm")
+      )) +
+      theme_bw() +
+      theme(
+        legend.key.size = unit(0, "mm"),
+        legend.title = element_text(size = 6),
+        legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
+        legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+        legend.box.spacing = unit(0, "lines"),
+        legend.spacing.y = unit(-10, "lines"),
+        legend.spacing.x = unit(0, "lines"),
+        legend.key.height = unit(0, "lines"),
+        legend.key.width = unit(0, "mm"),
+        legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+        legend.margin = margin(0, 0, 0, 0),
+        legend.position = "top",
+        legend.box = "vertical",
+        legend.text.align = 0,
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        axis.line = element_line(colour = "black"),
+        plot.title.position = "plot",
+        plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+        plot.caption = element_text(size = 10),
+        plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+        strip.text = element_text(size = 14)
+      )
+    message("[DEBUG fOverWidth_second_vs_first] Created plot p15 with ", nrow(p15_data), " participants")
+  }
+
   # Calculate heights based on legend complexity
   n_participants <- n_distinct(distance_individual$participant)
   base_height <- 7
@@ -3534,8 +3743,24 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         compute_auto_height(base_height = 7, n_items = n_distinct(p14_data$participant), per_row = 3, row_increase = 0.06)
       } else NULL
     ),
-    fOverWidth_hist = fvpx_over_width_hist,
-    fOverWidth_scatter = fvpx_over_width_scatter
+    fOverWidth_hist = fOverWidth_hist,
+    fOverWidth_scatter = fOverWidth_scatter,
+    # Additional plots
+    calibrated_vs_mean = list(
+      plot = p5c,
+      height = if (!is.null(p5c) && exists("plot_data_p5b") && nrow(plot_data_p5b) > 0) {
+        compute_auto_height(base_height = 7, n_items = n_distinct(plot_data_p5b$participant), per_row = 3, row_increase = 0.06)
+      } else NULL
+    ),
+    fOverWidth_second_vs_first = list(
+      plot = p15,
+      height = if (!is.null(p15) && !is.null(p15_data)) {
+        compute_auto_height(base_height = 7, n_items = n_distinct(p15_data$participant), per_row = 3, row_increase = 0.06)
+      } else NULL
+    ),
+    fvpx_second_vs_first = list(plot = p15, height = if (!is.null(p15) && !is.null(p15_data)) {  # Same plot as fOverWidth_second_vs_first
+        compute_auto_height(base_height = 7, n_items = n_distinct(p15_data$participant), per_row = 3, row_increase = 0.06)
+      } else NULL)
   ))
 }
 
@@ -3961,6 +4186,9 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
   # Plot: Error vs. blindspot diameter
   blindspot_data <- distanceCalibrationResults$blindspot
   p6 <- NULL
+  message("[DEBUG plot_distance_production] error_vs_blindspot: distance_avg rows=", nrow(distance_avg),
+          ", blindspot_data rows=", nrow(blindspot_data),
+          " (Requires blindspot calibration data)")
   if (nrow(distance_avg) > 0 && nrow(blindspot_data) > 0) {
     # Join distance_avg with blindspot_data
     error_vs_blindspot_data <- distance_avg %>%
@@ -4287,15 +4515,17 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   
   # Early return if camera doesn't have required columns
   if (nrow(camera) == 0 || !"PavloviaParticipantID" %in% names(camera) || !"widthVpx" %in% names(camera)) {
-    return(list(ipd_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL),
-                ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL)))
+    message("[DEBUG plot_ipd_vs_eyeToFootCm] Early return: camera missing required columns (PavloviaParticipantID or widthVpx)")
+    return(list(ipdOverWidth_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL),
+                ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL)))
   }
   
   # Early return if TJSON is empty or missing required columns
   tjson <- distanceCalibrationResults$TJSON
   if (nrow(tjson) == 0 || !"ipdOverWidth" %in% names(tjson)) {
-    return(list(ipd_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL),
-                ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL)))
+    message("[DEBUG plot_ipd_vs_eyeToFootCm] Early return: TJSON empty or missing ipdOverWidth column. TJSON columns: ", paste(names(tjson), collapse=", "))
+    return(list(ipdOverWidth_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL),
+                ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL)))
   }
   
   # TJSON now has ipdOverWidth directly (no longer computed from ipdVpx)
@@ -4304,9 +4534,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth), !is.na(ipdCm), is.finite(ipdCm), ipdCm > 0) %>%
     mutate(requestedEyesToFootCm = eyeToFootCm,  # During calibration, requested == measured
            ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm = ipdOverWidth * requestedEyesToFootCm / ipdCm,
-           # Compute factorVpxCm from fOverWidth if not available
-           factorVpxCm = ifelse(is.na(factorVpxCm) & !is.na(fOverWidth) & !is.na(widthVpx) & !is.na(ipdCm),
-                                fOverWidth * widthVpx * ipdCm, factorVpxCm),
+           # Compute factorVpxCm from fOverWidth (fOverWidth = f/widthVpx, so f = fOverWidth * widthVpx)
+           factorVpxCm = fOverWidth * widthVpx * ipdCm,
            type = 'calibration') %>%
     select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type)
   
@@ -4330,9 +4559,9 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   ipd_data <- rbind(ipd_TJSON, ipd_checkJSON)
   
   if (nrow(ipd_TJSON) == 0) {
-    return(list(ipd_vs_requestedEyesToFootCm = list(plot = NULL, 
+    return(list(ipdOverWidth_vs_requestedEyesToFootCm = list(plot = NULL, 
                                           height = NULL),
-                ipdVpx_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = NULL, 
+                ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = NULL, 
                                                                height = NULL)))
   }
   
@@ -4594,7 +4823,12 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     fOverWidth_per_participant <- tibble(participant = character(), fOverWidth_calibration = numeric())
   }
   
+  message("[DEBUG plot_eyesToFootCm_estimated] check_data rows: ", nrow(check_data),
+          ", fOverWidth_per_participant rows: ", nrow(fOverWidth_per_participant),
+          ", camera rows: ", nrow(camera))
+  
   if (nrow(check_data) == 0 || nrow(fOverWidth_per_participant) == 0 || nrow(camera) == 0) {
+    message("[DEBUG plot_eyesToFootCm_estimated] Early return: insufficient data")
     return(list(plot = NULL, height = NULL))
   }
   
@@ -4612,7 +4846,10 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     select(participant, requestedEyesToFootCm, eyesToFootCm_estimated, ipdOverWidth, fOverWidth_calibration) %>%
     filter(is.finite(requestedEyesToFootCm), is.finite(eyesToFootCm_estimated))
   
+  message("[DEBUG plot_eyesToFootCm_estimated] After filtering: ", nrow(plot_data), " rows for plotting")
+  
   if (nrow(plot_data) == 0) {
+    message("[DEBUG plot_eyesToFootCm_estimated] No valid data after computing eyesToFootCm_estimated")
     return(list(plot = NULL, height = NULL))
   }
   
