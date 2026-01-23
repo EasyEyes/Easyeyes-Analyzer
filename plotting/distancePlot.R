@@ -1416,6 +1416,27 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     } 
   }
   
+  # Add explicit measurement order to preserve the order data was received
+  # This is critical for detecting order effects in FaceMesh measurements
+  if (nrow(checkJSON) > 0) {
+    checkJSON <- checkJSON %>%
+      group_by(participant) %>%
+      mutate(measurement_order_within_participant = row_number()) %>%
+      ungroup() %>%
+      mutate(measurement_order_global = row_number())
+    
+    # DEBUG: Show the data order as it comes from the JSON
+    message("[DEBUG checkJSON] === MEASUREMENT ORDER FROM JSON ===")
+    message("[DEBUG] Total rows: ", nrow(checkJSON), ", Participants: ", n_distinct(checkJSON$participant))
+    for (p in unique(checkJSON$participant)) {
+      p_data <- checkJSON %>% filter(participant == p)
+      message("[DEBUG] Participant: ", p)
+      message("[DEBUG]   measurement_order: ", paste(p_data$measurement_order_within_participant, collapse = ", "))
+      message("[DEBUG]   requestedEyesToPointCm: ", paste(round(p_data$requestedEyesToPointCm, 1), collapse = " -> "))
+      message("[DEBUG]   requestedEyesToFootCm: ", paste(round(p_data$requestedEyesToFootCm, 1), collapse = " -> "))
+    }
+    message("[DEBUG checkJSON] === END MEASUREMENT ORDER ===")
+  }
   
   sizeCheck <- sizeCheck %>% as_tibble()
   distance <- distance %>% as_tibble()
@@ -2574,25 +2595,42 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   
   # Plot 1: Measured vs. requested distance (INDIVIDUAL MEASUREMENTS)
   # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm
+  # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for line connections
   p1_data <- distance_individual %>%
-    arrange(participant, p1_x_jitter) %>%
-    filter(!is.na(p1_x_jitter), !is.na(p1_y))
+    filter(!is.na(p1_x_jitter), !is.na(p1_y)) %>%
+    arrange(participant, measurement_order_within_participant)
   
   # Plot 2 data: Measured over requested distance
   # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToPointCm
+  # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for line connections
   p2_data <- distance_individual %>%
-    arrange(participant, p2_x_jitter) %>%
-    filter(!is.na(p2_x_jitter), !is.na(p2_y))
+    filter(!is.na(p2_x_jitter), !is.na(p2_y)) %>%
+    arrange(participant, measurement_order_within_participant)
   
   # Keep original filter for other plots
+  # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for line connections
   distance_individual <- distance_individual %>%
-    arrange(participant, CheckDistanceRequestedCm_jitter) %>%  # Ensure proper ordering
     filter(!is.na(CheckDistanceRequestedCm_jitter),
-           !is.na(checkDistanceMeasuredCm))
+           !is.na(checkDistanceMeasuredCm)) %>%
+    arrange(participant, measurement_order_within_participant)
+  
+  # DEBUG: Show the data in measurement order for plot_distance
+  message("[DEBUG plot_distance] === P1 DATA BEING PLOTTED (in order) ===")
+  message("[DEBUG] Total rows: ", nrow(p1_data), ", Participants: ", n_distinct(p1_data$participant))
+  for (p in unique(p1_data$participant)) {
+    p_data <- p1_data %>% filter(participant == p)
+    message("[DEBUG] Participant: ", p)
+    message("[DEBUG]   measurement_order: ", paste(p_data$measurement_order_within_participant, collapse = ", "))
+    message("[DEBUG]   p1_x (rulerBasedEyesToPointCm): ", paste(round(p_data$p1_x, 1), collapse = " -> "))
+    message("[DEBUG]   p1_y (imageBasedEyesToPointCm): ", paste(round(p_data$p1_y, 1), collapse = " -> "))
+  }
+  message("[DEBUG plot_distance] === END P1 DATA ===")
+  
   p1 <- NULL
   if (nrow(p1_data) > 0) {
   p1 <- ggplot() + 
-      geom_line(data=p1_data,
+      # Use geom_path instead of geom_line to connect points in measurement order, not x-value order
+      geom_path(data=p1_data,
               aes(x = p1_x_jitter, 
                     y = p1_y,
                   color = participant, 
@@ -2635,7 +2673,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # Plot 2: Measured over requested distance (INDIVIDUAL MEASUREMENTS)
   # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToPointCm
   p2 <- ggplot() + 
-    geom_line(data=p2_data,
+    # Use geom_path instead of geom_line to connect points in measurement order, not x-value order
+    geom_path(data=p2_data,
               aes(x = p2_x_jitter, 
                   y = p2_y,
                   color = participant, 
@@ -4529,18 +4568,23 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   }
   
   # TJSON now has ipdOverWidth directly (no longer computed from ipdVpx)
+  # Add measurement_order_within_participant for consistency with check data (calibration has only one point per participant typically)
   ipd_TJSON <- tjson %>%
     left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
     filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth), !is.na(ipdCm), is.finite(ipdCm), ipdCm > 0) %>%
+    group_by(participant) %>%
+    mutate(measurement_order_within_participant = row_number()) %>%
+    ungroup() %>%
     mutate(requestedEyesToFootCm = eyeToFootCm,  # During calibration, requested == measured
            ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm = ipdOverWidth * requestedEyesToFootCm / ipdCm,
            # Compute factorVpxCm from fOverWidth (fOverWidth = f/widthVpx, so f = fOverWidth * widthVpx)
            factorVpxCm = fOverWidth * widthVpx * ipdCm,
            type = 'calibration') %>%
-    select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type)
+    select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type, measurement_order_within_participant)
   
   # For check data, use the actual requestedEyesToFootCm (derived from requestedEyesToPointCm)
   # checkJSON now has ipdOverWidth directly
+  # IMPORTANT: Include measurement_order_within_participant and arrange by it to preserve measurement order
   checkjson <- distanceCalibrationResults$checkJSON
   ipd_checkJSON <- if (nrow(checkjson) > 0 && "ipdOverWidth" %in% names(checkjson)) {
     checkjson %>%
@@ -4550,10 +4594,11 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
              type = 'check') %>%
       left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
       mutate(factorVpxCm = fOverWidth * widthVpx * ipdCm) %>%
-      select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type)
+      select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type, measurement_order_within_participant) %>%
+      arrange(participant, measurement_order_within_participant)
   } else {
     tibble(participant = character(), requestedEyesToFootCm = numeric(), ipdOverWidth = numeric(),
-           ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm = numeric(), factorVpxCm = numeric(), type = character())
+           ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm = numeric(), factorVpxCm = numeric(), type = character(), measurement_order_within_participant = integer())
   }
   
   ipd_data <- rbind(ipd_TJSON, ipd_checkJSON)
@@ -4597,9 +4642,10 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     mutate(product_focal_over_width = focal_length_over_width / median_ipdCm)
   
   # Plot 2: ipdVpx vs. requestedEyesToFootCm
+  # IMPORTANT: Do NOT sort by distance values - preserve measurement order for line connections
   p1 <- ggplot() +
-    # Data lines: solid for both calibration and check
-    geom_line(data = ipd_data %>% arrange(participant, type, requestedEyesToFootCm),
+    # Data lines: use geom_path to connect points in measurement order, not x-value order
+    geom_path(data = ipd_data,
                   aes(x = requestedEyesToFootCm,
                       y = ipdOverWidth,
                   color = participant,
@@ -4657,9 +4703,10 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
          caption = 'Dotted lines: focal length from calibration (ipdOverWidth = factorVpxCm / (widthVpx × requestedEyesToFootCm))')
   
   # Plot 1: (ipdVpx*requestedEyesToFootCm/ipdCm) vs. requestedEyesToFootCm
+  # IMPORTANT: Do NOT sort by distance values - preserve measurement order for line connections
   p2 <- ggplot() +
-    # Data lines: solid for both calibration and check
-    geom_line(data = ipd_data %>% arrange(participant, type, requestedEyesToFootCm),
+    # Data lines: use geom_path to connect points in measurement order, not x-value order
+    geom_path(data = ipd_data,
               aes(x = requestedEyesToFootCm,
                   y = ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm,
                   color = participant,
@@ -4739,24 +4786,38 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
   }
   
   # Prepare data - use imageBasedEyesToPointCm (vertical) and rulerBasedEyesToFootCm (horizontal)
+  # IMPORTANT: Include measurement_order_within_participant and arrange by it to preserve measurement order
   plot_data <- check_data %>%
     mutate(
       type = 'check',
       plot_x = as.numeric(rulerBasedEyesToFootCm),
       plot_y = as.numeric(imageBasedEyesToPointCm)
     ) %>%
-    select(participant, plot_x, plot_y, rulerBasedEyesToFootCm, imageBasedEyesToPointCm, ipdOverWidth, type) %>%
-    filter(is.finite(plot_x), is.finite(plot_y))
+    select(participant, plot_x, plot_y, rulerBasedEyesToFootCm, imageBasedEyesToPointCm, ipdOverWidth, type, measurement_order_within_participant) %>%
+    filter(is.finite(plot_x), is.finite(plot_y)) %>%
+    arrange(participant, measurement_order_within_participant)
   
+  # DEBUG: Show the data in measurement order to verify correct ordering
+  message("[DEBUG plot_eyeToPointCm_vs_requestedEyesToFootCm] === DATA BEING PLOTTED (in order) ===")
+  message("[DEBUG] Total rows: ", nrow(plot_data), ", Participants: ", n_distinct(plot_data$participant))
+  for (p in unique(plot_data$participant)) {
+    p_data <- plot_data %>% filter(participant == p)
+    message("[DEBUG] Participant: ", p)
+    message("[DEBUG]   measurement_order: ", paste(p_data$measurement_order_within_participant, collapse = ", "))
+    message("[DEBUG]   rulerBasedEyesToFootCm (x-values): ", paste(round(p_data$plot_x, 1), collapse = " -> "))
+    message("[DEBUG]   imageBasedEyesToPointCm (y-values): ", paste(round(p_data$plot_y, 1), collapse = " -> "))
+  }
+  message("[DEBUG plot_eyeToPointCm_vs_requestedEyesToFootCm] === END DATA ===")
   
   if (nrow(plot_data) == 0) {
     return(list(plot = NULL, height = NULL))
   }
   
   # Create the plot
+  # Use geom_path instead of geom_line to connect points in measurement order, not x-value order
   p <- ggplot(plot_data, aes(x = plot_x, y = plot_y)) +
     geom_point(aes(color = participant), size = 2.5, alpha = 0.8) +
-    geom_line(aes(color = participant, group = participant),
+    geom_path(aes(color = participant, group = participant),
               linewidth = 0.5, alpha = 0.6) +
     # Add identity line (if imageBasedEyesToPointCm == rulerBasedEyesToFootCm, perfect horizontal viewing)
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
@@ -4834,6 +4895,7 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
   
   # Join check data with calibration fOverWidth and compute estimated eyesToFootCm
   # checkJSON now has ipdOverWidth directly
+  # IMPORTANT: Include measurement_order_within_participant and arrange by it to preserve measurement order
   plot_data <- check_data %>%
     left_join(fOverWidth_per_participant, by = "participant") %>%
     filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth), ipdOverWidth > 0) %>%
@@ -4843,10 +4905,22 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
       # (since ipdOverWidth = ipdVpx / widthVpx, and fOverWidth = fVpx / widthVpx)
       eyesToFootCm_estimated = fOverWidth_calibration * ipdCm_standard / ipdOverWidth
     ) %>%
-    select(participant, requestedEyesToFootCm, eyesToFootCm_estimated, ipdOverWidth, fOverWidth_calibration) %>%
-    filter(is.finite(requestedEyesToFootCm), is.finite(eyesToFootCm_estimated))
+    select(participant, requestedEyesToFootCm, eyesToFootCm_estimated, ipdOverWidth, fOverWidth_calibration, measurement_order_within_participant) %>%
+    filter(is.finite(requestedEyesToFootCm), is.finite(eyesToFootCm_estimated)) %>%
+    arrange(participant, measurement_order_within_participant)
   
   message("[DEBUG plot_eyesToFootCm_estimated] After filtering: ", nrow(plot_data), " rows for plotting")
+  
+  # DEBUG: Show the data in measurement order to verify correct ordering
+  message("[DEBUG plot_eyesToFootCm_estimated] === DATA BEING PLOTTED (in order) ===")
+  for (p in unique(plot_data$participant)) {
+    p_data <- plot_data %>% filter(participant == p)
+    message("[DEBUG] Participant: ", p)
+    message("[DEBUG]   measurement_order: ", paste(p_data$measurement_order_within_participant, collapse = ", "))
+    message("[DEBUG]   requestedEyesToFootCm (x-values): ", paste(round(p_data$requestedEyesToFootCm, 1), collapse = " -> "))
+    message("[DEBUG]   eyesToFootCm_estimated (y-values): ", paste(round(p_data$eyesToFootCm_estimated, 1), collapse = " -> "))
+  }
+  message("[DEBUG plot_eyesToFootCm_estimated] === END DATA ===")
   
   if (nrow(plot_data) == 0) {
     message("[DEBUG plot_eyesToFootCm_estimated] No valid data after computing eyesToFootCm_estimated")
@@ -4859,7 +4933,8 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", linewidth = 0.8) +
     # Data points
     geom_point(aes(color = participant), size = 2.5, alpha = 0.8) +
-    geom_line(aes(color = participant, group = participant),
+    # Use geom_path instead of geom_line to connect points in measurement order, not x-value order
+    geom_path(aes(color = participant, group = participant),
               linewidth = 0.5, alpha = 0.6) +
     scale_x_log10(
       breaks = scales::log_breaks(n = 6),
