@@ -1788,13 +1788,6 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   # Compute camera resolution stats (SD and count of width values)
   camera_res_stats <- get_camera_resolution_stats(filtered_data_list)
 
-  print("TJSON")
-  print(TJSON, n = Inf, width = Inf)
-  print("checkJSON")
-  print(checkJSON, n = Inf, width = Inf)
-  print("raw_fVpx")
-  print(raw_fVpx, n = Inf, width = Inf)
-  
   return(list(
     filtered = filtered_data_list,
     sizeCheck = sizeCheck,

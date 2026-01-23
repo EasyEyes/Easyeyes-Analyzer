@@ -444,6 +444,8 @@ read_files <- function(file){
   file_names <- file$name
   file_list <- file_list[!grepl("cursor", basename(file_names)) & !grepl("^~", basename(file_names))]
   file_names <- file_names[!grepl("cursor", basename(file_names)) & !grepl("^~", basename(file_names))]
+  print('file_names')
+  print(file_names)
   data_list <- list()
   stair_list <- list()
   summary_list <- list()
@@ -454,6 +456,13 @@ read_files <- function(file){
   pretest <- tibble()
 
   for (i in 1 : n) {
+    print(sprintf("Processing file %d/%d: %s", i, n, file_names[i]))
+    print(sprintf("  File path: %s", file_list[i]))
+    print(sprintf("  File type (name): %s", ifelse(grepl(".csv", file_names[i]), "CSV",
+                                                  ifelse(grepl(".zip", file_names[i]), "ZIP", "OTHER"))))
+    print(sprintf("  File type (path): %s", ifelse(grepl(".csv", file_list[i]), "CSV",
+                                                 ifelse(grepl(".zip", file_list[i]), "ZIP", "OTHER"))))
+    print(sprintf("  Current j index: %d", j))
     t <- tibble(placeholder = "")
     
     if (grepl("pretest.xlsx", file_names[i]) | grepl("pretest.csv", file_names[i])) {
@@ -571,7 +580,8 @@ read_files <- function(file){
         next
       }
     }
-    if (grepl(".zip", file_list[i])) {
+    if (grepl(".zip", file_names[i])) {
+      print(sprintf("ZIP DETECTED: %s", file_names[i]))
       # Check if this zip file is empty and skip it if so
       empty_result <- tryCatch({
         check_empty_archive(file_list[i])
@@ -590,15 +600,17 @@ read_files <- function(file){
       
       # Proceed with processing non-empty zip file
       zl <- zip::zip_list(file_list[i])
-      file_names <- zl$filename
-      file_names <- file_names[!grepl("^~", basename(file_names))]
-      all_csv <- file_names[grepl(".csv$", file_names, ignore.case = TRUE)]
+      zip_file_names <- zl$filename
+      zip_file_names <- zip_file_names[!grepl("^~", basename(zip_file_names))]
+      all_csv <- zip_file_names[grepl(".csv$", zip_file_names, ignore.case = TRUE)]
       all_csv <- all_csv[!grepl("__MACOSX", all_csv) & !grepl("cursor", all_csv) & !grepl("pretest\\.csv$", all_csv, ignore.case = TRUE)]
-      all_pretest <- file_names[grepl("pretest\\.csv$", file_names, ignore.case = TRUE) | grepl("pretest\\.xlsx$", file_names, ignore.case = TRUE)]
+      all_pretest <- zip_file_names[grepl("pretest\\.csv$", zip_file_names, ignore.case = TRUE) | grepl("pretest\\.xlsx$", zip_file_names, ignore.case = TRUE)]
       all_pretest <- all_pretest[!grepl("__MACOSX", all_pretest)]
       m <- length(all_csv)
+      print(sprintf("  ZIP contains %d CSV files: %s", m, paste(all_csv, collapse=", ")))
       tmp <- tempdir()
       for (k in 1 : m) {
+        print(sprintf("    Processing CSV %d/%d: %s", k, m, all_csv[k]))
         # Stream CSV directly from zip without extracting to disk; fallback to extracting just this file
         cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_csv[k]))
         read_ok <- TRUE
@@ -660,6 +672,8 @@ read_files <- function(file){
               t <- t %>% mutate(participant = as.character(participant))
             }
             data_list[[j]] <- t
+            print(sprintf("      Added to data_list[[%d]]: participant=%s, rows=%d",
+                          j, t$participant[1], nrow(t)))
             # CRITICAL FIX: Ensure participant column is character for stair data
             if ("participant" %in% names(stairdf)) {
               stairdf <- stairdf %>% mutate(participant = as.character(participant))
@@ -728,7 +742,7 @@ read_files <- function(file){
           pretest$Age <- as.numeric(pretest$Age)
         }
       }
-      ('done processing zip')
+      print('done processing zip')
     }
   }
   
@@ -830,6 +844,15 @@ read_files <- function(file){
   experiment <- experiment[experiment!=""]
   stairs <- do.call(rbind, stair_list)
   prolific <- find_prolific_from_files(file)
+
+  # Final debug output
+  print(sprintf("FINAL: data_list has %d entries", length(data_list)))
+  if (length(data_list) > 0) {
+    participants <- sapply(data_list, function(x) if("participant" %in% names(x)) x$participant[1] else "NO_PARTICIPANT_COL")
+    print("Participants in data_list:")
+    print(table(participants))
+  }
+
   print('done preprocess')
   return(list(data_list = data_list, 
               summary_list = summary_list, 
