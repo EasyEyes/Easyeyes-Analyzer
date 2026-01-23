@@ -27,7 +27,7 @@ safe_first <- function(x) {
 }
 
 safe_first_num <- function(x, digits = NULL) {
-  x <- suppressWarnings(as.numeric(x))
+  x <- as.numeric(x)
   x <- x[is.finite(x)]
   if (!length(x)) return("")
   if (is.null(digits)) as.character(x[1]) else format(round(x[1], digits), nsmall = digits)
@@ -55,7 +55,7 @@ extract_width_px <- function(res_str) {
     parts <- unlist(strsplit(clean, "[,xX ]+"))
     parts <- parts[nzchar(parts)]
     if (length(parts) == 0) return(NA_real_)
-    nums <- suppressWarnings(as.numeric(parts))
+    nums <- as.numeric(parts)
     nums <- nums[is.finite(nums)]
     if (length(nums) == 0) return(NA_real_)
     if (length(nums) >= 2) {
@@ -221,18 +221,17 @@ get_cameraResolutionXY <- function(data_list) {
           objectBasedLeftEyeToFootCm  = if (!is.null(t_tjson$objectBasedLeftEyeToFootCm)) t_tjson$objectBasedLeftEyeToFootCm else t_tjson$leftEyeToFootCm,
           # Renamed: eyesToFootCm -> objectBasedEyesToFootCm (now provided directly in JSON)
           objectBasedEyesToFootCm     = if (!is.null(t_tjson$objectBasedEyesToFootCm)) t_tjson$objectBasedEyesToFootCm else t_tjson$eyesToFootCm,
-          # factorVpxCm extracted directly from JSON (may not exist in new format)
-          factorVpxCm      = if (!is.null(t_tjson$factorVpxCm)) suppressWarnings(as.numeric(t_tjson$factorVpxCm)) else NA_real_,
           # New parameters: fOverWidth and ipdOverWidth (4 decimal digits)
-          fOverWidth       = if (!is.null(t_tjson$fOverWidth)) suppressWarnings(as.numeric(t_tjson$fOverWidth)) else NA_real_,
-          ipdOverWidth     = if (!is.null(t_tjson$ipdOverWidth)) suppressWarnings(as.numeric(t_tjson$ipdOverWidth)) else NA_real_,
-          ipdCm            = if (!is.null(t_tjson$ipdCm)) suppressWarnings(as.numeric(t_tjson$ipdCm)) else NA_real_
+          fOverWidth       = if (!is.null(t_tjson$fOverWidth)) as.numeric(t_tjson$fOverWidth) else NA_real_,
+          ipdOverWidth     = if (!is.null(t_tjson$ipdOverWidth)) as.numeric(t_tjson$ipdOverWidth) else NA_real_,
+          ipdCm            = if (!is.null(t_tjson$ipdCm)) as.numeric(t_tjson$ipdCm) else NA_real_
         ) %>%
         mutate(
           # Use objectBasedEyesToFootCm directly if available, otherwise compute from left/right
           eyeToFootCm = ifelse(!is.na(objectBasedEyesToFootCm), 
-                               suppressWarnings(as.numeric(objectBasedEyesToFootCm)),
-                               suppressWarnings((as.numeric(objectBasedLeftEyeToFootCm) + as.numeric(objectBasedRightEyeToFootCm)) / 2))
+                               (as.numeric(objectBasedEyesToFootCm)),
+                               (as.numeric(objectBasedLeftEyeToFootCm) + as.numeric(objectBasedRightEyeToFootCm)) / 2),
+          factorVpxCm = fOverWidth * widthVpx * ipdCm
         )
 
         factorVpxCmVals <- tmp$factorVpxCm[!is.na(tmp$factorVpxCm)]
@@ -258,7 +257,7 @@ get_cameraResolutionXY <- function(data_list) {
               distinct() %>%
       filter(!is.na(cameraResolutionXY), cameraResolutionXY != "", !is.na(factorVpxCm)) %>%
       mutate(widthVpx = extract_width_px(cameraResolutionXY), # take largest of first two resolution entries as horizontal width
-             widthVpx = suppressWarnings(as.numeric(widthVpx))
+             widthVpx = as.numeric(widthVpx)
           )
             
             if (nrow(t) > 0) {
@@ -1076,8 +1075,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                      requested_list = strsplit(calibrateTrackDistanceRequestedCm, ",")) %>%
               unnest(c(measured_list, requested_list)) %>%
               mutate(
-                calibrateTrackDistanceMeasuredCm = suppressWarnings(as.numeric(trimws(measured_list))),
-                calibrateTrackDistanceRequestedCm = suppressWarnings(as.numeric(trimws(requested_list))),
+                calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
+                calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
                 measurement_index = row_number()
               ) %>%
               select(-measured_list, -requested_list)
@@ -1156,7 +1155,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         }
         
         if (!is.null(measured_vals)) {
-          measuredFactorVpxCmVals <- suppressWarnings(as.numeric(measured_vals))
+          measuredFactorVpxCmVals <- as.numeric(measured_vals)
           measuredFactorVpxCmVals <- measuredFactorVpxCmVals[!is.na(measuredFactorVpxCmVals)]
           
           if (length(measuredFactorVpxCmVals) > 0) {
@@ -1228,8 +1227,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                 
                 # Extract measuredEyesToPointCm and requestedEyesToPointCm for correct distance ratio
                 # Note: eyesToPointCm was deleted, use rulerBasedEyesToPointCm instead
-                measured_eyes_vals <- suppressWarnings(as.numeric(distanceCheck$rulerBasedEyesToPointCm))
-                requested_eyes_vals <- suppressWarnings(as.numeric(distanceCheck$requestedEyesToPointCm))
+                measured_eyes_vals <- as.numeric(distanceCheck$rulerBasedEyesToPointCm)
+                requested_eyes_vals <- as.numeric(distanceCheck$requestedEyesToPointCm)
                 
                 # Compute distance ratio per measurement
                 n_check_measurements <- nrow(check_coords_df)
@@ -1292,18 +1291,16 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           objectBasedLeftEyeToFootCm  = if (!is.null(t_tjson$objectBasedLeftEyeToFootCm)) t_tjson$objectBasedLeftEyeToFootCm else t_tjson$leftEyeToFootCm,
           # Renamed: eyesToFootCm -> objectBasedEyesToFootCm (now provided directly in JSON)
           objectBasedEyesToFootCm     = if (!is.null(t_tjson$objectBasedEyesToFootCm)) t_tjson$objectBasedEyesToFootCm else t_tjson$eyesToFootCm,
-          # factorVpxCm extracted directly from JSON (may not exist in new format)
-          factorVpxCm      = if (!is.null(t_tjson$factorVpxCm)) suppressWarnings(as.numeric(t_tjson$factorVpxCm)) else NA_real_,
           # New parameters: fOverWidth and ipdOverWidth (4 decimal digits)
-          fOverWidth       = if (!is.null(t_tjson$fOverWidth)) suppressWarnings(as.numeric(t_tjson$fOverWidth)) else NA_real_,
-          ipdOverWidth     = if (!is.null(t_tjson$ipdOverWidth)) suppressWarnings(as.numeric(t_tjson$ipdOverWidth)) else NA_real_,
-          ipdCm            = if (!is.null(t_tjson$ipdCm)) suppressWarnings(as.numeric(t_tjson$ipdCm)) else NA_real_
+          fOverWidth       = if (!is.null(t_tjson$fOverWidth)) as.numeric(t_tjson$fOverWidth) else NA_real_,
+          ipdOverWidth     = if (!is.null(t_tjson$ipdOverWidth)) as.numeric(t_tjson$ipdOverWidth) else NA_real_,
+          ipdCm            = if (!is.null(t_tjson$ipdCm)) as.numeric(t_tjson$ipdCm) else NA_real_
         ) %>%
           mutate(
             # Use objectBasedEyesToFootCm directly if available, otherwise compute from left/right
             eyeToFootCm = ifelse(!is.na(objectBasedEyesToFootCm), 
-                                 suppressWarnings(as.numeric(objectBasedEyesToFootCm)),
-                                 suppressWarnings((as.numeric(objectBasedLeftEyeToFootCm) + as.numeric(objectBasedRightEyeToFootCm)) / 2))
+(as.numeric(objectBasedEyesToFootCm)),
+((as.numeric(objectBasedLeftEyeToFootCm) + as.numeric(objectBasedRightEyeToFootCm)) / 2))
           )
 
         TJSON <- rbind(TJSON, tmp)
@@ -1313,15 +1310,15 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       
       # Parse distanceCheckJSON
         # Extract measuredEyesToPointCm and requestedEyesToPointCm for correct distance ratio
-        measuredEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$rulerBasedEyesToPointCm))
-        requestedEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$requestedEyesToPointCm))
-        imageBasedEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$imageBasedEyesToPointCm))
-        rulerBasedEyesToPointCm_vals <- suppressWarnings(as.numeric(distanceCheck$rulerBasedEyesToPointCm))
+        measuredEyesToPointCm_vals <- as.numeric(distanceCheck$rulerBasedEyesToPointCm)
+        requestedEyesToPointCm_vals <- as.numeric(distanceCheck$requestedEyesToPointCm)
+        imageBasedEyesToPointCm_vals <- as.numeric(distanceCheck$imageBasedEyesToPointCm)
+        rulerBasedEyesToPointCm_vals <- as.numeric(distanceCheck$rulerBasedEyesToPointCm)
         
         # New: extract ipdOverWidth (replaces ipdVpx) and calibrationFOverWidth (replaces calibrationFVpx)
-        ipdOverWidth_vals <- suppressWarnings(as.numeric(distanceCheck$ipdOverWidth))
+        ipdOverWidth_vals <- as.numeric(distanceCheck$ipdOverWidth)
         calibrationFOverWidth_val <- if (!is.null(distanceCheck$calibrationFOverWidth)) {
-          suppressWarnings(as.numeric(distanceCheck$calibrationFOverWidth))
+(as.numeric(distanceCheck$calibrationFOverWidth))
         } else {
           NA_real_
         }
@@ -1338,12 +1335,12 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           eyesToPointCm = measuredEyesToPointCm_vals,  # Keep for backward compatibility
           imageBasedEyesToPointCm = imageBasedEyesToPointCm_vals,
           rulerBasedEyesToPointCm = rulerBasedEyesToPointCm_vals,
-          footToPointCm = suppressWarnings(as.numeric(distanceCheck$footToPointCm)),
-          rulerBasedEyesToFootCm = suppressWarnings(as.numeric(distanceCheck$rulerBasedEyesToFootCm)),
+          footToPointCm = as.numeric(distanceCheck$footToPointCm),
+          rulerBasedEyesToFootCm = as.numeric(distanceCheck$rulerBasedEyesToFootCm),
           # New parameters: ipdOverWidth replaces ipdVpx, calibrationFOverWidth replaces calibrationFVpx
           ipdOverWidth  = ipdOverWidth_vals,
           calibrationFOverWidth = calibrationFOverWidth_val,
-          ipdCm         = first(na.omit(t_tjson$ipdCm))
+          ipdCm         = as.numeric(first(na.omit(t_tjson$ipdCm)))
         ) %>%
           mutate(
             # Measured eyesToFootCm (derived from measured eyesToPointCm)
@@ -1357,7 +1354,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
             # Compute correct distance ratio: measured / requested eyesToPointCm
             distance_ratio = ifelse(is.finite(measuredEyesToPointCm) & is.finite(requestedEyesToPointCm) & requestedEyesToPointCm > 0,
                                     measuredEyesToPointCm / requestedEyesToPointCm, NA_real_)
-          )
+          ) 
 
         checkJSON <- rbind(checkJSON, tmp)
     } 
@@ -1713,6 +1710,13 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     filter(is.finite(relative), relative > 0)
   # Compute camera resolution stats (SD and count of width values)
   camera_res_stats <- get_camera_resolution_stats(filtered_data_list)
+
+  print("TJSON")
+  print(TJSON, n = Inf, width = Inf)
+  print("checkJSON")
+  print(checkJSON, n = Inf, width = Inf)
+  print("raw_fVpx")
+  print(raw_fVpx, n = Inf, width = Inf)
   
   return(list(
     filtered = filtered_data_list,
@@ -2708,7 +2712,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # Plot 6: Calibrated over mean factorVpxCm vs. spot diameter
   p6 <- NULL
   if ("calibrateTrackDistanceIpdVpx" %in% names(distance) && nrow(distance) > 0) {
-    # Get camera data for factorVpxCm
+    # Get camera data
     camera_data <- distanceCalibrationResults$camera
     # Get blindspot diameter data
     blindspot_data <- distanceCalibrationResults$blindspot
@@ -3223,7 +3227,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     check_data <- check_data %>%
       mutate(
         calibrateTrackDistanceCheckBool = coerce_to_logical(calibrateTrackDistanceCheckBool),
-        medianFactorVpxCm = suppressWarnings(as.numeric(medianFactorVpxCm))
+        medianFactorVpxCm = as.numeric(medianFactorVpxCm)
       ) %>%
       filter(!is.na(calibrateTrackDistanceCheckBool),
              calibrateTrackDistanceCheckBool,
@@ -3849,17 +3853,17 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   # smallest positive x so the rect shows up on a log scale
   # Compute positive finite bounds for a log–log plot
   # --- pick panel limits explicitly ---
-  min_pos_x <- suppressWarnings(min(sdLogDensity_data$sdLogDensity[sdLogDensity_data$sdLogDensity > 0], na.rm = TRUE))
+  min_pos_x <- min(sdLogDensity_data$sdLogDensity[sdLogDensity_data$sdLogDensity > 0], na.rm = TRUE)
   # left edge at the decade just below/at the smallest x (e.g., 0.001 if min≈0.00117)
   x_left <- if (is.finite(min_pos_x)) 10^floor(log10(min_pos_x)) else 1e-6
   
   rat_pos <- sdLogDensity_data$ratio[sdLogDensity_data$ratio > 0]
-  y_low  <- suppressWarnings(min(rat_pos, na.rm = TRUE))
-  y_high <- suppressWarnings(max(rat_pos, na.rm = TRUE))
+  y_low  <- min(rat_pos, na.rm = TRUE)
+  y_high <- max(rat_pos, na.rm = TRUE)
   
   rat_pos <- sdLogDensity_data$ratio[sdLogDensity_data$ratio > 0]
-  y_low  <- suppressWarnings(min(rat_pos, na.rm = TRUE))
-  y_high <- suppressWarnings(max(rat_pos, na.rm = TRUE))
+  y_low  <- min(rat_pos, na.rm = TRUE)
+  y_high <- max(rat_pos, na.rm = TRUE)
   pad_mult <- 1.08                       # ~8% headroom on both sides
   y_min_panel <- max(y_low / pad_mult, 1e-6)
   y_max_panel <- y_high * pad_mult
