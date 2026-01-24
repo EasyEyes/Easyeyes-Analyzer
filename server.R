@@ -1073,7 +1073,7 @@ shinyServer(function(input, output, session) {
       list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-via-ipdOverWidth-vs-requestedEyesToFootCm'),
       
       # ===== 3. FOCAL LENGTH PLOTS (AND RATIOS) =====
-      list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-cameraMaxX'),
+      list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-webcamMaxXYVpx0'),
       list(plot = distancePlots()$calibrated_vs_mean$plot, height = distancePlots()$calibrated_vs_mean$height, fname = 'focal-length-calibration-vs-check'),
       list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'focal-length-calibration-over-check-vs-check'),
       list(plot = distancePlots()$fOverWidth_second_vs_first$plot, height = distancePlots()$fOverWidth_second_vs_first$height, fname = 'focal-length-second-vs-first-calibration'),

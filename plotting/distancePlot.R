@@ -3591,8 +3591,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                              breaks = scales::pretty_breaks(n = 6)) +
           guides(color = "none", shape = "none") +  # Hide participant and source legends
           labs(
-            subtitle = 'fOverWidth vs. cameraMaxX',
-            x = 'cameraMaxX (px)',
+            subtitle = 'fOverWidth vs. webcamMaxXYVpx[0]',
+            x = 'webcamMaxXYVpx[0] (px)',
             y = 'fOverWidth',
             caption = 'Filled circle = calibration, Open circle = check (median per participant)'
           ) +
