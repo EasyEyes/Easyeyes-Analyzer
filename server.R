@@ -791,58 +791,22 @@ shinyServer(function(input, output, session) {
     # SD histogram and distance-related dot plots go here with larger sizing
     bs_vd <- bs_vd_hist(distanceCalibration())
 
-    # Build static_calls list, starting with calibrated_over_median histogram first
+    # Build static_calls list, organized by category:
+    # 1. Pixel density histograms
+    # 2. Ruler and object length histograms
+    # 3. fOverWidth histograms
     static_calls <- list()
     
-    # Add calibrated_over_median histogram first if available
-    if (!is.null(distancePlots()$calibrated_over_median_hist) &&
-        !is.null(distancePlots()$calibrated_over_median_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$calibrated_over_median_hist$plot,
-        height = distancePlots()$calibrated_over_median_hist$height,
-        fname = 'histogram-of-fOverWidth-median-calibration-median-check'
-      )
-    }
+    # ===== 1. PIXEL DENSITY HISTOGRAMS =====
     
-    # Add raw fVpx histogram if available (2nd)
-    if (!is.null(distancePlots()$raw_fOverWidth_hist) &&
-        !is.null(distancePlots()$raw_fOverWidth_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$raw_fOverWidth_hist$plot,
-        height = distancePlots()$raw_fOverWidth_hist$height,
-        fname = 'histogram-of-fVpx-calibration-median-check'
-      )
-    }
-
-    # Add fVpx second vs first scatter plot if available (3rd)
-    if (!is.null(distancePlots()$fvpx_second_vs_first) &&
-        !is.null(distancePlots()$fvpx_second_vs_first$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$fvpx_second_vs_first$plot,
-        height = distancePlots()$fvpx_second_vs_first$height,
-        fname = 'focal-length-second-vs-first-calibration-scatter'
-      )
-    } else {
-      message("[DEBUG MISSING PLOT] focal-length-second-vs-first-calibration-scatter: fvpx_second_vs_first is NULL=", 
-              is.null(distancePlots()$fvpx_second_vs_first), 
-              ", plot is NULL=", is.null(distancePlots()$fvpx_second_vs_first$plot))
-    }
+    # SD of log10 pixel density histogram
+    static_calls[[length(static_calls) + 1]] <- list(
+      plot = sizeCheckPlot()$sd_hist$plot, 
+      height = sizeCheckPlot()$sd_hist$height, 
+      fname = 'histogram-of-SD-of-log10-pixel-density'
+    )
     
-    # Add fOverWidth histogram if available (3rd) - renamed from fvpx_over_width_hist
-    if (!is.null(distancePlots()$fOverWidth_hist) &&
-        !is.null(distancePlots()$fOverWidth_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$fOverWidth_hist$plot,
-        height = distancePlots()$fOverWidth_hist$height,
-        fname = 'histogram-of-fOverWidth'
-      )
-    } else {
-      message("[DEBUG MISSING PLOT] histogram-of-fOverWidth: fOverWidth_hist is NULL=", 
-              is.null(distancePlots()$fOverWidth_hist), 
-              ", plot is NULL=", is.null(distancePlots()$fOverWidth_hist$plot))
-    }
-    
-    # Add raw pxPerCm histogram if available
+    # Raw pxPerCm histogram
     if (!is.null(distancePlots()$raw_pxPerCm_hist) &&
         !is.null(distancePlots()$raw_pxPerCm_hist$plot)) {
       static_calls[[length(static_calls) + 1]] <- list(
@@ -852,7 +816,23 @@ shinyServer(function(input, output, session) {
       )
     }
     
-    # Add raw objectMeasuredCm histogram if available
+    # ===== 2. RULER AND OBJECT LENGTH HISTOGRAMS =====
+    
+    # Ruler length histogram
+    static_calls[[length(static_calls) + 1]] <- list(
+      plot = sizeCheckPlot()$ruler_hist$plot, 
+      height = sizeCheckPlot()$ruler_hist$height, 
+      fname = 'histogram-of-ruler-length-cm'
+    )
+    
+    # Object length histogram
+    static_calls[[length(static_calls) + 1]] <- list(
+      plot = objectCm_hist(df_list()$participant_info, distanceCalibration())$plot, 
+      height = objectCm_hist(df_list()$participant_info, distanceCalibration())$height, 
+      fname = 'histogram-of-object-length-cm'
+    )
+    
+    # Raw objectMeasuredCm histogram
     if (!is.null(distancePlots()$raw_objectMeasuredCm_hist) &&
         !is.null(distancePlots()$raw_objectMeasuredCm_hist$plot)) {
       static_calls[[length(static_calls) + 1]] <- list(
@@ -866,10 +846,41 @@ shinyServer(function(input, output, session) {
               ", plot is NULL=", is.null(distancePlots()$raw_objectMeasuredCm_hist$plot))
     }
     
-    # Add other always-present plots
-    static_calls[[length(static_calls) + 1]] <- list(plot = sizeCheckPlot()$sd_hist$plot, height = sizeCheckPlot()$sd_hist$height, fname = 'histogram-of-SD-of-log10-pixel-density')
-    static_calls[[length(static_calls) + 1]] <- list(plot = sizeCheckPlot()$ruler_hist$plot, height = sizeCheckPlot()$ruler_hist$height, fname = 'histogram-of-ruler-length-cm')
-    static_calls[[length(static_calls) + 1]] <- list(plot = objectCm_hist(df_list()$participant_info, distanceCalibration())$plot, height = objectCm_hist(df_list()$participant_info, distanceCalibration())$height, fname = 'histogram-of-object-length-cm')
+    # ===== 3. fOverWidth HISTOGRAMS =====
+    
+    # fOverWidth median(calibration)/median(check) histogram
+    if (!is.null(distancePlots()$calibrated_over_median_hist) &&
+        !is.null(distancePlots()$calibrated_over_median_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = distancePlots()$calibrated_over_median_hist$plot,
+        height = distancePlots()$calibrated_over_median_hist$height,
+        fname = 'histogram-of-fOverWidth-median-calibration-median-check'
+      )
+    }
+    
+    # fOverWidth calibration/median(check) histogram (raw)
+    if (!is.null(distancePlots()$raw_fOverWidth_hist) &&
+        !is.null(distancePlots()$raw_fOverWidth_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = distancePlots()$raw_fOverWidth_hist$plot,
+        height = distancePlots()$raw_fOverWidth_hist$height,
+        fname = 'histogram-of-fVpx-calibration-median-check'
+      )
+    }
+    
+    # fOverWidth histogram (calibration vs check)
+    if (!is.null(distancePlots()$fOverWidth_hist) &&
+        !is.null(distancePlots()$fOverWidth_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = distancePlots()$fOverWidth_hist$plot,
+        height = distancePlots()$fOverWidth_hist$height,
+        fname = 'histogram-of-fOverWidth'
+      )
+    } else {
+      message("[DEBUG MISSING PLOT] histogram-of-fOverWidth: fOverWidth_hist is NULL=", 
+              is.null(distancePlots()$fOverWidth_hist), 
+              ", plot is NULL=", is.null(distancePlots()$fOverWidth_hist$plot))
+    }
     
     # Conditionally add blindspot plots if they exist
     if (!is.null(bs_vd$mean_plot)) {
@@ -1050,27 +1061,33 @@ shinyServer(function(input, output, session) {
     message("[DEBUG SCATTER SOURCES] distancePlots()$calibrated_over_mean_vs_spot is NULL: ", is.null(distancePlots()$calibrated_over_mean_vs_spot))
     
     plot_calls <- list(
+      # ===== 1. PIXEL DENSITY PLOTS =====
       list(plot = sizeCheckPlot()$density_vs_length$plot, height = sizeCheckPlot()$density_vs_length$height, fname = 'pixel-density-vs-requested-length'),
       list(plot = sizeCheckPlot()$density_ratio_vs_sd$plot, height = sizeCheckPlot()$density_ratio_vs_sd$height, fname = 'credit-card-pixel-density-vs-SD-log-remeasured-pixel-density'),
+      
+      # ===== 2. VIEWING DISTANCE PLOTS (AND RATIOS) =====
       list(plot = distancePlots()$credit_card_vs_requested$plot, height = distancePlots()$credit_card_vs_requested$height, fname = 'measured-vs-requested-distance'),
       list(plot = distancePlots()$credit_card_fraction$plot, height = distancePlots()$credit_card_fraction$height, fname = 'measured-over-requested-distance'),
       list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'check-distance-error-vs-blindspot-diameter'),
-      list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-horizontalVpx'),
+      list(plot = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$plot else NULL, height = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$height else NULL, fname = 'eyesToPointCm-vs-requestedEyesToFootCm'),
+      list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-via-ipdOverWidth-vs-requestedEyesToFootCm'),
+      
+      # ===== 3. FOCAL LENGTH PLOTS (AND RATIOS) =====
+      list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-cameraMaxX'),
       list(plot = distancePlots()$calibrated_vs_mean$plot, height = distancePlots()$calibrated_vs_mean$height, fname = 'focal-length-calibration-vs-check'),
       list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'focal-length-calibration-over-check-vs-check'),
       list(plot = distancePlots()$fOverWidth_second_vs_first$plot, height = distancePlots()$fOverWidth_second_vs_first$height, fname = 'focal-length-second-vs-first-calibration'),
       list(plot = distancePlots()$fOverWidth_ratio_vs_first$plot, height = distancePlots()$fOverWidth_ratio_vs_first$height, fname = 'focal-length-calibration-second-over-first-vs-first'),
       list(plot = distancePlots()$calibrated_over_mean_vs_spot$plot, height = distancePlots()$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-fOverWidth-ipdCm-vs-spot-diameter'),
+      
+      # ===== 4. ipdOverWidth PLOTS (AND RATIOS) =====
       list(plot = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$height, fname = 'ipdOverWidth-vs-requestedEyesToFootCm'),
       list(plot = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height, fname = 'fOverWidth-vs-requestedEyesToFootCm'),
-      # New distance geometry plots
-      list(plot = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$plot else NULL, height = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$height else NULL, fname = 'eyesToPointCm-vs-requestedEyesToFootCm'),
-      list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-via-ipdOverWidth-vs-requestedEyesToFootCm'),
-      # Foot position plots (at bottom of Distance page)
+      
+      # ===== 5. FOOT LOCATION PLOTS =====
       list(plot = distancePlots()$foot_position_calibration$plot, height = distancePlots()$foot_position_calibration$height, fname = 'foot-position-during-calibration'),
       list(plot = distancePlots()$eye_feet_position$plot, height = distancePlots()$eye_feet_position$height, fname = 'measured-over-requested-distance-vs-foot-position-during-calibration'),
       list(plot = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$plot else NULL, height = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$height else NULL, fname = 'measured-over-requested-distance-vs-foot-position-during-check')
-
     )
 
     heights <- list()
@@ -1113,11 +1130,15 @@ shinyServer(function(input, output, session) {
     test_retest_plots <- get_test_retest(df_list())
   aud_plots <- plot_auditory_crowding(df_list()$quest_all_thresholds, df_list()$crowding)
     
+    # Get focal length scatter plot from distance plots
+    fvpx_scatter <- distancePlots()$fvpx_second_vs_first
+    
     plot_calls <- list(
       list(plot = aud_plots$scatter, fname = 'auditory-crowding-melody-db-vs-crowding-threshold'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
+      list(plot = if (!is.null(fvpx_scatter)) fvpx_scatter$plot else NULL, fname = 'focal-length-second-vs-first-calibration-scatter'),
       list(plot = test_retest_plots$beauty, fname = 'retest-test-beauty'),
       list(plot = test_retest_plots$comfort, fname = 'retest-test-comfort'),
       list(plot = foveal_crowding_acuity_plots$foveal, fname = 'foveal-crowding-vs-foveal-acuity-grade-diagram'),
@@ -2183,9 +2204,11 @@ shinyServer(function(input, output, session) {
           req(i <= plotsRenderCount())
           tryCatch({
             tmp_svg <- tempfile(fileext = '.svg')
+            # Don't add plt_theme to placeholder plots (it overrides their blank axes)
+            plot_to_save <- if (is_placeholder_plot(plotList[[i]])) plotList[[i]] else plotList[[i]] + plt_theme
             ggsave(
               file = tmp_svg,
-              plot = plotList[[i]] + plt_theme,
+              plot = plot_to_save,
               width = 6,
               height = 6,
               unit = 'in',
@@ -2325,9 +2348,11 @@ shinyServer(function(input, output, session) {
       output[[paste0("hist", jj)]] <- renderImage({
         req(jj <= histRenderCount())
         tmp_svg <- tempfile(fileext = '.svg')
+        # Don't add hist_theme to placeholder plots
+        plot_to_save <- if (is_placeholder_plot(plots[[jj]])) plots[[jj]] else plots[[jj]] + hist_theme
         ggsave(
           file = tmp_svg,
-          plot =  plots[[jj]] + hist_theme,
+          plot = plot_to_save,
           device = svglite,
           width = 3.5,
           height = 3.5,
@@ -2685,9 +2710,15 @@ shinyServer(function(input, output, session) {
           req(ii <= qualityHistRenderCount())
           tryCatch({
             tmp_svg <- tempfile(fileext = '.svg')
+            # Don't add hist_theme to placeholder plots
+            plot_to_save <- if (is_placeholder_plot(histogramsQuality()$plotList[[ii]])) {
+              histogramsQuality()$plotList[[ii]]
+            } else {
+              histogramsQuality()$plotList[[ii]] + hist_theme
+            }
             ggsave(
               file = tmp_svg,
-              plot = histogramsQuality()$plotList[[ii]] + hist_theme,
+              plot = plot_to_save,
               device = svglite,
               width = 4,
               height = 3.5,
@@ -2870,9 +2901,15 @@ shinyServer(function(input, output, session) {
           req(ii <= timingHistRenderCount())
           tryCatch({
             tmp_svg <- tempfile(fileext = '.svg')
+            # Don't add hist_theme to placeholder plots
+            plot_to_save <- if (is_placeholder_plot(timingHistograms()$plotList[[ii]])) {
+              timingHistograms()$plotList[[ii]]
+            } else {
+              timingHistograms()$plotList[[ii]] + hist_theme
+            }
             ggsave(
               file = tmp_svg,
-              plot = timingHistograms()$plotList[[ii]] + hist_theme,
+              plot = plot_to_save,
               device = svglite,
               width = 4,
               height = 3.5,
@@ -3451,10 +3488,15 @@ shinyServer(function(input, output, session) {
           #      contenttype = 'svg')
           tryCatch({
             tmp_svg <- tempfile(fileext = '.svg')
+            # Don't add plt_theme_scatter to placeholder plots
+            plot_to_save <- if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) {
+              scatterDiagrams()$plotList[[ii]]
+            } else {
+              scatterDiagrams()$plotList[[ii]] + plt_theme_scatter
+            }
             ggsave(
               file = tmp_svg,
-              plot = scatterDiagrams()$plotList[[ii]] +
-                plt_theme_scatter,
+              plot = plot_to_save,
               width = 7,
               height = 7,
               unit = 'in',
@@ -3618,10 +3660,15 @@ shinyServer(function(input, output, session) {
           tryCatch({
             height_in <- scatterDistance()$heights[[ii]]
             tmp_svg <- tempfile(fileext = '.svg')
+            # Don't add plt_theme_scatter to placeholder plots (it overrides their blank axes)
+            plot_to_save <- if (is_placeholder_plot(scatterDistance()$plotList[[ii]])) {
+              scatterDistance()$plotList[[ii]]
+            } else {
+              scatterDistance()$plotList[[ii]] + plt_theme_scatter
+            }
             ggsave(
               file = tmp_svg,
-              plot = scatterDistance()$plotList[[ii]] +
-                plt_theme_scatter,
+              plot = plot_to_save,
               width = 7,
               height = height_in,
               unit = 'in',

@@ -144,35 +144,39 @@ append_plot_list <- function(plotList, fileNames, plot, fname, height = NULL, he
     fileNames[[length(fileNames) + 1]] <- fname
     heights[[length(heights) + 1]] <- ifelse(is.null(height), default_height, height)
   } else if (show_placeholder) {
-    # Create a placeholder plot showing the missing plot name
+    # Create a minimal placeholder - just "[X] title" on one line
     placeholder_plot <- ggplot() +
       annotate(
         "text",
         x = 0.5,
-        y = 0.6,
-        label = paste0("Plot Missing:\n", fname),
+        y = 0.5,
+        label = paste0(" x ", fname),
         hjust = 0.5,
         vjust = 0.5,
-        size = 5,
-        fontface = "bold",
+        size = 4.5,
         color = "#666666"
       ) +
-      annotate(
-        "text",
-        x = 0.5,
-        y = 0.35,
-        label = "(Insufficient data or missing required fields)",
-        hjust = 0.5,
-        vjust = 0.5,
-        size = 3.5,
-        color = "#999999"
-      ) +
-      xlim(0, 1) +
-      ylim(0, 1) +
       theme_void() +
       theme(
-        panel.border = element_rect(color = "#CCCCCC", fill = NA, linewidth = 1),
-        plot.background = element_rect(fill = "#F8F8F8", color = NA)
+        # Explicitly blank ALL axis elements to override plt_theme
+        axis.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line = element_blank(),
+        axis.line.x = element_blank(),
+        axis.line.y = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank(),
+        plot.background = element_blank()
       )
     
     # Mark this as a placeholder plot so it can be skipped during download
@@ -180,7 +184,7 @@ append_plot_list <- function(plotList, fileNames, plot, fname, height = NULL, he
     
     plotList[[length(plotList) + 1]] <- placeholder_plot
     fileNames[[length(fileNames) + 1]] <- fname
-    heights[[length(heights) + 1]] <- 3  # Smaller height for placeholder
+    heights[[length(heights) + 1]] <- 4  # Small height for one line
   }
   return(list(plotList = plotList, fileNames = fileNames, heights = heights))
 }
