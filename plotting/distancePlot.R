@@ -64,6 +64,63 @@ extract_width_px <- function(res_str) {
     return(nums[1])
   }, numeric(1))
 }
+# Helper function to extract foot XY coordinates from JSON arrays
+# Handles matrix (Nx2), list of pairs, and flat vector formats correctly
+# Returns a tibble with columns: left_x, left_y, right_x, right_y
+make_xy_df <- function(left_foot, right_foot) {
+  if (is.null(left_foot) || is.null(right_foot)) return(NULL)
+  
+  coords <- list()
+  
+  # Case 1: Matrix format (most common from fromJSON) - e.g., 8x2 matrix
+  if (is.matrix(left_foot)) {
+    n_pts <- nrow(left_foot)
+    for (i in 1:n_pts) {
+      coords[[i]] <- list(
+        left_x = left_foot[i, 1],
+        left_y = left_foot[i, 2],
+        right_x = right_foot[i, 1],
+        right_y = right_foot[i, 2]
+      )
+    }
+  }
+  # Case 2: List of pairs - e.g., list(c(575,-34), c(589,163))
+  else if (is.list(left_foot) && length(left_foot) > 0) {
+    n_pts <- length(left_foot)
+    for (i in 1:n_pts) {
+      coords[[i]] <- list(
+        left_x = left_foot[[i]][1],
+        left_y = left_foot[[i]][2],
+        right_x = right_foot[[i]][1],
+        right_y = right_foot[[i]][2]
+      )
+    }
+  }
+  # Case 3: Flat numeric vector - e.g., c(575, -34, 589, 163, ...)
+  else if (is.numeric(left_foot) && length(left_foot) >= 2) {
+    n_pts <- length(left_foot) / 2
+    for (i in 1:n_pts) {
+      base_idx <- (i - 1) * 2 + 1
+      coords[[i]] <- list(
+        left_x = left_foot[base_idx],
+        left_y = left_foot[base_idx + 1],
+        right_x = right_foot[base_idx],
+        right_y = right_foot[base_idx + 1]
+      )
+    }
+  }
+  
+  if (length(coords) == 0) return(NULL)
+  
+  tibble(
+    measurement_idx = 1:length(coords),
+    left_x = sapply(coords, function(x) x$left_x),
+    left_y = sapply(coords, function(x) x$left_y),
+    right_x = sapply(coords, function(x) x$right_x),
+    right_y = sapply(coords, function(x) x$right_y)
+  )
+}
+
 # Helper function to extract parameters from distanceCalibrationJSON (top-level arrays)
 # and populate the corresponding columns in the dataframe
 extract_common_params_from_JSON <- function(df) {
@@ -256,17 +313,14 @@ get_cameraResolutionXY <- function(data_list) {
       t <- t %>% rename(`_calibrateDistance` = `_calibrateTrackDistance`)
     }
     
-    message("[DEBUG get_cameraResolutionXY] Participant ", participant_id, 
-            ": fOverWidth=", round(fOverWidth_median, 4),
-            ", ipdCm=", ipdCm_median,
-            ", rows after filter=", nrow(t))
+  
             
     if (nrow(t) > 0) {
       df <- rbind(df, t)
     }
   }
 
-  message("[DEBUG get_cameraResolutionXY] Final camera tibble: ", nrow(df), " rows")
+
   return(df %>% distinct())
 }
 
@@ -274,6 +328,17 @@ get_cameraResolutionXY <- function(data_list) {
 get_raw_pxPerCm_data <- function(data_list, sizeCheck) {
   df <- tibble()
   if (is.null(data_list) || length(data_list) == 0) return(df)
+  
+  # Helper function to parse comma-separated string or array to numeric vector
+  parse_csv_or_array <- function(val) {
+    if (is.null(val)) return(NULL)
+    if (is.numeric(val)) return(val)  # Already numeric array
+    if (is.character(val) && length(val) == 1 && grepl(",", val)) {
+      # Comma-separated string like "7.6,  12.7,  22.9"
+      return(as.numeric(trimws(unlist(strsplit(val, ",")))))
+    }
+    return(as.numeric(val))  # Try direct conversion
+  }
   
   for (i in 1:length(data_list)) {
     if ("calibrateScreenSizeJSON" %in% names(data_list[[i]])) {
@@ -294,19 +359,25 @@ get_raw_pxPerCm_data <- function(data_list, sizeCheck) {
           simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
         )
         
-        # Extract pxPerCm or convert from ppi
+        # Extract pxPerCm or convert from ppi (handle comma-separated strings)
         pxPerCm_vals <- NULL
         if (!is.null(screenSizeJSON$pxPerCm)) {
-          pxPerCm_vals <- as.numeric(screenSizeJSON$pxPerCm)
+          pxPerCm_vals <- parse_csv_or_array(screenSizeJSON$pxPerCm)
         } else if (!is.null(screenSizeJSON$ppi)) {
-          pxPerCm_vals <- as.numeric(screenSizeJSON$ppi) / 2.54
+          pxPerCm_vals <- parse_csv_or_array(screenSizeJSON$ppi) / 2.54
         }
         
-        # Extract requestedCm values (credit card dimensions)
+        # Extract requestedCm values (handle comma-separated strings)
         requestedCm_vals <- NULL
-        if (!is.null(screenSizeJSON$requestedCm)) {
-          requestedCm_vals <- as.numeric(screenSizeJSON$requestedCm)
+        if (!is.null(screenSizeJSON$SizeCheckRequestedCm)) {
+          requestedCm_vals <- parse_csv_or_array(screenSizeJSON$SizeCheckRequestedCm)
+        } else if (!is.null(screenSizeJSON$requestedCm)) {
+          requestedCm_vals <- parse_csv_or_array(screenSizeJSON$requestedCm)
         }
+        
+        # Remove NA values
+        if (!is.null(pxPerCm_vals)) pxPerCm_vals <- pxPerCm_vals[!is.na(pxPerCm_vals)]
+        if (!is.null(requestedCm_vals)) requestedCm_vals <- requestedCm_vals[!is.na(requestedCm_vals)]
         
         if (!is.null(pxPerCm_vals) && length(pxPerCm_vals) > 0) {
           # Get median of SizeCheckEstimatedPxPerCm for this participant
@@ -345,7 +416,7 @@ get_raw_pxPerCm_data <- function(data_list, sizeCheck) {
           }
         }
       }, error = function(e) {
-        # Skip if JSON parsing fails
+        # Silently skip if JSON parsing fails
       })
     }
   }
@@ -788,337 +859,267 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     dl <- filtered_data_list[[i]]
     
     # -------- sizeCheck (credit card + production) --------
-    if (all(c('SizeCheckEstimatedPxPerCm','SizeCheckRequestedCm') %in% names(dl))) {
-      t_sc <- dl %>%
-        select(`_calibrateTrackDistance`,
-               `_calibrateTrackDistancePupil`,
-               `_calibrateTrackDistanceAllowedRatio`,
-               `_calibrateTrackDistanceShowLengthBool`,
-               `_calibrateTrackDistanceTimes`,
-               calibrateScreenSizeAllowedRatio,
-               calibrateScreenSizeTimes,
-               viewingDistanceWhichEye,
-               viewingDistanceWhichPoint,
-               participant,
-               SizeCheckEstimatedPxPerCm,
-               SizeCheckRequestedCm,
-               rulerLength,
-               rulerUnit,
-               pxPerCm) %>%
-        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
-               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
-               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
-               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
-               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
-               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
-               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
-               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
-               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>%
-        distinct() %>%
-        filter(!is.na(SizeCheckEstimatedPxPerCm),
-               !is.na(SizeCheckRequestedCm),
-               SizeCheckEstimatedPxPerCm != '',
-               SizeCheckRequestedCm != '')
-      if (nrow(t_sc) > 0) {
-        t_sc <- t_sc %>%
-          mutate(
-            SizeCheckEstimatedPxPerCm = gsub("\\[|\\]|\"", "", SizeCheckEstimatedPxPerCm),
-            SizeCheckRequestedCm = gsub("\\[|\\]|\"", "", SizeCheckRequestedCm)
-          ) %>%
-          mutate(measured_list = strsplit(SizeCheckEstimatedPxPerCm, ","), 
-                 requested_list = strsplit(SizeCheckRequestedCm, ",")) %>%
-          unnest(c(measured_list, requested_list)) %>%
-          mutate(
-            SizeCheckEstimatedPxPerCm = as.numeric(trimws(measured_list)),
-            SizeCheckRequestedCm = as.numeric(trimws(requested_list))
-          ) %>%
-          select(-measured_list, -requested_list)
-        if (nrow(t_sc) > 0) {
-          t_sc <- t_sc %>% mutate(
-            SizeCheckEstimatedPxPerCm = as.numeric(SizeCheckEstimatedPxPerCm),
-            SizeCheckRequestedCm = as.numeric(SizeCheckRequestedCm)
-          )
-          sizeCheck <- rbind(sizeCheck, t_sc)
+    # NOTE: Now extracting SizeCheckEstimatedPxPerCm and SizeCheckRequestedCm from calibrateScreenSizeJSON
+    # JSON format: "SizeCheckRequestedCm":"7.6,  12.7,  22.9", "SizeCheckEstimatedPxPerCm":"49.2,  49.4,  50.0"
+    has_screenSizeJSON <- "calibrateScreenSizeJSON" %in% names(dl)
+    message("[DEBUG sizeCheck] Session ", i, ": has calibrateScreenSizeJSON column = ", has_screenSizeJSON)
+    if (has_screenSizeJSON) {
+      tryCatch({
+        raw_json <- get_first_non_na(dl$calibrateScreenSizeJSON)
+        message("[DEBUG sizeCheck] Session ", i, ": raw_json is.null=", is.null(raw_json), 
+                ", is.na=", if(!is.null(raw_json)) is.na(raw_json) else "NULL",
+                ", nchar=", if(!is.null(raw_json) && !is.na(raw_json)) nchar(raw_json) else 0)
+        message("[DEBUG sizeCheck] Session ", i, ": JSON content: ", substr(raw_json, 1, 200))
+        if (!is.null(raw_json) && !is.na(raw_json) && raw_json != "") {
+          json_txt <- sanitize_json_string(raw_json)
+          screenSizeJSON <- fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
+          message("[DEBUG sizeCheck] Session ", i, ": JSON fields: ", paste(names(screenSizeJSON), collapse=", "))
+          
+          # Helper function to parse comma-separated string or array to numeric vector
+          parse_csv_or_array <- function(val) {
+            if (is.null(val)) return(NULL)
+            if (is.numeric(val)) return(val)  # Already numeric array
+            if (is.character(val) && length(val) == 1 && grepl(",", val)) {
+              # Comma-separated string like "7.6,  12.7,  22.9"
+              return(as.numeric(trimws(unlist(strsplit(val, ",")))))
+            }
+            return(as.numeric(val))  # Try direct conversion
+          }
+          
+          # Extract SizeCheckEstimatedPxPerCm from JSON (try multiple possible field names)
+          estimated_vals <- NULL
+          if (!is.null(screenSizeJSON$SizeCheckEstimatedPxPerCm)) {
+            estimated_vals <- parse_csv_or_array(screenSizeJSON$SizeCheckEstimatedPxPerCm)
+            message("[DEBUG sizeCheck] Session ", i, ": Found SizeCheckEstimatedPxPerCm: ", paste(estimated_vals, collapse=", "))
+          } else if (!is.null(screenSizeJSON$pxPerCm)) {
+            estimated_vals <- parse_csv_or_array(screenSizeJSON$pxPerCm)
+            message("[DEBUG sizeCheck] Session ", i, ": Found pxPerCm (fallback): ", paste(estimated_vals, collapse=", "))
+          } else if (!is.null(screenSizeJSON$ppi)) {
+            estimated_vals <- parse_csv_or_array(screenSizeJSON$ppi) / 2.54
+            message("[DEBUG sizeCheck] Session ", i, ": Found ppi (converted): ", paste(estimated_vals, collapse=", "))
+          } else {
+            message("[DEBUG sizeCheck] Session ", i, ": No estimated values found")
+          }
+          
+          # Extract SizeCheckRequestedCm from JSON (try multiple possible field names)
+          requested_vals <- NULL
+          if (!is.null(screenSizeJSON$SizeCheckRequestedCm)) {
+            requested_vals <- parse_csv_or_array(screenSizeJSON$SizeCheckRequestedCm)
+            message("[DEBUG sizeCheck] Session ", i, ": Found SizeCheckRequestedCm: ", paste(requested_vals, collapse=", "))
+          } else if (!is.null(screenSizeJSON$requestedCm)) {
+            requested_vals <- parse_csv_or_array(screenSizeJSON$requestedCm)
+            message("[DEBUG sizeCheck] Session ", i, ": Found requestedCm (fallback): ", paste(requested_vals, collapse=", "))
+          } else {
+            message("[DEBUG sizeCheck] Session ", i, ": No requested values found - THIS IS WHY sizeCheck is empty!")
+          }
+          
+          # Remove NA values
+          if (!is.null(estimated_vals)) estimated_vals <- estimated_vals[!is.na(estimated_vals)]
+          if (!is.null(requested_vals)) requested_vals <- requested_vals[!is.na(requested_vals)]
+          
+          # If we have valid values from JSON, create rows
+          if (!is.null(estimated_vals) && !is.null(requested_vals) && 
+              length(estimated_vals) > 0 && length(requested_vals) > 0) {
+            
+            # Make sure arrays are same length (take min length if different)
+            n_vals <- min(length(estimated_vals), length(requested_vals))
+            estimated_vals <- estimated_vals[1:n_vals]
+            requested_vals <- requested_vals[1:n_vals]
+            
+            # Extract metadata columns that exist
+            base_cols <- c("_calibrateTrackDistance", "_calibrateTrackDistancePupil",
+                           "_calibrateTrackDistanceAllowedRatio", "_calibrateTrackDistanceShowLengthBool",
+                           "_calibrateTrackDistanceTimes", "calibrateScreenSizeAllowedRatio",
+                           "calibrateScreenSizeTimes", "viewingDistanceWhichEye",
+                           "viewingDistanceWhichPoint", "participant", "rulerLength", "rulerUnit", "pxPerCm")
+            existing_cols <- intersect(base_cols, names(dl))
+            
+            # Build base tibble with metadata
+            t_base <- dl %>% select(all_of(existing_cols)) %>%
+              mutate(
+                `_calibrateTrackDistanceAllowedRatio` = if ("_calibrateTrackDistanceAllowedRatio" %in% names(.)) get_first_non_na(`_calibrateTrackDistanceAllowedRatio`) else NA,
+                `_calibrateTrackDistanceShowLengthBool` = if ("_calibrateTrackDistanceShowLengthBool" %in% names(.)) get_first_non_na(`_calibrateTrackDistanceShowLengthBool`) else NA,
+                `_calibrateTrackDistanceTimes` = if ("_calibrateTrackDistanceTimes" %in% names(.)) get_first_non_na(`_calibrateTrackDistanceTimes`) else NA,
+                calibrateScreenSizeAllowedRatio = if ("calibrateScreenSizeAllowedRatio" %in% names(.)) get_first_non_na(`calibrateScreenSizeAllowedRatio`) else NA,
+                calibrateScreenSizeTimes = if ("calibrateScreenSizeTimes" %in% names(.)) get_first_non_na(calibrateScreenSizeTimes) else NA,
+                `_calibrateTrackDistance` = if ("_calibrateTrackDistance" %in% names(.)) get_first_non_na(`_calibrateTrackDistance`) else NA,
+                `_calibrateTrackDistancePupil` = if ("_calibrateTrackDistancePupil" %in% names(.)) get_first_non_na(`_calibrateTrackDistancePupil`) else NA,
+                `viewingDistanceWhichEye` = if ("viewingDistanceWhichEye" %in% names(.)) get_first_non_na(`viewingDistanceWhichEye`) else NA,
+                `viewingDistanceWhichPoint` = if ("viewingDistanceWhichPoint" %in% names(.)) get_first_non_na(`viewingDistanceWhichPoint`) else NA
+              ) %>%
+              distinct() %>%
+              slice(1)
+            
+            # Create one row per measurement
+            for (j in 1:n_vals) {
+              t_row <- t_base %>%
+                mutate(
+                  SizeCheckEstimatedPxPerCm = estimated_vals[j],
+                  SizeCheckRequestedCm = requested_vals[j]
+                )
+              sizeCheck <- rbind(sizeCheck, t_row)
+            }
+            message("[DEBUG sizeCheck] Session ", i, ": Added ", n_vals, " rows to sizeCheck. Total rows now: ", nrow(sizeCheck))
+          } else {
+            message("[DEBUG sizeCheck] Session ", i, ": No valid estimated/requested values found in JSON")
+          }
         }
-      }
+      }, error = function(e) {
+        message("[DEBUG sizeCheck ERROR] Session ", i, ": ", e$message)
+      })
     }
     
-    # -------- measured distance (credit card) --------
+    # -------- Ipd camera px alias --------
     if ('calibrateTrackDistanceIpdCameraPx' %in% names(dl)) {
       dl$calibrateTrackDistanceIpdVpx <- dl$calibrateTrackDistanceIpdCameraPx
     }
-    if (all(c('calibrateTrackDistanceMeasuredCm','calibrateTrackDistanceRequestedCm') %in% names(dl))) {
-      t_dist <- dl %>%
-        select(`_calibrateTrackDistanceAllowedRatio`,
-               `_calibrateTrackDistanceShowLengthBool`,
-               `_calibrateTrackDistanceTimes`,
-               calibrateScreenSizeAllowedRatio,
-               calibrateScreenSizeTimes,
-               `_calibrateTrackDistance`,
-               `_calibrateTrackDistancePupil`,
-               viewingDistanceWhichEye,
-               viewingDistanceWhichPoint,
-               participant,
-               calibrateTrackDistanceMeasuredCm,
-               calibrateTrackDistanceRequestedCm,
-               calibrateTrackDistanceIpdVpx) %>%
-        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
-               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
-               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
-               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
-               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
-               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
-               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
-               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
-               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>%
-        filter(!is.na(calibrateTrackDistanceMeasuredCm),
-               !is.na(calibrateTrackDistanceRequestedCm),
-               calibrateTrackDistanceMeasuredCm != '',
-               calibrateTrackDistanceRequestedCm != '') %>%
-        distinct()
-      if (nrow(t_dist) > 0) {
-        t_dist <- t_dist %>%
-          mutate(
-            calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
-            calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm),
-            calibrateTrackDistanceIpdVpx = gsub("\\[|\\]|\"", "", calibrateTrackDistanceIpdVpx)
-          ) %>%
-          mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","),
-                 requested_list = strsplit(calibrateTrackDistanceRequestedCm, ","),
-                 ipd_list = strsplit(calibrateTrackDistanceIpdVpx, ",")) %>%
-          unnest(c(measured_list, requested_list, ipd_list)) %>%
-          mutate(
-            calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
-            calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
-            calibrateTrackDistanceIpdVpx = as.numeric(trimws(ipd_list))
-          ) %>%
-          select(-measured_list, -requested_list, -ipd_list) %>%
-          mutate(
-            calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
-            calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm),
-            calibrateTrackDistanceIpdVpx = if ("calibrateTrackDistanceIpdVpx" %in% names(.)) calibrateTrackDistanceIpdVpx else NA,
-            order = row_number()
-          )
-        distance <- rbind(distance, t_dist)
-      }
-    }
     
-    # -------- eye feet position (runtime XYPx field) --------
-    if ("calibrateTrackDistanceEyeFeetXYPx" %in% names(dl)) {
-      t_raw <- dl %>%
-        select(experiment, participant,
-               `_calibrateTrackDistanceAllowedRatio`,
-               `_calibrateTrackDistanceShowLengthBool`,
-               `_calibrateTrackDistanceTimes`,
-               calibrateScreenSizeAllowedRatio,
-               calibrateScreenSizeTimes,
-               `_calibrateTrackDistance`,
-               `_calibrateTrackDistancePupil`,
-               viewingDistanceWhichEye,
-               viewingDistanceWhichPoint,
-               pxPerCm, screenWidthPx, screenHeightPx,
-               calibrateTrackDistanceMeasuredCm,
-               calibrateTrackDistanceRequestedCm,
-               calibrateTrackDistanceEyeFeetXYPx) %>%
-        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
-               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
-               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
-               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
-               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
-               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
-               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
-               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
-               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>%
-        distinct()
-      has_eye_feet_col <- "calibrateTrackDistanceEyeFeetXYPx" %in% names(t_raw)
-      
-      if (nrow(t_raw) > 0 && has_eye_feet_col && !all(is.na(t_raw$calibrateTrackDistanceEyeFeetXYPx))) {
-        eye_feet_raw <- t_raw$calibrateTrackDistanceEyeFeetXYPx[1]
-        coords_str <- gsub("\\[|\\]", "", eye_feet_raw)
-        coords_numbers <- as.numeric(unlist(strsplit(coords_str, ",")))
-        coords_numbers <- coords_numbers[!is.na(coords_numbers)]
-        if (length(coords_numbers) %% 4 == 0) {
-          n_coord_measurements <- length(coords_numbers) / 4
-          t <- t_raw %>%
-            filter(!is.na(calibrateTrackDistanceMeasuredCm),
-                   !is.na(calibrateTrackDistanceRequestedCm),
-                   !is.na(calibrateTrackDistanceEyeFeetXYPx),
-                   calibrateTrackDistanceMeasuredCm != '',
-                   calibrateTrackDistanceRequestedCm != '',
-                   calibrateTrackDistanceEyeFeetXYPx != '') %>%
-            mutate(
-              calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
-              calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm)
-            ) %>%
-            mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","), 
-                   requested_list = strsplit(calibrateTrackDistanceRequestedCm, ",")) %>%
-            unnest(c(measured_list, requested_list)) %>%
-            mutate(
-              calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
-              calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
-              measurement_index = row_number()
-            ) %>%
-            select(-measured_list, -requested_list)
-          coords_df <- tibble(
-            measurement_idx = rep(1:n_coord_measurements, each = 4),
-            coord_type = rep(c("left_x", "left_y", "right_x", "right_y"), n_coord_measurements),
-            coord_value = coords_numbers
-          ) %>% pivot_wider(names_from = coord_type, values_from = coord_value)
-          if (n_coord_measurements > nrow(t)) {
-            coords_df <- coords_df[1:nrow(t), ]
-          } else if (n_coord_measurements < nrow(t)) {
-            t <- t[1:n_coord_measurements, ]
-          }
-          t <- cbind(t, coords_df) %>%
-            select(-measurement_idx) %>%
-            mutate(
-              avg_eye_x_px = (left_x + right_x) / 2,
-              avg_eye_y_px = (left_y + right_y) / 2,
-              distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
-            )
-          if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
-            t <- t %>% mutate(pxPerCm = as.numeric(pxPerCm),
-                              avg_eye_x_cm = avg_eye_x_px / pxPerCm,
-                              avg_eye_y_cm = avg_eye_y_px / pxPerCm)
-          } else {
-            default_pxPerCm <- 37.8
-            t <- t %>% mutate(pxPerCm = default_pxPerCm,
-                              avg_eye_x_cm = avg_eye_x_px / default_pxPerCm,
-                              avg_eye_y_cm = avg_eye_y_px / default_pxPerCm)
-          }
-          t <- t %>% mutate(data_list_index = i)
-          eye_feet <- rbind(eye_feet, t)
-        }
-      }
-    }
+    # NOTE: Legacy CSV columns calibrateTrackDistanceMeasuredCm and calibrateTrackDistanceRequestedCm
+    # have been DELETED. Measurement data is now extracted from JSON only:
+    # - distanceCalibrationJSON (for calibration)
+    # - distanceCheckJSON (for check)
+    # See the feet_calib and feet_check extraction sections below.
     
     # -------- feet position during calibration (from distanceCalibrationJSON) --------
-    if ("distanceCalibrationJSON" %in% names(dl) ||
-        "distanceCalibrationTJSON" %in% names(dl)) {
-      json_col <- if ("distanceCalibrationJSON" %in% names(dl)) "distanceCalibrationJSON" else "distanceCalibrationTJSON"
+    has_distCalibJSON <- "distanceCalibrationJSON" %in% names(dl)
+    has_distCalibTJSON <- "distanceCalibrationTJSON" %in% names(dl)
+    if (has_distCalibJSON || has_distCalibTJSON) {
+      json_col <- if (has_distCalibJSON) "distanceCalibrationJSON" else "distanceCalibrationTJSON"
+      
+      # Use any_of() for columns that may not exist in the CSV (measurement data is in JSON only)
+      # NOTE: calibrateTrackDistanceMeasuredCm and calibrateTrackDistanceRequestedCm are DELETED from CSV
+      # These values are now extracted from distanceCalibrationJSON/distanceCheckJSON only
+      optional_cols <- c("_calibrateTrackDistanceAllowedRatio", "_calibrateTrackDistanceShowLengthBool",
+                         "_calibrateTrackDistanceTimes", "calibrateScreenSizeAllowedRatio", 
+                         "calibrateScreenSizeTimes", "_calibrateTrackDistance", "_calibrateTrackDistancePupil",
+                         "viewingDistanceWhichEye", "viewingDistanceWhichPoint",
+                         "pxPerCm", "screenWidthPx", "screenHeightPx")
+      
       t_meta <- dl %>%
-        select(participant,
-               `_calibrateTrackDistanceAllowedRatio`,
-               `_calibrateTrackDistanceShowLengthBool`,
-               `_calibrateTrackDistanceTimes`,
-               calibrateScreenSizeAllowedRatio,
-               calibrateScreenSizeTimes,
-               `_calibrateTrackDistance`,
-               `_calibrateTrackDistancePupil`,
-               viewingDistanceWhichEye,
-               viewingDistanceWhichPoint,
-               pxPerCm, screenWidthPx, screenHeightPx,
-               calibrateTrackDistanceMeasuredCm,
-               calibrateTrackDistanceRequestedCm,
-               all_of(json_col)) %>%
-        mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
-               `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
-               `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
-               calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
-               calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
-               `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
-               `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
-               `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
-               `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)) %>%
+        select(participant, any_of(optional_cols), all_of(json_col)) %>%
         distinct()
+      
+      # Apply get_first_non_na to columns that exist
+      if ("_calibrateTrackDistanceAllowedRatio" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`))
+      }
+      if ("_calibrateTrackDistanceShowLengthBool" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(`_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`))
+      }
+      if ("_calibrateTrackDistanceTimes" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(`_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`))
+      }
+      if ("calibrateScreenSizeAllowedRatio" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(calibrateScreenSizeAllowedRatio = get_first_non_na(calibrateScreenSizeAllowedRatio))
+      }
+      if ("calibrateScreenSizeTimes" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(calibrateScreenSizeTimes = get_first_non_na(calibrateScreenSizeTimes))
+      }
+      if ("_calibrateTrackDistance" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(`_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`))
+      }
+      if ("_calibrateTrackDistancePupil" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(`_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`))
+      }
+      if ("viewingDistanceWhichEye" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(viewingDistanceWhichEye = get_first_non_na(viewingDistanceWhichEye))
+      }
+      if ("viewingDistanceWhichPoint" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(viewingDistanceWhichPoint = get_first_non_na(viewingDistanceWhichPoint))
+      }
+      
+     
 
       json_col <- if ("distanceCalibrationJSON" %in% names(dl)) "distanceCalibrationJSON" else "distanceCalibrationTJSON"
       tryCatch({
           raw_json <- get_first_non_na(t_meta[[json_col]])
+          message("[DEBUG FEET JSON] Session ", i, ": raw_json is.null=", is.null(raw_json), 
+                  ", is.na=", if(!is.null(raw_json)) is.na(raw_json) else "NULL",
+                  ", nchar=", if(!is.null(raw_json) && !is.na(raw_json)) nchar(raw_json) else 0)
           json_txt <- sanitize_json_string(raw_json)
           distanceCalibration <- fromJSON(
             json_txt,
             simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
           )
-          # feet coords - distanceCalibrationJSON has arrays at top level
-          eye_feet_coords <- list()
-          spot_degrees <- c()
+          message("[DEBUG FEET JSON PARSED] Session ", i, ": parsed OK, class=", class(distanceCalibration),
+                  ", fields=", paste(names(distanceCalibration), collapse=", "))
           
-          # Extract leftEyeFootXYPx and rightEyeFootXYPx arrays
+          # Extract foot coordinates using make_xy_df() helper (handles matrix/list/vector formats)
           left_eye_foot <- distanceCalibration$leftEyeFootXYPx
           right_eye_foot <- distanceCalibration$rightEyeFootXYPx
           spot_deg_array <- distanceCalibration$spotDeg
+          spot_degrees <- c()
           
-          if (!is.null(left_eye_foot) && !is.null(right_eye_foot)) {
-            # Handle both matrix format [[x1,y1],[x2,y2],...] and list format
-            if (is.matrix(left_eye_foot)) {
-              n_coords <- nrow(left_eye_foot)
-              for (j in 1:n_coords) {
-                eye_feet_coords[[j]] <- list(
-                  left_x = left_eye_foot[j, 1],
-                  left_y = left_eye_foot[j, 2],
-                  right_x = right_eye_foot[j, 1],
-                  right_y = right_eye_foot[j, 2]
-                )
-              }
-            } else if (is.list(left_eye_foot) && length(left_eye_foot) > 0) {
-              n_coords <- length(left_eye_foot)
-              for (j in 1:n_coords) {
-                eye_feet_coords[[j]] <- list(
-                  left_x = left_eye_foot[[j]][1],
-                  left_y = left_eye_foot[[j]][2],
-                  right_x = right_eye_foot[[j]][1],
-                  right_y = right_eye_foot[[j]][2]
-                )
-              }
-            }
-          }
+          message("[DEBUG FEET distanceCalibrationJSON] Session ", i, 
+                  ": has leftEyeFootXYPx=", !is.null(left_eye_foot),
+                  ", has rightEyeFootXYPx=", !is.null(right_eye_foot),
+                  ", left class=", if(!is.null(left_eye_foot)) class(left_eye_foot) else "NULL",
+                  ", left dim=", if(!is.null(left_eye_foot) && is.matrix(left_eye_foot)) paste(dim(left_eye_foot), collapse="x") else "N/A")
           
           if (!is.null(spot_deg_array)) {
             spot_degrees <- as.numeric(spot_deg_array)
           }
           
-          if (length(eye_feet_coords) > 0) {
-            coords_df <- tibble(
-              measurement_idx = 1:length(eye_feet_coords),
-              left_x = sapply(eye_feet_coords, function(x) x$left_x),
-              left_y = sapply(eye_feet_coords, function(x) x$left_y),
-              right_x = sapply(eye_feet_coords, function(x) x$right_x),
-              right_y = sapply(eye_feet_coords, function(x) x$right_y)
-            )
-            t <- t_meta %>%
-              filter(!is.na(calibrateTrackDistanceMeasuredCm),
-                     !is.na(calibrateTrackDistanceRequestedCm),
-                     calibrateTrackDistanceMeasuredCm != '',
-                     calibrateTrackDistanceRequestedCm != '') %>%
-              mutate(
-                calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
-                calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm)
-              ) %>%
-              mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","), 
-                     requested_list = strsplit(calibrateTrackDistanceRequestedCm, ",")) %>%
-              unnest(c(measured_list, requested_list)) %>%
-              mutate(
-                calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
-                calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
-                measurement_index = row_number()
-              ) %>%
-              select(-measured_list, -requested_list)
-            n_measurements <- nrow(coords_df)
-            if (n_measurements > nrow(t)) {
-              coords_df <- coords_df[1:nrow(t), ]
-            } else if (n_measurements < nrow(t)) {
-              t <- t[1:n_measurements, ]
-            }
-            t <- cbind(t, coords_df) %>%
-              select(-measurement_idx) %>%
-              mutate(
-                avg_eye_x_px = (left_x + right_x) / 2,
-                avg_eye_y_px = (left_y + right_y) / 2,
-                distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
-              )
-            if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
-              t <- t %>% mutate(pxPerCm = as.numeric(pxPerCm),
-                                avg_eye_x_cm = avg_eye_x_px / pxPerCm,
-                                avg_eye_y_cm = avg_eye_y_px / pxPerCm)
+          # Use make_xy_df() to correctly parse foot coordinates
+          coords_df <- make_xy_df(left_eye_foot, right_eye_foot)
+          
+          if (!is.null(coords_df) && nrow(coords_df) > 0) {
+            
+            
+            # NOTE: calibrateTrackDistanceMeasuredCm and calibrateTrackDistanceRequestedCm are DELETED from CSV
+            # Always extract measurements from JSON (distanceCalibrationJSON)
+            if (!is.null(distanceCalibration$imageBasedEyesToPointCm)) {
+              
+              measured_vals <- as.numeric(distanceCalibration$imageBasedEyesToPointCm)
+              requested_vals <- as.numeric(distanceCalibration$rulerBasedEyesToPointCm)
+              n_measurements <- length(measured_vals)
+              
+              # Create t from t_meta with JSON measurements
+              t <- t_meta[rep(1, n_measurements), ] %>%
+                mutate(
+                  calibrateTrackDistanceMeasuredCm = measured_vals,
+                  calibrateTrackDistanceRequestedCm = requested_vals,
+                  measurement_index = row_number()
+                )
+              
             } else {
-              default_pxPerCm <- 37.8
-              t <- t %>% mutate(pxPerCm = default_pxPerCm,
-                                avg_eye_x_cm = avg_eye_x_px / default_pxPerCm,
-                                avg_eye_y_cm = avg_eye_y_px / default_pxPerCm)
+              
+              t <- tibble()
             }
-            t <- t %>% mutate(data_list_index = i)
-            feet_calib <- rbind(feet_calib, t)
+            
+            # Common processing for both branches
+            n_coords <- nrow(coords_df)
+            if (nrow(t) > 0 && n_coords > 0) {
+              if (n_coords > nrow(t)) {
+                coords_df <- coords_df[1:nrow(t), ]
+              } else if (n_coords < nrow(t)) {
+                t <- t[1:n_coords, ]
+              }
+              t <- cbind(t, coords_df) %>%
+                select(-measurement_idx) %>%
+                mutate(
+                  avg_eye_x_px = (left_x + right_x) / 2,
+                  avg_eye_y_px = (left_y + right_y) / 2,
+                  distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
+                )
+              if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
+                t <- t %>% mutate(pxPerCm = as.numeric(pxPerCm),
+                                  avg_eye_x_cm = avg_eye_x_px / pxPerCm,
+                                  avg_eye_y_cm = avg_eye_y_px / pxPerCm)
+              } else {
+                default_pxPerCm <- 37.8
+                t <- t %>% mutate(pxPerCm = default_pxPerCm,
+                                  avg_eye_x_cm = avg_eye_x_px / default_pxPerCm,
+                                  avg_eye_y_cm = avg_eye_y_px / default_pxPerCm)
+              }
+              t <- t %>% mutate(data_list_index = i)
+              feet_calib <- rbind(feet_calib, t)
+              # Also add to distance tibble (same data but used by different plots)
+              distance <- rbind(distance, t)
+              
+            } else {
+              
+            }
           }
           if (length(spot_degrees) > 0 && !all(is.na(spot_degrees))) {
             t_bs <- t_meta[1,] %>% 
@@ -1135,32 +1136,56 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       if ("_calibrateTrackDistanceCheckBool" %in% names(dl)) {
         check_bool_val <- coerce_to_logical(get_first_non_na(dl$`_calibrateTrackDistanceCheckBool`))
       }
+      
+      # Wrap distanceCheckJSON parsing in tryCatch to handle malformed JSON gracefully
+      distanceCheck <- NULL
+      tryCatch({
         raw_json <- get_first_non_na(dl$distanceCheckJSON)
-        json_txt <- sanitize_json_string(raw_json)
-        distanceCheck <- fromJSON(
-          json_txt,
-          simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
-        )
+        if (!is.null(raw_json) && !is.na(raw_json) && raw_json != "") {
+          json_txt <- sanitize_json_string(raw_json)
+          distanceCheck <- fromJSON(
+            json_txt,
+            simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+          )
+        }
+      }, error = function(e) {
+        message("[DEBUG distanceCheckJSON PARSE ERROR] Session ", i, ": ", e$message)
+      })
+      
+      # Skip if parsing failed
+      if (is.null(distanceCheck)) {
+        next
+      }
         
-        # Extract metadata from distanceCheckJSON for debugging/logging
-        check_json_experiment  <- if (!is.null(distanceCheck$experiment)) distanceCheck$experiment else NA_character_
-        check_json_participant <- if (!is.null(distanceCheck$participant)) distanceCheck$participant else NA_character_
-        check_json_date        <- if (!is.null(distanceCheck$date)) distanceCheck$date else NA_character_
-        check_json_type        <- if (!is.null(distanceCheck$json)) distanceCheck$json else NA_character_
+      # Extract metadata from distanceCheckJSON for debugging/logging
+      check_json_experiment  <- if (!is.null(distanceCheck$experiment)) distanceCheck$experiment else NA_character_
+      check_json_participant <- if (!is.null(distanceCheck$participant)) distanceCheck$participant else NA_character_
+      check_json_date        <- if (!is.null(distanceCheck$date)) distanceCheck$date else NA_character_
+      check_json_type        <- if (!is.null(distanceCheck$json)) distanceCheck$json else NA_character_
 
-      raw_json <- get_first_non_na(t$distanceCalibrationJSON)
-      json_txt <- sanitize_json_string(raw_json)
-      t_tjson <- fromJSON(
-        json_txt,
-        simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
-      )
+      # Parse distanceCalibrationJSON to get t_tjson (for TJSON extraction later)
+      # NOTE: Fixed bug - was using 't$' but 't' was not defined in this scope, should use 'dl$'
+      t_tjson <- NULL
+      tjson_col <- if ("distanceCalibrationJSON" %in% names(dl)) "distanceCalibrationJSON" else "distanceCalibrationTJSON"
+      
+      if (tjson_col %in% names(dl)) {
+        tryCatch({
+          raw_json_tjson <- get_first_non_na(dl[[tjson_col]])
+          if (!is.null(raw_json_tjson) && !is.na(raw_json_tjson) && raw_json_tjson != "") {
+            json_txt_tjson <- sanitize_json_string(raw_json_tjson)
+            t_tjson <- fromJSON(
+              json_txt_tjson,
+              simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+            )
+          }
+        }, error = function(e) {
+          # Silently skip if JSON parsing fails
+        })
+      }
+      
       # -------- distance check median factorVpxCm --------
       tryCatch({
         participant_id_debug <- if("participant" %in% names(dl)) first(na.omit(dl$participant)) else "UNKNOWN"
-        
-        # Debug: Show available fields in distanceCheckJSON
-        message("[DEBUG check_factor] Participant ", participant_id_debug, 
-                " distanceCheckJSON fields: ", paste(names(distanceCheck), collapse = ", "))
         
         # Try multiple methods to get factorVpxCm values
         measured_vals <- NULL
@@ -1168,48 +1193,17 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         # Method 1: Use measuredFactorVpxCm directly (old schema)
         if (!is.null(distanceCheck$measuredFactorVpxCm)) {
           measured_vals <- distanceCheck$measuredFactorVpxCm
-          message("[DEBUG check_factor] Found measuredFactorVpxCm: ", length(measured_vals), " values")
         } 
         # Method 2: Use measuredFactorCameraPxCm (old schema alternative)
         else if (!is.null(distanceCheck$measuredFactorCameraPxCm)) {
           measured_vals <- distanceCheck$measuredFactorCameraPxCm
-          message("[DEBUG check_factor] Found measuredFactorCameraPxCm: ", length(measured_vals), " values")
         }
-        # Method 3: Compute from fOverWidth (NEW SCHEMA) - factorVpxCm = fOverWidth * widthVpx * ipdCm
-        else if (!is.null(distanceCheck$fOverWidth) && !is.null(distanceCheck$ipdCm)) {
-          fOverWidth_vals <- as.numeric(distanceCheck$fOverWidth)
-          ipdCm_val <- as.numeric(first(distanceCheck$ipdCm))
-          
-          # Get widthVpx from cameraResolutionXYVpx
-          # Handle both list-of-vectors format [[1920,1080],...] and string format ["1920, 1080",...]
-          widthVpx <- NA_real_
-          if (!is.null(distanceCheck$cameraResolutionXYVpx)) {
-            res_first <- distanceCheck$cameraResolutionXYVpx[[1]]
-            if (is.numeric(res_first) && length(res_first) >= 1) {
-              # List of numeric vectors format: [[1920, 1080], ...]
-              widthVpx <- max(res_first[1:min(2, length(res_first))])
-            } else {
-              # String format: ["1920, 1080", ...]
-              widthVpx <- as.numeric(extract_width_px(as.character(res_first)))
-            }
-          }
-          
-          if (!is.na(widthVpx) && !is.na(ipdCm_val)) {
-            measured_vals <- fOverWidth_vals * widthVpx * ipdCm_val
-            message("[DEBUG check_factor] Computed factorVpxCm from fOverWidth*widthVpx*ipdCm: ", 
-                    length(measured_vals), " values (widthVpx=", widthVpx, ", ipdCm=", ipdCm_val, ")")
-          }
-        }
-        # Method 4: Compute from fVpx (if still present) - factorVpxCm = fVpx * ipdCm
+        # Method 3: Compute from fVpx - factorVpxCm = fVpx * ipdCm
+        # Note: distanceCheckJSON has fVpx (focal length in pixels), not fOverWidth
         else if (!is.null(distanceCheck$fVpx) && !is.null(distanceCheck$ipdCm)) {
           fVpx_vals <- as.numeric(distanceCheck$fVpx)
           ipdCm_val <- as.numeric(first(distanceCheck$ipdCm))
           measured_vals <- fVpx_vals * ipdCm_val
-          message("[DEBUG check_factor] Computed factorVpxCm from fVpx*ipdCm: ", 
-                  length(measured_vals), " values (ipdCm=", ipdCm_val, ")")
-        }
-        else {
-          message("[DEBUG check_factor] WARNING: Cannot compute factorVpxCm - missing required fields")
         }
         
         if (!is.null(measured_vals)) {
@@ -1227,107 +1221,72 @@ get_distance_calibration <- function(data_list, minRulerCm) {
               distinct() %>%
               filter(!is.na(medianFactorVpxCm))
             if (nrow(t) > 0) check_factor <- rbind(check_factor, t)
-            message("[DEBUG check_factor] Added ", nrow(t), " rows to check_factor (medianFactorVpxCm=", round(medianFactorVpxCm, 2), ")")
           }
         }
         
-        # -------- ALSO extract foot positions from distanceCheckJSON for feet_calib --------
+        # -------- ALSO extract foot positions from distanceCheckJSON for feet_check --------
         # distanceCheckJSON has leftEyeFootXYPx and rightEyeFootXYPx arrays
+        # Use make_xy_df() helper to correctly handle matrix/list/vector formats
         if (!is.null(distanceCheck$leftEyeFootXYPx) && !is.null(distanceCheck$rightEyeFootXYPx)) {
-          left_foot <- distanceCheck$leftEyeFootXYPx
-          right_foot <- distanceCheck$rightEyeFootXYPx
+          check_coords_df <- make_xy_df(distanceCheck$leftEyeFootXYPx, distanceCheck$rightEyeFootXYPx)
           
-          # These are arrays of [x,y] coordinates for each measurement
-          # Convert to data frame
-          n_measurements <- length(left_foot) / 2  # Each measurement has x,y
-          
-          if (n_measurements > 0 && length(left_foot) == length(right_foot)) {
-            # Reshape arrays - they might be flat [x1,y1,x2,y2,...] or nested [[x1,y1],[x2,y2],...]
-            if (is.list(left_foot)) {
-              # Nested format
-              coords_list <- lapply(1:length(left_foot), function(idx) {
-                list(
-                  left_x = left_foot[[idx]][1],
-                  left_y = left_foot[[idx]][2],
-                  right_x = right_foot[[idx]][1],
-                  right_y = right_foot[[idx]][2]
-                )
-              })
-            } else {
-              # Flat format [x1,y1,x2,y2,...]
-              n_pts <- length(left_foot) / 2
-              coords_list <- lapply(1:n_pts, function(idx) {
-                base_idx <- (idx - 1) * 2 + 1
-                list(
-                  left_x = left_foot[base_idx],
-                  left_y = left_foot[base_idx + 1],
-                  right_x = right_foot[base_idx],
-                  right_y = right_foot[base_idx + 1]
-                )
-              })
-            }
+          if (!is.null(check_coords_df) && nrow(check_coords_df) > 0) {
+            check_coords_df <- check_coords_df %>% filter(!is.na(left_x), !is.na(right_x))
             
-            if (length(coords_list) > 0) {
-              check_coords_df <- tibble(
-                measurement_idx = 1:length(coords_list),
-                left_x = sapply(coords_list, function(x) as.numeric(x$left_x)),
-                left_y = sapply(coords_list, function(x) as.numeric(x$left_y)),
-                right_x = sapply(coords_list, function(x) as.numeric(x$right_x)),
-                right_y = sapply(coords_list, function(x) as.numeric(x$right_y))
-              ) %>% filter(!is.na(left_x), !is.na(right_x))
+            if (nrow(check_coords_df) > 0) {
+              # Get pxPerCm from the JSON
+              pxPerCm_val <- if (!is.null(distanceCheck$pxPerCm)) as.numeric(distanceCheck$pxPerCm[1]) else 37.8
               
-              if (nrow(check_coords_df) > 0) {
-                # Get pxPerCm from the data
-                pxPerCm_val <- if (!is.null(distanceCheck$pxPerCm)) as.numeric(distanceCheck$pxPerCm[1]) else 37.8
-                
-                # Get screen dimensions from the data list
-                screenWidthPx_val <- if ("screenWidthPx" %in% names(dl)) first(na.omit(as.numeric(dl$screenWidthPx))) else NA_real_
-                screenHeightPx_val <- if ("screenHeightPx" %in% names(dl)) first(na.omit(as.numeric(dl$screenHeightPx))) else NA_real_
-                
-                # Extract measuredEyesToPointCm and requestedEyesToPointCm for correct distance ratio
-                # Note: eyesToPointCm was deleted, use rulerBasedEyesToPointCm instead
-                measured_eyes_vals <- as.numeric(distanceCheck$rulerBasedEyesToPointCm)
-                requested_eyes_vals <- as.numeric(distanceCheck$requestedEyesToPointCm)
-                
-                # Compute distance ratio per measurement
-                n_check_measurements <- nrow(check_coords_df)
-                if (length(measured_eyes_vals) >= n_check_measurements && length(requested_eyes_vals) >= n_check_measurements) {
-                  distance_ratio_vals <- measured_eyes_vals[1:n_check_measurements] / requested_eyes_vals[1:n_check_measurements]
-                } else if (length(measured_eyes_vals) > 0 && length(requested_eyes_vals) > 0) {
-                  # Use mean ratio if arrays don't match
-                  distance_ratio_vals <- rep(mean(measured_eyes_vals, na.rm = TRUE) / mean(requested_eyes_vals, na.rm = TRUE), n_check_measurements)
-                } else {
-                  distance_ratio_vals <- rep(NA_real_, n_check_measurements)
-                }
-                
-                t_check_feet <- check_coords_df %>%
-                  mutate(
-                    participant = participant_id_debug,
-                    avg_eye_x_px = (left_x + right_x) / 2,
-                    avg_eye_y_px = (left_y + right_y) / 2,
-                    pxPerCm = pxPerCm_val,
-                    avg_eye_x_cm = avg_eye_x_px / pxPerCm,
-                    avg_eye_y_cm = avg_eye_y_px / pxPerCm,
-                    distance_ratio = distance_ratio_vals,  # Use measuredEyesToPointCm / requestedEyesToPointCm
-                    screenWidthPx = screenWidthPx_val,
-                    screenHeightPx = screenHeightPx_val,
-                    data_list_index = i,
-                    measurement_index = measurement_idx
-                  ) %>%
-                  select(-measurement_idx)
-                
-                feet_check <- rbind(feet_check, t_check_feet)
+              # Get screen dimensions from the data list
+              screenWidthPx_val <- if ("screenWidthPx" %in% names(dl)) first(na.omit(as.numeric(dl$screenWidthPx))) else NA_real_
+              screenHeightPx_val <- if ("screenHeightPx" %in% names(dl)) first(na.omit(as.numeric(dl$screenHeightPx))) else NA_real_
+              
+              # Extract imageBasedEyesToPointCm and requestedEyesToPointCm for distance ratio
+              # imageBasedEyesToPointCm is the measured value, requestedEyesToPointCm is the target
+              measured_eyes_vals <- as.numeric(distanceCheck$imageBasedEyesToPointCm)
+              requested_eyes_vals <- as.numeric(distanceCheck$requestedEyesToPointCm)
+              
+              # Compute distance ratio per measurement
+              n_check_measurements <- nrow(check_coords_df)
+              if (length(measured_eyes_vals) >= n_check_measurements && length(requested_eyes_vals) >= n_check_measurements) {
+                distance_ratio_vals <- measured_eyes_vals[1:n_check_measurements] / requested_eyes_vals[1:n_check_measurements]
+              } else if (length(measured_eyes_vals) > 0 && length(requested_eyes_vals) > 0) {
+                # Use mean ratio if arrays don't match
+                distance_ratio_vals <- rep(mean(measured_eyes_vals, na.rm = TRUE) / mean(requested_eyes_vals, na.rm = TRUE), n_check_measurements)
+              } else {
+                distance_ratio_vals <- rep(NA_real_, n_check_measurements)
               }
+              
+              t_check_feet <- check_coords_df %>%
+                mutate(
+                  participant = participant_id_debug,
+                  avg_eye_x_px = (left_x + right_x) / 2,
+                  avg_eye_y_px = (left_y + right_y) / 2,
+                  pxPerCm = pxPerCm_val,
+                  avg_eye_x_cm = avg_eye_x_px / pxPerCm,
+                  avg_eye_y_cm = avg_eye_y_px / pxPerCm,
+                  distance_ratio = distance_ratio_vals,
+                  screenWidthPx = screenWidthPx_val,
+                  screenHeightPx = screenHeightPx_val,
+                  data_list_index = i,
+                  measurement_index = measurement_idx
+                ) %>%
+                select(-measurement_idx)
+              
+              feet_check <- rbind(feet_check, t_check_feet)
+              message("[DEBUG feet_check] Session ", i, ": Added ", nrow(t_check_feet), " rows to feet_check")
             }
           }
         }
         
       }, error = function(e) {
-        # Silently skip if JSON parsing fails
+        message("[DEBUG distanceCheckJSON ERROR] Session ", i, ": ", e$message)
       })
     #### TJSON data ####
       #distanceCalibrationTJSON has been renamed to distanceCalibrationJSON
-        
+      
+      # Only process TJSON if we successfully parsed t_tjson
+      if (!is.null(t_tjson)) {
         # Extract metadata for debugging/logging
         json_experiment  <- if (!is.null(t_tjson$experiment)) t_tjson$experiment else NA_character_
         json_participant <- if (!is.null(t_tjson$participant)) t_tjson$participant else NA_character_
@@ -1361,6 +1320,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           )
 
         TJSON <- rbind(TJSON, tmp)
+      }
 
       
       #### checkJSON data ####
@@ -1379,6 +1339,14 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         } else {
           NA_real_
         }
+        
+        # Get ipdCm - try t_tjson first, then distanceCheck
+        ipdCm_val <- NA_real_
+        if (!is.null(t_tjson) && !is.null(t_tjson$ipdCm)) {
+          ipdCm_val <- as.numeric(first(na.omit(t_tjson$ipdCm)))
+        } else if (!is.null(distanceCheck$ipdCm)) {
+          ipdCm_val <- as.numeric(first(na.omit(distanceCheck$ipdCm)))
+        }
 
         tmp <- tibble(
           participant   = first(na.omit(dl$participant)),
@@ -1392,7 +1360,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           # New parameters: ipdOverWidth replaces ipdVpx, calibrationFOverWidth replaces calibrationFVpx
           ipdOverWidth  = ipdOverWidth_vals,
           calibrationFOverWidth = calibrationFOverWidth_val,
-          ipdCm         = as.numeric(first(na.omit(t_tjson$ipdCm)))
+          ipdCm         = ipdCm_val
         ) %>%
           mutate(
             # Measured eyesToFootCm (derived from measured eyesToPointCm)
@@ -1420,18 +1388,6 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       mutate(measurement_order_within_participant = row_number()) %>%
       ungroup() %>%
       mutate(measurement_order_global = row_number())
-    
-    # DEBUG: Show the data order as it comes from the JSON
-    message("[DEBUG checkJSON] === MEASUREMENT ORDER FROM JSON ===")
-    message("[DEBUG] Total rows: ", nrow(checkJSON), ", Participants: ", n_distinct(checkJSON$participant))
-    for (p in unique(checkJSON$participant)) {
-      p_data <- checkJSON %>% filter(participant == p)
-      message("[DEBUG] Participant: ", p)
-      message("[DEBUG]   measurement_order: ", paste(p_data$measurement_order_within_participant, collapse = ", "))
-      message("[DEBUG]   requestedEyesToPointCm: ", paste(round(p_data$requestedEyesToPointCm, 1), collapse = " -> "))
-      message("[DEBUG]   requestedEyesToFootCm: ", paste(round(p_data$requestedEyesToFootCm, 1), collapse = " -> "))
-    }
-    message("[DEBUG checkJSON] === END MEASUREMENT ORDER ===")
   }
   
   sizeCheck <- sizeCheck %>% as_tibble()
@@ -1442,6 +1398,122 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   check_factor <- check_factor %>% distinct()
   blindspot <- blindspot %>% distinct()
   statement <- make_statement(sizeCheck)
+  
+  # =============================================================================
+  # DEBUG: Comprehensive summary of data extracted from each JSON source
+  # =============================================================================
+  message("\n", paste(rep("=", 80), collapse=""))
+  message("DEBUG: DATA EXTRACTED FROM JSON SOURCES")
+  message(paste(rep("=", 80), collapse=""))
+  
+  # --- From calibrateScreenSizeJSON ---
+  message("\n--- From calibrateScreenSizeJSON ---")
+  message("  sizeCheck tibble: ", nrow(sizeCheck), " rows")
+  if (nrow(sizeCheck) > 0) {
+    message("    Columns: ", paste(names(sizeCheck), collapse=", "))
+    message("    Participants: ", paste(unique(sizeCheck$participant), collapse=", "))
+    if ("SizeCheckEstimatedPxPerCm" %in% names(sizeCheck)) {
+      message("    SizeCheckEstimatedPxPerCm: ", paste(head(sizeCheck$SizeCheckEstimatedPxPerCm, 5), collapse=", "), 
+              if(nrow(sizeCheck) > 5) "..." else "")
+    }
+    if ("SizeCheckRequestedCm" %in% names(sizeCheck)) {
+      message("    SizeCheckRequestedCm: ", paste(head(sizeCheck$SizeCheckRequestedCm, 5), collapse=", "),
+              if(nrow(sizeCheck) > 5) "..." else "")
+    }
+  }
+  message("  raw_pxPerCm tibble: (computed later from sizeCheck)")
+  
+  # --- From distanceCalibrationJSON ---
+  message("\n--- From distanceCalibrationJSON ---")
+  message("  distance tibble: ", nrow(distance), " rows")
+  if (nrow(distance) > 0) {
+    message("    Columns: ", paste(names(distance), collapse=", "))
+    message("    Participants: ", paste(unique(distance$participant), collapse=", "))
+    if ("calibrateTrackDistanceMeasuredCm" %in% names(distance)) {
+      message("    calibrateTrackDistanceMeasuredCm: ", paste(head(distance$calibrateTrackDistanceMeasuredCm, 5), collapse=", "))
+    }
+    if ("calibrateTrackDistanceRequestedCm" %in% names(distance)) {
+      message("    calibrateTrackDistanceRequestedCm: ", paste(head(distance$calibrateTrackDistanceRequestedCm, 5), collapse=", "))
+    }
+  }
+  message("  feet_calib tibble: ", nrow(feet_calib), " rows")
+  if (nrow(feet_calib) > 0) {
+    message("    Columns: ", paste(names(feet_calib), collapse=", "))
+    message("    Participants: ", paste(unique(feet_calib$participant), collapse=", "))
+    if ("left_x" %in% names(feet_calib)) {
+      message("    left_x: ", paste(head(feet_calib$left_x, 5), collapse=", "))
+      message("    left_y: ", paste(head(feet_calib$left_y, 5), collapse=", "))
+      message("    right_x: ", paste(head(feet_calib$right_x, 5), collapse=", "))
+      message("    right_y: ", paste(head(feet_calib$right_y, 5), collapse=", "))
+    }
+    if ("avg_eye_x_cm" %in% names(feet_calib)) {
+      message("    avg_eye_x_cm: ", paste(head(feet_calib$avg_eye_x_cm, 5), collapse=", "))
+      message("    avg_eye_y_cm: ", paste(head(feet_calib$avg_eye_y_cm, 5), collapse=", "))
+    }
+    if ("distance_ratio" %in% names(feet_calib)) {
+      message("    distance_ratio: ", paste(head(feet_calib$distance_ratio, 5), collapse=", "))
+    }
+  }
+  message("  eye_feet tibble: ", nrow(eye_feet), " rows")
+  if (nrow(eye_feet) > 0) {
+    message("    Columns: ", paste(names(eye_feet), collapse=", "))
+  }
+  message("  TJSON tibble: ", nrow(TJSON), " rows")
+  if (nrow(TJSON) > 0) {
+    message("    Columns: ", paste(names(TJSON), collapse=", "))
+    if ("rulerBasedEyesToFootCm" %in% names(TJSON)) {
+      message("    rulerBasedEyesToFootCm: ", paste(head(TJSON$rulerBasedEyesToFootCm, 5), collapse=", "))
+    }
+    if ("imageBasedEyesToFootCm" %in% names(TJSON)) {
+      message("    imageBasedEyesToFootCm: ", paste(head(TJSON$imageBasedEyesToFootCm, 5), collapse=", "))
+    }
+    if ("fOverWidth" %in% names(TJSON)) {
+      message("    fOverWidth: ", paste(head(TJSON$fOverWidth, 5), collapse=", "))
+    }
+  }
+  message("  blindspot tibble: ", nrow(blindspot), " rows")
+  
+  # --- From distanceCheckJSON ---
+  message("\n--- From distanceCheckJSON ---")
+  message("  checkJSON tibble: ", nrow(checkJSON), " rows")
+  if (nrow(checkJSON) > 0) {
+    message("    Columns: ", paste(names(checkJSON), collapse=", "))
+    message("    Participants: ", paste(unique(checkJSON$participant), collapse=", "))
+    if ("requestedEyesToPointCm" %in% names(checkJSON)) {
+      message("    requestedEyesToPointCm: ", paste(head(checkJSON$requestedEyesToPointCm, 5), collapse=", "))
+    }
+    if ("eyesToPointCm" %in% names(checkJSON)) {
+      message("    eyesToPointCm: ", paste(head(checkJSON$eyesToPointCm, 5), collapse=", "))
+    }
+    if ("imageBasedEyesToPointCm" %in% names(checkJSON)) {
+      message("    imageBasedEyesToPointCm: ", paste(head(checkJSON$imageBasedEyesToPointCm, 5), collapse=", "))
+    }
+    if ("ipdOverWidth" %in% names(checkJSON)) {
+      message("    ipdOverWidth: ", paste(head(checkJSON$ipdOverWidth, 5), collapse=", "))
+    }
+    if ("fOverWidth" %in% names(checkJSON)) {
+      message("    fOverWidth: ", paste(head(checkJSON$fOverWidth, 5), collapse=", "))
+    }
+    if ("ipdCm" %in% names(checkJSON)) {
+      message("    ipdCm: ", paste(head(checkJSON$ipdCm, 5), collapse=", "))
+    }
+  }
+  message("  feet_check tibble: ", nrow(feet_check), " rows")
+  if (nrow(feet_check) > 0) {
+    message("    Columns: ", paste(names(feet_check), collapse=", "))
+    if ("left_x" %in% names(feet_check)) {
+      message("    left_x: ", paste(head(feet_check$left_x, 5), collapse=", "))
+      message("    left_y: ", paste(head(feet_check$left_y, 5), collapse=", "))
+    }
+  }
+  message("  check_factor tibble: ", nrow(check_factor), " rows")
+  if (nrow(check_factor) > 0) {
+    message("    Columns: ", paste(names(check_factor), collapse=", "))
+  }
+  
+  message("\n", paste(rep("=", 80), collapse=""))
+  message("END DEBUG: DATA EXTRACTED FROM JSON SOURCES")
+  message(paste(rep("=", 80), collapse=""), "\n")
   
   # =============================================================================
   # DEBUG: Invariant checks for distance measurement consistency
@@ -1456,312 +1528,26 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   #   This catches Z definition errors before computing f
   # =============================================================================
   
-  message("\n========== DISTANCE INVARIANT DEBUG LOG ==========\n")
-  
-  # --- CALIBRATION (TJSON) invariant checks ---
-  if (nrow(TJSON) > 0 && nrow(camera) > 0 && "PavloviaParticipantID" %in% names(camera)) {
-    message("--- CALIBRATION (TJSON) DATA ---")
-    
-    calib_debug <- TJSON %>%
-      left_join(camera %>% select(PavloviaParticipantID, widthVpx), 
-                by = c("participant" = "PavloviaParticipantID")) %>%
-      filter(!is.na(fOverWidth), is.finite(fOverWidth), 
-             !is.na(widthVpx), widthVpx > 0,
-             !is.na(ipdOverWidth), is.finite(ipdOverWidth),
-             !is.na(ipdCm), is.finite(ipdCm), ipdCm > 0,
-             !is.na(eyeToFootCm), is.finite(eyeToFootCm), eyeToFootCm > 0) %>%
-      mutate(
-        # fOverWidth from JSON (directly provided)
-        fOverWidth_from_json = fOverWidth,
-        
-        # fOverWidth computed from components (should match JSON)
-        fOverWidth_computed = ipdOverWidth * eyeToFootCm / ipdCm,
-        
-        # Invariant 1: Check agreement between JSON and computed
-        fOverWidth_ratio = fOverWidth_from_json / fOverWidth_computed,
-        fOverWidth_pct_diff = abs(fOverWidth_from_json - fOverWidth_computed) / fOverWidth_from_json * 100,
-        
-        # Invariant 2: ipdOverWidth * Z (should be constant for fixed f, ipdCm)
-        # This is proportional to focal length: ipdOverWidth * Z / ipdCm = fOverWidth
-        ipdOverWidth_times_Z = ipdOverWidth * eyeToFootCm,
-        
-        # For reference: what Z value was used
-        Z_used = eyeToFootCm
-      )
-    
-    if (nrow(calib_debug) > 0) {
-      message(sprintf("  Participants: %s", paste(unique(calib_debug$participant), collapse = ", ")))
-      message(sprintf("  N observations: %d", nrow(calib_debug)))
-      
-      # Invariant 1 summary
-      message("\n  INVARIANT 1: fOverWidth JSON vs computed (calibration)")
-      message(sprintf("    fOverWidth from JSON:     mean=%.6f, sd=%.6f", 
-                      mean(calib_debug$fOverWidth_from_json, na.rm = TRUE),
-                      sd(calib_debug$fOverWidth_from_json, na.rm = TRUE)))
-      message(sprintf("    fOverWidth computed (ipdOverWidth*Z/ipdCm): mean=%.6f, sd=%.6f",
-                      mean(calib_debug$fOverWidth_computed, na.rm = TRUE),
-                      sd(calib_debug$fOverWidth_computed, na.rm = TRUE)))
-      message(sprintf("    Ratio (JSON/computed): mean=%.6f, sd=%.6f, range=[%.6f, %.6f]",
-                      mean(calib_debug$fOverWidth_ratio, na.rm = TRUE),
-                      sd(calib_debug$fOverWidth_ratio, na.rm = TRUE),
-                      min(calib_debug$fOverWidth_ratio, na.rm = TRUE),
-                      max(calib_debug$fOverWidth_ratio, na.rm = TRUE)))
-      message(sprintf("    Percent difference: mean=%.4f%%, max=%.4f%%",
-                      mean(calib_debug$fOverWidth_pct_diff, na.rm = TRUE),
-                      max(calib_debug$fOverWidth_pct_diff, na.rm = TRUE)))
-      
-      # Invariant 2 summary
-      message("\n  INVARIANT 2: ipdOverWidth * Z consistency (calibration)")
-      message(sprintf("    ipdOverWidth * Z: mean=%.4f, sd=%.4f, CV=%.4f%%",
-                      mean(calib_debug$ipdOverWidth_times_Z, na.rm = TRUE),
-                      sd(calib_debug$ipdOverWidth_times_Z, na.rm = TRUE),
-                      sd(calib_debug$ipdOverWidth_times_Z, na.rm = TRUE) / 
-                        mean(calib_debug$ipdOverWidth_times_Z, na.rm = TRUE) * 100))
-      
-      # Per-participant breakdown
-      message("\n  Per-participant details (calibration):")
-      calib_by_participant <- calib_debug %>%
-        group_by(participant) %>%
-        summarize(
-          n = n(),
-          Z_mean = mean(Z_used, na.rm = TRUE),
-          Z_range = paste0("[", round(min(Z_used, na.rm = TRUE), 1), ", ", round(max(Z_used, na.rm = TRUE), 1), "]"),
-          ipdCm = first(ipdCm),
-          ipdOverWidth_mean = mean(ipdOverWidth, na.rm = TRUE),
-          fOverWidth_json_mean = mean(fOverWidth_from_json, na.rm = TRUE),
-          fOverWidth_comp_mean = mean(fOverWidth_computed, na.rm = TRUE),
-          ratio_mean = mean(fOverWidth_ratio, na.rm = TRUE),
-          ipdOverWidth_x_Z_mean = mean(ipdOverWidth_times_Z, na.rm = TRUE),
-          ipdOverWidth_x_Z_sd = sd(ipdOverWidth_times_Z, na.rm = TRUE),
-          .groups = "drop"
-        )
-      
-      for (i in 1:nrow(calib_by_participant)) {
-        row <- calib_by_participant[i, ]
-        message(sprintf("    %s: n=%d, Z=%s cm, ipdCm=%.2f, ipdOverWidth=%.5f",
-                        row$participant, row$n, row$Z_range, row$ipdCm, row$ipdOverWidth_mean))
-        message(sprintf("      fOverWidth: JSON=%.5f, computed=%.5f, ratio=%.6f",
-                        row$fOverWidth_json_mean, row$fOverWidth_comp_mean, row$ratio_mean))
-        message(sprintf("      ipdOverWidth*Z: mean=%.4f, sd=%.4f",
-                        row$ipdOverWidth_x_Z_mean, 
-                        ifelse(is.na(row$ipdOverWidth_x_Z_sd), 0, row$ipdOverWidth_x_Z_sd)))
-      }
-    }
-  }
-  
-  # --- CHECK (checkJSON) invariant checks ---
-  # checkJSON now has fOverWidth and ipdOverWidth directly (distanceCheckJSON updated)
-  if (nrow(checkJSON) > 0 && nrow(camera) > 0 && "PavloviaParticipantID" %in% names(camera)) {
-    message("\n--- CHECK (checkJSON) DATA ---")
-    
-    check_debug <- checkJSON %>%
-      filter(!is.na(fOverWidth), is.finite(fOverWidth), 
-             !is.na(ipdOverWidth), is.finite(ipdOverWidth),
-             !is.na(ipdCm), is.finite(ipdCm), ipdCm > 0,
-             !is.na(eyeToFootCm), is.finite(eyeToFootCm), eyeToFootCm > 0) %>%
-      mutate(
-        # fOverWidth from JSON (directly provided, computed from ipdOverWidth * eyeToFootCm / ipdCm)
-        fOverWidth_from_json = fOverWidth,
-        
-        # fOverWidth computed from components (should match JSON)
-        fOverWidth_computed = ipdOverWidth * eyeToFootCm / ipdCm,
-        
-        # Also compute using requestedEyesToFootCm (the "other" Z)
-        fOverWidth_method3 = ifelse(!is.na(requestedEyesToFootCm) & is.finite(requestedEyesToFootCm),
-                                    ipdOverWidth * requestedEyesToFootCm / ipdCm, NA_real_),
-        
-        # Invariant 1: Check agreement between JSON and computed
-        fOverWidth_ratio_json_comp = fOverWidth_from_json / fOverWidth_computed,
-        fOverWidth_ratio_json_m3 = ifelse(!is.na(fOverWidth_method3), 
-                                        fOverWidth_from_json / fOverWidth_method3, NA_real_),
-        fOverWidth_pct_diff_json_comp = abs(fOverWidth_from_json - fOverWidth_computed) / fOverWidth_from_json * 100,
-        fOverWidth_pct_diff_json_m3 = ifelse(!is.na(fOverWidth_method3),
-                                           abs(fOverWidth_from_json - fOverWidth_method3) / fOverWidth_from_json * 100, NA_real_),
-        
-        # Invariant 2: ipdOverWidth * Z products
-        ipdOverWidth_times_measuredZ = ipdOverWidth * eyeToFootCm,
-        ipdOverWidth_times_requestedZ = ifelse(!is.na(requestedEyesToFootCm),
-                                               ipdOverWidth * requestedEyesToFootCm, NA_real_),
-        
-        # For reference
-        Z_measured = eyeToFootCm,
-        Z_requested = requestedEyesToFootCm,
-        Z_ratio = ifelse(!is.na(requestedEyesToFootCm) & requestedEyesToFootCm > 0,
-                         eyeToFootCm / requestedEyesToFootCm, NA_real_)
-      )
-    
-    if (nrow(check_debug) > 0) {
-      message(sprintf("  Participants: %s", paste(unique(check_debug$participant), collapse = ", ")))
-      message(sprintf("  N observations: %d", nrow(check_debug)))
-      
-      # Invariant 1 summary
-      message("\n  INVARIANT 1: fOverWidth JSON vs computed (check)")
-      message("  JSON: fOverWidth (computed from ipdOverWidth * eyeToFootCm / ipdCm in JSON)")
-      message("  Computed: ipdOverWidth * measured_eyeToFootCm / ipdCm")
-      message("  Method 3: ipdOverWidth * requested_eyeToFootCm / ipdCm")
-      
-      message(sprintf("\n    fOverWidth from JSON:   mean=%.6f, sd=%.6f", 
-                      mean(check_debug$fOverWidth_from_json, na.rm = TRUE),
-                      sd(check_debug$fOverWidth_from_json, na.rm = TRUE)))
-      message(sprintf("    fOverWidth computed:    mean=%.6f, sd=%.6f",
-                      mean(check_debug$fOverWidth_computed, na.rm = TRUE),
-                      sd(check_debug$fOverWidth_computed, na.rm = TRUE)))
-      message(sprintf("    fOverWidth method3:     mean=%.6f, sd=%.6f",
-                      mean(check_debug$fOverWidth_method3, na.rm = TRUE),
-                      sd(check_debug$fOverWidth_method3, na.rm = TRUE)))
-      
-      message(sprintf("\n    Ratio JSON/computed (should be ~1.0): mean=%.6f, sd=%.6f, range=[%.6f, %.6f]",
-                      mean(check_debug$fOverWidth_ratio_json_comp, na.rm = TRUE),
-                      sd(check_debug$fOverWidth_ratio_json_comp, na.rm = TRUE),
-                      min(check_debug$fOverWidth_ratio_json_comp, na.rm = TRUE),
-                      max(check_debug$fOverWidth_ratio_json_comp, na.rm = TRUE)))
-      message(sprintf("    Ratio JSON/m3 (reveals Z definition issue): mean=%.6f, sd=%.6f, range=[%.6f, %.6f]",
-                      mean(check_debug$fOverWidth_ratio_json_m3, na.rm = TRUE),
-                      sd(check_debug$fOverWidth_ratio_json_m3, na.rm = TRUE),
-                      min(check_debug$fOverWidth_ratio_json_m3, na.rm = TRUE),
-                      max(check_debug$fOverWidth_ratio_json_m3, na.rm = TRUE)))
-      
-      # Invariant 2 summary
-      message("\n  INVARIANT 2: ipdOverWidth * Z consistency (check)")
-      message(sprintf("    ipdOverWidth * Z_measured:  mean=%.4f, sd=%.4f, CV=%.4f%%",
-                      mean(check_debug$ipdOverWidth_times_measuredZ, na.rm = TRUE),
-                      sd(check_debug$ipdOverWidth_times_measuredZ, na.rm = TRUE),
-                      sd(check_debug$ipdOverWidth_times_measuredZ, na.rm = TRUE) / 
-                        mean(check_debug$ipdOverWidth_times_measuredZ, na.rm = TRUE) * 100))
-      message(sprintf("    ipdOverWidth * Z_requested: mean=%.4f, sd=%.4f, CV=%.4f%%",
-                      mean(check_debug$ipdOverWidth_times_requestedZ, na.rm = TRUE),
-                      sd(check_debug$ipdOverWidth_times_requestedZ, na.rm = TRUE),
-                      sd(check_debug$ipdOverWidth_times_requestedZ, na.rm = TRUE) / 
-                        mean(check_debug$ipdOverWidth_times_requestedZ, na.rm = TRUE) * 100))
-      
-      # Z comparison
-      message("\n  Z DEFINITION COMPARISON:")
-      message(sprintf("    Z_measured (eyeToFootCm): mean=%.2f, sd=%.2f, range=[%.2f, %.2f]",
-                      mean(check_debug$Z_measured, na.rm = TRUE),
-                      sd(check_debug$Z_measured, na.rm = TRUE),
-                      min(check_debug$Z_measured, na.rm = TRUE),
-                      max(check_debug$Z_measured, na.rm = TRUE)))
-      message(sprintf("    Z_requested (requestedEyesToFootCm): mean=%.2f, sd=%.2f, range=[%.2f, %.2f]",
-                      mean(check_debug$Z_requested, na.rm = TRUE),
-                      sd(check_debug$Z_requested, na.rm = TRUE),
-                      min(check_debug$Z_requested, na.rm = TRUE),
-                      max(check_debug$Z_requested, na.rm = TRUE)))
-      message(sprintf("    Z_measured / Z_requested: mean=%.4f, sd=%.4f, range=[%.4f, %.4f]",
-                      mean(check_debug$Z_ratio, na.rm = TRUE),
-                      sd(check_debug$Z_ratio, na.rm = TRUE),
-                      min(check_debug$Z_ratio, na.rm = TRUE),
-                      max(check_debug$Z_ratio, na.rm = TRUE)))
-      
-      # Per-participant breakdown
-      message("\n  Per-participant details (check):")
-      check_by_participant <- check_debug %>%
-        group_by(participant) %>%
-        summarize(
-          n = n(),
-          ipdCm = first(ipdCm),
-          ipdOverWidth_mean = mean(ipdOverWidth, na.rm = TRUE),
-          Z_measured_range = paste0("[", round(min(Z_measured, na.rm = TRUE), 1), ", ", 
-                                    round(max(Z_measured, na.rm = TRUE), 1), "]"),
-          Z_requested_range = paste0("[", round(min(Z_requested, na.rm = TRUE), 1), ", ", 
-                                     round(max(Z_requested, na.rm = TRUE), 1), "]"),
-          Z_ratio_mean = mean(Z_ratio, na.rm = TRUE),
-          fOverWidth_json = mean(fOverWidth_from_json, na.rm = TRUE),
-          fOverWidth_comp = mean(fOverWidth_computed, na.rm = TRUE),
-          fOverWidth_m3 = mean(fOverWidth_method3, na.rm = TRUE),
-          ratio_json_comp = mean(fOverWidth_ratio_json_comp, na.rm = TRUE),
-          ratio_json_m3 = mean(fOverWidth_ratio_json_m3, na.rm = TRUE),
-          ipdOverWidth_x_Z_meas = mean(ipdOverWidth_times_measuredZ, na.rm = TRUE),
-          ipdOverWidth_x_Z_req = mean(ipdOverWidth_times_requestedZ, na.rm = TRUE),
-          .groups = "drop"
-        )
-      
-      for (i in 1:nrow(check_by_participant)) {
-        row <- check_by_participant[i, ]
-        message(sprintf("    %s: n=%d, ipdCm=%.2f, ipdOverWidth=%.5f",
-                        row$participant, row$n, row$ipdCm, row$ipdOverWidth_mean))
-        message(sprintf("      Z_measured=%s, Z_requested=%s, Z_ratio=%.4f",
-                        row$Z_measured_range, row$Z_requested_range, row$Z_ratio_mean))
-        message(sprintf("      fOverWidth: json=%.5f, computed=%.5f, m3=%.5f",
-                        row$fOverWidth_json, row$fOverWidth_comp, row$fOverWidth_m3))
-        message(sprintf("      ratios: json/comp=%.4f (should be 1.0), json/m3=%.4f (reveals Z issue)",
-                        row$ratio_json_comp, row$ratio_json_m3))
-        message(sprintf("      ipdOverWidth*Z: measured=%.4f, requested=%.4f",
-                        row$ipdOverWidth_x_Z_meas, row$ipdOverWidth_x_Z_req))
-      }
-    }
-  }
-  
-  # --- CROSS-CHECK: Compare calibration vs check ---
-  if (nrow(TJSON) > 0 && nrow(checkJSON) > 0 && nrow(camera) > 0 && "PavloviaParticipantID" %in% names(camera)) {
-    message("\n--- CROSS-CHECK: CALIBRATION vs CHECK ---")
-    
-    # Get median ipdOverWidth*Z from calibration per participant
-    # TJSON now has ipdOverWidth directly (no longer computed from ipdVpx)
-    calib_product <- TJSON %>%
-      filter(!is.na(ipdOverWidth), !is.na(eyeToFootCm), !is.na(fOverWidth)) %>%
-      mutate(ipdOverWidth_x_Z = ipdOverWidth * eyeToFootCm) %>%
-      group_by(participant) %>%
-      summarize(calib_ipdOverWidth_x_Z = median(ipdOverWidth_x_Z, na.rm = TRUE),
-                calib_fOverWidth = median(fOverWidth, na.rm = TRUE),
-                .groups = "drop")
-    
-    # Get median from check per participant (checkJSON now has ipdOverWidth directly)
-    check_product <- checkJSON %>%
-      filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth), !is.na(eyeToFootCm)) %>%
-      mutate(ipdOverWidth_x_Z_meas = ipdOverWidth * eyeToFootCm,
-             ipdOverWidth_x_Z_req = ipdOverWidth * requestedEyesToFootCm,
-             fOverWidth_meas = ipdOverWidth * eyeToFootCm / ipdCm,
-             fOverWidth_req = ipdOverWidth * requestedEyesToFootCm / ipdCm) %>%
-      group_by(participant) %>%
-      summarize(check_ipdOverWidth_x_Z_meas = median(ipdOverWidth_x_Z_meas, na.rm = TRUE),
-                check_ipdOverWidth_x_Z_req = median(ipdOverWidth_x_Z_req, na.rm = TRUE),
-                check_fOverWidth_meas = median(fOverWidth_meas, na.rm = TRUE),
-                check_fOverWidth_req = median(fOverWidth_req, na.rm = TRUE),
-                .groups = "drop")
-    
-    cross_check <- calib_product %>%
-      inner_join(check_product, by = "participant") %>%
-      mutate(
-        # If camera intrinsics are stable, ipdOverWidth*Z should be same for same ipdCm
-        ratio_calib_vs_check_meas = calib_ipdOverWidth_x_Z / check_ipdOverWidth_x_Z_meas,
-        ratio_calib_vs_check_req = calib_ipdOverWidth_x_Z / check_ipdOverWidth_x_Z_req,
-        # fOverWidth should be same between calibration and check (camera intrinsic)
-        fOverWidth_ratio_calib_check_meas = calib_fOverWidth / check_fOverWidth_meas,
-        fOverWidth_ratio_calib_check_req = calib_fOverWidth / check_fOverWidth_req
-      )
-    
-    if (nrow(cross_check) > 0) {
-      message("  Comparing ipdOverWidth*Z between calibration and check:")
-      message(sprintf("    calib vs check(measured Z): mean ratio=%.4f, should be ~1.0 if Z definitions match",
-                      mean(cross_check$ratio_calib_vs_check_meas, na.rm = TRUE)))
-      message(sprintf("    calib vs check(requested Z): mean ratio=%.4f, deviation from 1.0 shows Z definition error",
-                      mean(cross_check$ratio_calib_vs_check_req, na.rm = TRUE)))
-      
-      message("\n  Comparing fOverWidth between calibration and check:")
-      message(sprintf("    calib vs check(measured Z): mean ratio=%.4f, should be ~1.0 (same camera)",
-                      mean(cross_check$fOverWidth_ratio_calib_check_meas, na.rm = TRUE)))
-      message(sprintf("    calib vs check(requested Z): mean ratio=%.4f, deviation reveals absorbed error",
-                      mean(cross_check$fOverWidth_ratio_calib_check_req, na.rm = TRUE)))
-      
-      message("\n  Per-participant cross-check:")
-      for (i in 1:nrow(cross_check)) {
-        row <- cross_check[i, ]
-        message(sprintf("    %s:", row$participant))
-        message(sprintf("      ipdOverWidth*Z: calib=%.4f, check_meas=%.4f, check_req=%.4f",
-                        row$calib_ipdOverWidth_x_Z, row$check_ipdOverWidth_x_Z_meas, row$check_ipdOverWidth_x_Z_req))
-        message(sprintf("      fOverWidth: calib=%.5f, check_meas=%.5f, check_req=%.5f",
-                        row$calib_fOverWidth, row$check_fOverWidth_meas, row$check_fOverWidth_req))
-        message(sprintf("      Ratios: ipdOverWidth*Z calib/check_meas=%.4f, calib/check_req=%.4f",
-                        row$ratio_calib_vs_check_meas, row$ratio_calib_vs_check_req))
-      }
-    }
-  }
-  
-  message("\n========== END DISTANCE INVARIANT DEBUG LOG ==========\n")
-  
   # Extract raw array data for new histograms
   raw_pxPerCm <- get_raw_pxPerCm_data(filtered_data_list, sizeCheck)
   raw_objectMeasuredCm <- get_raw_objectMeasuredCm_data(filtered_data_list)
+  
+  # Debug: raw_pxPerCm summary (now that it's computed)
+  message("\n--- raw_pxPerCm (computed from calibrateScreenSizeJSON) ---")
+  message("  raw_pxPerCm tibble: ", nrow(raw_pxPerCm), " rows")
+  if (nrow(raw_pxPerCm) > 0) {
+    message("    Columns: ", paste(names(raw_pxPerCm), collapse=", "))
+    message("    Participants: ", paste(unique(raw_pxPerCm$participant), collapse=", "))
+    if ("pxPerCm" %in% names(raw_pxPerCm)) {
+      message("    pxPerCm: ", paste(head(raw_pxPerCm$pxPerCm, 10), collapse=", "),
+              if(nrow(raw_pxPerCm) > 10) "..." else "")
+    }
+    if ("requestedCm" %in% names(raw_pxPerCm)) {
+      message("    requestedCm: ", paste(head(raw_pxPerCm$requestedCm, 10), collapse=", "),
+              if(nrow(raw_pxPerCm) > 10) "..." else "")
+    }
+  }
+  message("  raw_objectMeasuredCm tibble: ", nrow(raw_objectMeasuredCm), " rows")
   
   # Compute median fOverWidth from checkJSON (which now has fOverWidth directly)
   median_fOverWidth_check <- if (nrow(checkJSON) > 0) {
@@ -1811,57 +1597,100 @@ get_sizeCheck_data <- function(data_list) {
   }
   # pxPerCm: pixel density measured with a credit card
   # SizeCheckEstimatedPxPerCm: pixel density measured from length production
+  # NOTE: Now extracting from calibrateScreenSizeJSON instead of obsolete direct columns
+  # JSON format: "SizeCheckRequestedCm":"7.6,  12.7,  22.9", "SizeCheckEstimatedPxPerCm":"49.2,  49.4,  50.0"
+  
+  # Helper function to parse comma-separated string or array to numeric vector
+  parse_csv_or_array <- function(val) {
+    if (is.null(val)) return(NULL)
+    if (is.numeric(val)) return(val)  # Already numeric array
+    if (is.character(val) && length(val) == 1 && grepl(",", val)) {
+      # Comma-separated string like "7.6,  12.7,  22.9"
+      return(as.numeric(trimws(unlist(strsplit(val, ",")))))
+    }
+    return(as.numeric(val))  # Try direct conversion
+  }
   
   for (i in 1:length(data_list)) {
-    t <- data_list[[i]] %>%
-      select(`_calibrateTrackDistance`,
-             `_calibrateTrackDistancePupil`,
-             `_calibrateTrackDistanceAllowedRatio`,
-             `_calibrateTrackDistanceShowLengthBool`,
-             `_calibrateTrackDistanceTimes`,
-             calibrateScreenSizeAllowedRatio,
-             calibrateScreenSizeTimes,
-             viewingDistanceWhichEye,
-             viewingDistanceWhichPoint,
-             participant,
-             SizeCheckEstimatedPxPerCm,
-             SizeCheckRequestedCm,
-             rulerLength,
-             rulerUnit,
-             pxPerCm) %>%
-      mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
-             `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
-             `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
-             calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
-             calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
-             `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
-             `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
-             `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
-             `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)
-      ) %>%
-      distinct() %>%
-      filter(!is.na(SizeCheckEstimatedPxPerCm),
-             !is.na(SizeCheckRequestedCm),
-             SizeCheckEstimatedPxPerCm != '',
-             SizeCheckRequestedCm != '')
-    if (nrow(t) > 0) {
-      # Convert JSON-like lists into strings and remove extra characters
-      t <- t %>%
-        mutate(
-          SizeCheckEstimatedPxPerCm = gsub("\\[|\\]|\"", "", SizeCheckEstimatedPxPerCm),
-          SizeCheckRequestedCm = gsub("\\[|\\]|\"", "", SizeCheckRequestedCm)
-        ) %>%
-        # Separate both columns together while keeping row-wise structure
-        mutate(measured_list = strsplit(SizeCheckEstimatedPxPerCm, ","), 
-               requested_list = strsplit(SizeCheckRequestedCm, ",")) %>%
-        unnest(c(measured_list, requested_list)) %>%  # Expands both columns together
-        mutate(
-          SizeCheckEstimatedPxPerCm = as.numeric(trimws(measured_list)),
-          SizeCheckRequestedCm = as.numeric(trimws(requested_list))
-        ) %>%
-        select(-measured_list, -requested_list)  # Remove temp lists
-      
-      df <- rbind(t, df)
+    dl <- data_list[[i]]
+    
+    # Extract metadata columns that exist
+    base_cols <- c("_calibrateTrackDistance", "_calibrateTrackDistancePupil",
+                   "_calibrateTrackDistanceAllowedRatio", "_calibrateTrackDistanceShowLengthBool",
+                   "_calibrateTrackDistanceTimes", "calibrateScreenSizeAllowedRatio",
+                   "calibrateScreenSizeTimes", "viewingDistanceWhichEye",
+                   "viewingDistanceWhichPoint", "participant", "rulerLength", "rulerUnit", "pxPerCm")
+    existing_cols <- intersect(base_cols, names(dl))
+    
+    # Try to extract SizeCheckEstimatedPxPerCm and SizeCheckRequestedCm from calibrateScreenSizeJSON
+    if ("calibrateScreenSizeJSON" %in% names(dl)) {
+      tryCatch({
+        raw_json <- get_first_non_na(dl$calibrateScreenSizeJSON)
+        if (!is.null(raw_json) && !is.na(raw_json) && raw_json != "") {
+          json_txt <- sanitize_json_string(raw_json)
+          screenSizeJSON <- fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
+          
+          # Extract SizeCheckEstimatedPxPerCm from JSON (try multiple possible field names)
+          estimated_vals <- NULL
+          if (!is.null(screenSizeJSON$SizeCheckEstimatedPxPerCm)) {
+            estimated_vals <- parse_csv_or_array(screenSizeJSON$SizeCheckEstimatedPxPerCm)
+          } else if (!is.null(screenSizeJSON$pxPerCm)) {
+            estimated_vals <- parse_csv_or_array(screenSizeJSON$pxPerCm)
+          } else if (!is.null(screenSizeJSON$ppi)) {
+            estimated_vals <- parse_csv_or_array(screenSizeJSON$ppi) / 2.54
+          }
+          
+          # Extract SizeCheckRequestedCm from JSON (try multiple possible field names)
+          requested_vals <- NULL
+          if (!is.null(screenSizeJSON$SizeCheckRequestedCm)) {
+            requested_vals <- parse_csv_or_array(screenSizeJSON$SizeCheckRequestedCm)
+          } else if (!is.null(screenSizeJSON$requestedCm)) {
+            requested_vals <- parse_csv_or_array(screenSizeJSON$requestedCm)
+          }
+          
+          # Remove NA values
+          if (!is.null(estimated_vals)) estimated_vals <- estimated_vals[!is.na(estimated_vals)]
+          if (!is.null(requested_vals)) requested_vals <- requested_vals[!is.na(requested_vals)]
+          
+          # If we have valid values from JSON, create rows
+          if (!is.null(estimated_vals) && !is.null(requested_vals) && 
+              length(estimated_vals) > 0 && length(requested_vals) > 0) {
+            
+            # Make sure arrays are same length (take min length if different)
+            n_vals <- min(length(estimated_vals), length(requested_vals))
+            estimated_vals <- estimated_vals[1:n_vals]
+            requested_vals <- requested_vals[1:n_vals]
+            
+            # Build base tibble with metadata
+            t_base <- dl %>% select(all_of(existing_cols)) %>%
+              mutate(
+                `_calibrateTrackDistanceAllowedRatio` = if ("_calibrateTrackDistanceAllowedRatio" %in% names(.)) get_first_non_na(`_calibrateTrackDistanceAllowedRatio`) else NA,
+                `_calibrateTrackDistanceShowLengthBool` = if ("_calibrateTrackDistanceShowLengthBool" %in% names(.)) get_first_non_na(`_calibrateTrackDistanceShowLengthBool`) else NA,
+                `_calibrateTrackDistanceTimes` = if ("_calibrateTrackDistanceTimes" %in% names(.)) get_first_non_na(`_calibrateTrackDistanceTimes`) else NA,
+                calibrateScreenSizeAllowedRatio = if ("calibrateScreenSizeAllowedRatio" %in% names(.)) get_first_non_na(`calibrateScreenSizeAllowedRatio`) else NA,
+                calibrateScreenSizeTimes = if ("calibrateScreenSizeTimes" %in% names(.)) get_first_non_na(calibrateScreenSizeTimes) else NA,
+                `_calibrateTrackDistance` = if ("_calibrateTrackDistance" %in% names(.)) get_first_non_na(`_calibrateTrackDistance`) else NA,
+                `_calibrateTrackDistancePupil` = if ("_calibrateTrackDistancePupil" %in% names(.)) get_first_non_na(`_calibrateTrackDistancePupil`) else NA,
+                `viewingDistanceWhichEye` = if ("viewingDistanceWhichEye" %in% names(.)) get_first_non_na(`viewingDistanceWhichEye`) else NA,
+                `viewingDistanceWhichPoint` = if ("viewingDistanceWhichPoint" %in% names(.)) get_first_non_na(`viewingDistanceWhichPoint`) else NA
+              ) %>%
+              distinct() %>%
+              slice(1)
+            
+            # Create one row per measurement
+            for (j in 1:n_vals) {
+              t_row <- t_base %>%
+                mutate(
+                  SizeCheckEstimatedPxPerCm = estimated_vals[j],
+                  SizeCheckRequestedCm = requested_vals[j]
+                )
+              df <- rbind(df, t_row)
+            }
+          }
+        }
+      }, error = function(e) {
+        # Silently skip if JSON parsing fails
+      })
     }
   }
 
@@ -1875,90 +1704,9 @@ get_sizeCheck_data <- function(data_list) {
   return(df)
 }
 
-get_measured_distance_data <- function(data_list) {
-  df <- tibble()
-  if(length(data_list) == 0) {
-    return(df)
-  }
-  for (i in 1:length(data_list)) {
-    
-    if ('calibrateTrackDistanceIpdCameraPx' %in% names(data_list[[i]])) {
-      data_list[[i]]$calibrateTrackDistanceIpdVpx = data_list[[i]]$calibrateTrackDistanceIpdCameraPx
-    }
-    
-    t <- data_list[[i]] %>%
-      select(  `_calibrateTrackDistanceAllowedRatio`,
-               `_calibrateTrackDistanceShowLengthBool`,
-               `_calibrateTrackDistanceTimes`,
-               calibrateScreenSizeAllowedRatio,
-               calibrateScreenSizeTimes,
-               `_calibrateTrackDistance`,
-             `_calibrateTrackDistancePupil`,
-             viewingDistanceWhichEye,
-             viewingDistanceWhichPoint,
-             participant,
-             calibrateTrackDistanceMeasuredCm,
-             calibrateTrackDistanceRequestedCm,
-             calibrateTrackDistanceIpdVpx) %>%
-      mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`),
-             `_calibrateTrackDistanceShowLengthBool` = get_first_non_na(`_calibrateTrackDistanceShowLengthBool`),
-             `_calibrateTrackDistanceTimes` = get_first_non_na(`_calibrateTrackDistanceTimes`),
-             calibrateScreenSizeAllowedRatio = get_first_non_na(`calibrateScreenSizeAllowedRatio`),
-             calibrateScreenSizeTimes= get_first_non_na(calibrateScreenSizeTimes),
-             `_calibrateTrackDistance` = get_first_non_na(`_calibrateTrackDistance`),
-             `_calibrateTrackDistancePupil` = get_first_non_na(`_calibrateTrackDistancePupil`),
-             `viewingDistanceWhichEye` = get_first_non_na(`viewingDistanceWhichEye`),
-             `viewingDistanceWhichPoint` = get_first_non_na(`viewingDistanceWhichPoint`)
-      ) %>%
-      filter(!is.na(calibrateTrackDistanceMeasuredCm),
-             !is.na(calibrateTrackDistanceRequestedCm),
-             calibrateTrackDistanceMeasuredCm != '',
-             calibrateTrackDistanceRequestedCm != '') %>% 
-        distinct()
-
-    if (nrow(t) > 0) {
-      # Convert JSON-like lists into strings and remove extra characters
-      t <- t %>%
-        mutate(
-          calibrateTrackDistanceMeasuredCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceMeasuredCm),
-          calibrateTrackDistanceRequestedCm = gsub("\\[|\\]|\"", "", calibrateTrackDistanceRequestedCm),
-          calibrateTrackDistanceIpdVpx = gsub("\\[|\\]|\"", "", calibrateTrackDistanceIpdVpx)
-        ) %>%
-        # Separate all columns together while keeping row-wise structure
-        mutate(measured_list = strsplit(calibrateTrackDistanceMeasuredCm, ","),
-               requested_list = strsplit(calibrateTrackDistanceRequestedCm, ","),
-               ipd_list = strsplit(calibrateTrackDistanceIpdVpx, ",")) %>%
-        unnest(c(measured_list, requested_list, ipd_list)) %>%  # Expands all columns together
-        mutate(
-          calibrateTrackDistanceMeasuredCm = as.numeric(trimws(measured_list)),
-          calibrateTrackDistanceRequestedCm = as.numeric(trimws(requested_list)),
-          calibrateTrackDistanceIpdVpx = as.numeric(trimws(ipd_list))
-        ) %>%
-        select(-measured_list, -requested_list, -ipd_list)  # Remove temp lists
-      
-      if (nrow(t) > 0) {
-        t <- t %>% mutate(
-          calibrateTrackDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
-          calibrateTrackDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm)
-        ) %>%
-          # Ensure IPD column exists even if it wasn't processed
-          mutate(calibrateTrackDistanceIpdVpx = if("calibrateTrackDistanceIpdVpx" %in% names(.)) calibrateTrackDistanceIpdVpx else NA) %>%
-          # Add row number first to preserve original order
-          mutate(order = row_number())
-      }
-      df <- rbind(t, df)
-    }
-  }
-  if (nrow(t) > 0) {
-    if(all(is.na(df$calibrateTrackDistanceIpdVpx))) {
-      df <- df %>% select(-calibrateTrackDistanceIpdVpx)
-    } else {
-      df <- df %>% filter(!is.na(calibrateTrackDistanceIpdVpx))
-    }
-  }
-  
-  return(df)
-}
+# NOTE: get_measured_distance_data function was REMOVED because it depended on 
+# deleted CSV columns: calibrateTrackDistanceMeasuredCm and calibrateTrackDistanceRequestedCm
+# Distance measurement data is now extracted from JSON only (distanceCalibrationJSON/distanceCheckJSON)
 
 plot_eye_feet_position <- function(distanceCalibrationResults) {
   
@@ -2047,8 +1795,8 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
 
   n_sessions <- n_distinct(eye_feet_data$session_id)
 
-  # Create statement for calibration parameters (safe, short)
-  statement <- make_statement(eye_feet_data)
+  # Use the pre-computed statement from distanceCalibrationResults (has the parameter values)
+  statement <- distanceCalibrationResults$statement
   param_tbl <- build_param_table(eye_feet_data)
 
   p <- NULL
@@ -2228,7 +1976,9 @@ plot_eye_feet_position_during_check <- function(distanceCalibrationResults) {
     mutate(session_limited = factor(session_id))
 
   n_sessions <- n_distinct(eye_feet_data$session_id)
-  statement <- make_statement(eye_feet_data)
+  
+  # Use the pre-computed statement from distanceCalibrationResults (has the parameter values)
+  statement <- distanceCalibrationResults$statement
 
   p <- NULL
   tryCatch({
@@ -2331,6 +2081,7 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
   eye_feet_data <- distanceCalibrationResults$feet_calib
 
   if (nrow(eye_feet_data) == 0) {
+    message("Debug: No eye feet data found")
     return(NULL)
   }
 
@@ -2634,148 +2385,130 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
            !is.na(checkDistanceMeasuredCm)) %>%
     arrange(participant, measurement_order_within_participant)
   
-  # DEBUG: Show the data in measurement order for plot_distance
-  message("[DEBUG plot_distance] === P1 DATA BEING PLOTTED (in order) ===")
-  message("[DEBUG] Total rows: ", nrow(p1_data), ", Participants: ", n_distinct(p1_data$participant))
-  for (p in unique(p1_data$participant)) {
-    p_data <- p1_data %>% filter(participant == p)
-    message("[DEBUG] Participant: ", p)
-    message("[DEBUG]   measurement_order: ", paste(p_data$measurement_order_within_participant, collapse = ", "))
-    message("[DEBUG]   p1_x (rulerBasedEyesToPointCm): ", paste(round(p_data$p1_x, 1), collapse = " -> "))
-    message("[DEBUG]   p1_y (imageBasedEyesToPointCm): ", paste(round(p_data$p1_y, 1), collapse = " -> "))
-  }
-  message("[DEBUG plot_distance] === END P1 DATA ===")
-  
   p1 <- NULL
   if (nrow(p1_data) > 0) {
-  p1 <- ggplot() + 
-      # Solid lines connecting successive points (always solid)
-      geom_path(data=check_individual,
-              aes(x = p1_x_jitter, 
-                    y = p1_y,
-                  color = participant, 
-                  group = participant), 
-              linetype = "solid", alpha = 0.7) +
-      # Filled circles for calibration (shape 16), open circles for check (shape 21)
-      geom_point(data=check_individual, 
-               aes(x = p1_x_jitter, 
-                     y = p1_y,
-                   color = participant,
-                   shape = source), 
-               size = 2.5, stroke = 1) + 
-       geom_path(data=calib_individual,
-              aes(x = p1_x_jitter, 
-                    y = p1_y,
-                  color = participant, 
-                  group = participant), 
-              linetype = "solid", alpha = 0.7) +
-      # Filled circles for calibration (shape 16), open circles for check (shape 21)
-      geom_point(data=calib_individual, 
-               aes(x = p1_x_jitter, 
-                     y = p1_y,
-                   color = participant,
-                   shape = source), 
-               size = 2.5, stroke = 1) + 
-    scale_shape_manual(values = c("calibration" = 16, "check" = 21),
-                       labels = c("calibration" = "calibration", "check" = "check")) +
-    ggpp::geom_text_npc(aes(npcx="left",
-                            npcy="top"),
+    p1 <- ggplot()
+    
+    # Only add check_individual layers if it has rows
+    if (nrow(check_individual) > 0) {
+      p1 <- p1 + 
+        geom_path(data=check_individual,
+                  aes(x = p1_x_jitter, y = p1_y, color = participant, group = participant), 
+                  linetype = "solid", alpha = 0.7) +
+        geom_point(data=check_individual, 
+                   aes(x = p1_x_jitter, y = p1_y, color = participant, shape = source), 
+                   size = 2.5, stroke = 1)
+    }
+    
+    # Only add calib_individual layers if it has rows
+    if (nrow(calib_individual) > 0) {
+      p1 <- p1 + 
+        geom_path(data=calib_individual,
+                  aes(x = p1_x_jitter, y = p1_y, color = participant, group = participant), 
+                  linetype = "solid", alpha = 0.7) +
+        geom_point(data=calib_individual, 
+                   aes(x = p1_x_jitter, y = p1_y, color = participant, shape = source), 
+                   size = 2.5, stroke = 1)
+    }
+    
+    p1 <- p1 + 
+      scale_shape_manual(values = c("calibration" = 16, "check" = 21),
+                         labels = c("calibration" = "calibration", "check" = "check")) +
+      ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                           label = paste0('N=', n_distinct(p1_data$participant))) + 
-    geom_abline(slope = 1, intercept = 0, linetype = "dashed") + # y=x line
+      geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
       scale_x_log10(
         limits = c(p1_min_val, p1_max_val),
         breaks = scales::log_breaks(n = 6),
         labels = scales::label_number(accuracy = 1)
       ) +
       scale_y_log10(limits = c(p1_min_val, p1_max_val), breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) + 
-    scale_color_manual(values= colorPalette) + 
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
-    guides(
-      color = guide_legend(
-        ncol = 3,
-        title = "",
-        override.aes = list(size = 2, shape = 16),
-        keywidth = unit(1.2, "lines"),
-        keyheight = unit(0.8, "lines")
-      ),
-      shape = guide_legend(
-        title = "",
-        override.aes = list(size = 3, color = "black")
-      )
-    ) +
-    coord_fixed() +  
-    labs(subtitle = 'Measured vs. requested distance',
-         x = 'Requested distance (cm)',
-         y = 'Measured distance (cm)',
-         caption = 'Filled = calibration, Open = check. Lines connect successive measurements.')
-  
+      scale_color_manual(values= colorPalette) + 
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+      guides(
+        color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 2, shape = 16),
+          keywidth = unit(1.2, "lines"),
+          keyheight = unit(0.8, "lines")
+        ),
+        shape = guide_legend(
+          title = "",
+          override.aes = list(size = 3, color = "black")
+        )
+      ) +
+      coord_fixed() +  
+      labs(subtitle = 'Measured vs. requested distance',
+           x = 'Requested distance (cm)',
+           y = 'Measured distance (cm)',
+           caption = 'Filled = calibration, Open = check. Lines connect successive measurements.')
   }
  
   # Plot 2: Measured over requested distance (INDIVIDUAL MEASUREMENTS)
   # x-axis: requested distance, y-axis: measured / requested ratio
-  p2 <- ggplot() + 
-    # Solid lines connecting successive points (always solid)
-    geom_path(data=calib_individual,
-              aes(x = p2_x_jitter, 
-                  y = p2_y,
-                  color = participant, 
-                  group = participant), 
-              linetype = "solid", alpha = 0.7) +
-    # Filled circles for calibration (shape 16), open circles for check (shape 21)
-    geom_point(data=calib_individual, 
-               aes(x = p2_x_jitter, 
-                   y = p2_y,
-                   color = participant,
-                   shape = source), 
-               size = 2.5, stroke = 1) + 
-     geom_path(data=check_individual,
-              aes(x = p2_x_jitter, 
-                  y = p2_y,
-                  color = participant, 
-                  group = participant), 
-              linetype = "solid", alpha = 0.7) +
-    # Filled circles for calibration (shape 16), open circles for check (shape 21)
-    geom_point(data=check_individual, 
-               aes(x = p2_x_jitter, 
-                   y = p2_y,
-                   color = participant,
-                   shape = source), 
-               size = 2.5, stroke = 1) + 
-    scale_shape_manual(values = c("calibration" = 16, "check" = 21),
-                       labels = c("calibration" = "calibration", "check" = "check")) +
-    ggpp::geom_text_npc(aes(npcx="left",
-                            npcy="top"),
-                        label = paste0('N=', n_distinct(p2_data$participant), '\n',
-                                       'Mean=', p2_mean_formatted, '\n',
-                                       'SD=', p2_sd_formatted)) + 
-    geom_hline(yintercept = 1, linetype = "dashed") + # y=1 line (perfect ratio)
-    scale_x_log10(
-      limits = c(p2_x_min_val, p2_x_max_val),
-      breaks = scales::log_breaks(n = 6),
-                  expand = expansion(mult = c(0.05, 0.05)),
-      labels = scales::label_number(accuracy = 1)
-    ) + 
-    scale_y_log10(limits = c(p2_y_minFrac, p2_y_maxFrac),
-                   breaks = seq(0.6, 1.4, by = 0.1)) + 
-    scale_color_manual(values= colorPalette) + 
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
-    guides(
-      color = guide_legend(
-        ncol = 3,
-        title = "",
-        override.aes = list(size = 2, shape = 16),
-        keywidth = unit(1.2, "lines"),
-        keyheight = unit(0.8, "lines")
-      ),
-      shape = guide_legend(
-        title = "",
-        override.aes = list(size = 3, color = "black")
-      )
-    ) +
-    labs(subtitle = 'Measured over requested distance',
-         x = 'Requested distance (cm)',
-         y = 'Measured / Requested',
-         caption = 'Filled = calibration, Open = check. Lines connect successive measurements.')
+  p2 <- NULL
+  if (nrow(p2_data) > 0) {
+    p2 <- ggplot()
+    
+    # Only add calib_individual layers if it has rows
+    if (nrow(calib_individual) > 0) {
+      p2 <- p2 + 
+        geom_path(data=calib_individual,
+                  aes(x = p2_x_jitter, y = p2_y, color = participant, group = participant), 
+                  linetype = "solid", alpha = 0.7) +
+        geom_point(data=calib_individual, 
+                   aes(x = p2_x_jitter, y = p2_y, color = participant, shape = source), 
+                   size = 2.5, stroke = 1)
+    }
+    
+    # Only add check_individual layers if it has rows
+    if (nrow(check_individual) > 0) {
+      p2 <- p2 + 
+        geom_path(data=check_individual,
+                  aes(x = p2_x_jitter, y = p2_y, color = participant, group = participant), 
+                  linetype = "solid", alpha = 0.7) +
+        geom_point(data=check_individual, 
+                   aes(x = p2_x_jitter, y = p2_y, color = participant, shape = source), 
+                   size = 2.5, stroke = 1)
+    }
+    
+    p2 <- p2 + 
+      scale_shape_manual(values = c("calibration" = 16, "check" = 21),
+                         labels = c("calibration" = "calibration", "check" = "check")) +
+      ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
+                          label = paste0('N=', n_distinct(p2_data$participant), '\n',
+                                         'Mean=', p2_mean_formatted, '\n',
+                                         'SD=', p2_sd_formatted)) + 
+      geom_hline(yintercept = 1, linetype = "dashed") +
+      scale_x_log10(
+        limits = c(p2_x_min_val, p2_x_max_val),
+        breaks = scales::log_breaks(n = 6),
+        expand = expansion(mult = c(0.05, 0.05)),
+        labels = scales::label_number(accuracy = 1)
+      ) + 
+      scale_y_log10(limits = c(p2_y_minFrac, p2_y_maxFrac),
+                    breaks = seq(0.6, 1.4, by = 0.1)) + 
+      scale_color_manual(values= colorPalette) + 
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) + 
+      guides(
+        color = guide_legend(
+          ncol = 3,
+          title = "",
+          override.aes = list(size = 2, shape = 16),
+          keywidth = unit(1.2, "lines"),
+          keyheight = unit(0.8, "lines")
+        ),
+        shape = guide_legend(
+          title = "",
+          override.aes = list(size = 3, color = "black")
+        )
+      ) +
+      labs(subtitle = 'Measured over requested distance',
+           x = 'Requested distance (cm)',
+           y = 'Measured / Requested',
+           caption = 'Filled = calibration, Open = check. Lines connect successive measurements.')
+  }
 
   # Plot 4: Eye feet position vs distance error
   p4_result <- plot_eye_feet_position(distanceCalibrationResults)
@@ -3872,13 +3605,24 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
 }
 
 plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+  message("[DEBUG plot_sizeCheck] distanceCalibrationResults is a list with elements: ", paste(names(distanceCalibrationResults), collapse=", "))
+  message("[DEBUG plot_sizeCheck] sizeCheck rows: ", nrow(distanceCalibrationResults$sizeCheck))
   sizeCheck <- distanceCalibrationResults$sizeCheck
   statement <- distanceCalibrationResults$statement
-  raw_pxPerCm <- distanceCalibrationResults$raw_pxPerCm %>%
-   select(participant, pxPerCm, requestedCm)
-  # Check if the data is empty
+  
+  # Check if the data is empty FIRST before trying to select columns
   if (nrow(sizeCheck) == 0) {
+    message("[DEBUG plot_sizeCheck] sizeCheck is empty - returning NULL")
     return(NULL)
+  }
+  
+  # Only select from raw_pxPerCm if it has rows and expected columns
+  raw_pxPerCm <- distanceCalibrationResults$raw_pxPerCm
+  if (nrow(raw_pxPerCm) > 0 && all(c("participant", "pxPerCm", "requestedCm") %in% names(raw_pxPerCm))) {
+    raw_pxPerCm <- raw_pxPerCm %>% select(participant, pxPerCm, requestedCm)
+  } else {
+    # Create empty tibble with expected structure
+    raw_pxPerCm <- tibble(participant = character(), pxPerCm = numeric(), requestedCm = numeric())
   }
   
   ruler <-  sizeCheck %>%
@@ -3889,10 +3633,9 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   # Check for NA values after conversion
   if (sum(is.na(sizeCheck$SizeCheckEstimatedPxPerCm)) == nrow(sizeCheck) ||
       sum(is.na(sizeCheck$SizeCheckRequestedCm)) == nrow(sizeCheck)) {
+    message("[DEBUG plot_sizeCheck] All values are NA - returning NULL")
     return(NULL)
   }
-  
-  if (nrow(sizeCheck) == 0) {return(NULL)}
   
   # Average Estimated PxPerCm per Participant per Requested Size
   sizeCheck_avg <- sizeCheck %>%
@@ -4293,9 +4036,6 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
   # Plot: Error vs. blindspot diameter
   blindspot_data <- distanceCalibrationResults$blindspot
   p6 <- NULL
-  message("[DEBUG plot_distance_production] error_vs_blindspot: distance_avg rows=", nrow(distance_avg),
-          ", blindspot_data rows=", nrow(blindspot_data),
-          " (Requires blindspot calibration data)")
   if (nrow(distance_avg) > 0 && nrow(blindspot_data) > 0) {
     # Join distance_avg with blindspot_data
     error_vs_blindspot_data <- distance_avg %>%
@@ -4978,12 +4718,7 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     fOverWidth_per_participant <- tibble(participant = character(), fOverWidth_calibration = numeric())
   }
   
-  message("[DEBUG plot_eyesToFootCm_estimated] check_data rows: ", nrow(check_data),
-          ", fOverWidth_per_participant rows: ", nrow(fOverWidth_per_participant),
-          ", camera rows: ", nrow(camera))
-  
   if (nrow(check_data) == 0 || nrow(fOverWidth_per_participant) == 0 || nrow(camera) == 0) {
-    message("[DEBUG plot_eyesToFootCm_estimated] Early return: insufficient data")
     return(list(plot = NULL, height = NULL))
   }
   
@@ -5003,21 +4738,7 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     filter(is.finite(requestedEyesToFootCm), is.finite(eyesToFootCm_estimated)) %>%
     arrange(participant, measurement_order_within_participant)
   
-  message("[DEBUG plot_eyesToFootCm_estimated] After filtering: ", nrow(plot_data), " rows for plotting")
-  
-  # DEBUG: Show the data in measurement order to verify correct ordering
-  message("[DEBUG plot_eyesToFootCm_estimated] === DATA BEING PLOTTED (in order) ===")
-  for (p in unique(plot_data$participant)) {
-    p_data <- plot_data %>% filter(participant == p)
-    message("[DEBUG] Participant: ", p)
-    message("[DEBUG]   measurement_order: ", paste(p_data$measurement_order_within_participant, collapse = ", "))
-    message("[DEBUG]   requestedEyesToFootCm (x-values): ", paste(round(p_data$requestedEyesToFootCm, 1), collapse = " -> "))
-    message("[DEBUG]   eyesToFootCm_estimated (y-values): ", paste(round(p_data$eyesToFootCm_estimated, 1), collapse = " -> "))
-  }
-  message("[DEBUG plot_eyesToFootCm_estimated] === END DATA ===")
-  
   if (nrow(plot_data) == 0) {
-    message("[DEBUG plot_eyesToFootCm_estimated] No valid data after computing eyesToFootCm_estimated")
     return(list(plot = NULL, height = NULL))
   }
   

@@ -1048,18 +1048,6 @@ shinyServer(function(input, output, session) {
     eyeToPoint_plot <- plot_eyeToPointCm_vs_requestedEyesToFootCm(distanceCalibration())
     eyesToFoot_estimated_plot <- plot_eyesToFootCm_estimated_vs_requested(distanceCalibration())
     
-    # Debug: Check which plot sources are available
-    message("[DEBUG SCATTER SOURCES] distance_production_plots$error_vs_blindspot_diameter is NULL: ", is.null(distance_production_plots$error_vs_blindspot_diameter))
-    message("[DEBUG SCATTER SOURCES] ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm is NULL: ", is.null(ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm))
-    message("[DEBUG SCATTER SOURCES] ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm is NULL: ", is.null(ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm))
-    message("[DEBUG SCATTER SOURCES] eyeToPoint_plot is NULL: ", is.null(eyeToPoint_plot))
-    message("[DEBUG SCATTER SOURCES] eyesToFoot_estimated_plot is NULL: ", is.null(eyesToFoot_estimated_plot))
-    message("[DEBUG SCATTER SOURCES] eye_feet_check_plot is NULL: ", is.null(eye_feet_check_plot))
-    message("[DEBUG SCATTER SOURCES] distancePlots()$fOverWidth_scatter is NULL: ", is.null(distancePlots()$fOverWidth_scatter))
-    message("[DEBUG SCATTER SOURCES] distancePlots()$calibrated_vs_mean is NULL: ", is.null(distancePlots()$calibrated_vs_mean))
-    message("[DEBUG SCATTER SOURCES] distancePlots()$fOverWidth_second_vs_first is NULL: ", is.null(distancePlots()$fOverWidth_second_vs_first))
-    message("[DEBUG SCATTER SOURCES] distancePlots()$calibrated_over_mean_vs_spot is NULL: ", is.null(distancePlots()$calibrated_over_mean_vs_spot))
-    
     plot_calls <- list(
       # ===== 1. PIXEL DENSITY PLOTS =====
       list(plot = sizeCheckPlot()$density_vs_length$plot, height = sizeCheckPlot()$density_vs_length$height, fname = 'pixel-density-vs-requested-length'),
