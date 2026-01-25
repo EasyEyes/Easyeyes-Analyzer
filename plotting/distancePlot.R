@@ -328,12 +328,7 @@ get_raw_pxPerCm_data <- function(data_list, sizeCheck) {
                 filter(is.finite(relative), relative > 0)
             } else {
               # Fallback: use default credit card dimensions (width=8.56, height=5.398)
-              default_sizes <- c(8.56, 5.398)
-              if (length(pxPerCm_vals) <= 2) {
-                requestedCm_vals <- default_sizes[1:length(pxPerCm_vals)]
-              } else {
-                requestedCm_vals <- rep(8.56, length(pxPerCm_vals))
-              }
+              requestedCm_vals <- rep(8.56, length(pxPerCm_vals))
               t <- tibble(
                 participant = participant_id,
                 pxPerCm = pxPerCm_vals,
@@ -609,7 +604,7 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     ) %>%
     mutate(
       # fOverWidth now comes directly from TJSON (distanceCalibrationJSON)
-      `fOverWidth` = round(fOverWidth_calibration, 4),
+      `fOverWidth check` = round(fOverWidth_check, 4),
       # Calculate fOverWidth calibration/check: ratio of calibration to check values
       calibration_check_ratio_tmp = ifelse(!is.na(fOverWidth_calibration) & !is.na(fOverWidth_check) & fOverWidth_check != 0,
                                           fOverWidth_calibration / fOverWidth_check, NA_real_),
@@ -628,7 +623,7 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     {if("cameraResolutionN" %in% names(.)) select(., -cameraResolutionN) else .} %>%
     # Move the two fOverWidth columns side by side
     {if("fOverWidth" %in% names(.) && "fOverWidth calibration/check" %in% names(.)) 
-       relocate(., `fOverWidth calibration/check`, .after = `fOverWidth`)
+       relocate(., `fOverWidth calibration/check`, .after = `fOverWidth check`)
      else .} %>%
     # Rename screenResolutionXY to screenResolutionXYPx if it exists (for display consistency)
     {if("screenResolutionXY" %in% names(.) && !"screenResolutionXYPx" %in% names(.)) 
@@ -2516,7 +2511,7 @@ get_bs_vd <- function(data_list) {
 plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
 
   check_data <- distanceCalibrationResults$checkJSON
-  calib_data <- distanceCalibrationResults$distance  # Calibration data
+  calib_data <- distanceCalibrationResults$TJSON  # Calibration data
   statement <- distanceCalibrationResults$statement
   camera <- distanceCalibrationResults$camera
   if (nrow(check_data) == 0 && nrow(calib_data) == 0) {return(NULL)}
@@ -2574,7 +2569,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   
   # ===== COMBINE DATA =====
   distance_individual <- bind_rows(check_individual, calib_individual)
-  
   # Keep reference to calibration data for use in later plots (p6, p7, etc.)
   distance <- calib_data
   
@@ -2655,14 +2649,27 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   if (nrow(p1_data) > 0) {
   p1 <- ggplot() + 
       # Solid lines connecting successive points (always solid)
-      geom_path(data=p1_data,
+      geom_path(data=check_individual,
               aes(x = p1_x_jitter, 
                     y = p1_y,
                   color = participant, 
                   group = participant), 
               linetype = "solid", alpha = 0.7) +
       # Filled circles for calibration (shape 16), open circles for check (shape 21)
-      geom_point(data=p1_data, 
+      geom_point(data=check_individual, 
+               aes(x = p1_x_jitter, 
+                     y = p1_y,
+                   color = participant,
+                   shape = source), 
+               size = 2.5, stroke = 1) + 
+       geom_path(data=calib_individual,
+              aes(x = p1_x_jitter, 
+                    y = p1_y,
+                  color = participant, 
+                  group = participant), 
+              linetype = "solid", alpha = 0.7) +
+      # Filled circles for calibration (shape 16), open circles for check (shape 21)
+      geom_point(data=calib_individual, 
                aes(x = p1_x_jitter, 
                      y = p1_y,
                    color = participant,
@@ -2707,14 +2714,27 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # x-axis: requested distance, y-axis: measured / requested ratio
   p2 <- ggplot() + 
     # Solid lines connecting successive points (always solid)
-    geom_path(data=p2_data,
+    geom_path(data=calib_individual,
               aes(x = p2_x_jitter, 
                   y = p2_y,
                   color = participant, 
                   group = participant), 
               linetype = "solid", alpha = 0.7) +
     # Filled circles for calibration (shape 16), open circles for check (shape 21)
-    geom_point(data=p2_data, 
+    geom_point(data=calib_individual, 
+               aes(x = p2_x_jitter, 
+                   y = p2_y,
+                   color = participant,
+                   shape = source), 
+               size = 2.5, stroke = 1) + 
+     geom_path(data=check_individual,
+              aes(x = p2_x_jitter, 
+                  y = p2_y,
+                  color = participant, 
+                  group = participant), 
+              linetype = "solid", alpha = 0.7) +
+    # Filled circles for calibration (shape 16), open circles for check (shape 21)
+    geom_point(data=check_individual, 
                aes(x = p2_x_jitter, 
                    y = p2_y,
                    color = participant,
@@ -3492,10 +3512,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         fOverWidth_over_width_data <- tibble()
       }
       
-      if (nrow(fOverWidth_over_width_data) > 0) {
+      if (nrow(check_plot_data) > 0) {
         # Histogram (dot-stacked) - use smaller bin width to properly stack nearby values
         bin_width <- 0.005
-        fOverWidth_over_width_data <- fOverWidth_over_width_data %>%
+        check_plot_data <- check_plot_data %>%
           mutate(
             bin_center = round(fOverWidth / bin_width) * bin_width
           ) %>%
@@ -3507,16 +3527,16 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ) %>%
           ungroup()
         
-        fOverWidth_max_count <- max(fOverWidth_over_width_data$dot_y)
-        x_min <- min(fOverWidth_over_width_data$fOverWidth, na.rm = TRUE) - 0.02
-        x_max <- max(fOverWidth_over_width_data$fOverWidth, na.rm = TRUE) + 0.02
+        fOverWidth_max_count <- max(check_plot_data$dot_y)
+        x_min <- min(check_plot_data$fOverWidth, na.rm = TRUE) - 0.02
+        x_max <- max(check_plot_data$fOverWidth, na.rm = TRUE) + 0.02
         
-        p11 <- ggplot(fOverWidth_over_width_data, aes(x = fOverWidth)) +
+        p11 <- ggplot(check_plot_data, aes(x = fOverWidth)) +
           # Filled circles for calibration, open circles for check
           geom_point(aes(x = fOverWidth, y = dot_y, color = participant, shape = source, fill = after_scale(ifelse(shape == 16, color, NA))), 
                      size = 6, alpha = 0.85, stroke = 1.5) +
-          scale_shape_manual(values = c("calibration" = 16, "check" = 21),  # 16=filled, 21=open
-                             labels = c("calibration" = "calibration", "check" = "check")) +
+          # scale_shape_manual(values = c("calibration" = 16, "check" = 21),  # 16=filled, 21=open
+          #                    labels = c("calibration" = "calibration", "check" = "check")) +
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
                               label = statement, size = 3, family = "sans", fontface = "plain") +
           scale_color_manual(values = colorPalette) +
@@ -3539,8 +3559,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           labs(
             subtitle = 'Histogram of fOverWidth',
             x = "fOverWidth",
-            y = "Count",
-            caption = 'Filled = calibration, Open = check (median per participant)'
+            y = "Count"
           ) +
           theme_bw() +
           theme(
