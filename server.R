@@ -864,7 +864,7 @@ shinyServer(function(input, output, session) {
       static_calls[[length(static_calls) + 1]] <- list(
         plot = distancePlots()$raw_fOverWidth_hist$plot,
         height = distancePlots()$raw_fOverWidth_hist$height,
-        fname = 'histogram-of-fVpx-calibration-median-check'
+        fname = 'histogram-of-fOverWidth-calibration-median-check'
       )
     }
     
@@ -1047,7 +1047,7 @@ shinyServer(function(input, output, session) {
     eye_feet_check_plot <- plot_eye_feet_position_during_check(distanceCalibration())
     eyeToPoint_plot <- plot_eyeToPointCm_vs_requestedEyesToFootCm(distanceCalibration())
     eyesToFoot_estimated_plot <- plot_eyesToFootCm_estimated_vs_requested(distanceCalibration())
-    
+
     plot_calls <- list(
       # ===== 1. PIXEL DENSITY PLOTS =====
       list(plot = sizeCheckPlot()$density_vs_length$plot, height = sizeCheckPlot()$density_vs_length$height, fname = 'pixel-density-vs-requested-length'),
@@ -1062,9 +1062,8 @@ shinyServer(function(input, output, session) {
       
       # ===== 3. FOCAL LENGTH PLOTS (AND RATIOS) =====
       list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-webcamMaxXYVpx0'),
-      list(plot = distancePlots()$calibrated_vs_mean$plot, height = distancePlots()$calibrated_vs_mean$height, fname = 'focal-length-calibration-vs-check'),
       list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'focal-length-calibration-over-check-vs-check'),
-      list(plot = distancePlots()$fOverWidth_second_vs_first$plot, height = distancePlots()$fOverWidth_second_vs_first$height, fname = 'focal-length-second-vs-first-calibration'),
+      list(plot = distancePlots()$fOverWidth_calibration12_over_check$plot, height = distancePlots()$fOverWidth_calibration12_over_check$height, fname = 'focal-length-calibration-1-2-over-check'),
       list(plot = distancePlots()$fOverWidth_ratio_vs_first$plot, height = distancePlots()$fOverWidth_ratio_vs_first$height, fname = 'focal-length-calibration-second-over-first-vs-first'),
       list(plot = distancePlots()$calibrated_over_mean_vs_spot$plot, height = distancePlots()$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-fOverWidth-ipdCm-vs-spot-diameter'),
       
@@ -1118,15 +1117,11 @@ shinyServer(function(input, output, session) {
     test_retest_plots <- get_test_retest(df_list())
   aud_plots <- plot_auditory_crowding(df_list()$quest_all_thresholds, df_list()$crowding)
     
-    # Get focal length scatter plot from distance plots
-    fvpx_scatter <- distancePlots()$fvpx_second_vs_first
-    
     plot_calls <- list(
       list(plot = aud_plots$scatter, fname = 'auditory-crowding-melody-db-vs-crowding-threshold'),
       list(plot = test_retest_plots$reading, fname = 'retest-test-reading'),
       list(plot = test_retest_plots$pCrowding, fname = 'retest-test-peripheral-crowding'),
       list(plot = test_retest_plots$pAcuity, fname = 'retest-test-peripheral-acuity'),
-      list(plot = if (!is.null(fvpx_scatter)) fvpx_scatter$plot else NULL, fname = 'focal-length-second-vs-first-calibration-scatter'),
       list(plot = test_retest_plots$beauty, fname = 'retest-test-beauty'),
       list(plot = test_retest_plots$comfort, fname = 'retest-test-comfort'),
       list(plot = foveal_crowding_acuity_plots$foveal, fname = 'foveal-crowding-vs-foveal-acuity-grade-diagram'),

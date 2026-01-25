@@ -700,9 +700,9 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     {if("screenResolutionXY" %in% names(.) && !"screenResolutionXYPx" %in% names(.)) 
        rename(., screenResolutionXYPx = screenResolutionXY) 
      else .} %>%
-    # Move screenResolutionXYPx after cameraResolutionXYVpx if both exist
+    # Swap order: put screenResolutionXYPx before cameraResolutionXYVpx (if both exist)
     {if("screenResolutionXYPx" %in% names(.) && "cameraResolutionXYVpx" %in% names(.)) 
-       relocate(., screenResolutionXYPx, .after = cameraResolutionXYVpx)
+       relocate(., cameraResolutionXYVpx, .after = screenResolutionXYPx)
      else .} %>%
     # Move cameraResolutionXSD after screenResolutionXYPx (or after cameraResolutionXYVpx if no screenResolutionXYPx)
     {if("cameraResolutionXYVpx" %in% names(.) && "cameraResolutionXSD" %in% names(.)) {
@@ -1305,8 +1305,10 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           # leftEyeToFootCm renamed to rulerBasedLeftEyeToFootCm (uses object of known length as ruler)
           rulerBasedLeftEyeToFootCm  = if (!is.null(t_tjson$rulerBasedLeftEyeToFootCm)) t_tjson$rulerBasedLeftEyeToFootCm else t_tjson$leftEyeToFootCm,
           # eyesToFootCm renamed to rulerBasedEyesToFootCm (uses object of known length as ruler)
-          rulerBasedEyesToFootCm     = if (!is.null(t_tjson$rulerBasedEyesToFootCm)) t_tjson$rulerBasedEyesToFootCm else t_tjson$eyesToFootCm,
-          imageBasedEyesToFootCm     = if (!is.null(t_tjson$imageBasedEyesToFootCm)) t_tjson$imageBasedEyesToFootCm else NA_real_,
+          rulerBasedEyesToFootCm     = if (!is.null(t_tjson$rulerBasedEyesToFootCm)) as.numeric(t_tjson$rulerBasedEyesToFootCm) else as.numeric(t_tjson$eyesToFootCm),
+          imageBasedEyesToFootCm     = if (!is.null(t_tjson$imageBasedEyesToFootCm)) as.numeric(t_tjson$imageBasedEyesToFootCm) else NA_real_,
+          rulerBasedEyesToPointCm    = if (!is.null(t_tjson$rulerBasedEyesToPointCm)) as.numeric(t_tjson$rulerBasedEyesToPointCm) else NA_real_,
+          imageBasedEyesToPointCm    = if (!is.null(t_tjson$imageBasedEyesToPointCm)) as.numeric(t_tjson$imageBasedEyesToPointCm) else NA_real_,
           # New parameters: fOverWidth and ipdOverWidth (4 decimal digits)
           fOverWidth       = if (!is.null(t_tjson$fOverWidth)) as.numeric(t_tjson$fOverWidth) else NA_real_,
           ipdOverWidth     = if (!is.null(t_tjson$ipdOverWidth)) as.numeric(t_tjson$ipdOverWidth) else NA_real_,
@@ -1356,8 +1358,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           imageBasedEyesToPointCm = imageBasedEyesToPointCm_vals,
           rulerBasedEyesToPointCm = rulerBasedEyesToPointCm_vals,
           footToPointCm = as.numeric(distanceCheck$footToPointCm),
-          rulerBasedEyesToFootCm = as.numeric(distanceCheck$rulerBasedEyesToFootCm),
-          # New parameters: ipdOverWidth replaces ipdVpx, calibrationFOverWidth replaces calibrationFVpx
+          rulerBasedEyesToFootCm = if (!is.null(distanceCheck$rulerBasedEyesToFootCm)) as.numeric(distanceCheck$rulerBasedEyesToFootCm) else NA_real_,
+          imageBasedEyesToFootCm = sqrt(imageBasedEyesToPointCm^2 - footToPointCm^2),
           ipdOverWidth  = ipdOverWidth_vals,
           calibrationFOverWidth = calibrationFOverWidth_val,
           ipdCm         = ipdCm_val
@@ -2263,7 +2265,7 @@ get_bs_vd <- function(data_list) {
 plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
 
   check_data <- distanceCalibrationResults$checkJSON
-  calib_data <- distanceCalibrationResults$distance  # Calibration data
+  calib_data <- distanceCalibrationResults$TJSON  # Calibration data
   statement <- distanceCalibrationResults$statement
   camera <- distanceCalibrationResults$camera
   if (nrow(check_data) == 0 && nrow(calib_data) == 0) {return(NULL)}
@@ -2275,9 +2277,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       mutate(
         source = "check",
         # Add consistent logarithmic horizontal jitter to x-axis variable (unbiased for log scales)
-        checkDistanceRequestedCm = as.numeric(requestedEyesToPointCm),
-        checkDistanceMeasuredCm = as.numeric(eyesToPointCm),
-        CheckDistanceRequestedCm_jitter = add_log_jitter(checkDistanceRequestedCm, jitter_percent = 2, seed = 42),
         # For "Measured vs. requested distance" plot (p1):
         # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm
         p1_x = as.numeric(rulerBasedEyesToPointCm),
@@ -2287,9 +2286,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToPointCm
         p2_x = as.numeric(rulerBasedEyesToPointCm),
         p2_y = as.numeric(imageBasedEyesToPointCm) / as.numeric(rulerBasedEyesToPointCm),
-        p2_x_jitter = add_log_jitter(p2_x, jitter_percent = 2, seed = 42),
-        credit_card_fraction = checkDistanceMeasuredCm / checkDistanceRequestedCm
-      )
+        p2_x_jitter = add_log_jitter(p2_x, jitter_percent = 2, seed = 42)
+      ) %>% 
+      group_by(participant) %>%
+      mutate(measurement_order_within_participant = row_number()) %>%
+      ungroup()
   }
   
   # ===== PREPARE CALIBRATION DATA =====
@@ -2299,20 +2300,14 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       mutate(
         source = "calibration",
         # For calibration: requested = x, measured = y
-        checkDistanceRequestedCm = as.numeric(calibrateTrackDistanceRequestedCm),
-        checkDistanceMeasuredCm = as.numeric(calibrateTrackDistanceMeasuredCm),
-        CheckDistanceRequestedCm_jitter = add_log_jitter(checkDistanceRequestedCm, jitter_percent = 2, seed = 42),
         # For p1: x = requested distance, y = measured distance
-        p1_x = as.numeric(calibrateTrackDistanceRequestedCm),
-        p1_y = as.numeric(calibrateTrackDistanceMeasuredCm),
+        p1_x = as.numeric(rulerBasedEyesToFootCm),
+        p1_y = as.numeric(imageBasedEyesToFootCm),
         p1_x_jitter = add_log_jitter(p1_x, jitter_percent = 2, seed = 42),
         # For p2: x = requested distance, y = measured/requested ratio
-        p2_x = as.numeric(calibrateTrackDistanceRequestedCm),
-        p2_y = as.numeric(calibrateTrackDistanceMeasuredCm) / as.numeric(calibrateTrackDistanceRequestedCm),
+        p2_x = as.numeric(rulerBasedEyesToFootCm),
+        p2_y = as.numeric(imageBasedEyesToFootCm) / as.numeric(rulerBasedEyesToFootCm),
         p2_x_jitter = add_log_jitter(p2_x, jitter_percent = 2, seed = 42),
-        credit_card_fraction = checkDistanceMeasuredCm / checkDistanceRequestedCm,
-        # Add measurement order for calibration
-        measurement_order_within_participant = if ("order" %in% names(.)) order else row_number()
       ) %>%
       group_by(participant) %>%
       mutate(measurement_order_within_participant = row_number()) %>%
@@ -2325,21 +2320,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   distance <- calib_data
   
 
-  # Calculate mean and SD of the ratio for reporting
-  mean_fraction <- mean(distance_individual$credit_card_fraction, na.rm = TRUE)
-  sd_fraction <- sd(distance_individual$credit_card_fraction, na.rm = TRUE)
-  
-  # Format for display
-  mean_formatted <- format(round(mean_fraction, 3), nsmall = 3)
-  sd_formatted <- format(round(sd_fraction, 3), nsmall = 3)
-
-     # Use appropriate scale limits for cleaner axis display - use JITTERED values
-  min_val <- 5 * floor(min(c(distance_individual$CheckDistanceRequestedCm_jitter, 
-                              distance_individual$checkDistanceMeasuredCm), na.rm = TRUE) / 5) 
-  min_val = max(10, min_val)
-  max_val <- 5 * ceiling(max(c(distance_individual$CheckDistanceRequestedCm_jitter,
-                               distance_individual$checkDistanceMeasuredCm), na.rm = TRUE) / 5)
-  
   # Scale limits for p1 (Measured vs. requested distance plot)
   p1_min_val <- 5 * floor(min(c(distance_individual$p1_x_jitter, 
                                  distance_individual$p1_y), na.rm = TRUE) / 5) 
@@ -2347,10 +2327,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   p1_max_val <- 5 * ceiling(max(c(distance_individual$p1_x_jitter,
                                    distance_individual$p1_y), na.rm = TRUE) / 5)
   
-  # Calculate dynamic y-axis limits for the fraction plot based on actual data
-  minFrac <- max(0.1, min(0.5, floor(distance_individual$credit_card_fraction * 10) / 10))
-  maxFrac <- max(1.5, ceiling(distance_individual$credit_card_fraction * 10) / 10)
-  
+
   # Scale limits for p2 (Measured over requested distance plot)
   p2_x_min_val <- 5 * floor(min(distance_individual$p2_x_jitter, na.rm = TRUE) / 5)
   p2_x_min_val <- max(10, p2_x_min_val)
@@ -2381,8 +2358,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # Keep original filter for other plots
   # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for line connections
   distance_individual <- distance_individual %>%
-    filter(!is.na(CheckDistanceRequestedCm_jitter),
-           !is.na(checkDistanceMeasuredCm)) %>%
     arrange(participant, measurement_order_within_participant)
   
   p1 <- NULL
@@ -2607,50 +2582,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
-  # Plot 5c: Calibration fOverWidth vs. Check fOverWidth (not ratio)
-  p5c <- NULL
-  if (exists("plot_data_p5b") && nrow(plot_data_p5b) > 0) {
-    # Calculate axis limits
-    all_vals <- c(plot_data_p5b$fOverWidth_calibration, plot_data_p5b$fOverWidth_check)
-    val_min <- min(all_vals, na.rm = TRUE)
-    val_max <- max(all_vals, na.rm = TRUE)
-    val_range <- val_max - val_min
-    axis_min <- val_min - val_range * 0.1
-    axis_max <- val_max + val_range * 0.1
-    
-    p5c <- ggplot(plot_data_p5b, aes(x = fOverWidth_check, y = fOverWidth_calibration)) +
-      geom_point(aes(color = participant), size = 3, alpha = 0.8) +
-      geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray50", linewidth = 0.8) +  # Identity line
-      ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                          label = paste0('N=', n_distinct(plot_data_p5b$participant))) +
-      scale_x_continuous(limits = c(axis_min, axis_max)) +
-      scale_y_continuous(limits = c(axis_min, axis_max)) +
-      coord_fixed() +  # Equal aspect ratio
-      scale_color_manual(values = colorPalette) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-      guides(color = guide_legend(
-        ncol = 3,
-        title = "",
-        override.aes = list(size = 1.5),
-        keywidth = unit(0.8, "lines"),
-        keyheight = unit(0.6, "lines")
-      )) +
-      theme_classic() +
-      theme(
-        legend.position = "right",
-        legend.box = "vertical",
-        legend.justification = "left",
-        legend.text = element_text(size = 6),
-        legend.spacing.y = unit(0, "lines"),
-        legend.key.size = unit(0.4, "cm"),
-        plot.margin = margin(5, 5, 5, 5, "pt")
-      ) +
-      labs(subtitle = 'Focal length: calibration vs. check',
-           x = 'fOverWidth: check',
-           y = 'fOverWidth: calibration',
-           caption = 'Dashed line shows y=x (perfect agreement)')
-    message("[DEBUG p5c] Created calibration vs check plot with ", nrow(plot_data_p5b), " participants")
-  }
   
   # Plot 6: Calibrated over mean factorVpxCm vs. spot diameter
   p6 <- NULL
@@ -3158,7 +3089,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # Plot 11: Histogram and scatter of fOverWidth for distance check sessions
   fOverWidth_hist <- NULL
   fOverWidth_scatter <- NULL
-  fOverWidth_over_width_data <- tibble()
   fOverWidth_max_count <- 0
   
   # Debug: Check prerequisites for fOverWidth histogram/scatter
@@ -3214,18 +3144,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         message("[DEBUG fOverWidth_hist/scatter] check_fOverWidth_median: ", nrow(check_fOverWidth_median), " rows")
         message("[DEBUG fOverWidth_hist/scatter] camera table: ", nrow(calib_fOverWidth), " rows")
         
-        # Build combined data with both calibration and check values
-        # Calibration data (filled circles)
-        calib_data <- check_data %>%
-          left_join(calib_fOverWidth, by = "PavloviaParticipantID") %>%
-          filter(!is.na(widthVpx), widthVpx > 0, !is.na(fOverWidth_calib), is.finite(fOverWidth_calib)) %>%
-          mutate(
-            participant = PavloviaParticipantID,
-            fOverWidth = fOverWidth_calib,
-            source = "calibration"
-          ) %>%
-          select(participant, widthVpx, fOverWidth, source)
-        
+
         # Check data (open circles)
         check_plot_data <- check_data %>%
           left_join(calib_fOverWidth %>% select(PavloviaParticipantID, widthVpx), by = "PavloviaParticipantID") %>%
@@ -3238,12 +3157,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ) %>%
           select(participant, widthVpx, fOverWidth, source)
         
-        # Combine both datasets
-        fOverWidth_over_width_data <- bind_rows(calib_data, check_plot_data)
-        
-        message("[DEBUG fOverWidth_hist/scatter] Combined data: ", nrow(fOverWidth_over_width_data), " rows (calib: ", nrow(calib_data), ", check: ", nrow(check_plot_data), ")")
+       
       } else {
-        fOverWidth_over_width_data <- tibble()
+        check_plot_data <- tibble()
       }
       
       if (nrow(check_plot_data) > 0) {
@@ -3281,7 +3197,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ) +
           scale_x_continuous(limits = c(x_min, x_max)) +
           ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                              label = paste0('N=', n_distinct(fOverWidth_over_width_data$participant)),
+                              label = paste0('N=', n_distinct(check_plot_data$participant)),
                               size = 4, family = "sans", fontface = "plain") +
           guides(
             color = "none",  # Hide color legend (participant names shown elsewhere)
@@ -3324,30 +3240,27 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           height = 4.5  # Slightly taller to accommodate legend spacing
         )
         
-        median_ratio_fw <- median(fOverWidth_over_width_data$fOverWidth, na.rm = TRUE)
-        p12 <- ggplot(fOverWidth_over_width_data, aes(x = widthVpx, y = fOverWidth)) +
+        median_ratio_fw <- median(check_plot_data$fOverWidth, na.rm = TRUE)
+        p12 <- ggplot(check_plot_data, aes(x = as.numeric(widthVpx), y = fOverWidth)) +
           # Filled circles for calibration, open circles for check
           geom_point(aes(color = participant, shape = source), size = 3, alpha = 0.85, stroke = 1) +
-          scale_shape_manual(values = c("calibration" = 16, "check" = 21),
-                             labels = c("calibration" = "calibration", "check" = "check")) +
           geom_hline(yintercept = median_ratio_fw, linetype = "dashed") +
           ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                              label = paste0('N=', n_distinct(fOverWidth_over_width_data$participant),
+                              label = paste0('N=', n_distinct(check_plot_data$participant),
                                              '\nmedian=', format(round(median_ratio_fw, 3), nsmall = 3)),
                               size = 3) +
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
           scale_color_manual(values = colorPalette) +
           scale_x_continuous(expand = expansion(mult = c(0.02, 0.05)),
                              breaks = scales::pretty_breaks(n = 6),
-                             labels = scales::label_number(accuracy = 1)) +
+                             labels = scales::label_number(accuracy = 1, big.mark = "")) +
           scale_y_continuous(expand = expansion(mult = c(0.05, 0.1)),
                              breaks = scales::pretty_breaks(n = 6)) +
           guides(color = "none", shape = "none") +  # Hide participant and source legends
           labs(
-            subtitle = 'fOverWidth vs. webcamMaxXYVpx[0]',
-            x = 'webcamMaxXYVpx[0] (px)',
-            y = 'fOverWidth',
-            caption = 'Filled circle = calibration, Open circle = check (median per participant)'
+            subtitle = 'fOverWidth check vs. webcamMaxX',
+            x = 'webcamMaxX',
+            y = 'fOverWidth check'
           ) +
           theme_classic() +
           theme(
@@ -3357,7 +3270,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         
         fOverWidth_scatter <- list(
           plot = p12,
-          height = compute_auto_height(base_height = 7, n_items = n_distinct(fOverWidth_over_width_data$participant), per_row = 3, row_increase = 0.06)
+          height = compute_auto_height(base_height = 7, n_items = n_distinct(check_plot_data$participant), per_row = 3, row_increase = 0.06)
         )
       }
     }
@@ -3389,8 +3302,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
 
       if (nrow(fOverWidth_ratio_wide) > 0) {
         p14_data <- fOverWidth_ratio_wide
-        
-        message("[DEBUG fOverWidth_second_vs_first] Found ", nrow(fOverWidth_ratio_wide), " participants with 2 calibration measurements")
         
         # Calculate x-axis limits (same as original plot)
         x_min <- min(fOverWidth_ratio_wide$fOverWidth_1, na.rm = TRUE)
@@ -3465,73 +3376,125 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
 
-  # Plot 15: fOverWidth second vs first (scatter plot)
+  # NEW PLOT: Focal length: calibration 1 & 2 over check
+  # Two points per participant/session, normalized by median(check)
   p15 <- NULL
   p15_data <- NULL
-  if (!is.null(p14_data) && nrow(p14_data) > 0) {
-    p15_data <- p14_data
+  check_data <- distanceCalibrationResults$checkJSON
+  if (nrow(calib_data) > 0 && nrow(check_data) > 0 &&
+      "fOverWidth" %in% names(calib_data) && "fOverWidth" %in% names(check_data)) {
+    message("[DEBUG p15] Starting: calib rows=", nrow(calib_data),
+            ", check rows=", nrow(check_data),
+            ", calib fOverWidth finite rows=", sum(is.finite(calib_data$fOverWidth), na.rm = TRUE),
+            ", check fOverWidth finite rows=", sum(is.finite(check_data$fOverWidth), na.rm = TRUE),
+            ", calib participants=", n_distinct(calib_data$participant),
+            ", check participants=", n_distinct(check_data$participant))
+
+    check_median <- check_data %>%
+      filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
+      group_by(participant) %>%
+      summarize(fOverWidth_check_median = median(fOverWidth, na.rm = TRUE), .groups = "drop") %>%
+      filter(is.finite(fOverWidth_check_median), fOverWidth_check_median > 0)
     
-    # Calculate axis limits for second vs first plot
-    all_vals <- c(p15_data$fOverWidth_1, p15_data$fOverWidth_2)
-    val_min <- min(all_vals, na.rm = TRUE)
-    val_max <- max(all_vals, na.rm = TRUE)
-    val_range <- val_max - val_min
-    axis_min <- val_min - val_range * 0.1
-    axis_max <- val_max + val_range * 0.1
+    message("[DEBUG p15] check_median rows=", nrow(check_median),
+            ", participants=", n_distinct(check_median$participant))
+    if (nrow(check_median) == 0) {
+      message("[DEBUG p15] check_median is empty (no finite fOverWidth in check data?)")
+    }
+
+    calib_first_two <- calib_data %>%
+      filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
+      group_by(participant) %>%
+      mutate(calibration_order = row_number()) %>%
+      filter(calibration_order %in% c(1, 2)) %>%
+      ungroup() %>%
+      inner_join(check_median, by = "participant") %>%
+      mutate(
+        ratio_over_check = fOverWidth / fOverWidth_check_median,
+        calibration_order = factor(calibration_order, levels = c(1, 2),
+                                   labels = c("Calibration 1", "Calibration 2"))
+      ) %>%
+      filter(is.finite(ratio_over_check))
     
-    p15 <- ggplot(p15_data, 
-                  aes(x = fOverWidth_1, 
-                      y = fOverWidth_2, 
-                      color = participant)) +
-      geom_point(size = 4, alpha = 0.8) +
-      geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray50", linewidth = 1) +  # Identity line
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
-                          label = statement, size = 3, family = "sans", fontface = "plain") +
-      scale_color_manual(values = colorPalette) +
-      scale_x_continuous(limits = c(axis_min, axis_max)) +
-      scale_y_continuous(limits = c(axis_min, axis_max)) +
-      coord_fixed() +  # Equal aspect ratio
-      labs(
-        subtitle = 'Focal length calibration: second vs. first',
-        x = "First fOverWidth calibration",
-        y = "Second fOverWidth calibration"
-      ) +
-      guides(color = guide_legend(
-        ncol = 4,
-        title = "",
-        override.aes = list(size = 2),
-        keywidth = unit(0.3, "cm"),
-        keyheight = unit(0.3, "cm")
-      )) +
-      theme_bw() +
-      theme(
-        legend.key.size = unit(0, "mm"),
-        legend.title = element_text(size = 6),
-        legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
-        legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
-        legend.box.spacing = unit(0, "lines"),
-        legend.spacing.y = unit(-10, "lines"),
-        legend.spacing.x = unit(0, "lines"),
-        legend.key.height = unit(0, "lines"),
-        legend.key.width = unit(0, "mm"),
-        legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
-        legend.margin = margin(0, 0, 0, 0),
-        legend.position = "top",
-        legend.box = "vertical",
-        legend.text.align = 0,
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        panel.background = element_blank(),
-        axis.title = element_text(size = 14),
-        axis.text = element_text(size = 12),
-        axis.line = element_line(colour = "black"),
-        plot.title.position = "plot",
-        plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
-        plot.caption = element_text(size = 10),
-        plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
-        strip.text = element_text(size = 14)
-      )
-    message("[DEBUG fOverWidth_second_vs_first] Created plot p15 with ", nrow(p15_data), " participants")
+    message("[DEBUG p15] calib_first_two rows=", nrow(calib_first_two),
+            ", participants=", n_distinct(calib_first_two$participant),
+            ", calib1 count=", sum(calib_first_two$calibration_order == "Calibration 1", na.rm = TRUE),
+            ", calib2 count=", sum(calib_first_two$calibration_order == "Calibration 2", na.rm = TRUE))
+    if (nrow(calib_first_two) == 0) {
+      # Diagnose where rows were lost
+      calib_finite <- calib_data %>% filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>% distinct(participant)
+      check_part <- check_median %>% distinct(participant)
+      dropped <- calib_finite %>% anti_join(check_part, by = "participant")
+      message("[DEBUG p15] Participants with finite calibration fOverWidth but no check median: ",
+              nrow(dropped), " (showing up to 5): ",
+              paste(head(dropped$participant, 5), collapse = ", "))
+    } else {
+      rng <- range(calib_first_two$ratio_over_check, na.rm = TRUE)
+      message("[DEBUG p15] ratio_over_check range: [", signif(rng[1], 4), ", ", signif(rng[2], 4), "]")
+    }
+
+    if (nrow(calib_first_two) > 0) {
+      p15_data <- calib_first_two
+
+      p15 <- ggplot(p15_data, aes(x = calibration_order, y = ratio_over_check, color = participant, shape = calibration_order)) +
+        geom_hline(yintercept = 1, linetype = "dashed", color = "gray50", linewidth = 1) +
+        geom_point(size = 4, alpha = 0.85, stroke = 1.2) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(p15_data$participant))) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                            label = statement, size = 3, family = "sans", fontface = "plain") +
+        scale_color_manual(values = colorPalette) +
+        scale_shape_manual(values = c("Calibration 1" = 16, "Calibration 2" = 21)) +
+        guides(
+          color = guide_legend(
+            ncol = 4,
+            title = "",
+            override.aes = list(size = 2)
+          ),
+          shape = guide_legend(title = "")
+        ) +
+        labs(
+          subtitle = 'Focal length: calibration 1 & 2 over check',
+          x = "",
+          y = "fOverWidth calibration / median(check)"
+        ) +
+        theme_bw() +
+        theme(
+          legend.key.size = unit(0, "mm"),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
+          legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+          legend.box.spacing = unit(0, "lines"),
+          legend.spacing.y = unit(-10, "lines"),
+          legend.spacing.x = unit(0, "lines"),
+          legend.key.height = unit(0, "lines"),
+          legend.key.width = unit(0, "mm"),
+          legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = 'left',
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size = 10),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+          plot.caption = element_text(size = 10),
+          plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14)
+        )
+    }
+  } else {
+    message("[DEBUG p15] Skipped: calib rows=", nrow(calib_data),
+            ", check rows=", nrow(check_data),
+            ", calib has fOverWidth=", "fOverWidth" %in% names(calib_data),
+            ", check has fOverWidth=", "fOverWidth" %in% names(check_data))
   }
 
   # Calculate heights based on legend complexity
@@ -3583,24 +3546,14 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         compute_auto_height(base_height = 7, n_items = n_distinct(p14_data$participant), per_row = 3, row_increase = 0.06)
       } else NULL
     ),
-    fOverWidth_hist = fOverWidth_hist,
-    fOverWidth_scatter = fOverWidth_scatter,
-    # Additional plots
-    calibrated_vs_mean = list(
-      plot = p5c,
-      height = if (!is.null(p5c) && exists("plot_data_p5b") && nrow(plot_data_p5b) > 0) {
-        compute_auto_height(base_height = 7, n_items = n_distinct(plot_data_p5b$participant), per_row = 3, row_increase = 0.06)
-      } else NULL
-    ),
-    fOverWidth_second_vs_first = list(
+    fOverWidth_calibration12_over_check = list(
       plot = p15,
       height = if (!is.null(p15) && !is.null(p15_data)) {
         compute_auto_height(base_height = 7, n_items = n_distinct(p15_data$participant), per_row = 3, row_increase = 0.06)
       } else NULL
     ),
-    fvpx_second_vs_first = list(plot = p15, height = if (!is.null(p15) && !is.null(p15_data)) {  # Same plot as fOverWidth_second_vs_first
-        compute_auto_height(base_height = 7, n_items = n_distinct(p15_data$participant), per_row = 3, row_increase = 0.06)
-      } else NULL)
+    fOverWidth_hist = fOverWidth_hist,
+    fOverWidth_scatter = fOverWidth_scatter
   ))
 }
 
@@ -4617,7 +4570,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
     mutate(
       type = 'calibration',
       plot_x = as.numeric(rulerBasedEyesToFootCm),
-      plot_y = as.numeric(imageBasedEyesToFootCm)
+      plot_y = as.numeric(imageBasedEyesToPointCm)
     ) %>%
     select(participant, plot_x, plot_y, rulerBasedEyesToFootCm, imageBasedEyesToFootCm, ipdOverWidth, type, measurement_order_within_participant) %>%
     filter(is.finite(plot_x), is.finite(plot_y)) %>%
@@ -4702,7 +4655,6 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
   # TJSON now has fOverWidth directly (no longer computed from fVpx)
   tjson_data <- distanceCalibrationResults$TJSON
   check_data <- distanceCalibrationResults$checkJSON
-  camera <- distanceCalibrationResults$camera
   
   # Standard interpupillary distance
   ipdCm_standard <- 6.3
@@ -4718,51 +4670,60 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     fOverWidth_per_participant <- tibble(participant = character(), fOverWidth_calibration = numeric())
   }
   
-  if (nrow(check_data) == 0 || nrow(fOverWidth_per_participant) == 0 || nrow(camera) == 0) {
+  if (nrow(check_data) == 0 || nrow(fOverWidth_per_participant) == 0) {
     return(list(plot = NULL, height = NULL))
   }
   
+  # Ensure we have an order column so paths connect in measurement order
+  if (!"measurement_order_within_participant" %in% names(check_data)) {
+    check_data <- check_data %>%
+      group_by(participant) %>%
+      mutate(measurement_order_within_participant = row_number()) %>%
+      ungroup()
+  }
+
   # Join check data with calibration fOverWidth and compute estimated eyesToFootCm
-  # checkJSON now has ipdOverWidth directly
-  # IMPORTANT: Include measurement_order_within_participant and arrange by it to preserve measurement order
+  # eyesToFootCm_estimated = fOverWidth_calibration * ipdCm_standard / ipdOverWidth
   plot_data <- check_data %>%
     left_join(fOverWidth_per_participant, by = "participant") %>%
-    filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth), ipdOverWidth > 0) %>%
+    filter(
+      is.finite(requestedEyesToFootCm), requestedEyesToFootCm > 0,
+      is.finite(ipdOverWidth), ipdOverWidth > 0,
+      is.finite(fOverWidth_calibration)
+    ) %>%
     mutate(
-      # Estimated horizontal distance from camera measurements
-      # eyesToFootCm = fOverWidth * ipdCm / ipdOverWidth
-      # (since ipdOverWidth = ipdVpx / widthVpx, and fOverWidth = fVpx / widthVpx)
       eyesToFootCm_estimated = fOverWidth_calibration * ipdCm_standard / ipdOverWidth
     ) %>%
-    select(participant, requestedEyesToFootCm, eyesToFootCm_estimated, ipdOverWidth, fOverWidth_calibration, measurement_order_within_participant) %>%
-    filter(is.finite(requestedEyesToFootCm), is.finite(eyesToFootCm_estimated)) %>%
+    filter(is.finite(eyesToFootCm_estimated), eyesToFootCm_estimated > 0) %>%
     arrange(participant, measurement_order_within_participant)
-  
+
   if (nrow(plot_data) == 0) {
     return(list(plot = NULL, height = NULL))
   }
-  
+
+  # Use the same x/y range so y=x is a true 45° line
+  shared_limits <- range(c(plot_data$requestedEyesToFootCm, plot_data$eyesToFootCm_estimated), na.rm = TRUE)
+
   # Create the plot
   p <- ggplot(plot_data, aes(x = requestedEyesToFootCm, y = eyesToFootCm_estimated)) +
-    # Identity line (perfect agreement)
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", linewidth = 0.8) +
-    # Data points
     geom_point(aes(color = participant), size = 2.5, alpha = 0.8) +
-    # Use geom_path instead of geom_line to connect points in measurement order, not x-value order
-    geom_path(aes(color = participant, group = participant),
-              linewidth = 0.5, alpha = 0.6) +
+    geom_path(aes(color = participant, group = participant), linewidth = 0.5, alpha = 0.6) +
     scale_x_log10(
+      limits = shared_limits,
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 1)
     ) +
+    coord_fixed() +
     scale_y_log10(
+      limits = shared_limits,
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 1)
     ) +
     scale_color_manual(values = colorPalette) +
     ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                         label = paste0('N=', n_distinct(plot_data$participant))) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
+    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
                         label = distanceCalibrationResults$statement) +
     guides(
       color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5))
@@ -4777,13 +4738,13 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
       plot.margin = margin(5, 5, 5, 5, "pt")
     ) +
     labs(
-      subtitle = 'imageBasedEyesToFootCm vs. rulerBasedEyesToFootCm',
-      x = 'rulerBasedEyesToFootCm',
-      y = 'imageBasedEyesToFootCm',
-      caption = paste0('eyesToFootCm = fOverWidth * ipdCm / ipdOverWidth, where ipdCm = ', ipdCm_standard, ' cm\n',
+      subtitle = 'eyesToFootCm (via ipdOverWidth) vs. requestedEyesToFootCm',
+      x = 'requestedEyesToFootCm (cm)',
+      y = 'eyesToFootCm (cm)',
+      caption = paste0('eyesToFootCm_estimated = fOverWidth_calibration * ipdCm / ipdOverWidth, where ipdCm = ', ipdCm_standard, ' cm\n',
                        'Dashed line: perfect agreement (estimated = requested)')
     )
-  
+
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
   
   return(list(plot = p, height = p_height))
