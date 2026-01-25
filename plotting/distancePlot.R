@@ -1347,6 +1347,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           rulerBasedLeftEyeToFootCm  = if (!is.null(t_tjson$rulerBasedLeftEyeToFootCm)) t_tjson$rulerBasedLeftEyeToFootCm else t_tjson$leftEyeToFootCm,
           # eyesToFootCm renamed to rulerBasedEyesToFootCm (uses object of known length as ruler)
           rulerBasedEyesToFootCm     = if (!is.null(t_tjson$rulerBasedEyesToFootCm)) t_tjson$rulerBasedEyesToFootCm else t_tjson$eyesToFootCm,
+          imageBasedEyesToFootCm     = if (!is.null(t_tjson$imageBasedEyesToFootCm)) t_tjson$imageBasedEyesToFootCm else NA_real_,
           # New parameters: fOverWidth and ipdOverWidth (4 decimal digits)
           fOverWidth       = if (!is.null(t_tjson$fOverWidth)) as.numeric(t_tjson$fOverWidth) else NA_real_,
           ipdOverWidth     = if (!is.null(t_tjson$ipdOverWidth)) as.numeric(t_tjson$ipdOverWidth) else NA_real_,
@@ -2511,7 +2512,7 @@ get_bs_vd <- function(data_list) {
 plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
 
   check_data <- distanceCalibrationResults$checkJSON
-  calib_data <- distanceCalibrationResults$TJSON  # Calibration data
+  calib_data <- distanceCalibrationResults$distance  # Calibration data
   statement <- distanceCalibrationResults$statement
   camera <- distanceCalibrationResults$camera
   if (nrow(check_data) == 0 && nrow(calib_data) == 0) {return(NULL)}
@@ -4851,6 +4852,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
 plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResults) {
   
   check_data <- distanceCalibrationResults$checkJSON
+  calib_data <- distanceCalibrationResults$TJSON
   
   if (nrow(check_data) == 0) {
     return(list(plot = NULL, height = NULL))
@@ -4858,7 +4860,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
   
   # Prepare data - use imageBasedEyesToPointCm (vertical) and rulerBasedEyesToFootCm (horizontal)
   # IMPORTANT: Include measurement_order_within_participant and arrange by it to preserve measurement order
-  plot_data <- check_data %>%
+  check_data <- check_data %>%
     mutate(
       type = 'check',
       plot_x = as.numeric(rulerBasedEyesToFootCm),
@@ -4867,42 +4869,63 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
     select(participant, plot_x, plot_y, rulerBasedEyesToFootCm, imageBasedEyesToPointCm, ipdOverWidth, type, measurement_order_within_participant) %>%
     filter(is.finite(plot_x), is.finite(plot_y)) %>%
     arrange(participant, measurement_order_within_participant)
+
+  calib_data <- calib_data %>%
+    group_by(participant) %>%
+    mutate(measurement_order_within_participant = row_number()) %>%
+    ungroup() %>%
+    mutate(
+      type = 'calibration',
+      plot_x = as.numeric(rulerBasedEyesToFootCm),
+      plot_y = as.numeric(imageBasedEyesToFootCm)
+    ) %>%
+    select(participant, plot_x, plot_y, rulerBasedEyesToFootCm, imageBasedEyesToFootCm, ipdOverWidth, type, measurement_order_within_participant) %>%
+    filter(is.finite(plot_x), is.finite(plot_y)) %>%
+    arrange(participant, measurement_order_within_participant)
   
-  # DEBUG: Show the data in measurement order to verify correct ordering
-  message("[DEBUG plot_eyeToPointCm_vs_requestedEyesToFootCm] === DATA BEING PLOTTED (in order) ===")
-  message("[DEBUG] Total rows: ", nrow(plot_data), ", Participants: ", n_distinct(plot_data$participant))
-  for (p in unique(plot_data$participant)) {
-    p_data <- plot_data %>% filter(participant == p)
-    message("[DEBUG] Participant: ", p)
-    message("[DEBUG]   measurement_order: ", paste(p_data$measurement_order_within_participant, collapse = ", "))
-    message("[DEBUG]   rulerBasedEyesToFootCm (x-values): ", paste(round(p_data$plot_x, 1), collapse = " -> "))
-    message("[DEBUG]   imageBasedEyesToPointCm (y-values): ", paste(round(p_data$plot_y, 1), collapse = " -> "))
-  }
-  message("[DEBUG plot_eyeToPointCm_vs_requestedEyesToFootCm] === END DATA ===")
-  
-  if (nrow(plot_data) == 0) {
+ 
+  if (nrow(check_data) == 0 && nrow(calib_data) == 0) {
     return(list(plot = NULL, height = NULL))
   }
   
+  # Use the same x/y range so y=x is a true 45° line
+  xy_vals <- c(check_data$plot_x, check_data$plot_y, calib_data$plot_x, calib_data$plot_y)
+  xy_vals <- xy_vals[is.finite(xy_vals) & xy_vals > 0]
+  shared_limits <- if (length(xy_vals) > 0) range(xy_vals, na.rm = TRUE) else NULL
+
   # Create the plot
   # Use geom_path instead of geom_line to connect points in measurement order, not x-value order
-  p <- ggplot(plot_data, aes(x = plot_x, y = plot_y)) +
-    geom_point(aes(color = participant), size = 2.5, alpha = 0.8) +
-    geom_path(aes(color = participant, group = participant),
+  p <- ggplot() +
+    geom_point(data = check_data, aes(x = plot_x, y = plot_y, color = participant, shape = type),
+     size = 2.5, alpha = 0.8) +
+    geom_path(data = check_data,
+               aes(x = plot_x, y = plot_y, 
+               color = participant, group = participant),
               linewidth = 0.5, alpha = 0.6) +
+    geom_path(data = calib_data,
+               aes(x = plot_x, y = plot_y, 
+               color = participant, group = participant),
+              linewidth = 0.5, alpha = 0.6) +
+    geom_point(data = calib_data, aes(x = plot_x, y = plot_y, color = participant, shape = type),
+     size = 2.5, alpha = 0.8) +
+     scale_shape_manual(values = c("calibration" = 16, "check" = 21),
+                       labels = c("calibration" = "calibration", "check" = "check")) +
     # Add identity line (if imageBasedEyesToPointCm == rulerBasedEyesToFootCm, perfect horizontal viewing)
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
     scale_x_log10(
+      limits = shared_limits,
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 1)
     ) +
+    coord_fixed() +
     scale_y_log10(
+      limits = shared_limits,
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 1)
     ) +
     scale_color_manual(values = colorPalette) +
     ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                        label = paste0('N=', n_distinct(plot_data$participant))) +
+                        label = paste0('N=', n_distinct(calib_data$participant))) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
                         label = distanceCalibrationResults$statement) +
     guides(
@@ -4924,7 +4947,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
       caption = 'Measured line-of-sight distance vs. ruler-based horizontal distance.\nDashed line: y = x (horizontal viewing)'
     )
   
-  p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
+  p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(calib_data$participant), per_row = 3, row_increase = 0.06)
   
   return(list(plot = p, height = p_height))
 }
