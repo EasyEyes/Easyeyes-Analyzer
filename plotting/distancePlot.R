@@ -2455,14 +2455,23 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keywidth = unit(1.2, "lines"),
           keyheight = unit(0.8, "lines")
         ),
-        shape = guide_legend(order = 2)
+        shape = guide_legend(
+          order = 2,
+          title = text_legend_p1,
+          title.position = "bottom",
+          title.theme = element_text(size = 10, hjust = 0)
+        )
       ) +
       coord_fixed() +  
+      theme(
+        # When multiple guides exist (color + shape), keep their left edges aligned
+        legend.justification = "left",
+        legend.box.just = "left"
+      ) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
       labs(subtitle = 'Measured vs. requested distance',
            x = 'Requested distance (cm)',
-           y = 'Measured distance (cm)',
-           caption = text_legend_p1)
+           y = 'Measured distance (cm)')
   }
  
   # Plot 2: Measured over requested distance (CALIBRATION AND CHECK DATA, EXCLUDING JITTER)
@@ -2512,13 +2521,22 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keywidth = unit(1.2, "lines"),
           keyheight = unit(0.8, "lines")
         ),
-        shape = guide_legend(order = 2)
+        shape = guide_legend(
+          order = 2,
+          title = text_legend_p2,
+          title.position = "bottom",
+          title.theme = element_text(size = 10, hjust = 0)
+        )
+      ) +
+      theme(
+        # When multiple guides exist (color + shape), keep their left edges aligned
+        legend.justification = "left",
+        legend.box.just = "left"
       ) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
       labs(subtitle = 'Measured over requested distance',
            x = 'Requested distance (cm)',
-           y = 'Measured / Requested',
-           caption = text_legend_p2)
+           y = 'Measured / Requested')
   }
 
   # Plot 4: Eye feet position vs distance error
@@ -2594,7 +2612,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         scale_color_manual(values = colorPalette) +
         guides(color = guide_legend(
           ncol = 3,
-          title = "",
+          title = "Dashed line: y = 1 (perfect agreement)",
+          title.position = "bottom",
+          title.theme = element_text(size = 10, hjust = 0),
           override.aes = list(size = 1.5),
           keywidth = unit(0.8, "lines"),
           keyheight = unit(0.6, "lines")
@@ -2604,6 +2624,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           legend.position = "right",
           legend.box = "vertical",
           legend.justification = "left",
+          legend.box.just = "left",
           legend.text = element_text(size = 6),
           legend.spacing.y = unit(0, "lines"),
           legend.key.size = unit(0.4, "cm"),
@@ -2612,8 +2633,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
         labs(subtitle = 'Focal length: calibration/check vs. check',
              x = 'fOverWidth: check',
-             y = 'fOverWidth: calibration / check',
-             caption = 'Dashed line: y = 1 (perfect agreement)')
+             y = 'fOverWidth: calibration / check')
       }
     }
   }
@@ -2686,7 +2706,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             scale_color_manual(values = colorPalette) +
             guides(color = guide_legend(
               ncol = 3,
-              title = "",
+              title = "Dashed line: y = 1 (perfect agreement). X-axis has 0.5% jitter",
+              title.position = "bottom",
+              title.theme = element_text(size = 10, hjust = 0),
               override.aes = list(size = 1.5),
               keywidth = unit(0.8, "lines"),
               keyheight = unit(0.6, "lines")
@@ -2696,6 +2718,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
               legend.position = "right",
               legend.box = "vertical",
               legend.justification = "left",
+              legend.box.just = "left",
               legend.text = element_text(size = 6),
               legend.spacing.y = unit(0, "lines"),
               legend.key.size = unit(0.4, "cm"),
@@ -2704,8 +2727,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
             labs(subtitle = 'Calibrated over mean factorVpxCm vs. spot diameter',
                  x = 'Spot diameter (deg)',
-                 y = 'factorVpxCm over geometric mean',
-                 caption = 'Dashed line: y = 1 (perfect agreement). X-axis has 0.5% jitter')
+                 y = 'factorVpxCm over geometric mean')
         }
       }
     }
@@ -2778,7 +2800,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                             size = 3, family = "sans", fontface = "plain") +
         guides(color = guide_legend(
           ncol = 4,
-          title = "",
+          title = "Each dot = median ratio for one participant",
+          title.position = "bottom",
+          title.theme = element_text(size = 10, hjust = 0),
           override.aes = list(size = 2),
           keywidth = unit(0.3, "cm"),
           keyheight = unit(0.3, "cm")
@@ -2787,8 +2811,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         labs(
           subtitle = 'histogram of fOverWidth median(calibration)/median(check)',
           x = "median(calibration)/median(check)",
-          y = "Count",
-          caption = 'Each dot = median ratio for one participant'
+          y = "Count"
         ) +
         theme_bw() +
         theme(
@@ -2806,6 +2829,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           legend.position = "top",
           legend.box = "vertical",
           legend.justification = 'left',
+          legend.box.just = "left",
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
@@ -3312,6 +3336,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             ),
             shape = guide_legend(
               order = 2,
+              title = "Dashed line: median fOverWidth",
+              title.position = "bottom",
+              title.theme = element_text(size = 10, hjust = 0),
               override.aes = list(size = 3, color = "black", stroke = 1.5)
             )
           ) +
@@ -3319,14 +3346,14 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           labs(
             subtitle = 'fOverWidth vs max width',
             x = 'max width (px)',
-            y = 'fOverWidth',
-            caption = 'Dashed line: median fOverWidth'
+            y = 'fOverWidth'
           ) +
           theme_classic() +
           theme(
             legend.position = "top",
             legend.box = "vertical",
             legend.justification = "left",
+            legend.box.just = "left",
             legend.text = element_text(size = 6),
             legend.title = element_text(size = 8),
             legend.spacing.y = unit(0, "lines"),
@@ -3532,7 +3559,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             keyheight = unit(0.3, "cm")
           ),
           shape = guide_legend(
-            title = "",
+            title = "Dashed line: y = 1 (perfect agreement). X-axis has horizontal jitter applied",
+            title.position = "bottom",
+            title.theme = element_text(size = 10, hjust = 0),
             override.aes = list(size = 3, color = "black")
           )
         ) +
@@ -3540,8 +3569,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         labs(
           subtitle = 'Focal length: calibration 1 & 2 over check',
           x = "",
-          y = "fOverWidth calibration / median(check)",
-          caption = 'Dashed line: y = 1 (perfect agreement). X-axis has horizontal jitter applied'
+          y = "fOverWidth calibration / median(check)"
         ) +
         theme_bw() +
         theme(
@@ -3559,6 +3587,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           legend.position = "top",
           legend.box = "vertical",
           legend.justification = 'left',
+          legend.box.just = "left",
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
@@ -4091,15 +4120,19 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
         scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
         annotation_logticks() +
         scale_color_manual(values = colorPalette) +
-        guides(color = guide_legend(ncol = 4, title = "",
-                                    override.aes = list(size = 2),
-                                    keywidth = unit(1.2, "lines"),
-                                    keyheight = unit(0.8, "lines"))) +
+        guides(color = guide_legend(
+          ncol = 4,
+          title = "Dashed line: ratio = 1.0 (perfect accuracy). X-axis has 0.5% jitter",
+          title.position = "bottom",
+          title.theme = element_text(size = 10, hjust = 0),
+          override.aes = list(size = 2),
+          keywidth = unit(1.2, "lines"),
+          keyheight = unit(0.8, "lines")
+        )) +
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
         labs(subtitle = 'Check distance error vs. blindspot diameter',
              x = 'Blindspot diameter (deg)',
-             y = 'Check measured / requested distance',
-             caption = 'Dashed line: ratio = 1.0 (perfect accuracy). X-axis has 0.5% jitter')
+             y = 'Check measured / requested distance')
     }
   }
 
@@ -4534,6 +4567,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
       legend.position = "top",
       legend.box = "vertical",
       legend.text = element_text(size = 6),
+      legend.justification = "left",
+      legend.box.just = "left",
       legend.spacing.y = unit(0, "lines"),
       legend.key.size = unit(0.4, "cm"),
       plot.margin = margin(5, 5, 5, 5, "pt")
@@ -4596,6 +4631,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
         theme(
           legend.position = "top",
           legend.box = "vertical",
+          legend.justification = "left",
+          legend.box.just = "left",
           legend.text = element_text(size = 6),
           legend.spacing.y = unit(0, "lines"),
           legend.key.size = unit(0.4, "cm"),
@@ -4709,14 +4746,26 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
                         label = distanceCalibrationResults$statement) +
     guides(
-      color = guide_legend(ncol = 3, title = "", order = 1, override.aes = list(size = 1.5)),
-      shape = guide_legend(order = 2)
+      color = guide_legend(
+        ncol = 3,
+        title = "",
+        order = 1,
+        override.aes = list(size = 1.5)
+      ),
+      shape = guide_legend(
+        order = 2,
+        title = "Dashed line: y = x (horizontal viewing)",
+        title.position = "bottom",
+        title.theme = element_text(size = 10, hjust = 0)
+      )
     ) +
     theme_bw() +
     theme(
       legend.position = "top",
       legend.box = "vertical",
       legend.text = element_text(size = 6),
+      legend.justification = "left",
+      legend.box.just = "left",
       legend.spacing.y = unit(0, "lines"),
       legend.key.size = unit(0.4, "cm"),
       plot.margin = margin(5, 5, 5, 5, "pt")
@@ -4724,8 +4773,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
     labs(
       subtitle = 'imageBasedEyesToPointCm vs. rulerBasedEyesToFootCm',
       x = 'rulerBasedEyesToFootCm (cm)',
-      y = 'imageBasedEyesToPointCm (cm)',
-      caption = 'Dashed line: y = x (horizontal viewing)'
+      y = 'imageBasedEyesToPointCm (cm)'
     )
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
@@ -4860,14 +4908,26 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
                         label = distanceCalibrationResults$statement) +
     guides(
-      color = guide_legend(ncol = 3, title = "", order = 1, override.aes = list(size = 1.5)),
-      shape = guide_legend(order = 2)
+      color = guide_legend(
+        ncol = 3,
+        title = "",
+        order = 1,
+        override.aes = list(size = 1.5)
+      ),
+      shape = guide_legend(
+        order = 2,
+        title = paste0("Dashed line: y = x (perfect agreement). ", formula_text),
+        title.position = "bottom",
+        title.theme = element_text(size = 10, hjust = 0)
+      )
     ) +
     theme_bw() +
     theme(
       legend.position = "top",
       legend.box = "vertical",
       legend.text = element_text(size = 6),
+      legend.justification = "left",
+      legend.box.just = "left",
       legend.spacing.y = unit(0, "lines"),
       legend.key.size = unit(0.4, "cm"),
       plot.margin = margin(5, 5, 5, 5, "pt")
@@ -4875,8 +4935,7 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     labs(
       subtitle = 'eyesToFootCm (via ipdOverWidth) vs. requestedEyesToFootCm',
       x = 'requestedEyesToFootCm (cm)',
-      y = 'eyesToFootCm (cm)',
-      caption = paste0('Dashed line: y = x (perfect agreement). ', formula_text)
+      y = 'eyesToFootCm (cm)'
     )
 
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
