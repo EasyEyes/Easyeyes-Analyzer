@@ -765,13 +765,26 @@ generate_threshold <-
     sessions_data <- generate_summary_table(data_list, stairs, pretest, prolific)
     
     # Extract the needed columns from sessions data
-    sessions_columns <- sessions_data %>%
-      select(`Pavlovia session ID`, `device type`, `Prolific min`, system, browser, ok, screenWidthCm, resolution) %>%
-      rename(
-        PavloviaParticipantID = `Pavlovia session ID`,
-        screenResolutionXY = resolution,
-      ) %>%
-      distinct()
+    # Handle case where Prolific participant ID might not exist
+    if ("Prolific participant ID" %in% names(sessions_data)) {
+      sessions_columns <- sessions_data %>%
+        select(`Pavlovia session ID`, `Prolific participant ID`, `device type`, `Prolific min`, system, browser, ok, screenWidthCm, resolution) %>%
+        rename(
+          PavloviaParticipantID = `Pavlovia session ID`,
+          ProlificParticipantID = `Prolific participant ID`,
+          screenResolutionXY = resolution,
+        ) %>%
+        distinct()
+    } else {
+      sessions_columns <- sessions_data %>%
+        select(`Pavlovia session ID`, `device type`, `Prolific min`, system, browser, ok, screenWidthCm, resolution) %>%
+        mutate(ProlificParticipantID = NA_character_) %>%
+        rename(
+          PavloviaParticipantID = `Pavlovia session ID`,
+          screenResolutionXY = resolution,
+        ) %>%
+        distinct()
+    }
     
     # Join all data together
     participant_info <- sessions_columns %>%
@@ -797,7 +810,8 @@ generate_threshold <-
           Object
         )
       ) %>%
-      select(ok, PavloviaParticipantID, `device type`, system, browser, `Prolific min`, 
+      {if("ProlificParticipantID" %in% names(.)) rename(., `Prolific Participant ID` = ProlificParticipantID) else mutate(., `Prolific Participant ID` = NA_character_)} %>%
+      select(ok, PavloviaParticipantID, `Prolific Participant ID`, `device type`, system, browser, `Prolific min`, 
              screenWidthCm, screenResolutionXY, rulerCm, pxPerCm, objectLengthCm, Object, objectSuggestion, Comment) %>%
       mutate(
         ok_priority = case_when(

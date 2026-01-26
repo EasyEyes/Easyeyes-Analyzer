@@ -1374,7 +1374,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           imageBasedEyesToFootCm = sqrt(imageBasedEyesToPointCm^2 - footToPointCm^2),
           ipdOverWidth  = ipdOverWidth_vals,
           calibrationFOverWidth = calibrationFOverWidth_val,
-          ipdCm         = ipdCm_val
+          ipdCm         = ipdCm_val,
+          json_type     = check_json_type  # Store json_type to enable filtering jitter data
         ) %>%
           mutate(
             # Measured eyesToFootCm (derived from measured eyesToPointCm)
@@ -1887,11 +1888,13 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
         axis.line.y.right = element_blank()
       ) +
       # # Labels - set these LAST to ensure they stick
+      ggpp::geom_text_npc(npcx = 0.5, npcy = 0.98, 
+                          label = "Rectangle: screen. Points beyond 50% margin clipped. Origin (0,0): top-left", 
+                          size = 2.5, hjust = 0.5, vjust = 1) +
       labs(
-        subtitle = "Measured over requested distance vs.\nfoot position during calibration",
+        subtitle = "Measured over requested distance vs. foot position during calibration",
         x = "Eye foot X (cm)",
-        y = "Eye foot Y (cm)",
-        caption = "Rectangle shows screen boundaries. Points beyond 50% margin are clipped to plot area.\nOrigin (0,0) is at top-left corner of screen."
+        y = "Eye foot Y (cm)"
       ) +
       ggpp::geom_text_npc(
         data = NULL,
@@ -2056,11 +2059,13 @@ plot_eye_feet_position_during_check <- function(distanceCalibrationResults) {
         axis.line.x.top = element_blank(),
         axis.line.y.right = element_blank()
       ) +
+      ggpp::geom_text_npc(npcx = 0.5, npcy = 0.98, 
+                          label = "Rectangle: screen. Points beyond 50% margin clipped. Origin (0,0): top-left", 
+                          size = 2.5, hjust = 0.5, vjust = 1) +
       labs(
-        subtitle = "Measured over requested distance vs.\nfoot position during check",
+        subtitle = "Measured over requested distance vs. foot position during check",
         x = "Eye foot X (cm)",
-        y = "Eye foot Y (cm)",
-        caption = "Rectangle shows screen boundaries. Points beyond 50% margin are clipped to plot area.\nOrigin (0,0) is at top-left corner of screen."
+        y = "Eye foot Y (cm)"
       ) +
       ggpp::geom_text_npc(
         data = NULL,
@@ -2204,11 +2209,13 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
         axis.line.y.right = element_blank()
       ) +
       # Labels - set these LAST to ensure they stick
+      ggpp::geom_text_npc(npcx = 0.5, npcy = 0.98, 
+                          label = "Rectangle: screen. Plot range expanded. Origin (0,0): top-left", 
+                          size = 2.5, hjust = 0.5, vjust = 1) +
       labs(
         subtitle = "Foot position during calibration",
         x = "Eye foot X (cm)",
-        y = "Eye foot Y (cm)",
-        caption = "Rectangle shows screen boundaries. Plot range expanded to show all data.\nOrigin (0,0) is at top-left corner of screen."
+        y = "Eye foot Y (cm)"
       ) +
       ggpp::geom_text_npc(
         data = NULL,
@@ -2281,11 +2288,13 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   if (nrow(check_data) == 0 && nrow(calib_data) == 0) {return(NULL)}
   
   # ===== PREPARE CHECK DATA =====
-  # NOTE: Only check data is plotted because calibration points lie on equality line by definition
-  # (calibration establishes the relationship between ruler-based and image-based measurements)
+  # Filter out jitter data (exclude rows where json_type indicates jitter)
   check_individual <- tibble()
   if (nrow(check_data) > 0) {
     check_individual <- check_data %>%
+      # Filter out jitter: exclude rows where json_type contains "jitter" (case-insensitive)
+      # Handle case where json_type column might not exist
+      {if("json_type" %in% names(.)) filter(., is.na(json_type) | !grepl("jitter", json_type, ignore.case = TRUE)) else .} %>%
       mutate(
         source = "check",
         # For "Measured vs. requested distance" plot (p1):
@@ -2302,13 +2311,69 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       ungroup()
   }
   
-  # ===== USE CHECK DATA ONLY =====
-  # Calibration data is NOT plotted on these scatter plots because during calibration,
-  # image-based values are set equal to ruler-based values by definition
-  distance_individual <- check_individual
+  # ===== PREPARE CALIBRATION DATA =====
+  calib_individual <- tibble()
+  if (nrow(calib_data) > 0) {
+    calib_individual <- calib_data %>%
+      mutate(
+        source = "calibration",
+        # For "Measured vs. requested distance" plot (p1):
+        # x-axis: rulerBasedEyesToFootCm (ruler-based/requested), y-axis: imageBasedEyesToPointCm (image-based/measured)
+        p1_x = as.numeric(rulerBasedEyesToFootCm),
+        p1_y = as.numeric(imageBasedEyesToPointCm),
+        # For "Measured over requested distance" plot (p2):
+        # x-axis: rulerBasedEyesToFootCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToFootCm
+        p2_x = as.numeric(rulerBasedEyesToFootCm),
+        p2_y = as.numeric(imageBasedEyesToPointCm) / as.numeric(rulerBasedEyesToFootCm)
+      ) %>% 
+      group_by(participant) %>%
+      mutate(measurement_order_within_participant = row_number()) %>%
+      ungroup()
+  }
+  
+  # ===== COMBINE CALIBRATION AND CHECK DATA =====
+  # Combine both calibration and check data for p1 (excluding jitter)
+  distance_individual <- bind_rows(calib_individual, check_individual)
   # Keep reference to calibration data for use in later plots (p6, p7, etc.)
   distance <- calib_data
   
+  # ===== DEBUG: Show data sources for p1/p2 plots =====
+  message("\n[DEBUG p1/p2 DATA SOURCES]")
+  message("  check_data (checkJSON) input rows: ", nrow(check_data))
+  message("  calib_data (TJSON) input rows: ", nrow(calib_data))
+  message("  check_individual rows after filtering: ", nrow(check_individual))
+  message("  calib_individual rows after filtering: ", nrow(calib_individual))
+  message("  distance_individual combined rows: ", nrow(distance_individual))
+  
+  if (nrow(check_individual) > 0) {
+    message("  CHECK data - p1_x (rulerBasedEyesToFootCm) non-NA: ", sum(!is.na(check_individual$p1_x)))
+    message("  CHECK data - p1_y (imageBasedEyesToPointCm) non-NA: ", sum(!is.na(check_individual$p1_y)))
+    message("  CHECK data columns: ", paste(names(check_individual), collapse = ", "))
+  }
+  
+  if (nrow(calib_individual) > 0) {
+    message("  CALIB data - p1_x (rulerBasedEyesToFootCm) non-NA: ", sum(!is.na(calib_individual$p1_x)))
+    message("  CALIB data - p1_y (imageBasedEyesToPointCm) non-NA: ", sum(!is.na(calib_individual$p1_y)))
+    message("  CALIB data columns: ", paste(names(calib_individual), collapse = ", "))
+  } else {
+    message("  CALIB data is EMPTY - checking calib_data columns: ", paste(names(calib_data), collapse = ", "))
+    if ("rulerBasedEyesToFootCm" %in% names(calib_data)) {
+      message("    calib_data rulerBasedEyesToFootCm non-NA: ", sum(!is.na(calib_data$rulerBasedEyesToFootCm)))
+    } else {
+      message("    calib_data MISSING rulerBasedEyesToFootCm column!")
+    }
+    if ("imageBasedEyesToPointCm" %in% names(calib_data)) {
+      message("    calib_data imageBasedEyesToPointCm non-NA: ", sum(!is.na(calib_data$imageBasedEyesToPointCm)))
+    } else {
+      message("    calib_data MISSING imageBasedEyesToPointCm column!")
+    }
+  }
+  
+  if (nrow(distance_individual) > 0 && "source" %in% names(distance_individual)) {
+    source_counts <- table(distance_individual$source)
+    message("  distance_individual by source: ", paste(names(source_counts), source_counts, sep = "=", collapse = ", "))
+  }
+  message("[END DEBUG p1/p2 DATA SOURCES]\n")
 
   # Scale limits for p1 (Measured vs. requested distance plot)
   p1_min_val <- 5 * floor(min(c(distance_individual$p1_x, 
@@ -2331,7 +2396,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   p2_mean_formatted <- format(round(p2_mean_fraction, 3), nsmall = 3)
   p2_sd_formatted <- format(round(p2_sd_fraction, 3), nsmall = 3)
   
-  # Plot 1: Measured vs. requested distance (CHECK DATA ONLY)
+  # Plot 1: Measured vs. requested distance (CALIBRATION AND CHECK DATA, EXCLUDING JITTER)
   # x-axis: rulerBasedEyesToFootCm (ruler-based), y-axis: imageBasedEyesToPointCm (image-based)
   # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for line connections
   p1_data <- distance_individual %>%
@@ -2349,11 +2414,28 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   distance_individual <- distance_individual %>%
     arrange(participant, measurement_order_within_participant)
   
+  # Debug: show data breakdown for p1
+  message("[DEBUG p1] p1_data rows: ", nrow(p1_data))
+  if (nrow(p1_data) > 0 && "source" %in% names(p1_data)) {
+    p1_source_counts <- table(p1_data$source)
+    message("[DEBUG p1] p1_data by source: ", paste(names(p1_source_counts), p1_source_counts, sep = "=", collapse = ", "))
+  }
+  
   p1 <- NULL
   if (nrow(p1_data) > 0) {
-    p1 <- ggplot(p1_data, aes(x = p1_x, y = p1_y, color = participant)) +
+    # Count calibration and check data points
+    n_calib <- sum(p1_data$source == "calibration", na.rm = TRUE)
+    n_check <- sum(p1_data$source == "check", na.rm = TRUE)
+    
+    # Text legend to appear below graphical legends
+    text_legend_p1 <- "Lines connect successive measurements. Dashed line: y = x (perfect agreement)"
+    
+    p1 <- ggplot(p1_data, aes(x = p1_x, y = p1_y, color = participant, shape = source)) +
       geom_path(aes(group = participant), linetype = "solid", alpha = 0.7) +
       geom_point(size = 2.5, stroke = 1) +
+      # Shape scale: closed circle (16) for calibration, open circle (1) for check
+      scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
+                         labels = c("calibration" = "Calibration", "check" = "Check")) +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                           label = paste0('N=', n_distinct(p1_data$participant))) + 
       geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
@@ -2368,26 +2450,45 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         color = guide_legend(
           ncol = 3,
           title = "",
+          order = 1,
           override.aes = list(size = 2),
           keywidth = unit(1.2, "lines"),
           keyheight = unit(0.8, "lines")
-        )
+        ),
+        shape = guide_legend(order = 2)
       ) +
       coord_fixed() +  
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
       labs(subtitle = 'Measured vs. requested distance',
            x = 'Requested distance (cm)',
            y = 'Measured distance (cm)',
-           caption = 'Check data only. Lines connect successive measurements.\nDashed line: y = x (perfect agreement)')
+           caption = text_legend_p1)
   }
  
-  # Plot 2: Measured over requested distance (CHECK DATA ONLY)
+  # Plot 2: Measured over requested distance (CALIBRATION AND CHECK DATA, EXCLUDING JITTER)
   # x-axis: requested distance, y-axis: measured / requested ratio
+  # Debug: show data breakdown for p2
+  message("[DEBUG p2] p2_data rows: ", nrow(p2_data))
+  if (nrow(p2_data) > 0 && "source" %in% names(p2_data)) {
+    p2_source_counts <- table(p2_data$source)
+    message("[DEBUG p2] p2_data by source: ", paste(names(p2_source_counts), p2_source_counts, sep = "=", collapse = ", "))
+  }
+  
   p2 <- NULL
   if (nrow(p2_data) > 0) {
-    p2 <- ggplot(p2_data, aes(x = p2_x, y = p2_y, color = participant)) +
+    # Count calibration and check data points
+    n_calib_p2 <- sum(p2_data$source == "calibration", na.rm = TRUE)
+    n_check_p2 <- sum(p2_data$source == "check", na.rm = TRUE)
+    
+    # Text legend to appear below graphical legends
+    text_legend_p2 <- "Lines connect successive measurements. Dashed line: ratio = 1 (perfect agreement)"
+    
+    p2 <- ggplot(p2_data, aes(x = p2_x, y = p2_y, color = participant, shape = source)) +
       geom_path(aes(group = participant), linetype = "solid", alpha = 0.7) +
       geom_point(size = 2.5, stroke = 1) +
+      # Shape scale: closed circle (16) for calibration, open circle (1) for check
+      scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
+                         labels = c("calibration" = "Calibration", "check" = "Check")) +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
                           label = paste0('N=', n_distinct(p2_data$participant), '\n',
                                          'Mean=', p2_mean_formatted, '\n',
@@ -2406,16 +2507,18 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         color = guide_legend(
           ncol = 3,
           title = "",
+          order = 1,
           override.aes = list(size = 2),
           keywidth = unit(1.2, "lines"),
           keyheight = unit(0.8, "lines")
-        )
+        ),
+        shape = guide_legend(order = 2)
       ) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
       labs(subtitle = 'Measured over requested distance',
            x = 'Requested distance (cm)',
            y = 'Measured / Requested',
-           caption = 'Check data only. Lines connect successive measurements.\nDashed line: ratio = 1 (perfect agreement)')
+           caption = text_legend_p2)
   }
 
   # Plot 4: Eye feet position vs distance error
@@ -2510,7 +2613,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         labs(subtitle = 'Focal length: calibration/check vs. check',
              x = 'fOverWidth: check',
              y = 'fOverWidth: calibration / check',
-             caption = 'Dashed line shows y=1 (perfect agreement)')
+             caption = 'Dashed line: y = 1 (perfect agreement)')
       }
     }
   }
@@ -2602,7 +2705,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             labs(subtitle = 'Calibrated over mean factorVpxCm vs. spot diameter',
                  x = 'Spot diameter (deg)',
                  y = 'factorVpxCm over geometric mean',
-                 caption = 'Dashed line shows y=1 (perfect agreement with session mean)\nGeometric mean = 10^mean(log10(measuredEyeToCameraCm × ipdOverWidth × widthVpx))\nNote: X-axis has 0.5% jitter applied')
+                 caption = 'Dashed line: y = 1 (perfect agreement). X-axis has 0.5% jitter')
         }
       }
     }
@@ -2685,7 +2788,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           subtitle = 'histogram of fOverWidth median(calibration)/median(check)',
           x = "median(calibration)/median(check)",
           y = "Count",
-          caption = "Each dot = median ratio for one participant"
+          caption = 'Each dot = median ratio for one participant'
         ) +
         theme_bw() +
         theme(
@@ -3107,8 +3210,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ungroup()
         
         fOverWidth_max_count <- max(check_plot_data$dot_y)
-        x_min <- min(check_plot_data$fOverWidth, na.rm = TRUE) - 0.02
-        x_max <- max(check_plot_data$fOverWidth, na.rm = TRUE) + 0.02
+        # Ensure x-axis limits include all tick marks (0.4 to 1.6)
+        x_min <- min(0.4, min(check_plot_data$fOverWidth, na.rm = TRUE) - 0.02)
+        x_max <- max(1.6, max(check_plot_data$fOverWidth, na.rm = TRUE) + 0.02)
         
         p11 <- ggplot(check_plot_data, aes(x = fOverWidth)) +
           # Filled circles for calibration, open circles for check
@@ -3161,18 +3265,39 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           height = 4.5  # Slightly taller to accommodate legend spacing
         )
         
-        median_ratio_fw <- median(check_plot_data$fOverWidth, na.rm = TRUE)
-        p12 <- ggplot(check_plot_data, aes(x = as.numeric(widthVpx), y = fOverWidth)) +
-          # Filled circles for calibration, open circles for check
+        # Create calibration plot data from camera table
+        calib_plot_data <- calib_fOverWidth %>%
+          filter(!is.na(fOverWidth_calib), is.finite(fOverWidth_calib),
+                 !is.na(widthVpx), widthVpx > 0) %>%
+          mutate(
+            participant = PavloviaParticipantID,
+            fOverWidth = fOverWidth_calib,
+            source = "calibration"
+          ) %>%
+          select(participant, widthVpx, fOverWidth, source)
+        
+        # Combine calibration and check data for scatter plot
+        scatter_plot_data <- bind_rows(
+          calib_plot_data,
+          check_plot_data %>% select(participant, widthVpx, fOverWidth, source)
+        )
+        
+        message("[DEBUG fOverWidth scatter] calib_plot_data rows: ", nrow(calib_plot_data), 
+                ", check_plot_data rows: ", nrow(check_plot_data),
+                ", combined rows: ", nrow(scatter_plot_data))
+        
+        median_ratio_fw <- median(scatter_plot_data$fOverWidth, na.rm = TRUE)
+        p12 <- ggplot(scatter_plot_data, aes(x = as.numeric(widthVpx), y = fOverWidth)) +
+          # Filled circles for calibration (16), open circles for check (1)
           geom_point(aes(color = participant, shape = source), size = 3, alpha = 0.85, stroke = 1) +
           geom_hline(yintercept = median_ratio_fw, linetype = "dashed") +
           ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                              label = paste0('N=', n_distinct(check_plot_data$participant),
+                              label = paste0('N=', n_distinct(scatter_plot_data$participant),
                                              '\nmedian=', format(round(median_ratio_fw, 3), nsmall = 3)),
                               size = 3) +
           scale_color_manual(values = colorPalette) +
-          scale_shape_manual(values = c("calibration" = 16, "check" = 21),
-                             labels = c("calibration" = "calibration", "check" = "check")) +
+          scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
+                             labels = c("calibration" = "Calibration", "check" = "Check")) +
           scale_x_continuous(expand = expansion(mult = c(0.02, 0.05)),
                              breaks = scales::pretty_breaks(n = 6),
                              labels = scales::label_number(accuracy = 1, big.mark = "")) +
@@ -3181,11 +3306,12 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           guides(
             color = guide_legend(
               ncol = 3,
-              title = "Participant",
+              title = "",
+              order = 1,
               override.aes = list(size = 2)
             ),
             shape = guide_legend(
-              title = "Phase",
+              order = 2,
               override.aes = list(size = 3, color = "black", stroke = 1.5)
             )
           ) +
@@ -3193,7 +3319,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           labs(
             subtitle = 'fOverWidth vs max width',
             x = 'max width (px)',
-            y = 'fOverWidth'
+            y = 'fOverWidth',
+            caption = 'Dashed line: median fOverWidth'
           ) +
           theme_classic() +
           theme(
@@ -3209,7 +3336,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         
         fOverWidth_scatter <- list(
           plot = p12,
-          height = compute_auto_height(base_height = 7, n_items = n_distinct(check_plot_data$participant), per_row = 3, row_increase = 0.06)
+          height = compute_auto_height(base_height = 7, n_items = n_distinct(scatter_plot_data$participant), per_row = 3, row_increase = 0.06)
         )
       }
     }
@@ -3414,11 +3541,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           subtitle = 'Focal length: calibration 1 & 2 over check',
           x = "",
           y = "fOverWidth calibration / median(check)",
-          caption = "Note: X-axis has horizontal jitter applied"
+          caption = 'Dashed line: y = 1 (perfect agreement). X-axis has horizontal jitter applied'
         ) +
         theme_bw() +
         theme(
-          legend.key.size  = unit(0.35, "cm"),,
+          legend.key.size  = unit(0.35, "cm"),
           legend.title = element_text(size = 6),
           legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
           legend.box.margin = margin(0, 0, 6, 0, "pt"),
@@ -3972,7 +4099,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
         labs(subtitle = 'Check distance error vs. blindspot diameter',
              x = 'Blindspot diameter (deg)',
              y = 'Check measured / requested distance',
-             caption = 'Red dashed line shows perfect accuracy (ratio = 1.0)\nNote: X-axis has 0.5% jitter applied')
+             caption = 'Dashed line: ratio = 1.0 (perfect accuracy). X-axis has 0.5% jitter')
     }
   }
 
@@ -4492,39 +4619,77 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
 
 # Plot 2: imageBasedEyesToPointCm vs. rulerBasedEyesToFootCm  
 # Shows measured line-of-sight distance as function of ruler-based horizontal distance
-# CHECK DATA ONLY - calibration points lie on equality line by definition
+# INCLUDES BOTH CALIBRATION (closed circles) AND CHECK DATA (open circles), EXCLUDING JITTER
 plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResults) {
   
   check_data <- distanceCalibrationResults$checkJSON
+  calib_data <- distanceCalibrationResults$TJSON
   
-  if (nrow(check_data) == 0) {
+  if (nrow(check_data) == 0 && nrow(calib_data) == 0) {
     return(list(plot = NULL, height = NULL))
   }
   
-  # Prepare CHECK data only - use imageBasedEyesToPointCm (vertical) and rulerBasedEyesToFootCm (horizontal)
-  # IMPORTANT: Include measurement_order_within_participant and arrange by it to preserve measurement order
-  plot_data <- check_data %>%
-    mutate(
-      plot_x = as.numeric(rulerBasedEyesToFootCm),
-      plot_y = as.numeric(imageBasedEyesToPointCm)
-    ) %>%
-    filter(is.finite(plot_x), is.finite(plot_y)) %>%
+  # Prepare CHECK data - filter out jitter
+  check_plot_data <- tibble()
+  if (nrow(check_data) > 0) {
+    check_plot_data <- check_data %>%
+      # Filter out jitter: exclude rows where json_type contains "jitter" (case-insensitive)
+      {if("json_type" %in% names(.)) filter(., is.na(json_type) | !grepl("jitter", json_type, ignore.case = TRUE)) else .} %>%
+      mutate(
+        plot_x = as.numeric(rulerBasedEyesToFootCm),
+        plot_y = as.numeric(imageBasedEyesToPointCm),
+        source = "check"
+      ) %>%
+      filter(is.finite(plot_x), is.finite(plot_y)) %>%
+      group_by(participant) %>%
+      mutate(measurement_order_within_participant = row_number()) %>%
+      ungroup()
+  }
+  
+  # Prepare CALIBRATION data
+  calib_plot_data <- tibble()
+  if (nrow(calib_data) > 0) {
+    calib_plot_data <- calib_data %>%
+      mutate(
+        plot_x = as.numeric(rulerBasedEyesToFootCm),
+        plot_y = as.numeric(imageBasedEyesToPointCm),
+        source = "calibration"
+      ) %>%
+      filter(is.finite(plot_x), is.finite(plot_y)) %>%
+      group_by(participant) %>%
+      mutate(measurement_order_within_participant = row_number()) %>%
+      ungroup()
+  }
+  
+  # Combine calibration and check data
+  plot_data <- bind_rows(calib_plot_data, check_plot_data) %>%
     arrange(participant, measurement_order_within_participant)
+  
+  # Debug output
+  message("[DEBUG plot_eyeToPointCm_vs_requestedEyesToFootCm] check_plot_data rows: ", nrow(check_plot_data), 
+          ", calib_plot_data rows: ", nrow(calib_plot_data), ", combined rows: ", nrow(plot_data))
   
   if (nrow(plot_data) == 0) {
     return(list(plot = NULL, height = NULL))
   }
+  
+  # Count calibration and check data points
+  n_calib <- sum(plot_data$source == "calibration", na.rm = TRUE)
+  n_check <- sum(plot_data$source == "check", na.rm = TRUE)
   
   # Use the same x/y range so y=x is a true 45° line
   xy_vals <- c(plot_data$plot_x, plot_data$plot_y)
   xy_vals <- xy_vals[is.finite(xy_vals) & xy_vals > 0]
   shared_limits <- if (length(xy_vals) > 0) range(xy_vals, na.rm = TRUE) else NULL
 
-  # Create the plot - CHECK DATA ONLY
+  # Create the plot - CALIBRATION (closed circles) AND CHECK DATA (open circles)
   # Use geom_path instead of geom_line to connect points in measurement order, not x-value order
-  p <- ggplot(plot_data, aes(x = plot_x, y = plot_y, color = participant)) +
+  p <- ggplot(plot_data, aes(x = plot_x, y = plot_y, color = participant, shape = source)) +
     geom_path(aes(group = participant), linewidth = 0.5, alpha = 0.6) +
-    geom_point(size = 2.5, alpha = 0.8) +
+    geom_point(size = 2.5, alpha = 0.8, stroke = 1) +
+    # Shape scale: closed circle (16) for calibration, open circle (1) for check
+    scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
+                       labels = c("calibration" = "Calibration", "check" = "Check")) +
     # Add identity line (if imageBasedEyesToPointCm == rulerBasedEyesToFootCm, perfect horizontal viewing)
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
     scale_x_log10(
@@ -4544,7 +4709,8 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
                         label = distanceCalibrationResults$statement) +
     guides(
-      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5))
+      color = guide_legend(ncol = 3, title = "", order = 1, override.aes = list(size = 1.5)),
+      shape = guide_legend(order = 2)
     ) +
     theme_bw() +
     theme(
@@ -4559,7 +4725,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
       subtitle = 'imageBasedEyesToPointCm vs. rulerBasedEyesToFootCm',
       x = 'rulerBasedEyesToFootCm (cm)',
       y = 'imageBasedEyesToPointCm (cm)',
-      caption = 'Check data only. Measured line-of-sight distance vs. ruler-based horizontal distance.\nDashed line: y = x (horizontal viewing)'
+      caption = 'Dashed line: y = x (horizontal viewing)'
     )
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
@@ -4571,6 +4737,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
 # This is the key plot showing: "Is the participant at the requested distance?"
 # eyesToFootCm = fOverWidth * widthVpx * ipdCm / ipdVpx
 # where fOverWidth is saved from calibration and ipdCm = 6.3 cm (standard IPD)
+# INCLUDES BOTH CALIBRATION (closed circles) AND CHECK DATA (open circles), EXCLUDING JITTER
 plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults) {
   
   # Get calibration data to extract fOverWidth per participant
@@ -4592,45 +4759,90 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     fOverWidth_per_participant <- tibble(participant = character(), fOverWidth_calibration = numeric())
   }
   
-  if (nrow(check_data) == 0 || nrow(fOverWidth_per_participant) == 0) {
+  if (nrow(fOverWidth_per_participant) == 0) {
     return(list(plot = NULL, height = NULL))
   }
   
-  # Ensure we have an order column so paths connect in measurement order
-  if (!"measurement_order_within_participant" %in% names(check_data)) {
-    check_data <- check_data %>%
+  # ===== PREPARE CHECK DATA =====
+  check_plot_data <- tibble()
+  if (nrow(check_data) > 0) {
+    # Ensure we have an order column so paths connect in measurement order
+    if (!"measurement_order_within_participant" %in% names(check_data)) {
+      check_data <- check_data %>%
+        group_by(participant) %>%
+        mutate(measurement_order_within_participant = row_number()) %>%
+        ungroup()
+    }
+    
+    # Filter out jitter and join with calibration fOverWidth
+    check_plot_data <- check_data %>%
+      # Filter out jitter: exclude rows where json_type contains "jitter" (case-insensitive)
+      {if("json_type" %in% names(.)) filter(., is.na(json_type) | !grepl("jitter", json_type, ignore.case = TRUE)) else .} %>%
+      left_join(fOverWidth_per_participant, by = "participant") %>%
+      filter(
+        is.finite(requestedEyesToFootCm), requestedEyesToFootCm > 0,
+        is.finite(ipdOverWidth), ipdOverWidth > 0,
+        is.finite(fOverWidth_calibration)
+      ) %>%
+      mutate(
+        eyesToFootCm_estimated = fOverWidth_calibration * ipdCm_standard / ipdOverWidth,
+        source = "check"
+      ) %>%
+      filter(is.finite(eyesToFootCm_estimated), eyesToFootCm_estimated > 0)
+  }
+  
+  # ===== PREPARE CALIBRATION DATA =====
+  # For calibration, requestedEyesToFootCm = eyeToFootCm (the calibration establishes the baseline)
+  calib_plot_data <- tibble()
+  if (nrow(tjson_data) > 0) {
+    calib_plot_data <- tjson_data %>%
+      left_join(fOverWidth_per_participant, by = "participant") %>%
+      filter(
+        is.finite(eyeToFootCm), eyeToFootCm > 0,
+        is.finite(ipdOverWidth), ipdOverWidth > 0,
+        is.finite(fOverWidth_calibration)
+      ) %>%
+      mutate(
+        requestedEyesToFootCm = eyeToFootCm,  # During calibration, requested == measured
+        eyesToFootCm_estimated = fOverWidth_calibration * ipdCm_standard / ipdOverWidth,
+        source = "calibration"
+      ) %>%
+      filter(is.finite(eyesToFootCm_estimated), eyesToFootCm_estimated > 0) %>%
       group_by(participant) %>%
       mutate(measurement_order_within_participant = row_number()) %>%
       ungroup()
   }
-
-  # Join check data with calibration fOverWidth and compute estimated eyesToFootCm
-  # eyesToFootCm_estimated = fOverWidth_calibration * ipdCm_standard / ipdOverWidth
-  plot_data <- check_data %>%
-    left_join(fOverWidth_per_participant, by = "participant") %>%
-    filter(
-      is.finite(requestedEyesToFootCm), requestedEyesToFootCm > 0,
-      is.finite(ipdOverWidth), ipdOverWidth > 0,
-      is.finite(fOverWidth_calibration)
-    ) %>%
-    mutate(
-      eyesToFootCm_estimated = fOverWidth_calibration * ipdCm_standard / ipdOverWidth
-    ) %>%
-    filter(is.finite(eyesToFootCm_estimated), eyesToFootCm_estimated > 0) %>%
+  
+  # Combine calibration and check data
+  plot_data <- bind_rows(calib_plot_data, check_plot_data) %>%
     arrange(participant, measurement_order_within_participant)
+  
+  # Debug output
+  message("[DEBUG plot_eyesToFootCm_estimated_vs_requested] check_plot_data rows: ", nrow(check_plot_data), 
+          ", calib_plot_data rows: ", nrow(calib_plot_data), ", combined rows: ", nrow(plot_data))
 
   if (nrow(plot_data) == 0) {
     return(list(plot = NULL, height = NULL))
   }
+  
+  # Count calibration and check data points
+  n_calib <- sum(plot_data$source == "calibration", na.rm = TRUE)
+  n_check <- sum(plot_data$source == "check", na.rm = TRUE)
 
   # Use the same x/y range so y=x is a true 45° line
   shared_limits <- range(c(plot_data$requestedEyesToFootCm, plot_data$eyesToFootCm_estimated), na.rm = TRUE)
 
-  # Create the plot
-  p <- ggplot(plot_data, aes(x = requestedEyesToFootCm, y = eyesToFootCm_estimated)) +
+  # Formula text for caption
+  formula_text <- paste0("eyesToFootCm = fOverWidth_calib * ipdCm / ipdOverWidth (ipdCm=", ipdCm_standard, "cm)")
+  
+  # Create the plot - CALIBRATION (closed circles) AND CHECK DATA (open circles)
+  p <- ggplot(plot_data, aes(x = requestedEyesToFootCm, y = eyesToFootCm_estimated, shape = source)) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", linewidth = 0.8) +
-    geom_point(aes(color = participant), size = 2.5, alpha = 0.8) +
+    geom_point(aes(color = participant), size = 2.5, alpha = 0.8, stroke = 1) +
     geom_path(aes(color = participant, group = participant), linewidth = 0.5, alpha = 0.6) +
+    # Shape scale: closed circle (16) for calibration, open circle (1) for check
+    scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
+                       labels = c("calibration" = "Calibration", "check" = "Check")) +
     scale_x_log10(
       limits = shared_limits,
       breaks = scales::log_breaks(n = 6),
@@ -4648,7 +4860,8 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
                         label = distanceCalibrationResults$statement) +
     guides(
-      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5))
+      color = guide_legend(ncol = 3, title = "", order = 1, override.aes = list(size = 1.5)),
+      shape = guide_legend(order = 2)
     ) +
     theme_bw() +
     theme(
@@ -4663,8 +4876,7 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
       subtitle = 'eyesToFootCm (via ipdOverWidth) vs. requestedEyesToFootCm',
       x = 'requestedEyesToFootCm (cm)',
       y = 'eyesToFootCm (cm)',
-      caption = paste0('eyesToFootCm_estimated = fOverWidth_calibration * ipdCm / ipdOverWidth, where ipdCm = ', ipdCm_standard, ' cm\n',
-                       'Dashed line: perfect agreement (estimated = requested)')
+      caption = paste0('Dashed line: y = x (perfect agreement). ', formula_text)
     )
 
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
