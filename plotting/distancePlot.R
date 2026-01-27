@@ -684,6 +684,8 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
       `fOverWidth calibration/check` = ifelse(is.na(calibration_check_ratio_tmp), NA_character_, format(round(calibration_check_ratio_tmp, 3), nsmall = 3))
     ) %>%
     select(-fOverWidth_calibration, -fOverWidth_check, -calibration_check_ratio_tmp, -factorVpxCm) %>%
+    # Remove any stray fOverWidth column that leaked through from joins
+    {if("fOverWidth" %in% names(.)) select(., -fOverWidth) else .} %>%
     arrange(ok_priority, PavloviaParticipantID) %>%
     select(-ok_priority) %>%
     # Delete cameraResolutionN column
@@ -708,8 +710,8 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     # Define the desired column order
     {desired_order <- c(
       "ok",
-      "Pavlovia Participant ID",
       "Prolific Participant ID",
+      "Pavlovia Participant ID",
       "device type",
       "system",
       "browser",
@@ -1083,14 +1085,104 @@ get_distance_calibration <- function(data_list, minRulerCm) {
             if (!is.null(distanceCalibration$imageBasedEyesToPointCm)) {
               
               measured_vals <- as.numeric(distanceCalibration$imageBasedEyesToPointCm)
-              requested_vals <- as.numeric(distanceCalibration$rulerBasedEyesToPointCm)
+              
+              # Get the requested distance from the parameter (this is the ruler-based/target value)
+              # Try t_meta first, then JSON, then CSV data
+              requested_distance_param <- NA_real_
+              if ("_calibrateTrackDistance" %in% names(t_meta)) {
+                param_val <- as.numeric(get_first_non_na(t_meta$`_calibrateTrackDistance`))
+                if (!is.na(param_val)) {
+                  requested_distance_param <- param_val
+                  message("[DEBUG PARAM] Session ", i, ": _calibrateTrackDistance from t_meta = ", param_val)
+                }
+              }
+              # Fallback: try _calibrateDistance from JSON
+              if (is.na(requested_distance_param) && !is.null(distanceCalibration$`_calibrateDistance`)) {
+                param_val <- as.numeric(get_first_non_na(distanceCalibration$`_calibrateDistance`))
+                if (!is.na(param_val)) {
+                  requested_distance_param <- param_val
+                  message("[DEBUG PARAM] Session ", i, ": _calibrateDistance from JSON = ", param_val)
+                }
+              }
+              # Final fallback: try from CSV data_list
+              if (is.na(requested_distance_param) && "_calibrateTrackDistance" %in% names(dl)) {
+                param_val <- as.numeric(get_first_non_na(dl$`_calibrateTrackDistance`))
+                if (!is.na(param_val)) {
+                  requested_distance_param <- param_val
+                  message("[DEBUG PARAM] Session ", i, ": _calibrateTrackDistance from CSV = ", param_val)
+                }
+              }
+              if (is.na(requested_distance_param)) {
+                message("[DEBUG PARAM] Session ", i, ": _calibrateTrackDistance NOT FOUND anywhere")
+                message("  Available t_meta columns: ", paste(names(t_meta), collapse=", "))
+                message("  Available JSON fields: ", paste(names(distanceCalibration), collapse=", "))
+              }
+              
+              # Check if rulerBasedEyesToPointCm exists and if it's different from imageBased
+              if (is.null(distanceCalibration$rulerBasedEyesToPointCm)) {
+                message("[WARNING] Session ", i, ": rulerBasedEyesToPointCm is NULL in JSON!")
+                message("  Available JSON fields: ", paste(names(distanceCalibration), collapse=", "))
+                # Use the parameter value as the requested/ruler-based distance
+                if (!is.na(requested_distance_param)) {
+                  message("  Using _calibrateTrackDistance parameter (", requested_distance_param, ") as rulerBased")
+                  requested_vals <- rep(requested_distance_param, length(measured_vals))
+                } else if (!is.null(distanceCalibration$requestedEyesToPointCm)) {
+                  message("  Using requestedEyesToPointCm as fallback for rulerBased")
+                  requested_vals <- as.numeric(distanceCalibration$requestedEyesToPointCm)
+                } else {
+                  message("  ERROR: No ruler-based value found, cannot calculate ratio correctly")
+                  requested_vals <- measured_vals  # This would cause ratio = 1, which is the problem!
+                }
+              } else {
+                json_ruler_vals <- as.numeric(distanceCalibration$rulerBasedEyesToPointCm)
+                # Check if they're actually the same (which indicates a data problem in JSON)
+                if (length(measured_vals) == length(json_ruler_vals) && 
+                    all(abs(measured_vals - json_ruler_vals) < 1e-10, na.rm = TRUE)) {
+                  message("[WARNING] Session ", i, ": imageBasedEyesToPointCm == rulerBasedEyesToPointCm in JSON!")
+                  message("  JSON has identical values (data issue), trying to use parameter value instead")
+                  # Use the parameter value as the requested/ruler-based distance
+                  if (!is.na(requested_distance_param)) {
+                    message("  Using parameter value (", requested_distance_param, ") as rulerBased")
+                    requested_vals <- rep(requested_distance_param, length(measured_vals))
+                  } else if (!is.null(distanceCalibration$requestedEyesToPointCm)) {
+                    message("  Parameter not found, trying requestedEyesToPointCm from JSON")
+                    requested_vals <- as.numeric(distanceCalibration$requestedEyesToPointCm)
+                  } else {
+                    message("  ERROR: No alternative found, ratio will be 1.0 (data issue)")
+                    requested_vals <- json_ruler_vals  # Fall back to JSON value (will be wrong)
+                  }
+                } else {
+                  # JSON values are different, use them
+                  requested_vals <- json_ruler_vals
+                }
+              }
               n_measurements <- length(measured_vals)
+              
+              # Debug: Check what we extracted from JSON
+              message("[DEBUG FEET JSON EXTRACTION] Session ", i, 
+                      ": imageBased length=", length(measured_vals),
+                      ", rulerBased length=", length(requested_vals),
+                      ", imageBased first 3=", paste(head(measured_vals, 3), collapse=", "),
+                      ", rulerBased first 3=", paste(head(requested_vals, 3), collapse=", "),
+                      ", Are they equal? ", if(length(measured_vals) > 0 && length(requested_vals) > 0) 
+                        all(abs(head(measured_vals, min(3, length(measured_vals))) - 
+                                head(requested_vals, min(3, length(requested_vals)))) < 1e-10) else "N/A")
+              
+              # Calculate what the ratio will be
+              if (length(measured_vals) > 0 && length(requested_vals) > 0) {
+                sample_ratio <- measured_vals[1] / requested_vals[1]
+                message("[DEBUG RATIO PREVIEW] Session ", i, 
+                        ": First ratio will be ", measured_vals[1], " / ", requested_vals[1], " = ", sample_ratio)
+              }
               
               # Create t from t_meta with JSON measurements
               t <- t_meta[rep(1, n_measurements), ] %>%
                 mutate(
                   calibrateTrackDistanceMeasuredCm = measured_vals,
                   calibrateTrackDistanceRequestedCm = requested_vals,
+                  # Store original JSON values for correct ratio calculation
+                  imageBasedEyesToPointCm = measured_vals,
+                  rulerBasedEyesToPointCm = requested_vals,
                   measurement_index = row_number()
                 )
               
@@ -1112,7 +1204,27 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                 mutate(
                   avg_eye_x_px = (left_x + right_x) / 2,
                   avg_eye_y_px = (left_y + right_y) / 2,
-                  distance_ratio = calibrateTrackDistanceMeasuredCm / calibrateTrackDistanceRequestedCm
+                  # Calculate ratio correctly: image-based (numerator) / ruler-based (denominator)
+                  distance_ratio = ifelse(
+                    is.finite(imageBasedEyesToPointCm) & is.finite(rulerBasedEyesToPointCm) & rulerBasedEyesToPointCm > 0,
+                    imageBasedEyesToPointCm / rulerBasedEyesToPointCm,
+                    NA_real_
+                  )
+              )
+              
+              # Debug: Log the calculated ratios
+              if (nrow(t) > 0) {
+                message("[DEBUG RATIO CALCULATION] Session ", i, 
+                        ": Calculated ", nrow(t), " ratios")
+                message("  First row: imageBased=", t$imageBasedEyesToPointCm[1], 
+                        ", rulerBased=", t$rulerBasedEyesToPointCm[1],
+                        ", ratio=", t$distance_ratio[1])
+                if (nrow(t) > 1) {
+                  message("  All ratios: ", paste(t$distance_ratio, collapse=", "))
+                }
+              }
+              
+              t <- t %>% mutate(
                 )
               if ("pxPerCm" %in% names(t) && !all(is.na(t$pxPerCm))) {
                 t <- t %>% mutate(pxPerCm = as.numeric(pxPerCm),
@@ -1723,7 +1835,7 @@ get_sizeCheck_data <- function(data_list) {
 # deleted CSV columns: calibrateTrackDistanceMeasuredCm and calibrateTrackDistanceRequestedCm
 # Distance measurement data is now extracted from JSON only (distanceCalibrationJSON/distanceCheckJSON)
 
-plot_eye_feet_position <- function(distanceCalibrationResults) {
+plot_eye_feet_position <- function(distanceCalibrationResults, debug = TRUE) {
   
   # Use eye_feet (calibration data) for "during calibration" plot
   eye_feet_data <- distanceCalibrationResults$eye_feet
@@ -1731,6 +1843,44 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
   # Fallback to feet_calib if eye_feet is empty
   if (nrow(eye_feet_data) == 0) {
     eye_feet_data <- distanceCalibrationResults$feet_calib
+    if (debug) {
+      message("=== FALLBACK: Using feet_calib (eye_feet was empty) ===")
+    }
+  }
+  
+  # Debug print AFTER fallback so it shows the actual data being used
+  if (debug) {
+      message("=== RAW eye_feet_data (after fallback if needed) ===")
+      message("Rows: ", nrow(eye_feet_data))
+      message("Cols: ", paste(names(eye_feet_data), collapse = ", "))
+      if ("distance_ratio" %in% names(eye_feet_data)) {
+        print(summary(eye_feet_data$distance_ratio))
+      } else {
+        message("distance_ratio column is missing!")
+      }
+      # Debug: Check the actual values of imageBased and rulerBased
+      if ("imageBasedEyesToPointCm" %in% names(eye_feet_data) && "rulerBasedEyesToPointCm" %in% names(eye_feet_data)) {
+        message("=== CHECKING imageBased vs rulerBased VALUES ===")
+        message("imageBasedEyesToPointCm summary:")
+        print(summary(eye_feet_data$imageBasedEyesToPointCm))
+        message("rulerBasedEyesToPointCm summary:")
+        print(summary(eye_feet_data$rulerBasedEyesToPointCm))
+        # Show first few rows with both values
+        debug_sample <- eye_feet_data %>%
+          select(participant, imageBasedEyesToPointCm, rulerBasedEyesToPointCm, distance_ratio) %>%
+          head(10)
+        message("Sample rows (first 10):")
+        print(debug_sample)
+        # Check if they're equal
+        if (nrow(eye_feet_data) > 0) {
+          are_equal <- !is.na(eye_feet_data$imageBasedEyesToPointCm) & 
+                       !is.na(eye_feet_data$rulerBasedEyesToPointCm) &
+                       abs(eye_feet_data$imageBasedEyesToPointCm - eye_feet_data$rulerBasedEyesToPointCm) < 1e-10
+          message("Rows where imageBased == rulerBased: ", sum(are_equal, na.rm = TRUE), " / ", nrow(eye_feet_data))
+        }
+      } else {
+        message("WARNING: imageBasedEyesToPointCm or rulerBasedEyesToPointCm columns missing!")
+      }
   }
 
   if (nrow(eye_feet_data) == 0) {
@@ -1738,10 +1888,20 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
   }
 
   # Filter out rows with invalid coordinates and distance_ratio
+  n_before <- nrow(eye_feet_data)
+
   eye_feet_data <- eye_feet_data %>%
     filter(!is.na(avg_eye_x_px), !is.na(avg_eye_y_px),
            !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm), 
            !is.na(distance_ratio), is.finite(distance_ratio))
+  
+  if (debug) {
+      message("=== AFTER FILTER ===")
+      message("Rows before: ", n_before, " | after: ", nrow(eye_feet_data), 
+              " | dropped: ", n_before - nrow(eye_feet_data))
+      message("distance_ratio summary after filter:")
+      print(summary(eye_feet_data$distance_ratio))
+  }
 
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
@@ -1797,6 +1957,47 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
       session_id = as.character(participant)
     )
   
+  if (debug) {
+      message("=== RATIO PIPELINE CHECK ===")
+      # Show a few rows including original and transformed ratio
+      print(
+        eye_feet_data %>%
+          transmute(participant,
+                    distance_ratio,
+                    ratio_continuous,
+                    clipped_low  = distance_ratio < 0.7,
+                    clipped_high = distance_ratio > 1.4) %>%
+          head(20)
+      )
+
+      message("How many ratios got clipped?")
+      print(table(
+        low  = eye_feet_data$distance_ratio < 0.7,
+        high = eye_feet_data$distance_ratio > 1.4,
+        useNA = "ifany"
+      ))
+
+      message("Summary distance_ratio (raw):")
+      print(summary(eye_feet_data$distance_ratio))
+      message("Summary ratio_continuous (after clamp 0.7..1.4):")
+      print(summary(eye_feet_data$ratio_continuous))
+    }
+
+    if (debug) {
+        message("=== CLIPPING CHECK ===")
+        n_clip_x <- sum(eye_feet_data$avg_eye_x_cm != eye_feet_data$foot_x_cm_clipped, na.rm = TRUE)
+        n_clip_y <- sum(eye_feet_data$avg_eye_y_cm != eye_feet_data$foot_y_cm_clipped, na.rm = TRUE)
+        message("Clipped X count: ", n_clip_x, " / ", nrow(eye_feet_data))
+        message("Clipped Y count: ", n_clip_y, " / ", nrow(eye_feet_data))
+
+        # show some examples of clipped rows
+        clipped_examples <- eye_feet_data %>%
+          filter(avg_eye_x_cm != foot_x_cm_clipped | avg_eye_y_cm != foot_y_cm_clipped) %>%
+          select(participant, avg_eye_x_cm, avg_eye_y_cm, foot_x_cm_clipped, foot_y_cm_clipped, distance_ratio) %>%
+          head(10)
+        if (nrow(clipped_examples) > 0) print(clipped_examples)
+    }
+  
   sample_plot_data <- eye_feet_data %>%
     select(participant, foot_x_cm_clipped, foot_y_cm_clipped, ratio_continuous, distance_ratio) %>%
     head(3)
@@ -1809,7 +2010,22 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
     )
 
   n_sessions <- n_distinct(eye_feet_data$session_id)
+    if (debug) {
+    debug_tbl <- eye_feet_data %>%
+      select(participant,
+            avg_eye_x_px, avg_eye_y_px,
+            avg_eye_x_cm, avg_eye_y_cm,
+            foot_x_cm_clipped, foot_y_cm_clipped,
+            distance_ratio, ratio_continuous,
+            pxPerCm) %>%
+      arrange(desc(distance_ratio))
 
+    message("=== TOP 20 HIGHEST RATIOS ===")
+    print(head(debug_tbl, 20))
+
+    # Optional: save locally
+    # write.csv(debug_tbl, "debug_eye_feet_plot_data.csv", row.names = FALSE)
+    }
   # Use the pre-computed statement from distanceCalibrationResults (has the parameter values)
   statement <- distanceCalibrationResults$statement
   param_tbl <- build_param_table(eye_feet_data)
@@ -1892,7 +2108,7 @@ plot_eye_feet_position <- function(distanceCalibrationResults) {
                           label = "Rectangle: screen. Points beyond 50% margin clipped. Origin (0,0): top-left", 
                           size = 2.5, hjust = 0.5, vjust = 1) +
       labs(
-        subtitle = "Measured over requested distance vs. foot position during calibration",
+        subtitle = "Measured over requested distance vs. foot position\nduring calibration",
         x = "Eye foot X (cm)",
         y = "Eye foot Y (cm)"
       ) +
@@ -2063,7 +2279,7 @@ plot_eye_feet_position_during_check <- function(distanceCalibrationResults) {
                           label = "Rectangle: screen. Points beyond 50% margin clipped. Origin (0,0): top-left", 
                           size = 2.5, hjust = 0.5, vjust = 1) +
       labs(
-        subtitle = "Measured over requested distance vs. foot position during check",
+        subtitle = "Measured over requested distance vs. foot position\nduring check",
         x = "Eye foot X (cm)",
         y = "Eye foot Y (cm)"
       ) +
@@ -3526,12 +3742,20 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     if (nrow(calib_first_two) > 0) {
       # Set seed for reproducible jitter
       set.seed(42)
+      
+      # Generate one jitter offset per participant (same offset for both calibration points)
+      # This ensures all connecting lines have the same length (vertical)
+      participant_jitter <- calib_first_two %>%
+        distinct(participant) %>%
+        mutate(jitter_offset = runif(n(), -0.075, 0.075))  # Reduced by factor of 2
+      
       p15_data <- calib_first_two %>%
+        left_join(participant_jitter, by = "participant") %>%
         mutate(
           # Convert factor to numeric for jitter: "Calibration 1" = 1, "Calibration 2" = 2
           x_numeric = as.numeric(calibration_order),
-          # Add horizontal jitter (0.15 units on each side)
-          x_jitter = x_numeric + runif(n(), -0.15, 0.15)
+          # Add same horizontal jitter for both points of each participant
+          x_jitter = x_numeric + jitter_offset
         )
 
       p15 <- ggplot(p15_data, aes(x = x_jitter, y = ratio_over_check, color = participant, shape = calibration_order)) +
