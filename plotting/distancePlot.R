@@ -2333,7 +2333,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   
   # ===== COMBINE CALIBRATION AND CHECK DATA =====
   # Combine both calibration and check data for p1 (excluding jitter)
-  distance_individual <- bind_rows(calib_individual, check_individual)
+  distance_individual <- bind_rows(calib_individual, check_individual) %>%
+    arrange(participant, source, measurement_order_within_participant)
   # Keep reference to calibration data for use in later plots (p6, p7, etc.)
   distance <- calib_data
   
@@ -2401,18 +2402,15 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for line connections
   p1_data <- distance_individual %>%
     filter(!is.na(p1_x), !is.na(p1_y)) %>%
-    arrange(participant, measurement_order_within_participant)
+    arrange(participant, source, measurement_order_within_participant)
   
   # Plot 2 data: Measured over requested distance (CHECK DATA ONLY)
   # x-axis: rulerBasedEyesToFootCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToFootCm
   # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for line connections
   p2_data <- distance_individual %>%
     filter(!is.na(p2_x), !is.na(p2_y)) %>%
-    arrange(participant, measurement_order_within_participant)
+    arrange(participant, source, measurement_order_within_participant)
   
-  # Arrange by measurement order
-  distance_individual <- distance_individual %>%
-    arrange(participant, measurement_order_within_participant)
   
   # Debug: show data breakdown for p1
   message("[DEBUG p1] p1_data rows: ", nrow(p1_data))
@@ -2431,7 +2429,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     text_legend_p1 <- "Lines connect successive measurements. Dashed line: y = x (perfect agreement)"
     
     p1 <- ggplot(p1_data, aes(x = p1_x, y = p1_y, color = participant, shape = source)) +
-      geom_path(aes(group = participant), linetype = "solid", alpha = 0.7) +
+      geom_path(aes(group = interaction(participant, source)), linetype = "solid", alpha = 0.7) +
       geom_point(size = 2.5, stroke = 1) +
       # Shape scale: closed circle (16) for calibration, open circle (1) for check
       scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
@@ -2469,9 +2467,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         legend.box.just = "left"
       ) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-      labs(subtitle = 'Measured vs. requested distance',
-           x = 'Requested distance (cm)',
-           y = 'Measured distance (cm)')
+      labs(subtitle = 'imageBasedEyesToPointCm vs. rulerBasedEyesToPointCm',
+           x = 'rulerBasedEyesToPointCm',
+           y = 'imageBasedEyesToPointCm')
   }
  
   # Plot 2: Measured over requested distance (CALIBRATION AND CHECK DATA, EXCLUDING JITTER)
@@ -2493,7 +2491,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     text_legend_p2 <- "Lines connect successive measurements. Dashed line: ratio = 1 (perfect agreement)"
     
     p2 <- ggplot(p2_data, aes(x = p2_x, y = p2_y, color = participant, shape = source)) +
-      geom_path(aes(group = participant), linetype = "solid", alpha = 0.7) +
+      geom_path(aes(group = interaction(participant, source)), linetype = "solid", alpha = 0.7) +
       geom_point(size = 2.5, stroke = 1) +
       # Shape scale: closed circle (16) for calibration, open circle (1) for check
       scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
@@ -2534,9 +2532,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         legend.box.just = "left"
       ) +
       ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
-      labs(subtitle = 'Measured over requested distance',
-           x = 'Requested distance (cm)',
-           y = 'Measured / Requested')
+      labs(subtitle = 'imageBasedEyesToPointCm over rulerBasedEyesToPointCm',
+           x = 'rulerBasedEyesToPointCm',
+           y = 'imageBasedEyesToPointCm / rulerBasedEyesToPointCm')
   }
 
   # Plot 4: Eye feet position vs distance error
@@ -4700,7 +4698,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
   
   # Combine calibration and check data
   plot_data <- bind_rows(calib_plot_data, check_plot_data) %>%
-    arrange(participant, measurement_order_within_participant)
+    arrange(participant, source, measurement_order_within_participant)
   
   # Debug output
   message("[DEBUG plot_eyeToPointCm_vs_requestedEyesToFootCm] check_plot_data rows: ", nrow(check_plot_data), 
@@ -4722,7 +4720,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
   # Create the plot - CALIBRATION (closed circles) AND CHECK DATA (open circles)
   # Use geom_path instead of geom_line to connect points in measurement order, not x-value order
   p <- ggplot(plot_data, aes(x = plot_x, y = plot_y, color = participant, shape = source)) +
-    geom_path(aes(group = participant), linewidth = 0.5, alpha = 0.6) +
+    geom_path(aes(group = interaction(participant, source)), linewidth = 0.5, alpha = 0.6) +
     geom_point(size = 2.5, alpha = 0.8, stroke = 1) +
     # Shape scale: closed circle (16) for calibration, open circle (1) for check
     scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
@@ -4863,7 +4861,7 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
   
   # Combine calibration and check data
   plot_data <- bind_rows(calib_plot_data, check_plot_data) %>%
-    arrange(participant, measurement_order_within_participant)
+    arrange(participant, source, measurement_order_within_participant)
   
   # Debug output
   message("[DEBUG plot_eyesToFootCm_estimated_vs_requested] check_plot_data rows: ", nrow(check_plot_data), 
@@ -4887,7 +4885,7 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
   p <- ggplot(plot_data, aes(x = requestedEyesToFootCm, y = eyesToFootCm_estimated, shape = source)) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", linewidth = 0.8) +
     geom_point(aes(color = participant), size = 2.5, alpha = 0.8, stroke = 1) +
-    geom_path(aes(color = participant, group = participant), linewidth = 0.5, alpha = 0.6) +
+    geom_path(aes(color = participant, group = interaction(participant, source)), linewidth = 0.5, alpha = 0.6) +
     # Shape scale: closed circle (16) for calibration, open circle (1) for check
     scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
                        labels = c("calibration" = "Calibration", "check" = "Check")) +
@@ -4933,9 +4931,9 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults)
       plot.margin = margin(5, 5, 5, 5, "pt")
     ) +
     labs(
-      subtitle = 'eyesToFootCm (via ipdOverWidth) vs. requestedEyesToFootCm',
-      x = 'requestedEyesToFootCm (cm)',
-      y = 'eyesToFootCm (cm)'
+      subtitle = 'imageBasedEyesToFootCm vs. rulerBasedEyesToFootCm',
+      x = 'rulerBasedEyesToFootCm',
+      y = 'imageBasedEyesToFootCm'
     )
 
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
