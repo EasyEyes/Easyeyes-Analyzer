@@ -2518,9 +2518,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         p1_x = as.numeric(rulerBasedEyesToFootCm),
         p1_y = as.numeric(imageBasedEyesToPointCm),
         # For "Measured over requested distance" plot (p2):
-        # x-axis: rulerBasedEyesToFootCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToFootCm
-        p2_x = as.numeric(rulerBasedEyesToFootCm),
-        p2_y = as.numeric(imageBasedEyesToPointCm) / as.numeric(rulerBasedEyesToFootCm)
+        # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToPointCm
+        p2_x = as.numeric(rulerBasedEyesToPointCm),
+        p2_y = as.numeric(imageBasedEyesToPointCm) / as.numeric(rulerBasedEyesToPointCm)
       ) %>% 
       group_by(participant) %>%
       mutate(measurement_order_within_participant = row_number()) %>%
@@ -2538,9 +2538,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         p1_x = as.numeric(rulerBasedEyesToFootCm),
         p1_y = as.numeric(imageBasedEyesToPointCm),
         # For "Measured over requested distance" plot (p2):
-        # x-axis: rulerBasedEyesToFootCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToFootCm
-        p2_x = as.numeric(rulerBasedEyesToFootCm),
-        p2_y = as.numeric(imageBasedEyesToPointCm) / as.numeric(rulerBasedEyesToFootCm)
+        # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToPointCm
+        p2_x = as.numeric(rulerBasedEyesToPointCm),
+        p2_y = as.numeric(imageBasedEyesToPointCm) / as.numeric(rulerBasedEyesToPointCm)
       ) %>% 
       group_by(participant) %>%
       mutate(measurement_order_within_participant = row_number()) %>%
@@ -2621,7 +2621,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     arrange(participant, source, measurement_order_within_participant)
   
   # Plot 2 data: Measured over requested distance (CHECK DATA ONLY)
-  # x-axis: rulerBasedEyesToFootCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToFootCm
+  # x-axis: rulerBasedEyesToPointCm, y-axis: imageBasedEyesToPointCm / rulerBasedEyesToPointCm
   # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for line connections
   p2_data <- distance_individual %>%
     filter(!is.na(p2_x), !is.na(p2_y)) %>%
