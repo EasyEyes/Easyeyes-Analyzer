@@ -2548,7 +2548,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   }
   
   # ===== COMBINE CALIBRATION AND CHECK DATA =====
-  # Combine both calibration and check data for p1 (excluding jitter)
+  # Combine both calibration and check data for p1
   distance_individual <- bind_rows(calib_individual, check_individual) %>%
     arrange(participant, source, measurement_order_within_participant)
   # Keep reference to calibration data for use in later plots (p6, p7, etc.)
@@ -2613,7 +2613,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   p2_mean_formatted <- format(round(p2_mean_fraction, 3), nsmall = 3)
   p2_sd_formatted <- format(round(p2_sd_fraction, 3), nsmall = 3)
   
-  # Plot 1: Measured vs. requested distance (CALIBRATION AND CHECK DATA, EXCLUDING JITTER)
+  # Plot 1: Measured vs. requested distance (CALIBRATION AND CHECK DATA
   # x-axis: rulerBasedEyesToFootCm (ruler-based), y-axis: imageBasedEyesToPointCm (image-based)
   # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for line connections
   p1_data <- distance_individual %>%
@@ -2688,7 +2688,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
            y = 'imageBasedEyesToPointCm')
   }
  
-  # Plot 2: Measured over requested distance (CALIBRATION AND CHECK DATA, EXCLUDING JITTER)
+  # Plot 2: Measured over requested distance (CALIBRATION AND CHECK DATA)
   # x-axis: requested distance, y-axis: measured / requested ratio
   # Debug: show data breakdown for p2
   message("[DEBUG p2] p2_data rows: ", nrow(p2_data))
@@ -2903,11 +2903,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           x_max <- max(plot_data$spotDeg, na.rm = TRUE) * 1.1
           y_min <- min(plot_data$ratio, na.rm = TRUE) * 0.9
           y_max <- max(plot_data$ratio, na.rm = TRUE) * 1.1
-          
-          plot_data <- plot_data %>%
-            mutate(spotDeg_jitter = add_log_jitter(spotDeg, jitter_percent = 0.5, seed = 42))
 
-          p6 <- ggplot(plot_data, aes(x = spotDeg_jitter, y = ratio)) +
+          p6 <- ggplot(plot_data, aes(x = spotDeg, y = ratio)) +
             geom_point(aes(color = participant), size = 3, alpha = 0.8) +
             geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.8) +
             ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
@@ -2920,7 +2917,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             scale_color_manual(values = colorPalette) +
             guides(color = guide_legend(
               ncol = 3,
-              title = "Dashed line: y = 1 (perfect agreement). X-axis has 0.5% jitter",
+              title = "Dashed line: y = 1 (perfect agreement).",
               title.position = "bottom",
               title.theme = element_text(size = 10, hjust = 0),
               override.aes = list(size = 1.5),
@@ -3740,25 +3737,14 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
 
     if (nrow(calib_first_two) > 0) {
-      # Set seed for reproducible jitter
-      set.seed(42)
-      
-      # Generate one jitter offset per participant (same offset for both calibration points)
-      # This ensures all connecting lines have the same length (vertical)
-      participant_jitter <- calib_first_two %>%
-        distinct(participant) %>%
-        mutate(jitter_offset = runif(n(), -0.075, 0.075))  # Reduced by factor of 2
-      
+
       p15_data <- calib_first_two %>%
-        left_join(participant_jitter, by = "participant") %>%
         mutate(
-          # Convert factor to numeric for jitter: "Calibration 1" = 1, "Calibration 2" = 2
+          # Convert factor to numeric: "Calibration 1" = 1, "Calibration 2" = 2
           x_numeric = as.numeric(calibration_order),
-          # Add same horizontal jitter for both points of each participant
-          x_jitter = x_numeric + jitter_offset
         )
 
-      p15 <- ggplot(p15_data, aes(x = x_jitter, y = ratio_over_check, color = participant, shape = calibration_order)) +
+      p15 <- ggplot(p15_data, aes(x = x_numeric, y = ratio_over_check, color = participant, shape = calibration_order)) +
         geom_hline(yintercept = 1, linetype = "dashed", color = "gray50", linewidth = 1) +
         # Connect calibration 1 and 2 dots for each participant
         geom_line(aes(group = participant), alpha = 0.5, linewidth = 0.5) +
@@ -3781,7 +3767,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             keyheight = unit(0.3, "cm")
           ),
           shape = guide_legend(
-            title = "Dashed line: y = 1 (perfect agreement). X-axis has horizontal jitter applied",
+            title = "Dashed line: y = 1 (perfect agreement).",
             title.position = "bottom",
             title.theme = element_text(size = 10, hjust = 0),
             override.aes = list(size = 3, color = "black")
@@ -4306,8 +4292,6 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
       .groups = "drop"
     ) %>%
     mutate(
-      # Add logarithmic horizontal jitter to x-axis variable
-      checkDistanceRequestedCm_jitter = add_log_jitter(requestedEyesToPointCm, jitter_percent = 2, seed = 42),
       checkDistanceRequestedCm = requestedEyesToPointCm,
       # Calculate production ratio: measured / requested distance
       production_fraction = checkDistanceMeasuredCm / requestedEyesToPointCm
@@ -4323,8 +4307,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
       left_join(blindspot_data, by = "participant") %>%
       filter(!is.na(`_calibrateTrackDistanceBlindspotDiameterDeg`), 
              !is.na(production_fraction)) %>%
-      rename(spotDeg = `_calibrateTrackDistanceBlindspotDiameterDeg`) %>%
-      mutate(spotDeg_jitter = add_log_jitter(spotDeg, jitter_percent = 0.5, seed = 42))
+      rename(spotDeg = `_calibrateTrackDistanceBlindspotDiameterDeg`)
 
     if (nrow(error_vs_blindspot_data) > 0) {
       # Calculate scale limits
@@ -4333,7 +4316,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
       y_min <- max(0.1, min(error_vs_blindspot_data$production_fraction) * 0.8)
       y_max <- min(2.0, max(error_vs_blindspot_data$production_fraction) * 1.2)
 
-      p6 <- ggplot(error_vs_blindspot_data, aes(x = spotDeg_jitter, y = production_fraction)) +
+      p6 <- ggplot(error_vs_blindspot_data, aes(x = spotDeg, y = production_fraction)) +
         geom_point(aes(color = participant), size = 3, alpha = 0.8) +
         geom_hline(yintercept = 1, linetype = "dashed", color = "red", alpha = 0.7) +
         ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
@@ -4344,7 +4327,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
         scale_color_manual(values = colorPalette) +
         guides(color = guide_legend(
           ncol = 4,
-          title = "Dashed line: ratio = 1.0 (perfect accuracy). X-axis has 0.5% jitter",
+          title = "Dashed line: ratio = 1.0 (perfect accuracy).",
           title.position = "bottom",
           title.theme = element_text(size = 10, hjust = 0),
           override.aes = list(size = 2),
@@ -4878,7 +4861,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
 
 # Plot 2: imageBasedEyesToPointCm vs. rulerBasedEyesToFootCm  
 # Shows measured line-of-sight distance as function of ruler-based horizontal distance
-# INCLUDES BOTH CALIBRATION (closed circles) AND CHECK DATA (open circles), EXCLUDING JITTER
+# INCLUDES BOTH CALIBRATION (closed circles) AND CHECK DATA (open circles)
 plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResults) {
   
   check_data <- distanceCalibrationResults$checkJSON
@@ -4888,7 +4871,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
     return(list(plot = NULL, height = NULL))
   }
   
-  # Prepare CHECK data - filter out jitter
+  # Prepare CHECK data 
   check_plot_data <- tibble()
   if (nrow(check_data) > 0) {
     check_plot_data <- check_data %>%
@@ -5007,7 +4990,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
 # This is the key plot showing: "Is the participant at the requested distance?"
 # eyesToFootCm = fOverWidth * widthVpx * ipdCm / ipdVpx
 # where fOverWidth is saved from calibration and ipdCm = 6.3 cm (standard IPD)
-# INCLUDES BOTH CALIBRATION (closed circles) AND CHECK DATA (open circles), EXCLUDING JITTER
+# INCLUDES BOTH CALIBRATION (closed circles) AND CHECK DATA (open circles)
 plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults) {
   
   # Get calibration data to extract fOverWidth per participant
