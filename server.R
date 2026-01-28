@@ -1066,6 +1066,7 @@ shinyServer(function(input, output, session) {
       list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-via-ipdOverWidth-vs-requestedEyesToFootCm'),
       list(plot = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$height, fname = 'ipdOverWidth-vs-requestedEyesToFootCm'),
       list(plot = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height, fname = 'fOverWidth-vs-requestedEyesToFootCm'),
+      list(plot = ipd_plots$fOverWidth_over_median_check_vs_requestedEyesToFootCm$plot, height = ipd_plots$fOverWidth_over_median_check_vs_requestedEyesToFootCm$height, fname = 'fOverWidth-over-median-check-vs-requestedEyesToFootCm'),
       
       # ===== 4. TWO HIDDEN BLINDSPOT PLOTS =====
       list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'check-distance-error-vs-blindspot-diameter'),

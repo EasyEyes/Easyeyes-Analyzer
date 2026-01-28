@@ -795,7 +795,7 @@ generate_threshold <-
       full_join(participant_info, by = "participant") %>%
       rename(PavloviaParticipantID = participant) %>%
       mutate(
-        objectLengthCm = format(round(distanceObjectCm), nsmall=0),
+        objectLengthCm = ifelse(!is.na(distanceObjectCm) & is.finite(distanceObjectCm), format(round(distanceObjectCm, 1), nsmall = 1), NA_character_),
         rulerCm = case_when(
           !is.na(rulerCm) ~ format(round(rulerCm), nsmall = 0),
           .default = NA_character_

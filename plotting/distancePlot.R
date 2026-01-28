@@ -692,6 +692,11 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     {if("cameraResolutionN" %in% names(.)) select(., -cameraResolutionN) else .} %>%
     # Remove objectName if it exists (redundant with Object)
     {if("objectName" %in% names(.)) select(., -objectName) else .} %>%
+    # Format object Length Cm to one decimal (e.g. "29.7" cm)
+    {if("objectLengthCm" %in% names(.)) mutate(., objectLengthCm = {
+      x <- suppressWarnings(as.numeric(trimws(gsub('["\']', '', as.character(objectLengthCm)))))
+      ifelse(!is.na(x) & is.finite(x), format(round(x, 1), nsmall = 1), NA_character_)
+    }) else .} %>%
     # Rename columns with spaces for readability
     rename(
       `Pavlovia Participant ID` = PavloviaParticipantID,
@@ -3856,6 +3861,37 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
     raw_pxPerCm <- tibble(participant = character(), pxPerCm = numeric(), requestedCm = numeric())
   }
   
+  # =============================================================================
+  # DEBUG: Raw source data for Pixel density vs. requested length plot
+  # =============================================================================
+  {
+    msg <- function(...) message("[DEBUG Pixel density sources] ", ...)
+    msg("=== RAW SOURCE DATA (from calibrateScreenSizeJSON) ===")
+    
+    msg("--- raw_pxPerCm (CALIBRATION: pxPerCm field from JSON) ---")
+    msg("  Rows: ", nrow(raw_pxPerCm), ", Columns: ", paste(names(raw_pxPerCm), collapse = ", "))
+    if (nrow(raw_pxPerCm) > 0) {
+      for (p in unique(raw_pxPerCm$participant)) {
+        p_data <- raw_pxPerCm %>% filter(participant == p)
+        msg("  ", p, ": pxPerCm=[", paste(round(p_data$pxPerCm, 2), collapse = ", "), 
+            "], requestedCm=[", paste(round(p_data$requestedCm, 2), collapse = ", "), "]")
+      }
+    }
+    
+    msg("--- sizeCheck (CHECK: SizeCheckEstimatedPxPerCm, SizeCheckRequestedCm) ---")
+    msg("  Rows: ", nrow(sizeCheck), ", Participants: ", n_distinct(sizeCheck$participant))
+    if (nrow(sizeCheck) > 0 && "SizeCheckEstimatedPxPerCm" %in% names(sizeCheck) && "SizeCheckRequestedCm" %in% names(sizeCheck)) {
+      for (p in unique(sizeCheck$participant)[1:min(3, n_distinct(sizeCheck$participant))]) {
+        p_data <- sizeCheck %>% filter(participant == p)
+        msg("  ", p, ": SizeCheckRequestedCm=[", paste(round(p_data$SizeCheckRequestedCm, 2), collapse = ", "), 
+            "], SizeCheckEstimatedPxPerCm=[", paste(round(p_data$SizeCheckEstimatedPxPerCm, 2), collapse = ", "), "]")
+      }
+      if (n_distinct(sizeCheck$participant) > 3) {
+        msg("  ... (", n_distinct(sizeCheck$participant) - 3, " more participants)")
+      }
+    }
+  }
+  
   ruler <-  sizeCheck %>%
     distinct(participant, rulerLength, rulerUnit) %>%
     filter(!is.na(rulerLength)) %>% 
@@ -3878,8 +3914,8 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
     rename(requestedCm = SizeCheckRequestedCm)
   
   # Determine scale limits
-  min_val <- min(c(sizeCheck_avg$SizeCheckRequestedCm, sizeCheck_avg$avg_estimated), na.rm = TRUE)
-  max_val <- max(c(sizeCheck_avg$SizeCheckRequestedCm, sizeCheck_avg$avg_estimated), na.rm = TRUE)
+  min_val <- min(c(sizeCheck_avg$requestedCm, sizeCheck_avg$avg_estimated), na.rm = TRUE)
+  max_val <- max(c(sizeCheck_avg$requestedCm, sizeCheck_avg$avg_estimated), na.rm = TRUE)
   
   # Compute sdLogDensity for each participant
   sdLogDensity_data <- sizeCheck %>%
@@ -4081,17 +4117,65 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   } else {
     h2 = NULL
   }
-  # Prepare calibration data with actual requested sizes
+  # Prepare calibration data with actual requested sizes.
+  # Exclude any (participant, requestedCm) that appears in check data so the same trial
+  # is never drawn as both calibration (filled) and check (open), which can happen when
+  # calibrateScreenSizeJSON mixes or duplicates fields (e.g. pxPerCm vs SizeCheckEstimatedPxPerCm).
   calibration_data <- raw_pxPerCm %>%
     rename(avg_estimated = pxPerCm) %>%
     mutate(type = "calibration") %>%
-    select(participant, avg_estimated, requestedCm, type)
+    select(participant, avg_estimated, requestedCm, type) %>%
+    anti_join(sizeCheck_avg %>% select(participant, requestedCm), by = c("participant", "requestedCm"))
   
-  # Combine check and calibration data
+  # Combine check and calibration data (check first so check points are authoritative)
   pixelDensity_data <- rbind(
     sizeCheck_avg %>% select(participant, avg_estimated, requestedCm) %>% mutate(type = "check"),
     calibration_data
   )
+  
+  # =============================================================================
+  # DEBUG: Pixel density vs. requested length — ALL data being plotted
+  # Data source: calibrateScreenSizeJSON only
+  # X = requested length (cm), Y = pixel density (px/cm)
+  # Calibration: pxPerCm from JSON, X = 8.56 cm (credit card) when requestedCm not available
+  # Check: SizeCheckEstimatedPxPerCm as Y, SizeCheckRequestedCm as X
+  # =============================================================================
+  {
+    msg <- function(...) message("[DEBUG Pixel density vs length] ", ...)
+    msg("=== DATA SOURCES (from calibrateScreenSizeJSON) ===")
+    msg("raw_pxPerCm (calibration source): ", nrow(raw_pxPerCm), " rows, ", n_distinct(raw_pxPerCm$participant), " participants")
+    msg("sizeCheck_avg (check source): ", nrow(sizeCheck_avg), " rows, ", n_distinct(sizeCheck_avg$participant), " participants")
+    msg("calibration_data (after anti_join): ", nrow(calibration_data), " rows")
+    msg("pixelDensity_data (combined): ", nrow(pixelDensity_data), " rows")
+    
+    msg("=== CHECK DATA (SizeCheckRequestedCm, SizeCheckEstimatedPxPerCm) ===")
+    check_data <- pixelDensity_data %>% filter(type == "check") %>% arrange(participant, requestedCm)
+    for (p in unique(check_data$participant)) {
+      p_data <- check_data %>% filter(participant == p)
+      coords <- paste0("(", round(p_data$requestedCm, 2), ", ", round(p_data$avg_estimated, 2), ")", collapse = ", ")
+      msg("  ", p, ": ", coords)
+    }
+    
+    msg("=== CALIBRATION DATA (pxPerCm, requestedCm=8.56 fallback) ===")
+    calib_data <- pixelDensity_data %>% filter(type == "calibration") %>% arrange(participant, requestedCm)
+    if (nrow(calib_data) > 0) {
+      for (p in unique(calib_data$participant)) {
+        p_data <- calib_data %>% filter(participant == p)
+        coords <- paste0("(", round(p_data$requestedCm, 2), ", ", round(p_data$avg_estimated, 2), ")", collapse = ", ")
+        msg("  ", p, ": ", coords)
+      }
+    } else {
+      msg("  (no calibration data — all excluded by anti_join or raw_pxPerCm empty)")
+    }
+    
+    msg("=== SUMMARY ===")
+    msg("Total points to plot: ", nrow(pixelDensity_data))
+    msg("  Check points: ", sum(pixelDensity_data$type == "check"))
+    msg("  Calibration points: ", sum(pixelDensity_data$type == "calibration"))
+    msg("X range (requestedCm): ", round(min(pixelDensity_data$requestedCm, na.rm = TRUE), 2), " - ", round(max(pixelDensity_data$requestedCm, na.rm = TRUE), 2))
+    msg("Y range (px/cm): ", round(min(pixelDensity_data$avg_estimated, na.rm = TRUE), 2), " - ", round(max(pixelDensity_data$avg_estimated, na.rm = TRUE), 2))
+    msg("=== END DEBUG ===")
+  }
   
   ymin = max(5,floor(min(pixelDensity_data$avg_estimated) / 10 - 1) * 10)
   ymax = ceiling(max(pixelDensity_data$avg_estimated) / 10 + 1) * 10
@@ -4642,6 +4726,89 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
                                                                height = NULL)))
   }
   
+  # Exclude single-point (participant, type) groups so we never draw unconnected dots.
+  # Root cause: e.g. LoudWhiteFig938, RealSilverBanana332 have only 1 check row (ingestion adds 1
+  # per session); geom_path with 1 point draws no line → unconnected open dot.
+  # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for geom_path
+  ipd_data_plot <- ipd_data %>%
+    group_by(participant, type) %>%
+    filter(n() > 1L) %>%
+    ungroup() %>%
+    arrange(participant, type, measurement_order_within_participant)
+
+  # -----------------------------------------------------------------------------
+  # DEBUG: fOverWidth vs. requestedEyesToFootCm — unconnected dots at (26, 0.8) and (26, 0.36)
+  # Set to TRUE to re-enable verbose debug output.
+  # -----------------------------------------------------------------------------
+  if (FALSE) {
+    msg <- function(...) message("[DEBUG fOverWidth vs requestedEyesToFootCm] ", ...)
+    msg("checkjson (raw) rows: ", nrow(checkjson),
+        "; ipd_checkJSON (after filter) rows: ", nrow(ipd_checkJSON),
+        "; ipd_data total: ", nrow(ipd_data))
+    if (nrow(checkjson) > 0) {
+      n_check_raw <- checkjson %>% count(participant, name = "n_raw")
+      n_check_filt <- if (nrow(ipd_checkJSON) > 0) {
+        ipd_checkJSON %>% count(participant, name = "n_filt")
+      } else {
+        tibble(participant = character(), n_filt = integer())
+      }
+      check_counts <- n_check_raw %>%
+        left_join(n_check_filt, by = "participant") %>%
+        mutate(n_filt = coalesce(n_filt, 0L))
+      msg("Check rows per participant (raw -> after filter):")
+      for (i in seq_len(nrow(check_counts))) {
+        r <- check_counts[i, ]
+        msg("  ", r$participant, ": ", r$n_raw, " -> ", r$n_filt)
+      }
+      check_counts <- check_counts %>% mutate(n_dropped = n_raw - n_filt)
+      if (any(check_counts$n_dropped > 0, na.rm = TRUE)) {
+        msg("Rows dropped by ipdOverWidth/ipdCm filter (raw - after filter):")
+        for (i in seq_len(nrow(check_counts))) {
+          r <- check_counts[i, ]
+          if (r$n_dropped > 0)
+            msg("  ", r$participant, ": ", r$n_dropped, " dropped")
+        }
+      }
+      single_check <- check_counts %>% filter(n_filt == 1L)
+      if (nrow(single_check) > 0) {
+        msg("Participants with exactly 1 check point (these produce unconnected open dots): ",
+            paste(single_check$participant, collapse = ", "))
+      }
+    }
+    grp <- ipd_data %>%
+      group_by(participant, type) %>%
+      summarise(n = n(), .groups = "drop")
+    msg("All (participant, type) group sizes:")
+    for (i in seq_len(nrow(grp))) {
+      g <- grp[i, ]
+      msg("  ", g$participant, " / ", g$type, ": n=", g$n)
+    }
+    single_grp <- grp %>% filter(n == 1L)
+    if (nrow(single_grp) > 0) {
+      msg(">>> Groups with exactly 1 point (these produce UNCONNECTED dots):")
+      for (i in seq_len(nrow(single_grp))) {
+        g <- single_grp[i, ]
+        r <- ipd_data %>% filter(participant == g$participant, type == g$type)
+        msg("  ", g$participant, " / ", g$type, ": requestedEyesToFootCm=", round(r$requestedEyesToFootCm, 4),
+            ", ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm=", round(r$ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, 4))
+      }
+    }
+    near_26 <- ipd_data %>%
+      filter(type == "check",
+             requestedEyesToFootCm >= 25, requestedEyesToFootCm <= 27,
+             ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm >= 0.3,
+             ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm <= 0.9)
+    if (nrow(near_26) > 0) {
+      msg("Check points near (26, 0.8) and (26, 0.36) [requestedEyesToFootCm in [25,27], y in [0.3,0.9]]:")
+      for (i in seq_len(nrow(near_26))) {
+        r <- near_26[i, ]
+        msg("  participant=", r$participant, ", requestedEyesToFootCm=", round(r$requestedEyesToFootCm, 4),
+            ", y=", round(r$ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, 4),
+            ", measurement_order_within_participant=", r$measurement_order_within_participant)
+      }
+    }
+  }
+  
   # Get calibration focal length (factorVpxCm) and ipdCm per participant for the focal length line
   # Use median factorVpxCm and ipdCm from calibration data per participant
   # Need to get ipdCm from original TJSON data (before selection)
@@ -4682,7 +4849,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   
   p1 <- ggplot() +
     # Data lines: use geom_path to connect points in measurement order, not x-value order
-    geom_path(data = ipd_data,
+    geom_path(data = ipd_data_plot,
                   aes(x = requestedEyesToFootCm,
                       y = ipdOverWidth,
                   color = participant,
@@ -4697,7 +4864,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
                       linetype = line_type),
               linewidth = 0.75, alpha = 0.8) +
     # Points with shapes for calibration vs check
-    geom_point(data = ipd_data,
+    geom_point(data = ipd_data_plot,
                aes(x = requestedEyesToFootCm,
                       y = ipdOverWidth,
                    color = participant,
@@ -4747,7 +4914,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   
   p2 <- ggplot() +
     # Data lines: use geom_path to connect points in measurement order, not x-value order
-    geom_path(data = ipd_data,
+    geom_path(data = ipd_data_plot,
               aes(x = requestedEyesToFootCm,
                   y = ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm,
                   color = participant,
@@ -4762,7 +4929,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
                       linetype = line_type),
               linewidth = 0.75, alpha = 0.8) +
     # Points with shapes for calibration vs check
-    geom_point(data = ipd_data,
+    geom_point(data = ipd_data_plot,
                    aes(x = requestedEyesToFootCm,
                    y = ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm,
                    color = participant,
@@ -4803,10 +4970,171 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
          x = 'requestedEyesToFootCm',
          y = 'fOverWidth')
   
+  # =============================================================================
+  # NEW PLOT p3: fOverWidth / median(check) vs. requestedEyesToFootCm
+  # Normalizes all fOverWidth estimates by each session's median check fOverWidth
+  # Effect: check data aligned around 1.0, calibration shows relative deviation
+  # =============================================================================
+  
+  # Compute median fOverWidth from CHECK data for each participant
+  # ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm is our fOverWidth proxy
+  median_check_fOverWidth <- ipd_data %>%
+    filter(type == "check") %>%
+    group_by(participant) %>%
+    summarize(median_check = median(ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, na.rm = TRUE), .groups = "drop") %>%
+    filter(is.finite(median_check), median_check > 0)
+  
+  # Join median back to all data and compute normalized fOverWidth
+  ipd_data_normalized <- ipd_data %>%
+    left_join(median_check_fOverWidth, by = "participant") %>%
+    filter(!is.na(median_check), is.finite(median_check), median_check > 0) %>%
+    mutate(fOverWidth_normalized = ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm / median_check)
+  
+  # Exclude single-point groups (same logic as ipd_data_plot)
+  # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for geom_path
+  ipd_data_normalized_plot <- ipd_data_normalized %>%
+    group_by(participant, type) %>%
+    filter(n() > 1L) %>%
+    ungroup() %>%
+    arrange(participant, type, measurement_order_within_participant)
+  
+  # Compute normalized focal length horizontal line (calibrationFOverWidth / median_check)
+  focal_hline_normalized <- focal_hline_data %>%
+    left_join(median_check_fOverWidth, by = "participant") %>%
+    filter(!is.na(median_check), is.finite(median_check), median_check > 0) %>%
+    mutate(product_focal_over_width_normalized = product_focal_over_width / median_check)
+  
+  # -----------------------------------------------------------------------------
+  # DEBUG: fOverWidth / median(check) vs. requestedEyesToFootCm
+  # Shows data being plotted so we know what's going on
+  # X = requestedEyesToFootCm, Y = fOverWidth_normalized = fOverWidth / median_check
+  # -----------------------------------------------------------------------------
+  {
+    msg <- function(...) message("[DEBUG fOverWidth/median(check) vs requestedEyesToFootCm] ", ...)
+    msg("=== DATA SUMMARY ===")
+    msg("median_check_fOverWidth: ", nrow(median_check_fOverWidth), " participants")
+    for (i in seq_len(nrow(median_check_fOverWidth))) {
+      r <- median_check_fOverWidth[i, ]
+      msg("  ", r$participant, ": median_check = ", round(r$median_check, 4))
+    }
+    msg("ipd_data_normalized: ", nrow(ipd_data_normalized), " rows total")
+    msg("ipd_data_normalized_plot (after excluding single-point groups): ", nrow(ipd_data_normalized_plot), " rows")
+    
+    msg("=== PER-PARTICIPANT PLOT DATA (X=requestedEyesToFootCm, Y=fOverWidth/median_check) ===")
+    msg("NOTE: Data shown in MEASUREMENT ORDER (not sorted by X)")
+    for (p in unique(ipd_data_normalized_plot$participant)) {
+      # Keep data in measurement order (DO NOT sort by requestedEyesToFootCm)
+      p_data <- ipd_data_normalized_plot %>% filter(participant == p) %>% arrange(type, measurement_order_within_participant)
+      calib_data_p <- p_data %>% filter(type == "calibration") %>% arrange(measurement_order_within_participant)
+      check_data_p <- p_data %>% filter(type == "check") %>% arrange(measurement_order_within_participant)
+      median_val <- median_check_fOverWidth %>% filter(participant == p) %>% pull(median_check)
+      msg("")
+      msg("Participant: ", p)
+      msg("  median_check = ", round(median_val, 4))
+      
+      if (nrow(calib_data_p) > 0) {
+        msg("  CALIBRATION (", nrow(calib_data_p), " points, in measurement order):")
+        for (j in seq_len(nrow(calib_data_p))) {
+          r <- calib_data_p[j, ]
+          fOverWidth_raw <- r$ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm
+          normalized <- r$fOverWidth_normalized
+          calculated <- fOverWidth_raw / median_val
+          meas_order <- if ("measurement_order_within_participant" %in% names(r)) r$measurement_order_within_participant else j
+          msg("    [meas#", meas_order, "] X=", round(r$requestedEyesToFootCm, 2), 
+              ", Y=", round(normalized, 4),
+              " | fOverWidth=", round(fOverWidth_raw, 4),
+              ", median_check=", round(median_val, 4),
+              " | Verification: ", round(fOverWidth_raw, 4), " / ", round(median_val, 4), " = ", round(calculated, 4))
+        }
+      }
+      
+      if (nrow(check_data_p) > 0) {
+        msg("  CHECK (", nrow(check_data_p), " points, in measurement order):")
+        for (j in seq_len(nrow(check_data_p))) {
+          r <- check_data_p[j, ]
+          fOverWidth_raw <- r$ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm
+          normalized <- r$fOverWidth_normalized
+          calculated <- fOverWidth_raw / median_val
+          meas_order <- if ("measurement_order_within_participant" %in% names(r)) r$measurement_order_within_participant else j
+          msg("    [meas#", meas_order, "] X=", round(r$requestedEyesToFootCm, 2), 
+              ", Y=", round(normalized, 4),
+              " | fOverWidth=", round(fOverWidth_raw, 4),
+              ", median_check=", round(median_val, 4),
+              " | Verification: ", round(fOverWidth_raw, 4), " / ", round(median_val, 4), " = ", round(calculated, 4))
+        }
+      }
+    }
+    msg("")
+    msg("=== END DEBUG ===")
+  }
+  
+  p3 <- ggplot() +
+    # Data lines: use geom_path to connect points in measurement order
+    geom_path(data = ipd_data_normalized_plot,
+              aes(x = requestedEyesToFootCm,
+                  y = fOverWidth_normalized,
+                  color = participant,
+                  group = interaction(participant, type)),
+              linewidth = 0.75, alpha = 0.8) +
+    # Horizontal line at y=1 (reference: check median)
+    geom_hline(yintercept = 1, linetype = "dashed", color = "gray50", linewidth = 0.5) +
+    # Focal length horizontal line (dotted) - normalized by median_check
+    geom_line(data = focal_hline_normalized,
+              aes(x = requestedEyesToFootCm,
+                  y = product_focal_over_width_normalized,
+                  color = participant,
+                  group = participant,
+                  linetype = line_type),
+              linewidth = 0.75, alpha = 0.8) +
+    # Points with shapes for calibration vs check
+    geom_point(data = ipd_data_normalized_plot,
+               aes(x = requestedEyesToFootCm,
+                   y = fOverWidth_normalized,
+                   color = participant,
+                   shape = type),
+               size = 2) +
+    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                        label = paste0('N=', n_distinct(ipd_data_normalized_plot$participant))) +
+    scale_x_log10(
+      breaks = scales::log_breaks(n = 6),
+      labels = scales::label_number(accuracy = 1)
+    ) +
+    # Linear y-scale centered around 1
+    scale_y_continuous(breaks = seq(0.5, 1.5, by = 0.1)) +
+    # Shape: filled circle for calibration, open circle for check
+    scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
+                       labels = c(calibration = "calibration", check = "check")) +
+    # Linetype for focal length line legend
+    scale_linetype_manual(name = "", values = c("calibrationFOverWidth" = "dotted")) +
+    scale_color_manual(values = colorPalette) +
+    guides(
+      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5),
+                           keywidth = unit(0.8, "lines"), keyheight = unit(0.6, "lines")),
+      shape = guide_legend(title = "", override.aes = list(size = 2)),
+      linetype = guide_legend(title = "", keywidth = unit(2.5, "cm"), 
+                              override.aes = list(linewidth = 1))
+    ) +
+    theme_classic() +
+    theme(
+      legend.position = "top",
+      legend.box = "vertical",
+      legend.justification = "left",
+      legend.box.just = "left",
+      legend.text = element_text(size = 6),
+      legend.spacing.y = unit(0, "lines"),
+      legend.key.size = unit(0.4, "cm"),
+      plot.margin = margin(5, 5, 5, 5, "pt")
+    ) +
+    labs(subtitle = 'fOverWidth / median(check) vs. requestedEyesToFootCm',
+         x = 'requestedEyesToFootCm',
+         y = 'fOverWidth / median(check)')
+  
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(ipd_data$participant), per_row = 3, row_increase = 0.06)
   return(list(ipdOverWidth_vs_requestedEyesToFootCm = list(plot = p1, 
                                         height = p_height),
               ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = p2, 
+                                                             height = p_height),
+              fOverWidth_over_median_check_vs_requestedEyesToFootCm = list(plot = p3,
                                                              height = p_height)))
 }
 
