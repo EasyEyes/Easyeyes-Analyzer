@@ -1183,6 +1183,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                   # Store original JSON values for correct ratio calculation
                   imageBasedEyesToPointCm = measured_vals,
                   rulerBasedEyesToPointCm = requested_vals,
+                  fOverWidth = as.numeric(distanceCalibration$fOverWidth),
                   measurement_index = row_number()
                 )
               
@@ -1838,50 +1839,7 @@ get_sizeCheck_data <- function(data_list) {
 plot_eye_feet_position <- function(distanceCalibrationResults, debug = TRUE) {
   
   # Use eye_feet (calibration data) for "during calibration" plot
-  eye_feet_data <- distanceCalibrationResults$eye_feet
-  
-  # Fallback to feet_calib if eye_feet is empty
-  if (nrow(eye_feet_data) == 0) {
-    eye_feet_data <- distanceCalibrationResults$feet_calib
-    if (debug) {
-      message("=== FALLBACK: Using feet_calib (eye_feet was empty) ===")
-    }
-  }
-  
-  # Debug print AFTER fallback so it shows the actual data being used
-  if (debug) {
-      message("=== RAW eye_feet_data (after fallback if needed) ===")
-      message("Rows: ", nrow(eye_feet_data))
-      message("Cols: ", paste(names(eye_feet_data), collapse = ", "))
-      if ("distance_ratio" %in% names(eye_feet_data)) {
-        print(summary(eye_feet_data$distance_ratio))
-      } else {
-        message("distance_ratio column is missing!")
-      }
-      # Debug: Check the actual values of imageBased and rulerBased
-      if ("imageBasedEyesToPointCm" %in% names(eye_feet_data) && "rulerBasedEyesToPointCm" %in% names(eye_feet_data)) {
-        message("=== CHECKING imageBased vs rulerBased VALUES ===")
-        message("imageBasedEyesToPointCm summary:")
-        print(summary(eye_feet_data$imageBasedEyesToPointCm))
-        message("rulerBasedEyesToPointCm summary:")
-        print(summary(eye_feet_data$rulerBasedEyesToPointCm))
-        # Show first few rows with both values
-        debug_sample <- eye_feet_data %>%
-          select(participant, imageBasedEyesToPointCm, rulerBasedEyesToPointCm, distance_ratio) %>%
-          head(10)
-        message("Sample rows (first 10):")
-        print(debug_sample)
-        # Check if they're equal
-        if (nrow(eye_feet_data) > 0) {
-          are_equal <- !is.na(eye_feet_data$imageBasedEyesToPointCm) & 
-                       !is.na(eye_feet_data$rulerBasedEyesToPointCm) &
-                       abs(eye_feet_data$imageBasedEyesToPointCm - eye_feet_data$rulerBasedEyesToPointCm) < 1e-10
-          message("Rows where imageBased == rulerBased: ", sum(are_equal, na.rm = TRUE), " / ", nrow(eye_feet_data))
-        }
-      } else {
-        message("WARNING: imageBasedEyesToPointCm or rulerBasedEyesToPointCm columns missing!")
-      }
-  }
+  eye_feet_data <- distanceCalibrationResults$feet_calib
 
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
@@ -1889,19 +1847,17 @@ plot_eye_feet_position <- function(distanceCalibrationResults, debug = TRUE) {
 
   # Filter out rows with invalid coordinates and distance_ratio
   n_before <- nrow(eye_feet_data)
+  check_calib_data <- distanceCalibrationResults$checkJSON %>%
+    select(participant, fOverWidth) %>%
+    group_by(participant) %>%
+    summarize(fOverWidth_check = median(fOverWidth, na.rm = TRUE), .groups = "drop")
 
   eye_feet_data <- eye_feet_data %>%
+  left_join(check_calib_data, by = "participant") %>%
+  mutate(distance_ratio = fOverWidth / fOverWidth_check) %>%
     filter(!is.na(avg_eye_x_px), !is.na(avg_eye_y_px),
-           !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm), 
-           !is.na(distance_ratio), is.finite(distance_ratio))
-  
-  if (debug) {
-      message("=== AFTER FILTER ===")
-      message("Rows before: ", n_before, " | after: ", nrow(eye_feet_data), 
-              " | dropped: ", n_before - nrow(eye_feet_data))
-      message("distance_ratio summary after filter:")
-      print(summary(eye_feet_data$distance_ratio))
-  }
+           !is.na(avg_eye_x_cm), !is.na(avg_eye_y_cm))
+
 
   if (nrow(eye_feet_data) == 0) {
     return(NULL)
@@ -2048,7 +2004,7 @@ plot_eye_feet_position <- function(distanceCalibrationResults, debug = TRUE) {
         limits = c(0.7, 1.4),
         trans = "log10",
         oob = scales::squish,
-        name = "Measured over requested",
+        name = "fOverWidth calibration/median(check)",
         breaks = seq(0.7, 1.4, by = 0.1),
         labels = c( "0.7", "", "", "1.0", "", "", "", "1.4"),
         guide = guide_colorbar(
@@ -2108,7 +2064,7 @@ plot_eye_feet_position <- function(distanceCalibrationResults, debug = TRUE) {
                           label = "Rectangle: screen. Points beyond 50% margin clipped. Origin (0,0): top-left", 
                           size = 2.5, hjust = 0.5, vjust = 1) +
       labs(
-        subtitle = "Measured over requested distance vs. foot position\nduring calibration",
+        subtitle = "fOverWidth calibration/median(check) \nvs. foot position during calibration",
         x = "Eye foot X (cm)",
         y = "Eye foot Y (cm)"
       ) +
