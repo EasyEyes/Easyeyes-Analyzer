@@ -33,6 +33,25 @@ safe_first_num <- function(x, digits = NULL) {
   if (is.null(digits)) as.character(x[1]) else format(round(x[1], digits), nsmall = digits)
 }
 
+# Temporary helper: keep last N rows per participant without reordering.
+# Preserves the existing row order; only drops earlier rows within each participant.
+keep_last_n_per_participant <- function(df, n = 2, participant_cols = c("participant", "PavloviaParticipantID")) {
+  if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) return(df)
+  col <- participant_cols[participant_cols %in% names(df)][1]
+  if (is.na(col) || is.null(col) || col == "") return(df)
+
+  df %>%
+    dplyr::group_by(dplyr::across(dplyr::all_of(col))) %>%
+    dplyr::mutate(.keep_last_idx = dplyr::row_number()) %>%
+    dplyr::filter(.keep_last_idx > dplyr::n() - n) %>%
+    dplyr::select(-.keep_last_idx) %>%
+    dplyr::ungroup()
+}
+
+keep_last_two_per_participant <- function(df, participant_cols = c("participant", "PavloviaParticipantID")) {
+  keep_last_n_per_participant(df, n = 2, participant_cols = participant_cols)
+}
+
 coerce_to_logical <- function(x) {
   vapply(x, function(val) {
     if (is.null(val) || length(val) == 0 || is.na(val)) return(NA)
@@ -1702,6 +1721,26 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     filter(is.finite(relative), relative > 0)
   # Compute camera resolution stats (SD and count of width values)
   camera_res_stats <- get_camera_resolution_stats(filtered_data_list)
+  
+  # TEMPORARY: keep only the last 2 rows per participant in each returned table.
+  # This preserves original order and helps reduce output size while debugging.
+  filtered_data_list <- lapply(filtered_data_list, keep_last_two_per_participant)
+  sizeCheck <- keep_last_two_per_participant(sizeCheck)
+  distance <- keep_last_two_per_participant(distance)
+  eye_feet <- keep_last_two_per_participant(eye_feet)
+  feet_calib <- keep_last_two_per_participant(feet_calib)
+  feet_check <- keep_last_two_per_participant(feet_check)
+  blindspot <- keep_last_two_per_participant(blindspot)
+  TJSON <- keep_last_two_per_participant(TJSON)
+  checkJSON <- keep_last_two_per_participant(checkJSON)
+  raw_pxPerCm <- keep_last_two_per_participant(raw_pxPerCm)
+  raw_objectMeasuredCm <- keep_last_two_per_participant(raw_objectMeasuredCm)
+  raw_fVpx <- keep_last_two_per_participant(raw_fVpx)
+
+  # Tables that often use PavloviaParticipantID instead of participant
+  check_factor <- keep_last_two_per_participant(check_factor, participant_cols = c("PavloviaParticipantID", "participant"))
+  camera <- keep_last_two_per_participant(camera, participant_cols = c("PavloviaParticipantID", "participant"))
+  camera_res_stats <- keep_last_two_per_participant(camera_res_stats, participant_cols = c("PavloviaParticipantID", "participant"))
 
   return(list(
     filtered = filtered_data_list,
@@ -2679,7 +2718,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                                          'SD=', p2_sd_formatted)) + 
       geom_hline(yintercept = 1, linetype = "dashed") +
       scale_x_log10(
-        limits = c(p2_x_min_val, p2_x_max_val),
+        # Use same x-axis limits as p1
+        limits = c(p1_min_val, p2_x_max_val),
         breaks = scales::log_breaks(n = 6),
         expand = expansion(mult = c(0.05, 0.05)),
         labels = scales::label_number(accuracy = 1)
