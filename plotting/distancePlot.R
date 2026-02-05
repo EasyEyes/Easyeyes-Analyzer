@@ -1266,9 +1266,9 @@ get_distance_calibration <- function(data_list, minRulerCm) {
               # Also add to distance tibble (same data but used by different plots)
               distance <- rbind(distance, t)
               
-            } else {
-              
-            }
+            } 
+            # Temporary: keep only the last 2 rows per participant in distance table.
+            feet_calib <- keep_last_two_per_participant(feet_calib)
           }
           if (length(spot_degrees) > 0 && !all(is.na(spot_degrees))) {
             t_bs <- t_meta[1,] %>% 
@@ -1473,6 +1473,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         TJSON <- rbind(TJSON, tmp)
       }
 
+      # Temporary: keep only the last 2 rows per participant in TJSON table.
+      TJSON <- keep_last_two_per_participant(TJSON)
       
       #### checkJSON data ####
       
@@ -1722,26 +1724,6 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   # Compute camera resolution stats (SD and count of width values)
   camera_res_stats <- get_camera_resolution_stats(filtered_data_list)
   
-  # TEMPORARY: keep only the last 2 rows per participant in each returned table.
-  # This preserves original order and helps reduce output size while debugging.
-  filtered_data_list <- lapply(filtered_data_list, keep_last_two_per_participant)
-  sizeCheck <- keep_last_two_per_participant(sizeCheck)
-  distance <- keep_last_two_per_participant(distance)
-  eye_feet <- keep_last_two_per_participant(eye_feet)
-  feet_calib <- keep_last_two_per_participant(feet_calib)
-  feet_check <- keep_last_two_per_participant(feet_check)
-  blindspot <- keep_last_two_per_participant(blindspot)
-  TJSON <- keep_last_two_per_participant(TJSON)
-  checkJSON <- keep_last_two_per_participant(checkJSON)
-  raw_pxPerCm <- keep_last_two_per_participant(raw_pxPerCm)
-  raw_objectMeasuredCm <- keep_last_two_per_participant(raw_objectMeasuredCm)
-  raw_fVpx <- keep_last_two_per_participant(raw_fVpx)
-
-  # Tables that often use PavloviaParticipantID instead of participant
-  check_factor <- keep_last_two_per_participant(check_factor, participant_cols = c("PavloviaParticipantID", "participant"))
-  camera <- keep_last_two_per_participant(camera, participant_cols = c("PavloviaParticipantID", "participant"))
-  camera_res_stats <- keep_last_two_per_participant(camera_res_stats, participant_cols = c("PavloviaParticipantID", "participant"))
-
   return(list(
     filtered = filtered_data_list,
     sizeCheck = sizeCheck,
