@@ -1295,10 +1295,6 @@ shinyServer(function(input, output, session) {
     get_histogram_duration_lateness(durationData())
   })
   
-  cameraResolutionXYTable <- reactive({
-    get_cameraResolutionXY(files()$data_list)
-  })
-  
   mergedParticipantDistanceTable <- reactive({
     if (is.null(input$file) | is.null(files())) {
       return(tibble())
@@ -1418,11 +1414,6 @@ shinyServer(function(input, output, session) {
     return(FALSE)
   })
   
-  output$IsCameraResolutionXYTable <- reactive({
-    return(nrow(cameraResolutionXYTable()) > 0)
-  })
-  outputOptions(output, 'IsCameraResolutionXYTable', suspendWhenHidden = FALSE)
-  
   output$IsMergedParticipantDistanceTable <- reactive({
     return(nrow(mergedParticipantDistanceTable()) > 0)
   })
@@ -1461,11 +1452,6 @@ shinyServer(function(input, output, session) {
     fonts <- sort(unique(fonts))
     cols <- rep(colorPalette, length.out = length(fonts))
     tibble(font = fonts, color = cols)
-  })
-  #### cameraResolutionXYTable ####
-  
-  output$cameraResolutionXYTable <- renderTable({
-    cameraResolutionXYTable()
   })
   
   #### Merged Participant Distance Table ####
