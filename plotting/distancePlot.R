@@ -1724,6 +1724,31 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   # Compute camera resolution stats (SD and count of width values)
   camera_res_stats <- get_camera_resolution_stats(filtered_data_list)
   
+library(dplyr)
+library(tidyr)
+
+checkJSON_wide <- checkJSON %>%
+  group_by(participant) %>%
+  mutate(meas = if ("measurement_order_within_participant" %in% names(.)) {
+    measurement_order_within_participant
+  } else {
+    row_number()
+  }) %>%
+  ungroup() %>%
+  filter(meas >= 1, meas <= 8) %>%
+  group_by(participant, meas) %>%
+  summarise(rulerBasedEyesToPointCm = dplyr::last(rulerBasedEyesToPointCm), .groups = "drop") %>%
+  mutate(meas = factor(meas, levels = 1:8)) %>%
+  pivot_wider(
+    id_cols = participant,
+    names_from = meas,
+    values_from = rulerBasedEyesToPointCm,
+    names_prefix = "m",
+    values_fill = NA_real_
+  )
+
+print(checkJSON_wide)
+
   return(list(
     filtered = filtered_data_list,
     sizeCheck = sizeCheck,
@@ -5258,8 +5283,8 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
       # Filter out jitter: exclude rows where json_type contains "jitter" (case-insensitive)
       {if("json_type" %in% names(.)) filter(., is.na(json_type) | !grepl("jitter", json_type, ignore.case = TRUE)) else .} %>%
       mutate(
-        plot_x = as.numeric(imageBasedEyesToPointCm),
-        plot_y = as.numeric(rulerBasedEyesToFootCm),
+        plot_x = as.numeric(rulerBasedEyesToFootCm),
+        plot_y = as.numeric(imageBasedEyesToPointCm),
         source = "check"
       ) %>%
       filter(is.finite(plot_x), is.finite(plot_y)) %>%
@@ -5273,8 +5298,8 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
   if (nrow(calib_data) > 0) {
     calib_plot_data <- calib_data %>%
       mutate(
-        plot_x = as.numeric(imageBasedEyesToPointCm),
-        plot_y = as.numeric(rulerBasedEyesToFootCm),
+        plot_x = as.numeric(rulerBasedEyesToFootCm),
+        plot_y = as.numeric(imageBasedEyesToPointCm),
         source = "calibration"
       ) %>%
       filter(is.finite(plot_x), is.finite(plot_y)) %>%
@@ -5385,8 +5410,8 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
     ) +
     labs(
       subtitle = 'imageBasedEyesToPointCm vs. rulerBasedEyesToFootCm',
-      x = 'imageBasedEyesToPointCm (cm)',
-      y = 'rulerBasedEyesToFootCm (cm)'
+      x = 'rulerBasedEyesToFootCm (cm)',
+      y = 'imageBasedEyesToPointCm (cm)'
     )
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
