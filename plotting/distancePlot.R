@@ -2525,6 +2525,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
 
   check_data <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
   calib_data <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)  # Calibration data
+  # For rejection-rate histograms we need ALL snapshots (accepted + rejected).
+  calib_all <- distanceCalibrationResults$TJSON
+  check_all <- distanceCalibrationResults$checkJSON
   statement <- distanceCalibrationResults$statement
   camera <- distanceCalibrationResults$camera
   if (nrow(check_data) == 0 && nrow(calib_data) == 0) {return(NULL)}
@@ -3412,6 +3415,196 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
+  # Plot 10b: Proportion of CALIBRATION snapshots rejected (per participant)
+  p10b <- NULL
+  p10b_max_count <- 0
+  if (!is.null(calib_all) && nrow(calib_all) > 0) {
+    calib_reject <- calib_all %>%
+      mutate(snapshotAcceptedBool = dplyr::coalesce(coerce_to_logical(snapshotAcceptedBool), TRUE)) %>%
+      group_by(participant) %>%
+      summarize(
+        total = dplyr::n(),
+        rejected = sum(snapshotAcceptedBool %in% FALSE, na.rm = TRUE),
+        proportionRejected = ifelse(total > 0, rejected / total, NA_real_),
+        .groups = "drop"
+      ) %>%
+      filter(is.finite(proportionRejected)) %>%
+      mutate(proportionRejected = pmax(0, pmin(1, proportionRejected)))
+    
+    if (nrow(calib_reject) > 0) {
+      bin_w <- 0.02
+      calib_reject <- calib_reject %>%
+        mutate(bin_center = round(proportionRejected / bin_w) * bin_w) %>%
+        arrange(bin_center, participant) %>%
+        group_by(bin_center) %>%
+        mutate(dot_y = row_number()) %>%
+        ungroup()
+      
+      p10b_max_count <- max(calib_reject$dot_y, na.rm = TRUE)
+      mean_prop <- mean(calib_reject$proportionRejected, na.rm = TRUE)
+      sd_prop <- sd(calib_reject$proportionRejected, na.rm = TRUE)
+      
+      p10b <- ggplot(calib_reject, aes(x = proportionRejected)) +
+        geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+        scale_color_manual(values = colorPalette) +
+        scale_y_continuous(
+          limits = c(0, max(8, p10b_max_count + 1)),
+          expand = expansion(mult = c(0, 0.1)),
+          breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+        ) +
+        scale_x_continuous(
+          limits = c(0, 1),
+          breaks = seq(0, 1, by = 0.1),
+          labels = scales::label_number(accuracy = 0.01)
+        ) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(calib_reject$participant),
+                                           '\nMean=', format(round(mean_prop, 3), nsmall = 3),
+                                           '\nSD=', format(round(sd_prop, 3), nsmall = 3)),
+                            size = 3, family = "sans", fontface = "plain") +
+        guides(color = guide_legend(
+          ncol = 4,
+          title = "",
+          override.aes = list(size = 2),
+          keywidth = unit(0.3, "cm"),
+          keyheight = unit(0.3, "cm")
+        )) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        labs(
+          subtitle = "Proportion of calibration snapshots rejected",
+          x = "Proportion of rejected",
+          y = "Count"
+        ) +
+        theme_bw() +
+        theme(
+          legend.key.size = unit(0, "mm"),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
+          legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+          legend.box.spacing = unit(0, "lines"),
+          legend.spacing.y = unit(-10, "lines"),
+          legend.spacing.x = unit(0, "lines"),
+          legend.key.height = unit(0, "lines"),
+          legend.key.width = unit(0, "mm"),
+          legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = 'left',
+          legend.box.just = "left",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+          plot.caption = element_text(size = 10),
+          plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14)
+        )
+    }
+  }
+  
+  # Plot 10c: Proportion of CHECK snapshots rejected (per participant)
+  p10c <- NULL
+  p10c_max_count <- 0
+  if (!is.null(check_all) && nrow(check_all) > 0) {
+    check_reject <- check_all %>%
+      mutate(snapshotAcceptedBool = dplyr::coalesce(coerce_to_logical(snapshotAcceptedBool), TRUE)) %>%
+      group_by(participant) %>%
+      summarize(
+        total = dplyr::n(),
+        rejected = sum(snapshotAcceptedBool %in% FALSE, na.rm = TRUE),
+        proportionRejected = ifelse(total > 0, rejected / total, NA_real_),
+        .groups = "drop"
+      ) %>%
+      filter(is.finite(proportionRejected)) %>%
+      mutate(proportionRejected = pmax(0, pmin(1, proportionRejected)))
+    
+    if (nrow(check_reject) > 0) {
+      bin_w <- 0.02
+      check_reject <- check_reject %>%
+        mutate(bin_center = round(proportionRejected / bin_w) * bin_w) %>%
+        arrange(bin_center, participant) %>%
+        group_by(bin_center) %>%
+        mutate(dot_y = row_number()) %>%
+        ungroup()
+      
+      p10c_max_count <- max(check_reject$dot_y, na.rm = TRUE)
+      mean_prop <- mean(check_reject$proportionRejected, na.rm = TRUE)
+      sd_prop <- sd(check_reject$proportionRejected, na.rm = TRUE)
+      
+      p10c <- ggplot(check_reject, aes(x = proportionRejected)) +
+        geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+        scale_color_manual(values = colorPalette) +
+        scale_y_continuous(
+          limits = c(0, max(8, p10c_max_count + 1)),
+          expand = expansion(mult = c(0, 0.1)),
+          breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+        ) +
+        scale_x_continuous(
+          limits = c(0, 1),
+          breaks = seq(0, 1, by = 0.1),
+          labels = scales::label_number(accuracy = 0.01)
+        ) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(check_reject$participant),
+                                           '\nMean=', format(round(mean_prop, 3), nsmall = 3),
+                                           '\nSD=', format(round(sd_prop, 3), nsmall = 3)),
+                            size = 3, family = "sans", fontface = "plain") +
+        guides(color = guide_legend(
+          ncol = 4,
+          title = "",
+          override.aes = list(size = 2),
+          keywidth = unit(0.3, "cm"),
+          keyheight = unit(0.3, "cm")
+        )) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        labs(
+          subtitle = "Proportion of check snapshots rejected",
+          x = "Proportion of rejected",
+          y = "Count"
+        ) +
+        theme_bw() +
+        theme(
+          legend.key.size = unit(0, "mm"),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
+          legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+          legend.box.spacing = unit(0, "lines"),
+          legend.spacing.y = unit(-10, "lines"),
+          legend.spacing.x = unit(0, "lines"),
+          legend.key.height = unit(0, "lines"),
+          legend.key.width = unit(0, "mm"),
+          legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = 'left',
+          legend.box.just = "left",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 12),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size  = 10, angle = 0, hjust=0, vjust=1),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+          plot.caption = element_text(size = 10),
+          plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14)
+        )
+    }
+  }
+  
   # Plot 11: Histogram and scatter of fOverWidth for distance check sessions
   fOverWidth_hist <- NULL
   fOverWidth_scatter <- NULL
@@ -3961,6 +4154,20 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       height = if (!is.null(p10)) {
         compute_auto_height(base_height = 1.5, n_items = n_distinct(raw_factor_data$participant), per_row = 3, row_increase = 0.05) +
           0.24 * max(p10_max_count, 8)
+      } else NULL
+    ),
+    calibration_rejected_proportion_hist = list(
+      plot = p10b,
+      height = if (!is.null(p10b)) {
+        compute_auto_height(base_height = 1.5, n_items = n_distinct(calib_reject$participant), per_row = 3, row_increase = 0.05) +
+          0.24 * max(p10b_max_count, 8)
+      } else NULL
+    ),
+    check_rejected_proportion_hist = list(
+      plot = p10c,
+      height = if (!is.null(p10c)) {
+        compute_auto_height(base_height = 1.5, n_items = n_distinct(check_reject$participant), per_row = 3, row_increase = 0.05) +
+          0.24 * max(p10c_max_count, 8)
       } else NULL
     ),
     fOverWidth_ratio_vs_first = list(

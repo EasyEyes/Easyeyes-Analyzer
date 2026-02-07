@@ -867,6 +867,26 @@ shinyServer(function(input, output, session) {
         fname = 'histogram-of-fOverWidth-calibration-median-check'
       )
     }
+
+    # Proportion of calibration snapshots rejected
+    if (!is.null(distancePlots()$calibration_rejected_proportion_hist) &&
+        !is.null(distancePlots()$calibration_rejected_proportion_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = distancePlots()$calibration_rejected_proportion_hist$plot,
+        height = distancePlots()$calibration_rejected_proportion_hist$height,
+        fname = 'histogram-of-proportion-calibration-snapshots-rejected'
+      )
+    }
+
+    # Proportion of check snapshots rejected
+    if (!is.null(distancePlots()$check_rejected_proportion_hist) &&
+        !is.null(distancePlots()$check_rejected_proportion_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = distancePlots()$check_rejected_proportion_hist$plot,
+        height = distancePlots()$check_rejected_proportion_hist$height,
+        fname = 'histogram-of-proportion-check-snapshots-rejected'
+      )
+    }
     
     # fOverWidth histogram (calibration vs check)
     if (!is.null(distancePlots()$fOverWidth_hist) &&
