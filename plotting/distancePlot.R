@@ -86,15 +86,6 @@ get_accept_vec <- function(parsed, n) {
   v
 }
 
-expand_to_n <- function(x, n) {
-  x <- as.vector(x)
-  if (is.null(n) || !is.finite(n) || n <= 0) return(x[0])
-  if (length(x) == 0) return(rep(NA, n))
-  if (length(x) == 1) return(rep(x[1], n))
-  if (length(x) >= n) return(x[seq_len(n)])
-  c(x, rep(NA, n - length(x)))
-}
-
 # Plot-only helper: keep ONLY accepted snapshots when drawing plots.
 # If snapshotAcceptedBool is missing/NA, treat as accepted (TRUE).
 filter_accepted_for_plot <- function(df) {
@@ -1179,6 +1170,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
               # Create t from t_meta with JSON measurements
               n_measurements <- length(measured_vals)
               accept_vec <- get_accept_vec(distanceCalibration, n_measurements)
+              fow <- as.numeric(distanceCalibration$fOverWidth)
+              if (!length(fow)) fow <- NA_real_
               t <- t_meta[rep(1, n_measurements), ] %>%
                 mutate(
                   snapshotAcceptedBool = accept_vec,
@@ -1187,7 +1180,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                   # Store original JSON values for correct ratio calculation
                   imageBasedEyesToPointCm = measured_vals,
                   rulerBasedEyesToPointCm = requested_vals,
-                  fOverWidth = expand_to_n(as.numeric(distanceCalibration$fOverWidth), n_measurements),
+                  fOverWidth = fow,
                   measurement_index = row_number()
                 )
               
@@ -1439,20 +1432,20 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         json_date        <- if (!is.null(t_tjson$date)) t_tjson$date else NA_character_
         json_type        <- if (!is.null(t_tjson$json)) t_tjson$json else NA_character_
 
-        # Expand vectors so we keep ALL measurements, including rejected snapshots.
+
         rb_right <- if (!is.null(t_tjson$rulerBasedRightEyeToFootCm)) as.numeric(t_tjson$rulerBasedRightEyeToFootCm) else as.numeric(t_tjson$rightEyeToFootCm)
         rb_left  <- if (!is.null(t_tjson$rulerBasedLeftEyeToFootCm))  as.numeric(t_tjson$rulerBasedLeftEyeToFootCm)  else as.numeric(t_tjson$leftEyeToFootCm)
         rb_eyes_foot <- if (!is.null(t_tjson$rulerBasedEyesToFootCm)) as.numeric(t_tjson$rulerBasedEyesToFootCm) else as.numeric(t_tjson$eyesToFootCm)
-        img_eyes_foot <- if (!is.null(t_tjson$imageBasedEyesToFootCm)) as.numeric(t_tjson$imageBasedEyesToFootCm) else numeric(0)
-        rb_eyes_pt <- if (!is.null(t_tjson$rulerBasedEyesToPointCm)) as.numeric(t_tjson$rulerBasedEyesToPointCm) else numeric(0)
-        img_eyes_pt <- if (!is.null(t_tjson$imageBasedEyesToPointCm)) as.numeric(t_tjson$imageBasedEyesToPointCm) else numeric(0)
-        fow <- if (!is.null(t_tjson$fOverWidth)) as.numeric(t_tjson$fOverWidth) else numeric(0)
-        ipd_ow <- if (!is.null(t_tjson$ipdOverWidth)) as.numeric(t_tjson$ipdOverWidth) else numeric(0)
-        ipd_cm <- if (!is.null(t_tjson$ipdCm)) as.numeric(t_tjson$ipdCm) else numeric(0)
+        img_eyes_foot <- if (!is.null(t_tjson$imageBasedEyesToFootCm)) as.numeric(t_tjson$imageBasedEyesToFootCm) else NA_real_
+        rb_eyes_pt <- if (!is.null(t_tjson$rulerBasedEyesToPointCm)) as.numeric(t_tjson$rulerBasedEyesToPointCm) else NA_real_
+        img_eyes_pt <- if (!is.null(t_tjson$imageBasedEyesToPointCm)) as.numeric(t_tjson$imageBasedEyesToPointCm) else NA_real_
+        fow <- if (!is.null(t_tjson$fOverWidth)) as.numeric(t_tjson$fOverWidth) else NA_real_
+        ipd_ow <- if (!is.null(t_tjson$ipdOverWidth)) as.numeric(t_tjson$ipdOverWidth) else NA_real_
+        ipd_cm <- if (!is.null(t_tjson$ipdCm)) as.numeric(t_tjson$ipdCm) else NA_real_
 
         n_tjson <- max(length(rb_right), length(rb_left), length(rb_eyes_foot),
                        length(img_eyes_foot), length(rb_eyes_pt), length(img_eyes_pt),
-                       length(fow), length(ipd_ow))
+                       length(fow), length(ipd_ow), length(ipd_cm))
         if (!is.finite(n_tjson) || n_tjson < 1) n_tjson <- 1
         accept_vec_tjson <- get_accept_vec(t_tjson, n_tjson)
 
@@ -1464,15 +1457,15 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           json_date        = json_date,
           json_type        = json_type,
           snapshotAcceptedBool = accept_vec_tjson,
-          rulerBasedRightEyeToFootCm = expand_to_n(rb_right, n_tjson),
-          rulerBasedLeftEyeToFootCm  = expand_to_n(rb_left, n_tjson),
-          rulerBasedEyesToFootCm     = expand_to_n(rb_eyes_foot, n_tjson),
-          imageBasedEyesToFootCm     = expand_to_n(img_eyes_foot, n_tjson),
-          rulerBasedEyesToPointCm    = expand_to_n(rb_eyes_pt, n_tjson),
-          imageBasedEyesToPointCm    = expand_to_n(img_eyes_pt, n_tjson),
-          fOverWidth       = expand_to_n(fow, n_tjson),
-          ipdOverWidth     = expand_to_n(ipd_ow, n_tjson),
-          ipdCm            = expand_to_n(ipd_cm, n_tjson)
+          rulerBasedRightEyeToFootCm = rb_right,
+          rulerBasedLeftEyeToFootCm  = rb_left,
+          rulerBasedEyesToFootCm     = rb_eyes_foot,
+          imageBasedEyesToFootCm     = img_eyes_foot,
+          rulerBasedEyesToPointCm    = rb_eyes_pt,
+          imageBasedEyesToPointCm    = img_eyes_pt,
+          fOverWidth       = fow,
+          ipdOverWidth     = ipd_ow,
+          ipdCm            = ipd_cm
         ) %>%
         mutate(
           snapshotAcceptedBool = dplyr::coalesce(coerce_to_logical(snapshotAcceptedBool), TRUE),
@@ -1485,6 +1478,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         TJSON <- rbind(TJSON, tmp)
       }
 
+      print('TJSON')
+      print(TJSON, n = Inf, width = Inf)
       # Temporary: keep only the last 2 rows per participant in TJSON table.
       # TJSON <- keep_last_two_per_participant(TJSON)
       
@@ -1495,10 +1490,10 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       
       # Parse distanceCheckJSON
         # Extract measuredEyesToPointCm and requestedEyesToPointCm for correct distance ratio
-        measuredEyesToPointCm_vals <- as.numeric(distanceCheck$rulerBasedEyesToPointCm)
-        requestedEyesToPointCm_vals <- as.numeric(distanceCheck$requestedEyesToPointCm)
-        imageBasedEyesToPointCm_vals <- as.numeric(distanceCheck$imageBasedEyesToPointCm)
-        rulerBasedEyesToPointCm_vals <- as.numeric(distanceCheck$rulerBasedEyesToPointCm)
+        measuredEyesToPointCm_vals <- if (!is.null(distanceCheck$rulerBasedEyesToPointCm)) as.numeric(distanceCheck$rulerBasedEyesToPointCm) else NA_real_
+        requestedEyesToPointCm_vals <- if (!is.null(distanceCheck$requestedEyesToPointCm)) as.numeric(distanceCheck$requestedEyesToPointCm) else NA_real_
+        imageBasedEyesToPointCm_vals <- if (!is.null(distanceCheck$imageBasedEyesToPointCm)) as.numeric(distanceCheck$imageBasedEyesToPointCm) else NA_real_
+        rulerBasedEyesToPointCm_vals <- if (!is.null(distanceCheck$rulerBasedEyesToPointCm)) as.numeric(distanceCheck$rulerBasedEyesToPointCm) else NA_real_
         
         # New: extract ipdOverWidth (replaces ipdVpx) and calibrationFOverWidth (replaces calibrationFVpx)
         ipdOverWidth_vals <- as.numeric(distanceCheck$ipdOverWidth)
@@ -1516,8 +1511,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           ipdCm_val <- as.numeric(first(na.omit(distanceCheck$ipdCm)))
         }
 
-        footToPointCm_vals <- as.numeric(distanceCheck$footToPointCm)
-        rulerBasedEyesToFootCm_vals <- if (!is.null(distanceCheck$rulerBasedEyesToFootCm)) as.numeric(distanceCheck$rulerBasedEyesToFootCm) else numeric(0)
+        footToPointCm_vals <- if (!is.null(distanceCheck$footToPointCm)) as.numeric(distanceCheck$footToPointCm) else NA_real_
+        rulerBasedEyesToFootCm_vals <- if (!is.null(distanceCheck$rulerBasedEyesToFootCm)) as.numeric(distanceCheck$rulerBasedEyesToFootCm) else NA_real_
 
         n_check <- max(length(measuredEyesToPointCm_vals), length(requestedEyesToPointCm_vals),
                        length(imageBasedEyesToPointCm_vals), length(rulerBasedEyesToPointCm_vals),
@@ -1528,16 +1523,16 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         tmp <- tibble(
           participant   = first(na.omit(dl$participant)),
           snapshotAcceptedBool = accept_vec_check,
-          measuredEyesToPointCm = expand_to_n(measuredEyesToPointCm_vals, n_check),
-          requestedEyesToPointCm = expand_to_n(requestedEyesToPointCm_vals, n_check),
-          eyesToPointCm = expand_to_n(measuredEyesToPointCm_vals, n_check),  # Keep for backward compatibility
-          imageBasedEyesToPointCm = expand_to_n(imageBasedEyesToPointCm_vals, n_check),
-          rulerBasedEyesToPointCm = expand_to_n(rulerBasedEyesToPointCm_vals, n_check),
-          footToPointCm = expand_to_n(footToPointCm_vals, n_check),
-          rulerBasedEyesToFootCm = expand_to_n(rulerBasedEyesToFootCm_vals, n_check),
-          ipdOverWidth  = expand_to_n(ipdOverWidth_vals, n_check),
-          calibrationFOverWidth = expand_to_n(calibrationFOverWidth_val, n_check),
-          ipdCm         = expand_to_n(ipdCm_val, n_check),
+          measuredEyesToPointCm = measuredEyesToPointCm_vals,
+          requestedEyesToPointCm = requestedEyesToPointCm_vals,
+          eyesToPointCm = measuredEyesToPointCm_vals,  # Keep for backward compatibility
+          imageBasedEyesToPointCm = imageBasedEyesToPointCm_vals,
+          rulerBasedEyesToPointCm = rulerBasedEyesToPointCm_vals,
+          footToPointCm = footToPointCm_vals,
+          rulerBasedEyesToFootCm = rulerBasedEyesToFootCm_vals,
+          ipdOverWidth  = ipdOverWidth_vals,
+          calibrationFOverWidth = calibrationFOverWidth_val,
+          ipdCm         = ipdCm_val,
           json_type     = check_json_type  # Store json_type to enable filtering jitter data
         ) %>%
         mutate(
@@ -3035,9 +3030,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
 
       # For summary histogram (one value per participant), use actual values without binning
       # This ensures displayed positions match table values exactly
-      # Use smaller bin width (0.005) to ensure nearby values stack instead of overlapping
-      # With 0.01, R's round-to-even can put 0.985 and 0.9851 in different bins
-      bin_w_linear <- 0.005
+      # Use larger bin width so dots stack instead of overlapping
+      bin_w_linear <- 0.1
       ratio_data <- ratio_data %>%
         mutate(
           bin_center = round(ratio / bin_w_linear) * bin_w_linear,
@@ -3053,12 +3047,12 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ungroup()
       
       max_count <- max(ratio_data$dot_y)
-      x_min <- min(ratio_data$actual_ratio, na.rm = TRUE) - 0.01  # Add margin
-      x_max <- max(ratio_data$actual_ratio, na.rm = TRUE) + 0.01 # Add margin  
+      x_min <- min(ratio_data$bin_center, na.rm = TRUE) - bin_w_linear  # Add margin
+      x_max <- max(ratio_data$bin_center, na.rm = TRUE) + bin_w_linear  # Add margin  
       
       p7 <- ggplot(ratio_data, aes(x = ratio)) +
-        # Dot stacked points - use actual_ratio for precise positioning (matches table values)
-        geom_point(aes(x = actual_ratio, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+        # Dot stacked points - snap to bin_center so dots stack cleanly
+        geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
         scale_color_manual(values = colorPalette) +
         scale_y_continuous(
           limits = c(0, max(8, max_count + 1)),
@@ -3336,7 +3330,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       sd_relative <- sd(raw_factor_data$relative, na.rm = TRUE)
 
       # Dot-stack histogram in linear space
-      bin_w_linear <- 0.01
+      bin_w_linear <- 0.1
       raw_factor_data <- raw_factor_data %>%
         mutate(
           bin_center = round(relative / bin_w_linear) * bin_w_linear
@@ -3350,8 +3344,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ungroup()
       
       p10_max_count <- max(raw_factor_data$dot_y)
-      x_min <- min(raw_factor_data$bin_center, na.rm = TRUE)
-      x_max <- max(raw_factor_data$bin_center, na.rm = TRUE)
+      x_min <- min(raw_factor_data$bin_center, na.rm = TRUE) - bin_w_linear
+      x_max <- max(raw_factor_data$bin_center, na.rm = TRUE) + bin_w_linear
       
       p10 <- ggplot(raw_factor_data, aes(x = relative)) +
         # Dot stacked points
@@ -3432,7 +3426,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       mutate(proportionRejected = pmax(0, pmin(1, proportionRejected)))
     
     if (nrow(calib_reject) > 0) {
-      bin_w <- 0.02
+      bin_w <- 0.1
       calib_reject <- calib_reject %>%
         mutate(bin_center = round(proportionRejected / bin_w) * bin_w) %>%
         arrange(bin_center, participant) %>%
@@ -3527,7 +3521,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       mutate(proportionRejected = pmax(0, pmin(1, proportionRejected)))
     
     if (nrow(check_reject) > 0) {
-      bin_w <- 0.02
+      bin_w <- 0.1
       check_reject <- check_reject %>%
         mutate(bin_center = round(proportionRejected / bin_w) * bin_w) %>%
         arrange(bin_center, participant) %>%
@@ -3692,9 +3686,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         check_plot_data <- tibble()
       }
       
-      if (nrow(check_plot_data) > 0) {
-        # Histogram (dot-stacked) - use smaller bin width to properly stack nearby values
-        bin_width <- 0.005
+   if (nrow(check_plot_data) > 0) {
+        # Histogram (dot-stacked) - snap x to bins so dots stack (not scatter)
+        bin_width <- 0.1
         check_plot_data <- check_plot_data %>%
           mutate(
             bin_center = round(fOverWidth / bin_width) * bin_width
@@ -3709,12 +3703,12 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         
         fOverWidth_max_count <- max(check_plot_data$dot_y)
         # Ensure x-axis limits include all tick marks (0.4 to 1.6)
-        x_min <- min(0.4, min(check_plot_data$fOverWidth, na.rm = TRUE) - 0.02)
-        x_max <- max(1.6, max(check_plot_data$fOverWidth, na.rm = TRUE) + 0.02)
+        x_min <- min(0.4, min(check_plot_data$bin_center, na.rm = TRUE) - bin_width)
+        x_max <- max(1.6, max(check_plot_data$bin_center, na.rm = TRUE) + bin_width)
         
-        p11 <- ggplot(check_plot_data, aes(x = fOverWidth)) +
+        p11 <- ggplot(check_plot_data, aes(x = bin_center)) +
           # Filled circles for calibration, open circles for check
-          geom_point(aes(x = fOverWidth, y = dot_y, color = participant, shape = source, fill = after_scale(ifelse(shape == 16, color, NA))), 
+          geom_point(aes(x = bin_center, y = dot_y, color = participant, shape = source, fill = after_scale(ifelse(shape == 16, color, NA))), 
                      size = 6, alpha = 0.85, stroke = 1.5) +
           # scale_shape_manual(values = c("calibration" = 16, "check" = 21),  # 16=filled, 21=open
           #                    labels = c("calibration" = "calibration", "check" = "check")) +
@@ -5043,7 +5037,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
            # Compute factorVpxCm from fOverWidth (fOverWidth = f/widthVpx, so f = fOverWidth * widthVpx)
            factorVpxCm = fOverWidth * widthVpx * ipdCm,
            type = 'calibration') %>%
-    select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type, measurement_order_within_participant)
+    select(participant, requestedEyesToFootCm, ipdOverWidth, fOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type, measurement_order_within_participant)
   
   # For check data, use the actual requestedEyesToFootCm (derived from requestedEyesToPointCm)
   # checkJSON now has ipdOverWidth directly
@@ -5057,10 +5051,11 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
              type = 'check') %>%
       left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
       mutate(factorVpxCm = fOverWidth * widthVpx * ipdCm) %>%
-      select(participant, requestedEyesToFootCm, ipdOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type, measurement_order_within_participant) %>%
+      select(participant, requestedEyesToFootCm, ipdOverWidth, fOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type, measurement_order_within_participant) %>%
       arrange(participant, measurement_order_within_participant)
   } else {
     tibble(participant = character(), requestedEyesToFootCm = numeric(), ipdOverWidth = numeric(),
+           fOverWidth = numeric(),
            ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm = numeric(), factorVpxCm = numeric(), type = character(), measurement_order_within_participant = integer())
   }
   
@@ -5082,79 +5077,6 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     filter(n() > 1L) %>%
     ungroup() %>%
     arrange(participant, type, measurement_order_within_participant)
-
-  # -----------------------------------------------------------------------------
-  # DEBUG: fOverWidth vs. requestedEyesToFootCm — unconnected dots at (26, 0.8) and (26, 0.36)
-  # Set to TRUE to re-enable verbose debug output.
-  # -----------------------------------------------------------------------------
-  if (FALSE) {
-    msg <- function(...) message("[DEBUG fOverWidth vs requestedEyesToFootCm] ", ...)
-    msg("checkjson (raw) rows: ", nrow(checkjson),
-        "; ipd_checkJSON (after filter) rows: ", nrow(ipd_checkJSON),
-        "; ipd_data total: ", nrow(ipd_data))
-    if (nrow(checkjson) > 0) {
-      n_check_raw <- checkjson %>% count(participant, name = "n_raw")
-      n_check_filt <- if (nrow(ipd_checkJSON) > 0) {
-        ipd_checkJSON %>% count(participant, name = "n_filt")
-      } else {
-        tibble(participant = character(), n_filt = integer())
-      }
-      check_counts <- n_check_raw %>%
-        left_join(n_check_filt, by = "participant") %>%
-        mutate(n_filt = coalesce(n_filt, 0L))
-      msg("Check rows per participant (raw -> after filter):")
-      for (i in seq_len(nrow(check_counts))) {
-        r <- check_counts[i, ]
-        msg("  ", r$participant, ": ", r$n_raw, " -> ", r$n_filt)
-      }
-      check_counts <- check_counts %>% mutate(n_dropped = n_raw - n_filt)
-      if (any(check_counts$n_dropped > 0, na.rm = TRUE)) {
-        msg("Rows dropped by ipdOverWidth/ipdCm filter (raw - after filter):")
-        for (i in seq_len(nrow(check_counts))) {
-          r <- check_counts[i, ]
-          if (r$n_dropped > 0)
-            msg("  ", r$participant, ": ", r$n_dropped, " dropped")
-        }
-      }
-      single_check <- check_counts %>% filter(n_filt == 1L)
-      if (nrow(single_check) > 0) {
-        msg("Participants with exactly 1 check point (these produce unconnected open dots): ",
-            paste(single_check$participant, collapse = ", "))
-      }
-    }
-    grp <- ipd_data %>%
-      group_by(participant, type) %>%
-      summarise(n = n(), .groups = "drop")
-    msg("All (participant, type) group sizes:")
-    for (i in seq_len(nrow(grp))) {
-      g <- grp[i, ]
-      msg("  ", g$participant, " / ", g$type, ": n=", g$n)
-    }
-    single_grp <- grp %>% filter(n == 1L)
-    if (nrow(single_grp) > 0) {
-      msg(">>> Groups with exactly 1 point (these produce UNCONNECTED dots):")
-      for (i in seq_len(nrow(single_grp))) {
-        g <- single_grp[i, ]
-        r <- ipd_data %>% filter(participant == g$participant, type == g$type)
-        msg("  ", g$participant, " / ", g$type, ": requestedEyesToFootCm=", round(r$requestedEyesToFootCm, 4),
-            ", ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm=", round(r$ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, 4))
-      }
-    }
-    near_26 <- ipd_data %>%
-      filter(type == "check",
-             requestedEyesToFootCm >= 25, requestedEyesToFootCm <= 27,
-             ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm >= 0.3,
-             ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm <= 0.9)
-    if (nrow(near_26) > 0) {
-      msg("Check points near (26, 0.8) and (26, 0.36) [requestedEyesToFootCm in [25,27], y in [0.3,0.9]]:")
-      for (i in seq_len(nrow(near_26))) {
-        r <- near_26[i, ]
-        msg("  participant=", r$participant, ", requestedEyesToFootCm=", round(r$requestedEyesToFootCm, 4),
-            ", y=", round(r$ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, 4),
-            ", measurement_order_within_participant=", r$measurement_order_within_participant)
-      }
-    }
-  }
   
   # Get calibration focal length (factorVpxCm) and ipdCm per participant for the focal length line
   # Use median factorVpxCm and ipdCm from calibration data per participant
@@ -5263,7 +5185,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     # Data lines: use geom_path to connect points in measurement order, not x-value order
     geom_path(data = ipd_data_plot,
               aes(x = requestedEyesToFootCm,
-                  y = ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm,
+                  y = fOverWidth,
                   color = participant,
                   group = interaction(participant, type)),
               linewidth = 0.75, alpha = 0.8) +
@@ -5278,7 +5200,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     # Points with shapes for calibration vs check
     geom_point(data = ipd_data_plot,
                    aes(x = requestedEyesToFootCm,
-                   y = ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm,
+                   y = fOverWidth,
                    color = participant,
                    shape = type),
                    size = 2) +
