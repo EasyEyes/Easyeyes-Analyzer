@@ -5033,11 +5033,9 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     mutate(measurement_order_within_participant = row_number()) %>%
     ungroup() %>%
     mutate(requestedEyesToFootCm = eyeToFootCm,  # During calibration, requested == measured
-           ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm = ipdOverWidth * requestedEyesToFootCm / ipdCm,
-           # Compute factorVpxCm from fOverWidth (fOverWidth = f/widthVpx, so f = fOverWidth * widthVpx)
            factorVpxCm = fOverWidth * widthVpx * ipdCm,
            type = 'calibration') %>%
-    select(participant, requestedEyesToFootCm, ipdOverWidth, fOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type, measurement_order_within_participant)
+    select(participant, requestedEyesToFootCm, ipdOverWidth, fOverWidth, factorVpxCm, type, measurement_order_within_participant)
   
   # For check data, use the actual requestedEyesToFootCm (derived from requestedEyesToPointCm)
   # checkJSON now has ipdOverWidth directly
@@ -5046,17 +5044,14 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   ipd_checkJSON <- if (nrow(checkjson) > 0 && "ipdOverWidth" %in% names(checkjson)) {
     checkjson %>%
       filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth), !is.na(ipdCm), is.finite(ipdCm), ipdCm > 0) %>%
-      mutate(ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm = ipdOverWidth * requestedEyesToFootCm / ipdCm,
-             # Compute factorVpxCm for compatibility (fOverWidth * widthVpx * ipdCm) - need widthVpx
-             type = 'check') %>%
+      mutate(type = 'check') %>%
       left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
       mutate(factorVpxCm = fOverWidth * widthVpx * ipdCm) %>%
-      select(participant, requestedEyesToFootCm, ipdOverWidth, fOverWidth, ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, factorVpxCm, type, measurement_order_within_participant) %>%
+      select(participant, requestedEyesToFootCm, ipdOverWidth, fOverWidth, factorVpxCm, type, measurement_order_within_participant) %>%
       arrange(participant, measurement_order_within_participant)
   } else {
     tibble(participant = character(), requestedEyesToFootCm = numeric(), ipdOverWidth = numeric(),
-           fOverWidth = numeric(),
-           ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm = numeric(), factorVpxCm = numeric(), type = character(), measurement_order_within_participant = integer())
+           fOverWidth = numeric(), factorVpxCm = numeric(), type = character(), measurement_order_within_participant = integer())
   }
   
   ipd_data <- rbind(ipd_TJSON, ipd_checkJSON)
@@ -5246,18 +5241,17 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
   # =============================================================================
   
   # Compute median fOverWidth from CHECK data for each participant
-  # ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm is our fOverWidth proxy
   median_check_fOverWidth <- ipd_data %>%
     filter(type == "check") %>%
     group_by(participant) %>%
-    summarize(median_check = median(ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm, na.rm = TRUE), .groups = "drop") %>%
+    summarize(median_check = median(fOverWidth, na.rm = TRUE), .groups = "drop") %>%
     filter(is.finite(median_check), median_check > 0)
   
   # Join median back to all data and compute normalized fOverWidth
   ipd_data_normalized <- ipd_data %>%
     left_join(median_check_fOverWidth, by = "participant") %>%
     filter(!is.na(median_check), is.finite(median_check), median_check > 0) %>%
-    mutate(fOverWidth_normalized = ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm / median_check)
+    mutate(fOverWidth_normalized = fOverWidth / median_check)
   
   # Exclude single-point groups (same logic as ipd_data_plot)
   # IMPORTANT: Arrange by measurement_order_within_participant to preserve measurement order for geom_path
@@ -5272,70 +5266,6 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
     left_join(median_check_fOverWidth, by = "participant") %>%
     filter(!is.na(median_check), is.finite(median_check), median_check > 0) %>%
     mutate(product_focal_over_width_normalized = product_focal_over_width / median_check)
-  
-  # -----------------------------------------------------------------------------
-  # DEBUG: fOverWidth / median(check) vs. requestedEyesToFootCm
-  # Shows data being plotted so we know what's going on
-  # X = requestedEyesToFootCm, Y = fOverWidth_normalized = fOverWidth / median_check
-  # -----------------------------------------------------------------------------
-  {
-    msg <- function(...) message("[DEBUG fOverWidth/median(check) vs requestedEyesToFootCm] ", ...)
-    msg("=== DATA SUMMARY ===")
-    msg("median_check_fOverWidth: ", nrow(median_check_fOverWidth), " participants")
-    for (i in seq_len(nrow(median_check_fOverWidth))) {
-      r <- median_check_fOverWidth[i, ]
-      msg("  ", r$participant, ": median_check = ", round(r$median_check, 4))
-    }
-    msg("ipd_data_normalized: ", nrow(ipd_data_normalized), " rows total")
-    msg("ipd_data_normalized_plot (after excluding single-point groups): ", nrow(ipd_data_normalized_plot), " rows")
-    
-    msg("=== PER-PARTICIPANT PLOT DATA (X=requestedEyesToFootCm, Y=fOverWidth/median_check) ===")
-    msg("NOTE: Data shown in MEASUREMENT ORDER (not sorted by X)")
-    for (p in unique(ipd_data_normalized_plot$participant)) {
-      # Keep data in measurement order (DO NOT sort by requestedEyesToFootCm)
-      p_data <- ipd_data_normalized_plot %>% filter(participant == p) %>% arrange(type, measurement_order_within_participant)
-      calib_data_p <- p_data %>% filter(type == "calibration") %>% arrange(measurement_order_within_participant)
-      check_data_p <- p_data %>% filter(type == "check") %>% arrange(measurement_order_within_participant)
-      median_val <- median_check_fOverWidth %>% filter(participant == p) %>% pull(median_check)
-      msg("")
-      msg("Participant: ", p)
-      msg("  median_check = ", round(median_val, 4))
-      
-      if (nrow(calib_data_p) > 0) {
-        msg("  CALIBRATION (", nrow(calib_data_p), " points, in measurement order):")
-        for (j in seq_len(nrow(calib_data_p))) {
-          r <- calib_data_p[j, ]
-          fOverWidth_raw <- r$ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm
-          normalized <- r$fOverWidth_normalized
-          calculated <- fOverWidth_raw / median_val
-          meas_order <- if ("measurement_order_within_participant" %in% names(r)) r$measurement_order_within_participant else j
-          msg("    [meas#", meas_order, "] X=", round(r$requestedEyesToFootCm, 2), 
-              ", Y=", round(normalized, 4),
-              " | fOverWidth=", round(fOverWidth_raw, 4),
-              ", median_check=", round(median_val, 4),
-              " | Verification: ", round(fOverWidth_raw, 4), " / ", round(median_val, 4), " = ", round(calculated, 4))
-        }
-      }
-      
-      if (nrow(check_data_p) > 0) {
-        msg("  CHECK (", nrow(check_data_p), " points, in measurement order):")
-        for (j in seq_len(nrow(check_data_p))) {
-          r <- check_data_p[j, ]
-          fOverWidth_raw <- r$ipdOverWidth_times_requestedEyesToFootCm_over_ipdCm
-          normalized <- r$fOverWidth_normalized
-          calculated <- fOverWidth_raw / median_val
-          meas_order <- if ("measurement_order_within_participant" %in% names(r)) r$measurement_order_within_participant else j
-          msg("    [meas#", meas_order, "] X=", round(r$requestedEyesToFootCm, 2), 
-              ", Y=", round(normalized, 4),
-              " | fOverWidth=", round(fOverWidth_raw, 4),
-              ", median_check=", round(median_val, 4),
-              " | Verification: ", round(fOverWidth_raw, 4), " / ", round(median_val, 4), " = ", round(calculated, 4))
-        }
-      }
-    }
-    msg("")
-    msg("=== END DEBUG ===")
-  }
   
   p3 <- ggplot() +
     # Data lines: use geom_path to connect points in measurement order
