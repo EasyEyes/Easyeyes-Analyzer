@@ -3599,6 +3599,251 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
+  # =============================================================================
+  # Plots 10d-10g: Histograms of successive fOverWidth ratios
+  # For each consecutive pair of snapshots within a session, compute ratio = S[i+1]/S[i].
+  # Classify: "accepted" if BOTH snapshots have snapshotAcceptedBool == TRUE, else "rejected".
+  # The acceptance rule: abs(log10(S1/S2)) <= log10(T), T = _calibrateDistanceAllowedRatioFOverWidth
+  # Typically T = 1.05, so accepted ratios must be in [1/1.05, 1.05] = [0.9524, 1.05].
+  # =============================================================================
+  
+  # Helper: compute successive ratios from fOverWidth and snapshotAcceptedBool arrays
+  compute_successive_ratios <- function(df, phase_label) {
+    if (is.null(df) || !is.data.frame(df) || nrow(df) < 2) return(tibble())
+    if (!"fOverWidth" %in% names(df) || !"snapshotAcceptedBool" %in% names(df) || !"participant" %in% names(df)) return(tibble())
+    
+    df %>%
+      mutate(snapshotAcceptedBool = dplyr::coalesce(coerce_to_logical(snapshotAcceptedBool), TRUE)) %>%
+      filter(!is.na(fOverWidth), is.finite(fOverWidth), fOverWidth > 0) %>%
+      group_by(participant) %>%
+      mutate(row_idx = row_number()) %>%
+      filter(n() >= 2) %>%  # Need at least 2 snapshots to compute a ratio
+      mutate(
+        next_fOverWidth = lead(fOverWidth),
+        next_accepted = lead(snapshotAcceptedBool),
+        ratio = next_fOverWidth / fOverWidth,
+        pair_accepted = snapshotAcceptedBool & next_accepted
+      ) %>%
+      filter(!is.na(ratio), is.finite(ratio), ratio > 0) %>%
+      ungroup() %>%
+      mutate(phase = phase_label) %>%
+      select(participant, fOverWidth, next_fOverWidth, ratio, snapshotAcceptedBool, next_accepted, pair_accepted, phase)
+  }
+  
+  calib_ratios <- compute_successive_ratios(calib_all, "calibration")
+  check_ratios <- compute_successive_ratios(check_all, "check")
+  
+  # ===== DEBUG: Show successive ratio data for ActiveBrownFox928 =====
+  {
+    dbg <- function(...) message("[DEBUG successive_ratios] ", ...)
+    dbg("=== CALIBRATION successive ratios ===")
+    dbg("  Total rows: ", nrow(calib_ratios))
+    if (nrow(calib_ratios) > 0) {
+      dbg("  Participants: ", paste(unique(calib_ratios$participant), collapse = ", "))
+      abf <- calib_ratios %>% filter(participant == "ActiveBrownFox928")
+      if (nrow(abf) > 0) {
+        dbg("  ActiveBrownFox928 calibration ratios:")
+        for (r in seq_len(nrow(abf))) {
+          dbg("    pair ", r, ": fOverWidth=", round(abf$fOverWidth[r], 4),
+              " -> ", round(abf$next_fOverWidth[r], 4),
+              ", ratio=", round(abf$ratio[r], 4),
+              ", accepted[i]=", abf$snapshotAcceptedBool[r],
+              ", accepted[i+1]=", abf$next_accepted[r],
+              ", pair_accepted=", abf$pair_accepted[r])
+        }
+      } else {
+        dbg("  ActiveBrownFox928 NOT found in calibration ratios")
+      }
+    }
+    
+    dbg("=== CHECK successive ratios ===")
+    dbg("  Total rows: ", nrow(check_ratios))
+    if (nrow(check_ratios) > 0) {
+      dbg("  Participants: ", paste(unique(check_ratios$participant), collapse = ", "))
+      abf <- check_ratios %>% filter(participant == "ActiveBrownFox928")
+      if (nrow(abf) > 0) {
+        dbg("  ActiveBrownFox928 check ratios:")
+        for (r in seq_len(nrow(abf))) {
+          dbg("    pair ", r, ": fOverWidth=", round(abf$fOverWidth[r], 4),
+              " -> ", round(abf$next_fOverWidth[r], 4),
+              ", ratio=", round(abf$ratio[r], 4),
+              ", accepted[i]=", abf$snapshotAcceptedBool[r],
+              ", accepted[i+1]=", abf$next_accepted[r],
+              ", pair_accepted=", abf$pair_accepted[r])
+        }
+      } else {
+        dbg("  ActiveBrownFox928 NOT found in check ratios")
+      }
+    }
+    
+    dbg("=== SUMMARY ===")
+    all_ratios <- bind_rows(calib_ratios, check_ratios)
+    if (nrow(all_ratios) > 0) {
+      accepted_calib <- calib_ratios %>% filter(pair_accepted == TRUE)
+      rejected_calib <- calib_ratios %>% filter(pair_accepted == FALSE)
+      accepted_check <- check_ratios %>% filter(pair_accepted == TRUE)
+      rejected_check <- check_ratios %>% filter(pair_accepted == FALSE)
+      dbg("  Accepted calibration ratios: ", nrow(accepted_calib))
+      dbg("  Rejected calibration ratios: ", nrow(rejected_calib))
+      dbg("  Accepted check ratios: ", nrow(accepted_check))
+      dbg("  Rejected check ratios: ", nrow(rejected_check))
+      
+      # Check for violations: accepted ratios outside [1/T, T]
+      T_val <- 1.05  # Default
+      if (nrow(accepted_calib) > 0) {
+        violations <- accepted_calib %>% filter(ratio < 1/T_val | ratio > T_val)
+        if (nrow(violations) > 0) {
+          dbg("  WARNING: ", nrow(violations), " accepted calibration ratios OUTSIDE [", 
+              round(1/T_val, 4), ", ", T_val, "]:")
+          for (r in seq_len(min(nrow(violations), 10))) {
+            dbg("    ", violations$participant[r], ": ratio=", round(violations$ratio[r], 4))
+          }
+        }
+      }
+      if (nrow(accepted_check) > 0) {
+        violations <- accepted_check %>% filter(ratio < 1/T_val | ratio > T_val)
+        if (nrow(violations) > 0) {
+          dbg("  WARNING: ", nrow(violations), " accepted check ratios OUTSIDE [", 
+              round(1/T_val, 4), ", ", T_val, "]:")
+          for (r in seq_len(min(nrow(violations), 10))) {
+            dbg("    ", violations$participant[r], ": ratio=", round(violations$ratio[r], 4))
+          }
+        }
+      }
+    } else {
+      dbg("  No successive ratios computed (no data)")
+    }
+  }
+  
+  # Tolerance bounds for vertical reference lines
+  T_fOverWidth <- 1.05  # Default; could be extracted from data if available
+  lower_bound <- 1 / T_fOverWidth  # 0.9524
+  upper_bound <- T_fOverWidth       # 1.05
+  
+  # Shared theme for the four ratio histograms
+  ratio_hist_theme <- theme_bw() +
+    theme(
+      legend.key.size = unit(0, "mm"),
+      legend.title = element_text(size = 6),
+      legend.text = element_text(size = 7, margin = margin(t = 0, b = 0)),
+      legend.box.margin = margin(l = -0.6, r = 0, t = 0, b = 0, "cm"),
+      legend.box.spacing = unit(0, "lines"),
+      legend.spacing.y = unit(-10, "lines"),
+      legend.spacing.x = unit(0, "lines"),
+      legend.key.height = unit(0, "lines"),
+      legend.key.width = unit(0, "mm"),
+      legend.key = element_rect(fill = "transparent", colour = "transparent", size = 0),
+      legend.margin = margin(0, 0, 0, 0),
+      legend.position = "top",
+      legend.box = "vertical",
+      legend.justification = 'left',
+      legend.box.just = "left",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_blank(),
+      axis.title = element_text(size = 12),
+      axis.text = element_text(size = 12),
+      axis.line = element_line(colour = "black"),
+      axis.text.x = element_text(size = 10, angle = 0, hjust = 0, vjust = 1),
+      axis.text.y = element_text(size = 10),
+      plot.title = element_text(size = 7, hjust = 0, margin = margin(b = 0)),
+      plot.title.position = "plot",
+      plot.subtitle = element_text(size = 12, hjust = 0, margin = margin(t = 0)),
+      plot.caption = element_text(size = 10),
+      plot.margin = margin(t = 0.1, r = 0.1, b = 0.1, l = 0.1, "inch"),
+      strip.text = element_text(size = 14)
+    )
+  
+  # Helper: build a single dot-stacked ratio histogram
+  build_ratio_histogram <- function(ratio_df, subtitle_text, bin_width = 0.02) {
+    if (is.null(ratio_df) || nrow(ratio_df) == 0) return(list(plot = NULL, max_count = 0, n_participants = 0))
+    
+    # Bin and stack
+    ratio_df <- ratio_df %>%
+      mutate(bin_center = round(ratio / bin_width) * bin_width) %>%
+      arrange(bin_center, participant) %>%
+      group_by(bin_center) %>%
+      mutate(dot_y = row_number()) %>%
+      ungroup()
+    
+    max_count <- max(ratio_df$dot_y, na.rm = TRUE)
+    n_participants <- n_distinct(ratio_df$participant)
+    mean_ratio <- mean(ratio_df$ratio, na.rm = TRUE)
+    sd_ratio <- sd(ratio_df$ratio, na.rm = TRUE)
+    n_ratios <- nrow(ratio_df)
+    
+    p <- ggplot(ratio_df, aes(x = ratio)) +
+      geom_vline(xintercept = lower_bound, linetype = "dashed", color = "red", linewidth = 0.5) +
+      geom_vline(xintercept = upper_bound, linetype = "dashed", color = "red", linewidth = 0.5) +
+      geom_vline(xintercept = 1.0, linetype = "solid", color = "gray50", linewidth = 0.3) +
+      geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
+      scale_color_manual(values = colorPalette) +
+      scale_y_continuous(
+        limits = c(0, max(8, max_count + 1)),
+        expand = expansion(mult = c(0, 0.1)),
+        breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+      ) +
+      scale_x_continuous(
+        breaks = scales::pretty_breaks(n = 10),
+        labels = scales::label_number(accuracy = 0.01)
+      ) +
+      ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                          label = paste0('N=', n_participants, ' (', n_ratios, ' ratios)',
+                                         '\nMean=', format(round(mean_ratio, 4), nsmall = 4),
+                                         '\nSD=', format(round(sd_ratio, 4), nsmall = 4)),
+                          size = 3, family = "sans", fontface = "plain") +
+      guides(color = guide_legend(
+        ncol = 4,
+        title = "",
+        override.aes = list(size = 2),
+        keywidth = unit(0.3, "cm"),
+        keyheight = unit(0.3, "cm")
+      )) +
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+      labs(
+        subtitle = subtitle_text,
+        x = "Ratio S[i+1] / S[i]",
+        y = "Count"
+      ) +
+      ratio_hist_theme
+    
+    return(list(plot = p, max_count = max_count, n_participants = n_participants))
+  }
+  
+  # Split into four groups
+  accepted_calib_ratios <- calib_ratios %>% filter(pair_accepted == TRUE)
+  rejected_calib_ratios <- calib_ratios %>% filter(pair_accepted == FALSE)
+  accepted_check_ratios <- check_ratios %>% filter(pair_accepted == TRUE)
+  rejected_check_ratios <- check_ratios %>% filter(pair_accepted == FALSE)
+  
+  # (a) Accepted calibration ratios
+  p10d_result <- build_ratio_histogram(accepted_calib_ratios,
+    "Accepted setting ratio in calibration phase")
+  p10d <- p10d_result$plot
+  p10d_max_count <- p10d_result$max_count
+  p10d_n_participants <- p10d_result$n_participants
+  
+  # (b) Accepted check ratios
+  p10e_result <- build_ratio_histogram(accepted_check_ratios,
+    "Accepted setting ratio in check phase")
+  p10e <- p10e_result$plot
+  p10e_max_count <- p10e_result$max_count
+  p10e_n_participants <- p10e_result$n_participants
+  
+  # (c) Rejected calibration ratios
+  p10f_result <- build_ratio_histogram(rejected_calib_ratios,
+    "Rejected setting ratio in calibration phase")
+  p10f <- p10f_result$plot
+  p10f_max_count <- p10f_result$max_count
+  p10f_n_participants <- p10f_result$n_participants
+  
+  # (d) Rejected check ratios
+  p10g_result <- build_ratio_histogram(rejected_check_ratios,
+    "Rejected setting ratio in check phase")
+  p10g <- p10g_result$plot
+  p10g_max_count <- p10g_result$max_count
+  p10g_n_participants <- p10g_result$n_participants
+  
   # Plot 11: Histogram and scatter of fOverWidth for distance check sessions
   fOverWidth_hist <- NULL
   fOverWidth_scatter <- NULL
@@ -4162,6 +4407,34 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       height = if (!is.null(p10c)) {
         compute_auto_height(base_height = 1.5, n_items = n_distinct(check_reject$participant), per_row = 3, row_increase = 0.05) +
           0.24 * max(p10c_max_count, 8)
+      } else NULL
+    ),
+    accepted_calib_ratio_hist = list(
+      plot = p10d,
+      height = if (!is.null(p10d)) {
+        compute_auto_height(base_height = 1.5, n_items = p10d_n_participants, per_row = 3, row_increase = 0.05) +
+          0.24 * max(p10d_max_count, 8)
+      } else NULL
+    ),
+    accepted_check_ratio_hist = list(
+      plot = p10e,
+      height = if (!is.null(p10e)) {
+        compute_auto_height(base_height = 1.5, n_items = p10e_n_participants, per_row = 3, row_increase = 0.05) +
+          0.24 * max(p10e_max_count, 8)
+      } else NULL
+    ),
+    rejected_calib_ratio_hist = list(
+      plot = p10f,
+      height = if (!is.null(p10f)) {
+        compute_auto_height(base_height = 1.5, n_items = p10f_n_participants, per_row = 3, row_increase = 0.05) +
+          0.24 * max(p10f_max_count, 8)
+      } else NULL
+    ),
+    rejected_check_ratio_hist = list(
+      plot = p10g,
+      height = if (!is.null(p10g)) {
+        compute_auto_height(base_height = 1.5, n_items = p10g_n_participants, per_row = 3, row_increase = 0.05) +
+          0.24 * max(p10g_max_count, 8)
       } else NULL
     ),
     fOverWidth_ratio_vs_first = list(

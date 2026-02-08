@@ -887,6 +887,46 @@ shinyServer(function(input, output, session) {
         fname = 'histogram-of-proportion-check-snapshots-rejected'
       )
     }
+
+    # Accepted calibration ratio histogram
+    if (!is.null(distancePlots()$accepted_calib_ratio_hist) &&
+        !is.null(distancePlots()$accepted_calib_ratio_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = distancePlots()$accepted_calib_ratio_hist$plot,
+        height = distancePlots()$accepted_calib_ratio_hist$height,
+        fname = 'histogram-of-accepted-calibration-fOverWidth-ratio'
+      )
+    }
+
+    # Accepted check ratio histogram
+    if (!is.null(distancePlots()$accepted_check_ratio_hist) &&
+        !is.null(distancePlots()$accepted_check_ratio_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = distancePlots()$accepted_check_ratio_hist$plot,
+        height = distancePlots()$accepted_check_ratio_hist$height,
+        fname = 'histogram-of-accepted-check-fOverWidth-ratio'
+      )
+    }
+
+    # Rejected calibration ratio histogram
+    if (!is.null(distancePlots()$rejected_calib_ratio_hist) &&
+        !is.null(distancePlots()$rejected_calib_ratio_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = distancePlots()$rejected_calib_ratio_hist$plot,
+        height = distancePlots()$rejected_calib_ratio_hist$height,
+        fname = 'histogram-of-rejected-calibration-fOverWidth-ratio'
+      )
+    }
+
+    # Rejected check ratio histogram
+    if (!is.null(distancePlots()$rejected_check_ratio_hist) &&
+        !is.null(distancePlots()$rejected_check_ratio_hist$plot)) {
+      static_calls[[length(static_calls) + 1]] <- list(
+        plot = distancePlots()$rejected_check_ratio_hist$plot,
+        height = distancePlots()$rejected_check_ratio_hist$height,
+        fname = 'histogram-of-rejected-check-fOverWidth-ratio'
+      )
+    }
     
     # fOverWidth histogram (calibration vs check)
     if (!is.null(distancePlots()$fOverWidth_hist) &&
