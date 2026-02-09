@@ -2625,7 +2625,7 @@ get_bs_vd <- function(data_list) {
   return(bs_vwing_ds)
 }
 
-plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed, participant_info = NULL) {
 
   check_data <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
   calib_data <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)  # Calibration data
@@ -2636,7 +2636,17 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   statement <- distanceCalibrationResults$statement
   camera <- distanceCalibrationResults$camera
   if (nrow(check_data) == 0 && nrow(calib_data) == 0) {return(NULL)}
-  participant_colors <- get_participant_colors(distanceCalibrationResults, c(check_data$participant, calib_data$participant))
+  # Single shared participant→color mapping for ALL distance-related plots.
+  # Include participant_info IDs (if provided) so those plots also match.
+  participant_fallback <- c(check_data$participant, calib_data$participant)
+  if (!is.null(participant_info) && is.data.frame(participant_info) && nrow(participant_info) > 0) {
+    if ("PavloviaParticipantID" %in% names(participant_info)) {
+      participant_fallback <- c(participant_fallback, participant_info$PavloviaParticipantID)
+    } else if ("participant" %in% names(participant_info)) {
+      participant_fallback <- c(participant_fallback, participant_info$participant)
+    }
+  }
+  participant_colors <- get_participant_colors(distanceCalibrationResults, participant_fallback)
   
   # ===== PREPARE CHECK DATA =====
   # Filter out jitter data (exclude rows where json_type indicates jitter)
@@ -2929,6 +2939,58 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   p4b_result <- plot_foot_position_during_calibration(distanceCalibrationResults)
   p4b <- if (!is.null(p4b_result)) p4b_result$plot else NULL
   p4b_height <- if (!is.null(p4b_result)) p4b_result$height else NULL
+
+  # ============================================================================
+  # MERGED-IN PLOTS (previously built via separate functions in server.R)
+  # - plot_sizeCheck
+  # - plot_distance_production
+  # - plot_eyeToPointCm_vs_requestedEyesToFootCm
+  # - plot_eyesToFootCm_estimated_vs_requested
+  # - bs_vd_hist
+  # - objectCm_hist
+  # These are returned as sub-objects so server.R can read them from one place.
+  # ============================================================================
+  sizeCheck_plots <- plot_sizeCheck(
+    distanceCalibrationResults,
+    calibrateTrackDistanceCheckLengthSDLogAllowed,
+    participant_colors = participant_colors
+  )
+
+  eyeToPoint_plot <- plot_eyeToPointCm_vs_requestedEyesToFootCm(
+    distanceCalibrationResults,
+    participant_colors = participant_colors
+  )
+
+  eyesToFoot_estimated_plot <- plot_eyesToFootCm_estimated_vs_requested(
+    distanceCalibrationResults,
+    participant_colors = participant_colors
+  )
+
+  distance_production_plots <- NULL
+  object_length_hist <- NULL
+  if (!is.null(participant_info) && is.data.frame(participant_info) && nrow(participant_info) > 0) {
+    distance_production_plots <- plot_distance_production(
+      distanceCalibrationResults,
+      participant_info,
+      calibrateTrackDistanceCheckLengthSDLogAllowed,
+      participant_colors = participant_colors
+    )
+    object_length_hist <- objectCm_hist(
+      participant_info,
+      distanceCalibrationResults,
+      participant_colors = participant_colors
+    )
+  }
+
+  # Blindspot viewing-distance histograms need the per-session raw data_list.
+  bs_vd <- NULL
+  if (!is.null(distanceCalibrationResults$filtered) && is.list(distanceCalibrationResults$filtered)) {
+    bs_vd <- bs_vd_hist(distanceCalibrationResults$filtered, participant_colors = participant_colors)
+  }
+
+  # ipd-related plots and foot-position-during-check plot (so server.R can call plot_distance only)
+  ipd_plots <- plot_ipd_vs_eyeToFootCm(distanceCalibrationResults, participant_colors = participant_colors)
+  eye_feet_check_plot <- plot_eye_feet_position_during_check(distanceCalibrationResults)
   
   # Plot 5b: Focal length ratio (calibration/check) vs. check
   p5b <- NULL
@@ -3718,121 +3780,93 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # Typically T = 1.05, so accepted ratios must be in [1/1.05, 1.05] = [0.9524, 1.05].
   # =============================================================================
   
-  # Helper: compute successive ratios from fOverWidth and snapshotAcceptedBool arrays
-  compute_successive_ratios <- function(df, phase_label) {
+  # Per your definition:
+  # - REJECTED ratios: filter to rejected snapshots only, then take NON-OVERLAPPING pairs (1&2, 3&4, ...)
+  #   and compute one ratio per pair (second/first).
+  # - ACCEPTED ratios: filter to accepted snapshots only, then for each accepted snapshot after the first,
+  #   compute ratio against the previous accepted snapshot (overlapping, one per accepted snapshot after first).
+  compute_accepted_ratios <- function(df, phase_label) {
     if (is.null(df) || !is.data.frame(df) || nrow(df) < 2) return(tibble())
-    if (!"fOverWidth" %in% names(df) || !"snapshotAcceptedBool" %in% names(df) || !"participant" %in% names(df)) return(tibble())
-    
-    df %>%
+    if (!all(c("fOverWidth", "snapshotAcceptedBool", "participant") %in% names(df))) return(tibble())
+
+    df2 <- df %>%
       mutate(snapshotAcceptedBool = dplyr::coalesce(coerce_to_logical(snapshotAcceptedBool), TRUE)) %>%
       filter(!is.na(fOverWidth), is.finite(fOverWidth), fOverWidth > 0) %>%
       group_by(participant) %>%
-      mutate(row_idx = row_number()) %>%
-      filter(n() >= 2) %>%  # Need at least 2 snapshots to compute a ratio
+      { if ("measurement_order_within_participant" %in% names(.)) arrange(., measurement_order_within_participant, .by_group = TRUE) else . } %>%
+      filter(snapshotAcceptedBool %in% TRUE) %>%
       mutate(
-        next_fOverWidth = lead(fOverWidth),
-        next_accepted = lead(snapshotAcceptedBool),
-        ratio = next_fOverWidth / fOverWidth,
-        pair_accepted = snapshotAcceptedBool & next_accepted
+        prev_fOverWidth = dplyr::lag(fOverWidth),
+        ratio = fOverWidth / prev_fOverWidth
       ) %>%
       filter(!is.na(ratio), is.finite(ratio), ratio > 0) %>%
       ungroup() %>%
       mutate(phase = phase_label) %>%
-      select(participant, fOverWidth, next_fOverWidth, ratio, snapshotAcceptedBool, next_accepted, pair_accepted, phase)
+      select(participant, prev_fOverWidth, fOverWidth, ratio, phase)
+
+    df2
   }
-  
-  calib_ratios <- compute_successive_ratios(calib_all, "calibration")
-  check_ratios <- compute_successive_ratios(check_all, "check")
+
+  compute_rejected_pair_ratios <- function(df, phase_label) {
+    if (is.null(df) || !is.data.frame(df) || nrow(df) < 2) return(tibble())
+    if (!all(c("fOverWidth", "snapshotAcceptedBool", "participant") %in% names(df))) return(tibble())
+
+    df_rej <- df %>%
+      mutate(snapshotAcceptedBool = dplyr::coalesce(coerce_to_logical(snapshotAcceptedBool), TRUE)) %>%
+      filter(!is.na(fOverWidth), is.finite(fOverWidth), fOverWidth > 0) %>%
+      group_by(participant) %>%
+      { if ("measurement_order_within_participant" %in% names(.)) arrange(., measurement_order_within_participant, .by_group = TRUE) else . } %>%
+      filter(snapshotAcceptedBool %in% FALSE) %>%
+      mutate(reject_idx = row_number(),
+             pair_id = floor((reject_idx - 1) / 2) + 1) %>%
+      ungroup()
+
+    if (nrow(df_rej) == 0) return(tibble())
+
+    # One ratio per rejected pair: (2/1), (4/3), ... ; drop incomplete final pair.
+    pair_ratios <- df_rej %>%
+      group_by(participant, pair_id) %>%
+      filter(n() == 2) %>%
+      summarize(
+        fOverWidth_1 = first(fOverWidth),
+        fOverWidth_2 = last(fOverWidth),
+        ratio = fOverWidth_2 / fOverWidth_1,
+        .groups = "drop"
+      ) %>%
+      filter(!is.na(ratio), is.finite(ratio), ratio > 0) %>%
+      mutate(phase = phase_label) %>%
+      select(participant, fOverWidth_1, fOverWidth_2, ratio, phase)
+
+    pair_ratios
+  }
+
+  accepted_calib_ratios <- compute_accepted_ratios(calib_all, "calibration")
+  accepted_check_ratios <- compute_accepted_ratios(check_all, "check")
+  rejected_calib_ratios <- compute_rejected_pair_ratios(calib_all, "calibration")
+  rejected_check_ratios <- compute_rejected_pair_ratios(check_all, "check")
   
   # ===== DEBUG: Show successive ratio data for ActiveBrownFox928 =====
   {
     dbg <- function(...) message("[DEBUG successive_ratios] ", ...)
-    dbg("=== CALIBRATION successive ratios ===")
-    dbg("  Total rows: ", nrow(calib_ratios))
-    if (nrow(calib_ratios) > 0) {
-      dbg("  Participants: ", paste(unique(calib_ratios$participant), collapse = ", "))
-      abf <- calib_ratios %>% filter(participant == "ActiveBrownFox928")
-      if (nrow(abf) > 0) {
-        dbg("  ActiveBrownFox928 calibration ratios:")
-        for (r in seq_len(nrow(abf))) {
-          dbg("    pair ", r, ": fOverWidth=", round(abf$fOverWidth[r], 4),
-              " -> ", round(abf$next_fOverWidth[r], 4),
-              ", ratio=", round(abf$ratio[r], 4),
-              ", accepted[i]=", abf$snapshotAcceptedBool[r],
-              ", accepted[i+1]=", abf$next_accepted[r],
-              ", pair_accepted=", abf$pair_accepted[r])
-        }
-      } else {
-        dbg("  ActiveBrownFox928 NOT found in calibration ratios")
-      }
-    }
-    
-    dbg("=== CHECK successive ratios ===")
-    dbg("  Total rows: ", nrow(check_ratios))
-    if (nrow(check_ratios) > 0) {
-      dbg("  Participants: ", paste(unique(check_ratios$participant), collapse = ", "))
-      abf <- check_ratios %>% filter(participant == "ActiveBrownFox928")
-      if (nrow(abf) > 0) {
-        dbg("  ActiveBrownFox928 check ratios:")
-        for (r in seq_len(nrow(abf))) {
-          dbg("    pair ", r, ": fOverWidth=", round(abf$fOverWidth[r], 4),
-              " -> ", round(abf$next_fOverWidth[r], 4),
-              ", ratio=", round(abf$ratio[r], 4),
-              ", accepted[i]=", abf$snapshotAcceptedBool[r],
-              ", accepted[i+1]=", abf$next_accepted[r],
-              ", pair_accepted=", abf$pair_accepted[r])
-        }
-      } else {
-        dbg("  ActiveBrownFox928 NOT found in check ratios")
-      }
-    }
-    
-    dbg("=== SUMMARY ===")
-    all_ratios <- bind_rows(calib_ratios, check_ratios)
-    if (nrow(all_ratios) > 0) {
-      accepted_calib <- calib_ratios %>% filter(pair_accepted == TRUE)
-      rejected_calib <- calib_ratios %>% filter(pair_accepted == FALSE)
-      accepted_check <- check_ratios %>% filter(pair_accepted == TRUE)
-      rejected_check <- check_ratios %>% filter(pair_accepted == FALSE)
-      dbg("  Accepted calibration ratios: ", nrow(accepted_calib))
-      dbg("  Rejected calibration ratios: ", nrow(rejected_calib))
-      dbg("  Accepted check ratios: ", nrow(accepted_check))
-      dbg("  Rejected check ratios: ", nrow(rejected_check))
-      
-      # Check for violations: accepted ratios outside [1/T, T]
-      T_val <- 1.05  # Default
-      if (nrow(accepted_calib) > 0) {
-        violations <- accepted_calib %>% filter(ratio < 1/T_val | ratio > T_val)
-        if (nrow(violations) > 0) {
-          dbg("  WARNING: ", nrow(violations), " accepted calibration ratios OUTSIDE [", 
-              round(1/T_val, 4), ", ", T_val, "]:")
-          for (r in seq_len(min(nrow(violations), 10))) {
-            dbg("    ", violations$participant[r], ": ratio=", round(violations$ratio[r], 4))
-          }
-        }
-      }
-      if (nrow(accepted_check) > 0) {
-        violations <- accepted_check %>% filter(ratio < 1/T_val | ratio > T_val)
-        if (nrow(violations) > 0) {
-          dbg("  WARNING: ", nrow(violations), " accepted check ratios OUTSIDE [", 
-              round(1/T_val, 4), ", ", T_val, "]:")
-          for (r in seq_len(min(nrow(violations), 10))) {
-            dbg("    ", violations$participant[r], ": ratio=", round(violations$ratio[r], 4))
-          }
-        }
-      }
-    } else {
-      dbg("  No successive ratios computed (no data)")
-    }
+    dbg("=== ACCEPTED successive (accepted-only) ratios ===")
+    dbg("  Accepted calibration ratios rows: ", nrow(accepted_calib_ratios))
+    dbg("  Accepted check ratios rows: ", nrow(accepted_check_ratios))
+
+    dbg("=== REJECTED pair (rejected-only, non-overlapping) ratios ===")
+    dbg("  Rejected calibration pair ratios rows: ", nrow(rejected_calib_ratios))
+    dbg("  Rejected check pair ratios rows: ", nrow(rejected_check_ratios))
   }
   
   # Tolerance bounds for vertical reference lines
-  T_fOverWidth <- get_first_non_na(camera_res_stats$`_calibrateDistanceAllowedRatioFOverWidth`) # Default; could be extracted from data if available
+  T_fOverWidth <- as.numeric(get_first_non_na(camera_res_stats$`_calibrateDistanceAllowedRatioFOverWidth`))
+  if (!is.finite(T_fOverWidth) || T_fOverWidth <= 0) T_fOverWidth <- 1.05
   lower_bound <- 1 / T_fOverWidth  # 0.9524
   upper_bound <- T_fOverWidth       # 1.05
   # Bin width for ratio dot-histograms: 1/10 of the red-line span
   # (Requested: binWidth = (T - 1/T) / 10)
   ratio_bin_width <- (upper_bound - lower_bound) / 10
+  # Rejected ratio histograms: TWO bins between the red limits.
+  ratio_bin_width_rejected <- (upper_bound - lower_bound) / 2
   
   # Shared theme for the four ratio histograms
   ratio_hist_theme <- theme_bw() +
@@ -3874,7 +3908,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     
     # Bin and stack
     ratio_df <- ratio_df %>%
-      mutate(bin_center = round(ratio / bin_width) * bin_width) %>%
+      # IMPORTANT: Align bins to the red limits so we get exactly N bins between them:
+      # - accepted: N=10 → bin_width=(upper-lower)/10
+      # - rejected: N=2  → bin_width=(upper-lower)/2
+      # Using an origin at `lower_bound` ensures "bins between the red limits" matches the request.
+      mutate(bin_center = lower_bound + (floor((ratio - lower_bound) / bin_width) + 0.5) * bin_width) %>%
       arrange(bin_center, participant) %>%
       group_by(bin_center) %>%
       mutate(dot_y = row_number()) %>%
@@ -3924,36 +3962,34 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     return(list(plot = p, max_count = max_count, n_participants = n_participants))
   }
   
-  # Split into four groups
-  accepted_calib_ratios <- calib_ratios %>% filter(pair_accepted == TRUE)
-  rejected_calib_ratios <- calib_ratios %>% filter(pair_accepted == FALSE)
-  accepted_check_ratios <- check_ratios %>% filter(pair_accepted == TRUE)
-  rejected_check_ratios <- check_ratios %>% filter(pair_accepted == FALSE)
-  
   # (a) Accepted calibration ratios
   p10d_result <- build_ratio_histogram(accepted_calib_ratios,
-    "Accepted setting ratio in calibration phase")
+    "Accepted setting ratio in calibration phase",
+    bin_width = ratio_bin_width)
   p10d <- p10d_result$plot
   p10d_max_count <- p10d_result$max_count
   p10d_n_participants <- p10d_result$n_participants
   
   # (b) Accepted check ratios
   p10e_result <- build_ratio_histogram(accepted_check_ratios,
-    "Accepted setting ratio in check phase")
+    "Accepted setting ratio in check phase",
+    bin_width = ratio_bin_width)
   p10e <- p10e_result$plot
   p10e_max_count <- p10e_result$max_count
   p10e_n_participants <- p10e_result$n_participants
   
   # (c) Rejected calibration ratios
   p10f_result <- build_ratio_histogram(rejected_calib_ratios,
-    "Rejected setting ratio in calibration phase")
+    "Rejected setting ratio in calibration phase",
+    bin_width = ratio_bin_width_rejected)
   p10f <- p10f_result$plot
   p10f_max_count <- p10f_result$max_count
   p10f_n_participants <- p10f_result$n_participants
   
   # (d) Rejected check ratios
   p10g_result <- build_ratio_histogram(rejected_check_ratios,
-    "Rejected setting ratio in check phase")
+    "Rejected setting ratio in check phase",
+    bin_width = ratio_bin_width_rejected)
   p10g <- p10g_result$plot
   p10g_max_count <- p10g_result$max_count
   p10g_n_participants <- p10g_result$n_participants
@@ -4564,16 +4600,28 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       } else NULL
     ),
     fOverWidth_hist = fOverWidth_hist,
-    fOverWidth_scatter = fOverWidth_scatter
+    fOverWidth_scatter = fOverWidth_scatter,
+
+    # ---- merged-in plot bundles ----
+    sizeCheck = sizeCheck_plots,
+    distance_production = distance_production_plots,
+    eyeToPoint = eyeToPoint_plot,
+    eyesToFoot_estimated = eyesToFoot_estimated_plot,
+    object_length_hist = object_length_hist,
+    bs_vd = bs_vd,
+    ipd = ipd_plots,
+    eye_feet_check = eye_feet_check_plot
   ))
 }
 
-plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed, participant_colors = NULL) {
   message("[DEBUG plot_sizeCheck] distanceCalibrationResults is a list with elements: ", paste(names(distanceCalibrationResults), collapse=", "))
   message("[DEBUG plot_sizeCheck] sizeCheck rows: ", nrow(distanceCalibrationResults$sizeCheck))
   sizeCheck <- distanceCalibrationResults$sizeCheck
   statement <- distanceCalibrationResults$statement
-  participant_colors <- get_participant_colors(distanceCalibrationResults, sizeCheck$participant)
+  if (is.null(participant_colors) || !length(participant_colors)) {
+    participant_colors <- get_participant_colors(distanceCalibrationResults, sizeCheck$participant)
+  }
   
   # Check if the data is empty FIRST before trying to select columns
   if (nrow(sizeCheck) == 0) {
@@ -5045,10 +5093,12 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   ))
 }
 
-plot_distance_production <- function(distanceCalibrationResults, participant_info, calibrateTrackDistanceCheckLengthSDLogAllowed) {
+plot_distance_production <- function(distanceCalibrationResults, participant_info, calibrateTrackDistanceCheckLengthSDLogAllowed, participant_colors = NULL) {
   distance <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
   statement <- distanceCalibrationResults$statement
-  participant_colors <- get_participant_colors(distanceCalibrationResults, distance$participant)
+  if (is.null(participant_colors) || !length(participant_colors)) {
+    participant_colors <- get_participant_colors(distanceCalibrationResults, distance$participant)
+  }
   if (nrow(distance) == 0) {
     print('no distance data')
     return(NULL)
@@ -5126,7 +5176,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
   ))
 }
 
-objectCm_hist <- function(participant_info, distanceCalibrationResults) {
+objectCm_hist <- function(participant_info, distanceCalibrationResults, participant_colors = NULL) {
   dt <- participant_info %>%
     mutate(
       # Clean the objectLengthCm strings before converting to numeric
@@ -5138,7 +5188,9 @@ objectCm_hist <- function(participant_info, distanceCalibrationResults) {
   
   # Build statement consistent with other plots (reuse global if available)
   statement <- distanceCalibrationResults$statement
-  participant_colors <- get_participant_colors(distanceCalibrationResults, dt$PavloviaParticipantID)
+  if (is.null(participant_colors) || !length(participant_colors)) {
+    participant_colors <- get_participant_colors(distanceCalibrationResults, dt$PavloviaParticipantID)
+  }
   
   # Create dot plot style like SD histogram
   bin_width <- (max(dt$objectLengthCm) - min(dt$objectLengthCm)) / 20  # Adjust bin width based on data range
@@ -5223,11 +5275,13 @@ objectCm_hist <- function(participant_info, distanceCalibrationResults) {
   return(list(plot = p, height = plot_height))
 }
 
-bs_vd_hist <- function(data_list) {
+bs_vd_hist <- function(data_list, participant_colors = NULL) {
   # get blindspot viewing distance data
   dt <- get_bs_vd(data_list)
   if (nrow(dt) == 0) return(list(mean_plot = NULL, sd_plot = NULL))
-  participant_colors <- participant_color_palette(dt$participant)
+  if (is.null(participant_colors) || !length(participant_colors)) {
+    participant_colors <- participant_color_palette(dt$participant)
+  }
 
   # Plot 1: MEAN of left and right viewing distances measured in blindspot-based calibration
   bin_width_mean <- (max(dt$m) - min(dt$m)) / 20  # Adjust bin width based on data range
@@ -5394,12 +5448,14 @@ bs_vd_hist <- function(data_list) {
   ))
 }
 
-plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
+plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colors = NULL) {
  
   # Use "calibration" instead of "TJSON" for legend
   # Use ruler-based horizontal viewing distance for x-axis (rulerBasedEyesToFootCm).
   camera <- distanceCalibrationResults$camera
-  participant_colors <- get_participant_colors(distanceCalibrationResults, c(distanceCalibrationResults$TJSON$participant, distanceCalibrationResults$checkJSON$participant))
+  if (is.null(participant_colors) || !length(participant_colors)) {
+    participant_colors <- get_participant_colors(distanceCalibrationResults, c(distanceCalibrationResults$TJSON$participant, distanceCalibrationResults$checkJSON$participant))
+  }
   
   # Early return if camera doesn't have required columns
   if (nrow(camera) == 0 || !"PavloviaParticipantID" %in% names(camera) || !"widthVpx" %in% names(camera)) {
@@ -5748,7 +5804,6 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
                                                              height = p_height)))
 }
 
-
 # =============================================================================
 # NEW PLOTS: Distance geometry analysis
 # =============================================================================
@@ -5756,11 +5811,13 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults) {
 # Plot 2: imageBasedEyesToPointCm vs. rulerBasedEyesToFootCm  
 # Shows measured line-of-sight distance as function of ruler-based horizontal distance
 # INCLUDES BOTH CALIBRATION (closed circles) AND CHECK DATA (open circles)
-plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResults) {
+plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResults, participant_colors = NULL) {
   
   check_data <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
   calib_data <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)
-  participant_colors <- get_participant_colors(distanceCalibrationResults, c(check_data$participant, calib_data$participant))
+  if (is.null(participant_colors) || !length(participant_colors)) {
+    participant_colors <- get_participant_colors(distanceCalibrationResults, c(check_data$participant, calib_data$participant))
+  }
   
   if (nrow(check_data) == 0 && nrow(calib_data) == 0) {
     return(list(plot = NULL, height = NULL))
@@ -5908,19 +5965,20 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
   
   return(list(plot = p, height = p_height))
 }
-
 # Plot 3: eyesToFootCm (estimated via ipdOverWidth) vs. requestedEyesToFootCm
 # This is the key plot showing: "Is the participant at the requested distance?"
 # eyesToFootCm = fOverWidth * widthVpx * ipdCm / ipdVpx
 # where fOverWidth is saved from calibration and ipdCm = 6.3 cm (standard IPD)
 # INCLUDES BOTH CALIBRATION (closed circles) AND CHECK DATA (open circles)
-plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults) {
+plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults, participant_colors = NULL) {
   
   # Get calibration data to extract fOverWidth per participant
   # TJSON now has fOverWidth directly (no longer computed from fVpx)
   tjson_data <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)
   check_data <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
-  participant_colors <- get_participant_colors(distanceCalibrationResults, c(tjson_data$participant, check_data$participant))
+  if (is.null(participant_colors) || !length(participant_colors)) {
+    participant_colors <- get_participant_colors(distanceCalibrationResults, c(tjson_data$participant, check_data$participant))
+  }
   
   # Standard interpupillary distance
   ipdCm_standard <- 6.3

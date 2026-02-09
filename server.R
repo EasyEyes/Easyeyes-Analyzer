@@ -777,7 +777,12 @@ shinyServer(function(input, output, session) {
     ))
   })
   distancePlots <- reactive({
-    return(plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed()))
+    # Central hub for all distance-related plots (single color assignment).
+    participant_info <- NULL
+    if (!is.null(df_list()) && is.list(df_list()) && "participant_info" %in% names(df_list())) {
+      participant_info <- df_list()$participant_info
+    }
+    return(plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed(), participant_info = participant_info))
   })
   #### dotPlots ####
   dotPlots <- reactive({
@@ -789,178 +794,96 @@ shinyServer(function(input, output, session) {
     fileNames <- list()
     
     # SD histogram and distance-related dot plots go here with larger sizing
-    bs_vd <- bs_vd_hist(distanceCalibration())
+    dp <- distancePlots()
+    if (is.null(dp)) {
+      return(list(plotList = list(), fileNames = list()))
+    }
+    bs_vd <- if (!is.null(dp$bs_vd)) dp$bs_vd else list(mean_plot = NULL, sd_plot = NULL)
 
-    # Build static_calls list, organized by category:
-    # 1. Pixel density histograms
-    # 2. Ruler and object length histograms
-    # 3. fOverWidth histograms
+    # Build static_calls list using a spec table + loop.
+    # This is the set of "dot/histogram-style" distance plots shown in dotPlots.
     static_calls <- list()
-    
-    # ===== 1. PIXEL DENSITY HISTOGRAMS =====
-    
-    # SD of log10 pixel density histogram
-    static_calls[[length(static_calls) + 1]] <- list(
-      plot = sizeCheckPlot()$sd_hist$plot, 
-      height = sizeCheckPlot()$sd_hist$height, 
-      fname = 'histogram-of-SD-of-log10-pixel-density'
+    get_nested <- function(x, keys) {
+      for (k in keys) {
+        if (is.null(x) || !is.list(x) || !(k %in% names(x))) return(NULL)
+        x <- x[[k]]
+      }
+      x
+    }
+    add_from_keys <- function(plot_keys, height_keys, fname) {
+      plot <- get_nested(dp, plot_keys)
+      if (is.null(plot)) return(invisible(NULL))
+      height <- get_nested(dp, height_keys)
+      static_calls[[length(static_calls) + 1]] <<- list(plot = plot, height = height, fname = fname)
+      invisible(NULL)
+    }
+    specs <- list(
+      # ===== 1. PIXEL DENSITY HISTOGRAMS =====
+      list(plot_keys = c("sizeCheck", "sd_hist", "plot"),
+           height_keys = c("sizeCheck", "sd_hist", "height"),
+           fname = "histogram-of-SD-of-log10-pixel-density"),
+      list(plot_keys = c("raw_pxPerCm_hist", "plot"),
+           height_keys = c("raw_pxPerCm_hist", "height"),
+           fname = "histogram-of-raw-pxPerCm-remeasured"),
+
+      # ===== 2. RULER AND OBJECT LENGTH HISTOGRAMS =====
+      list(plot_keys = c("sizeCheck", "ruler_hist", "plot"),
+           height_keys = c("sizeCheck", "ruler_hist", "height"),
+           fname = "histogram-of-ruler-length-cm"),
+      list(plot_keys = c("object_length_hist", "plot"),
+           height_keys = c("object_length_hist", "height"),
+           fname = "histogram-of-object-length-cm"),
+      list(plot_keys = c("raw_objectMeasuredCm_hist", "plot"),
+           height_keys = c("raw_objectMeasuredCm_hist", "height"),
+           fname = "histogram-of-raw-objectMeasuredCm-median"),
+
+      # ===== 3. fOverWidth HISTOGRAMS =====
+      list(plot_keys = c("calibrated_over_median_hist", "plot"),
+           height_keys = c("calibrated_over_median_hist", "height"),
+           fname = "histogram-of-fOverWidth-median-calibration-median-check"),
+      list(plot_keys = c("raw_fOverWidth_hist", "plot"),
+           height_keys = c("raw_fOverWidth_hist", "height"),
+           fname = "histogram-of-fOverWidth-calibration-median-check"),
+      list(plot_keys = c("calibration_rejected_proportion_hist", "plot"),
+           height_keys = c("calibration_rejected_proportion_hist", "height"),
+           fname = "histogram-of-proportion-calibration-snapshots-rejected"),
+      list(plot_keys = c("check_rejected_proportion_hist", "plot"),
+           height_keys = c("check_rejected_proportion_hist", "height"),
+           fname = "histogram-of-proportion-check-snapshots-rejected"),
+      list(plot_keys = c("accepted_calib_ratio_hist", "plot"),
+           height_keys = c("accepted_calib_ratio_hist", "height"),
+           fname = "histogram-of-accepted-calibration-fOverWidth-ratio"),
+      list(plot_keys = c("accepted_check_ratio_hist", "plot"),
+           height_keys = c("accepted_check_ratio_hist", "height"),
+           fname = "histogram-of-accepted-check-fOverWidth-ratio"),
+      list(plot_keys = c("rejected_calib_ratio_hist", "plot"),
+           height_keys = c("rejected_calib_ratio_hist", "height"),
+           fname = "histogram-of-rejected-calibration-fOverWidth-ratio"),
+      list(plot_keys = c("rejected_check_ratio_hist", "plot"),
+           height_keys = c("rejected_check_ratio_hist", "height"),
+           fname = "histogram-of-rejected-check-fOverWidth-ratio"),
+      list(plot_keys = c("fOverWidth_hist", "plot"),
+           height_keys = c("fOverWidth_hist", "height"),
+           fname = "histogram-of-fOverWidth")
     )
-    
-    # Raw pxPerCm histogram
-    if (!is.null(distancePlots()$raw_pxPerCm_hist) &&
-        !is.null(distancePlots()$raw_pxPerCm_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$raw_pxPerCm_hist$plot,
-        height = distancePlots()$raw_pxPerCm_hist$height,
-        fname = 'histogram-of-raw-pxPerCm-remeasured'
-      )
-    }
-    
-    # ===== 2. RULER AND OBJECT LENGTH HISTOGRAMS =====
-    
-    # Ruler length histogram
-    static_calls[[length(static_calls) + 1]] <- list(
-      plot = sizeCheckPlot()$ruler_hist$plot, 
-      height = sizeCheckPlot()$ruler_hist$height, 
-      fname = 'histogram-of-ruler-length-cm'
-    )
-    
-    # Object length histogram
-    static_calls[[length(static_calls) + 1]] <- list(
-      plot = objectCm_hist(df_list()$participant_info, distanceCalibration())$plot, 
-      height = objectCm_hist(df_list()$participant_info, distanceCalibration())$height, 
-      fname = 'histogram-of-object-length-cm'
-    )
-    
-    # Raw objectMeasuredCm histogram
-    if (!is.null(distancePlots()$raw_objectMeasuredCm_hist) &&
-        !is.null(distancePlots()$raw_objectMeasuredCm_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$raw_objectMeasuredCm_hist$plot,
-        height = distancePlots()$raw_objectMeasuredCm_hist$height,
-        fname = 'histogram-of-raw-objectMeasuredCm-median'
-      )
-    } else {
-      message("[DEBUG MISSING PLOT] histogram-of-raw-objectMeasuredCm-median: raw_objectMeasuredCm_hist is NULL=", 
-              is.null(distancePlots()$raw_objectMeasuredCm_hist), 
-              ", plot is NULL=", is.null(distancePlots()$raw_objectMeasuredCm_hist$plot))
-    }
-    
-    # ===== 3. fOverWidth HISTOGRAMS =====
-    
-    # fOverWidth median(calibration)/median(check) histogram
-    if (!is.null(distancePlots()$calibrated_over_median_hist) &&
-        !is.null(distancePlots()$calibrated_over_median_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$calibrated_over_median_hist$plot,
-        height = distancePlots()$calibrated_over_median_hist$height,
-        fname = 'histogram-of-fOverWidth-median-calibration-median-check'
-      )
-    }
-    
-    # fOverWidth calibration/median(check) histogram (raw)
-    if (!is.null(distancePlots()$raw_fOverWidth_hist) &&
-        !is.null(distancePlots()$raw_fOverWidth_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$raw_fOverWidth_hist$plot,
-        height = distancePlots()$raw_fOverWidth_hist$height,
-        fname = 'histogram-of-fOverWidth-calibration-median-check'
-      )
+    for (s in specs) {
+      add_from_keys(s$plot_keys, s$height_keys, s$fname)
     }
 
-    # Proportion of calibration snapshots rejected
-    if (!is.null(distancePlots()$calibration_rejected_proportion_hist) &&
-        !is.null(distancePlots()$calibration_rejected_proportion_hist$plot)) {
+    # Blindspot dot-histograms (already built inside plot_distance)
+    if (!is.null(bs_vd$mean_plot) && !is.null(bs_vd$mean_plot$plot)) {
       static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$calibration_rejected_proportion_hist$plot,
-        height = distancePlots()$calibration_rejected_proportion_hist$height,
-        fname = 'histogram-of-proportion-calibration-snapshots-rejected'
+        plot = bs_vd$mean_plot$plot,
+        height = bs_vd$mean_plot$height,
+        fname = "mean-of-left-and-right-viewing-distances-blindspot"
       )
     }
-
-    # Proportion of check snapshots rejected
-    if (!is.null(distancePlots()$check_rejected_proportion_hist) &&
-        !is.null(distancePlots()$check_rejected_proportion_hist$plot)) {
+    if (!is.null(bs_vd$sd_plot) && !is.null(bs_vd$sd_plot$plot)) {
       static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$check_rejected_proportion_hist$plot,
-        height = distancePlots()$check_rejected_proportion_hist$height,
-        fname = 'histogram-of-proportion-check-snapshots-rejected'
+        plot = bs_vd$sd_plot$plot,
+        height = bs_vd$sd_plot$height,
+        fname = "SD-of-log10-left-and-right-viewing-distances-blindspot"
       )
-    }
-
-    # Accepted calibration ratio histogram
-    if (!is.null(distancePlots()$accepted_calib_ratio_hist) &&
-        !is.null(distancePlots()$accepted_calib_ratio_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$accepted_calib_ratio_hist$plot,
-        height = distancePlots()$accepted_calib_ratio_hist$height,
-        fname = 'histogram-of-accepted-calibration-fOverWidth-ratio'
-      )
-    }
-
-    # Accepted check ratio histogram
-    if (!is.null(distancePlots()$accepted_check_ratio_hist) &&
-        !is.null(distancePlots()$accepted_check_ratio_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$accepted_check_ratio_hist$plot,
-        height = distancePlots()$accepted_check_ratio_hist$height,
-        fname = 'histogram-of-accepted-check-fOverWidth-ratio'
-      )
-    }
-
-    # Rejected calibration ratio histogram
-    if (!is.null(distancePlots()$rejected_calib_ratio_hist) &&
-        !is.null(distancePlots()$rejected_calib_ratio_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$rejected_calib_ratio_hist$plot,
-        height = distancePlots()$rejected_calib_ratio_hist$height,
-        fname = 'histogram-of-rejected-calibration-fOverWidth-ratio'
-      )
-    }
-
-    # Rejected check ratio histogram
-    if (!is.null(distancePlots()$rejected_check_ratio_hist) &&
-        !is.null(distancePlots()$rejected_check_ratio_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$rejected_check_ratio_hist$plot,
-        height = distancePlots()$rejected_check_ratio_hist$height,
-        fname = 'histogram-of-rejected-check-fOverWidth-ratio'
-      )
-    }
-    
-    # fOverWidth histogram (calibration vs check)
-    if (!is.null(distancePlots()$fOverWidth_hist) &&
-        !is.null(distancePlots()$fOverWidth_hist$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = distancePlots()$fOverWidth_hist$plot,
-        height = distancePlots()$fOverWidth_hist$height,
-        fname = 'histogram-of-fOverWidth'
-      )
-    } else {
-      message("[DEBUG MISSING PLOT] histogram-of-fOverWidth: fOverWidth_hist is NULL=", 
-              is.null(distancePlots()$fOverWidth_hist), 
-              ", plot is NULL=", is.null(distancePlots()$fOverWidth_hist$plot))
-    }
-    
-    # Conditionally add blindspot plots if they exist
-    if (!is.null(bs_vd$mean_plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = bs_vd$mean_plot$plot, 
-        height = bs_vd$mean_plot$height, 
-        fname = 'mean-of-left-and-right-viewing-distances-blindspot'
-      )
-    } else {
-      message("[DEBUG MISSING PLOT] mean-of-left-and-right-viewing-distances-blindspot: bs_vd$mean_plot is NULL (no blindspot data)")
-    }
-    
-    if (!is.null(bs_vd$sd_plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = bs_vd$sd_plot$plot, 
-        height = bs_vd$sd_plot$height, 
-        fname = 'SD-of-log10-left-and-right-viewing-distances-blindspot'
-      )
-    } else {
-      message("[DEBUG MISSING PLOT] SD-of-log10-left-and-right-viewing-distances-blindspot: bs_vd$sd_plot is NULL (no blindspot data)")
     }
     
     heights <- list()
@@ -1087,9 +1010,7 @@ shinyServer(function(input, output, session) {
   })
   
   #### scatterDiagrams ####
-  sizeCheckPlot <- reactive({
-    plot_sizeCheck(distanceCalibration(),calibrateTrackDistanceCheckLengthSDLogAllowed())
-  }) %>% bindCache(input$file$datapath, minRulerCm(), calibrateTrackDistanceCheckLengthSDLogAllowed())
+  # NOTE: sizeCheck plots are now produced inside plot_distance() and accessed via distancePlots()$sizeCheck.
   
   scatterDistance <- reactive({
     if (is.null(input$file) | is.null(files())) {
@@ -1099,19 +1020,25 @@ shinyServer(function(input, output, session) {
     l <- list()
     fileNames <- list()
 
-    # Distance-specific plots
-    distance_production_plots <- plot_distance_production(distanceCalibration(), df_list()$participant_info, calibrateTrackDistanceCheckLengthSDLogAllowed())
-    ipd_plots <- plot_ipd_vs_eyeToFootCm(distanceCalibration())
-    
-    # New plots: foot position during check and distance geometry
-    eye_feet_check_plot <- plot_eye_feet_position_during_check(distanceCalibration())
-    eyeToPoint_plot <- plot_eyeToPointCm_vs_requestedEyesToFootCm(distanceCalibration())
-    eyesToFoot_estimated_plot <- plot_eyesToFootCm_estimated_vs_requested(distanceCalibration())
+    # Distance-specific plots (all come from plot_distance)
+    dp <- distancePlots()
+    if (is.null(dp)) {
+      return(list(plotList = list(), fileNames = list()))
+    }
+    distance_production_plots <- dp$distance_production
+    ipd_plots <- dp$ipd
+    eye_feet_check_plot <- dp$eye_feet_check
+    eyeToPoint_plot <- dp$eyeToPoint
+    eyesToFoot_estimated_plot <- dp$eyesToFoot_estimated
 
     plot_calls <- list(
       # ===== 1. TWO PIXEL DENSITY PLOTS =====
-      list(plot = sizeCheckPlot()$density_vs_length$plot, height = sizeCheckPlot()$density_vs_length$height, fname = 'pixel-density-vs-requested-length'),
-      list(plot = sizeCheckPlot()$density_ratio_vs_sd$plot, height = sizeCheckPlot()$density_ratio_vs_sd$height, fname = 'credit-card-pixel-density-vs-SD-log-remeasured-pixel-density'),
+      list(plot = if(!is.null(dp$sizeCheck)) dp$sizeCheck$density_vs_length$plot else NULL,
+           height = if(!is.null(dp$sizeCheck)) dp$sizeCheck$density_vs_length$height else NULL,
+           fname = 'pixel-density-vs-requested-length'),
+      list(plot = if(!is.null(dp$sizeCheck)) dp$sizeCheck$density_ratio_vs_sd$plot else NULL,
+           height = if(!is.null(dp$sizeCheck)) dp$sizeCheck$density_ratio_vs_sd$height else NULL,
+           fname = 'credit-card-pixel-density-vs-SD-log-remeasured-pixel-density'),
       
       # ===== 2. FIVE SCATTER DIAGRAMS W FEW POINTS PER SESSION =====
       list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-max-width'),
@@ -1124,25 +1051,34 @@ shinyServer(function(input, output, session) {
       list(plot = distancePlots()$credit_card_fraction$plot, height = distancePlots()$credit_card_fraction$height, fname = 'measured-over-requested-distance'),
       list(plot = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$plot else NULL, height = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$height else NULL, fname = 'imageBasedEyesToPointCm-vs-rulerBasedEyesToFootCm'),
       list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-via-ipdOverWidth-vs-requestedEyesToFootCm'),
-      list(plot = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$height, fname = 'ipdOverWidth-vs-requestedEyesToFootCm'),
-      list(plot = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot, height = ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height, fname = 'fOverWidth-vs-requestedEyesToFootCm'),
-      list(plot = ipd_plots$fOverWidth_over_median_check_vs_requestedEyesToFootCm$plot, height = ipd_plots$fOverWidth_over_median_check_vs_requestedEyesToFootCm$height, fname = 'fOverWidth-over-median-check-vs-requestedEyesToFootCm'),
+      list(plot = if(!is.null(ipd_plots)) ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$plot else NULL,
+           height = if(!is.null(ipd_plots)) ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$height else NULL,
+           fname = 'ipdOverWidth-vs-requestedEyesToFootCm'),
+      list(plot = if(!is.null(ipd_plots)) ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot else NULL,
+           height = if(!is.null(ipd_plots)) ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height else NULL,
+           fname = 'fOverWidth-vs-requestedEyesToFootCm'),
+      list(plot = if(!is.null(ipd_plots)) ipd_plots$fOverWidth_over_median_check_vs_requestedEyesToFootCm$plot else NULL,
+           height = if(!is.null(ipd_plots)) ipd_plots$fOverWidth_over_median_check_vs_requestedEyesToFootCm$height else NULL,
+           fname = 'fOverWidth-over-median-check-vs-requestedEyesToFootCm'),
       
       # ===== 4. TWO HIDDEN BLINDSPOT PLOTS =====
-      list(plot = distance_production_plots$error_vs_blindspot_diameter$plot, height = distance_production_plots$error_vs_blindspot_diameter$height, fname = 'check-distance-error-vs-blindspot-diameter'),
+      list(plot = if(!is.null(distance_production_plots)) distance_production_plots$error_vs_blindspot_diameter$plot else NULL,
+           height = if(!is.null(distance_production_plots)) distance_production_plots$error_vs_blindspot_diameter$height else NULL,
+           fname = 'check-distance-error-vs-blindspot-diameter'),
       list(plot = distancePlots()$calibrated_over_mean_vs_spot$plot, height = distancePlots()$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter'),
       
       # ===== 5. THREE XY FOOT LOCATION PLOTS =====
       list(plot = distancePlots()$foot_position_calibration$plot, height = distancePlots()$foot_position_calibration$height, fname = 'foot-position-during-calibration'),
       list(plot = distancePlots()$eye_feet_position$plot, height = distancePlots()$eye_feet_position$height, fname = 'measured-over-requested-distance-vs-foot-position-during-calibration'),
-      list(plot = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$plot else NULL, height = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$height else NULL, fname = 'measured-over-requested-distance-vs-foot-position-during-check')
+      list(plot = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$plot else NULL,
+           height = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$height else NULL,
+           fname = 'measured-over-requested-distance-vs-foot-position-during-check')
     )
 
     heights <- list()
     for (call in plot_calls) {
       plot <- call$plot
       if (!is.null(plot)) {
-        plot <- plot + scale_color_manual(values = colorPalette)
         plot <- add_experiment_title(plot, experiment_names())
       } else {
         message("[DEBUG MISSING SCATTER] ", call$fname, ": plot is NULL")
