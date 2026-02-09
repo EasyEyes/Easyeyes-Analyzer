@@ -216,7 +216,6 @@ extract_common_params_from_JSON <- function(df) {
   }, error = function(e) {
     # If JSON parsing fails, return dataframe unchanged
   })
-  
   return(df)
 }
 
@@ -448,6 +447,7 @@ get_raw_objectMeasuredCm_data <- function(data_list) {
 
 # helper function to extract camera resolution width SD and count from JSONs
 # returns a tibble with PavloviaParticipantID, cameraResolutionXSD, cameraResolutionN
+# plus selected calibration params when available.
 get_camera_resolution_stats <- function(data_list) {
   result <- tibble()
   if (is.null(data_list) || length(data_list) == 0) return(result)
@@ -459,7 +459,30 @@ get_camera_resolution_stats <- function(data_list) {
     if (!"participant" %in% names(dl)) next
     participant_id <- get_first_non_na(dl$participant)
     if (is.null(participant_id) || is.na(participant_id) || participant_id == "") next
-   
+
+    # Pull distance-calibration params if present in the session data.
+    # (These are usually constant per participant/session; used for joining/reporting.)
+    allowedRatioFOverWidth <- if ("_calibrateDistanceAllowedRatioFOverWidth" %in% names(dl)) {
+      suppressWarnings(as.numeric(get_first_non_na(dl$`_calibrateDistanceAllowedRatioFOverWidth`)))
+    } else {
+      NA_real_
+    }
+    allowedRangeCm <- if ("_calibrateDistanceAllowedRangeCm" %in% names(dl)) {
+      as.character(get_first_non_na(dl$`_calibrateDistanceAllowedRangeCm`))
+    } else {
+      NA_character_
+    }
+    allowedRatioCm <- if ("_calibrateDistanceAllowedRatioCm" %in% names(dl)) {
+      suppressWarnings(as.numeric(get_first_non_na(dl$`_calibrateDistanceAllowedRatioCm`)))
+    } else {
+      NA_real_
+    }
+    allowedRatioPxPerCm <- if ("_calibrateDistanceAllowedRatioPxPerCm" %in% names(dl)) {
+      suppressWarnings(as.numeric(get_first_non_na(dl$`_calibrateDistanceAllowedRatioPxPerCm`)))
+    } else {
+      NA_real_
+    }
+
     all_widths <- c()
     accepted_n_total <- 0L
     rejected_n_total <- 0L
@@ -477,6 +500,21 @@ get_camera_resolution_stats <- function(data_list) {
         if (!is.null(raw_json) && !is.na(raw_json) && raw_json != "") {
           json_txt <- sanitize_json_string(raw_json)
           parsed <- jsonlite::fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
+
+          # If params are missing from dl, try to recover them from the parsed JSON.
+          if (is.na(allowedRatioFOverWidth) && !is.null(parsed$`_calibrateDistanceAllowedRatioFOverWidth`)) {
+            allowedRatioFOverWidth <- suppressWarnings(as.numeric(get_first_non_na(parsed$`_calibrateDistanceAllowedRatioFOverWidth`)))
+          }
+          if ((is.na(allowedRangeCm) || allowedRangeCm == "" || allowedRangeCm %in% c("NA", "NaN", "NULL", "null")) &&
+              !is.null(parsed$`_calibrateDistanceAllowedRangeCm`)) {
+            allowedRangeCm <- as.character(get_first_non_na(parsed$`_calibrateDistanceAllowedRangeCm`))
+          }
+          if (is.na(allowedRatioCm) && !is.null(parsed$`_calibrateDistanceAllowedRatioCm`)) {
+            allowedRatioCm <- suppressWarnings(as.numeric(get_first_non_na(parsed$`_calibrateDistanceAllowedRatioCm`)))
+          }
+          if (is.na(allowedRatioPxPerCm) && !is.null(parsed$`_calibrateDistanceAllowedRatioPxPerCm`)) {
+            allowedRatioPxPerCm <- suppressWarnings(as.numeric(get_first_non_na(parsed$`_calibrateDistanceAllowedRatioPxPerCm`)))
+          }
           
           if (!is.null(parsed$cameraResolutionXYVpx)) {
             res_array <- parsed$cameraResolutionXYVpx
@@ -509,6 +547,21 @@ get_camera_resolution_stats <- function(data_list) {
         if (!is.null(raw_json) && !is.na(raw_json) && raw_json != "") {
           json_txt <- sanitize_json_string(raw_json)
           parsed <- jsonlite::fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
+
+          # If params are missing from dl, try to recover them from the parsed JSON.
+          if (is.na(allowedRatioFOverWidth) && !is.null(parsed$`_calibrateDistanceAllowedRatioFOverWidth`)) {
+            allowedRatioFOverWidth <- suppressWarnings(as.numeric(get_first_non_na(parsed$`_calibrateDistanceAllowedRatioFOverWidth`)))
+          }
+          if ((is.na(allowedRangeCm) || allowedRangeCm == "" || allowedRangeCm %in% c("NA", "NaN", "NULL", "null")) &&
+              !is.null(parsed$`_calibrateDistanceAllowedRangeCm`)) {
+            allowedRangeCm <- as.character(get_first_non_na(parsed$`_calibrateDistanceAllowedRangeCm`))
+          }
+          if (is.na(allowedRatioCm) && !is.null(parsed$`_calibrateDistanceAllowedRatioCm`)) {
+            allowedRatioCm <- suppressWarnings(as.numeric(get_first_non_na(parsed$`_calibrateDistanceAllowedRatioCm`)))
+          }
+          if (is.na(allowedRatioPxPerCm) && !is.null(parsed$`_calibrateDistanceAllowedRatioPxPerCm`)) {
+            allowedRatioPxPerCm <- suppressWarnings(as.numeric(get_first_non_na(parsed$`_calibrateDistanceAllowedRatioPxPerCm`)))
+          }
           
           if (!is.null(parsed$cameraResolutionXYVpx)) {
             res_array <- parsed$cameraResolutionXYVpx
@@ -547,7 +600,11 @@ get_camera_resolution_stats <- function(data_list) {
         cameraResolutionXSD = round(sd_width, 2),
         cameraResolutionN = n_resolutions,
         snapshotAcceptedN = accepted_n_total,
-        snapshotRejectedN = rejected_n_total
+        snapshotRejectedN = rejected_n_total,
+        `_calibrateDistanceAllowedRatioFOverWidth` = allowedRatioFOverWidth,
+        `_calibrateDistanceAllowedRangeCm` = allowedRangeCm,
+        `_calibrateDistanceAllowedRatioCm` = allowedRatioCm,
+        `_calibrateDistanceAllowedRatioPxPerCm` = allowedRatioPxPerCm
       ))
     }
   }
@@ -559,13 +616,7 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
   # Get camera resolution data (support both raw data_list and precomputed results)
   camera_data <- data_or_results$camera
   # Get camera resolution SD stats
-  camera_res_stats <- if (is.list(data_or_results) && "camera_res_stats" %in% names(data_or_results)) {
-    data_or_results$camera_res_stats
-  } else if (is.list(data_or_results) && "filtered" %in% names(data_or_results)) {
-    get_camera_resolution_stats(data_or_results$filtered)
-  } else {
-    get_camera_resolution_stats(data_or_results)
-  }
+  camera_res_stats <- data_or_results$camera_res_stats
   
   # If no participant_info provided, return just camera data
   if (is.null(participant_info) || nrow(participant_info) == 0) {
@@ -693,6 +744,10 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
       "browser",
       "Prolific min",
       "_calibrateDistance",
+      "_calibrateDistanceAllowedRatioFOverWidth",
+      "_calibrateDistanceAllowedRangeCm",
+      "_calibrateDistanceAllowedRatioCm",
+      "_calibrateDistanceAllowedRatioPxPerCm",
       "_calibrateDistancePupil",
       "ipdCm",
       "screenWidthCm",
@@ -995,12 +1050,14 @@ get_distance_calibration <- function(data_list, minRulerCm) {
                          "_calibrateTrackDistanceTimes", "calibrateScreenSizeAllowedRatio", 
                          "calibrateScreenSizeTimes", "_calibrateTrackDistance", "_calibrateTrackDistancePupil",
                          "viewingDistanceWhichEye", "viewingDistanceWhichPoint",
+                         "_calibrateDistanceAllowedRatioFOverWidth", "_calibrateDistanceAllowedRangeCm",
+                         "_calibrateDistanceAllowedRatioCm", "_calibrateDistanceAllowedRatioPxPerCm",
                          "pxPerCm", "screenWidthPx", "screenHeightPx")
       
       t_meta <- dl %>%
         select(participant, any_of(optional_cols), all_of(json_col)) %>%
         distinct()
-      
+        
       # Apply get_first_non_na to columns that exist
       if ("_calibrateTrackDistanceAllowedRatio" %in% names(t_meta)) {
         t_meta <- t_meta %>% mutate(`_calibrateTrackDistanceAllowedRatio` = get_first_non_na(`_calibrateTrackDistanceAllowedRatio`))
@@ -1028,6 +1085,18 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       }
       if ("viewingDistanceWhichPoint" %in% names(t_meta)) {
         t_meta <- t_meta %>% mutate(viewingDistanceWhichPoint = get_first_non_na(viewingDistanceWhichPoint))
+      }
+      if ("_calibrateDistanceAllowedRatioFOverWidth" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(`_calibrateDistanceAllowedRatioFOverWidth` = get_first_non_na(`_calibrateDistanceAllowedRatioFOverWidth`))
+      }
+      if ("_calibrateDistanceAllowedRangeCm" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(`_calibrateDistanceAllowedRangeCm` = get_first_non_na(`_calibrateDistanceAllowedRangeCm`))
+      }
+      if ("_calibrateDistanceAllowedRatioCm" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(`_calibrateDistanceAllowedRatioCm` = get_first_non_na(`_calibrateDistanceAllowedRatioCm`))
+      }
+      if ("_calibrateDistanceAllowedRatioPxPerCm" %in% names(t_meta)) {
+        t_meta <- t_meta %>% mutate(`_calibrateDistanceAllowedRatioPxPerCm` = get_first_non_na(`_calibrateDistanceAllowedRatioPxPerCm`))
       }
       
     
@@ -1478,8 +1547,6 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         TJSON <- rbind(TJSON, tmp)
       }
 
-      print('TJSON')
-      print(TJSON, n = Inf, width = Inf)
       # Temporary: keep only the last 2 rows per participant in TJSON table.
       # TJSON <- keep_last_two_per_participant(TJSON)
       
@@ -2521,6 +2588,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   check_data <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
   calib_data <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)  # Calibration data
   # For rejection-rate histograms we need ALL snapshots (accepted + rejected).
+  camera_res_stats <- distanceCalibrationResults$camera_res_stats
   calib_all <- distanceCalibrationResults$TJSON
   check_all <- distanceCalibrationResults$checkJSON
   statement <- distanceCalibrationResults$statement
@@ -3716,9 +3784,12 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   }
   
   # Tolerance bounds for vertical reference lines
-  T_fOverWidth <- 1.05  # Default; could be extracted from data if available
+  T_fOverWidth <- get_first_non_na(camera_res_stats$`_calibrateDistanceAllowedRatioFOverWidth`) # Default; could be extracted from data if available
   lower_bound <- 1 / T_fOverWidth  # 0.9524
   upper_bound <- T_fOverWidth       # 1.05
+  # Bin width for ratio dot-histograms: 1/10 of the red-line span
+  # (Requested: binWidth = (T - 1/T) / 10)
+  ratio_bin_width <- (upper_bound - lower_bound) / 10
   
   # Shared theme for the four ratio histograms
   ratio_hist_theme <- theme_bw() +
@@ -3755,7 +3826,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     )
   
   # Helper: build a single dot-stacked ratio histogram
-  build_ratio_histogram <- function(ratio_df, subtitle_text, bin_width = 0.02) {
+  build_ratio_histogram <- function(ratio_df, subtitle_text, bin_width = ratio_bin_width) {
     if (is.null(ratio_df) || nrow(ratio_df) == 0) return(list(plot = NULL, max_count = 0, n_participants = 0))
     
     # Bin and stack
