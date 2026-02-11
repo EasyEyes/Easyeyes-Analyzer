@@ -938,7 +938,12 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   blindspot <- tibble()
   TJSON <- tibble()
   checkJSON <- tibble()
-  
+  # Ratio arrays from new format: EasyEyes saves acceptedRatioFOverWidth / rejectedRatioFOverWidth
+  acceptedCalibRatios <- tibble(participant = character(), ratio = numeric(), phase = character())
+  rejectedCalibRatios <- tibble(participant = character(), ratio = numeric(), phase = character())
+  acceptedCheckRatios <- tibble(participant = character(), ratio = numeric(), phase = character())
+  rejectedCheckRatios <- tibble(participant = character(), ratio = numeric(), phase = character())
+
   for (i in seq_along(filtered_data_list)) {
     dl <- filtered_data_list[[i]]
     
@@ -1571,6 +1576,19 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         )
 
         TJSON <- rbind(TJSON, tmp)
+
+        # New format: acceptedRatioFOverWidth / rejectedRatioFOverWidth (one ratio per element; drop null/NA)
+        part <- first(na.omit(dl$participant))
+        acc_ratios <- if (!is.null(t_tjson$acceptedRatioFOverWidth)) as.numeric(t_tjson$acceptedRatioFOverWidth) else numeric()
+        rej_ratios <- if (!is.null(t_tjson$rejectedRatioFOverWidth)) as.numeric(t_tjson$rejectedRatioFOverWidth) else numeric()
+        acc_ratios <- acc_ratios[!is.na(acc_ratios) & is.finite(acc_ratios) & acc_ratios > 0]
+        rej_ratios <- rej_ratios[!is.na(rej_ratios) & is.finite(rej_ratios) & rej_ratios > 0]
+        if (length(acc_ratios) > 0) {
+          acceptedCalibRatios <- rbind(acceptedCalibRatios, tibble(participant = part, ratio = acc_ratios, phase = "calibration"))
+        }
+        if (length(rej_ratios) > 0) {
+          rejectedCalibRatios <- rbind(rejectedCalibRatios, tibble(participant = part, ratio = rej_ratios, phase = "calibration"))
+        }
       }
 
       # Temporary: keep only the last 2 rows per participant in TJSON table.
@@ -1645,7 +1663,20 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         )
 
         checkJSON <- rbind(checkJSON, tmp)
-    } 
+
+        # New format: acceptedRatioFOverWidth / rejectedRatioFOverWidth from distanceCheckJSON
+        part_check <- first(na.omit(dl$participant))
+        acc_check <- if (!is.null(distanceCheck$acceptedRatioFOverWidth)) as.numeric(distanceCheck$acceptedRatioFOverWidth) else numeric()
+        rej_check <- if (!is.null(distanceCheck$rejectedRatioFOverWidth)) as.numeric(distanceCheck$rejectedRatioFOverWidth) else numeric()
+        acc_check <- acc_check[!is.na(acc_check) & is.finite(acc_check) & acc_check > 0]
+        rej_check <- rej_check[!is.na(rej_check) & is.finite(rej_check) & rej_check > 0]
+        if (length(acc_check) > 0) {
+          acceptedCheckRatios <- rbind(acceptedCheckRatios, tibble(participant = part_check, ratio = acc_check, phase = "check"))
+        }
+        if (length(rej_check) > 0) {
+          rejectedCheckRatios <- rbind(rejectedCheckRatios, tibble(participant = part_check, ratio = rej_check, phase = "check"))
+        }
+    }
   }
   
   # Add explicit measurement order to preserve the order data was received
@@ -1948,7 +1979,11 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     raw_fVpx = raw_fVpx,
     statement = statement,
     TJSON = TJSON,
-    checkJSON = checkJSON
+    checkJSON = checkJSON,
+    acceptedCalibRatios = acceptedCalibRatios,
+    rejectedCalibRatios = rejectedCalibRatios,
+    acceptedCheckRatios = acceptedCheckRatios,
+    rejectedCheckRatios = rejectedCheckRatios
   ))
 }
 
@@ -3840,10 +3875,27 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     pair_ratios
   }
 
-  accepted_calib_ratios <- compute_accepted_ratios(calib_all, "calibration")
-  accepted_check_ratios <- compute_accepted_ratios(check_all, "check")
-  rejected_calib_ratios <- compute_rejected_pair_ratios(calib_all, "calibration")
-  rejected_check_ratios <- compute_rejected_pair_ratios(check_all, "check")
+  # Prefer ratio arrays from new format (acceptedRatioFOverWidth / rejectedRatioFOverWidth); fallback to computed from fOverWidth + snapshotAcceptedBool
+  accepted_calib_ratios <- if (!is.null(distanceCalibrationResults$acceptedCalibRatios) && nrow(distanceCalibrationResults$acceptedCalibRatios) > 0) {
+    distanceCalibrationResults$acceptedCalibRatios
+  } else {
+    compute_accepted_ratios(calib_all, "calibration")
+  }
+  accepted_check_ratios <- if (!is.null(distanceCalibrationResults$acceptedCheckRatios) && nrow(distanceCalibrationResults$acceptedCheckRatios) > 0) {
+    distanceCalibrationResults$acceptedCheckRatios
+  } else {
+    compute_accepted_ratios(check_all, "check")
+  }
+  rejected_calib_ratios <- if (!is.null(distanceCalibrationResults$rejectedCalibRatios) && nrow(distanceCalibrationResults$rejectedCalibRatios) > 0) {
+    distanceCalibrationResults$rejectedCalibRatios
+  } else {
+    compute_rejected_pair_ratios(calib_all, "calibration")
+  }
+  rejected_check_ratios <- if (!is.null(distanceCalibrationResults$rejectedCheckRatios) && nrow(distanceCalibrationResults$rejectedCheckRatios) > 0) {
+    distanceCalibrationResults$rejectedCheckRatios
+  } else {
+    compute_rejected_pair_ratios(check_all, "check")
+  }
   
   # ===== DEBUG: Show successive ratio data for ActiveBrownFox928 =====
   {
