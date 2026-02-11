@@ -107,12 +107,16 @@ normalize_filename <- function(filename) {
   # Remove download suffixes commonly added by browsers when downloading duplicate files
   # Patterns handled:
   # - " (1)", " (2)", etc. - Standard macOS/Windows/Chrome pattern
+  # - "_(1)", "_(2)", etc. - Underscore variant (e.g. .results_(1).zip)
   # - " - Copy", " - Copy (1)" - Some Windows patterns  
   # - ".1", ".2" - Alternative numbering pattern
   # - Case insensitive matching
   
   # Remove " (number)" pattern (most common)
   normalized <- gsub("\\s+\\([0-9]+\\)(?=\\.[^.]*$)", "", filename, perl = TRUE)
+  
+  # Remove "_(number)" pattern (e.g. .results_(1).zip from browser downloads)
+  normalized <- gsub("_\\([0-9]+\\)(?=\\.[^.]*$)", "", normalized, perl = TRUE)
   
   # Remove " - Copy" and " - Copy (number)" patterns
   normalized <- gsub("\\s+-\\s+Copy(\\s+\\([0-9]+\\))?(?=\\.[^.]*$)", "", normalized, perl = TRUE)
@@ -191,7 +195,7 @@ check_file_names <- function(file) {
         "&nbsp;&nbsp;&nbsp;• .csv<br>",
         "&nbsp;&nbsp;&nbsp;• .prolific.csv<br>",
         "&nbsp;&nbsp;&nbsp;• .pretest.xlsx<br>",
-        "<em>Note: Browser download suffixes like ' (1)' are automatically ignored.</em><br><br>"
+        "<em>Note: Browser download suffixes like ' (1)' or '_(1)' are automatically ignored.</em><br><br>"
       )
     }
     
