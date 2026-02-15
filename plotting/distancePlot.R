@@ -4139,8 +4139,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   eye_feet_height <- if (!is.null(p4_result)) p4_result$height else 4
 
   return(list(
-    credit_card_vs_requested = list(plot = p1, height = plot_height),
-    credit_card_fraction = list(plot = p2, height = plot_height),
+    imb_vs_rb = list(plot = p1, height = plot_height),
+    imb_over_rb = list(plot = p2, height = plot_height),
     eye_feet_position = list(plot = p4, height = eye_feet_height),
     foot_position_calibration = list(plot = p4b, height = if (!is.null(p4b_height)) p4b_height else plot_height),
     calibration_over_check_vs_check = list(plot = p5b, height = if (!is.null(p5b)) compute_auto_height(base_height = 7, n_items = n_distinct(distance_individual$participant), per_row = 3, row_increase = 0.06) else NULL),

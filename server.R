@@ -1026,10 +1026,6 @@ shinyServer(function(input, output, session) {
       return(list(plotList = list(), fileNames = list()))
     }
     distance_production_plots <- dp$distance_production
-    ipd_plots <- dp$ipd
-    eye_feet_check_plot <- dp$eye_feet_check
-    eyeToPoint_plot <- dp$eyeToPoint
-    eyesToFoot_estimated_plot <- dp$eyesToFoot_estimated
 
     plot_calls <- list(
       # ===== 1. TWO PIXEL DENSITY PLOTS =====
@@ -1047,18 +1043,18 @@ shinyServer(function(input, output, session) {
       list(plot = distancePlots()$fOverWidth_ratio_vs_first$plot, height = distancePlots()$fOverWidth_ratio_vs_first$height, fname = 'focal-length-calibration-second-over-first-vs-first'),
       
       # ===== 3. SIX PLOTS W 8 CONNECTED DOTS FROM CHECK PHASE =====
-      list(plot = distancePlots()$credit_card_vs_requested$plot, height = distancePlots()$credit_card_vs_requested$height, fname = 'measured-vs-requested-distance'),
-      list(plot = distancePlots()$credit_card_fraction$plot, height = distancePlots()$credit_card_fraction$height, fname = 'measured-over-requested-distance'),
-      list(plot = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$plot else NULL, height = if(!is.null(eyeToPoint_plot)) eyeToPoint_plot$height else NULL, fname = 'imageBasedEyesToPointCm-vs-rulerBasedEyesToFootCm'),
-      list(plot = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$plot else NULL, height = if(!is.null(eyesToFoot_estimated_plot)) eyesToFoot_estimated_plot$height else NULL, fname = 'eyesToFootCm-via-ipdOverWidth-vs-requestedEyesToFootCm'),
-      list(plot = if(!is.null(ipd_plots)) ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$plot else NULL,
-           height = if(!is.null(ipd_plots)) ipd_plots$ipdOverWidth_vs_requestedEyesToFootCm$height else NULL,
+      list(plot = distancePlots()$imb_vs_rb$plot, height = distancePlots()$imb_vs_rb$height, fname = 'rulerBasedEyesToPointCm-vs-imageBasedEyesToPointCm'),
+      list(plot = distancePlots()$imb_over_rb$plot, height = distancePlots()$imb_over_rb$height, fname = 'rulerBasedEyesToPointCm-over-imageBasedEyesToPointCm'),
+      list(plot = if(!is.null(dp$eyeToPoint)) dp$eyeToPoint$plot else NULL, height = if(!is.null(dp$eyeToPoint)) dp$eyeToPoint$height else NULL, fname = 'imageBasedEyesToPointCm-vs-rulerBasedEyesToFootCm'),
+      list(plot = if(!is.null(dp$eyesToFoot_estimated)) dp$eyesToFoot_estimated$plot else NULL, height = if(!is.null(dp$eyesToFoot_estimated)) dp$eyesToFoot_estimated$height else NULL, fname = 'imageBasedEyesToFootCm-vs-rulerBasedEyesToFootCm'),
+      list(plot = if(!is.null(dp$ipd)) dp$ipd$ipdOverWidth_vs_requestedEyesToFootCm$plot else NULL,
+           height = if(!is.null(dp$ipd)) dp$ipd$ipdOverWidth_vs_requestedEyesToFootCm$height else NULL,
            fname = 'ipdOverWidth-vs-requestedEyesToFootCm'),
-      list(plot = if(!is.null(ipd_plots)) ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot else NULL,
-           height = if(!is.null(ipd_plots)) ipd_plots$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height else NULL,
+      list(plot = if(!is.null(dp$ipd)) dp$ipd$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$plot else NULL,
+           height = if(!is.null(dp$ipd)) dp$ipd$ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm$height else NULL,
            fname = 'fOverWidth-vs-requestedEyesToFootCm'),
-      list(plot = if(!is.null(ipd_plots)) ipd_plots$fOverWidth_over_median_check_vs_requestedEyesToFootCm$plot else NULL,
-           height = if(!is.null(ipd_plots)) ipd_plots$fOverWidth_over_median_check_vs_requestedEyesToFootCm$height else NULL,
+      list(plot = if(!is.null(dp$ipd)) dp$ipd$fOverWidth_over_median_check_vs_requestedEyesToFootCm$plot else NULL,
+           height = if(!is.null(dp$ipd)) dp$ipd$fOverWidth_over_median_check_vs_requestedEyesToFootCm$height else NULL,
            fname = 'fOverWidth-over-median-check-vs-requestedEyesToFootCm'),
       
       # ===== 4. TWO HIDDEN BLINDSPOT PLOTS =====
@@ -1070,8 +1066,8 @@ shinyServer(function(input, output, session) {
       # ===== 5. THREE XY FOOT LOCATION PLOTS =====
       list(plot = distancePlots()$foot_position_calibration$plot, height = distancePlots()$foot_position_calibration$height, fname = 'foot-position-during-calibration'),
       list(plot = distancePlots()$eye_feet_position$plot, height = distancePlots()$eye_feet_position$height, fname = 'measured-over-requested-distance-vs-foot-position-during-calibration'),
-      list(plot = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$plot else NULL,
-           height = if(!is.null(eye_feet_check_plot)) eye_feet_check_plot$height else NULL,
+      list(plot = if(!is.null(dp$eye_feet_check)) dp$eye_feet_check$plot else NULL,
+           height = if(!is.null(dp$eye_feet_check)) dp$eye_feet_check$height else NULL,
            fname = 'measured-over-requested-distance-vs-foot-position-during-check')
     )
 
