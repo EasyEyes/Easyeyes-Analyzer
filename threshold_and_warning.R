@@ -795,14 +795,14 @@ generate_threshold <-
       full_join(participant_info, by = "participant") %>%
       rename(PavloviaParticipantID = participant) %>%
       mutate(
-        objectLengthCm = ifelse(!is.na(distanceObjectCm) & is.finite(distanceObjectCm), format(round(distanceObjectCm, 1), nsmall = 1), NA_character_),
+        # Keep numeric columns as numbers so Excel/CSV exports are usable
+        objectLengthCm = ifelse(!is.na(distanceObjectCm) & is.finite(distanceObjectCm), round(distanceObjectCm, 1), NA_real_),
         rulerCm = case_when(
-          !is.na(rulerCm) ~ format(round(rulerCm), nsmall = 0),
-          .default = NA_character_
+          !is.na(rulerCm) ~ round(as.numeric(rulerCm), 0),
+          .default = NA_real_
         ),
-        screenWidthCm = format(round(screenWidthCm, 1), nsmall = 1),
-        # Format pxPerCm with 1 decimal place
-        pxPerCm = ifelse(!is.na(pxPerCm), format(round(as.numeric(pxPerCm), 1), nsmall = 1), NA_character_),
+        screenWidthCm = ifelse(!is.na(screenWidthCm) & is.finite(as.numeric(screenWidthCm)), round(as.numeric(screenWidthCm), 1), NA_real_),
+        pxPerCm = ifelse(!is.na(pxPerCm), round(as.numeric(pxPerCm), 1), NA_real_),
         # Use objectName from CSV as fallback for Object when empty
         Object = ifelse(
           is.na(Object) | Object == "",

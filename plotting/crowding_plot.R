@@ -784,12 +784,13 @@ get_crowding_vs_repeatedLetter <- function(crowding, repeatedLetters) {
     
     # Add shape for Skilled Reader if applicable
     if (n_distinct(foveal_vs_repeatedLetters$`Skilled reader?`) > 1) {
+      n_reader <- n_distinct(foveal_vs_repeatedLetters$`Skilled reader?`)
       p <- p + 
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19,1))
+        scale_shape_manual(values = c(4, 19, 1, 2, 0, 5, 6, 8)[seq_len(n_reader)])
       p1 <- p1 + 
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19,1))
+        scale_shape_manual(values = c(4, 19, 1, 2, 0, 5, 6, 8)[seq_len(n_reader)])
     }
   }
   

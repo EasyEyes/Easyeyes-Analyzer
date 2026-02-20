@@ -68,12 +68,13 @@ get_quest_diag <- function(quest) {
       p1 <- p1 + geom_point()
       p <- p + geom_point()
     } else {
+      n_reader <- n_distinct(quest$`Skilled reader?`)
       p1 <- p1 +
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19,1))
+        scale_shape_manual(values = c(4, 19, 1, 2, 0, 5, 6, 8)[seq_len(n_reader)])
       p <- p +
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19,1))
+        scale_shape_manual(values = c(4, 19, 1, 2, 0, 5, 6, 8)[seq_len(n_reader)])
     }
     
     return(list(age = p, grade = p1))
@@ -117,9 +118,10 @@ get_quest_sd_vs_trials <- function(quest) {
   if (n_distinct(quest$`Skilled reader?`) == 1) {
     p <- p + geom_point(size = 3)
   } else {
+    n_reader <- n_distinct(quest$`Skilled reader?`)
     p <- p +
       geom_point(aes(shape = `Skilled reader?`), size = 3) +
-      scale_shape_manual(values = c(4, 19, 1))
+      scale_shape_manual(values = c(4, 19, 1, 2, 0, 5, 6, 8)[seq_len(n_reader)])
   }
   
   return(p)

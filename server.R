@@ -2029,8 +2029,8 @@ shinyServer(function(input, output, session) {
   output$fontAggregatedReadingRsvpCrowdingPlot <- renderImage({
     tryCatch({
       plot <- fontAggregatedReadingRsvpCrowding()
+      outfile <- tempfile(fileext = '.svg')
       if (!is.null(plot)) {
-        outfile <- tempfile(fileext = '.svg')
         plot_with_title <- add_experiment_title(plot, experiment_names())
         ggsave(
           file = outfile,
@@ -2041,12 +2041,10 @@ shinyServer(function(input, output, session) {
           limitsize = FALSE,
           device = svglite
         )
-        
-        list(src = outfile,
-             contenttype = 'image/svg+xml')
       } else {
-        NULL
+        writeLines('<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#666">No data</text></svg>', outfile)
       }
+      list(src = outfile, contenttype = 'image/svg+xml')
     }, error = function(e) {
       handle_plot_error(e, "fontAggregatedReadingRsvpCrowdingPlot", experiment_names(), "Font-aggregated reading vs peripheral crowding")
     })
@@ -2055,8 +2053,8 @@ shinyServer(function(input, output, session) {
   output$fontAggregatedOrdinaryReadingCrowdingPlot <- renderImage({
     tryCatch({
       plot <- fontAggregatedOrdinaryReadingCrowding()
+      outfile <- tempfile(fileext = '.svg')
       if (!is.null(plot)) {
-        outfile <- tempfile(fileext = '.svg')
         plot_with_title <- add_experiment_title(plot, experiment_names())
         ggsave(
           file = outfile,
@@ -2067,12 +2065,10 @@ shinyServer(function(input, output, session) {
           limitsize = FALSE,
           device = svglite
         )
-        
-        list(src = outfile,
-             contenttype = 'image/svg+xml')
       } else {
-        NULL
+        writeLines('<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#666">No data</text></svg>', outfile)
       }
+      list(src = outfile, contenttype = 'image/svg+xml')
     }, error = function(e) {
       handle_plot_error(e, "fontAggregatedOrdinaryReadingCrowdingPlot", experiment_names(), "Font-aggregated ordinary reading vs peripheral crowding")
     })
@@ -2081,8 +2077,8 @@ shinyServer(function(input, output, session) {
   output$fontAggregatedRsvpCrowdingPlot <- renderImage({
     tryCatch({
       plot <- fontAggregatedRsvpCrowding()
+      outfile <- tempfile(fileext = '.svg')
       if (!is.null(plot)) {
-        outfile <- tempfile(fileext = '.svg')
         plot_with_title <- add_experiment_title(plot, experiment_names())
         ggsave(
           file = outfile,
@@ -2093,12 +2089,10 @@ shinyServer(function(input, output, session) {
           limitsize = FALSE,
           device = svglite
         )
-        
-        list(src = outfile,
-             contenttype = 'image/svg+xml')
       } else {
-        NULL
+        writeLines('<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#666">No data</text></svg>', outfile)
       }
+      list(src = outfile, contenttype = 'image/svg+xml')
     }, error = function(e) {
       handle_plot_error(e, "fontAggregatedRsvpCrowdingPlot", experiment_names(), "Font-aggregated RSVP vs peripheral crowding")
     })

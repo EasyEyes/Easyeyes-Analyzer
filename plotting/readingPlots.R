@@ -260,9 +260,10 @@ plot_reading_age <- function(reading) {
     if (n_distinct(t$`Skilled reader?`) == 1) {
       p <- p + geom_point()
     } else {
+      n_reader <- n_distinct(t$`Skilled reader?`)
       p <- p +
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19, 1))
+        scale_shape_manual(values = c(4, 19, 1, 2, 0, 5, 6, 8)[seq_len(n_reader)])
     }
     
     return(p)
@@ -337,9 +338,10 @@ plot_rsvp_age <- function(rsvp) {
     
     # Add points and shapes for Skilled reader if applicable
     if (n_distinct(t$`Skilled reader?`) > 1) {
+      n_reader <- n_distinct(t$`Skilled reader?`)
       p <- p +
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19, 1))
+        scale_shape_manual(values = c(4, 19, 1, 2, 0, 5, 6, 8)[seq_len(n_reader)])
     } else {
       p <- p + geom_point()
     }

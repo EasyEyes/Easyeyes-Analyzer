@@ -143,6 +143,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
         )
       )
     } else {
+      n_reader <- n_distinct(data_rsvp$`Skilled reader?`)
       p <- p + geom_point(
         data = data_rsvp,
         aes(
@@ -153,7 +154,7 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
           shape = `Skilled reader?`
         )
       ) +
-        scale_shape_manual(values = c(4, 19, 1))
+        scale_shape_manual(values = c(4, 19, 1, 2, 0, 5, 6, 8)[seq_len(n_reader)])
     }
     
     return(p)
@@ -313,6 +314,7 @@ plot_reading_repeated_letter_crowding <- function(allData) {
         )
       )
     } else {
+      n_reader <- n_distinct(data_reading$`Skilled reader?`)
       p <- p + geom_point(
         data = data_reading,
         aes(
@@ -323,7 +325,7 @@ plot_reading_repeated_letter_crowding <- function(allData) {
           shape = `Skilled reader?`
         )
       ) +
-        scale_shape_manual(values = c(4, 19, 1))
+        scale_shape_manual(values = c(4, 19, 1, 2, 0, 5, 6, 8)[seq_len(n_reader)])
     }
     
     return(p)

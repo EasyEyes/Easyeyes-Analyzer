@@ -591,8 +591,6 @@ get_camera_resolution_stats <- function(data_list) {
         PavloviaParticipantID = participant_id,
         cameraResolutionXSD = round(sd_width, 2),
         cameraResolutionN = n_resolutions,
-        snapshotAcceptedN = accepted_n_total,
-        snapshotRejectedN = rejected_n_total,
         snapshotAcceptedN_calib = accepted_n_calib,
         snapshotRejectedN_calib = rejected_n_calib,
         snapshotAcceptedN_check = accepted_n_check,
@@ -691,14 +689,12 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
       )
     ) %>%
     mutate(
-      # fOverWidth now comes directly from TJSON (distanceCalibrationJSON)
-      # Format both columns to exactly 4 decimal places (including trailing zeros)
-      `fOverWidth calibration` = ifelse(is.na(fOverWidth_calibration), NA_character_, format(round(fOverWidth_calibration, 4), nsmall = 4)),
-      `fOverWidth check` = ifelse(is.na(fOverWidth_check), NA_character_, format(round(fOverWidth_check, 4), nsmall = 4)),
-      # Calculate fOverWidth calibration/check: ratio of calibration to check values
+      # fOverWidth: keep as numbers so Excel/CSV exports are usable
+      `fOverWidth calibration` = ifelse(is.na(fOverWidth_calibration), NA_real_, round(fOverWidth_calibration, 4)),
+      `fOverWidth check` = ifelse(is.na(fOverWidth_check), NA_real_, round(fOverWidth_check, 4)),
       calibration_check_ratio_tmp = ifelse(!is.na(fOverWidth_calibration) & !is.na(fOverWidth_check) & fOverWidth_check != 0,
                                           fOverWidth_calibration / fOverWidth_check, NA_real_),
-      `fOverWidth calibration/check` = ifelse(is.na(calibration_check_ratio_tmp), NA_character_, format(round(calibration_check_ratio_tmp, 3), nsmall = 3))
+      `fOverWidth calibration/check` = ifelse(is.na(calibration_check_ratio_tmp), NA_real_, round(calibration_check_ratio_tmp, 3))
     ) %>%
     select(-fOverWidth_calibration, -fOverWidth_check, -calibration_check_ratio_tmp, -factorVpxCm) %>%
     # Remove any stray fOverWidth column that leaked through from joins
@@ -709,10 +705,10 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     {if("cameraResolutionN" %in% names(.)) select(., -cameraResolutionN) else .} %>%
     # Remove objectName if it exists (redundant with Object)
     {if("objectName" %in% names(.)) select(., -objectName) else .} %>%
-    # Format object Length Cm to one decimal (e.g. "29.7" cm)
+    # Keep object Length Cm as numeric for Excel/CSV exports
     {if("objectLengthCm" %in% names(.)) mutate(., objectLengthCm = {
       x <- suppressWarnings(as.numeric(trimws(gsub('["\']', '', as.character(objectLengthCm)))))
-      ifelse(!is.na(x) & is.finite(x), format(round(x, 1), nsmall = 1), NA_character_)
+      ifelse(!is.na(x) & is.finite(x), round(x, 1), NA_real_)
     }) else .} %>%
     # Rename columns with spaces for readability
     rename(
@@ -723,10 +719,10 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     {if("Prolific participant ID" %in% names(.)) rename(., `Prolific Participant ID` = `Prolific participant ID`) else .} %>%
     # Rename objectSuggestion to object Suggestion
     {if("objectSuggestion" %in% names(.)) rename(., `object Suggestion` = objectSuggestion) else .} %>%
-    # Format cameraHz to 1 decimal place
+    # Keep cameraHz as numeric for Excel/CSV exports
     {if("cameraHz" %in% names(.)) mutate(., cameraHz = {
       x <- suppressWarnings(as.numeric(cameraHz))
-      ifelse(!is.na(x) & is.finite(x), format(round(x, 1), nsmall = 1), NA_character_)
+      ifelse(!is.na(x) & is.finite(x), round(x, 1), NA_real_)
     }) else .} %>%
     # Rename cameraResolutionXSD to "SD of widthVpx"
     {if("cameraResolutionXSD" %in% names(.)) rename(., `SD of widthVpx` = cameraResolutionXSD) else .} %>%

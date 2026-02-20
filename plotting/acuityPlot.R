@@ -91,8 +91,8 @@ get_foveal_acuity_vs_age <- function(acuity) {
   
   if (nrow(t)==0) return(NULL)
   
-  # build base aes mapping…
   unique_grades <- n_distinct(t$Grade)
+  if (unique_grades > 1) t$Grade <- as.character(t$Grade)
   aes_args <- if (unique_grades>1) {
     aes(x = age, y = 10^(questMeanAtEndOfTrialsLoop), color = Grade, shape = conditionName)
   } else {
@@ -697,9 +697,10 @@ get_acuity_foveal_peripheral_diag <- function(acuity) {
     if (n_distinct(t$`Skilled reader?`) == 1) {
       p1 <- p1 + geom_point()
     } else {
+      n_reader <- n_distinct(t$`Skilled reader?`)
       p1 <- p1 +
         geom_point(aes(shape = `Skilled reader?`)) +
-        scale_shape_manual(values = c(4, 19,1))
+        scale_shape_manual(values = c(4, 19, 1, 2, 0, 5, 6, 8)[seq_len(n_reader)])
     }
     return(p1)
   }

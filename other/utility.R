@@ -412,7 +412,7 @@ handle_plot_error <- function(e, plot_id, experiment_names = NULL, plot_subtitle
   
   return(list(
     src = outfile,
-    contenttype = 'svg',
+    contenttype = 'image/svg+xml',
     alt = paste0("Error in ", plot_id, ": ", e$message)
   ))
 }
