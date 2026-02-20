@@ -20,26 +20,12 @@ compute_auto_height <- function(base_height, n_items, per_row, row_increase) {
 }
 
 # Consistent participant→color mapping across plots.
-# Root cause of inconsistent colors: `colorPalette` is an *unnamed* vector, so ggplot
-# assigns colors by factor level order, which can differ across plots/subsets.
+# Delegates to participant_style_map() (in participant_styles.R) which uses
+# farthest-first selection in Lab space for maximal perceptual separation.
+# Returns only the named color vector for backward compatibility.
 participant_color_palette <- function(participants) {
-  participants <- as.character(participants)
-  participants <- participants[!is.na(participants) & participants != "" & participants != "NA"]
-  participants <- sort(unique(participants))
-  if (!length(participants)) return(setNames(character(), character()))
-
-  # Prefer the app-wide palette if present (defined in `constant.R`).
-  base <- NULL
-  if (exists("colorPalette", inherits = TRUE)) {
-    base <- get("colorPalette", inherits = TRUE)
-  }
-  if (is.null(base) || !length(base)) {
-    # Fallback: stable hue palette.
-    base <- scales::hue_pal()(max(1, length(participants)))
-  }
-
-  cols <- rep(base, length.out = length(participants))
-  stats::setNames(cols, participants)
+  sm <- participant_style_map(participants)
+  sm$colors
 }
 
 get_participant_colors <- function(distanceCalibrationResults, participants_fallback = NULL) {
@@ -50,6 +36,16 @@ get_participant_colors <- function(distanceCalibrationResults, participants_fall
     if (!is.null(pc) && length(pc) > 0 && !is.null(names(pc))) return(pc)
   }
   participant_color_palette(participants_fallback)
+}
+
+get_participant_style_map <- function(distanceCalibrationResults, participants_fallback = NULL) {
+  if (!is.null(distanceCalibrationResults) &&
+      is.list(distanceCalibrationResults) &&
+      "participant_style_map" %in% names(distanceCalibrationResults)) {
+    sm <- distanceCalibrationResults$participant_style_map
+    if (!is.null(sm)) return(sm)
+  }
+  participant_style_map(participants_fallback)
 }
 
 # Safe helpers for building short, clean, single-string labels
@@ -797,6 +793,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       camera = tibble(),
       camera_res_stats = tibble(),
       participant_colors = c(),
+      participant_style_map = NULL,
       raw_pxPerCm = tibble(),
       raw_objectMeasuredCm = tibble(),
       raw_fVpx = tibble(),
@@ -835,6 +832,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       camera = tibble(),
       camera_res_stats = tibble(),
       participant_colors = c(),
+      participant_style_map = NULL,
       raw_pxPerCm = tibble(),
       raw_objectMeasuredCm = tibble(),
       raw_fVpx = tibble(),
@@ -877,6 +875,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       camera = tibble(),
       camera_res_stats = tibble(),
       participant_colors = c(),
+      participant_style_map = NULL,
       raw_pxPerCm = tibble(),
       raw_objectMeasuredCm = tibble(),
       raw_fVpx = tibble(),
@@ -1630,7 +1629,8 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   # RETURN all outputs
   # =============================================================================
   # Precompute a single, named participant→color mapping used by all plots.
-  participant_colors <- participant_color_palette(valid_participants)
+  style_map <- participant_style_map(valid_participants)
+  participant_colors <- style_map$colors
   return(list(
     filtered = filtered_data_list,
     sizeCheck = sizeCheck,
@@ -1642,6 +1642,7 @@ get_distance_calibration <- function(data_list, minRulerCm) {
     camera = camera,
     camera_res_stats = camera_res_stats,
     participant_colors = participant_colors,
+    participant_style_map = style_map,
     blindspot = blindspot,
     raw_pxPerCm = raw_pxPerCm,
     raw_objectMeasuredCm = raw_objectMeasuredCm,
@@ -5095,8 +5096,12 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
   # Use "calibration" instead of "TJSON" for legend
   # Use ruler-based horizontal viewing distance for x-axis (rulerBasedEyesToFootCm).
   camera <- distanceCalibrationResults$camera
+  all_pids <- c(distanceCalibrationResults$TJSON$participant,
+                distanceCalibrationResults$checkJSON$participant)
+  style_map <- get_participant_style_map(distanceCalibrationResults, all_pids)
+  lwd_map   <- style_map$lwd_map
   if (is.null(participant_colors) || !length(participant_colors)) {
-    participant_colors <- get_participant_colors(distanceCalibrationResults, c(distanceCalibrationResults$TJSON$participant, distanceCalibrationResults$checkJSON$participant))
+    participant_colors <- style_map$colors
   }
   
   # Early return if camera doesn't have required columns
@@ -5281,63 +5286,93 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
   focal_hline_data <- focal_hline_data %>%
     mutate(line_type = "calibrationFOverWidth")
   
+  mixed_key <- make_mixed_key_glyph(style_map$style_table)
+
+  # --- DEBUG: CoolFirePasta448 data going into p2 ---
+  .dbg_pid <- "CoolFirePasta448"
+  .dbg_p2 <- ipd_data_plot[ipd_data_plot$participant == .dbg_pid, , drop = FALSE]
+  if (nrow(.dbg_p2) > 0) {
+    message("[DEBUG p2 CoolFirePasta448] rows=", nrow(.dbg_p2),
+            "  types=", paste(unique(.dbg_p2$type), collapse=", "))
+    message("  calibration rows:")
+    .dbg_cal <- .dbg_p2[.dbg_p2$type == "calibration", c("participant","type","rulerBasedEyesToFootCm","fOverWidth","measurement_order_within_participant"), drop=FALSE]
+    if (nrow(.dbg_cal)) message(paste(capture.output(print(.dbg_cal)), collapse="\n"))
+    message("  check rows:")
+    .dbg_chk <- .dbg_p2[.dbg_p2$type == "check", c("participant","type","rulerBasedEyesToFootCm","fOverWidth","measurement_order_within_participant"), drop=FALSE]
+    if (nrow(.dbg_chk)) message(paste(capture.output(print(.dbg_chk)), collapse="\n"))
+  } else {
+    message("[DEBUG p2 CoolFirePasta448] NOT FOUND in ipd_data_plot")
+  }
+  message("[DEBUG p2] style for CoolFirePasta448: color=", participant_colors[.dbg_pid],
+          "  lwd=", lwd_map[.dbg_pid],
+          "  is_mixed=", style_map$style_table$is_mixed[style_map$style_table$participant == .dbg_pid])
+  # --- END DEBUG ---
+
   p2 <- ggplot() +
-    # Data lines: use geom_path to connect points in measurement order, not x-value order
     geom_path(data = ipd_data_plot,
               aes(x = rulerBasedEyesToFootCm,
                   y = fOverWidth,
                   color = participant,
+                  linewidth = participant,
                   group = interaction(participant, type)),
-              linewidth = 0.75, alpha = 0.8) +
-    # Focal length horizontal line (dotted) - one per participant at y = calibrationFOverWidth
+              alpha = 0.8,
+              key_glyph = mixed_key) +
+    # Focal length horizontal line (dotted) per participant
     geom_line(data = focal_hline_data,
               aes(x = rulerBasedEyesToFootCm,
                   y = product_focal_over_width,
-                      color = participant,
-                      group = participant,
-                      linetype = line_type),
-              linewidth = 0.75, alpha = 0.8) +
-    # Points with shapes for calibration vs check
+                  color = participant,
+                  linewidth = participant,
+                  group = participant,
+                  linetype = line_type),
+              alpha = 0.8,
+              show.legend = c(colour = FALSE, linewidth = FALSE)) +
     geom_point(data = ipd_data_plot,
-                   aes(x = rulerBasedEyesToFootCm,
+               aes(x = rulerBasedEyesToFootCm,
                    y = fOverWidth,
                    color = participant,
                    shape = type),
-                   size = 2) +
+               size = 2.5) +
     ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                             label = paste0('N=', n_distinct(ipd_data$participant))) +
-        scale_x_log10(
-          breaks = scales::log_breaks(n = 6),
-          labels = scales::label_number(accuracy = 1)
-        ) +
+    scale_x_log10(
+      breaks = scales::log_breaks(n = 6),
+      labels = scales::label_number(accuracy = 1)
+    ) +
     scale_y_log10(breaks = scales::log_breaks(n = 8)) +
-    # Shape: filled circle for calibration, open circle for check
     scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
                        labels = c(calibration = "calibration", check = "check")) +
-    # Linetype for focal length line legend
     scale_linetype_manual(name = "", values = c("calibrationFOverWidth" = "dotted")) +
-    scale_color_manual(values = participant_colors, drop = FALSE) +
+    scale_color_manual(name = "", values = participant_colors, drop = FALSE) +
+    scale_linewidth_manual(name = "", values = lwd_map, drop = FALSE) +
     guides(
-      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5),
-                           keywidth = unit(0.8, "lines"), keyheight = unit(0.6, "lines")),
+      color = guide_legend(ncol = 3,
+                           override.aes = list(size = 1.5),
+                           keywidth = unit(1.2, "lines"), keyheight = unit(0.7, "lines")),
       shape = guide_legend(title = "", override.aes = list(size = 2)),
-      linetype = guide_legend(title = "", keywidth = unit(2.5, "cm"), 
+      linetype = guide_legend(title = "", keywidth = unit(2.5, "cm"),
                               override.aes = list(linewidth = 1))
     ) +
-        theme_classic() +
-        theme(
-          legend.position = "top",
-          legend.box = "vertical",
-          legend.justification = "left",
-          legend.box.just = "left",
-          legend.text = element_text(size = 6),
-          legend.spacing.y = unit(0, "lines"),
-          legend.key.size = unit(0.4, "cm"),
-          plot.margin = margin(5, 5, 5, 5, "pt")
-        ) +
+    theme_classic() +
+    theme(
+      legend.position = "top",
+      legend.box = "vertical",
+      legend.justification = "left",
+      legend.box.just = "left",
+      legend.text = element_text(size = 6),
+      legend.spacing.y = unit(0, "lines"),
+      legend.key.size = unit(0.4, "cm"),
+      plot.margin = margin(5, 5, 5, 5, "pt")
+    ) +
     labs(subtitle = 'fOverWidth vs. rulerBasedEyesToFootCm',
          x = 'rulerBasedEyesToFootCm',
          y = 'fOverWidth')
+
+  # Overlay dashed color2 on top of solid color1 for mixed-color participants
+  p2 <- add_mixed_color_lines(p2, ipd_data_plot, style_map,
+                               x_var = "rulerBasedEyesToFootCm",
+                               y_var = "fOverWidth",
+                               group_var = "type")
   
   # =============================================================================
   # NEW PLOT p3: fOverWidth / median(check) vs. rulerBasedEyesToFootCm
@@ -5372,31 +5407,48 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
     filter(!is.na(median_check), is.finite(median_check), median_check > 0) %>%
     mutate(product_focal_over_width_normalized = product_focal_over_width / median_check)
   
+  # --- DEBUG: CoolFirePasta448 data going into p3 ---
+  .dbg_p3 <- ipd_data_normalized_plot[ipd_data_normalized_plot$participant == .dbg_pid, , drop = FALSE]
+  if (nrow(.dbg_p3) > 0) {
+    message("[DEBUG p3 CoolFirePasta448] rows=", nrow(.dbg_p3),
+            "  types=", paste(unique(.dbg_p3$type), collapse=", "))
+    message("  calibration rows:")
+    .dbg_cal3 <- .dbg_p3[.dbg_p3$type == "calibration", c("participant","type","rulerBasedEyesToFootCm","fOverWidth","fOverWidth_normalized","median_check","measurement_order_within_participant"), drop=FALSE]
+    if (nrow(.dbg_cal3)) message(paste(capture.output(print(.dbg_cal3)), collapse="\n"))
+    message("  check rows:")
+    .dbg_chk3 <- .dbg_p3[.dbg_p3$type == "check", c("participant","type","rulerBasedEyesToFootCm","fOverWidth","fOverWidth_normalized","median_check","measurement_order_within_participant"), drop=FALSE]
+    if (nrow(.dbg_chk3)) message(paste(capture.output(print(.dbg_chk3)), collapse="\n"))
+  } else {
+    message("[DEBUG p3 CoolFirePasta448] NOT FOUND in ipd_data_normalized_plot")
+  }
+  # --- END DEBUG ---
+
   p3 <- ggplot() +
-    # Data lines: use geom_path to connect points in measurement order
     geom_path(data = ipd_data_normalized_plot,
               aes(x = rulerBasedEyesToFootCm,
                   y = fOverWidth_normalized,
                   color = participant,
+                  linewidth = participant,
                   group = interaction(participant, type)),
-              linewidth = 0.75, alpha = 0.8) +
-    # Horizontal line at y=1 (reference: check median)
+              alpha = 0.8,
+              key_glyph = mixed_key) +
     geom_hline(yintercept = 1, linetype = "dashed", color = "gray50", linewidth = 0.5) +
     # Focal length horizontal line (dotted) - normalized by median_check
     geom_line(data = focal_hline_normalized,
               aes(x = rulerBasedEyesToFootCm,
                   y = product_focal_over_width_normalized,
                   color = participant,
+                  linewidth = participant,
                   group = participant,
                   linetype = line_type),
-              linewidth = 0.75, alpha = 0.8) +
-    # Points with shapes for calibration vs check
+              alpha = 0.8,
+              show.legend = c(colour = FALSE, linewidth = FALSE)) +
     geom_point(data = ipd_data_normalized_plot,
                aes(x = rulerBasedEyesToFootCm,
                    y = fOverWidth_normalized,
                    color = participant,
                    shape = type),
-               size = 2) +
+               size = 2.5) +
     ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                         label = paste0('N=', n_distinct(ipd_data_normalized_plot$participant))) +
     scale_x_log10(
@@ -5404,17 +5456,17 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
       labels = scales::label_number(accuracy = 1)
     ) +
     scale_y_log10(breaks = scales::log_breaks(n = 8)) +
-    # Shape: filled circle for calibration, open circle for check
     scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
                        labels = c(calibration = "calibration", check = "check")) +
-    # Linetype for focal length line legend
     scale_linetype_manual(name = "", values = c("calibrationFOverWidth" = "dotted")) +
-    scale_color_manual(values = participant_colors, drop = FALSE) +
+    scale_color_manual(name = "", values = participant_colors, drop = FALSE) +
+    scale_linewidth_manual(name = "", values = lwd_map, drop = FALSE) +
     guides(
-      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5),
-                           keywidth = unit(0.8, "lines"), keyheight = unit(0.6, "lines")),
+      color = guide_legend(ncol = 3,
+                           override.aes = list(size = 1.5),
+                           keywidth = unit(1.2, "lines"), keyheight = unit(0.7, "lines")),
       shape = guide_legend(title = "", override.aes = list(size = 2)),
-      linetype = guide_legend(title = "", keywidth = unit(2.5, "cm"), 
+      linetype = guide_legend(title = "", keywidth = unit(2.5, "cm"),
                               override.aes = list(linewidth = 1))
     ) +
     theme_classic() +
@@ -5431,6 +5483,12 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
     labs(subtitle = 'fOverWidth / median(check) vs. rulerBasedEyesToFootCm',
          x = 'rulerBasedEyesToFootCm',
          y = 'fOverWidth / median(check)')
+
+  # Overlay dashed color2 on top of solid color1 for mixed-color participants
+  p3 <- add_mixed_color_lines(p3, ipd_data_normalized_plot, style_map,
+                               x_var = "rulerBasedEyesToFootCm",
+                               y_var = "fOverWidth_normalized",
+                               group_var = "type")
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(ipd_data$participant), per_row = 3, row_increase = 0.06)
   return(list(ipdOverWidth_vs_requestedEyesToFootCm = list(plot = p1, 
