@@ -352,7 +352,8 @@ ensure_columns <- function(t, file_name = NULL) {
     viewingDistanceDesiredCm = NA,
     viewingDistanceWhichEye = "",
     viewingDistanceWhichPoint = "",
-    warning = ""
+    warning = "",
+    snapshotsLink = ""
   )
   for (col in names(required_cols)) {
     t <- add_col(t, col, required_cols[[col]])

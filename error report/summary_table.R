@@ -364,7 +364,8 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
             `_needsUnmet`,
             `Loudspeaker survey`,
             `Microphone survey`,
-            QRConnect
+            QRConnect,
+            snapshotsLink
           )
         
         info <- data_list[[i]] %>%
@@ -470,7 +471,8 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
       fontMaxPx,
       Loudspeaker,
       Microphone,
-      comment
+      comment,
+      snapshotsLink
     )
   
   #### order block_condition by splitting and order block and condition order ####
@@ -515,6 +517,13 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
                                   orders = c('ymdHMS', 'mdyHMS'))) %>%
     mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
   
+  summary_df <- summary_df %>%
+    mutate(snapshotsLink = ifelse(
+      !is.na(snapshotsLink) & snapshotsLink != "",
+      paste0('<a href="', snapshotsLink, '" target="_blank">snapshots</a>'),
+      ""
+    ))
+
   final_summary_table <- combineProlific(prolific, summary_df, pretest)
 
   print('done summary_df')
