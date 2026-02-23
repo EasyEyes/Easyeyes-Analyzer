@@ -3382,7 +3382,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
         labs(
           subtitle = "Proportion of calibration snapshots rejected",
-          x = "Proportion of rejected",
+          x = "Proportion rejected",
           y = "Count"
         ) +
         theme_bw() +
@@ -3480,7 +3480,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
         labs(
           subtitle = "Proportion of check snapshots rejected",
-          x = "Proportion of rejected",
+          x = "Proportion rejected",
           y = "Count"
         ) +
         theme_bw() +
@@ -3701,37 +3701,50 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # Debug: Check prerequisites for fOverWidth histogram/scatter
   has_check_factor <- "check_factor" %in% names(distanceCalibrationResults)
   has_camera <- "camera" %in% names(distanceCalibrationResults)
+  has_checkJSON <- "checkJSON" %in% names(distanceCalibrationResults)
   check_factor_rows <- if (has_check_factor) nrow(distanceCalibrationResults$check_factor) else 0
   camera_rows <- if (has_camera) nrow(distanceCalibrationResults$camera) else 0
+  checkJSON_rows <- if (has_checkJSON) nrow(distanceCalibrationResults$checkJSON) else 0
   
-  if (!has_check_factor || !has_camera || check_factor_rows == 0 || camera_rows == 0) {
-    message("[DEBUG fOverWidth_hist/scatter] Skipped: check_factor exists=", has_check_factor, 
-            ", camera exists=", has_camera,
-            ", check_factor rows=", check_factor_rows,
-            ", camera rows=", camera_rows)
+  can_build_scatter <- has_camera && camera_rows > 0 && (check_factor_rows > 0 || checkJSON_rows > 0)
+  
+  if (!can_build_scatter) {
+    message("[DEBUG fOverWidth_hist/scatter] Skipped: check_factor rows=", check_factor_rows, 
+            ", checkJSON rows=", checkJSON_rows,
+            ", camera exists=", has_camera, ", camera rows=", camera_rows)
   }
   
-  if (has_check_factor && has_camera && check_factor_rows > 0 && camera_rows > 0) {
+  if (can_build_scatter) {
     
-    check_data <- distanceCalibrationResults$check_factor
-    if (!"calibrateTrackDistanceCheckBool" %in% names(check_data)) {
-      check_data <- check_data %>% mutate(calibrateTrackDistanceCheckBool = NA)
+    # Build check_data: prefer check_factor; fall back to checkJSON participants
+    check_data <- tibble()
+    if (check_factor_rows > 0) {
+      check_data <- distanceCalibrationResults$check_factor
+      if (!"calibrateTrackDistanceCheckBool" %in% names(check_data)) {
+        check_data <- check_data %>% mutate(calibrateTrackDistanceCheckBool = NA)
+      }
+      check_data <- check_data %>%
+        mutate(
+          calibrateTrackDistanceCheckBool = coerce_to_logical(calibrateTrackDistanceCheckBool),
+          medianFactorVpxCm = as.numeric(medianFactorVpxCm)
+        ) %>%
+        filter(!is.na(calibrateTrackDistanceCheckBool),
+               calibrateTrackDistanceCheckBool,
+               !is.na(medianFactorVpxCm),
+               is.finite(medianFactorVpxCm))
+      message("[DEBUG fOverWidth_hist/scatter] check_data from check_factor: ", nrow(check_data), " rows")
+    }
+    if (nrow(check_data) == 0 && checkJSON_rows > 0) {
+      message("[DEBUG fOverWidth_hist/scatter] check_factor empty/filtered to 0 — falling back to checkJSON participants")
+      check_data <- distanceCalibrationResults$checkJSON %>%
+        filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
+        select(participant) %>%
+        distinct() %>%
+        rename(PavloviaParticipantID = participant)
+      message("[DEBUG fOverWidth_hist/scatter] check_data from checkJSON fallback: ", nrow(check_data), " rows")
     }
     
-    check_data <- check_data %>%
-      mutate(
-        calibrateTrackDistanceCheckBool = coerce_to_logical(calibrateTrackDistanceCheckBool),
-        medianFactorVpxCm = as.numeric(medianFactorVpxCm)
-      ) %>%
-      filter(!is.na(calibrateTrackDistanceCheckBool),
-             calibrateTrackDistanceCheckBool,
-             !is.na(medianFactorVpxCm),
-             is.finite(medianFactorVpxCm))
-    
-    message("[DEBUG fOverWidth_hist/scatter] After filtering check_data: ", nrow(check_data), " rows with calibrateTrackDistanceCheckBool=TRUE")
-    
     if (nrow(check_data) > 0) {
-      # Use checkJSON data which now has fOverWidth directly
       check_json_data <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
       
       message("[DEBUG fOverWidth_hist/scatter] checkJSON has ", nrow(check_json_data), " rows, fOverWidth column exists: ", "fOverWidth" %in% names(check_json_data))
@@ -3764,9 +3777,22 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         
 
         # Check data (open circles)
-        check_plot_data <- check_data %>%
+        check_plot_data_pre <- check_data %>%
           left_join(calib_fOverWidth %>% select(PavloviaParticipantID, widthVpx), by = "PavloviaParticipantID") %>%
-          left_join(check_fOverWidth_median, by = c("PavloviaParticipantID" = "participant")) %>%
+          left_join(check_fOverWidth_median, by = c("PavloviaParticipantID" = "participant"))
+
+        message("[DEBUG fOverWidth scatter] check_plot_data BEFORE filter: ", nrow(check_plot_data_pre), " rows")
+        message("[DEBUG fOverWidth scatter]   widthVpx NAs: ", sum(is.na(check_plot_data_pre$widthVpx)),
+                ", widthVpx <= 0: ", sum(!is.na(check_plot_data_pre$widthVpx) & check_plot_data_pre$widthVpx <= 0))
+        message("[DEBUG fOverWidth scatter]   fOverWidth_check NAs: ", sum(is.na(check_plot_data_pre$fOverWidth_check)),
+                ", non-finite: ", sum(!is.na(check_plot_data_pre$fOverWidth_check) & !is.finite(check_plot_data_pre$fOverWidth_check)))
+        for (pid in unique(check_plot_data_pre$PavloviaParticipantID)) {
+          row <- check_plot_data_pre %>% filter(PavloviaParticipantID == pid)
+          message("[DEBUG fOverWidth scatter]   ", pid, ": widthVpx=", row$widthVpx[1],
+                  ", fOverWidth_check=", if (is.null(row$fOverWidth_check)) "COLUMN MISSING" else row$fOverWidth_check[1])
+        }
+
+        check_plot_data <- check_plot_data_pre %>%
           filter(!is.na(widthVpx), widthVpx > 0, !is.na(fOverWidth_check), is.finite(fOverWidth_check)) %>%
           mutate(
             participant = PavloviaParticipantID,
@@ -3774,9 +3800,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             source = "check"
           ) %>%
           select(participant, widthVpx, fOverWidth, source)
-        
+
+        message("[DEBUG fOverWidth scatter] check_plot_data AFTER filter: ", nrow(check_plot_data), " rows")
        
       } else {
+        message("[DEBUG fOverWidth scatter] SKIPPED: check_json_data is empty (0 rows)")
         check_plot_data <- tibble()
       }
       
@@ -3818,7 +3846,13 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                               label = paste0('N=', n_distinct(check_plot_data$participant)),
                               size = 4, family = "sans", fontface = "plain") +
           guides(
-            color = "none",
+            color = guide_legend(
+              ncol = 4,
+              title = "",
+              override.aes = list(size = 2),
+              keywidth = unit(0.3, "cm"),
+              keyheight = unit(0.3, "cm")
+            ),
             shape = "none"
           ) +
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
@@ -3829,7 +3863,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ) +
           theme_bw() +
           theme(
-            legend.position = "none",
+            legend.position = "top",
+            legend.box = "vertical",
+            legend.justification = "left",
+            legend.box.just = "left",
             panel.grid.major = element_blank(),
             panel.grid.minor = element_blank(),
             panel.background = element_blank(),
@@ -3915,11 +3952,15 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           scale_color_manual(values = participant_colors, drop = FALSE) +
           scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
                              labels = c("calibration" = "Calibration", "check" = "Check")) +
-          scale_x_continuous(expand = expansion(mult = c(0.02, 0.05)),
-                             breaks = scales::pretty_breaks(n = 6),
-                             labels = scales::label_number(accuracy = 1, big.mark = "")) +
-          scale_y_continuous(expand = expansion(mult = c(0.05, 0.1)),
-                             breaks = scales::pretty_breaks(n = 6)) +
+          annotation_logticks(sides = "bl") +
+          scale_x_log10(expand = expansion(mult = c(0.02, 0.05)),
+                        labels = scales::label_number(accuracy = 1, big.mark = "")) +
+          scale_y_log10(expand = expansion(mult = c(0.05, 0.1)),
+                        breaks = function(lims) {
+                          lo <- floor(lims[1] * 10) / 10
+                          hi <- ceiling(lims[2] * 10) / 10
+                          seq(lo, hi, by = 0.1)
+                        }) +
           guides(
             color = guide_legend(
               ncol = 3,
@@ -3958,9 +3999,18 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           plot = p12,
           height = compute_auto_height(base_height = 7, n_items = n_distinct(scatter_plot_data$participant), per_row = 3, row_increase = 0.06)
         )
+        message("[DEBUG fOverWidth scatter] SUCCESS: fOverWidth_scatter created with ", n_distinct(scatter_plot_data$participant), " participants")
+      } else {
+        message("[DEBUG fOverWidth scatter] SKIPPED: check_plot_data has 0 rows after filtering — plot will be NULL")
       }
+    } else {
+      message("[DEBUG fOverWidth scatter] SKIPPED: check_data has 0 rows (both check_factor and checkJSON fallback empty) — plot will be NULL")
     }
+  } else {
+    message("[DEBUG fOverWidth scatter] SKIPPED: prerequisites failed — camera_rows=", camera_rows,
+            ", check_factor_rows=", check_factor_rows, ", checkJSON_rows=", checkJSON_rows)
   }
+  message("[DEBUG fOverWidth scatter] FINAL: fOverWidth_scatter is ", if (is.null(fOverWidth_scatter)) "NULL (plot missing)" else "SET (plot will render)")
   # plot 14: fOverWidth second/first ratio vs first
   p14 <- NULL
   p14_data <- NULL
@@ -5165,16 +5215,16 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
   # Early return if camera doesn't have required columns
   if (nrow(camera) == 0 || !"PavloviaParticipantID" %in% names(camera) || !"widthVpx" %in% names(camera)) {
     message("[DEBUG plot_ipd_vs_eyeToFootCm] Early return: camera missing required columns (PavloviaParticipantID or widthVpx)")
-    return(list(ipdOverWidth_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL),
-                ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL)))
+    return(list(ipdOverWidth_vs_rulerBasedEyesToFootCm = list(plot = NULL, height = NULL),
+                ipdOverWidth_times_rulerBasedEyesToFootCm_vs_rulerBasedEyesToFootCm = list(plot = NULL, height = NULL)))
   }
   
   # Early return if TJSON is empty or missing required columns
   tjson <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)
   if (nrow(tjson) == 0 || !"ipdOverWidth" %in% names(tjson)) {
     message("[DEBUG plot_ipd_vs_eyeToFootCm] Early return: TJSON empty or missing ipdOverWidth column. TJSON columns: ", paste(names(tjson), collapse=", "))
-    return(list(ipdOverWidth_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL),
-                ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = NULL, height = NULL)))
+    return(list(ipdOverWidth_vs_rulerBasedEyesToFootCm = list(plot = NULL, height = NULL),
+                ipdOverWidth_times_rulerBasedEyesToFootCm_vs_rulerBasedEyesToFootCm = list(plot = NULL, height = NULL)))
   }
   # Ensure column exists (older exports may lack it)
   if (!"rulerBasedEyesToFootCm" %in% names(tjson)) {
@@ -5226,9 +5276,9 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
   ipd_data <- rbind(ipd_TJSON, ipd_checkJSON)
   
   if (nrow(ipd_TJSON) == 0) {
-    return(list(ipdOverWidth_vs_requestedEyesToFootCm = list(plot = NULL, 
+    return(list(ipdOverWidth_vs_rulerBasedEyesToFootCm = list(plot = NULL, 
                                           height = NULL),
-                ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = NULL, 
+                ipdOverWidth_times_rulerBasedEyesToFootCm_vs_rulerBasedEyesToFootCm = list(plot = NULL, 
                                                                height = NULL)))
   }
   
@@ -5547,11 +5597,11 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
                                group_var = "type")
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(ipd_data$participant), per_row = 3, row_increase = 0.06)
-  return(list(ipdOverWidth_vs_requestedEyesToFootCm = list(plot = p1, 
+  return(list(ipdOverWidth_vs_rulerBasedEyesToFootCm = list(plot = p1, 
                                         height = p_height),
-              ipdOverWidth_times_requestedEyesToFootCm_vs_requestedEyesToFootCm = list(plot = p2, 
+              ipdOverWidth_times_rulerBasedEyesToFootCm_vs_rulerBasedEyesToFootCm = list(plot = p2, 
                                                              height = p_height),
-              fOverWidth_over_median_check_vs_requestedEyesToFootCm = list(plot = p3,
+              fOverWidth_over_median_check_vs_rulerBasedEyesToFootCm = list(plot = p3,
                                                              height = p_height)))
 }
 
