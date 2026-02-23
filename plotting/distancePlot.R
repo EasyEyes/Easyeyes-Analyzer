@@ -495,7 +495,21 @@ get_camera_resolution_stats <- function(data_list) {
             allowedRatioPxPerCm <- suppressWarnings(as.numeric(get_first_non_na(parsed$`_calibrateDistanceAllowedRatioPxPerCm`)))
           }
           
-          # Counts: use snapshotsTaken / snapshotsRejected (already summarized in JSON)
+          # ── DEBUG: calib JSON fields and raw snapshot values ──
+          message("[SNAPSHOT DEBUG] participant=", participant_id,
+                  " | CALIB JSON fields: ", paste(names(parsed), collapse=", "))
+          message("[SNAPSHOT DEBUG] participant=", participant_id,
+                  " | CALIB raw snapshotsTaken=", paste(parsed$snapshotsTaken, collapse=","),
+                  " snapshotsRejected=", paste(parsed$snapshotsRejected, collapse=","))
+          if (!is.null(parsed$snapshotAcceptedBool)) {
+            bv <- parsed$snapshotAcceptedBool
+            message("[SNAPSHOT DEBUG] participant=", participant_id,
+                    " | CALIB snapshotAcceptedBool: len=", length(bv),
+                    " TRUE=", sum(bv == TRUE | bv == "true", na.rm=TRUE),
+                    " FALSE=", sum(bv == FALSE | bv == "false", na.rm=TRUE))
+          }
+
+          # accepted = snapshotsTaken - snapshotsRejected
           if (!is.null(parsed$snapshotsTaken) && !is.null(parsed$snapshotsRejected)) {
             taken <- suppressWarnings(as.integer(parsed$snapshotsTaken[1]))
             rej <- suppressWarnings(as.integer(parsed$snapshotsRejected[1]))
@@ -505,7 +519,14 @@ get_camera_resolution_stats <- function(data_list) {
               rejected_n_total <- rej
               accepted_n_total <- accepted_n_calib
             }
+            message("[SNAPSHOT DEBUG] participant=", participant_id,
+                    " | CALIB computed: taken=", taken, " rej=", rej,
+                    " → accepted_n_calib=", accepted_n_calib, " rejected_n_calib=", rejected_n_calib)
+          } else {
+            message("[SNAPSHOT DEBUG] participant=", participant_id,
+                    " | CALIB snapshotsTaken or snapshotsRejected is NULL")
           }
+
           # Widths for SD/n_resolutions (and fallback count when snapshots* missing)
           if (!is.null(parsed$cameraResolutionXYVpx)) {
             res_array <- parsed$cameraResolutionXYVpx
@@ -523,7 +544,10 @@ get_camera_resolution_stats <- function(data_list) {
             }
           }
         }
-      }, error = function(e) {})
+      }, error = function(e) {
+        message("[SNAPSHOT DEBUG] participant=", participant_id,
+                " | CALIB JSON parse ERROR: ", conditionMessage(e))
+      })
     }
     
     # Also extract from distanceCheckJSON if available
@@ -545,8 +569,22 @@ get_camera_resolution_stats <- function(data_list) {
           if (is.na(allowedRatioPxPerCm) && !is.null(parsed$`_calibrateDistanceAllowedRatioPxPerCm`)) {
             allowedRatioPxPerCm <- suppressWarnings(as.numeric(get_first_non_na(parsed$`_calibrateDistanceAllowedRatioPxPerCm`)))
           }
-          
-          # Counts: use snapshotsTaken / snapshotsRejected (already summarized in JSON)
+
+          # ── DEBUG: check JSON fields and raw snapshot values ──
+          message("[SNAPSHOT DEBUG] participant=", participant_id,
+                  " | CHECK JSON fields: ", paste(names(parsed), collapse=", "))
+          message("[SNAPSHOT DEBUG] participant=", participant_id,
+                  " | CHECK raw snapshotsTaken=", paste(parsed$snapshotsTaken, collapse=","),
+                  " snapshotsRejected=", paste(parsed$snapshotsRejected, collapse=","))
+          if (!is.null(parsed$snapshotAcceptedBool)) {
+            bv <- parsed$snapshotAcceptedBool
+            message("[SNAPSHOT DEBUG] participant=", participant_id,
+                    " | CHECK snapshotAcceptedBool: len=", length(bv),
+                    " TRUE=", sum(bv == TRUE | bv == "true", na.rm=TRUE),
+                    " FALSE=", sum(bv == FALSE | bv == "false", na.rm=TRUE))
+          }
+
+          # accepted = snapshotsTaken - snapshotsRejected
           if (!is.null(parsed$snapshotsTaken) && !is.null(parsed$snapshotsRejected)) {
             taken <- suppressWarnings(as.integer(parsed$snapshotsTaken[1]))
             rej <- suppressWarnings(as.integer(parsed$snapshotsRejected[1]))
@@ -556,7 +594,14 @@ get_camera_resolution_stats <- function(data_list) {
               rejected_n_total <- rej
               accepted_n_total <- accepted_n_check
             }
+            message("[SNAPSHOT DEBUG] participant=", participant_id,
+                    " | CHECK computed: taken=", taken, " rej=", rej,
+                    " → accepted_n_check=", accepted_n_check, " rejected_n_check=", rejected_n_check)
+          } else {
+            message("[SNAPSHOT DEBUG] participant=", participant_id,
+                    " | CHECK snapshotsTaken or snapshotsRejected is NULL")
           }
+
           # Widths for SD/n_resolutions (and fallback count when snapshots* missing)
           if (!is.null(parsed$cameraResolutionXYVpx)) {
             res_array <- parsed$cameraResolutionXYVpx
@@ -574,7 +619,10 @@ get_camera_resolution_stats <- function(data_list) {
             }
           }
         }
-      }, error = function(e) {})
+      }, error = function(e) {
+        message("[SNAPSHOT DEBUG] participant=", participant_id,
+                " | CHECK JSON parse ERROR: ", conditionMessage(e))
+      })
     }
     
     # Calculate stats
@@ -582,6 +630,14 @@ get_camera_resolution_stats <- function(data_list) {
     n_resolutions <- length(all_widths)
     has_snapshot_counts <- (!is.na(accepted_n_calib) || !is.na(rejected_n_calib) ||
                             !is.na(accepted_n_check) || !is.na(rejected_n_check))
+
+    # ── DEBUG: final counts for this participant ──
+    message("[SNAPSHOT DEBUG] participant=", participant_id,
+            " | FINAL: accepted_n_calib=", accepted_n_calib,
+            " rejected_n_calib=", rejected_n_calib,
+            " accepted_n_check=", accepted_n_check,
+            " rejected_n_check=", rejected_n_check,
+            " n_widths=", n_resolutions)
     
     if (n_resolutions > 0 || has_snapshot_counts) {
       # SD is 0 if zero or one value, otherwise calculate
@@ -591,10 +647,10 @@ get_camera_resolution_stats <- function(data_list) {
         PavloviaParticipantID = participant_id,
         cameraResolutionXSD = round(sd_width, 2),
         cameraResolutionN = n_resolutions,
-        snapshotAcceptedN_calib = accepted_n_calib,
-        snapshotRejectedN_calib = rejected_n_calib,
-        snapshotAcceptedN_check = accepted_n_check,
-        snapshotRejectedN_check = rejected_n_check,
+        calibrationSnapshotsAccepted = accepted_n_calib,
+        calibrationSnapshotsRejected = rejected_n_calib,
+        checkSnapshotsAccepted = accepted_n_check,
+        checkSnapshotsRejected = rejected_n_check,
         `_calibrateDistanceAllowedRatioFOverWidth` = allowedRatioFOverWidth,
         `_calibrateDistanceAllowedRangeCm` = allowedRangeCm,
         `_calibrateDistanceAllowedRatioPxPerCm` = allowedRatioPxPerCm
@@ -3270,12 +3326,12 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   p10b <- NULL
   p10b_max_count <- 0
   if (!is.null(camera_res_stats) && nrow(camera_res_stats) > 0 &&
-      "snapshotRejectedN_calib" %in% names(camera_res_stats) && "snapshotAcceptedN_calib" %in% names(camera_res_stats)) {
+      "calibrationSnapshotsRejected" %in% names(camera_res_stats) && "calibrationSnapshotsAccepted" %in% names(camera_res_stats)) {
     calib_reject <- camera_res_stats %>%
-      filter(!is.na(snapshotAcceptedN_calib) | !is.na(snapshotRejectedN_calib)) %>%
+      filter(!is.na(calibrationSnapshotsAccepted) | !is.na(calibrationSnapshotsRejected)) %>%
       mutate(
-        accepted = replace(snapshotAcceptedN_calib, is.na(snapshotAcceptedN_calib), 0L),
-        rejected = replace(snapshotRejectedN_calib, is.na(snapshotRejectedN_calib), 0L),
+        accepted = replace(calibrationSnapshotsAccepted, is.na(calibrationSnapshotsAccepted), 0L),
+        rejected = replace(calibrationSnapshotsRejected, is.na(calibrationSnapshotsRejected), 0L),
         total = accepted + rejected,
         proportionRejected = ifelse(total > 0, rejected / total, NA_real_)
       ) %>%
@@ -3368,12 +3424,12 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   p10c <- NULL
   p10c_max_count <- 0
   if (!is.null(camera_res_stats) && nrow(camera_res_stats) > 0 &&
-      "snapshotRejectedN_check" %in% names(camera_res_stats) && "snapshotAcceptedN_check" %in% names(camera_res_stats)) {
+      "checkSnapshotsRejected" %in% names(camera_res_stats) && "checkSnapshotsAccepted" %in% names(camera_res_stats)) {
     check_reject <- camera_res_stats %>%
-      filter(!is.na(snapshotAcceptedN_check) | !is.na(snapshotRejectedN_check)) %>%
+      filter(!is.na(checkSnapshotsAccepted) | !is.na(checkSnapshotsRejected)) %>%
       mutate(
-        accepted = replace(snapshotAcceptedN_check, is.na(snapshotAcceptedN_check), 0L),
-        rejected = replace(snapshotRejectedN_check, is.na(snapshotRejectedN_check), 0L),
+        accepted = replace(checkSnapshotsAccepted, is.na(checkSnapshotsAccepted), 0L),
+        rejected = replace(checkSnapshotsRejected, is.na(checkSnapshotsRejected), 0L),
         total = accepted + rejected,
         proportionRejected = ifelse(total > 0, rejected / total, NA_real_)
       ) %>%
