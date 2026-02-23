@@ -2328,6 +2328,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   participant_colors <- get_participant_colors(distanceCalibrationResults, participant_fallback)
+  style_map <- get_participant_style_map(distanceCalibrationResults, participant_fallback)
+  mixed_key <- make_mixed_key_glyph(style_map$style_table)
   
   # ===== PREPARE CHECK DATA =====
   # Filter out jitter data (exclude rows where json_type indicates jitter)
@@ -2503,9 +2505,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     text_legend_p1 <- "Lines connect successive measurements. Dashed line: y = x (perfect agreement)"
     
     p1 <- ggplot(p1_data, aes(x = p1_x, y = p1_y, color = participant, shape = source)) +
-      geom_path(aes(group = interaction(participant, source)), linetype = "solid", alpha = 0.7) +
+      geom_path(aes(group = interaction(participant, source)),
+                linewidth = 0.75, alpha = 0.7, key_glyph = mixed_key) +
       geom_point(size = 2.5, stroke = 1) +
-      # Shape scale: closed circle (16) for calibration, open circle (1) for check
       scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
                          labels = c("calibration" = "Calibration", "check" = "Check")) +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
@@ -2517,15 +2519,14 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         labels = scales::label_number(accuracy = 1)
       ) +
       scale_y_log10(limits = c(p1_min_val, p1_max_val), breaks = scales::log_breaks(n=8), labels = scales::label_number(accuracy = 10)) + 
-      scale_color_manual(values= participant_colors, drop = FALSE) + 
+      scale_color_manual(name = "", values = participant_colors, drop = FALSE) + 
       guides(
         color = guide_legend(
           ncol = 3,
-          title = "",
           order = 1,
-          override.aes = list(size = 2),
+          override.aes = list(size = 1.5),
           keywidth = unit(1.2, "lines"),
-          keyheight = unit(0.8, "lines")
+          keyheight = unit(0.7, "lines")
         ),
         shape = guide_legend(
           order = 2,
@@ -2536,7 +2537,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       ) +
       coord_fixed() +  
       theme(
-        # When multiple guides exist (color + shape), keep their left edges aligned
         legend.justification = "left",
         legend.box.just = "left"
       ) +
@@ -2544,6 +2544,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       labs(subtitle = 'imageBasedEyesToPointCm vs. rulerBasedEyesToPointCm',
            x = 'rulerBasedEyesToPointCm',
            y = 'imageBasedEyesToPointCm')
+    p1 <- add_mixed_color_lines(p1, p1_data, style_map,
+                                 x_var = "p1_x", y_var = "p1_y",
+                                 group_var = "source")
   }
  
   # Plot 2: Measured over requested distance (CALIBRATION AND CHECK DATA)
@@ -2565,9 +2568,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     text_legend_p2 <- "Lines connect successive measurements. Dashed line: ratio = 1 (perfect agreement)"
     
     p2 <- ggplot(p2_data, aes(x = p2_x, y = p2_y, color = participant, shape = source)) +
-      geom_path(aes(group = interaction(participant, source)), linetype = "solid", alpha = 0.7) +
+      geom_path(aes(group = interaction(participant, source)),
+                linewidth = 0.75, alpha = 0.7, key_glyph = mixed_key) +
       geom_point(size = 2.5, stroke = 1) +
-      # Shape scale: closed circle (16) for calibration, open circle (1) for check
       scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
                          labels = c("calibration" = "Calibration", "check" = "Check")) +
       ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
@@ -2576,7 +2579,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                                          'SD=', p2_sd_formatted)) + 
       geom_hline(yintercept = 1, linetype = "dashed") +
       scale_x_log10(
-        # Use same x-axis limits as p1
         limits = c(p1_min_val, p2_x_max_val),
         breaks = scales::log_breaks(n = 6),
         expand = expansion(mult = c(0.05, 0.05)),
@@ -2584,15 +2586,14 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       ) + 
       scale_y_log10(limits = c(p2_y_minFrac, p2_y_maxFrac),
                     breaks = seq(0.6, 1.4, by = 0.1)) + 
-      scale_color_manual(values= participant_colors, drop = FALSE) + 
+      scale_color_manual(name = "", values = participant_colors, drop = FALSE) + 
       guides(
         color = guide_legend(
           ncol = 3,
-          title = "",
           order = 1,
-          override.aes = list(size = 2),
+          override.aes = list(size = 1.5),
           keywidth = unit(1.2, "lines"),
-          keyheight = unit(0.8, "lines")
+          keyheight = unit(0.7, "lines")
         ),
         shape = guide_legend(
           order = 2,
@@ -2602,7 +2603,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         )
       ) +
       theme(
-        # When multiple guides exist (color + shape), keep their left edges aligned
         legend.justification = "left",
         legend.box.just = "left"
       ) +
@@ -2610,6 +2610,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       labs(subtitle = 'imageBasedEyesToPointCm over rulerBasedEyesToPointCm',
            x = 'rulerBasedEyesToPointCm',
            y = 'imageBasedEyesToPointCm / rulerBasedEyesToPointCm')
+    p2 <- add_mixed_color_lines(p2, p2_data, style_map,
+                                 x_var = "p2_x", y_var = "p2_y",
+                                 group_var = "source")
   }
 
   # Plot 4: Eye feet position vs distance error
@@ -4069,12 +4072,12 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
 
       p15 <- ggplot(p15_data, aes(x = x_numeric, y = ratio_over_check, color = participant, shape = calibration_order)) +
         geom_hline(yintercept = 1, linetype = "dashed", color = "gray50", linewidth = 1) +
-        # Connect calibration 1 and 2 dots for each participant
-        geom_line(aes(group = participant), alpha = 0.5, linewidth = 0.5) +
+        geom_line(aes(group = participant), alpha = 0.5, linewidth = 0.75,
+                  key_glyph = mixed_key) +
         geom_point(size = 4, alpha = 0.85, stroke = 1.2) +
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                             label = paste0('N=', n_distinct(p15_data$participant))) +
-        scale_color_manual(values = participant_colors, drop = FALSE) +
+        scale_color_manual(name = "", values = participant_colors, drop = FALSE) +
         scale_shape_manual(values = c("Calibration 1" = 16, "Calibration 2" = 21)) +
         scale_x_continuous(
           breaks = c(1, 2),
@@ -4133,7 +4136,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           plot.caption = element_text(size = 10),
           plot.margin = margin(t = 12, r = 8, b = 12, l = 8, unit = "pt"),
           strip.text = element_text(size = 14)
-        ) 
+        )
+      p15 <- add_mixed_color_lines(p15, p15_data, style_map,
+                                    x_var = "x_numeric",
+                                    y_var = "ratio_over_check")
     }
   } else {
     message("[DEBUG p15] Skipped: calib rows=", nrow(calib_data),
@@ -4259,8 +4265,9 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   message("[DEBUG plot_sizeCheck] sizeCheck rows: ", nrow(distanceCalibrationResults$sizeCheck))
   sizeCheck <- distanceCalibrationResults$sizeCheck
   statement <- distanceCalibrationResults$statement
+  style_map_sc <- get_participant_style_map(distanceCalibrationResults, sizeCheck$participant)
   if (is.null(participant_colors) || !length(participant_colors)) {
-    participant_colors <- get_participant_colors(distanceCalibrationResults, sizeCheck$participant)
+    participant_colors <- style_map_sc$colors
   }
   
   # Check if the data is empty FIRST before trying to select columns
@@ -4597,29 +4604,29 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   ymin = max(5,floor(min(pixelDensity_data$avg_estimated) / 10 - 1) * 10)
   ymax = ceiling(max(pixelDensity_data$avg_estimated) / 10 + 1) * 10
 
+  mixed_key_sc <- make_mixed_key_glyph(style_map_sc$style_table)
+
   p1 <- ggplot(data=pixelDensity_data) + 
-    # Solid lines for calibration points
     geom_line(data = pixelDensity_data %>% filter(type == "calibration"),
               aes(x = requestedCm, 
                   y = avg_estimated,
                   color = participant,
                   group = participant), 
-              linetype = "solid",
-              alpha = 0.7) +
-    # Dashed lines for check points  
+              linetype = "solid", linewidth = 0.75,
+              alpha = 0.7, key_glyph = mixed_key_sc) +
     geom_line(data = pixelDensity_data %>% filter(type == "check"),
               aes(x = requestedCm, 
                   y = avg_estimated,
                   color = participant,
                   group = participant), 
-              linetype = "dashed",
-              alpha = 0.7) +
+              linetype = "dashed", linewidth = 0.75,
+              alpha = 0.7, show.legend = c(colour = FALSE)) +
     geom_point(aes(x = requestedCm, 
                    y = avg_estimated,
                    color = participant,
                    shape = type), 
                size = 2) + 
-     scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
+    scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
                        labels = c(calibration = "calibration", check = "check")) +
     ggpp::geom_text_npc(aes(npcx="left",
                             npcy="top"),
@@ -4636,13 +4643,12 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
                         short = unit(0.1, "cm"), 
                         mid = unit(0.15, "cm"), 
                         long = unit(0.2, "cm")) + 
-    scale_color_manual(values= participant_colors, drop = FALSE) + 
+    scale_color_manual(name = "", values = participant_colors, drop = FALSE) + 
     guides(color = guide_legend(
       ncol = 4,  
-      title = "",
-      override.aes = list(size = 2),  
+      override.aes = list(size = 1.5),  
       keywidth = unit(1.2, "lines"),  
-      keyheight = unit(0.8, "lines")  
+      keyheight = unit(0.7, "lines")  
     ),
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
@@ -5217,26 +5223,27 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
   focal_curve_data <- focal_curve_data %>%
     mutate(line_type = "ipdCm × calibrationFOverWidth / rulerBasedEyesToFootCm")
   
+  mixed_key <- make_mixed_key_glyph(style_map$style_table)
+
   p1 <- ggplot() +
-    # Data lines: use geom_path to connect points in measurement order, not x-value order
     geom_path(data = ipd_data_plot,
-                  aes(x = rulerBasedEyesToFootCm,
-                      y = ipdOverWidth,
+              aes(x = rulerBasedEyesToFootCm,
+                  y = ipdOverWidth,
                   color = participant,
                   group = interaction(participant, type)),
-              linewidth = 0.75, alpha = 0.8) +
-    # Focal length curve (dotted) - one per participant, with linetype for legend
+              linewidth = 0.75, alpha = 0.8,
+              key_glyph = mixed_key) +
     geom_line(data = focal_curve_data,
               aes(x = rulerBasedEyesToFootCm,
                   y = ipdOverWidth_focal,
-                      color = participant,
-                      group = participant,
-                      linetype = line_type),
-              linewidth = 0.75, alpha = 0.8) +
-    # Points with shapes for calibration vs check
+                  color = participant,
+                  group = participant,
+                  linetype = line_type),
+              linewidth = 0.75, alpha = 0.8,
+              show.legend = c(colour = FALSE)) +
     geom_point(data = ipd_data_plot,
                aes(x = rulerBasedEyesToFootCm,
-                      y = ipdOverWidth,
+                   y = ipdOverWidth,
                    color = participant,
                    shape = type),
                size = 2) +
@@ -5247,15 +5254,13 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
       labels = scales::label_number(accuracy = 10)
     ) +
     scale_y_log10(breaks = scales::log_breaks(n = 8)) +
-    # Shape: filled circle for calibration, open circle for check
     scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
                        labels = c(calibration = "calibration", check = "check")) +
-    # Linetype for focal length curve legend
-    scale_linetype_manual(name = "", values = c("ipdCm × calibrationFOverWidth / rulerBasedEyesToFootCm" = "dotted")) +
-    scale_color_manual(values = participant_colors, drop = FALSE) +
+    scale_linetype_manual(name = "", values = c("ipdCm \u00d7 calibrationFOverWidth / rulerBasedEyesToFootCm" = "dotted")) +
+    scale_color_manual(name = "", values = participant_colors, drop = FALSE) +
     guides(
-      color = guide_legend(ncol = 3, title = "", override.aes = list(size = 1.5),
-                           keywidth = unit(0.8, "lines"), keyheight = unit(0.6, "lines")),
+      color = guide_legend(ncol = 3, override.aes = list(size = 1.5),
+                           keywidth = unit(1.2, "lines"), keyheight = unit(0.7, "lines")),
       shape = guide_legend(title = "", override.aes = list(size = 2)),
       linetype = guide_legend(title = "", keywidth = unit(2.5, "cm"), 
                               override.aes = list(linewidth = 1))
@@ -5274,6 +5279,11 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
     labs(subtitle = 'ipdOverWidth vs. rulerBasedEyesToFootCm',
          x = 'rulerBasedEyesToFootCm',
          y = 'ipdOverWidth')
+
+  p1 <- add_mixed_color_lines(p1, ipd_data_plot, style_map,
+                               x_var = "rulerBasedEyesToFootCm",
+                               y_var = "ipdOverWidth",
+                               group_var = "type")
   
   # Plot 1: fOverWidth vs. rulerBasedEyesToFootCm
   # IMPORTANT: Do NOT sort by distance values - preserve measurement order for line connections
@@ -5309,20 +5319,18 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
               aes(x = rulerBasedEyesToFootCm,
                   y = fOverWidth,
                   color = participant,
-                  linewidth = participant,
                   group = interaction(participant, type)),
-              alpha = 0.8,
+              linewidth = 0.75, alpha = 0.8,
               key_glyph = mixed_key) +
     # Focal length horizontal line (dotted) per participant
     geom_line(data = focal_hline_data,
               aes(x = rulerBasedEyesToFootCm,
                   y = product_focal_over_width,
                   color = participant,
-                  linewidth = participant,
                   group = participant,
                   linetype = line_type),
-              alpha = 0.8,
-              show.legend = c(colour = FALSE, linewidth = FALSE)) +
+              linewidth = 0.75, alpha = 0.8,
+              show.legend = c(colour = FALSE)) +
     geom_point(data = ipd_data_plot,
                aes(x = rulerBasedEyesToFootCm,
                    y = fOverWidth,
@@ -5340,7 +5348,6 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
                        labels = c(calibration = "calibration", check = "check")) +
     scale_linetype_manual(name = "", values = c("calibrationFOverWidth" = "dotted")) +
     scale_color_manual(name = "", values = participant_colors, drop = FALSE) +
-    scale_linewidth_manual(name = "", values = lwd_map, drop = FALSE) +
     guides(
       color = guide_legend(ncol = 3,
                            override.aes = list(size = 1.5),
@@ -5424,9 +5431,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
               aes(x = rulerBasedEyesToFootCm,
                   y = fOverWidth_normalized,
                   color = participant,
-                  linewidth = participant,
                   group = interaction(participant, type)),
-              alpha = 0.8,
+              linewidth = 0.75, alpha = 0.8,
               key_glyph = mixed_key) +
     geom_hline(yintercept = 1, linetype = "dashed", color = "gray50", linewidth = 0.5) +
     # Focal length horizontal line (dotted) - normalized by median_check
@@ -5434,11 +5440,10 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
               aes(x = rulerBasedEyesToFootCm,
                   y = product_focal_over_width_normalized,
                   color = participant,
-                  linewidth = participant,
                   group = participant,
                   linetype = line_type),
-              alpha = 0.8,
-              show.legend = c(colour = FALSE, linewidth = FALSE)) +
+              linewidth = 0.75, alpha = 0.8,
+              show.legend = c(colour = FALSE)) +
     geom_point(data = ipd_data_normalized_plot,
                aes(x = rulerBasedEyesToFootCm,
                    y = fOverWidth_normalized,
@@ -5456,7 +5461,6 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
                        labels = c(calibration = "calibration", check = "check")) +
     scale_linetype_manual(name = "", values = c("calibrationFOverWidth" = "dotted")) +
     scale_color_manual(name = "", values = participant_colors, drop = FALSE) +
-    scale_linewidth_manual(name = "", values = lwd_map, drop = FALSE) +
     guides(
       color = guide_legend(ncol = 3,
                            override.aes = list(size = 1.5),
@@ -5506,8 +5510,10 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
   
   check_data <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
   calib_data <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)
+  all_pids <- c(check_data$participant, calib_data$participant)
+  style_map <- get_participant_style_map(distanceCalibrationResults, all_pids)
   if (is.null(participant_colors) || !length(participant_colors)) {
-    participant_colors <- get_participant_colors(distanceCalibrationResults, c(check_data$participant, calib_data$participant))
+    participant_colors <- style_map$colors
   }
   
   if (nrow(check_data) == 0 && nrow(calib_data) == 0) {
@@ -5597,13 +5603,14 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
 
   # Create the plot - CALIBRATION (closed circles) AND CHECK DATA (open circles)
   # Use geom_path instead of geom_line to connect points in measurement order, not x-value order
+  mixed_key <- make_mixed_key_glyph(style_map$style_table)
+
   p <- ggplot(plot_data, aes(x = plot_x, y = plot_y, color = participant, shape = source)) +
-    geom_path(aes(group = interaction(participant, source)), linewidth = 0.5, alpha = 0.6) +
+    geom_path(aes(group = interaction(participant, source)),
+              linewidth = 0.75, alpha = 0.6, key_glyph = mixed_key) +
     geom_point(size = 2.5, alpha = 0.8, stroke = 1) +
-    # Shape scale: closed circle (16) for calibration, open circle (1) for check
     scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
                        labels = c("calibration" = "Calibration", "check" = "Check")) +
-    # Add identity line (if imageBasedEyesToPointCm == rulerBasedEyesToFootCm, perfect horizontal viewing)
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
     scale_x_log10(
       limits = shared_limits,
@@ -5616,7 +5623,7 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 1)
     ) +
-    scale_color_manual(values = participant_colors, drop = FALSE) +
+    scale_color_manual(name = "", values = participant_colors, drop = FALSE) +
     ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                         label = paste0('N=', n_distinct(plot_data$participant))) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
@@ -5624,9 +5631,9 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
     guides(
       color = guide_legend(
         ncol = 3,
-        title = "",
         order = 1,
-        override.aes = list(size = 1.5)
+        override.aes = list(size = 1.5),
+        keywidth = unit(1.2, "lines"), keyheight = unit(0.7, "lines")
       ),
       shape = guide_legend(
         order = 2,
@@ -5651,6 +5658,10 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
       x = 'rulerBasedEyesToFootCm (cm)',
       y = 'imageBasedEyesToPointCm (cm)'
     )
+
+  p <- add_mixed_color_lines(p, plot_data, style_map,
+                              x_var = "plot_x", y_var = "plot_y",
+                              group_var = "source")
   
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
   
@@ -5663,12 +5674,12 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
 # INCLUDES BOTH CALIBRATION (closed circles) AND CHECK DATA (open circles)
 plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults, participant_colors = NULL) {
   
-  # Get calibration data to extract fOverWidth per participant
-  # TJSON now has fOverWidth directly (no longer computed from fVpx)
   tjson_data <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)
   check_data <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
+  all_pids <- c(tjson_data$participant, check_data$participant)
+  style_map <- get_participant_style_map(distanceCalibrationResults, all_pids)
   if (is.null(participant_colors) || !length(participant_colors)) {
-    participant_colors <- get_participant_colors(distanceCalibrationResults, c(tjson_data$participant, check_data$participant))
+    participant_colors <- style_map$colors
   }
   
   # Standard interpupillary distance
@@ -5788,11 +5799,13 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults,
   formula_text <- paste0("eyesToFootCm = fOverWidth_calib * ipdCm / ipdOverWidth (ipdCm=", ipdCm_standard, "cm)")
   
   # Create the plot - CALIBRATION (closed circles) AND CHECK DATA (open circles)
+  mixed_key <- make_mixed_key_glyph(style_map$style_table)
+
   p <- ggplot(plot_data, aes(x = rulerBasedEyesToFootCm, y = eyesToFootCm_estimated, shape = source)) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", linewidth = 0.8) +
     geom_point(aes(color = participant), size = 2.5, alpha = 0.8, stroke = 1) +
-    geom_path(aes(color = participant, group = interaction(participant, source)), linewidth = 0.5, alpha = 0.6) +
-    # Shape scale: closed circle (16) for calibration, open circle (1) for check
+    geom_path(aes(color = participant, group = interaction(participant, source)),
+              linewidth = 0.75, alpha = 0.6, key_glyph = mixed_key) +
     scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
                        labels = c("calibration" = "Calibration", "check" = "Check")) +
     scale_x_log10(
@@ -5806,7 +5819,7 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults,
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 1)
     ) +
-    scale_color_manual(values = participant_colors, drop = FALSE) +
+    scale_color_manual(name = "", values = participant_colors, drop = FALSE) +
     ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                         label = paste0('N=', n_distinct(plot_data$participant))) +
     ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
@@ -5814,9 +5827,9 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults,
     guides(
       color = guide_legend(
         ncol = 3,
-        title = "",
         order = 1,
-        override.aes = list(size = 1.5)
+        override.aes = list(size = 1.5),
+        keywidth = unit(1.2, "lines"), keyheight = unit(0.7, "lines")
       ),
       shape = guide_legend(
         order = 2,
@@ -5841,6 +5854,11 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults,
       x = 'rulerBasedEyesToFootCm',
       y = 'imageBasedEyesToFootCm'
     )
+
+  p <- add_mixed_color_lines(p, plot_data, style_map,
+                              x_var = "rulerBasedEyesToFootCm",
+                              y_var = "eyesToFootCm_estimated",
+                              group_var = "source")
 
   p_height <- compute_auto_height(base_height = 7, n_items = n_distinct(plot_data$participant), per_row = 3, row_increase = 0.06)
   
