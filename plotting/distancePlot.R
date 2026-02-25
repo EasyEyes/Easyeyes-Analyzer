@@ -2944,7 +2944,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       # For summary histogram (one value per participant), use actual values without binning
       # This ensures displayed positions match table values exactly
       # Use larger bin width so dots stack instead of overlapping
-      bin_w_linear <- 0.1
+      bin_w_linear <- 0.05
       ratio_data <- ratio_data %>%
         mutate(
           bin_center = round(ratio / bin_w_linear) * bin_w_linear,
@@ -3041,8 +3041,14 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       # SD of log10(relative)
       sd_log10_relative <- sd(log10(raw_pxPerCm_data$relative), na.rm = TRUE)
       
-      # Dot-stack histogram in log space
-      bin_w_log <- 0.02  # ~4.6% per bin
+      # X range: full data range (min to max)
+      x_min <- min(raw_pxPerCm_data$relative, na.rm = TRUE)
+      x_max <- max(raw_pxPerCm_data$relative, na.rm = TRUE)
+      log_range <- log10(x_max) - log10(x_min)
+      if (!is.finite(log_range) || log_range < 1e-10) log_range <- 0.1
+      # ~10 bins in log space
+      bin_w_log <- log_range / 10
+      
       raw_pxPerCm_data <- raw_pxPerCm_data %>%
         mutate(
           log_relative = log10(relative),
@@ -3058,19 +3064,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ungroup()
       
       p8_max_count <- max(raw_pxPerCm_data$dot_y)
-      x_min <- min(raw_pxPerCm_data$bin_center, na.rm = TRUE) 
-      x_max <- max(raw_pxPerCm_data$bin_center, na.rm = TRUE)
-      
-      # Calculate appropriate breaks for the data range
-      log_range <- log10(x_max) - log10(x_min)
-      if (log_range < 0.1) {
-        # For very narrow ranges, create custom breaks that fit the data
-        n_breaks <- 5
-        log_breaks_custom <- seq(log10(x_min), log10(x_max), length.out = n_breaks)
-        x_breaks <- 10^log_breaks_custom
-      } else {
-        x_breaks <- scales::log_breaks(n = 8)(c(x_min, x_max))
-      }
+      # Axis breaks over [x_min, x_max]
+      x_breaks <- 10^seq(log10(x_min), log10(x_max), length.out = 10)
       
       p8 <- ggplot(raw_pxPerCm_data, aes(x = relative)) +
         # Dot stacked points
@@ -3081,7 +3076,16 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           expand = expansion(mult = c(0, 0.1)),
           breaks = function(x) seq(0, ceiling(max(x)), by = 1)
         ) +
-        scale_x_log10(limits = c(x_min, x_max), breaks = x_breaks) +
+        scale_x_log10(
+          limits = c(x_min, x_max),
+          breaks = x_breaks,
+          labels = function(x) {
+            r2 <- round(x, 2)
+            r3 <- round(x, 3)
+            use3 <- (r2 == 0 & x != 0) | (abs(x) >= 100) | (abs(x) < 0.01 & x != 0)
+            ifelse(use3, format(r3, nsmall = 3, drop0trailing = TRUE), format(r2, nsmall = 2, drop0trailing = TRUE))
+          }
+        ) +
         annotation_logticks(sides = "b") +
         ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
                             label = paste0('N=', n_distinct(raw_pxPerCm_data$participant),
@@ -3243,7 +3247,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       sd_relative <- sd(raw_factor_data$relative, na.rm = TRUE)
 
       # Dot-stack histogram in linear space
-      bin_w_linear <- 0.1
+      bin_w_linear <- 0.05
       raw_factor_data <- raw_factor_data %>%
         mutate(
           bin_center = round(relative / bin_w_linear) * bin_w_linear

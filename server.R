@@ -825,7 +825,7 @@ shinyServer(function(input, output, session) {
            fname = "histogram-of-SD-of-log10-pixel-density"),
       list(plot_keys = c("raw_pxPerCm_hist", "plot"),
            height_keys = c("raw_pxPerCm_hist", "height"),
-           fname = "histogram-of-raw-pxPerCm-remeasured"),
+           fname = "histogram-of-raw-pxPerCm-over-remeasured"),
 
       # ===== 2. RULER AND OBJECT LENGTH HISTOGRAMS =====
       list(plot_keys = c("sizeCheck", "ruler_hist", "plot"),
@@ -836,15 +836,15 @@ shinyServer(function(input, output, session) {
            fname = "histogram-of-object-length-cm"),
       list(plot_keys = c("raw_objectMeasuredCm_hist", "plot"),
            height_keys = c("raw_objectMeasuredCm_hist", "height"),
-           fname = "histogram-of-raw-objectMeasuredCm-median"),
+           fname = "histogram-of-raw-objectMeasuredCm-over-median"),
 
       # ===== 3. fOverWidth HISTOGRAMS =====
       list(plot_keys = c("calibrated_over_median_hist", "plot"),
            height_keys = c("calibrated_over_median_hist", "height"),
-           fname = "histogram-of-fOverWidth-median-calibration-median-check"),
+           fname = "histogram-of-fOverWidth-median-calibration-over-median-check"),
       list(plot_keys = c("raw_fOverWidth_hist", "plot"),
            height_keys = c("raw_fOverWidth_hist", "height"),
-           fname = "histogram-of-fOverWidth-calibration-median-check"),
+           fname = "histogram-of-fOverWidth-calibration-over-median-check"),
       list(plot_keys = c("calibration_rejected_proportion_hist", "plot"),
            height_keys = c("calibration_rejected_proportion_hist", "height"),
            fname = "histogram-of-proportion-calibration-snapshots-rejected"),
@@ -865,7 +865,7 @@ shinyServer(function(input, output, session) {
            fname = "histogram-of-rejected-check-fOverWidth-ratio"),
       list(plot_keys = c("fOverWidth_hist", "plot"),
            height_keys = c("fOverWidth_hist", "height"),
-           fname = "histogram-of-fOverWidth")
+           fname = "histogram-of-fOverWidth-check")
     )
     for (s in specs) {
       add_from_keys(s$plot_keys, s$height_keys, s$fname)
@@ -1044,8 +1044,8 @@ shinyServer(function(input, output, session) {
       list(plot = distancePlots()$fOverWidth_ratio_vs_first$plot, height = distancePlots()$fOverWidth_ratio_vs_first$height, fname = 'focal-length-calibration-second-over-first-vs-first'),
       
       # ===== 3. SIX PLOTS W 8 CONNECTED DOTS FROM CHECK PHASE =====
-      list(plot = distancePlots()$imb_vs_rb$plot, height = distancePlots()$imb_vs_rb$height, fname = 'rulerBasedEyesToPointCm-vs-imageBasedEyesToPointCm'),
-      list(plot = distancePlots()$imb_over_rb$plot, height = distancePlots()$imb_over_rb$height, fname = 'rulerBasedEyesToPointCm-over-imageBasedEyesToPointCm'),
+      list(plot = distancePlots()$imb_vs_rb$plot, height = distancePlots()$imb_vs_rb$height, fname = 'imageBasedEyesToPointCm-vs-rulerBasedEyesToPointCm'),
+      list(plot = distancePlots()$imb_over_rb$plot, height = distancePlots()$imb_over_rb$height, fname = 'imageBasedEyesToPointCm-over-rulerBasedEyesToPointCm'),
       list(plot = if(!is.null(dp$eyeToPoint)) dp$eyeToPoint$plot else NULL, height = if(!is.null(dp$eyeToPoint)) dp$eyeToPoint$height else NULL, fname = 'imageBasedEyesToPointCm-vs-rulerBasedEyesToFootCm'),
       list(plot = if(!is.null(dp$eyesToFoot_estimated)) dp$eyesToFoot_estimated$plot else NULL, height = if(!is.null(dp$eyesToFoot_estimated)) dp$eyesToFoot_estimated$height else NULL, fname = 'imageBasedEyesToFootCm-vs-rulerBasedEyesToFootCm'),
       list(plot = if(!is.null(dp$ipd)) dp$ipd$ipdOverWidth_vs_rulerBasedEyesToFootCm$plot else NULL,
@@ -1066,7 +1066,7 @@ shinyServer(function(input, output, session) {
       
       # ===== 5. THREE XY FOOT LOCATION PLOTS =====
       list(plot = distancePlots()$foot_position_calibration$plot, height = distancePlots()$foot_position_calibration$height, fname = 'foot-position-during-calibration'),
-      list(plot = distancePlots()$eye_feet_position$plot, height = distancePlots()$eye_feet_position$height, fname = 'measured-over-requested-distance-vs-foot-position-during-calibration'),
+      list(plot = distancePlots()$eye_feet_position$plot, height = distancePlots()$eye_feet_position$height, fname = 'fOverWidth-calibration-over-median-check-vs-foot-position-during-calibration'),
       list(plot = if(!is.null(dp$eye_feet_check)) dp$eye_feet_check$plot else NULL,
            height = if(!is.null(dp$eye_feet_check)) dp$eye_feet_check$height else NULL,
            fname = 'measured-over-requested-distance-vs-foot-position-during-check')
@@ -5068,11 +5068,7 @@ shinyServer(function(input, output, session) {
     ))
     
     output$downloadProfilePlot <- downloadHandler(
-      filename = paste0(
-        gsub("[^[:alnum:]]", "_", tolower(input$plotTitle)),
-        '.',
-        input$fileProfile
-      ),
+      filename = paste0("profile-plot.", input$fileProfile),
       content = function(file) {
         if (input$fileTypeSound == "png") {
           tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
@@ -5132,12 +5128,7 @@ shinyServer(function(input, output, session) {
     }, deleteFile = TRUE)
     
     output$downloadShiftedProfilePlot <- downloadHandler(
-      filename = paste0(
-        gsub("[^[:alnum:]]", "_", tolower(input$plotTitle)),
-        "-shifted",
-        '.',
-        input$fileProfile
-      ),
+      filename = paste0("profile-plot-shifted.", input$fileProfile),
       content = function(file) {
         if (input$fileTypeSound == "png") {
           tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
@@ -5957,11 +5948,7 @@ shinyServer(function(input, output, session) {
   
   observeEvent(toListenProfile(), {
     output$downloadProfilePlot <- downloadHandler(
-      filename = paste0(
-        gsub("[^[:alnum:]]", "_", tolower(input$plotTitle)),
-        '.',
-        input$fileProfile
-      ),
+      filename = paste0("profile-plot.", input$fileProfile),
       content = function(file) {
         if (input$fileProfile == "png") {
           tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
@@ -5997,12 +5984,7 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadShiftedProfilePlot <- downloadHandler(
-      filename = paste0(
-        gsub("[^[:alnum:]]", "_", tolower(input$plotTitle)),
-        "-shifted",
-        '.',
-        input$fileProfile
-      ),
+      filename = paste0("profile-plot-shifted.", input$fileProfile),
       content = function(file) {
         if (input$fileProfile == "png") {
           tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
