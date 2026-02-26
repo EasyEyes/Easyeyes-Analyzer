@@ -698,18 +698,26 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
     
      
    # Use fOverWidth directly from TJSON (distanceCalibrationJSON now provides fOverWidth instead of fVpx)
-   calib_fOverWidth <- data_or_results$TJSON %>%
-      filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
-      rename(PavloviaParticipantID = participant) %>%
-      group_by(PavloviaParticipantID) %>%
-      summarize(fOverWidth_calibration = median(fOverWidth, na.rm = TRUE), .groups = "drop")
+   calib_fOverWidth <- if (nrow(data_or_results$TJSON) > 0 && all(c("participant", "fOverWidth") %in% names(data_or_results$TJSON))) {
+      data_or_results$TJSON %>%
+        filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
+        rename(PavloviaParticipantID = participant) %>%
+        group_by(PavloviaParticipantID) %>%
+        summarize(fOverWidth_calibration = median(fOverWidth, na.rm = TRUE), .groups = "drop")
+    } else {
+      tibble(PavloviaParticipantID = character(), fOverWidth_calibration = numeric())
+    }
 
     # checkJSON now has fOverWidth directly (computed from ipdOverWidth)
-    check_fOverWidth <- data_or_results$checkJSON %>%
-      filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
-      rename(PavloviaParticipantID = participant) %>%
-      group_by(PavloviaParticipantID) %>%
-      summarize(fOverWidth_check = median(fOverWidth, na.rm = TRUE), .groups = "drop")
+    check_fOverWidth <- if (nrow(data_or_results$checkJSON) > 0 && all(c("participant", "fOverWidth") %in% names(data_or_results$checkJSON))) {
+      data_or_results$checkJSON %>%
+        filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
+        rename(PavloviaParticipantID = participant) %>%
+        group_by(PavloviaParticipantID) %>%
+        summarize(fOverWidth_check = median(fOverWidth, na.rm = TRUE), .groups = "drop")
+    } else {
+      tibble(PavloviaParticipantID = character(), fOverWidth_check = numeric())
+    }
     
       # Join calibration and check data by participant
     plot_data <- calib_fOverWidth %>%
@@ -1210,7 +1218,90 @@ get_distance_calibration <- function(data_list, minRulerCm) {
           }
         }, error = function(e) {})
       }
-   
+
+    # =============================================================================
+    # BUILD `TJSON` tibble (from distanceCalibrationJSON, independent of distanceCheckJSON)
+    # =============================================================================
+    t_tjson <- NULL
+    if (has_distCalibJSON) {
+      tryCatch({
+        raw_json_tjson <- get_first_non_na(dl[["distanceCalibrationJSON"]])
+        if (!is.null(raw_json_tjson) && !is.na(raw_json_tjson) && raw_json_tjson != "") {
+          json_txt_tjson <- sanitize_json_string(raw_json_tjson)
+          t_tjson <- fromJSON(
+            json_txt_tjson,
+            simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
+          )
+        }
+      }, error = function(e) {})
+    }
+
+    if (!is.null(t_tjson)) {
+      json_experiment  <- if (!is.null(t_tjson$experiment)) t_tjson$experiment else NA_character_
+      json_participant <- if (!is.null(t_tjson$participant)) t_tjson$participant else NA_character_
+      json_date        <- if (!is.null(t_tjson$date)) t_tjson$date else NA_character_
+      json_type        <- if (!is.null(t_tjson$json)) t_tjson$json else NA_character_
+
+      pad_numeric <- function(x, n) {
+        if (is.null(x) || length(x) == 0) return(rep(NA_real_, n))
+        x <- suppressWarnings(as.numeric(x))
+        if (!length(x)) return(rep(NA_real_, n))
+        rep_len(x, n)
+      }
+
+      rb_eyes_foot_raw <- t_tjson$acceptedRulerBasedEyesToFootCm
+      img_eyes_foot_raw <- t_tjson$acceptedImageBasedEyesToFootCm
+      rb_eyes_pt_raw <- t_tjson$acceptedRulerBasedEyesToPointCm
+      img_eyes_pt_raw <- t_tjson$acceptedImageBasedEyesToPointCm
+      fow_raw <- t_tjson$acceptedFOverWidth
+      ipd_ow_raw <- t_tjson$acceptedIpdOverWidth
+      ipd_cm_scalar <- if (!is.null(t_tjson$ipdCm) && length(t_tjson$ipdCm) > 0) suppressWarnings(as.numeric(t_tjson$ipdCm[1])) else NA_real_
+
+      n_tjson <- max(
+        1,
+        length(rb_eyes_foot_raw), length(img_eyes_foot_raw),
+        length(rb_eyes_pt_raw), length(img_eyes_pt_raw),
+        length(fow_raw), length(ipd_ow_raw)
+      )
+
+      rb_eyes_foot <- pad_numeric(rb_eyes_foot_raw, n_tjson)
+      img_eyes_foot <- pad_numeric(img_eyes_foot_raw, n_tjson)
+      rb_eyes_pt <- pad_numeric(rb_eyes_pt_raw, n_tjson)
+      img_eyes_pt <- pad_numeric(img_eyes_pt_raw, n_tjson)
+      fow <- pad_numeric(fow_raw, n_tjson)
+      ipd_ow <- pad_numeric(ipd_ow_raw, n_tjson)
+      ipd_cm <- rep(ipd_cm_scalar, n_tjson)
+
+      tmp <- tibble(
+        participant      = first(na.omit(dl$participant)),
+        json_experiment  = json_experiment,
+        json_participant = json_participant,
+        json_date        = json_date,
+        json_type        = json_type,
+        rulerBasedEyesToFootCm     = rb_eyes_foot,
+        imageBasedEyesToFootCm     = img_eyes_foot,
+        rulerBasedEyesToPointCm    = rb_eyes_pt,
+        imageBasedEyesToPointCm    = img_eyes_pt,
+        fOverWidth       = fow,
+        ipdOverWidth     = ipd_ow,
+        ipdCm            = ipd_cm
+      )
+
+      TJSON <- rbind(TJSON, tmp)
+
+      part <- first(na.omit(dl$participant))
+      acc_ratios <- if (!is.null(t_tjson$acceptedRatioFOverWidth)) as.numeric(t_tjson$acceptedRatioFOverWidth) else numeric()
+      rej_ratios <- if (!is.null(t_tjson$rejectedRatioFOverWidth)) as.numeric(t_tjson$rejectedRatioFOverWidth) else numeric()
+      acc_ratios <- acc_ratios[!is.na(acc_ratios) & is.finite(acc_ratios) & acc_ratios > 0]
+      rej_ratios <- rej_ratios[!is.na(rej_ratios) & is.finite(rej_ratios) & rej_ratios > 0]
+      if (length(acc_ratios) > 0) {
+        acceptedCalibRatios <- rbind(acceptedCalibRatios, tibble(participant = part, ratio = acc_ratios, phase = "calibration"))
+      }
+      if (length(rej_ratios) > 0) {
+        rejectedCalibRatios <- rbind(rejectedCalibRatios, tibble(participant = part, ratio = rej_ratios, phase = "calibration"))
+      }
+    }
+
     if ("distanceCheckJSON" %in% names(dl)) {
       # =============================================================================
       # BUILD `feet_check` tibble + `check_factor` tibble (from distanceCheckJSON)
@@ -1246,23 +1337,6 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       check_json_date        <- if (!is.null(distanceCheck$date)) distanceCheck$date else NA_character_
       check_json_type        <- if (!is.null(distanceCheck$json)) distanceCheck$json else NA_character_
 
-      t_tjson <- NULL
-      
-      if ("distanceCalibrationJSON" %in% names(dl)) {
-        tryCatch({
-          raw_json_tjson <- get_first_non_na(dl[["distanceCalibrationJSON"]])
-          if (!is.null(raw_json_tjson) && !is.na(raw_json_tjson) && raw_json_tjson != "") {
-            json_txt_tjson <- sanitize_json_string(raw_json_tjson)
-            t_tjson <- fromJSON(
-              json_txt_tjson,
-              simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE
-            )
-          }
-        }, error = function(e) {
-          # Silently skip if JSON parsing fails
-        })
-      }
-      
       # -------- distance check median factorVpxCm --------
       tryCatch({
         participant_id_debug <- if("participant" %in% names(dl)) first(na.omit(dl$participant)) else "UNKNOWN"
@@ -1340,85 +1414,6 @@ get_distance_calibration <- function(data_list, minRulerCm) {
         
       }, error = function(e) {
       })
-    #### TJSON data ####
-      # =============================================================================
-      # BUILD `TJSON` tibble (calibration parameters/derived values from distanceCalibrationJSON/TJSON)
-      # =============================================================================
-      
-      # Only process TJSON if we successfully parsed t_tjson
-      if (!is.null(t_tjson)) {
-        # Extract metadata for debugging/logging
-        json_experiment  <- if (!is.null(t_tjson$experiment)) t_tjson$experiment else NA_character_
-        json_participant <- if (!is.null(t_tjson$participant)) t_tjson$participant else NA_character_
-        json_date        <- if (!is.null(t_tjson$date)) t_tjson$date else NA_character_
-        json_type        <- if (!is.null(t_tjson$json)) t_tjson$json else NA_character_
-
-
-        pad_numeric <- function(x, n) {
-          if (is.null(x) || length(x) == 0) return(rep(NA_real_, n))
-          x <- suppressWarnings(as.numeric(x))
-          if (!length(x)) return(rep(NA_real_, n))
-          rep_len(x, n)
-        }
-
-        # Use accepted* only (new format; no legacy parameter names). Constants like ipdCm have no accepted*.
-        rb_eyes_foot_raw <- t_tjson$acceptedRulerBasedEyesToFootCm
-        img_eyes_foot_raw <- t_tjson$acceptedImageBasedEyesToFootCm
-        rb_eyes_pt_raw <- t_tjson$acceptedRulerBasedEyesToPointCm
-        img_eyes_pt_raw <- t_tjson$acceptedImageBasedEyesToPointCm
-        fow_raw <- t_tjson$acceptedFOverWidth
-        ipd_ow_raw <- t_tjson$acceptedIpdOverWidth
-        ipd_cm_scalar <- if (!is.null(t_tjson$ipdCm) && length(t_tjson$ipdCm) > 0) suppressWarnings(as.numeric(t_tjson$ipdCm[1])) else NA_real_
-
-        n_tjson <- max(
-          1,
-          length(rb_eyes_foot_raw), length(img_eyes_foot_raw),
-          length(rb_eyes_pt_raw), length(img_eyes_pt_raw),
-          length(fow_raw), length(ipd_ow_raw)
-        )
-
-        rb_eyes_foot <- pad_numeric(rb_eyes_foot_raw, n_tjson)
-        img_eyes_foot <- pad_numeric(img_eyes_foot_raw, n_tjson)
-        rb_eyes_pt <- pad_numeric(rb_eyes_pt_raw, n_tjson)
-        img_eyes_pt <- pad_numeric(img_eyes_pt_raw, n_tjson)
-        fow <- pad_numeric(fow_raw, n_tjson)
-        ipd_ow <- pad_numeric(ipd_ow_raw, n_tjson)
-        ipd_cm <- rep(ipd_cm_scalar, n_tjson)
-
-        tmp <- tibble(
-          participant      = first(na.omit(dl$participant)),
-          json_experiment  = json_experiment,
-          json_participant = json_participant,
-          json_date        = json_date,
-          json_type        = json_type,
-          rulerBasedEyesToFootCm     = rb_eyes_foot,
-          imageBasedEyesToFootCm     = img_eyes_foot,
-          rulerBasedEyesToPointCm    = rb_eyes_pt,
-          imageBasedEyesToPointCm    = img_eyes_pt,
-          fOverWidth       = fow,
-          ipdOverWidth     = ipd_ow,
-          ipdCm            = ipd_cm
-        )
-
-        TJSON <- rbind(TJSON, tmp)
-
-        # New format: acceptedRatioFOverWidth / rejectedRatioFOverWidth (one ratio per element; drop null/NA)
-        part <- first(na.omit(dl$participant))
-        acc_ratios <- if (!is.null(t_tjson$acceptedRatioFOverWidth)) as.numeric(t_tjson$acceptedRatioFOverWidth) else numeric()
-        rej_ratios <- if (!is.null(t_tjson$rejectedRatioFOverWidth)) as.numeric(t_tjson$rejectedRatioFOverWidth) else numeric()
-        acc_ratios <- acc_ratios[!is.na(acc_ratios) & is.finite(acc_ratios) & acc_ratios > 0]
-        rej_ratios <- rej_ratios[!is.na(rej_ratios) & is.finite(rej_ratios) & rej_ratios > 0]
-        if (length(acc_ratios) > 0) {
-          acceptedCalibRatios <- rbind(acceptedCalibRatios, tibble(participant = part, ratio = acc_ratios, phase = "calibration"))
-        }
-        if (length(rej_ratios) > 0) {
-          rejectedCalibRatios <- rbind(rejectedCalibRatios, tibble(participant = part, ratio = rej_ratios, phase = "calibration"))
-        }
-      }
-
-      # Temporary: keep only the last 2 rows per participant in TJSON table.
-      # TJSON <- keep_last_two_per_participant(TJSON)
-      
       #### checkJSON data ####
       # =============================================================================
       # BUILD `checkJSON` tibble (from distanceCheckJSON)
@@ -1651,13 +1646,17 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   }
   
   # TJSON now has fOverWidth directly (no longer computed from fVpx)
-  raw_fVpx <- TJSON %>%
-    select(participant, fOverWidth) %>%
-    filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
-    left_join(median_fOverWidth_check, by = "participant") %>%
-    mutate(relative = fOverWidth / medianfOverWidth) %>%
-    select(participant, fOverWidth, medianfOverWidth, relative) %>%
-    filter(is.finite(relative), relative > 0)
+  raw_fVpx <- if (nrow(TJSON) > 0 && "participant" %in% names(TJSON) && "fOverWidth" %in% names(TJSON)) {
+    TJSON %>%
+      select(participant, fOverWidth) %>%
+      filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
+      left_join(median_fOverWidth_check, by = "participant") %>%
+      mutate(relative = fOverWidth / medianfOverWidth) %>%
+      select(participant, fOverWidth, medianfOverWidth, relative) %>%
+      filter(is.finite(relative), relative > 0)
+  } else {
+    tibble(participant = character(), fOverWidth = numeric(), medianfOverWidth = numeric(), relative = numeric())
+  }
   # =============================================================================
   # BUILD `camera_res_stats` tibble (SD/count of camera width, from JSON arrays)
   # =============================================================================
