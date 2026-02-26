@@ -509,13 +509,13 @@ get_camera_resolution_stats <- function(data_list) {
                     " FALSE=", sum(bv == FALSE | bv == "false", na.rm=TRUE))
           }
 
-          # accepted = snapshotsTaken - snapshotsRejected
+          # accepted = snapshotsTaken - 2 * snapshotsRejected
           if (!is.null(parsed$snapshotsTaken) && !is.null(parsed$snapshotsRejected)) {
             taken <- suppressWarnings(as.integer(parsed$snapshotsTaken[1]))
             rej <- suppressWarnings(as.integer(parsed$snapshotsRejected[1]))
             if (!is.na(taken) && !is.na(rej) && taken >= 0 && rej >= 0) {
               rejected_n_calib <- rej
-              accepted_n_calib <- taken - rej
+              accepted_n_calib <- taken - 2L * rej
               rejected_n_total <- rej
               accepted_n_total <- accepted_n_calib
             }
@@ -584,13 +584,13 @@ get_camera_resolution_stats <- function(data_list) {
                     " FALSE=", sum(bv == FALSE | bv == "false", na.rm=TRUE))
           }
 
-          # accepted = snapshotsTaken - snapshotsRejected
+          # accepted = snapshotsTaken - 2 * snapshotsRejected
           if (!is.null(parsed$snapshotsTaken) && !is.null(parsed$snapshotsRejected)) {
             taken <- suppressWarnings(as.integer(parsed$snapshotsTaken[1]))
             rej <- suppressWarnings(as.integer(parsed$snapshotsRejected[1]))
             if (!is.na(taken) && !is.na(rej) && taken >= 0 && rej >= 0) {
               rejected_n_check <- rej
-              accepted_n_check <- taken - rej
+              accepted_n_check <- taken - 2L * rej
               rejected_n_total <- rej
               accepted_n_total <- accepted_n_check
             }
@@ -1509,6 +1509,15 @@ get_distance_calibration <- function(data_list, minRulerCm) {
 
   tjson_medians <- if (nrow(TJSON) > 0) {
     TJSON %>%
+      filter(is.finite(fOverWidth), is.finite(ipdCm)) %>%
+      group_by(participant) %>%
+      summarize(
+        fOverWidth_median = median(fOverWidth, na.rm = TRUE),
+        ipdCm_median = median(ipdCm, na.rm = TRUE),
+        .groups = "drop"
+      )
+  } else if (nrow(checkJSON) > 0 && all(c("fOverWidth", "ipdCm") %in% names(checkJSON))) {
+    checkJSON %>%
       filter(is.finite(fOverWidth), is.finite(ipdCm)) %>%
       group_by(participant) %>%
       summarize(
@@ -3780,8 +3789,12 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         
 
         # Check data (open circles)
+        # Get widthVpx from camera directly (not via calib_fOverWidth) so check-only sessions work
+        camera_widthVpx <- distanceCalibrationResults$camera %>%
+          select(PavloviaParticipantID, widthVpx) %>%
+          filter(!is.na(widthVpx), is.finite(widthVpx))
         check_plot_data_pre <- check_data %>%
-          left_join(calib_fOverWidth %>% select(PavloviaParticipantID, widthVpx), by = "PavloviaParticipantID") %>%
+          left_join(camera_widthVpx, by = "PavloviaParticipantID") %>%
           left_join(check_fOverWidth_median, by = c("PavloviaParticipantID" = "participant"))
 
         message("[DEBUG fOverWidth scatter] check_plot_data BEFORE filter: ", nrow(check_plot_data_pre), " rows")
@@ -5222,21 +5235,19 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
                 ipdOverWidth_times_rulerBasedEyesToFootCm_vs_rulerBasedEyesToFootCm = list(plot = NULL, height = NULL)))
   }
   
-  # Early return if TJSON is empty or missing required columns
+  # Build calibration data from TJSON (may be empty if calibration was skipped)
   tjson <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)
   if (nrow(tjson) == 0 || !"ipdOverWidth" %in% names(tjson)) {
-    message("[DEBUG plot_ipd_vs_eyeToFootCm] Early return: TJSON empty or missing ipdOverWidth column. TJSON columns: ", paste(names(tjson), collapse=", "))
-    return(list(ipdOverWidth_vs_rulerBasedEyesToFootCm = list(plot = NULL, height = NULL),
-                ipdOverWidth_times_rulerBasedEyesToFootCm_vs_rulerBasedEyesToFootCm = list(plot = NULL, height = NULL)))
+    message("[DEBUG plot_ipd_vs_eyeToFootCm] TJSON empty or missing ipdOverWidth — will use check data only")
   }
   # Ensure column exists (older exports may lack it)
-  if (!"rulerBasedEyesToFootCm" %in% names(tjson)) {
+  if (nrow(tjson) > 0 && !"rulerBasedEyesToFootCm" %in% names(tjson)) {
     tjson <- tjson %>% mutate(rulerBasedEyesToFootCm = NA_real_)
   }
   
   # TJSON now has ipdOverWidth directly (no longer computed from ipdVpx)
   # Add measurement_order_within_participant for consistency with check data (calibration has only one point per participant typically)
-  ipd_TJSON <- tjson %>%
+  ipd_TJSON <- if (nrow(tjson) > 0 && "ipdOverWidth" %in% names(tjson)) tjson %>%
     left_join(camera %>% select(PavloviaParticipantID, widthVpx), by = c("participant" = "PavloviaParticipantID")) %>%
     filter(!is.na(ipdOverWidth), is.finite(ipdOverWidth), !is.na(ipdCm), is.finite(ipdCm), ipdCm > 0) %>%
     group_by(participant) %>%
@@ -5249,6 +5260,9 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
     ) %>%
     filter(!is.na(rulerBasedEyesToFootCm), is.finite(rulerBasedEyesToFootCm), rulerBasedEyesToFootCm > 0) %>%
     select(participant, rulerBasedEyesToFootCm, ipdOverWidth, fOverWidth, factorVpxCm, type, measurement_order_within_participant)
+  else
+    tibble(participant = character(), rulerBasedEyesToFootCm = numeric(), ipdOverWidth = numeric(),
+           fOverWidth = numeric(), factorVpxCm = numeric(), type = character(), measurement_order_within_participant = integer())
   
   # For check data, use rulerBasedEyesToFootCm (horizontal ruler-based viewing distance)
   # checkJSON now has ipdOverWidth directly
@@ -5278,11 +5292,12 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
   
   ipd_data <- rbind(ipd_TJSON, ipd_checkJSON)
   
-  if (nrow(ipd_TJSON) == 0) {
+  if (nrow(ipd_data) == 0) {
     return(list(ipdOverWidth_vs_rulerBasedEyesToFootCm = list(plot = NULL, 
                                           height = NULL),
                 ipdOverWidth_times_rulerBasedEyesToFootCm_vs_rulerBasedEyesToFootCm = list(plot = NULL, 
-                                                               height = NULL)))
+                                                               height = NULL),
+                fOverWidth_over_median_check_vs_rulerBasedEyesToFootCm = list(plot = NULL, height = NULL)))
   }
   
   # Exclude single-point (participant, type) groups so we never draw unconnected dots.
@@ -5296,12 +5311,19 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
     arrange(participant, type, measurement_order_within_participant)
   
   # Get calibration focal length (factorVpxCm) and ipdCm per participant for the focal length line
-  # Use median factorVpxCm and ipdCm from calibration data per participant
-  # Need to get ipdCm from original TJSON data (before selection)
-  ipdCm_data <- distanceCalibrationResults$TJSON %>%
-    group_by(participant) %>%
-    summarize(median_ipdCm = median(ipdCm, na.rm = TRUE), .groups = "drop") %>%
-    filter(!is.na(median_ipdCm), is.finite(median_ipdCm), median_ipdCm > 0)
+  # Use median factorVpxCm and ipdCm from calibration or check data per participant
+  ipdCm_source <- distanceCalibrationResults$TJSON
+  if (is.null(ipdCm_source) || !is.data.frame(ipdCm_source) || nrow(ipdCm_source) == 0 || !"ipdCm" %in% names(ipdCm_source)) {
+    ipdCm_source <- distanceCalibrationResults$checkJSON
+  }
+  ipdCm_data <- if (!is.null(ipdCm_source) && is.data.frame(ipdCm_source) && nrow(ipdCm_source) > 0 && "participant" %in% names(ipdCm_source) && "ipdCm" %in% names(ipdCm_source)) {
+    ipdCm_source %>%
+      group_by(participant) %>%
+      summarize(median_ipdCm = median(ipdCm, na.rm = TRUE), .groups = "drop") %>%
+      filter(!is.na(median_ipdCm), is.finite(median_ipdCm), median_ipdCm > 0)
+  } else {
+    tibble(participant = character(), median_ipdCm = numeric())
+  }
   
   focal_length_data <- ipd_TJSON %>%
     group_by(participant) %>%
@@ -5794,12 +5816,18 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults,
   # Standard interpupillary distance
   ipdCm_standard <- 6.3
   
-  # Get median fOverWidth per participant from calibration
-  if (nrow(tjson_data) > 0) {
+  # Get median fOverWidth per participant from calibration; fall back to calibrationFOverWidth from checkJSON
+  if (nrow(tjson_data) > 0 && "fOverWidth" %in% names(tjson_data)) {
     fOverWidth_per_participant <- tjson_data %>%
       filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
       group_by(participant) %>%
       summarize(fOverWidth_calibration = median(fOverWidth, na.rm = TRUE), .groups = "drop") %>%
+      filter(is.finite(fOverWidth_calibration))
+  } else if (nrow(check_data) > 0 && "calibrationFOverWidth" %in% names(check_data)) {
+    fOverWidth_per_participant <- check_data %>%
+      filter(!is.na(calibrationFOverWidth), is.finite(calibrationFOverWidth)) %>%
+      group_by(participant) %>%
+      summarize(fOverWidth_calibration = median(calibrationFOverWidth, na.rm = TRUE), .groups = "drop") %>%
       filter(is.finite(fOverWidth_calibration))
   } else {
     fOverWidth_per_participant <- tibble(participant = character(), fOverWidth_calibration = numeric())
