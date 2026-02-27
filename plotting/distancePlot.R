@@ -3655,8 +3655,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # Tolerance bounds for vertical reference lines
   T_fOverWidth <- as.numeric(get_first_non_na(camera_res_stats$`_calibrateDistanceAllowedRatioFOverWidth`))
   if (!is.finite(T_fOverWidth) || T_fOverWidth <= 0) T_fOverWidth <- 1.05
-  lower_bound <- 1 / T_fOverWidth  # 0.9524
-  upper_bound <- T_fOverWidth       # 1.05
+  lower_bound <- round(1 / T_fOverWidth, 2)
+  upper_bound <- round(T_fOverWidth, 2)
   # Bin width for ratio dot-histograms: 1/10 of the red-line span
   # (Requested: binWidth = (T - 1/T) / 10)
   ratio_bin_width <- (upper_bound - lower_bound) / 10
@@ -3698,16 +3698,24 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     )
   
   # Helper: build a single dot-stacked ratio histogram
-  build_ratio_histogram <- function(ratio_df, subtitle_text, bin_width = ratio_bin_width) {
+  build_ratio_histogram <- function(ratio_df, subtitle_text, bin_width = ratio_bin_width,
+                                    clamp_to_bounds = FALSE) {
     if (is.null(ratio_df) || nrow(ratio_df) == 0) return(list(plot = NULL, max_count = 0, n_participants = 0))
+    
+    n_bins <- round((upper_bound - lower_bound) / bin_width)
     
     # Bin and stack
     ratio_df <- ratio_df %>%
-      # IMPORTANT: Align bins to the red limits so we get exactly N bins between them:
-      # - accepted: N=10 → bin_width=(upper-lower)/10
-      # - rejected: N=2  → bin_width=(upper-lower)/2
-      # Using an origin at `lower_bound` ensures "bins between the red limits" matches the request.
-      mutate(bin_center = lower_bound + (floor((ratio - lower_bound) / bin_width) + 0.5) * bin_width) %>%
+      mutate(bin_idx = floor((ratio - lower_bound) / bin_width))
+    
+    if (clamp_to_bounds) {
+      ratio_df <- ratio_df %>%
+        mutate(bin_idx = pmax(0L, pmin(bin_idx, n_bins - 1L)))
+    }
+    
+    ratio_df <- ratio_df %>%
+      mutate(bin_center = lower_bound + (bin_idx + 0.5) * bin_width) %>%
+      select(-bin_idx) %>%
       arrange(bin_center, participant) %>%
       group_by(bin_center) %>%
       mutate(dot_y = row_number()) %>%
@@ -3759,7 +3767,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # (a) Accepted calibration ratios
   p10d_result <- build_ratio_histogram(accepted_calib_ratios,
     "Accepted setting ratio in calibration phase",
-    bin_width = ratio_bin_width)
+    bin_width = ratio_bin_width, clamp_to_bounds = TRUE)
   p10d <- p10d_result$plot
   p10d_max_count <- p10d_result$max_count
   p10d_n_participants <- p10d_result$n_participants
@@ -3767,7 +3775,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # (b) Accepted check ratios
   p10e_result <- build_ratio_histogram(accepted_check_ratios,
     "Accepted setting ratio in check phase",
-    bin_width = ratio_bin_width)
+    bin_width = ratio_bin_width, clamp_to_bounds = TRUE)
   p10e <- p10e_result$plot
   p10e_max_count <- p10e_result$max_count
   p10e_n_participants <- p10e_result$n_participants
