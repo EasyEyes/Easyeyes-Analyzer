@@ -1040,8 +1040,7 @@ shinyServer(function(input, output, session) {
       # ===== 2. FIVE SCATTER DIAGRAMS W FEW POINTS PER SESSION =====
       list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-max-width'),
       list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'focal-length-calibration-over-check-vs-check'),
-      list(plot = distancePlots()$fOverWidth_calibration12_over_check$plot, height = distancePlots()$fOverWidth_calibration12_over_check$height, fname = 'focal-length-calibration-1-2-over-check'),
-      list(plot = distancePlots()$fOverWidth_ratio_vs_first$plot, height = distancePlots()$fOverWidth_ratio_vs_first$height, fname = 'focal-length-calibration-second-over-first-vs-first'),
+      list(plot = distancePlots()$fOverWidth_calibration_vs_check$plot, height = distancePlots()$fOverWidth_calibration_vs_check$height, fname = 'fOverWidth-calibration-vs-check'),
       
       # ===== 3. SIX PLOTS W 8 CONNECTED DOTS FROM CHECK PHASE =====
       list(plot = distancePlots()$imb_vs_rb$plot, height = distancePlots()$imb_vs_rb$height, fname = 'imageBasedEyesToPointCm-vs-rulerBasedEyesToPointCm'),
