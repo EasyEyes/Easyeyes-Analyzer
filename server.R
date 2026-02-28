@@ -863,9 +863,12 @@ shinyServer(function(input, output, session) {
       list(plot_keys = c("rejected_check_ratio_hist", "plot"),
            height_keys = c("rejected_check_ratio_hist", "height"),
            fname = "histogram-of-rejected-check-fOverWidth-ratio"),
-      list(plot_keys = c("fOverWidth_hist", "plot"),
-           height_keys = c("fOverWidth_hist", "height"),
-           fname = "histogram-of-fOverWidth-check")
+      list(plot_keys = c("fOverWidth_hist_check", "plot"),
+           height_keys = c("fOverWidth_hist_check", "height"),
+           fname = "histogram-of-fOverWidth-check"),
+      list(plot_keys = c("fOverWidth_hist_calibration", "plot"),
+           height_keys = c("fOverWidth_hist_calibration", "height"),
+           fname = "histogram-of-fOverWidth-calibration")
     )
     for (s in specs) {
       add_from_keys(s$plot_keys, s$height_keys, s$fname)
