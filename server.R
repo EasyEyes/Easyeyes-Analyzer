@@ -868,7 +868,13 @@ shinyServer(function(input, output, session) {
            fname = "histogram-of-fOverWidth-check"),
       list(plot_keys = c("fOverWidth_hist_calibration", "plot"),
            height_keys = c("fOverWidth_hist_calibration", "height"),
-           fname = "histogram-of-fOverWidth-calibration")
+           fname = "histogram-of-fOverWidth-calibration"),
+      list(plot_keys = c("fOverWidth_hist_all_calibration", "plot"),
+           height_keys = c("fOverWidth_hist_all_calibration", "height"),
+           fname = "histogram-of-fOverWidth-all-calibration"),
+      list(plot_keys = c("fOverWidth_hist_all_check", "plot"),
+           height_keys = c("fOverWidth_hist_all_check", "height"),
+           fname = "histogram-of-fOverWidth-all-check")
     )
     for (s in specs) {
       add_from_keys(s$plot_keys, s$height_keys, s$fname)
@@ -1044,6 +1050,7 @@ shinyServer(function(input, output, session) {
       list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-max-width'),
       list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'focal-length-calibration-over-check-vs-check'),
       list(plot = distancePlots()$fOverWidth_calibration_vs_check$plot, height = distancePlots()$fOverWidth_calibration_vs_check$height, fname = 'fOverWidth-calibration-vs-check'),
+      list(plot = distancePlots()$fOverWidth_cal_vs_check_scatter$plot, height = distancePlots()$fOverWidth_cal_vs_check_scatter$height, fname = 'fOverWidth-median-calibration-vs-median-check'),
       
       # ===== 3. SIX PLOTS W 8 CONNECTED DOTS FROM CHECK PHASE =====
       list(plot = distancePlots()$imb_vs_rb$plot, height = distancePlots()$imb_vs_rb$height, fname = 'imageBasedEyesToPointCm-vs-rulerBasedEyesToPointCm'),

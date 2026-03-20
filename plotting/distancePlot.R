@@ -3982,7 +3982,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ) +
           ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
           labs(
-            subtitle = 'Histogram of fOverWidth check',
+            subtitle = 'Histogram of fOverWidth, median(check)',
             x = "fOverWidth",
             y = "Count"
           ) +
@@ -4070,7 +4070,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             ) +
             ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
             labs(
-              subtitle = 'Histogram of fOverWidth calibration',
+              subtitle = 'Histogram of fOverWidth, median(calibration)',
               x = "fOverWidth",
               y = "Count"
             ) +
@@ -4282,6 +4282,237 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
 
+  # ==========================================================================
+  # Histograms of ALL fOverWidth estimates (every accepted measurement)
+  # ==========================================================================
+  fOverWidth_hist_all_calibration <- NULL
+  fOverWidth_hist_all_check <- NULL
+
+  if (nrow(calib_data) > 0 && "fOverWidth" %in% names(calib_data)) {
+    all_calib_fow_data <- calib_data %>%
+      filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
+      select(participant, fOverWidth)
+
+    if (nrow(all_calib_fow_data) > 0) {
+      bin_width_ac <- 0.05
+      hist_all_calib <- all_calib_fow_data %>%
+        mutate(bin_center = round(fOverWidth / bin_width_ac) * bin_width_ac) %>%
+        arrange(bin_center, participant) %>%
+        group_by(bin_center) %>%
+        mutate(dot_y = row_number()) %>%
+        ungroup()
+
+      max_count_all_calib <- max(hist_all_calib$dot_y)
+      x_min_ac <- min(0.4, min(hist_all_calib$bin_center, na.rm = TRUE) - bin_width_ac)
+      x_max_ac <- max(1.6, max(hist_all_calib$bin_center, na.rm = TRUE) + bin_width_ac)
+
+      p_hist_all_calib <- ggplot(hist_all_calib, aes(x = bin_center)) +
+        geom_point(aes(x = bin_center, y = dot_y, color = participant),
+                   size = 6, alpha = 0.85, stroke = 1.5) +
+        scale_color_manual(values = participant_colors, drop = FALSE) +
+        scale_y_continuous(
+          limits = c(0, max(8, max_count_all_calib + 1)),
+          expand = expansion(mult = c(0, 0.1)),
+          breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+        ) +
+        scale_x_continuous(limits = c(x_min_ac, x_max_ac),
+                           breaks = c(0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6)) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(hist_all_calib$participant),
+                                           ', n=', nrow(hist_all_calib),
+                                           '\nMean(x) = ', format(round(mean(hist_all_calib$fOverWidth, na.rm = TRUE), 3), nsmall = 3),
+                                           '\nSD(x) = ', format(round(sd(hist_all_calib$fOverWidth, na.rm = TRUE), 3), nsmall = 3)),
+                            size = 4, family = "sans", fontface = "plain") +
+        guides(
+          color = guide_legend(ncol = 4, title = "",
+            override.aes = list(size = 2),
+            keywidth = unit(0.3, "cm"), keyheight = unit(0.3, "cm"))
+        ) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        labs(
+          subtitle = 'Histogram of fOverWidth, calibration',
+          x = "fOverWidth",
+          y = "Count"
+        ) +
+        theme_bw() +
+        theme(
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = "left",
+          legend.box.just = "left",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 14),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size = 12, angle = 0, hjust = 0.5, vjust = 1),
+          axis.text.y = element_text(size = 12),
+          plot.title = element_text(size = 12, hjust = 0, margin = margin(b = 5)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 14, hjust = 0, margin = margin(t = 0, b = 5)),
+          plot.caption = element_text(size = 11),
+          plot.margin = margin(t = 0.3, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14)
+        )
+
+      fOverWidth_hist_all_calibration <- list(
+        plot = p_hist_all_calib,
+        height = compute_auto_height(base_height = 1.5, n_items = n_distinct(hist_all_calib$participant), per_row = 4, row_increase = 0.05) +
+          0.24 * max(max_count_all_calib, 8)
+      )
+    }
+  }
+
+  all_check_fow_src <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
+  if (nrow(all_check_fow_src) > 0 && "fOverWidth" %in% names(all_check_fow_src)) {
+    all_check_fow_data <- all_check_fow_src %>%
+      filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
+      select(participant, fOverWidth)
+
+    if (nrow(all_check_fow_data) > 0) {
+      bin_width_ck <- 0.05
+      hist_all_check <- all_check_fow_data %>%
+        mutate(bin_center = round(fOverWidth / bin_width_ck) * bin_width_ck) %>%
+        arrange(bin_center, participant) %>%
+        group_by(bin_center) %>%
+        mutate(dot_y = row_number()) %>%
+        ungroup()
+
+      max_count_all_check <- max(hist_all_check$dot_y)
+      x_min_ck <- min(0.4, min(hist_all_check$bin_center, na.rm = TRUE) - bin_width_ck)
+      x_max_ck <- max(1.6, max(hist_all_check$bin_center, na.rm = TRUE) + bin_width_ck)
+
+      p_hist_all_check <- ggplot(hist_all_check, aes(x = bin_center)) +
+        geom_point(aes(x = bin_center, y = dot_y, color = participant),
+                   size = 6, alpha = 0.85, stroke = 1.5) +
+        scale_color_manual(values = participant_colors, drop = FALSE) +
+        scale_y_continuous(
+          limits = c(0, max(8, max_count_all_check + 1)),
+          expand = expansion(mult = c(0, 0.1)),
+          breaks = function(x) seq(0, ceiling(max(x)), by = 1)
+        ) +
+        scale_x_continuous(limits = c(x_min_ck, x_max_ck),
+                           breaks = c(0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6)) +
+        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                            label = paste0('N=', n_distinct(hist_all_check$participant),
+                                           ', n=', nrow(hist_all_check),
+                                           '\nMean(x) = ', format(round(mean(hist_all_check$fOverWidth, na.rm = TRUE), 3), nsmall = 3),
+                                           '\nSD(x) = ', format(round(sd(hist_all_check$fOverWidth, na.rm = TRUE), 3), nsmall = 3)),
+                            size = 4, family = "sans", fontface = "plain") +
+        guides(
+          color = guide_legend(ncol = 4, title = "",
+            override.aes = list(size = 2),
+            keywidth = unit(0.3, "cm"), keyheight = unit(0.3, "cm"))
+        ) +
+        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        labs(
+          subtitle = 'Histogram of fOverWidth, check',
+          x = "fOverWidth",
+          y = "Count"
+        ) +
+        theme_bw() +
+        theme(
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.justification = "left",
+          legend.box.just = "left",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 14),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(colour = "black"),
+          axis.text.x = element_text(size = 12, angle = 0, hjust = 0.5, vjust = 1),
+          axis.text.y = element_text(size = 12),
+          plot.title = element_text(size = 12, hjust = 0, margin = margin(b = 5)),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(size = 14, hjust = 0, margin = margin(t = 0, b = 5)),
+          plot.caption = element_text(size = 11),
+          plot.margin = margin(t = 0.3, r = 0.1, b = 0.1, l = 0.1, "inch"),
+          strip.text = element_text(size = 14)
+        )
+
+      fOverWidth_hist_all_check <- list(
+        plot = p_hist_all_check,
+        height = compute_auto_height(base_height = 1.5, n_items = n_distinct(hist_all_check$participant), per_row = 4, row_increase = 0.05) +
+          0.24 * max(max_count_all_check, 8)
+      )
+    }
+  }
+
+  # ==========================================================================
+  # Scatter: fOverWidth calibration vs check (one median per participant)
+  # ==========================================================================
+  fOverWidth_cal_vs_check_scatter <- NULL
+
+  fow_scatter_calib <- calib_data %>%
+    filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
+    group_by(participant) %>%
+    summarize(fOverWidth_calibration = median(fOverWidth, na.rm = TRUE), .groups = "drop")
+
+  fow_scatter_check <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON) %>%
+    filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
+    group_by(participant) %>%
+    summarize(fOverWidth_check = median(fOverWidth, na.rm = TRUE), .groups = "drop")
+
+  fow_scatter_joined <- fow_scatter_calib %>%
+    inner_join(fow_scatter_check, by = "participant") %>%
+    filter(is.finite(fOverWidth_calibration), is.finite(fOverWidth_check))
+
+  if (nrow(fow_scatter_joined) > 0) {
+    all_fow_scatter_vals <- c(fow_scatter_joined$fOverWidth_calibration,
+                              fow_scatter_joined$fOverWidth_check)
+    fow_range <- range(all_fow_scatter_vals, na.rm = TRUE)
+    fow_pad <- max(diff(fow_range) * 0.1, 0.02)
+    fow_lim <- c(fow_range[1] - fow_pad, fow_range[2] + fow_pad)
+
+    p_fow_scatter_new <- ggplot(fow_scatter_joined,
+        aes(x = fOverWidth_check, y = fOverWidth_calibration, color = participant)) +
+      geom_abline(intercept = 0, slope = 1, linetype = "solid",
+                  color = "gray70", linewidth = 0.15, alpha = 0.4) +
+      geom_point(size = 3, alpha = 0.8) +
+      ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
+                          label = paste0('N=', n_distinct(fow_scatter_joined$participant)),
+                          size = 4) +
+      scale_x_continuous(limits = fow_lim) +
+      scale_y_continuous(limits = fow_lim) +
+      coord_fixed() +
+      scale_color_manual(values = participant_colors, drop = FALSE) +
+      guides(color = guide_legend(
+        ncol = 3,
+        title = "Solid line: y = x",
+        title.position = "bottom",
+        title.theme = element_text(size = 10, hjust = 0),
+        override.aes = list(size = 1.5),
+        keywidth = unit(0.8, "lines"),
+        keyheight = unit(0.6, "lines")
+      )) +
+      theme_classic() +
+      theme(
+        legend.position = "right",
+        legend.box = "vertical",
+        legend.justification = "left",
+        legend.box.just = "left",
+        legend.text = element_text(size = 6),
+        legend.spacing.y = unit(0, "lines"),
+        legend.key.size = unit(0.4, "cm"),
+        plot.margin = margin(5, 5, 5, 5, "pt")
+      ) +
+      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
+                          label = statement) +
+      labs(subtitle = 'fOverWidth: calibration vs check',
+           x = 'fOverWidth: check',
+           y = 'fOverWidth: calibration')
+
+    fOverWidth_cal_vs_check_scatter <- list(
+      plot = p_fow_scatter_new,
+      height = compute_auto_height(base_height = 7,
+        n_items = n_distinct(fow_scatter_joined$participant),
+        per_row = 3, row_increase = 0.06)
+    )
+  }
+
   # Calculate heights based on legend complexity
   n_participants <- n_distinct(distance_individual$participant)
   base_height <- 7
@@ -4376,6 +4607,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     fOverWidth_hist_check = fOverWidth_hist_check,
     fOverWidth_hist_calibration = fOverWidth_hist_calibration,
     fOverWidth_scatter = fOverWidth_scatter,
+    fOverWidth_hist_all_calibration = fOverWidth_hist_all_calibration,
+    fOverWidth_hist_all_check = fOverWidth_hist_all_check,
+    fOverWidth_cal_vs_check_scatter = fOverWidth_cal_vs_check_scatter,
 
     # ---- merged-in plot bundles ----
     sizeCheck = sizeCheck_plots,
