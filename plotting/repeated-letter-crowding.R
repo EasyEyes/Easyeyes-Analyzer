@@ -38,6 +38,8 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
     
     data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
     
+    if (nrow(data_for_stat) == 0) return(NULL)
+    
     corr <- data_for_stat %>%
       summarize(
         correlation = cor(block_avg_log_WPM, log_crowding_distance_deg, method = "pearson"),
@@ -215,6 +217,8 @@ plot_reading_repeated_letter_crowding <- function(allData) {
     }
     
     data_for_stat <- data_for_stat[complete.cases(data_for_stat),]
+    
+    if (nrow(data_for_stat) == 0) return(NULL)
     
     corr <- data_for_stat %>%
       summarize(

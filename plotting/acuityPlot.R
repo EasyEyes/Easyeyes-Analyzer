@@ -292,11 +292,16 @@ plot_acuity_rsvp <- function(acuity, rsvp, type) {
       t <- data_for_stat %>%
         select(block_avg_log_WPM, questMeanAtEndOfTrialsLoop, ageN) 
       t <- t[complete.cases(t), ]
-      corr_without_age <- ppcor::pcor(t)$estimate[2, 1]
-      corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
+      if (nrow(t) < 3) {
+        corr_without_age <- NA
+      } else {
+        corr_without_age <- ppcor::pcor(t)$estimate[2, 1]
+        corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)
+      }
     }
     data_for_stat <- data_for_stat[complete.cases(data_for_stat), ]
     
+    if (nrow(data_for_stat) == 0) return(NULL)
     
     # Calculate correlation and slope
     corr <- data_for_stat %>%
@@ -589,12 +594,12 @@ plot_acuity_vs_age <- function(allData){
   foveal <- foveal %>% filter(!is.na(ageN),!is.na(questMeanAtEndOfTrialsLoop))
   peripheral <- peripheral %>% filter(!is.na(ageN),!is.na(questMeanAtEndOfTrialsLoop))
   label = ''
-  foveal_corr <- format(round(cor(foveal$ageN,foveal$questMeanAtEndOfTrialsLoop),2),nsmall=2)
-  peripheral_corr <- format(round(cor(peripheral$ageN,peripheral$questMeanAtEndOfTrialsLoop),2),nsmall=2)
   if (nrow(foveal) > 0) {
+    foveal_corr <- format(round(cor(foveal$ageN,foveal$questMeanAtEndOfTrialsLoop),2),nsmall=2)
     label = paste0(label, 'Foveal: slope=', foveal_stats$slope, ', R=', foveal_corr, ', N=', nrow(foveal))
   }
   if (nrow(peripheral) > 0) {
+    peripheral_corr <- format(round(cor(peripheral$ageN,peripheral$questMeanAtEndOfTrialsLoop),2),nsmall=2)
     label = paste0(label, 
                    ifelse(length(label) > 0, '\n', ''),
                    'Peripheral: slope=', peripheral_stats$slope, ', R=', peripheral_corr, ', N=', nrow(peripheral), ', ' ,ecc_label)

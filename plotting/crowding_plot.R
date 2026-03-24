@@ -997,6 +997,10 @@ get_foveal_peripheral_diag <- function(crowding) {
         Grade = as.character(Grade)
       )
     
+    if (nrow(t) == 0) {
+      return(list(age = NULL, grade = NULL))
+    }
+    
     regression <- lm(peripheral_x ~ foveal_y, data = t)
     slope <- coef(regression)[["foveal_y"]]
     r_value <- cor(t$foveal_y, t$peripheral_x, use = "complete.obs")

@@ -208,6 +208,7 @@ get_short_experiment_name <- function(experiment_names) {
 
 get_stats_label <- function(data, needSlope, needCorr) {
   N = nrow(data)
+  if (N == 0) return("")
   corr = format(
     round(
       cor(data$block_avg_log_WPM, 

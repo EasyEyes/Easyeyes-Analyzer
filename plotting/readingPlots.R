@@ -395,16 +395,20 @@ plot_reading_rsvp <- function(reading, rsvp) {
     vars <- t %>% dplyr::select(X, Y, age) %>% 
        filter(!is.na(age)) # Drop rows with NA age
     
-    cor_mat <- cor(vars, use = "pairwise.complete.obs")
-
-    if (is.na(det(cor_mat))) {
-      R_factor_out_age <- NA
-    } else if (det(cor_mat) < .Machine$double.eps) {
-      warning("Correlation matrix is singular or nearly singular in production")
+    if (nrow(vars) < 2) {
       R_factor_out_age <- NA
     } else {
-      pcor <- ppcor::pcor(vars)
-      R_factor_out_age <- round(pcor$estimate[2, 1], 2)
+      cor_mat <- cor(vars, use = "pairwise.complete.obs")
+
+      if (is.na(det(cor_mat))) {
+        R_factor_out_age <- NA
+      } else if (det(cor_mat) < .Machine$double.eps) {
+        warning("Correlation matrix is singular or nearly singular in production")
+        R_factor_out_age <- NA
+      } else {
+        pcor <- ppcor::pcor(vars)
+        R_factor_out_age <- round(pcor$estimate[2, 1], 2)
+      }
     }
   } else {
     R_factor_out_age <- NA

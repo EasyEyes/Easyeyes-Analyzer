@@ -445,7 +445,7 @@ ensure_columns <- function(t, file_name = NULL) {
   t
 }
 
-read_files <- function(file){
+read_files <- function(file, progress = NULL){
   if(is.null(file)) return(list())
   file_list <- file$data
   file_names <- file$name
@@ -463,6 +463,13 @@ read_files <- function(file){
   pretest <- tibble()
 
   for (i in 1 : n) {
+    if (!is.null(progress)) {
+      progress(
+        value = (i - 1) / n,
+        message = sprintf("Reading file %d of %d", i, n),
+        detail = basename(file_names[i])
+      )
+    }
     print(sprintf("Processing file %d/%d: %s", i, n, file_names[i]))
     print(sprintf("  File path: %s", file_list[i]))
     print(sprintf("  File type (name): %s", ifelse(grepl(".csv", file_names[i]), "CSV",
@@ -617,6 +624,13 @@ read_files <- function(file){
       print(sprintf("  ZIP contains %d CSV files: %s", m, paste(all_csv, collapse=", ")))
       tmp <- tempdir()
       for (k in 1 : m) {
+        if (!is.null(progress)) {
+          progress(
+            value = (i - 1) / n + ((k - 1) / m) / n,
+            message = sprintf("Reading file %d of %d", i, n),
+            detail = sprintf("Session %d of %d: %s", k, m, basename(all_csv[k]))
+          )
+        }
         print(sprintf("    Processing CSV %d/%d: %s", k, m, all_csv[k]))
         # Stream CSV directly from zip without extracting to disk; fallback to extracting just this file
         cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_csv[k]))
@@ -751,6 +765,10 @@ read_files <- function(file){
       }
       print('done processing zip')
     }
+  }
+  
+  if (!is.null(progress)) {
+    progress(value = 0.95, message = "Processing data...", detail = "Merging sessions")
   }
   
   # Use pretest to override age

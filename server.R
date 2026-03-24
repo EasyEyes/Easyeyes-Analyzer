@@ -74,7 +74,17 @@ shinyServer(function(input, output, session) {
                {
                  shinyalert(
                    title = "Reading file(s) ...",
-                   size = "s",
+                   text = paste0(
+                     '<div style="margin-top: 20px; padding: 0 10px;">',
+                     '  <div style="background-color: #e0e0e0; border-radius: 8px; overflow: hidden; height: 28px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);">',
+                     '    <div id="file-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #004192, #0066cc); border-radius: 8px; transition: width 0.3s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px;">',
+                     '      <span id="file-progress-pct" style="color: white; font-size: 13px; font-weight: bold;"></span>',
+                     '    </div>',
+                     '  </div>',
+                     '  <p id="file-progress-detail" style="margin-top: 14px; color: #555; font-size: 14px;">Starting...</p>',
+                     '</div>'
+                   ),
+                   size = "m",
                    closeOnEsc = FALSE,
                    closeOnClickOutside = FALSE,
                    html = TRUE,
@@ -136,7 +146,18 @@ shinyServer(function(input, output, session) {
     req(input$file)
     check <- check_file_names(input$file)
     if (is.null(check)) {
-      t <- read_files(input$file)
+      t <- read_files(input$file, progress = function(value, message, detail) {
+        session$sendCustomMessage('updateFileProgress', list(
+          value = round(value * 100, 1),
+          detail = detail,
+          close = FALSE
+        ))
+      })
+      session$sendCustomMessage('updateFileProgress', list(
+        value = 100,
+        detail = "Processing results...",
+        close = FALSE
+      ))
       print('done read_files')
       return(t)
     } else {

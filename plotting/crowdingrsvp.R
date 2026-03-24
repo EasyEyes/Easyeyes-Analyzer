@@ -205,6 +205,7 @@ plot_rsvp_crowding <- function(allData) {
         )
     }
    
+    if (nrow(data) == 0) return(NULL)
     
     # Compute correlation and slope
     correlation <- cor(data$residual_log_crowding, data$residual_log_rsvp, method = "pearson")
@@ -325,6 +326,8 @@ plot_rsvp_crowding <- function(allData) {
     }
     
     data_for_stat <- data_for_stat[complete.cases(data_for_stat), ]
+    
+    if (nrow(data_for_stat) == 0) return(NULL)
     
     corr <- data_for_stat %>%
       summarize(

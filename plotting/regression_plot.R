@@ -38,7 +38,8 @@ prepare_regression_data <- function(df_list){
     mutate(targetKind = "rsvpReading")
   
   t <- rbind(crowding_vs_rsvp_summary, reading_crowding)
-  if (nrow(t>1)) {
+  t <- t %>% filter(!is.na(avg_log_WPM),!is.na(crowding_distance))
+  if (nrow(t) > 1) {
     corr <- t %>% group_by(targetKind, type) %>% 
       summarize(correlation = round(cor(log10(crowding_distance),avg_log_WPM, 
                                         use = "pairwise.complete.obs",
@@ -49,7 +50,6 @@ prepare_regression_data <- function(df_list){
   } else {
     t$correlation = NA
   }
-  t <- t %>% filter(!is.na(avg_log_WPM),!is.na(crowding_distance))
   return(t)
 }
 
@@ -366,7 +366,7 @@ regression_reading_plot <- function(df_list, font_colors_map = NULL){
 
 regression_acuity_plot <- function(df_list){
   t <- prepare_regression_acuity(df_list)
-  if (nrow(t>1)) {
+  if (nrow(t) > 1) {
     corr <- t %>% group_by(targetKind) %>% 
       summarize(correlation = round(cor(questMeanAtEndOfTrialsLoop,avg_log_WPM, 
                                         use = "pairwise.complete.obs",
@@ -406,6 +406,7 @@ regression_acuity_plot <- function(df_list){
 regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
   t <- prepare_regression_data(df_list)
   rsvp_vs_ordinary_vs_crowding <- reading_rsvp_crowding_df[[1]]
+  if (nrow(rsvp_vs_ordinary_vs_crowding) == 0 || nrow(t) == 0) return(NULL)
   corr_means <- rsvp_vs_ordinary_vs_crowding %>% 
     group_by(targetKind) %>% 
     summarize(correlation = cor(avg_log_SpeedWPM, mean_bouma_factor, 
@@ -518,6 +519,7 @@ regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
 regression_font <- function(df_list, reading_rsvp_crowding_df){
   t <- prepare_regression_data(df_list)
   rsvp_vs_ordinary_vs_crowding <- reading_rsvp_crowding_df[[1]]
+  if (nrow(rsvp_vs_ordinary_vs_crowding) == 0 || nrow(t) == 0) return(NULL)
   corr_means <- rsvp_vs_ordinary_vs_crowding %>% 
     group_by(targetKind) %>% 
     summarize(correlation = cor(avg_log_SpeedWPM, mean_bouma_factor, 
@@ -599,6 +601,7 @@ regression_font <- function(df_list, reading_rsvp_crowding_df){
 regression_font_with_label <- function(df_list, reading_rsvp_crowding_df){
   t <- prepare_regression_data(df_list)
   rsvp_vs_ordinary_vs_crowding <- reading_rsvp_crowding_df[[1]]
+  if (nrow(rsvp_vs_ordinary_vs_crowding) == 0 || nrow(t) == 0) return(NULL)
   corr_means <- rsvp_vs_ordinary_vs_crowding %>% 
     group_by(targetKind) %>% 
     summarize(correlation = cor(avg_log_SpeedWPM, mean_bouma_factor, 
