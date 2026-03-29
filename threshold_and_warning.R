@@ -986,7 +986,8 @@ generate_threshold <-
     missing_cols <- setdiff(names(all_summary), names(ratings_for_all_summary))
     if (length(missing_cols) > 0) {
       for (col_name in missing_cols) {
-        ratings_for_all_summary[[col_name]] <- NA
+        # Match row count explicitly (important when ratings_for_all_summary has 0 rows)
+        ratings_for_all_summary[[col_name]] <- rep(NA, nrow(ratings_for_all_summary))
       }
     }
     extra_cols <- setdiff(names(ratings_for_all_summary), names(all_summary))
