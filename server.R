@@ -5885,7 +5885,7 @@ shinyServer(function(input, output, session) {
       ifelse(
         experiment_names() == "",
         "Summary-of-each-condition.xlsx",
-        paste0(get_short_experiment_name(experiment_names()), "Summary-of-each-condition.xlsx")
+        paste0(get_short_experiment_name(experiment_names()), "-Summary-of-each-condition.xlsx")
       )
     },
     content = function(filename) {
@@ -5898,7 +5898,7 @@ shinyServer(function(input, output, session) {
       ifelse(
         experiment_names() == "",
         "Thresholds(brief).xlsx",
-        paste0(get_short_experiment_name(experiment_names()), "Thresholds(brief).xlsx")
+        paste0(get_short_experiment_name(experiment_names()), "-Thresholds(brief).xlsx")
       )
     },
     content = function(filename) {
@@ -5911,7 +5911,7 @@ shinyServer(function(input, output, session) {
       ifelse(
         experiment_names() == "",
         "Thresholds.xlsx",
-        paste0(get_short_experiment_name(experiment_names()), "Thresholds.xlsx")
+        paste0(get_short_experiment_name(experiment_names()), "-Individual Results.xlsx")
       )
     },
     content = function(filename) {
@@ -5924,7 +5924,7 @@ shinyServer(function(input, output, session) {
       ifelse(
         experiment_names() == "",
         "ParticipantDistanceInfo.xlsx",
-        paste0(get_short_experiment_name(experiment_names()), "ParticipantDistanceInfo.xlsx")
+        paste0(get_short_experiment_name(experiment_names()), "-ParticipantDistanceInfo.xlsx")
       )
     },
     content = function(filename) {

@@ -141,7 +141,7 @@ generate_threshold <-
         mutate(experiment = '',
                date = '',
                block_condition = '',
-               conditionName = '',
+               conditionName = 'Reading from pretest.xlsx',
                font = '',
                targetKind = 'reading',
                thresholdParameter = '',
@@ -961,6 +961,43 @@ generate_threshold <-
       summarize(N = n(),
                 Mean = mean(questionAndAnswerResponse,na.rm = T),
                 SD = sd(questionAndAnswerResponse, na.rm = T))
+    
+    # Append ratings rows to all_summary so they flow into threshold_all/threshold_summary
+    # Mapping rule:
+    # - questionAndAnswerResponse -> questMeanAtEndOfTrialsLoop
+    # - targetKind = "Ratings"
+    # - thresholdParameter = "Comfort" / "Beauty" / "Familiarity"
+    # - if conditionName == "", use questionAndAnswerNickname
+    ratings_for_all_summary <- bind_rows(
+      comfort %>% mutate(thresholdParameter = "Comfort"),
+      beauty %>% mutate(thresholdParameter = "Beauty"),
+      familiarity %>% mutate(thresholdParameter = "Familiarity")
+    ) %>%
+      mutate(
+        conditionName = ifelse(is.na(conditionName) | conditionName == "", questionAndAnswerNickname, conditionName),
+        questMeanAtEndOfTrialsLoop = as.numeric(questionAndAnswerResponse),
+        targetKind = "Ratings",
+        questSDAtEndOfTrialsLoop = NA_real_
+      ) %>%
+      # Keep ratings aligned with currently valid participants in all_summary
+      filter(participant %in% all_summary$participant)
+    
+    # Ensure ratings_for_all_summary has the same schema as all_summary
+    missing_cols <- setdiff(names(all_summary), names(ratings_for_all_summary))
+    if (length(missing_cols) > 0) {
+      for (col_name in missing_cols) {
+        ratings_for_all_summary[[col_name]] <- NA
+      }
+    }
+    extra_cols <- setdiff(names(ratings_for_all_summary), names(all_summary))
+    if (length(extra_cols) > 0) {
+      ratings_for_all_summary <- ratings_for_all_summary %>% select(-all_of(extra_cols))
+    }
+    ratings_for_all_summary <- ratings_for_all_summary %>% select(all_of(names(all_summary)))
+    
+    if (nrow(ratings_for_all_summary) > 0) {
+      all_summary <- bind_rows(all_summary, ratings_for_all_summary)
+    }
     
     
     
