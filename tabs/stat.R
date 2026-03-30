@@ -2,10 +2,10 @@ statTab <- tabPanel(
   'Stats',
   textOutput("filename"),
   fluidRow(
-    downloadButton("thresholdOne", "Download Summary of each condition"),
-    downloadButton("thresholdTwo", "Download Thresholds (brief)"),
-    downloadButton("thresholdThree", "Download Thresholds"),
-    downloadButton("participantInfoExcel", "Download Participant Info")),
+    downloadButton("thresholdOne", "Download summary of each condition"),
+    downloadButton("thresholdTwo", "Download thresholds (brief)"),
+    downloadButton("thresholdThree", "Download individual results"),
+    downloadButton("participantInfoExcel", "Download participant distance info")),
     # downloadButton("ratingSummary", "Download Ratings Summary")),
   fluidRow(
     column(

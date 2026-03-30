@@ -5910,12 +5910,22 @@ shinyServer(function(input, output, session) {
     filename = function() {
       ifelse(
         experiment_names() == "",
-        "Thresholds.xlsx",
-        paste0(get_short_experiment_name(experiment_names()), "-Individual Results.xlsx")
+        "IndividualResults.xlsx",
+        paste0(get_short_experiment_name(experiment_names()), "-IndividualResults.xlsx")
       )
     },
     content = function(filename) {
-      openxlsx::write.xlsx(df_list()$all_summary, file = filename)  # Using openxlsx
+      data <- df_list()$all_summary
+      wb <- openxlsx::createWorkbook()
+      openxlsx::addWorksheet(wb, "IndividualResults")
+      openxlsx::writeData(wb, "IndividualResults", data)
+      decimal_style <- openxlsx::createStyle(numFmt = "0.00")
+      rating_cols <- which(names(data) %in% c("Comfort", "Beauty", "Familiarity"))
+      for (col_idx in rating_cols) {
+        openxlsx::addStyle(wb, "IndividualResults", decimal_style,
+                           rows = 2:(nrow(data) + 1), cols = col_idx, gridExpand = TRUE)
+      }
+      openxlsx::saveWorkbook(wb, file = filename, overwrite = TRUE)
     }
   )
   

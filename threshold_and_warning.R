@@ -1091,6 +1091,26 @@ generate_threshold <-
              `sd across repetitions` = round(`sd across repetitions`,3)) %>% 
       select(experiment,conditionName, m,`se across participants`,`sd across participants`,`sd across repetitions`, N,parameter)
     
+    all_summary_ratings <- all_summary %>% filter(targetKind == "Ratings")
+    all_summary <- all_summary %>% filter(targetKind != "Ratings" | is.na(targetKind))
+
+    if (nrow(all_summary_ratings) > 0) {
+      ratings_wide <- all_summary_ratings %>%
+        select(participant, font, thresholdParameter, questMeanAtEndOfTrialsLoop) %>%
+        tidyr::pivot_wider(
+          names_from = thresholdParameter,
+          values_from = questMeanAtEndOfTrialsLoop,
+          values_fn = mean
+        )
+      all_summary <- all_summary %>%
+        left_join(ratings_wide, by = c("participant", "font"))
+    }
+    for (col in c("Comfort", "Beauty", "Familiarity")) {
+      if (!col %in% names(all_summary)) {
+        all_summary[[col]] <- NA_real_
+      }
+    }
+
     all_summary <- all_summary %>% 
       select(-Grade) %>% 
       left_join(df,
@@ -1107,7 +1127,8 @@ generate_threshold <-
       select(experiment, pavloviaSessionID, participantID, 
              age, Grade, conditionName, block, condition, 
              conditionName, targetKind, font, questMeanAtEndOfTrialsLoop,
-             questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials)
+             questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials,
+             Comfort, Beauty, Familiarity)
 
     print('done generate_threshold')
     return(list(reading = reading, 
