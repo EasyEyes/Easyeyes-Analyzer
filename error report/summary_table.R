@@ -128,7 +128,6 @@ data_table_call_back = "
   "
 
 get_lateness_and_duration <- function(all_files) {
-  print('inside get_lateness_and_duration')
   t <- all_files %>%
     select(
       participant,
@@ -286,8 +285,6 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
       rename('Pavlovia session ID' = 'participant')
   }
   
-  print('done all files')
-  
   trial <- all_files %>%
     select(participant, date, block_condition, trial) %>%
     filter(block_condition != "") %>% 
@@ -301,7 +298,6 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     group_by(participant,date) %>%
     summarize(error = paste(error, collapse = "<br>"),
               .groups = "drop")
-  print('done error')
   
   #### warnings ####
   warnings <- all_files %>%
@@ -309,7 +305,6 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     group_by(participant,date) %>%
     summarize(warning = paste(warning, collapse = "<br>"),
               .groups = "drop")
-  print('done warnings')
   
   #### Get device and block condition columns ####
   sessions = tibble()
@@ -526,7 +521,6 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
 
   final_summary_table <- combineProlific(prolific, summary_df, pretest)
 
-  print('done summary_df')
   return(final_summary_table)
 }
 

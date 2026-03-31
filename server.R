@@ -27,6 +27,10 @@ library(ggnewscale)
 
 # showtext_auto(F)
 
+source("./other/logger.R")
+is_local <- Sys.getenv("SHINY_PORT") == ""
+init_logger(enabled = is_local)
+
 source('constant.R')
 source("preprocess.R")
 
@@ -158,11 +162,11 @@ shinyServer(function(input, output, session) {
         detail = "Processing results...",
         close = FALSE
       ))
-      print('done read_files')
+      log_info("File reading complete")
       return(t)
     } else {
       closeAlert()
-      print('INVALID FILE NAME(S)')
+      log_warn("Invalid file name(s) uploaded")
       shinyalert(
         title = check,
         closeOnEsc = TRUE,
@@ -486,8 +490,6 @@ shinyServer(function(input, output, session) {
   })
   
   output$jsonUploaded <- reactive({
-    print("Json File uplaoded")
-    print(!is.null(input$fileJSON))
     return(!is.null(input$fileJSON))
   })
   
@@ -552,7 +554,6 @@ shinyServer(function(input, output, session) {
     if (is.null(files())) {
       return(list(plotList = list(), fileNames = list()))
     }
-    print('inside agePlots')
 
     l <- list()
     fileNames <- list()
@@ -585,7 +586,6 @@ shinyServer(function(input, output, session) {
       fileNames <- res$fileNames
     }
 
-    print('done age plots')
     return(list(plotList = l, fileNames = fileNames))
   })
 
@@ -593,7 +593,6 @@ shinyServer(function(input, output, session) {
   if (is.null(files())) {
     return(list(plotList = list(), fileNames = list()))
   }
-  print('inside histograms')
 
   l         <- list()
   fileNames <- list()
@@ -658,7 +657,6 @@ shinyServer(function(input, output, session) {
     fileNames <- res$fileNames
   }
 
-  print('before appending')
   lists <- append_hist_list(files()$data_list, l, fileNames, experiment_names())
 
   list(
@@ -673,7 +671,6 @@ shinyServer(function(input, output, session) {
                   fileNames = list()))
     }
     
-    print('Generating quality histograms')
     l <- list()
     fileNames <- list()
     
@@ -693,7 +690,6 @@ shinyServer(function(input, output, session) {
                   fileNames = list()))
     }
     
-    print('Generating timing histograms')
     l <- list()
     fileNames <- list()
     
@@ -730,7 +726,6 @@ shinyServer(function(input, output, session) {
     if (is.null(input$file) | is.null(files())) {
       return(list(plotList = list(), fileNames = list()))
     }
-    print('inside violin plots')
     l <- list()
     fileNames <- list()
     violins <- plot_violins(df_list())
@@ -768,7 +763,6 @@ shinyServer(function(input, output, session) {
     if (is.null(input$file) | is.null(files())) {
       return(list(plotList = list(), fileNames = list()))
     }
-    print('inside font comparison plots')
     l <- list()
     fileNames <- list()
     font_comparisons <- plot_font_comparison(df_list(), colorFont())
@@ -930,8 +924,7 @@ shinyServer(function(input, output, session) {
       heights <- res$heights
     }
     
-    message("[DEBUG HISTOGRAM SUMMARY] Total histograms added: ", length(l), " out of ", length(static_calls), " in static_calls")
-    message("[DEBUG HISTOGRAM LIST] Plot names: ", paste(fileNames, collapse = ", "))
+    log_debug("Distance histograms: ", length(l), "/", length(static_calls), " added")
     
     return(list(
       plotList = l,
@@ -1047,7 +1040,6 @@ shinyServer(function(input, output, session) {
     if (is.null(input$file) | is.null(files())) {
       return(list(plotList = list(), fileNames = list()))
     }
-    print('inside distance scatter plots')
     l <- list()
     fileNames <- list()
 
@@ -1108,7 +1100,6 @@ shinyServer(function(input, output, session) {
       if (!is.null(plot)) {
         plot <- add_experiment_title(plot, experiment_names())
       } else {
-        message("[DEBUG MISSING SCATTER] ", call$fname, ": plot is NULL")
       }
       res <- append_plot_list(l, fileNames, plot, call$fname, height = call$height, heights = heights)
       l <- res$plotList
@@ -1116,7 +1107,7 @@ shinyServer(function(input, output, session) {
       heights <- res$heights
     }
     
-    message("[DEBUG SCATTER SUMMARY] Total scatter plots added: ", length(l), " out of ", length(plot_calls), " expected")
+    log_debug("Distance scatters: ", length(l), "/", length(plot_calls), " added")
 
     return(list(
       plotList = l,
@@ -1129,7 +1120,6 @@ shinyServer(function(input, output, session) {
     if (is.null(input$file) | is.null(files())) {
       return(list(plotList = list(), fileNames = list()))
     }
-    print('inside scatter plots')
     l <- list()
     fileNames <- list()
 
@@ -1202,7 +1192,6 @@ shinyServer(function(input, output, session) {
       return(list(plotList = list(),
                   fileNames = list()))
     }
-    print('inside scatter quality plots')
     l <- list()
     fileNames <- list()
     
@@ -1252,7 +1241,6 @@ shinyServer(function(input, output, session) {
                   fileNames = list()))
     }
     
-    print("inside ScatterTime")
     l <- list()
     fileNames <- list()
     
@@ -1281,7 +1269,6 @@ shinyServer(function(input, output, session) {
                   fileNames = list()))
     }
     
-    print("inside ScatterTimeParticipant")
     l <- list()
     fileNames <- list()
     
@@ -1932,7 +1919,7 @@ shinyServer(function(input, output, session) {
         plot_with_title <- add_experiment_title(rsvpCrowding()$p_font, experiment_names())
         ggiraph::girafe(ggobj = plot_with_title)
       }, error = function(e) {
-        print(e)
+        log_error("rsvpCrowding p_font: ", conditionMessage(e))
         error_plot <- ggplot() +
           annotate(
             "text",
@@ -1956,7 +1943,7 @@ shinyServer(function(input, output, session) {
         plot_with_title <- add_experiment_title(rsvpCrowding()$residual, experiment_names())
         ggiraph::girafe(ggobj = plot_with_title)
       }, error = function(e) {
-        print(e)
+        log_error("rsvpCrowding residual: ", conditionMessage(e))
         error_plot <- ggplot() +
           annotate(
             "text",
@@ -2913,7 +2900,7 @@ shinyServer(function(input, output, session) {
             rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
             list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
           }, error = function(e) {
-            message(e)
+            log_error("Timing histogram render: ", conditionMessage(e))
             error_plot <- ggplot() +
               annotate(
                 "text",
@@ -3671,7 +3658,7 @@ shinyServer(function(input, output, session) {
             list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
 
           }, error = function(e) {
-            print(e)
+            log_error("Distance scatter render: ", conditionMessage(e))
           handle_plot_error(e, paste0("distanceScatter", ii), experiment_names(), scatterDistance()$fileNames[[ii]])
           })
           
@@ -5808,7 +5795,6 @@ shinyServer(function(input, output, session) {
       if (length(ggiraph_plots$plotList) > 0) {
         for (i in seq_along(ggiraph_plots$plotList)) {
 
-          print(ggiraph_plots$fileNames[[i]])
           if (!is_placeholder_plot(ggiraph_plots$plotList[[i]])) {
             plotFileName <- paste0(short_exp_name, ggiraph_plots$fileNames[[i]], '.', input$fileType)
             savePlot(ggiraph_plots$plotList[[i]] + plt_theme_ggiraph, plotFileName, input$fileType)

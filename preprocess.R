@@ -451,8 +451,7 @@ read_files <- function(file, progress = NULL){
   file_names <- file$name
   file_list <- file_list[!grepl("cursor", basename(file_names)) & !grepl("^~", basename(file_names))]
   file_names <- file_names[!grepl("cursor", basename(file_names)) & !grepl("^~", basename(file_names))]
-  print('file_names')
-  print(file_names)
+  log_info("read_files: ", length(file_names), " files uploaded")
   data_list <- list()
   stair_list <- list()
   summary_list <- list()
@@ -470,13 +469,7 @@ read_files <- function(file, progress = NULL){
         detail = basename(file_names[i])
       )
     }
-    print(sprintf("Processing file %d/%d: %s", i, n, file_names[i]))
-    print(sprintf("  File path: %s", file_list[i]))
-    print(sprintf("  File type (name): %s", ifelse(grepl(".csv", file_names[i]), "CSV",
-                                                  ifelse(grepl(".zip", file_names[i]), "ZIP", "OTHER"))))
-    print(sprintf("  File type (path): %s", ifelse(grepl(".csv", file_list[i]), "CSV",
-                                                 ifelse(grepl(".zip", file_list[i]), "ZIP", "OTHER"))))
-    print(sprintf("  Current j index: %d", j))
+    log_debug("Processing file ", i, "/", n, ": ", file_names[i])
     t <- tibble(placeholder = "")
     
     if (grepl("pretest.xlsx", file_names[i]) | grepl("pretest.csv", file_names[i])) {
@@ -595,20 +588,20 @@ read_files <- function(file, progress = NULL){
       }
     }
     if (grepl(".zip", file_names[i])) {
-      print(sprintf("ZIP DETECTED: %s", file_names[i]))
+      log_debug("ZIP detected: ", file_names[i])
       # Check if this zip file is empty and skip it if so
       empty_result <- tryCatch({
         check_empty_archive(file_list[i])
       }, error = function(e) {
-        print(paste("Warning: Could not read zip file", file_names[i], "-", e$message))
+        log_warn("Could not read zip file ", file_names[i], ": ", e$message)
         return(NA)
       })
       
       if (is.na(empty_result)) {
-        print(paste("Skipping unreadable zip file:", file_names[i]))
+        log_warn("Skipping unreadable zip: ", file_names[i])
         next
       } else if (empty_result) {
-        print(paste("Skipping empty zip file:", file_names[i]))
+        log_debug("Skipping empty zip: ", file_names[i])
         next
       }
       
@@ -621,7 +614,7 @@ read_files <- function(file, progress = NULL){
       all_pretest <- zip_file_names[grepl("pretest\\.csv$", zip_file_names, ignore.case = TRUE) | grepl("pretest\\.xlsx$", zip_file_names, ignore.case = TRUE)]
       all_pretest <- all_pretest[!grepl("__MACOSX", all_pretest)]
       m <- length(all_csv)
-      print(sprintf("  ZIP contains %d CSV files: %s", m, paste(all_csv, collapse=", ")))
+      log_debug("ZIP contains ", m, " CSV files")
       tmp <- tempdir()
       for (k in 1 : m) {
         if (!is.null(progress)) {
@@ -631,7 +624,6 @@ read_files <- function(file, progress = NULL){
             detail = sprintf("Session %d of %d: %s", k, m, basename(all_csv[k]))
           )
         }
-        print(sprintf("    Processing CSV %d/%d: %s", k, m, all_csv[k]))
         # Stream CSV directly from zip without extracting to disk; fallback to extracting just this file
         cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_csv[k]))
         read_ok <- TRUE
@@ -693,8 +685,6 @@ read_files <- function(file, progress = NULL){
               t <- t %>% mutate(participant = as.character(participant))
             }
             data_list[[j]] <- t
-            print(sprintf("      Added to data_list[[%d]]: participant=%s, rows=%d",
-                          j, t$participant[1], nrow(t)))
             # CRITICAL FIX: Ensure participant column is character for stair data
             if ("participant" %in% names(stairdf)) {
               stairdf <- stairdf %>% mutate(participant = as.character(participant))
@@ -763,7 +753,6 @@ read_files <- function(file, progress = NULL){
           pretest$Age <- as.numeric(pretest$Age)
         }
       }
-      print('done processing zip')
     }
   }
   
@@ -870,15 +859,7 @@ read_files <- function(file, progress = NULL){
   stairs <- do.call(rbind, stair_list)
   prolific <- find_prolific_from_files(file)
 
-  # Final debug output
-  print(sprintf("FINAL: data_list has %d entries", length(data_list)))
-  if (length(data_list) > 0) {
-    participants <- sapply(data_list, function(x) if("participant" %in% names(x)) x$participant[1] else "NO_PARTICIPANT_COL")
-    print("Participants in data_list:")
-    print(table(participants))
-  }
-
-  print('done preprocess')
+  log_info("Preprocess complete: ", length(data_list), " sessions loaded")
   return(list(data_list = data_list, 
               summary_list = summary_list, 
               experiment = unique(experiment),

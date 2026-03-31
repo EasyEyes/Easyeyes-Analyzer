@@ -1,5 +1,4 @@
 plot_rsvp_repeated_letter_crowding <- function(allData) {
-  print('inside plot_reading_repeated_letter_crowding')  
   
   create_plot <- function(data, condition, colorFactor) {
     data_rsvp <- data %>%
@@ -179,7 +178,6 @@ plot_rsvp_repeated_letter_crowding <- function(allData) {
 
 
 plot_reading_repeated_letter_crowding <- function(allData) {
-  print('inside plot_reading_repeated_letter_crowding')
   
   create_plot <- function(data, condition, colorFactor) {
     data_reading <- data %>%

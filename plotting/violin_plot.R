@@ -102,8 +102,6 @@ plot_violins <- function(df_list) {
       
       # Apply log scaling to y-axis for specific plot types (becomes x-axis after coord_flip)
       if (grepl("Reading|RSVP|Crowding", title)) {
-        print("Applying log scaling to y-axis")
-        print(paste("Plot type:", title))
         p <- p + scale_y_log10(breaks = scales::log_breaks()) +
           annotation_logticks(sides = "b",
                       short = unit(2, "pt"),

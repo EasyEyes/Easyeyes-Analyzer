@@ -301,11 +301,6 @@ beauty_vs_comfort_scatter <- function(df_list, font_colors = NULL) {
     names(add_cols) <- missing_fonts
     cols_vec <- c(cols_vec, add_cols)
   }
-    print("Beauty vs Comfort")
-  print(unique(combined_data$font))
-  print(unique(fontColors_perisan$font))
-  print(known_map$font)
-  print(cols_vec)
   p <- p + scale_color_manual(values = cols_vec)
   
   p + guides(color = guide_legend(title = "Font", ncol = 2))

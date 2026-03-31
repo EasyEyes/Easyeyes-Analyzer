@@ -389,7 +389,6 @@ generate_histograms_by_grade <- function(data) {
     "Log acuity (deg)", "peripheral acuity"
   )
   
-  print('done all stacked plots')
   
   # Return all stacked plots
   return(list(

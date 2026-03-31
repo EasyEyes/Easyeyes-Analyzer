@@ -496,20 +496,6 @@ get_camera_resolution_stats <- function(data_list) {
             allowedRatioPxPerCm <- suppressWarnings(as.numeric(get_first_non_na(parsed$`_calibrateDistanceAllowedRatioPxPerCm`)))
           }
           
-          # ── DEBUG: calib JSON fields and raw snapshot values ──
-          message("[SNAPSHOT DEBUG] participant=", participant_id,
-                  " | CALIB JSON fields: ", paste(names(parsed), collapse=", "))
-          message("[SNAPSHOT DEBUG] participant=", participant_id,
-                  " | CALIB raw snapshotsTaken=", paste(parsed$snapshotsTaken, collapse=","),
-                  " snapshotsRejected=", paste(parsed$snapshotsRejected, collapse=","))
-          if (!is.null(parsed$snapshotAcceptedBool)) {
-            bv <- parsed$snapshotAcceptedBool
-            message("[SNAPSHOT DEBUG] participant=", participant_id,
-                    " | CALIB snapshotAcceptedBool: len=", length(bv),
-                    " TRUE=", sum(bv == TRUE | bv == "true", na.rm=TRUE),
-                    " FALSE=", sum(bv == FALSE | bv == "false", na.rm=TRUE))
-          }
-
           # accepted = snapshotsTaken - 2 * snapshotsRejected
           if (!is.null(parsed$snapshotsTaken) && !is.null(parsed$snapshotsRejected)) {
             taken <- suppressWarnings(as.integer(parsed$snapshotsTaken[1]))
@@ -520,12 +506,6 @@ get_camera_resolution_stats <- function(data_list) {
               rejected_n_total <- rej
               accepted_n_total <- accepted_n_calib
             }
-            message("[SNAPSHOT DEBUG] participant=", participant_id,
-                    " | CALIB computed: taken=", taken, " rej=", rej,
-                    " → accepted_n_calib=", accepted_n_calib, " rejected_n_calib=", rejected_n_calib)
-          } else {
-            message("[SNAPSHOT DEBUG] participant=", participant_id,
-                    " | CALIB snapshotsTaken or snapshotsRejected is NULL")
           }
 
           # Widths for SD/n_resolutions (and fallback count when snapshots* missing)
@@ -554,8 +534,7 @@ get_camera_resolution_stats <- function(data_list) {
           }
         }
       }, error = function(e) {
-        message("[SNAPSHOT DEBUG] participant=", participant_id,
-                " | CALIB JSON parse ERROR: ", conditionMessage(e))
+        log_warn("Camera resolution: participant=", participant_id, " CALIB JSON parse error: ", conditionMessage(e))
       })
     }
     
@@ -579,20 +558,6 @@ get_camera_resolution_stats <- function(data_list) {
             allowedRatioPxPerCm <- suppressWarnings(as.numeric(get_first_non_na(parsed$`_calibrateDistanceAllowedRatioPxPerCm`)))
           }
 
-          # ── DEBUG: check JSON fields and raw snapshot values ──
-          message("[SNAPSHOT DEBUG] participant=", participant_id,
-                  " | CHECK JSON fields: ", paste(names(parsed), collapse=", "))
-          message("[SNAPSHOT DEBUG] participant=", participant_id,
-                  " | CHECK raw snapshotsTaken=", paste(parsed$snapshotsTaken, collapse=","),
-                  " snapshotsRejected=", paste(parsed$snapshotsRejected, collapse=","))
-          if (!is.null(parsed$snapshotAcceptedBool)) {
-            bv <- parsed$snapshotAcceptedBool
-            message("[SNAPSHOT DEBUG] participant=", participant_id,
-                    " | CHECK snapshotAcceptedBool: len=", length(bv),
-                    " TRUE=", sum(bv == TRUE | bv == "true", na.rm=TRUE),
-                    " FALSE=", sum(bv == FALSE | bv == "false", na.rm=TRUE))
-          }
-
           # accepted = snapshotsTaken - 2 * snapshotsRejected
           if (!is.null(parsed$snapshotsTaken) && !is.null(parsed$snapshotsRejected)) {
             taken <- suppressWarnings(as.integer(parsed$snapshotsTaken[1]))
@@ -603,12 +568,6 @@ get_camera_resolution_stats <- function(data_list) {
               rejected_n_total <- rej
               accepted_n_total <- accepted_n_check
             }
-            message("[SNAPSHOT DEBUG] participant=", participant_id,
-                    " | CHECK computed: taken=", taken, " rej=", rej,
-                    " → accepted_n_check=", accepted_n_check, " rejected_n_check=", rejected_n_check)
-          } else {
-            message("[SNAPSHOT DEBUG] participant=", participant_id,
-                    " | CHECK snapshotsTaken or snapshotsRejected is NULL")
           }
 
           # Widths for SD/n_resolutions (and fallback count when snapshots* missing)
@@ -637,8 +596,7 @@ get_camera_resolution_stats <- function(data_list) {
           }
         }
       }, error = function(e) {
-        message("[SNAPSHOT DEBUG] participant=", participant_id,
-                " | CHECK JSON parse ERROR: ", conditionMessage(e))
+        log_warn("Camera resolution: participant=", participant_id, " CHECK JSON parse error: ", conditionMessage(e))
       })
     }
     
@@ -648,14 +606,6 @@ get_camera_resolution_stats <- function(data_list) {
     has_snapshot_counts <- (!is.na(accepted_n_calib) || !is.na(rejected_n_calib) ||
                             !is.na(accepted_n_check) || !is.na(rejected_n_check))
 
-    # ── DEBUG: final counts for this participant ──
-    message("[SNAPSHOT DEBUG] participant=", participant_id,
-            " | FINAL: accepted_n_calib=", accepted_n_calib,
-            " rejected_n_calib=", rejected_n_calib,
-            " accepted_n_check=", accepted_n_check,
-            " rejected_n_check=", rejected_n_check,
-            " n_widths=", n_resolutions)
-    
     if (n_resolutions > 0 || has_snapshot_counts) {
       # SD is 0 if zero or one value, otherwise calculate
       sd_width <- if (n_resolutions > 1) sd(all_widths) else 0
@@ -2208,7 +2158,6 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
   participant_colors <- get_participant_colors(distanceCalibrationResults, eye_feet_data$participant)
 
   if (nrow(eye_feet_data) == 0) {
-    message("Debug: No eye feet data found")
     return(NULL)
   }
 
@@ -2462,78 +2411,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # Keep reference to calibration data for use in later plots (p6, p7, etc.)
   distance <- calib_data
   
-  # ===== DEBUG: Show data sources for p1/p2 plots =====
-  message("\n[DEBUG p1/p2 DATA SOURCES]")
-  message("  check_data (checkJSON) input rows: ", nrow(check_data))
-  message("  calib_data (TJSON) input rows: ", nrow(calib_data))
-  message("  check_individual rows after filtering: ", nrow(check_individual))
-  message("  calib_individual rows after filtering: ", nrow(calib_individual))
-  message("  distance_individual combined rows: ", nrow(distance_individual))
+  log_debug("p1/p2 data: check_rows=", nrow(check_data), " calib_rows=", nrow(calib_data),
+            " combined=", nrow(distance_individual))
   
-  if (nrow(check_individual) > 0) {
-    message("  CHECK data - p1_x (rulerBasedEyesToPointCm) non-NA: ", sum(!is.na(check_individual$p1_x)))
-    message("  CHECK data - p1_y (imageBasedEyesToPointCm) non-NA: ", sum(!is.na(check_individual$p1_y)))
-    message("  CHECK data columns: ", paste(names(check_individual), collapse = ", "))
-  }
-  
-  if (nrow(calib_individual) > 0) {
-    message("  CALIB data - p1_x (rulerBasedEyesToPointCm) non-NA: ", sum(!is.na(calib_individual$p1_x)))
-    message("  CALIB data - p1_y (imageBasedEyesToPointCm) non-NA: ", sum(!is.na(calib_individual$p1_y)))
-    message("  CALIB data columns: ", paste(names(calib_individual), collapse = ", "))
-  } else {
-    message("  CALIB data is EMPTY - checking calib_data columns: ", paste(names(calib_data), collapse = ", "))
-    if ("rulerBasedEyesToPointCm" %in% names(calib_data)) {
-      message("    calib_data rulerBasedEyesToPointCm non-NA: ", sum(!is.na(calib_data$rulerBasedEyesToPointCm)))
-    } else {
-      message("    calib_data MISSING rulerBasedEyesToPointCm column!")
-    }
-    if ("imageBasedEyesToPointCm" %in% names(calib_data)) {
-      message("    calib_data imageBasedEyesToPointCm non-NA: ", sum(!is.na(calib_data$imageBasedEyesToPointCm)))
-    } else {
-      message("    calib_data MISSING imageBasedEyesToPointCm column!")
-    }
-  }
-  
-  if (nrow(distance_individual) > 0 && "source" %in% names(distance_individual)) {
-    source_counts <- table(distance_individual$source)
-    message("  distance_individual by source: ", paste(names(source_counts), source_counts, sep = "=", collapse = ", "))
-  }
-  message("[END DEBUG p1/p2 DATA SOURCES]\n")
-  
-  # ========== DEBUG: Data fed to p1 (and p2) — raw columns vs plotted x,y ==========
-  # p1: x = rulerBasedEyesToFootCm, y = imageBasedEyesToPointCm (subtitle says Point vs Point but axes are Foot vs Point)
-  # p2: x = rulerBasedEyesToPointCm, y = imageBasedEyesToPointCm / rulerBasedEyesToPointCm
-  msg <- function(...) message("[DEBUG p1/p2 plot data] ", ...)
-  msg("=== CHECK data (checkJSON): each row → plot p1_x, p1_y, p2_x, p2_y ===")
-  if (nrow(check_individual) > 0) {
-    for (pid in unique(check_individual$participant)) {
-      rows <- check_individual %>% filter(participant == pid) %>% arrange(measurement_order_within_participant)
-      for (i in seq_len(nrow(rows))) {
-        r <- rows[i, ]
-        raw_foot <- if ("rulerBasedEyesToFootCm" %in% names(r)) as.numeric(r$rulerBasedEyesToFootCm) else NA
-        raw_pt   <- if ("rulerBasedEyesToPointCm" %in% names(r)) as.numeric(r$rulerBasedEyesToPointCm) else NA
-        raw_img  <- if ("imageBasedEyesToPointCm" %in% names(r)) as.numeric(r$imageBasedEyesToPointCm) else NA
-        msg("  ", pid, " check row ", i, ": rulerBasedEyesToFootCm=", round(raw_foot, 2), ", rulerBasedEyesToPointCm=", round(raw_pt, 2), ", imageBasedEyesToPointCm=", round(raw_img, 2),
-            " → p1_x=", round(r$p1_x, 2), ", p1_y=", round(r$p1_y, 2), ", p2_x=", round(r$p2_x, 2), ", p2_y=", round(r$p2_y, 3))
-      }
-    }
-  }
-  msg("=== CALIBRATION data (TJSON): each row → plot p1_x, p1_y, p2_x, p2_y ===")
-  if (nrow(calib_individual) > 0) {
-    for (pid in unique(calib_individual$participant)) {
-      rows <- calib_individual %>% filter(participant == pid) %>% arrange(measurement_order_within_participant)
-      for (i in seq_len(nrow(rows))) {
-        r <- rows[i, ]
-        raw_foot <- if ("rulerBasedEyesToFootCm" %in% names(r)) as.numeric(r$rulerBasedEyesToFootCm) else NA
-        raw_pt   <- if ("rulerBasedEyesToPointCm" %in% names(r)) as.numeric(r$rulerBasedEyesToPointCm) else NA
-        raw_img  <- if ("imageBasedEyesToPointCm" %in% names(r)) as.numeric(r$imageBasedEyesToPointCm) else NA
-        msg("  ", pid, " calib row ", i, ": rulerBasedEyesToFootCm=", round(raw_foot, 2), ", rulerBasedEyesToPointCm=", round(raw_pt, 2), ", imageBasedEyesToPointCm=", round(raw_img, 2),
-            " → p1_x=", round(r$p1_x, 2), ", p1_y=", round(r$p1_y, 2), ", p2_x=", round(r$p2_x, 2), ", p2_y=", round(r$p2_y, 3))
-      }
-    }
-  }
-  msg("=== END DEBUG p1/p2 plot data ===")
-
   # Scale limits for p1 (Measured vs. requested distance plot)
   p1_min_val <- 5 * floor(min(c(distance_individual$p1_x, 
                                  distance_individual$p1_y), na.rm = TRUE) / 5) 
@@ -2569,13 +2449,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     filter(!is.na(p2_x), !is.na(p2_y)) %>%
     arrange(participant, source, measurement_order_within_participant)
   
-  
-  # Debug: show data breakdown for p1
-  message("[DEBUG p1] p1_data rows: ", nrow(p1_data))
-  if (nrow(p1_data) > 0 && "source" %in% names(p1_data)) {
-    p1_source_counts <- table(p1_data$source)
-    message("[DEBUG p1] p1_data by source: ", paste(names(p1_source_counts), p1_source_counts, sep = "=", collapse = ", "))
-  }
   
   p1 <- NULL
   if (nrow(p1_data) > 0) {
@@ -2631,15 +2504,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                                  group_var = "source")
   }
  
-  # Plot 2: Measured over requested distance (CALIBRATION AND CHECK DATA)
-  # x-axis: requested distance, y-axis: measured / requested ratio
-  # Debug: show data breakdown for p2
-  message("[DEBUG p2] p2_data rows: ", nrow(p2_data))
-  if (nrow(p2_data) > 0 && "source" %in% names(p2_data)) {
-    p2_source_counts <- table(p2_data$source)
-    message("[DEBUG p2] p2_data by source: ", paste(names(p2_source_counts), p2_source_counts, sep = "=", collapse = ", "))
-  }
-  
   p2 <- NULL
   if (nrow(p2_data) > 0) {
     # Count calibration and check data points
@@ -2765,8 +2629,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   tjson_data <- calib_data
   check_json_data <- check_data
   
-  message("[DEBUG p5b] TJSON rows: ", nrow(tjson_data), ", checkJSON rows: ", nrow(check_json_data))
-  
   if (nrow(tjson_data) > 0 && nrow(check_json_data) > 0) {
     # Get median fOverWidth per participant from calibration (TJSON has fOverWidth directly)
     calib_fOverWidth <- tjson_data %>%
@@ -2774,23 +2636,17 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       group_by(participant) %>%
       summarize(fOverWidth_calibration = median(fOverWidth, na.rm = TRUE), .groups = "drop")
     
-    message("[DEBUG p5b] calib_fOverWidth: ", nrow(calib_fOverWidth), " participants")
-    
     # Get median fOverWidth per participant from check (checkJSON now has fOverWidth directly)
     check_fOverWidth <- check_json_data %>%
       filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
       group_by(participant) %>%
       summarize(fOverWidth_check = median(fOverWidth, na.rm = TRUE), .groups = "drop")
     
-    message("[DEBUG p5b] check_fOverWidth: ", nrow(check_fOverWidth), " participants")
-    
     # Join calibration and check data by participant
     plot_data_p5b <- calib_fOverWidth %>%
       inner_join(check_fOverWidth, by = "participant") %>%
       filter(!is.na(fOverWidth_calibration), !is.na(fOverWidth_check),
              is.finite(fOverWidth_calibration), is.finite(fOverWidth_check))
-    
-    message("[DEBUG p5b] plot_data_p5b after join: ", nrow(plot_data_p5b), " rows")
     
     if (nrow(plot_data_p5b) > 0) {
       # Calculate the ratio of calibration to check
@@ -2851,8 +2707,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   
   # Plot 6: Calibrated over mean factorVpxCm vs. spot diameter
   p6 <- NULL
-  message("[DEBUG p6] distance columns: ", paste(names(distance), collapse=", "))
-  message("[DEBUG p6] calibrateTrackDistanceIpdVpx in distance: ", "calibrateTrackDistanceIpdVpx" %in% names(distance))
   if ("calibrateTrackDistanceIpdVpx" %in% names(distance) && nrow(distance) > 0) {
     # Get camera data
     camera_data <- distanceCalibrationResults$camera
@@ -2965,11 +2819,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       filter(is.finite(ratio), ratio > 0) %>%
       mutate(PavloviaParticipantID = participant)
 
-    # DEBUG: Show raw vs rounded median ratios per participant (Plot 7)
-    message("[DEBUG Plot7 ratio rounding] raw median ratios: ",
-            paste(ratio_data$participant, "=", ratio_data$ratio_raw, collapse = ", "))
-    message("[DEBUG Plot7 ratio rounding] rounded(2) ratios used for plot: ",
-            paste(ratio_data$participant, "=", ratio_data$ratio, collapse = ", "))
     ratio_data <- ratio_data %>% select(-ratio_raw)
 
     if (nrow(ratio_data) > 0) {
@@ -3074,29 +2923,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       filter(is.finite(relative), relative > 0)
     
     if (nrow(raw_pxPerCm_data) > 0) {
-      # DEBUG: Check for identical values in pxPerCm / check histogram
-      {
-        dbg <- function(...) message("[DEBUG pxPerCm/check histogram] ", ...)
-        dbg("Total data points: ", nrow(raw_pxPerCm_data))
-        dbg("Unique 'relative' values: ", length(unique(raw_pxPerCm_data$relative)),
-            " out of ", nrow(raw_pxPerCm_data), " total")
-        val_counts <- sort(table(raw_pxPerCm_data$relative), decreasing = TRUE)
-        dbg("Value frequency table (top 10):")
-        for (j in seq_len(min(10, length(val_counts)))) {
-          dbg("  relative=", names(val_counts)[j], "  count=", val_counts[j])
-        }
-        dbg("All raw 'relative' values (full precision): ",
-            paste(sprintf("%.10f", raw_pxPerCm_data$relative), collapse = ", "))
-        dbg("All raw 'pxPerCm' values (full precision): ",
-            paste(sprintf("%.10f", raw_pxPerCm_data$pxPerCm), collapse = ", "))
-        dbg("All 'medianEstimated' values (full precision): ",
-            paste(sprintf("%.10f", raw_pxPerCm_data$medianEstimated), collapse = ", "))
-        if (length(unique(raw_pxPerCm_data$relative)) == 1) {
-          dbg("WARNING: ALL relative values are identical! ",
-              "This likely means the CSV has insufficient precision for pxPerCm.")
-        }
-      }
-
       # SD of log10(relative)
       sd_log10_relative <- sd(log10(raw_pxPerCm_data$relative), na.rm = TRUE)
       
@@ -3307,13 +3133,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     raw_factor_data <- filter_accepted_for_plot(distanceCalibrationResults$raw_fVpx) %>%
       filter(is.finite(relative), relative > 0)
 
-    # DEBUG: Show raw vs rounded ratios (Plot 10)
-    message("[DEBUG Plot10 ratio rounding] raw ratios (first 20): ",
-            paste(head(raw_factor_data$relative, 20), collapse = ", "))
     raw_factor_data <- raw_factor_data %>%
       mutate(relative = round(relative, 2))
-    message("[DEBUG Plot10 ratio rounding] rounded(2) ratios used for plot (first 20): ",
-            paste(head(raw_factor_data$relative, 20), collapse = ", "))
     
     if (nrow(raw_factor_data) > 0) {
       mean_relative <- mean(raw_factor_data$relative, na.rm = TRUE)
@@ -3624,34 +3445,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     tibble(participant = character(), ratio = numeric(), phase = character())
   }
   
-  # ===== DEBUG: Show successive ratio data =====
-  {
-    dbg <- function(...) message("[DEBUG successive_ratios] ", ...)
-    dbg("=== ACCEPTED successive (accepted-only) ratios ===")
-    dbg("  Accepted calibration ratios rows: ", nrow(accepted_calib_ratios))
-    dbg("  Accepted check ratios rows: ", nrow(accepted_check_ratios))
-
-    dbg("=== REJECTED pair (rejected-only, non-overlapping) ratios ===")
-    dbg("  Rejected calibration pair ratios rows: ", nrow(rejected_calib_ratios))
-    dbg("  Rejected check pair ratios rows: ", nrow(rejected_check_ratios))
-
-    # Show raw vs rounded ratios so we can confirm rounding is applied
-    show_raw_vs_rounded <- function(label, rounded_df, raw_df) {
-      if (nrow(rounded_df) > 0 && !is.null(raw_df) && nrow(raw_df) > 0) {
-        dbg("  ", label, " — raw ratios: ", paste(head(raw_df$ratio, 20), collapse = ", "))
-        dbg("  ", label, " — rounded(2) ratios used for plot: ", paste(head(rounded_df$ratio, 20), collapse = ", "))
-      }
-    }
-    show_raw_vs_rounded("Accepted calib", accepted_calib_ratios,
-                        distanceCalibrationResults$acceptedCalibRatios)
-    show_raw_vs_rounded("Accepted check", accepted_check_ratios,
-                        distanceCalibrationResults$acceptedCheckRatios)
-    show_raw_vs_rounded("Rejected calib", rejected_calib_ratios,
-                        distanceCalibrationResults$rejectedCalibRatios)
-    show_raw_vs_rounded("Rejected check", rejected_check_ratios,
-                        distanceCalibrationResults$rejectedCheckRatios)
-  }
-  
   # Tolerance bounds for vertical reference lines
   T_fOverWidth <- as.numeric(get_first_non_na(camera_res_stats$`_calibrateDistanceAllowedRatioFOverWidth`))
   if (!is.finite(T_fOverWidth) || T_fOverWidth <= 0) T_fOverWidth <- 1.05
@@ -3814,9 +3607,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   can_build_scatter <- has_camera && camera_rows > 0 && (check_factor_rows > 0 || checkJSON_rows > 0)
   
   if (!can_build_scatter) {
-    message("[DEBUG fOverWidth_hist/scatter] Skipped: check_factor rows=", check_factor_rows, 
-            ", checkJSON rows=", checkJSON_rows,
-            ", camera exists=", has_camera, ", camera rows=", camera_rows)
+    log_debug("fOverWidth scatter skipped: camera_rows=", camera_rows,
+              " check_factor_rows=", check_factor_rows, " checkJSON_rows=", checkJSON_rows)
   }
   
   if (can_build_scatter) {
@@ -3837,22 +3629,17 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                calibrateTrackDistanceCheckBool,
                !is.na(medianFactorVpxCm),
                is.finite(medianFactorVpxCm))
-      message("[DEBUG fOverWidth_hist/scatter] check_data from check_factor: ", nrow(check_data), " rows")
     }
     if (nrow(check_data) == 0 && checkJSON_rows > 0) {
-      message("[DEBUG fOverWidth_hist/scatter] check_factor empty/filtered to 0 — falling back to checkJSON participants")
       check_data <- distanceCalibrationResults$checkJSON %>%
         filter(!is.na(fOverWidth), is.finite(fOverWidth)) %>%
         select(participant) %>%
         distinct() %>%
         rename(PavloviaParticipantID = participant)
-      message("[DEBUG fOverWidth_hist/scatter] check_data from checkJSON fallback: ", nrow(check_data), " rows")
     }
     
     if (nrow(check_data) > 0) {
       check_json_data <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
-      
-      message("[DEBUG fOverWidth_hist/scatter] checkJSON has ", nrow(check_json_data), " rows, fOverWidth column exists: ", "fOverWidth" %in% names(check_json_data))
       
       if (nrow(check_json_data) > 0) {
         # Get median fOverWidth per participant from check data
@@ -3891,10 +3678,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           left_join(calib_fOverWidth_from_tjson, by = c("PavloviaParticipantID" = "participant")) %>%
           filter(!is.na(fOverWidth_calib), is.finite(fOverWidth_calib))
         
-        message("[DEBUG fOverWidth_hist/scatter] check_fOverWidth_median: ", nrow(check_fOverWidth_median), " rows")
-        message("[DEBUG fOverWidth_hist/scatter] calib_fOverWidth (TJSON median + camera widthVpx): ", nrow(calib_fOverWidth), " rows")
-        
-
         # Check data (open circles)
         # Use same max-width column (plotWidthVpx) for x-axis so "max width" reflects webcam capability.
         camera_widthVpx <- cam %>%
@@ -3903,17 +3686,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         check_plot_data_pre <- check_data %>%
           left_join(camera_widthVpx, by = "PavloviaParticipantID") %>%
           left_join(check_fOverWidth_median, by = c("PavloviaParticipantID" = "participant"))
-
-        message("[DEBUG fOverWidth scatter] check_plot_data BEFORE filter: ", nrow(check_plot_data_pre), " rows")
-        message("[DEBUG fOverWidth scatter]   widthVpx NAs: ", sum(is.na(check_plot_data_pre$widthVpx)),
-                ", widthVpx <= 0: ", sum(!is.na(check_plot_data_pre$widthVpx) & check_plot_data_pre$widthVpx <= 0))
-        message("[DEBUG fOverWidth scatter]   fOverWidth_check NAs: ", sum(is.na(check_plot_data_pre$fOverWidth_check)),
-                ", non-finite: ", sum(!is.na(check_plot_data_pre$fOverWidth_check) & !is.finite(check_plot_data_pre$fOverWidth_check)))
-        for (pid in unique(check_plot_data_pre$PavloviaParticipantID)) {
-          row <- check_plot_data_pre %>% filter(PavloviaParticipantID == pid)
-          message("[DEBUG fOverWidth scatter]   ", pid, ": widthVpx=", row$widthVpx[1],
-                  ", fOverWidth_check=", if (is.null(row$fOverWidth_check)) "COLUMN MISSING" else row$fOverWidth_check[1])
-        }
 
         check_plot_data <- check_plot_data_pre %>%
           filter(!is.na(widthVpx), widthVpx > 0, !is.na(fOverWidth_check), is.finite(fOverWidth_check)) %>%
@@ -3924,10 +3696,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ) %>%
           select(participant, widthVpx, fOverWidth, source)
 
-        message("[DEBUG fOverWidth scatter] check_plot_data AFTER filter: ", nrow(check_plot_data), " rows")
-       
       } else {
-        message("[DEBUG fOverWidth scatter] SKIPPED: check_json_data is empty (0 rows)")
         check_plot_data <- tibble()
       }
       
@@ -4108,41 +3877,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           check_plot_data %>% select(participant, widthVpx, fOverWidth, source)
         )
         
-        message("[DEBUG fOverWidth scatter] calib_plot_data rows: ", nrow(calib_plot_data), 
-                ", check_plot_data rows: ", nrow(check_plot_data),
-                ", combined rows: ", nrow(scatter_plot_data))
-        
-        # ========== DEBUG: fOverWidth vs max width — data fed to plot ==========
-        msg <- function(...) message("[DEBUG fOverWidth vs max width] ", ...)
-        msg("=== TJSON (calibration source) — raw fOverWidth per participant ===")
-        if (nrow(filter_accepted_for_plot(distanceCalibrationResults$TJSON)) > 0 && "fOverWidth" %in% names(distanceCalibrationResults$TJSON)) {
-          tjson_fw <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)
-          for (pid in unique(tjson_fw$participant)) {
-            vals <- tjson_fw %>% filter(participant == pid) %>% pull(fOverWidth) %>% as.numeric()
-            vals <- vals[is.finite(vals)]
-            med <- if (length(vals) > 0) median(vals) else NA_real_
-            msg("  ", pid, ": raw fOverWidth = ", paste(round(vals, 4), collapse = ", "), " → median = ", round(med, 4))
-          }
-        }
-        msg("=== camera table (calibration point on scatter) — fOverWidth_calib & widthVpx ===")
-        for (i in seq_len(nrow(calib_fOverWidth))) {
-          msg("  ", calib_fOverWidth$PavloviaParticipantID[i], ": fOverWidth_calib = ", round(calib_fOverWidth$fOverWidth_calib[i], 4), ", widthVpx = ", calib_fOverWidth$widthVpx[i])
-        }
-        msg("=== checkJSON (check source) — raw fOverWidth per participant ===")
-        if (nrow(check_json_data) > 0 && "fOverWidth" %in% names(check_json_data)) {
-          for (pid in unique(check_json_data$participant)) {
-            vals <- check_json_data %>% filter(participant == pid) %>% pull(fOverWidth) %>% as.numeric()
-            vals <- vals[is.finite(vals)]
-            med <- if (length(vals) > 0) median(vals) else NA_real_
-            msg("  ", pid, ": raw fOverWidth = ", paste(round(vals, 4), collapse = ", "), " → median = ", round(med, 4))
-          }
-        }
-        msg("=== scatter_plot_data (exact points plotted: x=widthVpx, y=fOverWidth) ===")
-        for (i in seq_len(nrow(scatter_plot_data))) {
-          msg("  ", scatter_plot_data$participant[i], " ", scatter_plot_data$source[i], ": widthVpx = ", scatter_plot_data$widthVpx[i], ", fOverWidth = ", round(scatter_plot_data$fOverWidth[i], 4))
-        }
-        msg("=== END DEBUG fOverWidth vs max width ===")
-        
         median_ratio_fw <- median(scatter_plot_data$fOverWidth, na.rm = TRUE)
         p12 <- ggplot(scatter_plot_data, aes(x = as.numeric(widthVpx), y = fOverWidth)) +
           # Filled circles for calibration (16), open circles for check (1)
@@ -4203,18 +3937,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           plot = p12,
           height = compute_auto_height(base_height = 7, n_items = n_distinct(scatter_plot_data$participant), per_row = 3, row_increase = 0.06)
         )
-        message("[DEBUG fOverWidth scatter] SUCCESS: fOverWidth_scatter created with ", n_distinct(scatter_plot_data$participant), " participants")
       } else {
-        message("[DEBUG fOverWidth scatter] SKIPPED: check_plot_data has 0 rows after filtering — plot will be NULL")
       }
-    } else {
-      message("[DEBUG fOverWidth scatter] SKIPPED: check_data has 0 rows (both check_factor and checkJSON fallback empty) — plot will be NULL")
     }
-  } else {
-    message("[DEBUG fOverWidth scatter] SKIPPED: prerequisites failed — camera_rows=", camera_rows,
-            ", check_factor_rows=", check_factor_rows, ", checkJSON_rows=", checkJSON_rows)
   }
-  message("[DEBUG fOverWidth scatter] FINAL: fOverWidth_scatter is ", if (is.null(fOverWidth_scatter)) "NULL (plot missing)" else "SET (plot will render)")
   # Scatter plot: fOverWidth calibration vs check
   p_fow_cal_vs_check <- NULL
   p_fow_cal_vs_check_data <- NULL
@@ -4624,8 +4350,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
 }
 
 plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed, participant_colors = NULL) {
-  message("[DEBUG plot_sizeCheck] distanceCalibrationResults is a list with elements: ", paste(names(distanceCalibrationResults), collapse=", "))
-  message("[DEBUG plot_sizeCheck] sizeCheck rows: ", nrow(distanceCalibrationResults$sizeCheck))
   sizeCheck <- distanceCalibrationResults$sizeCheck
   statement <- distanceCalibrationResults$statement
   style_map_sc <- get_participant_style_map(distanceCalibrationResults, sizeCheck$participant)
@@ -4635,7 +4359,6 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   
   # Check if the data is empty FIRST before trying to select columns
   if (nrow(sizeCheck) == 0) {
-    message("[DEBUG plot_sizeCheck] sizeCheck is empty - returning NULL")
     return(NULL)
   }
   
@@ -4648,37 +4371,6 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
     raw_pxPerCm <- tibble(participant = character(), pxPerCm = numeric(), requestedCm = numeric())
   }
   
-  # =============================================================================
-  # DEBUG: Raw source data for Pixel density vs. requested length plot
-  # =============================================================================
-  {
-    msg <- function(...) message("[DEBUG Pixel density sources] ", ...)
-    msg("=== RAW SOURCE DATA (from calibrateScreenSizeJSON) ===")
-    
-    msg("--- raw_pxPerCm (CALIBRATION: pxPerCm field from JSON) ---")
-    msg("  Rows: ", nrow(raw_pxPerCm), ", Columns: ", paste(names(raw_pxPerCm), collapse = ", "))
-    if (nrow(raw_pxPerCm) > 0) {
-      for (p in unique(raw_pxPerCm$participant)) {
-        p_data <- raw_pxPerCm %>% filter(participant == p)
-        msg("  ", p, ": pxPerCm=[", paste(round(p_data$pxPerCm, 2), collapse = ", "), 
-            "], requestedCm=[", paste(round(p_data$requestedCm, 2), collapse = ", "), "]")
-      }
-    }
-    
-    msg("--- sizeCheck (CHECK: SizeCheckEstimatedPxPerCm, SizeCheckRequestedCm) ---")
-    msg("  Rows: ", nrow(sizeCheck), ", Participants: ", n_distinct(sizeCheck$participant))
-    if (nrow(sizeCheck) > 0 && "SizeCheckEstimatedPxPerCm" %in% names(sizeCheck) && "SizeCheckRequestedCm" %in% names(sizeCheck)) {
-      for (p in unique(sizeCheck$participant)[1:min(3, n_distinct(sizeCheck$participant))]) {
-        p_data <- sizeCheck %>% filter(participant == p)
-        msg("  ", p, ": SizeCheckRequestedCm=[", paste(round(p_data$SizeCheckRequestedCm, 2), collapse = ", "), 
-            "], SizeCheckEstimatedPxPerCm=[", paste(round(p_data$SizeCheckEstimatedPxPerCm, 2), collapse = ", "), "]")
-      }
-      if (n_distinct(sizeCheck$participant) > 3) {
-        msg("  ... (", n_distinct(sizeCheck$participant) - 3, " more participants)")
-      }
-    }
-  }
-  
   ruler <-  sizeCheck %>%
     distinct(participant, rulerLength, rulerUnit) %>%
     filter(!is.na(rulerLength)) %>% 
@@ -4687,7 +4379,6 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   # Check for NA values after conversion
   if (sum(is.na(sizeCheck$SizeCheckEstimatedPxPerCm)) == nrow(sizeCheck) ||
       sum(is.na(sizeCheck$SizeCheckRequestedCm)) == nrow(sizeCheck)) {
-    message("[DEBUG plot_sizeCheck] All values are NA - returning NULL")
     return(NULL)
   }
   
@@ -4921,49 +4612,6 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
   )
   
   # =============================================================================
-  # DEBUG: Pixel density vs. requested length — ALL data being plotted
-  # Data source: calibrateScreenSizeJSON only
-  # X = requested length (cm), Y = pixel density (px/cm)
-  # Calibration: pxPerCm from JSON, X = 8.56 cm (credit card) when requestedCm not available
-  # Check: SizeCheckEstimatedPxPerCm as Y, SizeCheckRequestedCm as X
-  # =============================================================================
-  {
-    msg <- function(...) message("[DEBUG Pixel density vs length] ", ...)
-    msg("=== DATA SOURCES (from calibrateScreenSizeJSON) ===")
-    msg("raw_pxPerCm (calibration source): ", nrow(raw_pxPerCm), " rows, ", n_distinct(raw_pxPerCm$participant), " participants")
-    msg("sizeCheck_avg (check source): ", nrow(sizeCheck_avg), " rows, ", n_distinct(sizeCheck_avg$participant), " participants")
-    msg("calibration_data (after anti_join): ", nrow(calibration_data), " rows")
-    msg("pixelDensity_data (combined): ", nrow(pixelDensity_data), " rows")
-    
-    msg("=== CHECK DATA (SizeCheckRequestedCm, SizeCheckEstimatedPxPerCm) ===")
-    check_data <- pixelDensity_data %>% filter(type == "check") %>% arrange(participant, requestedCm)
-    for (p in unique(check_data$participant)) {
-      p_data <- check_data %>% filter(participant == p)
-      coords <- paste0("(", round(p_data$requestedCm, 2), ", ", round(p_data$avg_estimated, 2), ")", collapse = ", ")
-      msg("  ", p, ": ", coords)
-    }
-    
-    msg("=== CALIBRATION DATA (pxPerCm, requestedCm=8.56 fallback) ===")
-    calib_data <- pixelDensity_data %>% filter(type == "calibration") %>% arrange(participant, requestedCm)
-    if (nrow(calib_data) > 0) {
-      for (p in unique(calib_data$participant)) {
-        p_data <- calib_data %>% filter(participant == p)
-        coords <- paste0("(", round(p_data$requestedCm, 2), ", ", round(p_data$avg_estimated, 2), ")", collapse = ", ")
-        msg("  ", p, ": ", coords)
-      }
-    } else {
-      msg("  (no calibration data — all excluded by anti_join or raw_pxPerCm empty)")
-    }
-    
-    msg("=== SUMMARY ===")
-    msg("Total points to plot: ", nrow(pixelDensity_data))
-    msg("  Check points: ", sum(pixelDensity_data$type == "check"))
-    msg("  Calibration points: ", sum(pixelDensity_data$type == "calibration"))
-    msg("X range (requestedCm): ", round(min(pixelDensity_data$requestedCm, na.rm = TRUE), 2), " - ", round(max(pixelDensity_data$requestedCm, na.rm = TRUE), 2))
-    msg("Y range (px/cm): ", round(min(pixelDensity_data$avg_estimated, na.rm = TRUE), 2), " - ", round(max(pixelDensity_data$avg_estimated, na.rm = TRUE), 2))
-    msg("=== END DEBUG ===")
-  }
-  
   ymin = max(5,floor(min(pixelDensity_data$avg_estimated) / 10 - 1) * 10)
   ymax = ceiling(max(pixelDensity_data$avg_estimated) / 10 + 1) * 10
 
@@ -5109,9 +4757,8 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
     participant_colors <- get_participant_colors(distanceCalibrationResults, distance$participant)
   }
   if (nrow(distance) == 0) {
-    print('no distance data')
     return(NULL)
-    }
+  }
   
   # Average Measured Distance per Participant per Requested Distance
   distance_avg <- distance %>%
@@ -5471,7 +5118,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
   
   # Early return if camera doesn't have required columns
   if (nrow(camera) == 0 || !"PavloviaParticipantID" %in% names(camera) || !"widthVpx" %in% names(camera)) {
-    message("[DEBUG plot_ipd_vs_eyeToFootCm] Early return: camera missing required columns (PavloviaParticipantID or widthVpx)")
+    log_debug("plot_ipd: camera missing required columns")
     return(list(ipdOverWidth_vs_rulerBasedEyesToFootCm = list(plot = NULL, height = NULL),
                 ipdOverWidth_times_rulerBasedEyesToFootCm_vs_rulerBasedEyesToFootCm = list(plot = NULL, height = NULL)))
   }
@@ -5479,7 +5126,7 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
   # Build calibration data from TJSON (may be empty if calibration was skipped)
   tjson <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)
   if (nrow(tjson) == 0 || !"ipdOverWidth" %in% names(tjson)) {
-    message("[DEBUG plot_ipd_vs_eyeToFootCm] TJSON empty or missing ipdOverWidth — will use check data only")
+    log_debug("plot_ipd: TJSON empty or missing ipdOverWidth, using check data only")
   }
   # Ensure column exists (older exports may lack it)
   if (nrow(tjson) > 0 && !"rulerBasedEyesToFootCm" %in% names(tjson)) {
@@ -5666,26 +5313,6 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
   
   mixed_key <- make_mixed_key_glyph(style_map$style_table)
 
-  # --- DEBUG: CoolFirePasta448 data going into p2 ---
-  .dbg_pid <- "CoolFirePasta448"
-  .dbg_p2 <- ipd_data_plot[ipd_data_plot$participant == .dbg_pid, , drop = FALSE]
-  if (nrow(.dbg_p2) > 0) {
-    message("[DEBUG p2 CoolFirePasta448] rows=", nrow(.dbg_p2),
-            "  types=", paste(unique(.dbg_p2$type), collapse=", "))
-    message("  calibration rows:")
-    .dbg_cal <- .dbg_p2[.dbg_p2$type == "calibration", c("participant","type","rulerBasedEyesToFootCm","fOverWidth","measurement_order_within_participant"), drop=FALSE]
-    if (nrow(.dbg_cal)) message(paste(capture.output(print(.dbg_cal)), collapse="\n"))
-    message("  check rows:")
-    .dbg_chk <- .dbg_p2[.dbg_p2$type == "check", c("participant","type","rulerBasedEyesToFootCm","fOverWidth","measurement_order_within_participant"), drop=FALSE]
-    if (nrow(.dbg_chk)) message(paste(capture.output(print(.dbg_chk)), collapse="\n"))
-  } else {
-    message("[DEBUG p2 CoolFirePasta448] NOT FOUND in ipd_data_plot")
-  }
-  message("[DEBUG p2] style for CoolFirePasta448: color=", participant_colors[.dbg_pid],
-          "  lwd=", lwd_map[.dbg_pid],
-          "  is_mixed=", style_map$style_table$is_mixed[style_map$style_table$participant == .dbg_pid])
-  # --- END DEBUG ---
-
   p2 <- ggplot() +
     geom_path(data = ipd_data_plot,
               aes(x = rulerBasedEyesToFootCm,
@@ -5781,22 +5408,6 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
     filter(!is.na(median_check), is.finite(median_check), median_check > 0) %>%
     mutate(product_focal_over_width_normalized = product_focal_over_width / median_check)
   
-  # --- DEBUG: CoolFirePasta448 data going into p3 ---
-  .dbg_p3 <- ipd_data_normalized_plot[ipd_data_normalized_plot$participant == .dbg_pid, , drop = FALSE]
-  if (nrow(.dbg_p3) > 0) {
-    message("[DEBUG p3 CoolFirePasta448] rows=", nrow(.dbg_p3),
-            "  types=", paste(unique(.dbg_p3$type), collapse=", "))
-    message("  calibration rows:")
-    .dbg_cal3 <- .dbg_p3[.dbg_p3$type == "calibration", c("participant","type","rulerBasedEyesToFootCm","fOverWidth","fOverWidth_normalized","median_check","measurement_order_within_participant"), drop=FALSE]
-    if (nrow(.dbg_cal3)) message(paste(capture.output(print(.dbg_cal3)), collapse="\n"))
-    message("  check rows:")
-    .dbg_chk3 <- .dbg_p3[.dbg_p3$type == "check", c("participant","type","rulerBasedEyesToFootCm","fOverWidth","fOverWidth_normalized","median_check","measurement_order_within_participant"), drop=FALSE]
-    if (nrow(.dbg_chk3)) message(paste(capture.output(print(.dbg_chk3)), collapse="\n"))
-  } else {
-    message("[DEBUG p3 CoolFirePasta448] NOT FOUND in ipd_data_normalized_plot")
-  }
-  # --- END DEBUG ---
-
   p3 <- ggplot() +
     geom_path(data = ipd_data_normalized_plot,
               aes(x = rulerBasedEyesToFootCm,
@@ -5926,38 +5537,9 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
   plot_data <- bind_rows(calib_plot_data, check_plot_data) %>%
     arrange(participant, source, measurement_order_within_participant)
   
-  # Debug output
-  message("[DEBUG plot_eyeToPointCm_vs_requestedEyesToFootCm] check_plot_data rows: ", nrow(check_plot_data), 
-          ", calib_plot_data rows: ", nrow(calib_plot_data), ", combined rows: ", nrow(plot_data))
-  
-  # ========== DEBUG: imageBasedEyesToPointCm vs. rulerBasedEyesToFootCm — data fed to plot ==========
-  msg <- function(...) message("[DEBUG Point vs Foot plot] ", ...)
-  msg("=== CHECK: raw rulerBasedEyesToFootCm, imageBasedEyesToPointCm → plot_x, plot_y ===")
-  if (nrow(check_plot_data) > 0) {
-    for (pid in unique(check_plot_data$participant)) {
-      rows <- check_plot_data %>% filter(participant == pid) %>% arrange(measurement_order_within_participant)
-      for (i in seq_len(nrow(rows))) {
-        r <- rows[i, ]
-        raw_foot <- if ("rulerBasedEyesToFootCm" %in% names(r)) as.numeric(r$rulerBasedEyesToFootCm) else NA
-        raw_pt   <- if ("imageBasedEyesToPointCm" %in% names(r)) as.numeric(r$imageBasedEyesToPointCm) else NA
-        msg("  ", pid, " check row ", i, ": rulerBasedEyesToFootCm=", round(raw_foot, 2), ", imageBasedEyesToPointCm=", round(raw_pt, 2), " → plot_x=", round(r$plot_x, 2), ", plot_y=", round(r$plot_y, 2))
-      }
-    }
-  }
-  msg("=== CALIBRATION: raw rulerBasedEyesToFootCm, imageBasedEyesToPointCm → plot_x, plot_y ===")
-  if (nrow(calib_plot_data) > 0) {
-    for (pid in unique(calib_plot_data$participant)) {
-      rows <- calib_plot_data %>% filter(participant == pid) %>% arrange(measurement_order_within_participant)
-      for (i in seq_len(nrow(rows))) {
-        r <- rows[i, ]
-        raw_foot <- if ("rulerBasedEyesToFootCm" %in% names(r)) as.numeric(r$rulerBasedEyesToFootCm) else NA
-        raw_pt   <- if ("imageBasedEyesToPointCm" %in% names(r)) as.numeric(r$imageBasedEyesToPointCm) else NA
-        msg("  ", pid, " calib row ", i, ": rulerBasedEyesToFootCm=", round(raw_foot, 2), ", imageBasedEyesToPointCm=", round(raw_pt, 2), " → plot_x=", round(r$plot_x, 2), ", plot_y=", round(r$plot_y, 2))
-      }
-    }
-  }
-  msg("=== END DEBUG Point vs Foot plot ===")
-  
+  log_debug("eyeToPoint vs foot: check=", nrow(check_plot_data),
+            " calib=", nrow(calib_plot_data), " combined=", nrow(plot_data))
+
   if (nrow(plot_data) == 0) {
     return(list(plot = NULL, height = NULL))
   }
@@ -6128,38 +5710,6 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults,
   plot_data <- bind_rows(calib_plot_data, check_plot_data) %>%
     arrange(participant, source, measurement_order_within_participant)
   
-  # Debug output
-  message("[DEBUG plot_eyesToFootCm_estimated_vs_requested] check_plot_data rows: ", nrow(check_plot_data), 
-          ", calib_plot_data rows: ", nrow(calib_plot_data), ", combined rows: ", nrow(plot_data))
-  
-  # ========== DEBUG: data fed to plot ==========
-  # This plot uses x = rulerBasedEyesToFootCm, y = eyesToFootCm_estimated (formula).
-  msg <- function(...) message("[DEBUG Foot vs Foot plot] ", ...)
-  msg("=== CALIBRATION: raw TJSON rulerBasedEyesToFootCm, imageBasedEyesToFootCm; plotted x=rulerBasedEyesToFootCm, y=eyesToFootCm_estimated ===")
-  if (nrow(calib_plot_data) > 0) {
-    for (pid in unique(calib_plot_data$participant)) {
-      rows <- calib_plot_data %>% filter(participant == pid)
-      for (i in seq_len(nrow(rows))) {
-        r <- rows[i, ]
-        raw_ruler <- if ("rulerBasedEyesToFootCm" %in% names(r)) as.numeric(r$rulerBasedEyesToFootCm) else NA
-        raw_img   <- if ("imageBasedEyesToFootCm" %in% names(r)) as.numeric(r$imageBasedEyesToFootCm) else NA
-        msg("  ", pid, " calib row ", i, ": rulerBasedEyesToFootCm=", round(raw_ruler, 2), ", imageBasedEyesToFootCm=", round(raw_img, 2),
-            " → plotted x(rulerBasedEyesToFootCm)=", round(r$rulerBasedEyesToFootCm, 2), ", y(eyesToFootCm_estimated)=", round(r$eyesToFootCm_estimated, 2))
-      }
-    }
-  }
-  msg("=== CHECK: plotted x=rulerBasedEyesToFootCm, y=eyesToFootCm_estimated ===")
-  if (nrow(check_plot_data) > 0) {
-    for (pid in unique(check_plot_data$participant)) {
-      rows <- check_plot_data %>% filter(participant == pid)
-      for (i in seq_len(nrow(rows))) {
-        r <- rows[i, ]
-        msg("  ", pid, " check row ", i, ": x(rulerBasedEyesToFootCm)=", round(r$rulerBasedEyesToFootCm, 2), ", y(eyesToFootCm_estimated)=", round(r$eyesToFootCm_estimated, 2))
-      }
-    }
-  }
-  msg("=== END DEBUG Foot vs Foot plot ===")
-
   if (nrow(plot_data) == 0) {
     return(list(plot = NULL, height = NULL))
   }

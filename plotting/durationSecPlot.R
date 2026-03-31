@@ -14,7 +14,6 @@ add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
 
 source('./constant.R')
 get_duration_data <- function(data_list, conditionNameInput) {
-  print('inside get_duration_data')
   df <- foreach(i=1:length(data_list), .combine = 'rbind') %do% {
     data_list[[i]] %>%
       select(participant, 
@@ -44,7 +43,6 @@ get_duration_data <- function(data_list, conditionNameInput) {
 }
 
 get_duration_corr <- function(data_list, conditionNameInput) {
-  print('inside get_duration_corr')
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
       filter(!is.na(staircaseName)) %>%
@@ -159,7 +157,6 @@ get_duration_corr <- function(data_list, conditionNameInput) {
 }
 
 plot_duraction_sec <- function(df) {
-  print('inside plot_duraction_sec')
   if (nrow(df) == 0) {
     return(list(font = NULL, participant = NULL))
   }
@@ -276,7 +273,6 @@ plot_duraction_sec <- function(df) {
 }
 
 plot_Lateness_sec <- function(df) {
-  print('inside plot_Lateness_sec')
   if (nrow(df) == 0) {
     return(list(font = NULL, participant = NULL))
   }
@@ -678,14 +674,11 @@ append_hist_time <- function(data_list, plot_list, fileNames, conditionNameInput
     }
   }
   
-  print('done timing hist')
-  
   return(list(plotList = plot_list,
               fileNames = fileNames))
 }
 
 plot_badLatenessTrials_vs_memory <- function(data_list,conditionNameInput) {
-  print('inside append_scatter_list')
   info <-  foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>% 
       filter(!is.na(block_condition) & block_condition != "") %>%
@@ -753,7 +746,6 @@ plot_badLatenessTrials_vs_memory <- function(data_list,conditionNameInput) {
 }
 
 append_scatter_time_participant <- function(data_list, plot_list, fileNames, conditionNameInput) {
-  print('inside append_scatter_time_participant')
   
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>%
@@ -1615,7 +1607,6 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
 }
 
 append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameInput) {
-  print('inside append_scatter_time')
   params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
     t <- data_list[[i]] %>%
       filter(!is.na(staircaseName)) %>%

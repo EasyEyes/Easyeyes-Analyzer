@@ -9,9 +9,7 @@ generate_threshold <-
   function(data_list, summary_list, df, pretest, stairs, prolific, filterInput, skillFilter, minNQuestTrials, 
            minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed, minRulerCm, minCQAccuracy) {
     
-    print('inside threshold warning')
-    print(paste0('length of data list: ', length(data_list)))
-    print(paste0('length of summary list: ', length(summary_list)))
+    log_info("generate_threshold: data_list=", length(data_list), " summary_list=", length(summary_list))
     if (is.null(data_list)) {
       return(list())
     }
@@ -253,38 +251,23 @@ generate_threshold <-
     }
     
     
-    print('done calculate filter cut-off threshold')
-    print(paste('pretest:', nrow(pretest)))
     
     if (nrow(pretest) > 0 & 'OMT_words read' %in% names(pretest)) {
       pretest <- pretest %>% mutate(wordPerMin = as.numeric(`OMT_words read`))
       threshold <- quantile(pretest$wordPerMin, 0.25, na.rm = T)
-      print(paste('threshold:', threshold))
       slowest = pretest %>% filter(wordPerMin <= threshold)
-      print('done pretest')
     }
     
     if (filterInput == 'slowest' & nrow(slowest) > 0) {
-      print('before filtering')
-      print(paste('unique pavloviaSessionID in reading', n_distinct(reading$participant)))
-      print(paste('unique pavloviaSessionID in threshold', n_distinct(all_summary$participant)))
-      print(paste('number of rows in reading', nrow(reading)))
-      print(paste('number of rows all_summary', nrow(all_summary)))
       reading <- reading %>% filter(tolower(participant) %in% tolower(slowest$participant))
       all_summary <- all_summary %>%
         filter(tolower(participant) %in% tolower(slowest$participant))
-      print('after filtering')
-      print(paste('unique pavloviaSessionID in reading', n_distinct(reading$participant)))
-      print(paste('unique pavloviaSessionID in threshold', n_distinct(all_summary$participant)))
-      print(paste('number of rows in reading', nrow(reading)))
-      print(paste('number of rows all_summary', nrow(all_summary)))
     } 
     if (filterInput == 'fastest' & nrow(slowest) > 0) {
       reading <- reading%>% filter(!tolower(participant) %in% tolower(slowest$participant))
       all_summary <- all_summary %>%
         filter(!tolower(participant) %in% tolower(slowest$participant))
     }
-    print('done filter input')
     
     
     if (ncol(reading) > 1) {
@@ -517,15 +500,10 @@ generate_threshold <-
       age <- age %>% mutate(Grade = NA_real_)
     }
     
-    ##### console logs #####
-    
-    print(paste('nrow of quest:', nrow(quest)))
-    print(paste('nrow of reading:', nrow(reading)))
-    print(paste('nrow of crowding:', nrow(crowding)))
-    print(paste('nrow of rsvp_speed:', nrow(rsvp_speed)))
-    print(paste('nrow of acuity:', nrow(acuity)))
-    print(paste('nrow of repeatedLetters:', nrow(repeatedLetters)))
-    print(paste('nrow of age:', nrow(age)))
+    log_info("Threshold data: quest=", nrow(quest), " reading=", nrow(reading),
+             " crowding=", nrow(crowding), " rsvp=", nrow(rsvp_speed),
+             " acuity=", nrow(acuity), " repeatedLetters=", nrow(repeatedLetters),
+             " age=", nrow(age))
     
     
     
@@ -986,8 +964,7 @@ generate_threshold <-
     missing_cols <- setdiff(names(all_summary), names(ratings_for_all_summary))
     if (length(missing_cols) > 0) {
       for (col_name in missing_cols) {
-        # Match row count explicitly (important when ratings_for_all_summary has 0 rows)
-        ratings_for_all_summary[[col_name]] <- rep(NA, nrow(ratings_for_all_summary))
+        ratings_for_all_summary <- ratings_for_all_summary %>% mutate(!!col_name := NA)
       }
     }
     extra_cols <- setdiff(names(ratings_for_all_summary), names(all_summary))
@@ -1107,7 +1084,7 @@ generate_threshold <-
     }
     for (col in c("Comfort", "Beauty", "Familiarity")) {
       if (!col %in% names(all_summary)) {
-        all_summary[[col]] <- NA_real_
+        all_summary <- all_summary %>% mutate(!!col := NA_real_)
       }
     }
 
@@ -1130,7 +1107,7 @@ generate_threshold <-
              questSDAtEndOfTrialsLoop, TrialsSentToQuest, badTrials,
              Comfort, Beauty, Familiarity)
 
-    print('done generate_threshold')
+    log_info("generate_threshold complete")
     return(list(reading = reading, 
                 crowding = crowding,
                 rsvp = rsvp_speed,

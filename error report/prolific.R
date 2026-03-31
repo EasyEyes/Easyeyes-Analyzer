@@ -40,7 +40,6 @@ find_prolific_from_files <- function(file) {
     }
   }
   
-  print('done find prolific')
   return(prolificDT)
 }
 
@@ -78,7 +77,6 @@ read_prolific <- function(fileProlific) {
 }
 
 combineProlific <- function(prolificData, summary_table, pretest){
-  print('inside combineProlific')
 
   if (is.null(prolificData) | nrow(prolificData) == 0) {
     t <- summary_table %>% mutate(ProlificStatus= ' ',
@@ -152,13 +150,10 @@ combineProlific <- function(prolificData, summary_table, pretest){
              fontMaxPx, viewingDistanceCm, fontRenderMaxPx, heapLimitAfterDrawing, heapTotalAvgMB,
              mustTrackSec, goodTrials, badTrials, WebGLVersion, 
              maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, snapshotsLink)
-  print('done combine prolific')
   return(t)
 }
 
 get_prolific_file_counts <- function(prolificData, summary_table) {
-  print("DEBUG: Prolific Data Loaded")
-  
   prolific_count <- if (!is.null(prolificData) && nrow(prolificData) > 0) {
     nrow(prolificData)
   } else {
@@ -174,8 +169,8 @@ get_prolific_file_counts <- function(prolificData, summary_table) {
     formSpree_count <- nrow(formSpree)
   }
   
-  print(paste("DEBUG: Prolific Count:", prolific_count))
-  print(paste("DEBUG: FormSpree Count:", formSpree_count))
+  log_info("Prolific count: ", prolific_count)
+  log_info("FormSpree count: ", formSpree_count)
   
   return(list(prolific_count = prolific_count, formSpree_count = formSpree_count))
 }

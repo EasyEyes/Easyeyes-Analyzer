@@ -110,7 +110,6 @@ extractStaircases <- function(df, info) {
 plotStaircases <- function(Staircases, thresholdParameterSelected, conditionNameInput) {
     stairdf <- Staircases %>%
       filter(questType != 'practice')
-    print('inside plotStaircases')
 
     if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
       stairdf <- stairdf %>% filter(conditionName %in% conditionNameInput)

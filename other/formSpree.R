@@ -65,7 +65,7 @@ getFormSpree <- function(){
       t$ok = as.factor(t$ok)
     return(t)
   } else {
-    print(httr::status_code(response))
+    log_debug("FormSpree response: ", httr::status_code(response))
     return(tibble())
   }
 }
@@ -133,7 +133,6 @@ monitorFormSpree <- function(listFontParameters) {
 }
 
 get_font_parameters_from_formSpree <- function(participant) {
-  print('inside get_font_parameters_from_formSpree')
   # we might need to add _logFontBool so that those doesn't have fontSpree log, no need to pull font parameters
   response <- try(httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9")))
   if (httr::status_code(response)) {

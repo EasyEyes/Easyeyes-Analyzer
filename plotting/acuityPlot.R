@@ -460,7 +460,6 @@ plot_acuity_reading <- function(acuity, reading, type) {
     
     # Partial correlation excluding age
     if (n_distinct(data_for_stat$ageN) > 1) {
-      print("acuity reading names done")
       corr_without_age <- ppcor::pcor(data_for_stat %>%
                                         select(log_WPM, questMeanAtEndOfTrialsLoop, ageN))$estimate[2, 1]
       corr_without_age <- format(round(corr_without_age, 2), nsmall = 2)

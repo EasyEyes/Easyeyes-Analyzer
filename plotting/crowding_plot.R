@@ -2,8 +2,6 @@ source('./constant.R')
 
 
 crowding_by_side <- function(crowding) {
-  print('insdie crowding_by_side')
-  
   # DEBUG: Cleaned up - eccentricity values are now working correctly
   
   crowding <- crowding %>% filter(targetEccentricityXDeg != 0, !is.na(conditionName)) %>% 
@@ -200,7 +198,6 @@ crowding_scatter_plot <- function(crowding_L_R){
 
 
 crowding_mean_scatter_plot <- function(crowding_L_R){
-  print("Inside crowding_mean_scatter_plot")
   if (n_distinct(crowding_L_R$font) < 1) {
     return(ggplot() + 
              xlab("Left Bouma factor") + 
