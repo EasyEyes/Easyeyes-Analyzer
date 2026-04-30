@@ -224,17 +224,63 @@ check_file_names <- function(file) {
   return(NULL)
 }
 
+coalesce_chr_scalar <- function(x, default = "") {
+  x <- as.character(x)
+  x <- x[!is.na(x) & nzchar(trimws(x))]
+  if (length(x) == 0) default else x[1]
+}
+
+to_date_safe <- function(x) {
+  if (inherits(x, "Date")) return(x)
+  x <- as.character(x)
+  x <- trimws(x)
+  x[x == ""] <- NA_character_
+  parsed <- suppressWarnings(lubridate::parse_date_time(
+    x,
+    orders = c("Ymd", "ymd", "mdY", "dmY", "Y/m/d", "m/d/Y", "d/m/Y"),
+    tz = "UTC"
+  ))
+  as.Date(parsed)
+}
+
+parse_birth_month_year_safe <- function(x) {
+  x <- as.character(x)
+  x <- trimws(x)
+  x[x == ""] <- NA_character_
+  parsed <- suppressWarnings(lubridate::parse_date_time(
+    x,
+    orders = c("my", "Ym", "mY", "bY", "Yb"),
+    tz = "UTC"
+  ))
+  as.Date(parsed)
+}
+
+derive_age_years <- function(event_date, birth_date) {
+  out <- rep(NA_real_, length(event_date))
+  ok <- !is.na(event_date) & !is.na(birth_date)
+  out[ok] <- as.numeric(difftime(event_date[ok], birth_date[ok], units = "days")) / 365.2425
+  round(out, 2)
+}
+
+has_unzip_command <- function() {
+  # webR/Shinylive can warn here ("'which' was not found on this platform").
+  # Treat warnings/errors as "command unavailable".
+  out <- tryCatch(
+    suppressWarnings(Sys.which("unzip")),
+    warning = function(e) "",
+    error = function(e) ""
+  )
+  nzchar(out)
+}
+
 ensure_columns <- function(t, file_name = NULL) {
   # First, normalize new "Distance" column names to old "TrackDistance" format for compatibility
   t <- normalize_distance_column_names(t)
   
-  # Helper to add a column if missing
-  add_col <- function(df, col, value) {
-    if (!col %in% colnames(df)) df[[col]] <- value
-    df
-  }
   # List of columns and their default values
-  breaked_fileName = str_split(file_name, "[_]")[[1]]
+  breaked_fileName <- if (!is.null(file_name)) str_split(file_name, "[_]")[[1]] else character(0)
+  participant_id <- if (length(breaked_fileName) >= 1) breaked_fileName[1] else ""
+  prolific_id <- if (length(breaked_fileName) >= 2) breaked_fileName[2] else ""
 
   required_cols <- list(
     `_calibrateTrackDistance` = "",
@@ -301,8 +347,8 @@ ensure_columns <- function(t, file_name = NULL) {
     `Microphone survey` = "",
     mustTrackSec = NA,
     OBJCT = "",
-    participant = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][1] else "",
-    ProlificParticipantID = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][2] else "",
+    participant = participant_id,
+    ProlificParticipantID = prolific_id,
     ProlificSessionID = "",
     psychojsWindowDimensions = "NA,NA",
     pxPerCm = NA,
@@ -355,8 +401,23 @@ ensure_columns <- function(t, file_name = NULL) {
     warning = "",
     snapshotsLink = ""
   )
-  for (col in names(required_cols)) {
-    t <- add_col(t, col, required_cols[[col]])
+  # Speedup: only materialize truly missing columns, and use data.table::set() to avoid
+  # repeated full data frame copies in browser/webR environments.
+  missing_cols <- setdiff(names(required_cols), names(t))
+  if (length(missing_cols) > 0) {
+    n_rows <- nrow(t)
+    t_dt <- data.table::as.data.table(t)
+    for (col in missing_cols) {
+      default_val <- required_cols[[col]]
+      fill_val <- rep(default_val, n_rows)
+      data.table::set(t_dt, j = col, value = fill_val)
+    }
+    t <- as.data.frame(t_dt)
+  }
+
+  # Nothing else to derive for empty inputs.
+  if (nrow(t) == 0) {
+    return(t)
   }
   
   t <- t %>% 
@@ -452,14 +513,16 @@ read_files <- function(file, progress = NULL){
   file_list <- file_list[!grepl("cursor", basename(file_names)) & !grepl("^~", basename(file_names))]
   file_names <- file_names[!grepl("cursor", basename(file_names)) & !grepl("^~", basename(file_names))]
   log_info("read_files: ", length(file_names), " files uploaded")
-  data_list <- list()
-  stair_list <- list()
-  summary_list <- list()
+  # Pre-allocate list capacity to reduce reallocations in browser R runtimes.
+  data_list <- vector("list", length(file_list))
+  stair_list <- vector("list", length(file_list))
+  summary_list <- vector("list", length(file_list))
   n <- length(file_list)
   experiment <- rep(NA,n)
   readingCorpus <- c()
   j = 1
   pretest <- tibble()
+  unzip_cmd_available <- has_unzip_command()
 
   for (i in 1 : n) {
     if (!is.null(progress)) {
@@ -616,6 +679,12 @@ read_files <- function(file, progress = NULL){
       m <- length(all_csv)
       log_debug("ZIP contains ", m, " CSV files")
       tmp <- tempdir()
+      extracted_all_csv <- FALSE
+      if (m > 0 && !unzip_cmd_available) {
+        # In Shinylive/webR, shelling out to `unzip -p` is unavailable/slow; extract once.
+        try(unzip(file_list[i], files = all_csv, exdir = tmp), silent = TRUE)
+        extracted_all_csv <- TRUE
+      }
       for (k in 1 : m) {
         if (!is.null(progress)) {
           progress(
@@ -624,15 +693,23 @@ read_files <- function(file, progress = NULL){
             detail = sprintf("Session %d of %d: %s", k, m, basename(all_csv[k]))
           )
         }
-        # Stream CSV directly from zip without extracting to disk; fallback to extracting just this file
-        cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_csv[k]))
-        read_ok <- TRUE
-        t <- tryCatch(
-          data.table::fread(cmd = cmd, data.table = FALSE, showProgress = FALSE),
-          error = function(e) { read_ok <<- FALSE; e }
-        )
-        if (!read_ok || inherits(t, "error")) {
-          try(unzip(file_list[i], files = all_csv[k], exdir = tmp), silent = TRUE)
+        # Use `unzip -p` only when available; otherwise read from once-extracted files.
+        if (unzip_cmd_available) {
+          cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_csv[k]))
+          read_ok <- TRUE
+          t <- tryCatch(
+            data.table::fread(cmd = cmd, data.table = FALSE, showProgress = FALSE),
+            error = function(e) { read_ok <<- FALSE; e }
+          )
+          if (!read_ok || inherits(t, "error")) {
+            try(unzip(file_list[i], files = all_csv[k], exdir = tmp), silent = TRUE)
+            file_path <- file.path(tmp, all_csv[k])
+            try({t <- data.table::fread(file_path, data.table = FALSE, showProgress = FALSE)}, silent = TRUE)
+          }
+        } else {
+          if (!extracted_all_csv) {
+            try(unzip(file_list[i], files = all_csv[k], exdir = tmp), silent = TRUE)
+          }
           file_path <- file.path(tmp, all_csv[k])
           try({t <- data.table::fread(file_path, data.table = FALSE, showProgress = FALSE)}, silent = TRUE)
         }
@@ -712,9 +789,14 @@ read_files <- function(file, progress = NULL){
           }
         } 
         else {
-          # Stream pretest.csv directly from the zip
-          cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_pretest[1]))
-          pretest <- data.table::fread(cmd = cmd, data.table = FALSE, showProgress = FALSE)
+          if (unzip_cmd_available) {
+            # Stream pretest.csv directly from the zip
+            cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_pretest[1]))
+            pretest <- data.table::fread(cmd = cmd, data.table = FALSE, showProgress = FALSE)
+          } else {
+            try(unzip(file_list[i], files = all_pretest[1], exdir = tmp), silent = TRUE)
+            pretest <- data.table::fread(file.path(tmp, all_pretest[1]), data.table = FALSE, showProgress = FALSE)
+          }
         }
         
         if ('PavloviaSessionID' %in% names(pretest)) {
@@ -768,7 +850,7 @@ read_files <- function(file, progress = NULL){
              'Age_pre' = 'Age')
   }
   
-  df <- tibble()
+  df_parts <- vector("list", length(data_list))
   
   # Remove any NULL entries from lists that might have been created by skipped files
   data_list <- data_list[!sapply(data_list, is.null)]
@@ -814,49 +896,62 @@ read_files <- function(file, progress = NULL){
     } else {
       data_list[[i]]$ParticipantCode = ''
     }
-    
-    unique_Birthdate = unique(data_list[[i]]$BirthMonthYear)
-    unique_BirthYear = unique(data_list[[i]]$BirthYear)
-    if (length(unique_Birthdate) > 1) {
-      data_list[[i]]$BirthMonthYear = get_first_non_na(data_list[[i]]$BirthMonthYear)
-      clean_date <- gsub("([0-9]{2})h([0-9]{2})\\.([0-9]{2})\\.([0-9]{3})", "\\1:\\2:\\3.\\4", get_first_non_na(data_list[[i]]$date))
-      clean_date <- sub("_", "T", clean_date)
-      
-      # Parse with parse_date_time
-      parsed_time <- parse_date_time(substr(clean_date, 1, 10), orders = "Ymd", tz = "UTC")
-      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$BirthMonthYear[1], orders = c('my')), parsed_time) / years(1),2)
+
+    # Derive baseline age from in-file birth month/year, then year-only fallback.
+    event_date <- to_date_safe(data_list[[i]]$date)
+
+    birth_month_year_scalar <- coalesce_chr_scalar(data_list[[i]]$BirthMonthYear, default = "")
+    data_list[[i]]$BirthMonthYear <- birth_month_year_scalar
+    birth_from_month <- parse_birth_month_year_safe(rep(birth_month_year_scalar, nrow(data_list[[i]])))
+    age_from_month <- derive_age_years(event_date, birth_from_month)
+
+    birth_year_num <- suppressWarnings(as.numeric(arabic_to_western(as.character(data_list[[i]]$BirthYear))))
+    birth_year_scalar <- if (all(is.na(birth_year_num))) NA_real_ else max(birth_year_num, na.rm = TRUE)
+    if (is.na(birth_year_scalar)) {
+      data_list[[i]]$BirthYear <- ""
+      age_from_year <- rep(NA_real_, nrow(data_list[[i]]))
     } else {
-      data_list[[i]]$BirthMonthYear = ''
-      data_list[[i]]$age = NA
-      if (length(unique_BirthYear) > 1 & length(unique_Birthdate) == 1 ) {
-        data_list[[i]]$BirthYear = max(as.numeric(arabic_to_western(data_list[[i]]$BirthYear)), na.rm = T)
-        data_list[[i]]$age = year(data_list[[i]]$date[1]) - data_list[[i]]$BirthYear[1]
-      } else {
-        data_list[[i]]$BirthYear = ''
-        data_list[[i]]$age = NA
-      }
+      data_list[[i]]$BirthYear <- birth_year_scalar
+      age_from_year <- suppressWarnings(lubridate::year(event_date) - birth_year_scalar)
     }
-    
-   
-    #Override
+    data_list[[i]]$age <- ifelse(!is.na(age_from_month), age_from_month, age_from_year)
+
+    # Override with pretest data when available (DOB preferred over provided Age).
     if (nrow(pretest) > 0) {
       data_list[[i]] <- data_list[[i]] %>%
         left_join(toJoin, by = 'participant', relationship = "many-to-many") %>% 
-        mutate(ageByPretestBirthDate =  round(interval(birthDate_pre, date) / years(1),2)) %>% 
+        mutate(
+          birthDate_pre = to_date_safe(birthDate_pre),
+          event_date = to_date_safe(date),
+          ageByPretestBirthDate = derive_age_years(event_date, birthDate_pre)
+        ) %>% 
         mutate(age = case_when(
           !is.na(ageByPretestBirthDate) ~ ageByPretestBirthDate,
           !is.na(Age_pre) & is.na(ageByPretestBirthDate) ~ Age_pre,
           is.na(birthDate_pre) & is.na(Age_pre) ~ age,
           .default = NA
-        ))
+        )) %>%
+        select(-event_date)
     }
-    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, BirthMonthYear,age))
+    df_parts[[i]] <- data_list[[i]] %>%
+      distinct(participant, ParticipantCode, BirthMonthYear, age) %>%
+      mutate(
+        participant = as.character(participant),
+        ParticipantCode = as.character(ParticipantCode),
+        BirthMonthYear = as.character(BirthMonthYear),
+        age = suppressWarnings(as.numeric(age))
+      )
   }
+  df <- data.table::rbindlist(df_parts, use.names = TRUE, fill = TRUE)
+  df <- as.data.frame(df)
   
   readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment!=""]
-  stairs <- do.call(rbind, stair_list)
+  # More tolerant than dplyr::bind_rows() when some chunks are 0-row / placeholder
+  # and infer logical for otherwise character columns (e.g., block_condition).
+  stairs <- data.table::rbindlist(stair_list, use.names = TRUE, fill = TRUE)
+  stairs <- as.data.frame(stairs)
   prolific <- find_prolific_from_files(file)
 
   log_info("Preprocess complete: ", length(data_list), " sessions loaded")

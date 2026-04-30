@@ -11,13 +11,15 @@ source('./tabs/timming.R')
 source('./tabs/quality.R')
 source('./tabs/anova.R')
 source('./tabs/distance.R')
-# packages
-library(shiny)
-library(shinytitle)
-library(svglite)
-library(shinycssloaders)
-library(shinyjs)
-library(shinyalert)
+# packages (suppress attach/mask chatter — webR/Shinylive surfaces stderr as "preload error" in DevTools)
+suppressPackageStartupMessages({
+  library(shiny)
+  library(shinytitle)
+  library(svglite)
+  library(shinycssloaders)
+  library(shinyjs)
+  library(shinyalert)
+})
 shinyUI(
   navbarPage(
     id = "navbar",

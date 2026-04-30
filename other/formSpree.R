@@ -1,73 +1,83 @@
 url <- "https://formspree.io/api/0/forms/mqkrdveg/submissions?limit=3000"
 getFormSpree <- function(){
-  response = NULL
-  try(response <- httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9")))
-  if (!is.null(response) & httr::status_code(response) == 200) {
-    content <- httr::content(response, as = "text", encoding='UTF-8')
-    t <- jsonlite::fromJSON(content)$submissions 
-    if (!"prolificParticipantID" %in% names(t)) {
-      return(NULL)
-    }
-    t <- t %>% 
-      filter(prolificParticipantID != '') %>% 
-      rename('system' = 'OS',
-             "device type" = "deviceType",
-            'Pavlovia session ID' = 'pavloviaID',
-            "Prolific participant ID" = "prolificParticipantID",
-            'ProlificSessionID' = 'prolificSessionID') %>% 
-      mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS'))) %>% 
-      mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
-      func = function(x) {str_split(x,'[.]')[[1]][1]}
-      t$browserVersion <- unlist(lapply(t$browserVersion, FUN=func))
-      t$system = str_replace_all(t$system, "OS X","macOS")
-      t <- t %>% 
-      mutate(browser = ifelse(browser == "", "", paste0(browser,  " ", browserVersion)),
-             resolution = '', 
-             QRConnect = '', 
-             `Computer 51 deg` = '',
-             cores = NaN, 
-             tardyMs = '', 
-             excessMs = '', 
-             KB = NaN,
-             rows = NaN,
-             cols = NaN, 
-             ok = '',
-             unmetNeeds = '',
-             error = '',
-             warning = '',
-             `block condition` = '',
-             trial = NaN,
-             `condition name` = '',
-             `target task` = '', 
-             `threshold parameter` = '',
-             `target kind` = '',
-             Loudspeaker = '',
-             Microphone = '',
-             QRConnect = '',
-             comment = '',
-             `heapLimitAfterDrawing (MB)` = NaN,
-             deviceMemoryGB = NaN,
-             mustTrackSec = NaN,
-             goodTrials = NaN,
-             badTrials = NaN,
-             WebGLVersion = '',
-             maxTextureSize= NaN,
-             maxViewportSize = NaN,
-             WebGLUnmaskedRenderer = '',
-             order = NaN) %>% 
-      select(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
-             `device type`, system, browser, resolution, QRConnect, date, ok, unmetNeeds, 
-             error, warning, cores, tardyMs, excessMs, KB, rows, cols,`block condition`, 
-             trial, `condition name`, `target task`, `threshold parameter`, `target kind`,
-             `Computer 51 deg`, Loudspeaker, Microphone, comment,`heapLimitAfterDrawing (MB)`,
-             deviceMemoryGB, mustTrackSec, goodTrials, badTrials, WebGLVersion, 
-             maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order)
-      t$ok = as.factor(t$ok)
-    return(t)
-  } else {
-    log_debug("FormSpree response: ", httr::status_code(response))
+  response <- tryCatch(
+    httr::GET(url, httr::authenticate("", "fd58929dc7864b6494f2643cd2113dc9")),
+    error = function(e) NULL
+  )
+  status <- tryCatch(httr::status_code(response), error = function(e) NA_integer_)
+  if (is.na(status) || status != 200) {
+    log_debug("FormSpree unavailable (status=", status, "). Returning empty table.")
     return(tibble())
   }
+
+  content <- tryCatch(
+    httr::content(response, as = "text", encoding = "UTF-8"),
+    error = function(e) NULL
+  )
+  if (is.null(content)) return(tibble())
+  parsed <- tryCatch(jsonlite::fromJSON(content), error = function(e) NULL)
+  if (is.null(parsed) || is.null(parsed$submissions)) return(tibble())
+  t <- parsed$submissions
+  if (!"prolificParticipantID" %in% names(t)) {
+    return(tibble())
+  }
+
+  t <- t %>% 
+    filter(prolificParticipantID != '') %>% 
+    rename('system' = 'OS',
+           "device type" = "deviceType",
+          'Pavlovia session ID' = 'pavloviaID',
+          "Prolific participant ID" = "prolificParticipantID",
+          'ProlificSessionID' = 'prolificSessionID') %>% 
+    mutate(date = parse_date_time(substr(`_date`,1,19), orders = c('ymdHMS'))) %>% 
+    mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
+    func = function(x) {str_split(x,'[.]')[[1]][1]}
+    t$browserVersion <- unlist(lapply(t$browserVersion, FUN=func))
+    t$system = str_replace_all(t$system, "OS X","macOS")
+    t <- t %>% 
+    mutate(browser = ifelse(browser == "", "", paste0(browser,  " ", browserVersion)),
+           resolution = '', 
+           QRConnect = '', 
+           `Computer 51 deg` = '',
+           cores = NaN, 
+           tardyMs = '', 
+           excessMs = '', 
+           KB = NaN,
+           rows = NaN,
+           cols = NaN, 
+           ok = '',
+           unmetNeeds = '',
+           error = '',
+           warning = '',
+           `block condition` = '',
+           trial = NaN,
+           `condition name` = '',
+           `target task` = '', 
+           `threshold parameter` = '',
+           `target kind` = '',
+           Loudspeaker = '',
+           Microphone = '',
+           QRConnect = '',
+           comment = '',
+           `heapLimitAfterDrawing (MB)` = NaN,
+           deviceMemoryGB = NaN,
+           mustTrackSec = NaN,
+           goodTrials = NaN,
+           badTrials = NaN,
+           WebGLVersion = '',
+           maxTextureSize= NaN,
+           maxViewportSize = NaN,
+           WebGLUnmaskedRenderer = '',
+           order = NaN) %>% 
+    select(`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
+           `device type`, system, browser, resolution, QRConnect, date, ok, unmetNeeds, 
+           error, warning, cores, tardyMs, excessMs, KB, rows, cols,`block condition`, 
+           trial, `condition name`, `target task`, `threshold parameter`, `target kind`,
+           `Computer 51 deg`, Loudspeaker, Microphone, comment,`heapLimitAfterDrawing (MB)`,
+           deviceMemoryGB, mustTrackSec, goodTrials, badTrials, WebGLVersion, 
+           maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, order)
+    t$ok = as.factor(t$ok)
+  return(t)
 }
 
 monitorFormSpree <- function(listFontParameters) {

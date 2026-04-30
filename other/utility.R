@@ -49,11 +49,11 @@ add_experiment_title <- function(plot, experiment_name) {
   return(plot)
 }
 
-# Consistent way of saving plot using rsvg_png
+# Consistent way of saving plot using ragg
 savePlot <- function(plot, filename, fileType, width = 8, height = 6) {
   if (fileType == "png") {
     ggsave('tmp.svg', plot = plot, width = width, unit = 'in', device = svglite)
-    rsvg::rsvg_png("tmp.svg", filename, width = width*300, height = height*300)
+    save_png_with_ragg("tmp.svg", filename, width = width*300, height = height*300)
   } else {
     ggsave(
       filename = filename,
@@ -310,20 +310,219 @@ get_N_text <- function(data) {
   return(paste0(unique(t$text), collapse='\n'))
 }
 
-# Helper: return a PNG image response for renderImage using ragg
-render_png_response <- function(plot, width, height, units = "in", dpi = 144, limitsize = FALSE) {
+# Convert to PNG using ragg without rsvg dependency
+save_png_with_ragg <- function(
+  svg,
+  file,
+  width = NULL,
+  height = NULL,
+  plot = NULL,
+  dpi = 300,
+  disp_w = 700,
+  scale = 2,
+  aspect = 4 / 6
+) {
+  # Keep `svg` arg for backward-compatible call signatures.
+  if (is.null(plot)) {
+    parent <- parent.frame()
+    candidate_names <- c('p', 'plot_with_title', 'base_plot', 'error_plot', 'plot')
+    for (nm in candidate_names) {
+      if (exists(nm, envir = parent, inherits = TRUE)) {
+        obj <- get(nm, envir = parent, inherits = TRUE)
+        if (inherits(obj, 'ggplot')) {
+          plot <- obj
+          break
+        }
+      }
+    }
+
+    # Common loop-based containers in this app.
+    if (is.null(plot) &&
+        exists('plots', envir = parent, inherits = TRUE) &&
+        exists('jj', envir = parent, inherits = TRUE)) {
+      candidate_plots <- get('plots', envir = parent, inherits = TRUE)
+      idx <- get('jj', envir = parent, inherits = TRUE)
+      if (length(candidate_plots) >= idx && inherits(candidate_plots[[idx]], 'ggplot')) {
+        plot <- candidate_plots[[idx]]
+      }
+    }
+  }
+
+  if (is.null(plot)) {
+    plot <- tryCatch(ggplot2::last_plot(), error = function(e) NULL)
+  }
+
+  if (!inherits(plot, 'ggplot')) {
+    stop('save_png_with_ragg could not infer a ggplot object; pass plot= explicitly.')
+  }
+
+  if (is.null(width)) {
+    width <- round(disp_w * scale)
+  }
+
+  if (is.null(height)) {
+    height <- round(aspect * width)
+  }
+
+  ggplot2::ggsave(
+    filename = file,
+    plot = plot,
+    device = ragg::agg_png,
+    width = width / dpi,
+    height = height / dpi,
+    units = 'in',
+    dpi = dpi,
+    limitsize = FALSE
+  )
+
+  invisible(file)
+}
+
+
+# Simple font scaling for PNG rendering parity with SVG look.
+scale_plot_fonts <- function(plot, font_scale = 1.0) {
+  if (!inherits(plot, "ggplot") || is.null(font_scale) || !is.finite(font_scale) || font_scale == 1) {
+    return(plot)
+  }
+  get_scaled_text_element <- function(name, default_size) {
+    el <- NULL
+    if (!is.null(plot$theme) && !is.null(plot$theme[[name]])) {
+      el <- plot$theme[[name]]
+    } else {
+      base_theme <- ggplot2::theme_get()
+      if (!is.null(base_theme[[name]])) {
+        el <- base_theme[[name]]
+      }
+    }
+    if (!inherits(el, "element_text")) {
+      el <- ggplot2::element_text(size = default_size)
+    }
+    if (is.null(el$size) || !is.numeric(el$size)) {
+      el$size <- default_size
+    }
+    el$size <- el$size * font_scale
+    if (!is.null(el$lineheight) && is.numeric(el$lineheight)) {
+      # Keep multiline spacing from exploding when font sizes are scaled up.
+      el$lineheight <- max(0.6, el$lineheight / font_scale)
+    }
+    el
+  }
+
+  plot <- plot + do.call(
+    ggplot2::theme,
+    list(
+      text = get_scaled_text_element("text", 11),
+      plot.title = get_scaled_text_element("plot.title", 12),
+      plot.subtitle = get_scaled_text_element("plot.subtitle", 11),
+      plot.caption = get_scaled_text_element("plot.caption", 10),
+      axis.title = get_scaled_text_element("axis.title", 11),
+      axis.title.x = get_scaled_text_element("axis.title.x", 11),
+      axis.title.y = get_scaled_text_element("axis.title.y", 11),
+      axis.text = get_scaled_text_element("axis.text", 10),
+      axis.text.x = get_scaled_text_element("axis.text.x", 10),
+      axis.text.y = get_scaled_text_element("axis.text.y", 10),
+      legend.title = get_scaled_text_element("legend.title", 10),
+      legend.text = get_scaled_text_element("legend.text", 9),
+      strip.text = get_scaled_text_element("strip.text", 10),
+      strip.text.x = get_scaled_text_element("strip.text.x", 10),
+      strip.text.y = get_scaled_text_element("strip.text.y", 10)
+    )
+  )
+
+  # Scale explicit text sizes set in geoms (geom_text, geom_text_npc, annotate("text"), etc.)
+  for (i in seq_along(plot$layers)) {
+    layer <- plot$layers[[i]]
+    geom_name <- class(layer$geom)[1]
+    if (!grepl("GeomText|GeomLabel", geom_name)) {
+      next
+    }
+
+    if (!is.null(layer$aes_params$size) && is.numeric(layer$aes_params$size)) {
+      plot$layers[[i]]$aes_params$size <- layer$aes_params$size * font_scale
+    }
+    if (!is.null(layer$geom_params$size) && is.numeric(layer$geom_params$size)) {
+      plot$layers[[i]]$geom_params$size <- layer$geom_params$size * font_scale
+    }
+
+    # Keep multiline text blocks compact after scaling.
+    if (!is.null(layer$aes_params$lineheight) && is.numeric(layer$aes_params$lineheight)) {
+      plot$layers[[i]]$aes_params$lineheight <- max(0.6, layer$aes_params$lineheight / font_scale)
+    }
+    if (!is.null(layer$geom_params$lineheight) && is.numeric(layer$geom_params$lineheight)) {
+      plot$layers[[i]]$geom_params$lineheight <- max(0.6, layer$geom_params$lineheight / font_scale)
+    }
+  }
+
+  plot
+}
+
+# renderImage / downloadHandler: direct ggplot -> PNG with theme + geom text scaling for readability.
+# `svg` is unused; kept for call sites that still pass NA_character_ or "tmp.svg" from older code.
+render_scaled_png_image <- function(
+  svg = NA_character_,
+  file = NULL,
+  width = NULL,
+  height = NULL,
+  plot = NULL,
+  width_in = NULL,
+  height_in = NULL,
+  disp_w = 700,
+  scale = 2,
+  dpi = 144,
+  font_scale = getOption("easyeyes.png_font_scale", 1.0)
+) {
+  if (is.null(plot)) {
+    plot <- tryCatch(ggplot2::last_plot(), error = function(e) NULL)
+  }
+  if (!inherits(plot, "ggplot")) {
+    stop("render_scaled_png_image requires a ggplot in `plot`.")
+  }
+  plot <- scale_plot_fonts(plot, font_scale = font_scale)
+  effective_dpi <- as.numeric(dpi)
+  png_device <- if (requireNamespace("ragg", quietly = TRUE)) ragg::agg_png else "png"
+
+  if (!is.null(file)) {
+    width_px <- if (is.null(width)) round(disp_w * scale) else width
+    height_px <- if (is.null(height)) {
+      if (!is.null(width_in) && !is.null(height_in)) round((height_in / width_in) * width_px) else width_px
+    } else {
+      height
+    }
+    ggplot2::ggsave(
+      filename = file,
+      plot = plot,
+      device = png_device,
+      width = width_px / effective_dpi,
+      height = height_px / effective_dpi,
+      units = "in",
+      dpi = effective_dpi,
+      limitsize = FALSE
+    )
+    return(invisible(file))
+  }
+
+  if (is.null(width_in) || is.null(height_in)) {
+    stop("In render mode, `width_in` and `height_in` are required.")
+  }
+  png_w <- round(disp_w * scale)
+  png_h <- round((height_in / width_in) * png_w)
   outfile <- tempfile(fileext = ".png")
   ggplot2::ggsave(
-    filename  = outfile,
-    plot      = plot,
-    device    = ragg::agg_png,
-    width     = width,
-    height    = height,
-    units     = units,
-    dpi       = dpi,
-    limitsize = limitsize
+    filename = outfile,
+    plot = plot,
+    device = png_device,
+    width = png_w / effective_dpi,
+    height = png_h / effective_dpi,
+    units = "in",
+    dpi = effective_dpi,
+    limitsize = FALSE
   )
-  list(src = outfile, contenttype = "image/png")
+  list(
+    src = outfile,
+    contenttype = "image/png",
+    width = disp_w,
+    height = round(png_h / scale)
+  )
 }
 
 # Enhanced error logging function for debugging

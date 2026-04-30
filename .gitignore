@@ -6,3 +6,6 @@ www/firebase-config.js
 tmp.svg
 docs/
 .logs/
+.positai
+# Staging copy for export_shinylive.R (recreated each export; do not commit)
+shinylive-appsrc/
