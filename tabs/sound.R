@@ -1,10 +1,12 @@
 #### Sound ####
-soundTab <- tabPanel(
-  'Sound',
+soundTabUI <- function(id) {
+  ns <- NS(id)
+  json_uploaded_condition <- sprintf("output['%s']", ns("jsonUploaded"))
+  tagList(
   fixedRow(column(
     width = 12,
     fileInput(
-      "fileJSON",
+      ns("fileJSON"),
       NULL,
       accept = c(".json"),
       buttonLabel = "Upload json file",
@@ -12,12 +14,12 @@ soundTab <- tabPanel(
       width = "1000px"
     )
   )),
-  fixedRow(column(align = "left", width = 12, downloadButton("downloadNotebook", "Download jupyter notebook"))),
+  fixedRow(column(align = "left", width = 12, downloadButton(ns("downloadNotebook"), "Download jupyter notebook"))),
   fixedRow(column(
     width = 12,
     align = "left",
     radioButtons(
-      "fileTypeSound",
+      ns("fileTypeSound"),
       "Select download plot type:",
       c(
         "pdf" = "pdf",
@@ -35,20 +37,20 @@ soundTab <- tabPanel(
   fixedRow(column(
     width = 12,
     align = "center",
-    tableOutput('sound table')
+    tableOutput(ns("sound table"))
   )),
   fixedRow(column(
     width = 12,
     align = "center",
-    h4("Dynamic Range Compression Model")
+    h4(ns("Dynamic Range Compression Model"))
   )),
   fixedRow(column(
     width = 12,
     align = "center",
-    tableOutput('Dynamic Range Compression Model')
+    tableOutput(ns("Dynamic Range Compression Model"))
   )),      #### sound condition ####
   conditionalPanel(
-  condition = "output.jsonUploaded",
+  condition = json_uploaded_condition,
   #   fixedRow(
   #     column(
   #       width = 6,
@@ -84,7 +86,7 @@ soundTab <- tabPanel(
         width = 6,
         align = "center",
         shinycssloaders::withSpinner(
-          plotOutput("componentIIR0To10", height = "100%", width = "100%"),
+          plotOutput(ns("componentIIR0To10"), height = "100%", width = "100%"),
           type = 4
         )
       ),
@@ -92,7 +94,7 @@ soundTab <- tabPanel(
         width = 6,
         align = "center",
         shinycssloaders::withSpinner(
-          plotOutput("componentIIR0To50", height = "100%", width = "100%"),
+          plotOutput(ns("componentIIR0To50"), height = "100%", width = "100%"),
           type = 4
         )
       )
@@ -101,35 +103,35 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        downloadButton("downloadComponentIIR0To10", "Download")
+        downloadButton(ns("downloadComponentIIR0To10"), "Download")
       ),
       column(
         width = 6,
         align = "center",
-        downloadButton("downloadComponentIIR0To50", "Download")
+        downloadButton(ns("downloadComponentIIR0To50"), "Download")
       )
     ),
     fixedRow(column(
       width = 6,
       align = "center",
       shinycssloaders::withSpinner(
-        plotOutput("componentIIR0To400", height = "100%", width = "100%"),
+        plotOutput(ns("componentIIR0To400"), height = "100%", width = "100%"),
         type = 4
       )
     )),
     fixedRow(column(
       width = 6,
       align = "center",
-      downloadButton("downloadComponentIIR0To400", "Download")
+      downloadButton(ns("downloadComponentIIR0To400"), "Download")
     )),
     conditionalPanel(
-    condition = "output.jsonUploaded",
+    condition = json_uploaded_condition,
       fixedRow(
         column(
           width = 6,
           align = "center",
           shinycssloaders::withSpinner(
-            plotOutput("componentIRPSD", height = "100%", width = "100%"),
+            plotOutput(ns("componentIRPSD"), height = "100%", width = "100%"),
             type = 4
           )
         ),
@@ -137,7 +139,7 @@ soundTab <- tabPanel(
           width = 6,
           align = "center",
           shinycssloaders::withSpinner(
-            plotOutput("componentIR0To6", height = "100%", width = "100%"),
+            plotOutput(ns("componentIR0To6"), height = "100%", width = "100%"),
             type = 4
           )
         ),
@@ -147,12 +149,12 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        downloadButton("downloadComponentIRPSD", "Download")
+        downloadButton(ns("downloadComponentIRPSD"), "Download")
       ),
       column(
         width = 6,
         align = "center",
-        downloadButton("downloadComponentIR0To6", "Download")
+        downloadButton(ns("downloadComponentIR0To6"), "Download")
       )
     ),
     fixedRow(
@@ -160,7 +162,7 @@ soundTab <- tabPanel(
         width = 6,
         align = "center",
         shinycssloaders::withSpinner(
-          plotOutput("componentIR0To50", height = "100%", width = "100%"),
+          plotOutput(ns("componentIR0To50"), height = "100%", width = "100%"),
           type = 4
         )
       ),
@@ -168,7 +170,7 @@ soundTab <- tabPanel(
         width = 6,
         align = "center",
         shinycssloaders::withSpinner(
-          plotOutput("componentIR0To400", height = "100%", width = "100%"),
+          plotOutput(ns("componentIR0To400"), height = "100%", width = "100%"),
           type = 4
         )
       )
@@ -177,12 +179,12 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        downloadButton("downloadComponentIR0To50", "Download")
+        downloadButton(ns("downloadComponentIR0To50"), "Download")
       ),
       column(
         width = 6,
         align = "center",
-        downloadButton("downloadComponentIR0To400", "Download")
+        downloadButton(ns("downloadComponentIR0To400"), "Download")
       )
     ),
     fixedRow(
@@ -199,7 +201,7 @@ soundTab <- tabPanel(
         width = 6,
         align = "center",
         shinycssloaders::withSpinner(
-          plotOutput("cumSumPowerPlotComponent", height = "100%", width = "100%"),
+          plotOutput(ns("cumSumPowerPlotComponent"), height = "100%", width = "100%"),
           type = 4
         )
       )
@@ -213,20 +215,20 @@ soundTab <- tabPanel(
       column(
         width = 6,
         align = "center",
-        downloadButton("downloadCumSumPowerPlotcomponent", "Download")
+        downloadButton(ns("downloadCumSumPowerPlotcomponent"), "Download")
       )
     ),
   ),
   
   ####  sound all ####
   conditionalPanel(
-    condition = "output.jsonUploaded",
+    condition = json_uploaded_condition,
     fixedRow(
       style = "margin-top:20px; margin-bottom:0px;",
       column(
         width = 6, align = "center",
         shinycssloaders::withSpinner(
-          imageOutput("sound_level_plot", height = "100%", width = "100%"),
+          imageOutput(ns("sound_level_plot"), height = "100%", width = "100%"),
           type = 4
         )
       ),
@@ -240,33 +242,33 @@ soundTab <- tabPanel(
   fixedRow(column(
     width = 6,
     align = "center",
-    downloadButton("downloadSoundLevelPlot", "Download")
+    downloadButton(ns("downloadSoundLevelPlot"), "Download")
   )),
   fixedRow(column(
     width = 12,
     align = "center",
     shinycssloaders::withSpinner(
-      imageOutput("volume power variation", width = "100%", height = "100%"),
+      imageOutput(ns("volume power variation"), width = "100%", height = "100%"),
       type = 4
     )
   )),
   fixedRow(column(
     width = 12,
     align = "center",
-    downloadButton("downloadVolumePowerVariation", "Download")
+    downloadButton(ns("downloadVolumePowerVariation"), "Download")
   )),
   fixedRow(column(
     width = 12,
     align = "center",
     shinycssloaders::withSpinner(
-      imageOutput("power variation", width = "100%", height = "100%"),
+      imageOutput(ns("power variation"), width = "100%", height = "100%"),
       type = 4
     )
   )),
   fixedRow(column(
     width = 12,
     align = "center",
-    downloadButton("downloadPowerVariation", "Download")
+    downloadButton(ns("downloadPowerVariation"), "Download")
   )),
   # fixedRow(column(
   #   width = 12,
@@ -281,30 +283,29 @@ soundTab <- tabPanel(
   fixedRow(column(
     width = 12,
     align = "center",
-    shinycssloaders::withSpinner(imageOutput("record freq plot component", height = "100%"), type = 4)
+    shinycssloaders::withSpinner(imageOutput(ns("record freq plot component"), height = "100%"), type = 4)
   )),
   fixedRow(column(
     width = 12,
     align = "center",
-    downloadButton("downloadRecordFreqPlotComponent", "Download")
+    downloadButton(ns("downloadRecordFreqPlotComponent"), "Download")
   )),
   fluidRow(style = "padding-top:0px;",
            column(
              width = 12,
              align = "center",
-             imageOutput("autocorrelation", height = "100%")
+             imageOutput(ns("autocorrelation"), height = "100%")
            )),
   fixedRow(
     width = 12,
     align = "center",
-    actionButton("do", "Plot Autocorrelation")
+    actionButton(ns("do"), "Plot Autocorrelation")
   ),
   fixedRow(
     width = 12,
     align = "center",
-    downloadButton("downloadAutocorrelation", "Download")
+    downloadButton(ns("downloadAutocorrelation"), "Download")
   )
   
 )
-
-  
+}

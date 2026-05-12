@@ -17,8 +17,12 @@ document.addEventListener("DOMContentLoaded", function () {
   // };
   let toShiny;
   let toShinyOptions;
+  const profileNS = window.easyeyesProfileNS || "";
+  const profileId = (id) => profileNS + id;
+  const getProfileElement = (id) => document.getElementById(profileId(id)) || document.getElementById(id);
+  const setProfileInput = (id, value) => Shiny.setInputValue(profileId(id), value);
   let checkBoxs = [];
-  document.getElementById("profilePlot").innerHTML =
+  getProfileElement("profilePlot").innerHTML =
     "<p style = 'font-size:20px'> Retrieving database menu <p> <br> <div class='loader-profile'></div>";
   const app = firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
@@ -347,7 +351,7 @@ document.addEventListener("DOMContentLoaded", function () {
   async function updatePlot(whatToPlot) {
     console.log(whatToPlot);
     // const selectedModels = Array.from(modelsContainer.querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value);
-    document.getElementById("profilePlot").innerHTML =
+    getProfileElement("profilePlot").innerHTML =
       "<div class='loader-profile'></div>";
     const data = [];
     let i = 0;
@@ -573,10 +577,10 @@ document.addEventListener("DOMContentLoaded", function () {
             data.push(doc.data());
           }
         });
-        Shiny.setInputValue("transducerType", transducerSelect.value);
-        Shiny.setInputValue("plotTitle", "Profiles for " + selectedValue);
-        Shiny.setInputValue("toShiny", JSON.stringify(toShiny));
-        Shiny.setInputValue("totalData", JSON.stringify(data));
+        setProfileInput("transducerType", transducerSelect.value);
+        setProfileInput("plotTitle", "Profiles for " + selectedValue);
+        setProfileInput("toShiny", JSON.stringify(toShiny));
+        setProfileInput("totalData", JSON.stringify(data));
       });
     } catch (error) {
       console.error("Error updating plot:", error);
@@ -584,7 +588,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   async function updateOptions(whatToPlot) {
-    document.getElementById("profilePlot").innerHTML =
+    getProfileElement("profilePlot").innerHTML =
       "<div class='loader-profile'></div>";
     const data = [];
     let i = 0;
@@ -812,13 +816,13 @@ document.addEventListener("DOMContentLoaded", function () {
             data.push(doc.data());
           }
         });
-        Shiny.setInputValue("transducerType", transducerSelect.value);
-        Shiny.setInputValue("toShinyOptions", JSON.stringify(toShinyOptions));
+        setProfileInput("transducerType", transducerSelect.value);
+        setProfileInput("toShinyOptions", JSON.stringify(toShinyOptions));
         console.log("done");
         Shiny.addCustomMessageHandler("options", function (message) {
           console.log(message);
-          document.getElementById("profilePlot").display = false;
-          document.getElementById("profilePlot").innerHTML = "";
+          getProfileElement("profilePlot").display = false;
+          getProfileElement("profilePlot").innerHTML = "";
         });
       });
     } catch (error) {
@@ -850,10 +854,10 @@ document.addEventListener("DOMContentLoaded", function () {
     updateAspectRatioContainer();
   });
 
-  document.getElementById("plotButton").onclick = async () => {
-    document.getElementById("profilePlot").innerHTML =
+  getProfileElement("plotButton").onclick = async () => {
+    getProfileElement("profilePlot").innerHTML =
       "<div class='loader-profile'></div>";
-    document.getElementById("shiftedProfilePlot").innerHTML = "";
+    getProfileElement("shiftedProfilePlot").innerHTML = "";
     if (
       transducerSelect.value == "Microphones" &&
       deviceBoolContainer.checked
@@ -889,9 +893,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 
-  document.getElementById("refreshButton").onclick = async () => {
-    document.getElementById("shiftedProfilePlot").display = false;
-    document.getElementById("shiftedProfilePlot").innerHTML = "";
+  getProfileElement("refreshButton").onclick = async () => {
+    getProfileElement("shiftedProfilePlot").display = false;
+    getProfileElement("shiftedProfilePlot").innerHTML = "";
     if (
       transducerSelect.value == "Microphones" &&
       deviceBoolContainer.checked
@@ -927,7 +931,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 
-  document.getElementById("profilePlot").innerHTML =
+  getProfileElement("profilePlot").innerHTML =
     "<p style = 'font-size:20px'> Hit refresh or use selector to retrieve profiles <p>";
   } // end loadProfiles
   function isVisible(el) {
@@ -935,7 +939,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function tryLoadProfiles() {
     if (profilesLoaded) return;
-    const plotEl = document.getElementById("profilePlot");
+    const plotEl = getProfileElement("profilePlot");
     if (isVisible(plotEl)) {
       profilesLoaded = true;
       loadProfiles();
@@ -944,7 +948,7 @@ document.addEventListener("DOMContentLoaded", function () {
   setTimeout(tryLoadProfiles, 0);
   document.body.addEventListener('shown.bs.tab', tryLoadProfiles, true);
   document.addEventListener('click', tryLoadProfiles, true);
-  const plotEl = document.getElementById("profilePlot");
+  const plotEl = getProfileElement("profilePlot");
   if (plotEl && plotEl.parentElement) {
     const obs = new MutationObserver(tryLoadProfiles);
     obs.observe(plotEl.parentElement, { attributes: true, attributeFilter: ['style','class'], subtree: true });

@@ -215,12 +215,12 @@ shinyUI(
     tabPanel("Stats", value = "Stats", statTab),
     tabPanel("Plots", value = "Plots", plotsTab),
     tabPanel("ANOVA", value = "Anova", anovaTab),
-    tabPanel("Distance", value = "Distance", distanceTab),
-    tabPanel("Quality", value = "Quality", qualityTab),
-    tabPanel("Timing", value = 'Timing', timingTab),
-    tabPanel("Staircases", value = "Staircases", staircasesTab),
-    tabPanel("Sound", value = "Sound", soundTab),
-    tabPanel("Profile", value = "Profile", profileTab),
-    tabPanel("FormSpree", value = "FormSpree", formSpreeTab)
+    tabPanel("Distance", value = "Distance", distanceTabUI("distance")),
+    tabPanel("Quality", value = "Quality", qualityTabUI("quality")),
+    tabPanel("Timing", value = 'Timing', timingTabUI("timing")),
+    tabPanel("Staircases", value = "Staircases", staircasesTabUI("staircases")),
+    tabPanel("Sound", value = "Sound", soundTabUI("sound")),
+    tabPanel("Profile", value = "Profile", profileTabUI("profile")),
+    tabPanel("FormSpree", value = "FormSpree", formSpreeTabUI("formSpree"))
   )
 )

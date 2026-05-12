@@ -66,6 +66,81 @@ savePlot <- function(plot, filename, fileType, width = 8, height = 6) {
   }
 }
 
+plot_download_spec <- function(plot, filename, theme = NULL, width = 8, height = 6) {
+  list(
+    plot = plot,
+    filename = filename,
+    theme = theme,
+    width = width,
+    height = height
+  )
+}
+
+plot_list_download_specs <- function(plotList,
+                                     fileNames,
+                                     theme = NULL,
+                                     width = 8,
+                                     height = 6,
+                                     heights = NULL,
+                                     append_index = FALSE) {
+  if (length(plotList) < 1) {
+    return(list())
+  }
+
+  lapply(seq_along(plotList), function(i) {
+    spec_height <- if (!is.null(heights) && length(heights) >= i) heights[[i]] else height
+    filename <- if (append_index) paste0(fileNames[[i]], i) else fileNames[[i]]
+    plot_download_spec(
+      plot = plotList[[i]],
+      filename = filename,
+      theme = theme,
+      width = width,
+      height = spec_height
+    )
+  })
+}
+
+save_download_specs_zip <- function(specs, zip_file, fileType, prefix = "", empty_message = "No plots available for this tab.") {
+  owd <- setwd(tempdir())
+  on.exit(setwd(owd), add = TRUE)
+  if (is.null(prefix)) {
+    prefix <- ""
+  }
+
+  saved_files <- character()
+  if (length(specs) > 0) {
+    for (spec in specs) {
+      plot <- spec$plot
+      if (is_placeholder_plot(plot)) {
+        next
+      }
+      if (!is.null(spec$theme)) {
+        plot <- plot + spec$theme
+      }
+
+      filename <- paste0(prefix, spec$filename, ".", fileType)
+      width <- if (is.null(spec$width)) 8 else spec$width
+      height <- if (is.null(spec$height)) 6 else spec$height
+      savePlot(
+        plot = plot,
+        filename = filename,
+        fileType = fileType,
+        width = width,
+        height = height
+      )
+      saved_files <- c(saved_files, filename)
+    }
+  }
+
+  if (length(saved_files) < 1) {
+    readme <- "README.txt"
+    writeLines(empty_message, readme)
+    saved_files <- readme
+  }
+
+  zip(zip_file, saved_files)
+}
+
 save_plot_with_error_handling <- function(plot, filename, 
                                           width = 6, height = 4,
                                           size = 5,

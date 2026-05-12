@@ -19,6 +19,24 @@ compute_auto_height <- function(base_height, n_items, per_row, row_increase) {
   return(base_height * height_factor)
 }
 
+distance_geom_text_npc <- function(npcx, npcy, label, ...) {
+  if (is.numeric(npcx) && is.numeric(npcy)) {
+    return(ggpp::geom_text_npc(
+      npcx = npcx,
+      npcy = npcy,
+      label = label,
+      ...
+    ))
+  }
+
+  ggpp::geom_text_npc(
+    data = data.frame(npcx = npcx, npcy = npcy, label = label),
+    mapping = ggplot2::aes(npcx = npcx, npcy = npcy, label = label),
+    inherit.aes = FALSE,
+    ...
+  )
+}
+
 # Consistent participant→color mapping across plots.
 # Delegates to participant_style_map() (in participant_styles.R) which uses
 # farthest-first selection in Lab space for maximal perceptual separation.
@@ -1872,11 +1890,19 @@ plot_eye_feet_position <- function(distanceCalibrationResults, debug = TRUE) {
 
   p <- NULL
   # Create the plot directly without test plots
+  screen_rect <- data.frame(
+    xmin = 0,
+    xmax = screen_width_cm,
+    ymin = 0,
+    ymax = screen_height_cm
+  )
+
   tryCatch({
     p <- ggplot(eye_feet_data, aes(x = foot_x_cm_clipped, y = foot_y_cm_clipped)) +
       # Add screen boundary rectangle (quarter thickness)
-      geom_rect(aes(xmin = 0, xmax = screen_width_cm,
-                    ymin = 0, ymax = screen_height_cm),
+      geom_rect(data = screen_rect,
+                aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+                inherit.aes = FALSE,
                 fill = NA, color = "black", linewidth = 0.3, alpha = 0.7) +
       # Add points with fill aesthetic to avoid server color conflicts
       geom_point(aes(fill = ratio_continuous, shape = session_limited), 
@@ -1944,19 +1970,15 @@ plot_eye_feet_position <- function(distanceCalibrationResults, debug = TRUE) {
         axis.line.y.right = element_blank()
       ) +
       # # Labels - set these LAST to ensure they stick
-      ggpp::geom_text_npc(npcx = 0.5, npcy = 0.98, 
-                          label = "Rectangle: screen. Points beyond 50% margin clipped. Origin (0,0): top-left", 
-                          size = 2.5, hjust = 0.5, vjust = 1) +
+      distance_geom_text_npc(0.5, 0.98,
+                             "Rectangle: screen. Points beyond 50% margin clipped. Origin (0,0): top-left",
+                             size = 2.5, hjust = 0.5, vjust = 1) +
       labs(
         subtitle = "fOverWidth calibration/median(check) \nvs. foot position during calibration",
         x = "Eye foot X (cm)",
         y = "Eye foot Y (cm)"
       ) +
-      ggpp::geom_text_npc(
-        data = NULL,
-        aes(npcx = "right", npcy = "bottom"),
-        label = statement
-      ) +
+      distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
       # # Screen annotation (moved close to screen outline, same size as Y label, not bold)
       annotate("text", x = screen_width_cm/2, y = -y_margin_cm*0.1,
                label = "Screen", hjust = 0.5, vjust = 0.5, size = 4, color = "black") +
@@ -2054,10 +2076,18 @@ plot_eye_feet_position_during_check <- function(distanceCalibrationResults) {
   statement <- distanceCalibrationResults$statement
 
   p <- NULL
+  screen_rect <- data.frame(
+    xmin = 0,
+    xmax = screen_width_cm,
+    ymin = 0,
+    ymax = screen_height_cm
+  )
+
   tryCatch({
     p <- ggplot(eye_feet_data, aes(x = foot_x_cm_clipped, y = foot_y_cm_clipped)) +
-      geom_rect(aes(xmin = 0, xmax = screen_width_cm,
-                    ymin = 0, ymax = screen_height_cm),
+      geom_rect(data = screen_rect,
+                aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+                inherit.aes = FALSE,
                 fill = NA, color = "black", linewidth = 0.3, alpha = 0.7) +
       geom_point(aes(fill = ratio_continuous, shape = session_limited), 
                  size = 4, alpha = 0.9, color = "black", stroke = 0.2) +
@@ -2116,19 +2146,15 @@ plot_eye_feet_position_during_check <- function(distanceCalibrationResults) {
         axis.line.x.top = element_blank(),
         axis.line.y.right = element_blank()
       ) +
-      ggpp::geom_text_npc(npcx = 0.5, npcy = 0.98, 
-                          label = "Rectangle: screen. Points beyond 50% margin clipped. Origin (0,0): top-left", 
-                          size = 2.5, hjust = 0.5, vjust = 1) +
+      distance_geom_text_npc(0.5, 0.98,
+                             "Rectangle: screen. Points beyond 50% margin clipped. Origin (0,0): top-left",
+                             size = 2.5, hjust = 0.5, vjust = 1) +
       labs(
         subtitle = "Measured over requested distance vs. foot position\nduring check",
         x = "Eye foot X (cm)",
         y = "Eye foot Y (cm)"
       ) +
-      ggpp::geom_text_npc(
-        data = NULL,
-        aes(npcx = "right", npcy = "bottom"),
-        label = statement
-      ) +
+      distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
       annotate("text", x = screen_width_cm/2, y = -y_margin_cm*0.1,
                label = "Screen", hjust = 0.5, vjust = 0.5, size = 4, color = "black") +
       annotate("text", x = x_min+1, y = y_min + 1,
@@ -2222,11 +2248,19 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
   param_tbl <- build_param_table(eye_feet_data)
 
   # Create the plot
+  screen_rect <- data.frame(
+    xmin = 0,
+    xmax = screen_width_cm,
+    ymin = 0,
+    ymax = screen_height_cm
+  )
+
   tryCatch({
     p <- ggplot(eye_feet_data, aes(x = avg_eye_x_cm, y = avg_eye_y_cm)) +
       # Add screen boundary rectangle
-      geom_rect(aes(xmin = 0, xmax = screen_width_cm,
-                    ymin = 0, ymax = screen_height_cm),
+      geom_rect(data = screen_rect,
+                aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+                inherit.aes = FALSE,
                 fill = NA, color = "black", linewidth = 0.3, alpha = 0.7) +
       # Add points colored by participant
       geom_point(aes(color = participant), size = 3, alpha = 0.8) +
@@ -2267,19 +2301,15 @@ plot_foot_position_during_calibration <- function(distanceCalibrationResults) {
         axis.line.y.right = element_blank()
       ) +
       # Labels - set these LAST to ensure they stick
-      ggpp::geom_text_npc(npcx = 0.5, npcy = 0.98, 
-                          label = "Rectangle: screen. Plot range expanded. Origin (0,0): top-left", 
-                          size = 2.5, hjust = 0.5, vjust = 1) +
+      distance_geom_text_npc(0.5, 0.98,
+                             "Rectangle: screen. Plot range expanded. Origin (0,0): top-left",
+                             size = 2.5, hjust = 0.5, vjust = 1) +
       labs(
         subtitle = "Foot position during calibration",
         x = "Eye foot X (cm)",
         y = "Eye foot Y (cm)"
       ) +
-      ggpp::geom_text_npc(
-        data = NULL,
-        aes(npcx = "right", npcy = "bottom"),
-        label = statement
-      ) +
+      distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
       # Screen annotation (moved close to screen outline, same size as Y label, not bold)
       annotate("text", x = screen_width_cm/2, y = -y_margin_cm*0.1,
                label = "Screen", hjust = 0.5, vjust = 0.5, size = 4, color = "black") +
@@ -2337,8 +2367,7 @@ get_bs_vd <- function(data_list) {
   return(bs_vwing_ds)
 }
 
-plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed, participant_info = NULL) {
-
+plot_distance_common_context <- function(distanceCalibrationResults, participant_info = NULL) {
   check_data <- filter_accepted_for_plot(distanceCalibrationResults$checkJSON)
   calib_data <- filter_accepted_for_plot(distanceCalibrationResults$TJSON)  # Calibration data
   # For rejection-rate histograms we need ALL snapshots (accepted + rejected).
@@ -2361,6 +2390,92 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   participant_colors <- get_participant_colors(distanceCalibrationResults, participant_fallback)
   style_map <- get_participant_style_map(distanceCalibrationResults, participant_fallback)
   mixed_key <- make_mixed_key_glyph(style_map$style_table)
+
+  list(
+    check_data = check_data,
+    calib_data = calib_data,
+    camera_res_stats = camera_res_stats,
+    calib_all = calib_all,
+    check_all = check_all,
+    statement = statement,
+    camera = camera,
+    participant_colors = participant_colors,
+    style_map = style_map,
+    mixed_key = mixed_key
+  )
+}
+
+plot_distance <- function(distanceCalibrationResults,
+                          calibrateTrackDistanceCheckLengthSDLogAllowed,
+                          participant_info = NULL,
+                          bundle = c("all", "dot", "scatter")) {
+
+  bundle <- match.arg(bundle)
+  build_dot <- bundle %in% c("all", "dot")
+  build_scatter <- bundle %in% c("all", "scatter")
+
+  context <- plot_distance_common_context(distanceCalibrationResults, participant_info)
+  if (is.null(context)) return(NULL)
+  check_data <- context$check_data
+  calib_data <- context$calib_data
+  camera_res_stats <- context$camera_res_stats
+  calib_all <- context$calib_all
+  check_all <- context$check_all
+  statement <- context$statement
+  camera <- context$camera
+  participant_colors <- context$participant_colors
+  style_map <- context$style_map
+  mixed_key <- context$mixed_key
+
+  distance <- calib_data
+
+  distance_individual <- tibble(participant = character())
+  p1 <- p2 <- p4 <- p4b <- p5b <- p6 <- p7 <- p8 <- p9 <- p10 <- NULL
+  p10b <- p10c <- p10d <- p10e <- p10f <- p10g <- NULL
+  p_fow_cal_vs_check <- NULL
+  p_fow_cal_vs_check_data <- NULL
+  p4_result <- p4b_result <- NULL
+  p4b_height <- NULL
+  max_count <- p8_max_count <- p9_max_count <- p10_max_count <- 0
+  p10b_max_count <- p10c_max_count <- 0
+  p10d_max_count <- p10e_max_count <- p10f_max_count <- p10g_max_count <- 0
+  p10d_n_participants <- p10e_n_participants <- p10f_n_participants <- p10g_n_participants <- 0
+  ratio_data <- raw_pxPerCm_data <- raw_objectCm_data <- raw_factor_data <- tibble(participant = character())
+  calib_reject <- check_reject <- tibble(participant = character())
+  fOverWidth_hist_check <- NULL
+  fOverWidth_hist_calibration <- NULL
+  fOverWidth_scatter <- NULL
+  fOverWidth_hist_all_calibration <- NULL
+  fOverWidth_hist_all_check <- NULL
+  fOverWidth_cal_vs_check_scatter <- NULL
+
+  sizeCheck_plots <- plot_sizeCheck(
+    distanceCalibrationResults,
+    calibrateTrackDistanceCheckLengthSDLogAllowed,
+    participant_colors = participant_colors
+  )
+
+  object_length_hist <- NULL
+  if (!is.null(participant_info) && is.data.frame(participant_info) && nrow(participant_info) > 0) {
+    object_length_hist <- objectCm_hist(
+      participant_info,
+      distanceCalibrationResults,
+      participant_colors = participant_colors
+    )
+  }
+
+  bs_vd <- NULL
+  if (!is.null(distanceCalibrationResults$filtered) && is.list(distanceCalibrationResults$filtered)) {
+    bs_vd <- bs_vd_hist(distanceCalibrationResults$filtered, participant_colors = participant_colors)
+  }
+
+  distance_production_plots <- NULL
+  eyeToPoint_plot <- NULL
+  eyesToFoot_estimated_plot <- NULL
+  ipd_plots <- NULL
+  eye_feet_check_plot <- NULL
+
+  if (build_scatter) {
   
   # ===== PREPARE CHECK DATA =====
   # Filter out jitter data (exclude rows where json_type indicates jitter)
@@ -2465,8 +2580,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       geom_point(size = 2.5, stroke = 1) +
       scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
                          labels = c("calibration" = "Calibration", "check" = "Check")) +
-      ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                          label = paste0('N=', n_distinct(p1_data$participant))) + 
+      distance_geom_text_npc("left", "top",
+                             paste0('N=', n_distinct(p1_data$participant))) + 
       geom_abline(slope = 1, intercept = 0, linetype = "solid", color = "gray70", linewidth = 0.15, alpha = 0.4) +
       scale_x_log10(
         limits = c(p1_min_val, p1_max_val),
@@ -2495,7 +2610,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         legend.justification = "left",
         legend.box.just = "left"
       ) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 2.5, family = "sans", fontface = "plain") +
+      distance_geom_text_npc("right", "bottom", statement, size = 2.5, family = "sans", fontface = "plain") +
       labs(subtitle = 'imageBasedEyesToPointCm vs. rulerBasedEyesToPointCm',
            x = 'rulerBasedEyesToPointCm',
            y = 'imageBasedEyesToPointCm')
@@ -2519,10 +2634,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       geom_point(size = 2.5, stroke = 1) +
       scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
                          labels = c("calibration" = "Calibration", "check" = "Check")) +
-      ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                          label = paste0('N=', n_distinct(p2_data$participant), '\n',
-                                         'Mean=', p2_mean_formatted, '\n',
-                                         'SD=', p2_sd_formatted)) +
+      distance_geom_text_npc("left", "top",
+                             paste0('N=', n_distinct(p2_data$participant), '\n',
+                                    'Mean=', p2_mean_formatted, '\n',
+                                    'SD=', p2_sd_formatted)) +
       geom_hline(yintercept = 1, linetype = "solid", color = "gray70", linewidth = 0.15, alpha = 0.4) +
       scale_x_log10(
         limits = c(p1_min_val, p2_x_max_val),
@@ -2552,7 +2667,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         legend.justification = "left",
         legend.box.just = "left"
       ) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 2.5, family = "sans", fontface = "plain") +
+      distance_geom_text_npc("right", "bottom", statement, size = 2.5, family = "sans", fontface = "plain") +
       labs(subtitle = 'imageBasedEyesToPointCm over rulerBasedEyesToPointCm',
            x = 'rulerBasedEyesToPointCm',
            y = 'imageBasedEyesToPointCm / rulerBasedEyesToPointCm')
@@ -2580,12 +2695,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   # - objectCm_hist
   # These are returned as sub-objects so server.R can read them from one place.
   # ============================================================================
-  sizeCheck_plots <- plot_sizeCheck(
-    distanceCalibrationResults,
-    calibrateTrackDistanceCheckLengthSDLogAllowed,
-    participant_colors = participant_colors
-  )
-
   eyeToPoint_plot <- plot_eyeToPointCm_vs_requestedEyesToFootCm(
     distanceCalibrationResults,
     participant_colors = participant_colors
@@ -2596,8 +2705,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     participant_colors = participant_colors
   )
 
-  distance_production_plots <- NULL
-  object_length_hist <- NULL
   if (!is.null(participant_info) && is.data.frame(participant_info) && nrow(participant_info) > 0) {
     distance_production_plots <- plot_distance_production(
       distanceCalibrationResults,
@@ -2605,17 +2712,6 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       calibrateTrackDistanceCheckLengthSDLogAllowed,
       participant_colors = participant_colors
     )
-    object_length_hist <- objectCm_hist(
-      participant_info,
-      distanceCalibrationResults,
-      participant_colors = participant_colors
-    )
-  }
-
-  # Blindspot viewing-distance histograms need the per-session raw data_list.
-  bs_vd <- NULL
-  if (!is.null(distanceCalibrationResults$filtered) && is.list(distanceCalibrationResults$filtered)) {
-    bs_vd <- bs_vd_hist(distanceCalibrationResults$filtered, participant_colors = participant_colors)
   }
 
   # ipd-related plots and foot-position-during-check plot (so server.R can call plot_distance only)
@@ -2669,8 +2765,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       p5b <- ggplot(ratio_data_p5b, aes(x = fOverWidth_check, y = fOverWidth_ratio)) +
         geom_point(aes(color = participant), size = 3, alpha = 0.8) +
         geom_hline(yintercept = 1, linetype = "solid", color = "gray70", linewidth = 0.15, alpha = 0.4) +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(ratio_data_p5b$participant))) +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(ratio_data_p5b$participant))) +
         scale_x_log10(limits = c(x_min, x_max), 
                       breaks = scales::log_breaks(n = 8)) +
         scale_y_continuous(limits = c(y_min, y_max)) +
@@ -2696,7 +2792,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           legend.key.size = unit(0.4, "cm"),
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+        distance_geom_text_npc("right", "bottom", statement) +
         labs(subtitle = 'Focal length: calibration/check vs. check',
              x = 'fOverWidth: check',
              y = 'fOverWidth: calibration / check')
@@ -2757,8 +2853,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           p6 <- ggplot(plot_data, aes(x = spotDeg, y = ratio)) +
             geom_point(aes(color = participant), size = 3, alpha = 0.8) +
             geom_hline(yintercept = 1, linetype = "solid", color = "gray70", linewidth = 0.15, alpha = 0.4) +
-            ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                                label = paste0('N=', n_distinct(plot_data$participant))) +
+            distance_geom_text_npc("left", "top",
+                                   paste0('N=', n_distinct(plot_data$participant))) +
             scale_x_log10(limits = c(x_min, x_max), 
                           breaks = scales::log_breaks(n = 8)) +
             scale_y_log10(limits = c(y_min, y_max), 
@@ -2785,7 +2881,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
               legend.key.size = unit(0.4, "cm"),
               plot.margin = margin(5, 5, 5, 5, "pt")
             ) +
-            ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+            distance_geom_text_npc("right", "bottom", statement) +
             labs(subtitle = 'Calibrated over mean factorVpxCm vs. spot diameter',
                  x = 'Spot diameter (deg)',
                  y = 'factorVpxCm over geometric mean')
@@ -2794,6 +2890,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
   
+  }
+
+  if (build_dot) {
   # Plot 7: Histogram of fVpx median(calibration) / median(check)
   # BUG FIX: Use raw_fVpx data and compute MEDIAN ratio per participant
   # This ensures the summary histogram shows the median of individual ratios,
@@ -2858,11 +2957,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ) +
         scale_x_continuous(limits = c(x_min, x_max),
                            n.breaks = 8) +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(ratio_data$participant),
-                                           '\nMean(x) = ', format(round(mean_ratio, 3), nsmall = 3),
-                                           '\nSD(x) = ', format(round(sd_ratio, 3), nsmall = 3)),
-                            size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(ratio_data$participant),
+                                      '\nMean(x) = ', format(round(mean_ratio, 3), nsmall = 3),
+                                      '\nSD(x) = ', format(round(sd_ratio, 3), nsmall = 3)),
+                               size = 3, family = "sans", fontface = "plain") +
         guides(color = guide_legend(
           ncol = 4,
           title = "Each dot = median ratio for one participant",
@@ -2872,7 +2971,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keywidth = unit(0.3, "cm"),
           keyheight = unit(0.3, "cm")
         )) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
         labs(
           subtitle = 'Histogram of fOverWidth median(calibration)/median(check)',
           x = "median(calibration)/median(check)",
@@ -2978,10 +3077,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           }
         ) +
         annotation_logticks(sides = "b") +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(raw_pxPerCm_data$participant),
-                                           '\nSD(log10(x)) = ', format(round(sd_log10_relative, 3), nsmall = 3)),
-                            size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(raw_pxPerCm_data$participant),
+                                      '\nSD(log10(x)) = ', format(round(sd_log10_relative, 3), nsmall = 3)),
+                               size = 3, family = "sans", fontface = "plain") +
         guides(color = guide_legend(
           ncol = 3,
           title = "",
@@ -2989,7 +3088,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keywidth = unit(0.3, "cm"),
           keyheight = unit(0.3, "cm")
         )) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
         labs(
           subtitle = 'Histogram of raw pxPerCm / check',
           x = "pxPerCm / check",
@@ -3073,10 +3172,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ) +
         scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=9)) +
         annotation_logticks(sides = "b") +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(raw_objectCm_data$participant),
-                                           '\nSD(log10(x)) = ', format(round(sd_log10_relative, 3), nsmall = 3)),
-                            size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(raw_objectCm_data$participant),
+                                      '\nSD(log10(x)) = ', format(round(sd_log10_relative, 3), nsmall = 3)),
+                               size = 3, family = "sans", fontface = "plain") +
         guides(color = guide_legend(
           ncol = 3,
           title = "",
@@ -3084,7 +3183,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keywidth = unit(0.3, "cm"),
           keyheight = unit(0.3, "cm")
         )) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
         labs(
           subtitle = 'Histogram of raw objectMeasuredCm / median',
           x = "objectMeasuredCm / median",
@@ -3169,11 +3268,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ) +
         scale_x_continuous(limits = c(x_min, x_max),
                            n.breaks = 8) +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(raw_factor_data$participant),
-                                           '\nMean(x) = ', format(round(mean_relative, 3), nsmall = 3),
-                                           '\nSD(x) = ', format(round(sd_relative, 3), nsmall = 3)),
-                            size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(raw_factor_data$participant),
+                                      '\nMean(x) = ', format(round(mean_relative, 3), nsmall = 3),
+                                      '\nSD(x) = ', format(round(sd_relative, 3), nsmall = 3)),
+                               size = 3, family = "sans", fontface = "plain") +
         guides(color = guide_legend(
           ncol = 3,
           title = "",
@@ -3181,7 +3280,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keywidth = unit(0.3, "cm"),
           keyheight = unit(0.3, "cm")
         )) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
         labs(
           subtitle = 'Histogram of fOverWidth: calibration/median(check)',
           x = "calibration/median(check)",
@@ -3266,11 +3365,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           breaks = seq(0, 1, by = 0.1),
           labels = scales::label_number(accuracy = 0.01)
         ) +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(calib_reject$participant),
-                                           '\nMean=', format(round(mean_prop, 3), nsmall = 3),
-                                           '\nSD=', format(round(sd_prop, 3), nsmall = 3)),
-                            size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(calib_reject$participant),
+                                      '\nMean=', format(round(mean_prop, 3), nsmall = 3),
+                                      '\nSD=', format(round(sd_prop, 3), nsmall = 3)),
+                               size = 3, family = "sans", fontface = "plain") +
         guides(color = guide_legend(
           ncol = 4,
           title = "",
@@ -3278,7 +3377,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keywidth = unit(0.3, "cm"),
           keyheight = unit(0.3, "cm")
         )) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
         labs(
           subtitle = "Proportion of calibration snapshots rejected",
           x = "Proportion rejected",
@@ -3364,11 +3463,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           breaks = seq(0, 1, by = 0.1),
           labels = scales::label_number(accuracy = 0.01)
         ) +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(check_reject$participant),
-                                           '\nMean=', format(round(mean_prop, 3), nsmall = 3),
-                                           '\nSD=', format(round(sd_prop, 3), nsmall = 3)),
-                            size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(check_reject$participant),
+                                      '\nMean=', format(round(mean_prop, 3), nsmall = 3),
+                                      '\nSD=', format(round(sd_prop, 3), nsmall = 3)),
+                               size = 3, family = "sans", fontface = "plain") +
         guides(color = guide_legend(
           ncol = 4,
           title = "",
@@ -3376,7 +3475,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           keywidth = unit(0.3, "cm"),
           keyheight = unit(0.3, "cm")
         )) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
         labs(
           subtitle = "Proportion of check snapshots rejected",
           x = "Proportion rejected",
@@ -3534,11 +3633,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         breaks = scales::pretty_breaks(n = 10),
         labels = scales::label_number(accuracy = 0.01)
       ) +
-      ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                          label = paste0('N=', n_participants, ' (', n_ratios, ' ratios)',
-                                         '\nMean=', format(round(mean_ratio, 4), nsmall = 4),
-                                         '\nSD=', format(round(sd_ratio, 4), nsmall = 4)),
-                          size = 3, family = "sans", fontface = "plain") +
+      distance_geom_text_npc("left", "top",
+                             paste0('N=', n_participants, ' (', n_ratios, ' ratios)',
+                                    '\nMean=', format(round(mean_ratio, 4), nsmall = 4),
+                                    '\nSD=', format(round(sd_ratio, 4), nsmall = 4)),
+                             size = 3, family = "sans", fontface = "plain") +
       guides(color = guide_legend(
         ncol = 4,
         title = "",
@@ -3546,7 +3645,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         keywidth = unit(0.3, "cm"),
         keyheight = unit(0.3, "cm")
       )) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+      distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
       labs(
         subtitle = subtitle_text,
         x = "Ratio S[i+1] / S[i]",
@@ -3589,6 +3688,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
   p10g_max_count <- p10g_result$max_count
   p10g_n_participants <- p10g_result$n_participants
   
+  }
+
   # Plot 11: Histogram and scatter of fOverWidth for distance check sessions
   fOverWidth_hist_check <- NULL
   fOverWidth_hist_calibration <- NULL
@@ -3734,11 +3835,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           ) +
           scale_x_continuous(limits = c(x_min, x_max),
                              breaks = c(0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6)) +
-          ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                              label = paste0('N=', n_distinct(check_plot_data$participant),
-                                             '\nMean(x) = ', format(round(mean(check_plot_data$fOverWidth, na.rm = TRUE), 3), nsmall = 3),
-                                             '\nSD(x) = ', format(round(sd(check_plot_data$fOverWidth, na.rm = TRUE), 3), nsmall = 3)),
-                              size = 4, family = "sans", fontface = "plain") +
+          distance_geom_text_npc("left", "top",
+                                 paste0('N=', n_distinct(check_plot_data$participant),
+                                        '\nMean(x) = ', format(round(mean(check_plot_data$fOverWidth, na.rm = TRUE), 3), nsmall = 3),
+                                        '\nSD(x) = ', format(round(sd(check_plot_data$fOverWidth, na.rm = TRUE), 3), nsmall = 3)),
+                                 size = 4, family = "sans", fontface = "plain") +
           guides(
             color = guide_legend(
               ncol = 4,
@@ -3749,7 +3850,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             ),
             shape = "none"
           ) +
-          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+          distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
           labs(
             subtitle = 'Histogram of fOverWidth, median(check)',
             x = "fOverWidth",
@@ -3823,11 +3924,11 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
             ) +
             scale_x_continuous(limits = c(x_min_calib, x_max_calib),
                                breaks = c(0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6)) +
-            ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                                label = paste0('N=', n_distinct(calib_hist_data$participant),
-                                               '\nMean(x) = ', format(round(mean(calib_hist_data$fOverWidth, na.rm = TRUE), 3), nsmall = 3),
-                                               '\nSD(x) = ', format(round(sd(calib_hist_data$fOverWidth, na.rm = TRUE), 3), nsmall = 3)),
-                                size = 4, family = "sans", fontface = "plain") +
+            distance_geom_text_npc("left", "top",
+                                   paste0('N=', n_distinct(calib_hist_data$participant),
+                                          '\nMean(x) = ', format(round(mean(calib_hist_data$fOverWidth, na.rm = TRUE), 3), nsmall = 3),
+                                          '\nSD(x) = ', format(round(sd(calib_hist_data$fOverWidth, na.rm = TRUE), 3), nsmall = 3)),
+                                   size = 4, family = "sans", fontface = "plain") +
             guides(
               color = guide_legend(
                 ncol = 4,
@@ -3837,7 +3938,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
                 keyheight = unit(0.3, "cm")
               )
             ) +
-            ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+            distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
             labs(
               subtitle = 'Histogram of fOverWidth, median(calibration)',
               x = "fOverWidth",
@@ -3882,10 +3983,10 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           # Filled circles for calibration (16), open circles for check (1)
           geom_point(aes(color = participant, shape = source), size = 3, alpha = 0.85, stroke = 1) +
           geom_hline(yintercept = median_ratio_fw, linetype = "solid", color = "gray70", linewidth = 0.15, alpha = 0.4) +
-          ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                              label = paste0('N=', n_distinct(scatter_plot_data$participant),
-                                             '\nmedian=', format(round(median_ratio_fw, 3), nsmall = 3)),
-                              size = 3) +
+          distance_geom_text_npc("left", "top",
+                                 paste0('N=', n_distinct(scatter_plot_data$participant),
+                                        '\nmedian=', format(round(median_ratio_fw, 3), nsmall = 3)),
+                                 size = 3) +
           scale_color_manual(values = participant_colors, drop = FALSE) +
           scale_shape_manual(name = "", values = c("calibration" = 16, "check" = 1),
                              labels = c("calibration" = "Calibration", "check" = "Check")) +
@@ -3914,7 +4015,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
               override.aes = list(size = 3, color = "black", stroke = 1.5)
             )
           ) +
-          ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+          distance_geom_text_npc("right", "bottom", statement) +
           labs(
             subtitle = 'fOverWidth vs max width',
             x = 'max width (px)',
@@ -3941,6 +4042,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       }
     }
   }
+  if (build_scatter) {
   # Scatter plot: fOverWidth calibration vs check
   p_fow_cal_vs_check <- NULL
   p_fow_cal_vs_check_data <- NULL
@@ -3972,8 +4074,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       p_fow_cal_vs_check <- ggplot(fow_joined, aes(x = fOverWidth_check, y = fOverWidth_calibration, color = participant)) +
         geom_abline(intercept = 0, slope = 1, linetype = "solid", color = "gray70", linewidth = 0.15, alpha = 0.4) +
         geom_point(size = 3, alpha = 0.8) +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(fow_joined$participant))) +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(fow_joined$participant))) +
         scale_x_log10(limits = c(axis_min, axis_max),
                       breaks = scales::log_breaks(n = 8)) +
         scale_y_log10(limits = c(axis_min, axis_max),
@@ -4001,13 +4103,15 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
           legend.key.size = unit(0.4, "cm"),
           plot.margin = margin(5, 5, 5, 5, "pt")
         ) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+        distance_geom_text_npc("right", "bottom", statement) +
         labs(subtitle = 'fOverWidth: calibration vs check',
              x = 'fOverWidth: check',
              y = 'fOverWidth: calibration')
     }
   }
+  }
 
+  if (build_dot) {
   # ==========================================================================
   # Histograms of ALL fOverWidth estimates (every accepted measurement)
   # ==========================================================================
@@ -4043,18 +4147,18 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ) +
         scale_x_continuous(limits = c(x_min_ac, x_max_ac),
                            breaks = c(0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6)) +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(hist_all_calib$participant),
-                                           ', n=', nrow(hist_all_calib),
-                                           '\nMean(x) = ', format(round(mean(hist_all_calib$fOverWidth, na.rm = TRUE), 3), nsmall = 3),
-                                           '\nSD(x) = ', format(round(sd(hist_all_calib$fOverWidth, na.rm = TRUE), 3), nsmall = 3)),
-                            size = 4, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(hist_all_calib$participant),
+                                      ', n=', nrow(hist_all_calib),
+                                      '\nMean(x) = ', format(round(mean(hist_all_calib$fOverWidth, na.rm = TRUE), 3), nsmall = 3),
+                                      '\nSD(x) = ', format(round(sd(hist_all_calib$fOverWidth, na.rm = TRUE), 3), nsmall = 3)),
+                               size = 4, family = "sans", fontface = "plain") +
         guides(
           color = guide_legend(ncol = 4, title = "",
             override.aes = list(size = 2),
             keywidth = unit(0.3, "cm"), keyheight = unit(0.3, "cm"))
         ) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
         labs(
           subtitle = 'Histogram of fOverWidth, calibration',
           x = "fOverWidth",
@@ -4120,18 +4224,18 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         ) +
         scale_x_continuous(limits = c(x_min_ck, x_max_ck),
                            breaks = c(0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6)) +
-        ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(hist_all_check$participant),
-                                           ', n=', nrow(hist_all_check),
-                                           '\nMean(x) = ', format(round(mean(hist_all_check$fOverWidth, na.rm = TRUE), 3), nsmall = 3),
-                                           '\nSD(x) = ', format(round(sd(hist_all_check$fOverWidth, na.rm = TRUE), 3), nsmall = 3)),
-                            size = 4, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(hist_all_check$participant),
+                                      ', n=', nrow(hist_all_check),
+                                      '\nMean(x) = ', format(round(mean(hist_all_check$fOverWidth, na.rm = TRUE), 3), nsmall = 3),
+                                      '\nSD(x) = ', format(round(sd(hist_all_check$fOverWidth, na.rm = TRUE), 3), nsmall = 3)),
+                               size = 4, family = "sans", fontface = "plain") +
         guides(
           color = guide_legend(ncol = 4, title = "",
             override.aes = list(size = 2),
             keywidth = unit(0.3, "cm"), keyheight = unit(0.3, "cm"))
         ) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+        distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
         labs(
           subtitle = 'Histogram of fOverWidth, check',
           x = "fOverWidth",
@@ -4167,6 +4271,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     }
   }
 
+  }
+
+  if (build_scatter) {
   # ==========================================================================
   # Scatter: fOverWidth calibration vs check (one median per participant)
   # ==========================================================================
@@ -4198,9 +4305,9 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
       geom_abline(intercept = 0, slope = 1, linetype = "solid",
                   color = "gray70", linewidth = 0.15, alpha = 0.4) +
       geom_point(size = 3, alpha = 0.8) +
-      ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                          label = paste0('N=', n_distinct(fow_scatter_joined$participant)),
-                          size = 4) +
+      distance_geom_text_npc("left", "top",
+                             paste0('N=', n_distinct(fow_scatter_joined$participant)),
+                             size = 4) +
       scale_x_continuous(limits = fow_lim) +
       scale_y_continuous(limits = fow_lim) +
       coord_fixed() +
@@ -4225,8 +4332,7 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         legend.key.size = unit(0.4, "cm"),
         plot.margin = margin(5, 5, 5, 5, "pt")
       ) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
-                          label = statement) +
+      distance_geom_text_npc("right", "bottom", statement) +
       labs(subtitle = 'fOverWidth: calibration vs check',
            x = 'fOverWidth: check',
            y = 'fOverWidth: calibration')
@@ -4237,6 +4343,8 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
         n_items = n_distinct(fow_scatter_joined$participant),
         per_row = 3, row_increase = 0.06)
     )
+  }
+
   }
 
   # Calculate heights based on legend complexity
@@ -4347,6 +4455,28 @@ plot_distance <- function(distanceCalibrationResults, calibrateTrackDistanceChec
     ipd = ipd_plots,
     eye_feet_check = eye_feet_check_plot
   ))
+}
+
+plot_distance_dot_bundle <- function(distanceCalibrationResults,
+                                     calibrateTrackDistanceCheckLengthSDLogAllowed,
+                                     participant_info = NULL) {
+  plot_distance(
+    distanceCalibrationResults,
+    calibrateTrackDistanceCheckLengthSDLogAllowed,
+    participant_info = participant_info,
+    bundle = "dot"
+  )
+}
+
+plot_distance_scatter_bundle <- function(distanceCalibrationResults,
+                                         calibrateTrackDistanceCheckLengthSDLogAllowed,
+                                         participant_info = NULL) {
+  plot_distance(
+    distanceCalibrationResults,
+    calibrateTrackDistanceCheckLengthSDLogAllowed,
+    participant_info = participant_info,
+    bundle = "scatter"
+  )
 }
 
 plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceCheckLengthSDLogAllowed, participant_colors = NULL) {
@@ -4460,9 +4590,9 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
                          breaks = function(x) seq(0, ceiling(max(x)), by = 1)) + 
       scale_x_log10(limits = c(x_min, x_max),breaks = scales::log_breaks(n=8)) +
       annotation_logticks(sides = "b") +
-      ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
-                          label = paste0('N=', n_distinct(sdLogDensity_data$participant)),
-                          size = 3, family = "sans", fontface = "plain") + 
+      distance_geom_text_npc("left", "top",
+                             paste0('N=', n_distinct(sdLogDensity_data$participant)),
+                             size = 3, family = "sans", fontface = "plain") + 
       guides(color = guide_legend(
         ncol = 4,  
         title = "",
@@ -4470,7 +4600,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
         keywidth = unit(0.3, "cm"),     # Add some width for the dots
         keyheight = unit(0.3, "cm")     # Add some height for the dots
       )) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+      distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
       labs(
         subtitle = "Histogram of SD of log10 pixel density",
         x = "SD of log10 pixel density",
@@ -4549,9 +4679,9 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
                           short = unit(0.1, "cm"),
                           mid = unit(0.15, "cm"), 
                           long = unit(0.2, "cm")) +
-      ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
-                          label = paste0('N=', n_distinct(ruler_dotplot$participant)),
-                          size = 3, family = "sans", fontface = "plain") + 
+      distance_geom_text_npc("left", "top",
+                             paste0('N=', n_distinct(ruler_dotplot$participant)),
+                             size = 3, family = "sans", fontface = "plain") + 
       guides(color = guide_legend(
         ncol = 4,  
         title = "",
@@ -4559,7 +4689,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
         keywidth = unit(0.3, "cm"),
         keyheight = unit(0.3, "cm")
       )) +
-      ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+      distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
       labs(subtitle = 'Histogram of ruler length (cm)',
            x = "Ruler length (cm)",
            y = "Count") +
@@ -4639,10 +4769,9 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
                size = 2) + 
     scale_shape_manual(name = "", values = c(calibration = 16, check = 1),
                        labels = c(calibration = "calibration", check = "check")) +
-    ggpp::geom_text_npc(aes(npcx="left",
-                            npcy="top"),
-                        label = paste0('N=', n_distinct(sizeCheck_avg$participant)),
-                        size = 3, family = "sans", fontface = "plain") + 
+    distance_geom_text_npc("left", "top",
+                           paste0('N=', n_distinct(sizeCheck_avg$participant)),
+                           size = 3, family = "sans", fontface = "plain") + 
     scale_x_log10(
       breaks = scales::log_breaks(n = 8),
       labels = scales::label_number(accuracy = 1)
@@ -4662,7 +4791,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
       keyheight = unit(0.7, "lines")  
     ),
     linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+    distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
     labs(subtitle = 'Pixel density vs. requested length',
          x = 'Requested length (cm)',
          y = 'Pixel density (px/cm)')
@@ -4695,9 +4824,9 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
              fill = "lightgreen", 
              alpha = 0.3) +
     geom_point(aes(x = sdLogDensity, y = ratio, color = participant), size = 2) +
-    ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                        label = paste0("N=", dplyr::n_distinct(sdLogDensity_data$participant)),
-                        size = 3, family = "sans", fontface = "plain") +
+    distance_geom_text_npc("left", "top",
+                           paste0("N=", dplyr::n_distinct(sdLogDensity_data$participant)),
+                           size = 3, family = "sans", fontface = "plain") +
     scale_color_manual(values = participant_colors, drop = FALSE) +
     scale_x_log10(limits = c(x_left, NA),
                   expand = expansion(mult = c(0, 0.05)),
@@ -4714,7 +4843,7 @@ plot_sizeCheck <- function(distanceCalibrationResults, calibrateTrackDistanceChe
                            keyheight = grid::unit(0.8, "lines")),
       linetype = guide_legend(title = "", override.aes = list(color = "transparent", size = 0))
     ) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+    distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
     labs(
       subtitle = "Credit card pixel density re remeasured vs.\nSD log remeasured pixel density",
       x = "SD of log10 pixel density",
@@ -4794,8 +4923,8 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
       p6 <- ggplot(error_vs_blindspot_data, aes(x = spotDeg, y = production_fraction)) +
         geom_point(aes(color = participant), size = 3, alpha = 0.8) +
         geom_hline(yintercept = 1, linetype = "solid", color = "gray70", linewidth = 0.15, alpha = 0.4) +
-        ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                            label = paste0('N=', n_distinct(error_vs_blindspot_data$participant))) +
+        distance_geom_text_npc("left", "top",
+                               paste0('N=', n_distinct(error_vs_blindspot_data$participant))) +
         scale_x_log10(limits = c(x_min, x_max), breaks = scales::log_breaks(n=8)) +
         scale_y_log10(limits = c(y_min, y_max), breaks = seq(0.5, 2.0, by = 0.1)) +
         annotation_logticks() +
@@ -4809,7 +4938,7 @@ plot_distance_production <- function(distanceCalibrationResults, participant_inf
           keywidth = unit(1.2, "lines"),
           keyheight = unit(0.8, "lines")
         )) +
-        ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement) +
+        distance_geom_text_npc("right", "bottom", statement) +
         labs(subtitle = 'Check distance error vs. blindspot diameter',
              x = 'Blindspot diameter (deg)',
              y = 'Check measured / requested distance')
@@ -4878,8 +5007,8 @@ objectCm_hist <- function(participant_info, distanceCalibrationResults, particip
     scale_y_continuous(limits = c(0, max(8, max_count + 1)), 
                        expand = expansion(mult = c(0, 0.1)), 
                        breaks = function(x) seq(0, ceiling(max(x)), by = 2)) + 
-    ggpp::geom_text_npc(aes(npcx="left", npcy="top"), 
-                        label = paste0('N=', n_distinct(object_dotplot$PavloviaParticipantID))) + 
+    distance_geom_text_npc("left", "top",
+                           paste0('N=', n_distinct(object_dotplot$PavloviaParticipantID))) + 
     guides(color = guide_legend(
       ncol = 4,  
       title = "",
@@ -4887,7 +5016,7 @@ objectCm_hist <- function(participant_info, distanceCalibrationResults, particip
       keywidth = unit(0.3, "cm"),
       keyheight = unit(0.3, "cm")
     )) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = statement, size = 3, family = "sans", fontface = "plain") +
+    distance_geom_text_npc("right", "bottom", statement, size = 3, family = "sans", fontface = "plain") +
     labs(subtitle = 'Histogram of object length (cm)',
          x = "Object length (cm)",
          y = "Count") +
@@ -4964,15 +5093,15 @@ bs_vd_hist <- function(data_list, participant_colors = NULL) {
   p1 <- ggplot(mean_dotplot, aes(x = m)) +
     # Stacked colored points (dot plot style)
     geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = 'calibrateTrackDistance = blindspot', size = 2) +
+    distance_geom_text_npc("right", "bottom", 'calibrateTrackDistance = blindspot', size = 2) +
     scale_color_manual(values = participant_colors, drop = FALSE) +
     scale_x_continuous(breaks = scales::pretty_breaks(n = 8),
                        labels = scales::label_number()) +
   scale_y_continuous(limits = c(0, max(8, max_count_mean + 1)),
                        expand = expansion(mult = c(0, 0.1)),
                        breaks = function(x) seq(0, ceiling(max(x)), by = 2)) +
-    ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                        label = paste0('N=', n_participants_mean)) +
+    distance_geom_text_npc("left", "top",
+                           paste0('N=', n_participants_mean)) +
     guides(color = guide_legend(
       ncol = 4,
       title = "",
@@ -5040,15 +5169,15 @@ bs_vd_hist <- function(data_list, participant_colors = NULL) {
   p2 <- ggplot(sd_dotplot, aes(x = sd)) +
     # Stacked colored points (dot plot style)
     geom_point(aes(x = bin_center, y = dot_y, color = participant), size = 6, alpha = 0.85) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), label = 'calibrateTrackDistance = blindspot', size = 2) +
+    distance_geom_text_npc("right", "bottom", 'calibrateTrackDistance = blindspot', size = 2) +
     scale_color_manual(values = participant_colors, drop = FALSE) +
     scale_x_continuous(breaks = scales::pretty_breaks(n = 8),
                        labels = scales::label_number()) +
   scale_y_continuous(limits = c(0, max(8, max_count_sd + 1)),
                        expand = expansion(mult = c(0, 0.1)),
                        breaks = function(x) seq(0, ceiling(max(x)), by = 2)) +
-    ggpp::geom_text_npc(aes(npcx="left", npcy="top"),
-                        label = paste0('N=', n_participants_sd)) +
+    distance_geom_text_npc("left", "top",
+                           paste0('N=', n_participants_sd)) +
     guides(color = guide_legend(
       ncol = 4,
       title = "",
@@ -5266,8 +5395,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
                    color = participant,
                    shape = type),
                size = 2) +
-    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                        label = paste0('N=', n_distinct(ipd_data$participant))) +
+    distance_geom_text_npc("left", "top",
+                           paste0('N=', n_distinct(ipd_data$participant))) +
     scale_x_log10(
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 10)
@@ -5335,8 +5464,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
                    color = participant,
                    shape = type),
                size = 2.5) +
-    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                            label = paste0('N=', n_distinct(ipd_data$participant))) +
+    distance_geom_text_npc("left", "top",
+                           paste0('N=', n_distinct(ipd_data$participant))) +
     scale_x_log10(
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 1)
@@ -5431,8 +5560,8 @@ plot_ipd_vs_eyeToFootCm <- function(distanceCalibrationResults, participant_colo
                    color = participant,
                    shape = type),
                size = 2.5) +
-    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                        label = paste0('N=', n_distinct(ipd_data_normalized_plot$participant))) +
+    distance_geom_text_npc("left", "top",
+                           paste0('N=', n_distinct(ipd_data_normalized_plot$participant))) +
     scale_x_log10(
       breaks = scales::log_breaks(n = 6),
       labels = scales::label_number(accuracy = 1)
@@ -5576,10 +5705,10 @@ plot_eyeToPointCm_vs_requestedEyesToFootCm <- function(distanceCalibrationResult
       labels = scales::label_number(accuracy = 1)
     ) +
     scale_color_manual(name = "", values = participant_colors, drop = FALSE) +
-    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                        label = paste0('N=', n_distinct(plot_data$participant))) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"), 
-                        label = distanceCalibrationResults$statement, size = 3, family = "sans", fontface = "plain") +
+    distance_geom_text_npc("left", "top",
+                           paste0('N=', n_distinct(plot_data$participant))) +
+    distance_geom_text_npc("right", "bottom",
+                           distanceCalibrationResults$statement, size = 3, family = "sans", fontface = "plain") +
     guides(
       color = guide_legend(
         ncol = 3,
@@ -5746,10 +5875,10 @@ plot_eyesToFootCm_estimated_vs_requested <- function(distanceCalibrationResults,
       labels = scales::label_number(accuracy = 1)
     ) +
     scale_color_manual(name = "", values = participant_colors, drop = FALSE) +
-    ggpp::geom_text_npc(aes(npcx = "left", npcy = "top"),
-                        label = paste0('N=', n_distinct(plot_data$participant))) +
-    ggpp::geom_text_npc(data = NULL, aes(npcx = "right", npcy = "bottom"),
-                        label = distanceCalibrationResults$statement, size = 3, family = "sans", fontface = "plain") +
+    distance_geom_text_npc("left", "top",
+                           paste0('N=', n_distinct(plot_data$participant))) +
+    distance_geom_text_npc("right", "bottom",
+                           distanceCalibrationResults$statement, size = 3, family = "sans", fontface = "plain") +
     guides(
       color = guide_legend(
         ncol = 3,

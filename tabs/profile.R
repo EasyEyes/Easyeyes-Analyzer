@@ -1,6 +1,9 @@
 ##### Profiles #####
-profileTab <- tabPanel(
-  'Profiles',
+profileTabUI <- function(id) {
+  ns <- NS(id)
+  total_data_condition <- sprintf("input['%s']", ns("totalData"))
+  tagList(
+  tags$script(HTML(sprintf("window.easyeyesProfileNS = '%s';", ns("")))),
   tags$head(
     tags$script(src = "https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"),
     tags$script(src = "https://www.gstatic.com/firebasejs/10.6.0/firebase-firestore-compat.js"),
@@ -13,7 +16,7 @@ profileTab <- tabPanel(
       width = 12,
       align = "left",
       radioButtons(
-        "fileProfile",
+        ns("fileProfile"),
         "Select download file type:",
         c(
           "eps" = "eps",
@@ -51,9 +54,9 @@ profileTab <- tabPanel(
               "
                )
              )),
-      actionButton("refreshButton", "Get profile list", 
+      actionButton(ns("refreshButton"), "Get profile list", 
                    style="color: white; background-color: blue; width: 150px; margin-left: 15px;"),
-      actionButton("plotButton", "Plot", 
+      actionButton(ns("plotButton"), "Plot", 
                    style="color: white; background-color: #008000; width: 100px; margin-left: 15px;"),
     ),
     fixedRow(style = "margin-left:2px;",
@@ -61,7 +64,7 @@ profileTab <- tabPanel(
                width = 12,
                align = "left",
                checkboxGroupInput(
-                 inputId = "profileSelection",
+                 inputId = ns("profileSelection"),
                  label = "",
                  inline = TRUE,
                  choices = NULL,
@@ -69,76 +72,77 @@ profileTab <- tabPanel(
                )
              )),
     conditionalPanel(
-      "input.totalData",
+      total_data_condition,
       fixedRow(style = "margin-left:2px;",
                column(
                  width = 12,
                  align = "left",
-                 actionButton("doProfile", "Plot selected profiles")
+                 actionButton(ns("doProfile"), "Plot selected profiles")
                ))
     ),
     fixedRow(style = "margin-left:2px;",
              column(
                width = 6,
                align = "left",
-               plotOutput("profilePlot", height = "100%", width = "100%")
+               plotOutput(ns("profilePlot"), height = "100%", width = "100%")
              ),
              column(
                width = 6,
                align = "left",
-               plotOutput("shiftedProfilePlot", height = "100%", width = "100%")
+               plotOutput(ns("shiftedProfilePlot"), height = "100%", width = "100%")
              )
     ),
     conditionalPanel(
-      "input.totalData",
+      total_data_condition,
       fixedRow(style = "margin-left:2px;", 
                column(
                  width = 6,
                  align = "left",
-                 downloadButton("downloadProfilePlot", "Download")
+                 downloadButton(ns("downloadProfilePlot"), "Download")
                ),
                column(
                  width = 6,
                  align = "left",
-                 downloadButton("downloadShiftedProfilePlot", "Download")
+                 downloadButton(ns("downloadShiftedProfilePlot"), "Download")
                ))
     ),
     conditionalPanel(
-      "input.totalData",
+      total_data_condition,
       fixedRow(style = "margin-left:2px;",
                column(
                  width = 6,
                  align = "left",
-                 plotOutput("profileAvgPlot", height = "100%", width = "100%")
+                 plotOutput(ns("profileAvgPlot"), height = "100%", width = "100%")
                )),
       fixedRow(style = "margin-left:2px;", 
                column(
                  width = 6,
                  align = "left",
-                 downloadButton("downloadProfileAvgPlot", "Download")
+                 downloadButton(ns("downloadProfileAvgPlot"), "Download")
                )),
       fixedRow(style = "margin-left:40px;",
                column(width = 6, align = 'left',
-                      textOutput('profileAverageTitle'))),
+                      textOutput(ns("profileAverageTitle")))),
       fixedRow(style = "margin-left:40px;",
                column(
                  width = 6,
                  align = "left",
-                 tableOutput("profileAverage")
+                 tableOutput(ns("profileAverage"))
                ))),
     
     fixedRow(style = "margin-left:2px;",
-             column(tableOutput("summaryStats"), 
+             column(tableOutput(ns("summaryStats")), 
                     width = 12, align = "left")),
-    DT::dataTableOutput('profiles'),
+    DT::dataTableOutput(ns("profiles")),
     conditionalPanel(
-      "input.totalData",
+      total_data_condition,
       fixedRow(style = "margin-left:2px;",
                column(width = 12, 
                       align = "left", 
-                      downloadButton("downloadProfileTable", "download profile table"))
+                      downloadButton(ns("downloadProfileTable"), "download profile table"))
                )
     ),
     HTML('<table id="dataTable" class="display"></table>')
   )
 )
+}

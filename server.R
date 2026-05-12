@@ -70,12 +70,25 @@ source("./other/read_json.R")
 source("./other/formSpree.R")
 source("./other/utility.R")
 source("./other/anova_by_font.R")
+source("./server_modules/sound_server.R")
+source("./server_modules/profile_server.R")
+source("./server_modules/staircases_server.R")
+source("./server_modules/timing_server.R")
+source("./server_modules/quality_server.R")
+source("./server_modules/distance_server.R")
+source("./server_modules/form_spree_dash_server.R")
 
 #### server code ####
 
 shinyServer(function(input, output, session) {
+  app_profiler <- create_app_profiler(
+    name = paste0("session-", substr(session$token, 1, 6)),
+    enabled = identical(Sys.getenv("EASYEYES_PROFILE", if (is_local) "true" else "false"), "true")
+  )
+
   observeEvent(input$file_click,
                {
+                 app_profiler$reset("file upload dialog opened")
                  shinyalert(
                    title = "Reading file(s) ...",
                    text = paste0(
@@ -106,33 +119,6 @@ shinyServer(function(input, output, session) {
   
   
   
-  #### formSpree ####
-  formSpreeTable <-
-    reactive(monitorFormSpree(input$listFontParameters))
-  
-  output$formSpreeDashboard <- renderDataTable({
-    datatable(
-      formSpreeTable(),
-      extensions = 'FixedHeader',
-      class = list(stripe = FALSE),
-      selection = 'none',
-      filter = "top",
-      options = list(
-        autoWidth = TRUE,
-        fixedHeader = TRUE,
-        pageLength = 150,
-        paging = TRUE,
-        # dom = 'lt',
-        columnDefs = list(list(
-          visible = FALSE, targets = c(0, ncol(formSpreeTable()))
-        ))
-      )
-    ) %>%
-      formatStyle(names(formSpreeTable()),
-                  'hl',
-                  backgroundColor = styleEqual(c(T, F), c('yellow', 'white')))
-  })
-  
   output$ex1 <- renderDataTable({
     datatable(tibble())
   })
@@ -148,14 +134,21 @@ shinyServer(function(input, output, session) {
   
   files <- reactive({
     req(input$file)
+    app_profiler$reset("file upload received")
+    app_profiler$mark(
+      "uploaded files available",
+      paste(length(input$file$name), "file(s):", paste(basename(input$file$name), collapse = ", "))
+    )
     check <- check_file_names(input$file)
     if (is.null(check)) {
-      t <- read_files(input$file, progress = function(value, message, detail) {
+      t <- app_profile_time(app_profiler, "read_files", {
+        read_files(input$file, progress = function(value, message, detail) {
         session$sendCustomMessage('updateFileProgress', list(
           value = round(value * 100, 1),
           detail = detail,
           close = FALSE
         ))
+      })
       })
       session$sendCustomMessage('updateFileProgress', list(
         value = 100,
@@ -213,7 +206,7 @@ shinyServer(function(input, output, session) {
     
     return(exp_names)
   })
-  
+
   readingCorpus <- reactive({
     if (is.null(files())) {
       return(NULL)
@@ -226,20 +219,26 @@ shinyServer(function(input, output, session) {
     "EasyEyes Analyze"
   })
   
+  soundTabServer("sound", app_profiler = app_profiler)
+  profileTabServer("profile", app_profiler = app_profiler)
+  formSpreeTabServer("formSpree", app_profiler = app_profiler)
+  
   #### reactive dataframes ####
   
   summary_table <- reactive({
     if (is.null(files())) {
       return(NULL)
     }
-    generate_summary_table(
+    app_profile_time(app_profiler, "generate_summary_table", {
+      generate_summary_table(
       files()$data_list,
       files()$stairs,
       files()$pretest,
       files()$prolific)
+    })
 
   })
-  
+
   minNQuestTrials <-reactive({input$NQuestTrials}) %>% debounce(1000)
   maxQuestSD <- reactive({input$maxQuestSD}) %>% debounce(1000)
   conditionNames <- reactive(input$conditionName) %>% debounce(5000)
@@ -255,7 +254,8 @@ shinyServer(function(input, output, session) {
     if (is.null(files())) {
       return(NULL)
     }
-    df_list <- generate_threshold(
+    df_list <- app_profile_time(app_profiler, "generate_threshold", {
+      generate_threshold(
       files()$data_list,
       files()$summary_list,
       files()$df,
@@ -272,15 +272,12 @@ shinyServer(function(input, output, session) {
       minRulerCm(),
       minCQAccuracy()
     )
+    })
     return(
       df_list
     )
   })
-  
-  distanceCalibration <- reactive({
-    get_distance_calibration(files()$data_list, minRulerCm())
-  }) %>% bindCache(input$file$datapath, minRulerCm())
-  
+
   crowdingBySide <- reactive({
     if (is.null(files())) {
       return(NULL)
@@ -302,22 +299,6 @@ shinyServer(function(input, output, session) {
     getCorrMatrix(df_list(), files()$pretest)
   })
   
-  durationCorrMatrix <- reactive({
-    if (is.null(files())) {
-      return(NULL)
-    }
-    get_duration_corr(files()$data_list, conditionNames())
-  })
-  
-  #### duration data ####
-  
-  durationData <- reactive({
-    if (is.null(files())) {
-      return(NULL)
-    }
-    get_duration_data(files()$data_list, conditionNames())
-  })
-
   minDegPlots <- reactive({
     if (is.null(files()) || is.null(df_list())) {
       return(NULL)
@@ -327,171 +308,50 @@ shinyServer(function(input, output, session) {
                      df_list()$crowding,
                      df_list()$quest)
   })
+
+  downloadFileType <- reactive(input$fileType)
   
-  ##### SOUND CALIBRATION ####
+  distanceModule <- distanceTabServer(
+    "distance",
+    files = files,
+    df_list = df_list,
+    experiment_names = experiment_names,
+    minRulerCm = minRulerCm,
+    calibrateTrackDistanceCheckLengthSDLogAllowed = calibrateTrackDistanceCheckLengthSDLogAllowed,
+    fileType = downloadFileType,
+    uploaded_file = reactive(input$file),
+    app_profiler = app_profiler
+  )
   
-  # OPTIMIZATION: Parse JSON once, reuse across all sound calibration reactives
-  # This eliminates 8+ redundant JSON parsing operations
-  parsed_json <- reactive({
-    if (is.null(input$fileJSON)) return(NULL)
-    file_list <- input$fileJSON$data
-    fromJSON(file_list[1], simplifyDataFrame = F)
-  })
-  
-  irPlots <- reactive({
-    req(parsed_json())
-    get_ir_plots(parsed_json(), sound_data())
-  })
-  
-  sound_data <- reactive({
-    req(parsed_json())
-    preprocessJSON(parsed_json())
-  })
-  
-  iir <- reactive({
-    req(parsed_json())
-    read_iir_JSON(parsed_json())
-  })
-  
-  iirPlots <- reactive({
-    return(get_iir_plot(iir(), sound_data()))
-  })
-  
-  # record_freq_system_plot <- reactive({
-  #   plot_record_freq_system(sound_data())
-  # })
-  
-  record_freq_component_plot <- reactive({
-    plot_record_freq_component(sound_data())
-  })
-  
-  componentIIRPlots <- reactive({
-    req(parsed_json())
-    plotComponentIIR(parsed_json(), sound_data())
-  })
-  
-  cumSumPowerPlot <- reactive({
-    req(parsed_json())
-    getCumSumPowerPlot(parsed_json())
-  })
-  
-  componentIR_PSD_plot <- reactive({
-    req(parsed_json())
-    plotComponentIRPSD(parsed_json(), sound_data())
-  })
-  
-  recording_variation <- reactive({
-    req(parsed_json())
-    plot_power_variations(parsed_json(), sound_data())
-  })
-  
-  volume_power_variation <- reactive({
-    req(parsed_json())
-    plot_volume_power_variations(parsed_json(), sound_data())
-  })
-  
-  subtitleOne <- reactive({
-    inputParameters <- sound_data()[[12]]
-    subtitleOne <- paste0(
-      "MLS: ",
-      round(inputParameters$calibrateSoundBurstDb, 3),
-      " dB, ampl. ",
-      round(10 ^ (
-        inputParameters$calibrateSoundBurstDb / 20
-      ), 3),
-      ", ",
-      inputParameters$calibrateSoundBurstSec,
-      " s, ",
-      inputParameters$calibrateSoundBurstRepeats,
-      "×",
-      ", ",
-      inputParameters$calibrateSoundHz,
-      " Hz (",
-      inputParameters$fs2,
-      " Hz)"
-    )
-    
-  })
-  
-  subtitleTwo <- reactive({
-    inputParameters <- sound_data()[[12]]
-    return(list(
-      # system =  paste0(
-      #   "Filtered MLS: ",
-      #   format(
-      #     round(
-      #       inputParameters$calibrateSoundAttenuationComponentDb,
-      #       1
-      #     ),
-      #     nsmall = 1
-      #   ),
-      #   " dB, ampl. ",
-      #   round(inputParameters$filteredMLSMaxAbsSystem, 1),
-      #   ", ",
-      #   inputParameters$calibrateSoundMinHz,
-      #   " – ",
-      #   inputParameters$fMaxHzSystem,
-      #   " Hz, ",
-      #   format(round(
-      #     inputParameters$attenuatorDBSystem,
-      #     1
-      #   ),
-      #   nsmall = 1),
-      #   " dB atten."
-      # ),
-      component = paste0(
-        "Filtered MLS: ",
-        (
-          round(inputParameters$calibrateSoundAttenuationComponentDb, 1)
-        ),
-        " dB, ampl. ",
-        round(inputParameters$filteredMLSMaxAbsComponent, 1),
-        ", ",
-        inputParameters$calibrateSoundMinHz,
-        " – ",
-        inputParameters$fMaxHzComponent,
-        " Hz, ",
-        format(round(
-          inputParameters$attenuatorDBComponent,
-          1
-        ),
-        nsmall = 1),
-        " dB atten."
-      )
-    ))
-  })
-  
-  subtitleThree <- reactive({
-    inputParameters <- sound_data()[[12]]
-    return(list(
-      system = paste0(
-        "IR: ",
-        inputParameters$calibrateSoundIRSec,
-        " s, IIR: ",
-        inputParameters$calibrateSoundIIRSec,
-        " s, ",
-        inputParameters$calibrateSoundMinHz,
-        " – ",
-        inputParameters$fMaxHzSystem,
-        " Hz"
-      ),
-      component = paste0(
-        "IR: ",
-        inputParameters$calibrateSoundIRSec,
-        " s, IIR: ",
-        inputParameters$calibrateSoundIIRSec,
-        " s, ",
-        inputParameters$calibrateSoundMinHz,
-        " – ",
-        inputParameters$fMaxHzComponent,
-        " Hz"
-      )
-    ))
-  })
-  
-  output$jsonUploaded <- reactive({
-    return(!is.null(input$fileJSON))
-  })
+  staircasesModule <- staircasesTabServer(
+    "staircases",
+    files = files,
+    df_list = df_list,
+    conditionNames = conditionNames,
+    thresholdParameter = reactive(input$thresholdParameter),
+    fileType = downloadFileType,
+    app_profiler = app_profiler
+  )
+  timingModule <- timingTabServer(
+    "timing",
+    files = files,
+    conditionNames = conditionNames,
+    experiment_names = experiment_names,
+    fileType = downloadFileType,
+    uploaded_file = reactive(input$file),
+    app_profiler = app_profiler
+  )
+  qualityModule <- qualityTabServer(
+    "quality",
+    files = files,
+    df_list = df_list,
+    conditionNames = conditionNames,
+    minDegPlots = minDegPlots,
+    experiment_names = experiment_names,
+    fileType = downloadFileType,
+    uploaded_file = reactive(input$file),
+    app_profiler = app_profiler
+  )
   
   #### reactive plots #####
   
@@ -665,39 +525,6 @@ shinyServer(function(input, output, session) {
   )
 })
 
-  histogramsQuality <- reactive({
-    if (is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
-    }
-    
-    l <- list()
-    fileNames <- list()
-    
-    lists <- append_hist_quality(files()$data_list, l, fileNames, conditionNames())
-    lists <- add_questsd_hist(df_list()$quest, lists)
-    
-    minDegHist <- minDegPlots()$hist_quality
-    return(list(
-      plotList = c(lists$plotList, minDegHist$plotList),
-      fileNames = c(lists$fileNames, minDegHist$fileNames)
-    ))
-  })
-  
-  timingHistograms <- reactive({
-    if (is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
-    }
-    
-    l <- list()
-    fileNames <- list()
-    
-    lists <-
-      append_hist_time(files()$data_list, l, fileNames, conditionNames())
-    return(lists)
-  })
-  
   #### stacked histograms ####
   stackedPlots <- reactive({
     if (is.null(df_list()) | is.null(files())) {
@@ -792,330 +619,6 @@ shinyServer(function(input, output, session) {
       fileNames = fileNames
     ))
   })
-  distancePlots <- reactive({
-    # Central hub for all distance-related plots (single color assignment).
-    participant_info <- NULL
-    if (!is.null(df_list()) && is.list(df_list()) && "participant_info" %in% names(df_list())) {
-      participant_info <- df_list()$participant_info
-    }
-    return(plot_distance(distanceCalibration(), calibrateTrackDistanceCheckLengthSDLogAllowed(), participant_info = participant_info))
-  })
-  #### dotPlots ####
-  dotPlots <- reactive({
-    if (is.null(files())) {
-      return(list(plotList = list(), fileNames = list()))
-    }
-    
-    l         <- list()
-    fileNames <- list()
-    
-    # SD histogram and distance-related dot plots go here with larger sizing
-    dp <- distancePlots()
-    if (is.null(dp)) {
-      return(list(plotList = list(), fileNames = list()))
-    }
-    bs_vd <- if (!is.null(dp$bs_vd)) dp$bs_vd else list(mean_plot = NULL, sd_plot = NULL)
-
-    # Build static_calls list using a spec table + loop.
-    # This is the set of "dot/histogram-style" distance plots shown in dotPlots.
-    static_calls <- list()
-    get_nested <- function(x, keys) {
-      for (k in keys) {
-        if (is.null(x) || !is.list(x) || !(k %in% names(x))) return(NULL)
-        x <- x[[k]]
-      }
-      x
-    }
-    add_from_keys <- function(plot_keys, height_keys, fname) {
-      plot <- get_nested(dp, plot_keys)
-      if (is.null(plot)) return(invisible(NULL))
-      height <- get_nested(dp, height_keys)
-      static_calls[[length(static_calls) + 1]] <<- list(plot = plot, height = height, fname = fname)
-      invisible(NULL)
-    }
-    specs <- list(
-      # ===== 1. PIXEL DENSITY HISTOGRAMS =====
-      list(plot_keys = c("sizeCheck", "sd_hist", "plot"),
-           height_keys = c("sizeCheck", "sd_hist", "height"),
-           fname = "histogram-of-SD-of-log10-pixel-density"),
-      list(plot_keys = c("raw_pxPerCm_hist", "plot"),
-           height_keys = c("raw_pxPerCm_hist", "height"),
-           fname = "histogram-of-raw-pxPerCm-over-remeasured"),
-
-      # ===== 2. RULER AND OBJECT LENGTH HISTOGRAMS =====
-      list(plot_keys = c("sizeCheck", "ruler_hist", "plot"),
-           height_keys = c("sizeCheck", "ruler_hist", "height"),
-           fname = "histogram-of-ruler-length-cm"),
-      list(plot_keys = c("object_length_hist", "plot"),
-           height_keys = c("object_length_hist", "height"),
-           fname = "histogram-of-object-length-cm"),
-      list(plot_keys = c("raw_objectMeasuredCm_hist", "plot"),
-           height_keys = c("raw_objectMeasuredCm_hist", "height"),
-           fname = "histogram-of-raw-objectMeasuredCm-over-median"),
-
-      # ===== 3. fOverWidth HISTOGRAMS =====
-      list(plot_keys = c("calibrated_over_median_hist", "plot"),
-           height_keys = c("calibrated_over_median_hist", "height"),
-           fname = "histogram-of-fOverWidth-median-calibration-over-median-check"),
-      list(plot_keys = c("raw_fOverWidth_hist", "plot"),
-           height_keys = c("raw_fOverWidth_hist", "height"),
-           fname = "histogram-of-fOverWidth-calibration-over-median-check"),
-      list(plot_keys = c("calibration_rejected_proportion_hist", "plot"),
-           height_keys = c("calibration_rejected_proportion_hist", "height"),
-           fname = "histogram-of-proportion-calibration-snapshots-rejected"),
-      list(plot_keys = c("check_rejected_proportion_hist", "plot"),
-           height_keys = c("check_rejected_proportion_hist", "height"),
-           fname = "histogram-of-proportion-check-snapshots-rejected"),
-      list(plot_keys = c("accepted_calib_ratio_hist", "plot"),
-           height_keys = c("accepted_calib_ratio_hist", "height"),
-           fname = "histogram-of-accepted-calibration-fOverWidth-ratio"),
-      list(plot_keys = c("accepted_check_ratio_hist", "plot"),
-           height_keys = c("accepted_check_ratio_hist", "height"),
-           fname = "histogram-of-accepted-check-fOverWidth-ratio"),
-      list(plot_keys = c("rejected_calib_ratio_hist", "plot"),
-           height_keys = c("rejected_calib_ratio_hist", "height"),
-           fname = "histogram-of-rejected-calibration-fOverWidth-ratio"),
-      list(plot_keys = c("rejected_check_ratio_hist", "plot"),
-           height_keys = c("rejected_check_ratio_hist", "height"),
-           fname = "histogram-of-rejected-check-fOverWidth-ratio"),
-      list(plot_keys = c("fOverWidth_hist_check", "plot"),
-           height_keys = c("fOverWidth_hist_check", "height"),
-           fname = "histogram-of-fOverWidth-check"),
-      list(plot_keys = c("fOverWidth_hist_calibration", "plot"),
-           height_keys = c("fOverWidth_hist_calibration", "height"),
-           fname = "histogram-of-fOverWidth-calibration"),
-      list(plot_keys = c("fOverWidth_hist_all_calibration", "plot"),
-           height_keys = c("fOverWidth_hist_all_calibration", "height"),
-           fname = "histogram-of-fOverWidth-all-calibration"),
-      list(plot_keys = c("fOverWidth_hist_all_check", "plot"),
-           height_keys = c("fOverWidth_hist_all_check", "height"),
-           fname = "histogram-of-fOverWidth-all-check")
-    )
-    for (s in specs) {
-      add_from_keys(s$plot_keys, s$height_keys, s$fname)
-    }
-
-    # Blindspot dot-histograms (already built inside plot_distance)
-    if (!is.null(bs_vd$mean_plot) && !is.null(bs_vd$mean_plot$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = bs_vd$mean_plot$plot,
-        height = bs_vd$mean_plot$height,
-        fname = "mean-of-left-and-right-viewing-distances-blindspot"
-      )
-    }
-    if (!is.null(bs_vd$sd_plot) && !is.null(bs_vd$sd_plot$plot)) {
-      static_calls[[length(static_calls) + 1]] <- list(
-        plot = bs_vd$sd_plot$plot,
-        height = bs_vd$sd_plot$height,
-        fname = "SD-of-log10-left-and-right-viewing-distances-blindspot"
-      )
-    }
-    
-    heights <- list()
-    for (call in static_calls) {
-      res <- append_plot_list(l, 
-                              fileNames,
-                              add_experiment_title(call$plot, experiment_names()), 
-                              call$fname,
-                              height = call$height,
-                              heights = heights)
-      l <- res$plotList
-      fileNames <- res$fileNames
-      heights <- res$heights
-    }
-    
-    log_debug("Distance histograms: ", length(l), "/", length(static_calls), " added")
-    
-    return(list(
-      plotList = l,
-      fileNames = fileNames,
-      heights = heights
-    ))
-  }) %>% bindCache(input$file$datapath, minRulerCm(), calibrateTrackDistanceCheckLengthSDLogAllowed())
-  
-  # Progressive rendering controls for heavy grids
-  dotRenderCount  <- reactiveVal(0)           # for output$dotPlots
-  histRenderCount <- reactiveVal(0)          # for output$histograms
-  plotsRenderCount <- reactiveVal(0)
-  qualityHistRenderCount <- reactiveVal(0)
-  timingHistRenderCount <- reactiveVal(0)
-  scatterRenderCount <- reactiveVal(0)       # for output$scatters
-  distanceScatterRenderCount <- reactiveVal(0) # for output$distanceScatters
-  
-  # Reset counters when data changes
-  observeEvent(dotPlots(),     { dotRenderCount(0) }, ignoreInit = FALSE)
-  observeEvent(histograms(),   { histRenderCount(0) }, ignoreInit = FALSE)
-  observeEvent(agePlots(),     { plotsRenderCount(0) }, ignoreInit = FALSE)
-  observeEvent(histogramsQuality(), { qualityHistRenderCount(0) }, ignoreInit = FALSE)
-  observeEvent(timingHistograms(),  { timingHistRenderCount(0) }, ignoreInit = FALSE)
-  observeEvent(scatterDiagrams(),   { scatterRenderCount(0) }, ignoreInit = FALSE)
-  observeEvent(scatterDistance(),   { distanceScatterRenderCount(0) }, ignoreInit = FALSE)
-  observeEvent(files(), {
-    dotRenderCount(0)
-    histRenderCount(0)
-    plotsRenderCount(0)
-    qualityHistRenderCount(0)
-    timingHistRenderCount(0)
-    scatterRenderCount(0)
-    distanceScatterRenderCount(0)
-  }, ignoreInit = TRUE)
-  
-  # Incrementally allow more plots to render
-  observe({
-    total <- length(dotPlots()$plotList)
-    current <- dotRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      dotRenderCount(current + 1)
-    }
-  })
-  
-  observe({
-    total <- length(histograms()$plotList)
-    current <- histRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      histRenderCount(current + 1)
-    }
-  })
-  
-  observe({
-    total <- length(agePlots()$plotList)
-    current <- plotsRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      plotsRenderCount(current + 1)
-    }
-  })
-  
-  observe({
-    total <- length(histogramsQuality()$plotList)
-    current <- qualityHistRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      qualityHistRenderCount(current + 1)
-    }
-  })
-  
-  observe({
-    total <- length(timingHistograms()$plotList)
-    current <- timingHistRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      timingHistRenderCount(current + 1)
-    }
-  })
-  
-  observe({
-    plots_obj <- scatterDiagrams()
-    if (!is.list(plots_obj) || is.null(plots_obj$plotList)) return()
-    total <- length(plots_obj$plotList)
-    current <- scatterRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      scatterRenderCount(current + 1)
-    }
-  })
-  
-  observe({
-    total <- length(scatterDistance()$plotList)
-    current <- distanceScatterRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      distanceScatterRenderCount(current + 1)
-    }
-  })
-  
-  #### scatterDiagrams ####
-  # NOTE: sizeCheck plots are now produced inside plot_distance() and accessed via distancePlots()$sizeCheck.
-  
-  scatterDistance <- reactive({
-    if (is.null(input$file) | is.null(files())) {
-      return(list(plotList = list(), fileNames = list()))
-    }
-    l <- list()
-    fileNames <- list()
-
-    # Distance-specific plots (all come from plot_distance)
-    dp <- distancePlots()
-    if (is.null(dp)) {
-      return(list(plotList = list(), fileNames = list()))
-    }
-    distance_production_plots <- dp$distance_production
-
-    plot_calls <- list(
-      # ===== 1. TWO PIXEL DENSITY PLOTS =====
-      list(plot = if(!is.null(dp$sizeCheck)) dp$sizeCheck$density_vs_length$plot else NULL,
-           height = if(!is.null(dp$sizeCheck)) dp$sizeCheck$density_vs_length$height else NULL,
-           fname = 'pixel-density-vs-requested-length'),
-      list(plot = if(!is.null(dp$sizeCheck)) dp$sizeCheck$density_ratio_vs_sd$plot else NULL,
-           height = if(!is.null(dp$sizeCheck)) dp$sizeCheck$density_ratio_vs_sd$height else NULL,
-           fname = 'credit-card-pixel-density-vs-SD-log-remeasured-pixel-density'),
-      
-      # ===== 2. FIVE SCATTER DIAGRAMS W FEW POINTS PER SESSION =====
-      list(plot = distancePlots()$fOverWidth_scatter$plot, height = distancePlots()$fOverWidth_scatter$height, fname = 'fOverWidth-vs-max-width'),
-      list(plot = distancePlots()$calibration_over_check_vs_check$plot, height = distancePlots()$calibration_over_check_vs_check$height, fname = 'focal-length-calibration-over-check-vs-check'),
-      list(plot = distancePlots()$fOverWidth_calibration_vs_check$plot, height = distancePlots()$fOverWidth_calibration_vs_check$height, fname = 'fOverWidth-calibration-vs-check'),
-      list(plot = distancePlots()$fOverWidth_cal_vs_check_scatter$plot, height = distancePlots()$fOverWidth_cal_vs_check_scatter$height, fname = 'fOverWidth-median-calibration-vs-median-check'),
-      
-      # ===== 3. SIX PLOTS W 8 CONNECTED DOTS FROM CHECK PHASE =====
-      list(plot = distancePlots()$imb_vs_rb$plot, height = distancePlots()$imb_vs_rb$height, fname = 'imageBasedEyesToPointCm-vs-rulerBasedEyesToPointCm'),
-      list(plot = distancePlots()$imb_over_rb$plot, height = distancePlots()$imb_over_rb$height, fname = 'imageBasedEyesToPointCm-over-rulerBasedEyesToPointCm'),
-      list(plot = if(!is.null(dp$eyeToPoint)) dp$eyeToPoint$plot else NULL, height = if(!is.null(dp$eyeToPoint)) dp$eyeToPoint$height else NULL, fname = 'imageBasedEyesToPointCm-vs-rulerBasedEyesToFootCm'),
-      list(plot = if(!is.null(dp$eyesToFoot_estimated)) dp$eyesToFoot_estimated$plot else NULL, height = if(!is.null(dp$eyesToFoot_estimated)) dp$eyesToFoot_estimated$height else NULL, fname = 'imageBasedEyesToFootCm-vs-rulerBasedEyesToFootCm'),
-      list(plot = if(!is.null(dp$ipd)) dp$ipd$ipdOverWidth_vs_rulerBasedEyesToFootCm$plot else NULL,
-           height = if(!is.null(dp$ipd)) dp$ipd$ipdOverWidth_vs_rulerBasedEyesToFootCm$height else NULL,
-           fname = 'ipdOverWidth-vs-rulerBasedEyesToFootCm'),
-      list(plot = if(!is.null(dp$ipd)) dp$ipd$ipdOverWidth_times_rulerBasedEyesToFootCm_vs_rulerBasedEyesToFootCm$plot else NULL,
-           height = if(!is.null(dp$ipd)) dp$ipd$ipdOverWidth_times_rulerBasedEyesToFootCm_vs_rulerBasedEyesToFootCm$height else NULL,
-           fname = 'fOverWidth-vs-rulerBasedEyesToFootCm'),
-      list(plot = if(!is.null(dp$ipd)) dp$ipd$fOverWidth_over_median_check_vs_rulerBasedEyesToFootCm$plot else NULL,
-           height = if(!is.null(dp$ipd)) dp$ipd$fOverWidth_over_median_check_vs_rulerBasedEyesToFootCm$height else NULL,
-           fname = 'fOverWidth-over-median-check-vs-rulerBasedEyesToFootCm'),
-      
-      # ===== 4. TWO HIDDEN BLINDSPOT PLOTS =====
-      list(plot = if(!is.null(distance_production_plots)) distance_production_plots$error_vs_blindspot_diameter$plot else NULL,
-           height = if(!is.null(distance_production_plots)) distance_production_plots$error_vs_blindspot_diameter$height else NULL,
-           fname = 'check-distance-error-vs-blindspot-diameter'),
-      list(plot = distancePlots()$calibrated_over_mean_vs_spot$plot, height = distancePlots()$calibrated_over_mean_vs_spot$height, fname = 'calibrated-over-mean-factorVpxCm-vs-spot-diameter'),
-      
-      # ===== 5. THREE XY FOOT LOCATION PLOTS =====
-      list(plot = distancePlots()$foot_position_calibration$plot, height = distancePlots()$foot_position_calibration$height, fname = 'foot-position-during-calibration'),
-      list(plot = distancePlots()$eye_feet_position$plot, height = distancePlots()$eye_feet_position$height, fname = 'fOverWidth-calibration-over-median-check-vs-foot-position-during-calibration'),
-      list(plot = if(!is.null(dp$eye_feet_check)) dp$eye_feet_check$plot else NULL,
-           height = if(!is.null(dp$eye_feet_check)) dp$eye_feet_check$height else NULL,
-           fname = 'measured-over-requested-distance-vs-foot-position-during-check')
-    )
-
-    heights <- list()
-    for (call in plot_calls) {
-      plot <- call$plot
-      if (!is.null(plot)) {
-        plot <- add_experiment_title(plot, experiment_names())
-      } else {
-      }
-      res <- append_plot_list(l, fileNames, plot, call$fname, height = call$height, heights = heights)
-      l <- res$plotList
-      fileNames <- res$fileNames
-      heights <- res$heights
-    }
-    
-    log_debug("Distance scatters: ", length(l), "/", length(plot_calls), " added")
-
-    return(list(
-      plotList = l,
-      fileNames = fileNames,
-      heights = heights
-    ))
-  }) %>% bindCache(input$file$datapath, minRulerCm(), calibrateTrackDistanceCheckLengthSDLogAllowed())
-
   scatterDiagrams <- reactive({
     if (is.null(input$file) | is.null(files())) {
       return(list(plotList = list(), fileNames = list()))
@@ -1187,129 +690,11 @@ shinyServer(function(input, output, session) {
     ))
   })
   
-  scatterQuality <- reactive({
-    if (is.null(input$file) | is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
-    }
-    l <- list()
-    fileNames <- list()
-    
-    # OPTIMIZATION: Compute expensive functions once, use results multiple times
-    crowdingPlots <- plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
-    quest_diag <- get_quest_diag(df_list()$quest)
-    quest_sd_trials <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
-    
-    plot_calls <- list(
-      list(plot = crowdingPlots$fovealPlot, fname = 'foveal-crowding-staircases-threshold-vs-questTrials'),
-      list(plot = crowdingPlots$peripheralPlot, fname = 'peripheral-crowding-staircases-threshold-vs-questTrials'),
-      list(plot = quest_diag$grade, fname = 'quest-sd-vs-mean-grade-diagram'),
-      list(plot = quest_sd_trials, fname = 'quest-sd-vs-quest-trials-grade-diagram')
-    )
-    
-    for (call in plot_calls) {
-      plot <- call$plot
-      if (!is.null(plot)) {
-        plot <- plot + scale_color_manual(values = colorPalette)
-        plot <- add_experiment_title(plot, experiment_names())
-      }
-      res <- append_plot_list(l, fileNames, plot, call$fname)
-      l <- res$plotList
-      fileNames <- res$fileNames
-    }
-    
-    minDegPlot <- minDegPlots()$scatter_quality
-    
-    # Apply experiment title to minDegPlot plots
-    minDegPlot_updated <- lapply(minDegPlot$plotList, function(plot) {
-      if (!is.null(plot)) {
-        plot <- plot + scale_color_manual(values = colorPalette)
-        plot <- add_experiment_title(plot, experiment_names())
-      }
-      return(plot)
-    })
-    
-    return(list(
-      plotList = c(l, minDegPlot_updated),
-      fileNames = c(fileNames, minDegPlot$fileNames)
-    ))
-  })
-  
-  scatterTime <- reactive({
-    if (is.null(input$file) | is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
-    }
-    
-    l <- list()
-    fileNames <- list()
-    
-    # Extract scatter plots using the append_scatter_time function
-    scatter_time_plots <-
-      append_scatter_time(files()$data_list, l, fileNames, conditionNames())
-    
-    # Apply experiment title to all plots
-    updated_plots <- lapply(scatter_time_plots$plotList, function(plot) {
-      if (!is.null(plot)) {
-        plot <- plot + scale_color_manual(values = colorPalette)
-        plot <- add_experiment_title(plot, experiment_names())
-      }
-      return(plot)
-    })
-    
-    return(list(
-      plotList = updated_plots,
-      fileNames = scatter_time_plots$fileNames
-    ))
-  })
-  
-  scatterTimeParticipant <- reactive({
-    if (is.null(input$file) | is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
-    }
-    
-    l <- list()
-    fileNames <- list()
-    
-    # Extract scatter plots using the append_scatter_time function
-    scatter_time_plots <-
-      append_scatter_time_participant(files()$data_list, l, fileNames, conditionNames())
-    
-    # Apply experiment title to all plots
-    updated_plots <- lapply(scatter_time_plots$plotList, function(plot) {
-      if (!is.null(plot)) {
-        plot <- plot + scale_color_manual(values = colorPalette)
-        plot <- add_experiment_title(plot, experiment_names())
-      }
-      return(plot)
-    })
-    
-    return(list(
-      plotList = updated_plots,
-      fileNames = scatter_time_plots$fileNames
-    ))
-  })
-  
   gradePlots <- reactive({
     if (is.null(files()) | is.null(df_list())) {
       return(histograms <NULL)
     }
     plot_rsvp_crowding_acuity(df_list())
-  })
-  
-  duration_lateness_hist <- reactive({
-    if (is.null(durationData())) {
-      return(NULL)
-    }
-    get_histogram_duration_lateness(durationData())
-  })
-  
-  mergedParticipantDistanceTable <- reactive({
-    if (is.null(input$file) | is.null(files())) {
-      return(tibble())
-    }
-    get_merged_participant_distance_info(distanceCalibration(), df_list()$participant_info)
   })
   
   output$isRsvp <- reactive({
@@ -1399,19 +784,10 @@ shinyServer(function(input, output, session) {
     }
   })
   
-  output$isDuration <- reactive({
-    return(nrow(durationData()) > 0)
-  })
-  
   output$isCorrMatrixAvailable <- reactive({
     return(!is.null(corrMatrix()))
   })
   outputOptions(output, 'isCorrMatrixAvailable', suspendWhenHidden = FALSE)
-  
-  output$isDurationCorrMatrixAvailable <- reactive({
-    return(!is.null(durationCorrMatrix()))
-  })
-  outputOptions(output, 'isDurationCorrMatrixAvailable', suspendWhenHidden = FALSE)
   
   output$fileUploaded <- reactive({
     return(nrow(files()$pretest > 0))
@@ -1423,11 +799,6 @@ shinyServer(function(input, output, session) {
     }
     return(FALSE)
   })
-  
-  output$IsMergedParticipantDistanceTable <- reactive({
-    return(nrow(mergedParticipantDistanceTable()) > 0)
-  })
-  outputOptions(output, 'IsMergedParticipantDistanceTable', suspendWhenHidden = FALSE)
   
   outputOptions(output, 'fileUploaded', suspendWhenHidden = FALSE)
   outputOptions(output, 'questData', suspendWhenHidden = FALSE)
@@ -1441,8 +812,6 @@ shinyServer(function(input, output, session) {
   outputOptions(output, 'isPeripheralCrowding', suspendWhenHidden = FALSE)
   outputOptions(output, 'isAcuity', suspendWhenHidden = FALSE)
   outputOptions(output, 'isFovealAcuity', suspendWhenHidden = FALSE)
-  outputOptions(output, 'isDuration', suspendWhenHidden = FALSE)
-  outputOptions(output, 'jsonUploaded', suspendWhenHidden = FALSE)
   
   #### color font ####
   colorFont <- reactive({
@@ -1463,75 +832,6 @@ shinyServer(function(input, output, session) {
     cols <- rep(colorPalette, length.out = length(fonts))
     tibble(font = fonts, color = cols)
   })
-  
-  #### Merged Participant Distance Table ####
-  
-  output$mergedParticipantDistanceTable <- DT::renderDataTable({
-    table_data <- mergedParticipantDistanceTable()
-    
-    col_names <- names(table_data)
-    
-  
-    named_widths <- c(
-      "PavloviaParticipantID" = "100px",
-      "Object" = "200px",      
-      "Comment" = "500px"    
-    )
-    
-
-    default_width <- "60px"
-    
-    # Build columnDefs list
-    column_defs <- lapply(seq_along(col_names), function(i) {
-      col_name <- col_names[i]
-      width <- if (col_name %in% names(named_widths)) named_widths[[col_name]] else default_width
-      list(width = width, targets = i - 1L)
-    })
-    # Compute indices (1-based for nth-child) of Object/Comment columns if present
-    object_idx <- if ("Object" %in% names(table_data)) which(names(table_data) == "Object")[1] else NA_integer_
-    comment_idx <- if ("Comment" %in% names(table_data)) which(names(table_data) == "Comment")[1] else NA_integer_
-    # Build initComplete JS that only aligns existing columns
-    js_align <- paste0(
-      "function(settings, json) {",
-      "$(this.api().table().header()).css({'font-size': '13px', 'padding': '2px 4px'});",
-      "$(this.api().table().body()).css({'font-size': '12px', 'padding': '2px 4px'});",
-      "$('td').css({'text-align': 'center'});",
-      "$('th').css({'text-align': 'center'});",
-      if (!is.na(object_idx)) sprintf("$('td:nth-child(%d)').css('text-align','left');$('th:nth-child(%d)').css('text-align','left');", object_idx, object_idx) else "",
-      if (!is.na(comment_idx)) sprintf("$('td:nth-child(%d)').css('text-align','left');$('th:nth-child(%d)').css('text-align','left');", comment_idx, comment_idx) else "",
-      "}"
-    )
-    datatable(
-      table_data,
-              class = list(stripe = FALSE, 'compact'),
-              selection = 'none',
-              extensions = 'FixedHeader',
-              filter = "top",
-              escape = FALSE,
-              options = list(
-                autoWidth = TRUE,
-                paging = FALSE,
-                scrollX = TRUE,
-                fixedHeader = TRUE,
-        columnDefs = column_defs,
-        initComplete = JS(js_align)
-      ),
-      rownames = FALSE
-    )
-  })
-  
-  output$downloadParticipantDistanceInfo <- downloadHandler(
-    filename = function() {
-      ifelse(
-        experiment_names() == "",
-        "ParticipantDistanceInfo.xlsx",
-        paste0(get_short_experiment_name(experiment_names()), "ParticipantDistanceInfo.xlsx")
-      )
-    },
-    content = function(filename) {
-      openxlsx::write.xlsx(mergedParticipantDistanceTable(), file = filename)
-    }
-  )
   
   #### plots ####
 
@@ -1594,455 +894,6 @@ shinyServer(function(input, output, session) {
     })
   }, deleteFile = TRUE)
   
-  output$durationCorrMatrixPlot <- renderImage({
-    # Check if duration correlation matrix data is available
-    if (is.null(durationCorrMatrix())) {
-      return(NULL)
-    }
-    
-    tryCatch({
-      tmp_svg <- tempfile(fileext = '.svg')
-      p <- add_experiment_title(durationCorrMatrix()$plot, experiment_names())
-      ggsave(
-        file = tmp_svg,
-        plot = p,
-        device = svglite,
-        width = durationCorrMatrix()$width,
-        height = durationCorrMatrix()$height
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      aspect <- if (!is.null(durationCorrMatrix()$width) && durationCorrMatrix()$width > 0) (durationCorrMatrix()$height / durationCorrMatrix()$width) else 1
-      png_h <- round(png_w * aspect)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-    }, error = function(e) {
-      handle_plot_error(e, "durationCorrMatrixPlot", experiment_names(), "Duration Correlation Matrix")
-    })
-  }, deleteFile = TRUE)
-  
-  output$durationHist <- renderImage({
-    tryCatch({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot =  duration_lateness_hist()$duration,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((4/6) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
-    }, error = function(e) {
-      handle_plot_error(e, "durationHist", experiment_names(), "Duration Histogram")
-    })
-    
-  }, deleteFile = TRUE)
-  
-  output$latenessHist <- renderImage({
-    tryCatch({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot =  duration_lateness_hist()$lateness,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((4/6) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
-    }, error = function(e) {
-      handle_plot_error(e, "latenessHist", experiment_names(), "Lateness Histogram")
-    })
-  }, deleteFile = TRUE)
-  
-  durationPlot <- reactive({
-    plot_duraction_sec(durationData())
-  })
-  
-  latenessPlot <- reactive({
-    plot_Lateness_sec(durationData())
-  })
-  
-  output$durationByID <- renderImage({
-    tryCatch({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot =  durationPlot()$participant,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((4/6) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
-    }, error = function(e) {
-      handle_plot_error(e, "durationByID", experiment_names(), "Duration by Participant ID")
-    })
-  }, deleteFile = TRUE)
-  
-  output$durationByFont <- renderImage({
-    tryCatch({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot =  durationPlot()$font,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((4/6) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
-    }, error = function(e) {
-      handle_plot_error(e, "durationByFont", experiment_names(), "Duration by Font")
-    })
-  }, deleteFile = TRUE)
-  
-  output$durationWithFontPadding <- renderImage({
-    tryCatch({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = durationPlot()$fontPadding,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((4/6) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
-    }, error = function(e) {
-      error_plot <- ggplot() +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.6,
-          label = paste("Error:", e$message),
-          color = "red",
-          size = 5,
-          hjust = 0.5,
-          vjust = 0.5
-        ) +
-        theme_void() +
-        labs(subtitle =  
-          'targetMeasuredDurationSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding'
-        )
-      
-      # Save the error plot to a temp file
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = error_plot,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((4/6) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
-    })
-  }, deleteFile = TRUE)
-  
-  output$latenessByID <- renderImage({
-    tryCatch({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot =  latenessPlot()$participant,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((4/6) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
-    }, error = function(e) {
-      handle_plot_error(e, "latenessByID", experiment_names(), "Lateness by Participant ID")
-    })
-  }, deleteFile = TRUE)
-  
-  output$latenessByFont <- renderImage({
-    tryCatch({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = latenessPlot()$font,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((4/6) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
-    }, error = function(e) {
-      handle_plot_error(e, "latenessByFont", experiment_names(), "Lateness by Font")
-    })
-  }, deleteFile = TRUE)
-  
-  output$latenessWithFontPadding <- renderImage({
-    tryCatch({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = latenessPlot()$fontPadding,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((4/6) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
-    }, error = function(e) {
-      error_plot <- ggplot() +
-        annotate(
-          "text",
-          x = 0.5,
-          y = 0.6,
-          label = paste("Error:", e$message),
-          color = "red",
-          size = 5,
-          hjust = 0.5,
-          vjust = 0.5
-        ) +
-        theme_void() +
-        labs(subtitle = 'targetMeasuredLatenessSec vs\nfontNominalSizePx*(1+fontPadding)\ncolored by fontPadding')
-      
-      # Save the error plot to a temp file
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = error_plot,
-        device = svglite,
-        width = 6,
-        height = 4,
-        unit = 'in'
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((4/6) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h/scale))
-    })
-  }, deleteFile = TRUE)
-
-  #### rsvp ggiraph ####
-  
-  ordinaryAcuityFoveal <- reactive({
-    plot_acuity_reading(df_list()$acuity, df_list()$reading, 'foveal')
-  })
-  
-  ordinaryAcuityPeripheral <- reactive({
-    plot_acuity_reading(df_list()$acuity, df_list()$reading, 'peripheral')
-  })
-  
-  
-  output$rsvpCrowdingPeripheralGradePlot <-
-    ggiraph::renderGirafe({
-      tryCatch({
-        plot_with_title <- add_experiment_title(rsvpCrowding()$p_grade, experiment_names())
-        ggiraph::girafe(ggobj = plot_with_title)
-      }, error = function(e) {
-        log_detailed_error(e, "rsvpCrowdingPeripheralGradePlot")
-        error_plot <- ggplot() +
-          annotate(
-            "text",
-            x = 0.5,
-            y = 0.5,
-            label = paste("Error:", e$message),
-            color = "red",
-            size = 5,
-            hjust = 0.5,
-            vjust = 0.5
-          ) +
-          theme_void() +
-          labs(subtitle='rsvp-vs-peripheral-crowding-by-grade')
-        ggiraph::girafe(ggobj = error_plot)
-      })
-    })
-  
-  output$rsvpCrowdingPeripheralFontPlot <-
-    ggiraph::renderGirafe({
-      tryCatch({
-        plot_with_title <- add_experiment_title(rsvpCrowding()$p_font, experiment_names())
-        ggiraph::girafe(ggobj = plot_with_title)
-      }, error = function(e) {
-        log_error("rsvpCrowding p_font: ", conditionMessage(e))
-        error_plot <- ggplot() +
-          annotate(
-            "text",
-            x = 0.5,
-            y = 0.5,
-            label = paste("Error:", e$message),
-            color = "red",
-            size = 5,
-            hjust = 0.5,
-            vjust = 0.5
-          ) +
-          theme_void() +
-          labs(subtitle='rsvp-vs-peripheral-crowding-by-grade')
-        ggiraph::girafe(ggobj = error_plot)
-      })
-    })
- 
-  output$rsvpResidualCrowding <-
-    ggiraph::renderGirafe({
-      tryCatch({
-        plot_with_title <- add_experiment_title(rsvpCrowding()$residual, experiment_names())
-        ggiraph::girafe(ggobj = plot_with_title)
-      }, error = function(e) {
-        log_error("rsvpCrowding residual: ", conditionMessage(e))
-        error_plot <- ggplot() +
-          annotate(
-            "text",
-            x = 0.5,
-            y = 0.5,
-            label = paste("Error:", e$message),
-            color = "red",
-            size = 5,
-            hjust = 0.5,
-            vjust = 0.5
-          ) +
-          theme_void() +
-          labs(subtitle='residual-rsvp-vs-residual-peripheral-crowding-by-grade')
-        ggiraph::girafe(ggobj = error_plot)
-      })
-    })
-  
-  ordinaryCrowdingPlots <- reactive({
-    plot_reading_crowding(df_list())
-  })
-  
-  readingRepeatedPlots <- reactive({
-    plot_reading_repeated_letter_crowding(df_list())
-  })
-  
-  # Font-aggregated plots
-  fontAggregatedReadingRsvpCrowding <- reactive({
-    plot_font_aggregated_reading_rsvp_crowding(df_list())
-  })
-  
-  fontAggregatedOrdinaryReadingCrowding <- reactive({
-    plot_font_aggregated_ordinary_reading_crowding(df_list())
-  })
-  
-  fontAggregatedRsvpCrowding <- reactive({
-    plot_font_aggregated_rsvp_crowding(df_list())
-  })
-
-  output$rsvpCrowdingFovealGradePlot <- ggiraph::renderGirafe({
-    plot_with_title <- add_experiment_title(rsvpCrowding()$f_grade, experiment_names())
-    ggiraph::girafe(ggobj = plot_with_title)
-  })
-  
-  output$rsvpFovealAcuityGradePlot <- ggiraph::renderGirafe({
-    plot_with_title <- add_experiment_title(rsvpAcuityFoveal()[[2]], experiment_names())
-    ggiraph::girafe(ggobj = plot_with_title)
-  })
-  
-  output$rsvpPeripheralAcuityGradePlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(rsvpAcuityPeripheral()$grade, experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  output$rsvpPeripheralAcuityFontPlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(rsvpAcuityPeripheral()$font, experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  output$rsvpRepeatedGradePlot <- ggiraph::renderGirafe({
-    plot_with_title <- add_experiment_title(rsvp_repeated_letter_crowding()[[2]], experiment_names())
-    ggiraph::girafe(ggobj = plot_with_title)
-  })
-  
-  output$ordinaryFovealAcuityGradePlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(ordinaryAcuityFoveal()[[2]], experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  output$ordinaryPeripheralAcuityGradePlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(ordinaryAcuityPeripheral()$grade, experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  output$ordinaryPeripheralAcuityFontPlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(ordinaryAcuityPeripheral()$font, experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  # Peripheral Crowding Plots
-  output$ordinaryPeripheralCrowdingFontPlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[1]], experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-      
-      #temporarily change to colored by font
-    })
-  
-  output$ordinaryPeripheralCrowdingGradePlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[3]], experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  # Font-aggregated plot outputs
   output$fontAggregatedReadingRsvpCrowdingPlot <- renderImage({
     tryCatch({
       plot <- fontAggregatedReadingRsvpCrowding()
@@ -2242,7 +1093,7 @@ shinyServer(function(input, output, session) {
             } else {
               paste0("plot-", idx)
             }
-            paste0(get_short_experiment_name(experiment_names()), base, ".", input$fileType)
+            paste0(get_short_experiment_name(experiment_names()), base, ".", downloadFileType())
           },
           content = function(file) {
             # Skip download if plot is NULL/NA/placeholder
@@ -2251,7 +1102,7 @@ shinyServer(function(input, output, session) {
             savePlot(
               plot = plot,
               filename = file,
-              fileType = input$fileType,
+              fileType = downloadFileType(),
               width = 6,
               height = 4
             )
@@ -2389,16 +1240,16 @@ shinyServer(function(input, output, session) {
         outputOptions(output, paste0("hist", jj), suspendWhenHidden = TRUE)
         
         output[[paste0("downloadHist", jj)]] <- downloadHandler(
-          filename = paste0(
+          filename = function() paste0(
             get_short_experiment_name(experiment_names()),
             files[[jj]],
-            ".", input$fileType
+            ".", downloadFileType()
           ),
           content = function(file) {
             # Skip download if plot is NULL/NA/placeholder
             if (is_placeholder_plot(plots[[jj]])) return(invisible(NULL))
             
-            if (input$fileType == "png") {
+            if (downloadFileType() == "png") {
               ggsave(
                 filename = file,
                 plot = plots[[jj]] + hist_theme,
@@ -2417,7 +1268,7 @@ shinyServer(function(input, output, session) {
                 height = 3.5,
                 units  = "in",
                 limitsize = FALSE,
-                device   = if (input$fileType == "svg") svglite::svglite else input$fileType
+                device   = if (downloadFileType() == "svg") svglite::svglite else downloadFileType()
               )
             }
           }
@@ -2428,569 +1279,6 @@ shinyServer(function(input, output, session) {
     return(out)
   })
 
-  output$dotPlots <- renderUI({
-    out    <- list()
-    plots   <- dotPlots()$plotList
-    files   <- dotPlots()$fileNames
-    heights <- dotPlots()$heights
-    n      <- length(plots)
-    
-    if (n == 0) {
-      return(out)
-    }
-    
-    # Use 50% width for dot plots (2 per row)
-    nPerRow <- 2
-    
-    for (i in seq(1, n, by = nPerRow)) {
-      idx <- i:min(i + nPerRow - 1, n)
-      
-      # --- row of plot names (text labels) ---
-      name_cells <- lapply(idx, function(j) {
-        tags$div(
-          style = "font-weight: bold; font-size: 12px; color: #333; padding: 8px 4px 4px 4px; word-wrap: break-word; white-space: normal;",
-          files[[j]]
-        )
-      })
-      if (length(name_cells) < nPerRow)
-        name_cells <- c(name_cells, rep("", nPerRow - length(name_cells)))
-      
-      out[[length(out) + 1]] <- do.call(splitLayout, c(
-        list(
-          cellWidths = rep("50%", nPerRow),
-          style      = "overflow-x: hidden;"
-        ),
-        name_cells
-      ))
-      
-      # --- row of plots ---
-      plot_cells <- lapply(idx, function(j) {
-        shinycssloaders::withSpinner(
-          imageOutput(paste0("dot", j),
-                     width  = "100%",
-                     height = "100%"),
-          type = 4
-        )
-      })
-      # pad out any missing cells so splitLayout stays stable
-      if (length(plot_cells) < nPerRow)
-        plot_cells <- c(plot_cells, rep("", nPerRow - length(plot_cells)))
-      
-      out[[length(out) + 1]] <- do.call(splitLayout, c(
-        list(
-          cellWidths = rep("50%", nPerRow),
-          style      = "overflow-x: hidden; white-space: nowrap;"
-        ),
-        plot_cells
-      ))
-      
-      # --- row of download buttons ---
-      dl_cells <- lapply(idx, function(j) {
-        downloadButton(paste0("downloadDot", j), "Download")
-      })
-      if (length(dl_cells) < nPerRow)
-        dl_cells <- c(dl_cells, rep("", nPerRow - length(dl_cells)))
-      
-      out[[length(out) + 1]] <- do.call(splitLayout, c(
-        list(
-          cellWidths = rep("50%", nPerRow),
-          style      = "overflow-x: hidden; white-space: nowrap;"
-        ),
-        dl_cells
-      ))
-    }
-    
-    # register each renderImage & downloadHandler
-    for (j in seq_along(plots)) {
-      local({
-        jj <- j
-       
-      output[[paste0("dot", jj)]] <- renderImage({
-          req(jj <= dotRenderCount())
-          tryCatch({
-            tmp_svg <- tempfile(fileext = '.svg')
-            height_in <- if (!is.null(heights) && length(heights) >= jj && !is.null(heights[[jj]])) heights[[jj]] else 4
-            ggsave(
-              file = tmp_svg,
-              plot =  plots[[jj]],
-              device = svglite,
-              width = 6,
-              height = height_in,
-              unit = 'in',
-              limitsize = FALSE
-            )
-            disp_w <- 600
-            scale <- 2
-            png_w <- disp_w * scale
-            png_h <- round((height_in / 6) * png_w)
-            outfile <- tempfile(fileext = ".png")
-            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-          }, error = function(e) {
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              xlim(0, 1) +
-              ylim(0, 1) +
-              theme_void()
-            
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = error_plot,
-              device = svglite,
-              width = 6,
-              height = 4,
-              unit = 'in'
-            )
-            list(
-              src = outfile,
-              contenttype = 'svg',
-              alt = paste0("Error in ", files[[jj]])
-            )
-          })
-        
-      }, deleteFile = TRUE)
-      outputOptions(output, paste0("dot", jj), suspendWhenHidden = TRUE)
-        
-        output[[paste0("downloadDot", jj)]] <- downloadHandler(
-          filename = paste0(
-            get_short_experiment_name(experiment_names()),
-            files[[jj]],
-            ".", input$fileType
-          ),
-          content = function(file) {
-            # Skip download if plot is NULL/NA/placeholder
-            if (is_placeholder_plot(plots[[jj]])) return(invisible(NULL))
-            
-            # Match on-screen sizing: save SVG then rasterize at 2x scale
-            height_in <- if (!is.null(heights) && length(heights) >= jj && !is.null(heights[[jj]])) heights[[jj]] else 4
-            if (tolower(input$fileType) == "png") {
-              tmp_svg <- tempfile(fileext = ".svg")
-              ggsave(
-                file = tmp_svg,
-                plot = plots[[jj]],
-                device = svglite,
-                width = 6,
-                height = height_in,
-                units = "in",
-                limitsize = FALSE
-              )
-              png_w <- 1200  # 6in * 200dpi * scale(1)
-              png_h <- round((height_in / 6) * png_w)
-              rsvg::rsvg_png(tmp_svg, file, width = png_w, height = png_h)
-            } else {
-              ggsave(
-                file,
-                plot   = plots[[jj]],
-                width  = 6,
-                height = height_in,
-                units  = "in",
-                limitsize = FALSE,
-                device   = if (tolower(input$fileType) == "svg") svglite::svglite else input$fileType
-              )
-            }
-          }
-        )
-      })
-    }
-    
-    return(out)
-  })
-
-  output$qualityHistograms <- renderUI({
-    out <- list()
-    i <- 1
-    
-    while (i <= length(histogramsQuality()$plotList) - 3) {
-      # Create a row with 4 histograms
-      out[[i]] <-
-        splitLayout(
-          cellWidths = c("25%", "25%", "25%", "25%"),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("qualityHist", i),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("qualityHist", i + 1),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("qualityHist", i + 2),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("qualityHist", i + 3),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4)
-        )
-      # Create a row with 4 download buttons
-      out[[i + 1]] <-
-        splitLayout(
-          cellWidths = c("25%", "25%", "25%", "25%"),
-          downloadButton(paste0("downloadQualityHist", i), 'Download'),
-          downloadButton(paste0("downloadQualityHist", i + 1), 'Download'),
-          downloadButton(paste0("downloadQualityHist", i + 2), 'Download'),
-          downloadButton(paste0("downloadQualityHist", i + 3), 'Download')
-        )
-      i <- i + 4
-    }
-    
-    # Handle any remaining histograms (fewer than 4)
-    remaining <- length(histogramsQuality()$plotList) - i + 1
-    if (remaining > 0) {
-      plotOutputs <- lapply(1:remaining, function(j) {
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("qualityHist", i + j - 1),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      })
-      downloadButtons <- lapply(1:remaining, function(j) {
-        downloadButton(paste0("downloadQualityHist", i + j - 1), 'Download')
-      })
-      
-      # Fill remaining cells with empty space
-      emptyCells <- 4 - remaining
-      plotOutputs <- c(plotOutputs, rep("", emptyCells))
-      downloadButtons <- c(downloadButtons, rep("", emptyCells))
-      
-      out[[length(out) + 1]] <-
-        do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), plotOutputs))
-      out[[length(out) + 1]] <-
-        do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), downloadButtons))
-    }
-    
-    # Render histograms and download handlers
-    for (j in seq_along(histogramsQuality()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("qualityHist", ii)]] <- renderImage({
-          req(ii <= qualityHistRenderCount())
-          tryCatch({
-            tmp_svg <- tempfile(fileext = '.svg')
-            # Don't add hist_theme to placeholder plots
-            plot_to_save <- if (is_placeholder_plot(histogramsQuality()$plotList[[ii]])) {
-              histogramsQuality()$plotList[[ii]]
-            } else {
-              histogramsQuality()$plotList[[ii]] + hist_theme
-            }
-            ggsave(
-              file = tmp_svg,
-              plot = plot_to_save,
-              device = svglite,
-              width = 4,
-              height = 3.5,
-              unit = 'in',
-              limitsize = FALSE
-            )
-            # Fit image to the container width to avoid horizontal scrollbars
-            disp_w <- session$clientData[[paste0("output_", "qualityHist", ii, "_width")]]
-            if (is.null(disp_w) || is.na(disp_w) || disp_w <= 0) disp_w <- 560
-            scale <- 2
-            png_w <- round(disp_w * scale)
-            png_h <- round((3.5 / 4) * png_w)
-            outfile <- tempfile(fileext = ".png")
-            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-          }, error = function(e) {
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 5,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void() +
-              labs(subtitle=histogramsQuality()$fileNames[[ii]])
-            
-            # Save the error plot to a temp file
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = error_plot,
-              device = svglite,
-              width = 6,
-              height = 4,
-              unit = 'in'
-            )
-            list(
-              src = outfile,
-              contenttype = 'svg',
-              alt = paste0("Error in ", histogramsQuality()$fileNames[[ii]])
-            )
-          })
-          
-        }, deleteFile = TRUE)
-        outputOptions(output, paste0("qualityHist", ii), suspendWhenHidden = TRUE)
-        
-        output[[paste0("downloadQualityHist", ii)]] <-
-          downloadHandler(
-            filename = paste0(
-              get_short_experiment_name(experiment_names()),
-              histogramsQuality()$fileNames[[ii]],
-              '.',
-              input$fileType
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(histogramsQuality()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (input$fileType == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-                ggsave(
-                  tmp_svg,
-                  plot = histogramsQuality()$plotList[[ii]] + hist_theme,
-                  unit = "in",
-                  width = 4,
-                  height = 3.5,
-                  limitsize = F,
-                  device = svglite
-                )
-                rsvg::rsvg_png(tmp_svg,
-                               file,
-                               height = 900,
-                               width = 900)  # Reduced resolution
-              } else {
-                ggsave(
-                  file,
-                  plot = histogramsQuality()$plotList[[ii]] + hist_theme,
-                  width = 4,
-                  # Reduced width
-                  height = 3.5,
-                  # Reduced height
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    input$fileType == "svg",
-                    svglite::svglite,
-                    input$fileType
-                  )
-                )
-              }
-            }
-          )
-      })
-    }
-    
-    return(out)
-  })
-  
-  output$timingHistograms <- renderUI({
-    out <- list()
-    i <- 1
-    
-    while (i <= length(timingHistograms()$plotList) - 3) {
-      # Create a row with 4 histograms
-      out[[i]] <-
-        splitLayout(
-          cellWidths = c("25%", "25%", "25%", "25%"),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("timingHist", i),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("timingHist", i + 1),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("timingHist", i + 2),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4),
-          shinycssloaders::withSpinner(plotOutput(
-            paste0("timingHist", i + 3),
-            width = "100%",
-            height = "100%"
-          ),
-          type = 4)
-        )
-      # Create a row with 4 download buttons
-      out[[i + 1]] <-
-        splitLayout(
-          cellWidths = c("25%", "25%", "25%", "25%"),
-          downloadButton(paste0("downloadTimingHist", i), 'Download'),
-          downloadButton(paste0("downloadTimingHist", i + 1), 'Download'),
-          downloadButton(paste0("downloadTimingHist", i + 2), 'Download'),
-          downloadButton(paste0("downloadTimingHist", i + 3), 'Download')
-        )
-      i <- i + 4
-    }
-    
-    # Handle any remaining histograms (fewer than 4)
-    remaining <- length(timingHistograms()$plotList) - i + 1
-    if (remaining > 0) {
-      plotOutputs <- lapply(1:remaining, function(j) {
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("timingHist", i + j - 1),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      })
-      downloadButtons <- lapply(1:remaining, function(j) {
-        downloadButton(paste0("downloadTimingHist", i + j - 1), 'Download')
-      })
-      
-      # Fill remaining cells with empty space
-      emptyCells <- 4 - remaining
-      plotOutputs <- c(plotOutputs, rep("", emptyCells))
-      downloadButtons <- c(downloadButtons, rep("", emptyCells))
-      
-      out[[length(out) + 1]] <-
-        do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), plotOutputs))
-      out[[length(out) + 1]] <-
-        do.call(splitLayout, c(list(cellWidths = rep("25%", 4)), downloadButtons))
-    }
-    
-    # Render histograms and download handlers
-    for (j in seq_along(timingHistograms()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("timingHist", ii)]] <- renderImage({
-          req(ii <= timingHistRenderCount())
-          tryCatch({
-            tmp_svg <- tempfile(fileext = '.svg')
-            # Don't add hist_theme to placeholder plots
-            plot_to_save <- if (is_placeholder_plot(timingHistograms()$plotList[[ii]])) {
-              timingHistograms()$plotList[[ii]]
-            } else {
-              timingHistograms()$plotList[[ii]] + hist_theme
-            }
-            ggsave(
-              file = tmp_svg,
-              plot = plot_to_save,
-              device = svglite,
-              width = 4,
-              height = 3.5,
-              unit = 'in',
-              limitsize = FALSE
-            )
-            # Fit image to the container width to avoid horizontal scrollbars
-            disp_w <- session$clientData[[paste0("output_", "timingHist", ii, "_width")]]
-            if (is.null(disp_w) || is.na(disp_w) || disp_w <= 0) disp_w <- 560
-            scale <- 2
-            png_w <- round(disp_w * scale)
-            png_h <- round((3.5 / 4) * png_w)
-            outfile <- tempfile(fileext = ".png")
-            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-          }, error = function(e) {
-            log_error("Timing histogram render: ", conditionMessage(e))
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 5,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void() +
-              labs(subtitle=timingHistograms()$fileNames[[ii]])
-            
-            # Save the error plot to a temp file
-            outfile <- tempfile(fileext = '.svg')
-            ggsave(
-              file = outfile,
-              plot = error_plot,
-              device = svglite,
-              width = 6,
-              height = 4,
-              unit = 'in'
-            )
-            list(
-              src = outfile,
-              contenttype = 'svg',
-              alt = paste0("Error in ", timingHistograms()$fileNames[[ii]])
-            )
-          })
-          
-        }, deleteFile = TRUE)
-        outputOptions(output, paste0("timingHist", ii), suspendWhenHidden = TRUE)
-        
-        output[[paste0("downloadTimingHist", ii)]] <-
-          downloadHandler(
-            filename = paste0(
-              get_short_experiment_name(experiment_names()),
-              timingHistograms()$fileNames[[ii]],
-              ii,
-              '.',
-              input$fileType
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(timingHistograms()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (input$fileType == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-                ggsave(
-                  tmp_svg,
-                  plot = timingHistograms()$plotList[[ii]] + hist_theme,
-                  unit = "in",
-                  width = 4,
-                  # Reduced width
-                  height = 3.5,
-                  # Reduced height
-                  limitsize = F,
-                  device = svglite
-                )
-                rsvg::rsvg_png(tmp_svg,
-                               file,
-                               height = 900,
-                               width = 900)  # Reduced resolution
-              } else {
-                ggsave(
-                  file,
-                  plot = timingHistograms()$plotList[[ii]] + hist_theme,
-                  width = 4,
-                  # Reduced width
-                  height = 3.5,
-                  # Reduced height
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    input$fileType == "svg",
-                    svglite::svglite,
-                    input$fileType
-                  )
-                )
-              }
-            }
-          )
-      })
-    }
-    
-    return(out)
-  })
-  
-  
   observeEvent(stackedPlots(), {
     # RSVP
     output$stackedRsvpPlot <- renderImage({
@@ -3034,11 +1322,11 @@ shinyServer(function(input, output, session) {
         paste0(
           get_short_experiment_name(experiment_names()),
           "histogram-of-rsvp-reading-stacked-by-grade.",
-          input$fileType
+          downloadFileType()
         )
       },
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           tmp_svg <- tempfile(fileext = ".svg")
           base_plot <- stackedPlots()$rsvp_plot +
             plt_theme +
@@ -3100,9 +1388,9 @@ shinyServer(function(input, output, session) {
             filename = file,
             plot = plot_with_title,
             device = ifelse(
-              input$fileType == "svg",
+              downloadFileType() == "svg",
               svglite::svglite,
-              input$fileType
+              downloadFileType()
             ),
             width = 6,
             height = 8,
@@ -3134,11 +1422,11 @@ shinyServer(function(input, output, session) {
         paste0(
           get_short_experiment_name(experiment_names()),
           "histogram-of-peripheral-crowding-stacked-by-grade.",
-          input$fileType
+          downloadFileType()
         )
       },
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           tmp_svg <- tempfile(fileext = ".svg")
           base_plot <- stackedPlots()$crowding_plot +
             plt_theme +
@@ -3161,9 +1449,9 @@ shinyServer(function(input, output, session) {
             filename = file,
             plot = plot_with_title,
             device = ifelse(
-              input$fileType == "svg",
+              downloadFileType() == "svg",
               svglite::svglite,
-              input$fileType
+              downloadFileType()
             ),
             width = 6,
             height = 8,
@@ -3194,11 +1482,11 @@ shinyServer(function(input, output, session) {
         paste0(
           get_short_experiment_name(experiment_names()),
           "histogram-of-foveal-acuity-stacked-by-grade.",
-          input$fileType
+          downloadFileType()
         )
       },
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           tmp_svg <- tempfile(fileext = ".svg")
           base_plot <- stackedPlots()$foveal_acuity_plot +
             plt_theme + stacked_theme
@@ -3220,9 +1508,9 @@ shinyServer(function(input, output, session) {
             filename = file,
             plot = plot_with_title,
             device = ifelse(
-              input$fileType == "svg",
+              downloadFileType() == "svg",
               svglite::svglite,
-              input$fileType
+              downloadFileType()
             ),
             width = 8,
             height = 6,
@@ -3253,11 +1541,11 @@ shinyServer(function(input, output, session) {
         paste0(
           get_short_experiment_name(experiment_names()),
           "histogram-of-foveal-crowding-stacked-by-grade.",
-          input$fileType
+          downloadFileType()
         )
       },
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           tmp_svg <- tempfile(fileext = ".svg")
           ggsave(
             filename = tmp_svg,
@@ -3275,9 +1563,9 @@ shinyServer(function(input, output, session) {
             plot = stackedPlots()$foveal_crowding_plot +
               plt_theme + stacked_theme,
             device = ifelse(
-              input$fileType == "svg",
+              downloadFileType() == "svg",
               svglite::svglite,
-              input$fileType
+              downloadFileType()
             ),
             width = 6,
             height = 8,
@@ -3308,11 +1596,11 @@ shinyServer(function(input, output, session) {
         paste0(
           get_short_experiment_name(experiment_names()),
           "histogram-of-foveal-repeated-letter-crowding-stacked-by-grade.",
-          input$fileType
+          downloadFileType()
         )
       },
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           tmp_svg <- tempfile(fileext = ".svg")
           ggsave(
             filename = tmp_svg,
@@ -3330,9 +1618,9 @@ shinyServer(function(input, output, session) {
             plot = stackedPlots()$foveal_repeated_plot +
               plt_theme + stacked_theme,
             device = ifelse(
-              input$fileType == "svg",
+              downloadFileType() == "svg",
               svglite::svglite,
-              input$fileType
+              downloadFileType()
             ),
             width = 6,
             height = 8,
@@ -3364,11 +1652,11 @@ shinyServer(function(input, output, session) {
           paste0(
             get_short_experiment_name(experiment_names()),
             "histogram-of-peripheral-acuity-stacked-by-grade.",
-            input$fileType
+            downloadFileType()
           )
         },
         content = function(file) {
-          if (input$fileType == "png") {
+          if (downloadFileType() == "png") {
             tmp_svg <- tempfile(fileext = ".svg")
             ggsave(
               filename = tmp_svg,
@@ -3386,9 +1674,9 @@ shinyServer(function(input, output, session) {
               plot = stackedPlots()$peripheral_acuity_plot +
                 plt_theme + stacked_theme,
               device = ifelse(
-                input$fileType == "svg",
+                downloadFileType() == "svg",
                 svglite::svglite,
-                input$fileType
+                downloadFileType()
               ),
               width = 6,
               height = 8,
@@ -3492,17 +1780,17 @@ shinyServer(function(input, output, session) {
         outputOptions(output, paste0("scatter", ii), suspendWhenHidden = TRUE)
         output[[paste0("downloadScatter", ii)]] <-
           downloadHandler(
-            filename = paste0(
+            filename = function() paste0(
               get_short_experiment_name(experiment_names()),
               scatterDiagrams()$fileNames[[ii]],
               '.',
-              input$fileType
+              downloadFileType()
             ),
             content = function(file) {
               # Skip download if plot is NULL/NA/placeholder
               if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) return(invisible(NULL))
               
-              if (input$fileType == "png") {
+              if (downloadFileType() == "png") {
                 ggsave(
                   filename = file,
                   plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
@@ -3523,186 +1811,9 @@ shinyServer(function(input, output, session) {
                   units = "in",
                   limitsize = F,
                   device = ifelse(
-                    input$fileType == "svg",
+                    downloadFileType() == "svg",
                     svglite::svglite,
-                    input$fileType
-                  )
-                )
-              }
-            }
-          )
-      })
-    }
-    return(out)
-  })
-  
-  #### distance scatter plots ####
-  
-  output$distanceScatters <- renderUI({
-    out <- list()
-    plots <- scatterDistance()$plotList
-    files <- scatterDistance()$fileNames
-    n <- length(plots)
-    
-    if (n == 0) {
-      return(out)
-    }
-    
-    outIdx <- 1
-    i <- 1
-    while (i <= n - 1) {
-      # --- row of plot names (text labels) ---
-      out[[outIdx]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        tags$div(
-          style = "font-weight: bold; font-size: 12px; color: #333; padding: 8px 4px 4px 4px; word-wrap: break-word; white-space: normal;",
-          files[[i]]
-        ),
-        tags$div(
-          style = "font-weight: bold; font-size: 12px; color: #333; padding: 8px 4px 4px 4px; word-wrap: break-word; white-space: normal;",
-          files[[i + 1]]
-        )
-      )
-      outIdx <- outIdx + 1
-      
-      # --- row of plots ---
-      out[[outIdx]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("distanceScatter", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("distanceScatter", i + 1),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      outIdx <- outIdx + 1
-      
-      # --- row of download buttons ---
-      out[[outIdx]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        downloadButton(paste0("downloadDistanceScatter", i), 'Download'),
-        downloadButton(paste0("downloadDistanceScatter", i + 1), 'Download')
-      )
-      outIdx <- outIdx + 1
-      i <- i + 2
-    }
-    
-    # Handle odd number of plots (last single plot)
-    if (i == n) {
-      # --- plot name ---
-      out[[outIdx]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        tags$div(
-          style = "font-weight: bold; font-size: 12px; color: #333; padding: 8px 4px 4px 4px; word-wrap: break-word; white-space: normal;",
-          files[[i]]
-        ),
-        ""
-      )
-      outIdx <- outIdx + 1
-      
-      # --- plot ---
-      out[[outIdx]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("distanceScatter", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4),
-        ""
-      )
-      outIdx <- outIdx + 1
-      
-      # --- download button ---
-      out[[outIdx]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        downloadButton(paste0("downloadDistanceScatter", i), 'Download'),
-        ""
-      )
-    }
-    for (j in 1:length(scatterDistance()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("distanceScatter", ii)]] <- renderImage({
-          req(ii <= distanceScatterRenderCount())
-          tryCatch({
-            height_in <- scatterDistance()$heights[[ii]]
-            tmp_svg <- tempfile(fileext = '.svg')
-            # Don't add plt_theme_scatter to placeholder plots (it overrides their blank axes)
-            plot_to_save <- if (is_placeholder_plot(scatterDistance()$plotList[[ii]])) {
-              scatterDistance()$plotList[[ii]]
-            } else {
-              scatterDistance()$plotList[[ii]] + plt_theme_scatter
-            }
-            ggsave(
-              file = tmp_svg,
-              plot = plot_to_save,
-              width = 7,
-              height = height_in,
-              unit = 'in',
-              limitsize = F,
-              device = svglite
-            )
-            disp_w <- 700
-            scale <- 2
-            png_w <- disp_w * scale
-            png_h <- round((height_in / 7) * png_w)
-            outfile <- tempfile(fileext = ".png")
-            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-
-          }, error = function(e) {
-            log_error("Distance scatter render: ", conditionMessage(e))
-          handle_plot_error(e, paste0("distanceScatter", ii), experiment_names(), scatterDistance()$fileNames[[ii]])
-          })
-          
-        }, deleteFile = TRUE)
-        outputOptions(output, paste0("distanceScatter", ii), suspendWhenHidden = TRUE)
-        output[[paste0("downloadDistanceScatter", ii)]] <-
-          downloadHandler(
-            filename = paste0(
-              get_short_experiment_name(experiment_names()),
-              scatterDistance()$fileNames[[ii]],
-              '.',
-              input$fileType
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(scatterDistance()$plotList[[ii]])) return(invisible(NULL))
-              
-              height_in <- scatterDistance()$heights[[ii]]
-              if (tolower(input$fileType) == "png") {
-                tmp_svg <- tempfile(fileext = ".svg")
-                ggsave(
-                  file = tmp_svg,
-                  plot = scatterDistance()$plotList[[ii]] + plt_theme_scatter,
-                  width = 7,
-                  height = height_in,
-                  unit = "in",
-                  limitsize = F,
-                  device = svglite
-                )
-                png_w <- 1400  # 7in * 200dpi
-                png_h <- round((height_in / 7) * png_w)
-                rsvg::rsvg_png(tmp_svg, file, width = png_w, height = png_h)
-              } else {
-                ggsave(
-                  file,
-                  plot = scatterDistance()$plotList[[ii]] + plt_theme_scatter,
-                  width = 7,
-                  height = height_in,
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    tolower(input$fileType) == "svg",
-                    svglite::svglite,
-                    input$fileType
+                    downloadFileType()
                   )
                 )
               }
@@ -3816,17 +1927,17 @@ shinyServer(function(input, output, session) {
         
         output[[paste0("downloadViolin", ii)]] <-
           downloadHandler(
-            filename = paste0(
+            filename = function() paste0(
               get_short_experiment_name(experiment_names()),
               violinPlots()$fileNames[[ii]],
               '.',
-              input$fileType
+              downloadFileType()
             ),
             content = function(file) {
               # Skip download if plot is NULL/NA/placeholder
               if (is_placeholder_plot(violinPlots()$plotList[[ii]])) return(invisible(NULL))
               
-              if (input$fileType == "png") {
+              if (downloadFileType() == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
                   tmp_svg,
@@ -3852,9 +1963,9 @@ shinyServer(function(input, output, session) {
                   unit = "in",
                   limitsize = F,
                   device = ifelse(
-                    input$fileType == "svg",
+                    downloadFileType() == "svg",
                     svglite::svglite,
-                    input$fileType
+                    downloadFileType()
                   )
                 )
               }
@@ -3968,17 +2079,17 @@ shinyServer(function(input, output, session) {
         
         output[[paste0("downloadFontComparison", ii)]] <-
           downloadHandler(
-            filename = paste0(
+            filename = function() paste0(
               get_short_experiment_name(experiment_names()),
               fontComparisonPlots()$fileNames[[ii]],
               '.',
-              input$fileType
+              downloadFileType()
             ),
             content = function(file) {
               # Skip download if plot is NULL/NA/placeholder
               if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) return(invisible(NULL))
               
-              if (input$fileType == "png") {
+              if (downloadFileType() == "png") {
                 tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
                 ggsave(
                   tmp_svg,
@@ -4004,9 +2115,9 @@ shinyServer(function(input, output, session) {
                   unit = "in",
                   limitsize = F,
                   device = ifelse(
-                    input$fileType == "svg",
+                    downloadFileType() == "svg",
                     svglite::svglite,
-                    input$fileType
+                    downloadFileType()
                   )
                 )
               }
@@ -4016,1352 +2127,6 @@ shinyServer(function(input, output, session) {
     }
     
     return(out)
-  })
-  
-  output$qualityScatters <- renderUI({
-    out <- list()
-    i = 1
-    while (i <= length(scatterQuality()$plotList) - 1) {
-      out[[i]] <-  splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("qualityScatter", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("qualityScatter", i + 1),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      out[[i + 1]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        downloadButton(paste0("downloadQualityScatter", i), 'Download'),
-        downloadButton(paste0("downloadQualityScatter", i +
-                                1), 'Download')
-      )
-      i = i + 2
-    }
-    if (i == length(scatterQuality()$plotList)) {
-      out[[i]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("qualityScatter", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                  downloadButton(paste0("downloadQualityScatter", i), 'Download'))
-    }
-    for (j in 1:length(scatterQuality()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("qualityScatter", ii)]] <- renderImage({
-          tryCatch({
-            tmp_svg <- tempfile(fileext = '.svg')
-            ggsave(
-              file = tmp_svg,
-              plot = scatterQuality()$plotList[[ii]] +
-                plt_theme_scatter,
-              width = 7,
-              height = 6,
-              unit = 'in',
-              device = svglite,
-              limitsize = FALSE
-            )
-            disp_w <- 700
-            scale <- 2
-            png_w <- disp_w * scale
-            png_h <- round((6 / 7) * png_w)
-            outfile <- tempfile(fileext = ".png")
-            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-          }, error = function(e) {
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 5,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void() +
-              labs(subtitle=scatterQuality()$fileNames[[ii]])
-            tmp_svg <- tempfile(fileext = '.svg')
-            ggsave(
-              file = tmp_svg,
-              plot = error_plot,
-              device = svglite,
-              width = 6,
-              height = 4,
-              unit = 'in'
-            )
-            disp_w <- 700
-            scale <- 2
-            png_w <- disp_w * scale
-            png_h <- round((4 / 6) * png_w)
-            outfile <- tempfile(fileext = ".png")
-            rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-            list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-          })
-        }, deleteFile = TRUE)
-        output[[paste0("downloadQualityScatter", ii)]] <-
-          downloadHandler(
-            filename = paste0(
-              get_short_experiment_name(experiment_names()),
-              scatterQuality()$fileNames[[ii]],
-              ii,
-              '.',
-              input$fileType
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(scatterQuality()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (input$fileType == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-                ggsave(
-                  tmp_svg,
-                  plot = scatterQuality()$plotList[[ii]] +
-                    plt_theme_scatter +
-                    scale_color_manual(values = colorPalette),
-                  unit = "in",
-                  limitsize = F,
-                  device = svglite
-                )
-                rsvg::rsvg_png(tmp_svg, file,
-                               width = 1800)
-              } else {
-                ggsave(
-                  file,
-                  plot = scatterQuality()$plotList[[ii]] +
-                    plt_theme_scatter +
-                    scale_color_manual(values = colorPalette),
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    input$fileType == "svg",
-                    svglite::svglite,
-                    input$fileType
-                  )
-                )
-              }
-            }
-          )
-      })
-    }
-    return(out)
-  })
-  
-  output$scatterTimeParticipant <- renderUI({
-    out <- list()
-    i = 1
-    
-    while (i <= length(scatterTimeParticipant()$plotList) - 1) {
-      out[[i]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(
-          plotOutput(
-            paste0("scatterTimeParticipant", i),
-            width = "100%",
-            height = "1200px"
-          ),
-          type = 4
-        ),
-        shinycssloaders::withSpinner(
-          plotOutput(
-            paste0("scatterTimeParticipant", i + 1),
-            width = "100%",
-            height = "1200px"
-          ),
-          type = 4
-        )
-      )
-      out[[i + 1]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        downloadButton(
-          paste0("downloadScatterTimeParticipant", i),
-          'Download'
-        ),
-        downloadButton(
-          paste0("downloadScatterTimeParticipant", i + 1),
-          'Download'
-        )
-      )
-      i = i + 2
-    }
-    
-    # Handle any remaining scatter plot
-    if (i == length(scatterTimeParticipant()$plotList)) {
-      out[[i]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(
-          plotOutput(
-            paste0("scatterTimeParticipant", i),
-            width = "100%",
-            height = "1200px"
-          ),
-          type = 4
-        )
-      )
-      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                  downloadButton(
-                                    paste0("downloadScatterTimeParticipant", i),
-                                    'Download'
-                                  ))
-    }
-    
-    # Generate the plots and download handlers
-    for (j in 1:length(scatterTimeParticipant()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("scatterTimeParticipant", ii)]] <-
-          renderImage({
-            tryCatch({
-              height_in <- 12.5
-              tmp_svg <- tempfile(fileext = '.svg')
-              ggsave(
-                file = tmp_svg,
-                plot = scatterTimeParticipant()$plotList[[ii]],
-                device = svglite,
-                width = 7,
-                height = height_in,
-                unit = 'in'
-              )
-              disp_w <- 700
-              scale <- 2
-              png_w <- disp_w * scale
-              png_h <- round((height_in / 7) * png_w)
-              outfile <- tempfile(fileext = ".png")
-              rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-              list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-            }, error = function(e) {
-              # Show error in a ggplot-friendly way
-              error_plot <- ggplot() +
-                annotate(
-                  "text",
-                  x = 0.5,
-                  y = 0.5,
-                  label = paste("Error:", e$message),
-                  color = "red",
-                  size = 5,
-                  hjust = 0.5,
-                  vjust = 0.5
-                ) +
-                theme_void() +
-                labs(subtitle=scatterTimeParticipant()$fileNames[[ii]])
-              
-              # Save the error plot to a temp file
-              tmp_svg <- tempfile(fileext = '.svg')
-              ggsave(
-                file = tmp_svg,
-                plot = error_plot,
-                device = svglite,
-                width = 6,
-                height = 4,
-                unit = 'in'
-              )
-              disp_w <- 700
-              scale <- 2
-              png_w <- disp_w * scale
-              png_h <- round((4 / 6) * png_w)
-              outfile <- tempfile(fileext = ".png")
-              rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-              list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-            })
-            
-          }, deleteFile = TRUE)
-        
-        
-        output[[paste0("downloadScatterTimeParticipant", ii)]] <-
-          downloadHandler(
-            filename = paste0(
-              get_short_experiment_name(experiment_names()),
-              scatterTimeParticipant()$fileNames[[ii]],
-              ii,
-              '.',
-              input$fileType
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(scatterTimeParticipant()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (input$fileType == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-                ggsave(
-                  tmp_svg,
-                  plot = scatterTimeParticipant()$plotList[[ii]],
-                  height = 12.5,
-                  unit = "in",
-                  limitsize = F,
-                  device = svglite
-                )
-                rsvg::rsvg_png(tmp_svg, file, width = 1800)
-              } else {
-                ggsave(
-                  file,
-                  plot = scatterTimeParticipant()$plotList[[ii]],
-                  height = 12.5,
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    input$fileType == "svg",
-                    svglite::svglite,
-                    input$fileType
-                  )
-                )
-              }
-            }
-          )
-      })
-    }
-    
-    return(out)
-  })
-  
-  output$scatterTime <- renderUI({
-    out <- list()
-    i = 1
-    
-    while (i <= length(scatterTime()$plotList) - 1) {
-      out[[i]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("scatterTime", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("scatterTime", i + 1),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      out[[i + 1]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        downloadButton(paste0("downloadScatterTime", i), 'Download'),
-        downloadButton(paste0("downloadScatterTime", i + 1), 'Download')
-      )
-      i = i + 2
-    }
-    
-    # Handle any remaining scatter plot
-    if (i == length(scatterTime()$plotList)) {
-      out[[i]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("scatterTime", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                  downloadButton(paste0("downloadScatterTime", i), 'Download'))
-    }
-    
-    # Generate the plots and download handlers
-    for (j in 1:length(scatterTime()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("scatterTime", ii)]] <-
-          renderImage({
-            tryCatch({
-              tmp_svg <- tempfile(fileext = '.svg')
-              ggsave(
-                file = tmp_svg,
-                plot = scatterTime()$plotList[[ii]] +
-                  plt_theme_scatter,
-                width = 7,
-                height = 6,
-                unit = 'in',
-                limitsize = F,
-                device = svglite
-              )
-              disp_w <- 700
-              scale <- 2
-              png_w <- disp_w * scale
-              png_h <- round((6 / 7) * png_w)
-              outfile <- tempfile(fileext = ".png")
-              rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-              list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-            }, error = function(e) {
-              # Show error in a ggplot-friendly way
-              error_plot <- ggplot() +
-                annotate(
-                  "text",
-                  x = 0.5,
-                  y = 0.5,
-                  label = paste("Error:", e$message),
-                  color = "red",
-                  size = 5,
-                  hjust = 0.5,
-                  vjust = 0.5
-                ) +
-                theme_void() +
-                labs(subtitle=scatterTime()$fileNames[[ii]])
-              
-              # Save the error plot to a temp file
-              tmp_svg <- tempfile(fileext = '.svg')
-              ggsave(
-                file = tmp_svg,
-                plot = error_plot,
-                device = svglite,
-                width = 6,
-                height = 4,
-                unit = 'in'
-              )
-              disp_w <- 700
-              scale <- 2
-              png_w <- disp_w * scale
-              png_h <- round((4 / 6) * png_w)
-              outfile <- tempfile(fileext = ".png")
-              rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-              list(src = outfile, contenttype = 'image/png', width = disp_w, height = round(png_h / scale))
-            })
-            
-          }, deleteFile = TRUE)
-        
-        output[[paste0("downloadScatterTime", ii)]] <-
-          downloadHandler(
-            filename = paste0(
-              get_short_experiment_name(experiment_names()),
-              scatterTime()$fileNames[[ii]],
-              ii,
-              '.',
-              input$fileType
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(scatterTime()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (input$fileType == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-                ggsave(
-                  tmp_svg,
-                  plot = scatterTime()$plotList[[ii]] +
-                    plt_theme_scatter,
-                  unit = "in",
-                  limitsize = F,
-                  device = svglite
-                )
-                rsvg::rsvg_png(tmp_svg, file, width = 1800)
-              } else {
-                ggsave(
-                  file,
-                  plot = scatterTime()$plotList[[ii]] +
-                    plt_theme_scatter,
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    input$fileType == "svg",
-                    svglite::svglite,
-                    input$fileType
-                  )
-                )
-              }
-            }
-          )
-      })
-    }
-    
-    return(out)
-  })
-  
-  
-  #### crowding stair plots
-  stairPlot <- reactive({
-    plotStaircases(files()$stairs,
-                   input$thresholdParameter,
-                   conditionNames())
-  })
-  
-  output$stairPlot <- renderImage({
-    tmp_svg <- tempfile(fileext = '.svg')
-    ggsave(
-      file = tmp_svg,
-      plot = stairPlot()$plot + plt_theme,
-      width = 8,
-      height = stairPlot()$height,
-      limitsize = F,
-      unit = 'in',
-      device = svglite
-    )
-    disp_w <- 700
-    scale <- 2
-    png_w <- disp_w * scale
-    aspect <- (stairPlot()$height / 8)
-    png_h <- round(png_w * aspect)
-    outfile <- tempfile(fileext = ".png")
-    rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-    list(src = outfile,
-         contenttype = 'image/png',
-         width = disp_w,
-         height = round(png_h/scale))
-  }, deleteFile = TRUE)
-  
-  output$downloadStairPlot <- downloadHandler(
-    filename = paste0(input$thresholdParameter, '-staircases.', input$fileType),
-    content = function(file) {
-      if (input$fileType == "png") {
-        tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-        ggsave(
-          tmp_svg,
-          plot = stairPlot()$plot + plt_theme,
-          width = 8,
-          height = stairPlot()$height,
-          unit = "in",
-          limitsize = F,
-          device = svglite
-        )
-        rsvg::rsvg_png(tmp_svg,
-                       file,
-                       height = 225 * stairPlot()$height,
-                       width = 1800,
-        )
-      } else {
-        ggsave(
-          file,
-          plot = stairPlot()$plot + plt_theme,
-          width = 8,
-          height = stairPlot()$height,
-          unit = "in",
-          limitsize = F,
-          device = ifelse(
-            input$fileType  == "svg",
-            svglite::svglite,
-            input$fileType
-          )
-        )
-      }
-    }
-  )
-  
-  
-  #### IR and IIR json ####
-  showAC <- reactiveVal(FALSE)
-  observeEvent(input$do, {
-    if (!showAC()) {
-      showModal(modalDialog("Generating plot…", footer = NULL))
-
-      output$autocorrelation <- renderImage({
-        file_list <- input$fileJSON$data
-        jsonFile  <- fromJSON(file_list[1], simplifyDataFrame = FALSE)
-        p         <- get_autocorrelation_plot(jsonFile, sound_data())
-        tmp_svg   <- tempfile(fileext = ".svg")
-        ggsave(file = tmp_svg, plot = p, device = svglite::svglite, width = 8, height = 8, units = "in")
-        removeModal()
-        disp_w <- 700
-        scale <- 2
-        png_w <- disp_w * scale
-        png_h <- png_w
-        outfile <- tempfile(fileext = ".png")
-        rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-        list(src = outfile, contenttype = "image/png", width = disp_w, height = disp_w, alt = "autocorrelation")
-      }, deleteFile = TRUE)
-
-      # flip flag, update button
-      showAC(TRUE)
-      updateActionButton(session, "do", label = "Hide autocorrelation")
-
-    }
-    else {
-      output$autocorrelation <- NULL
-
-      showAC(FALSE)
-      updateActionButton(session, "do", label = "Plot autocorrelation")
-    }
-    
-  })
-  
-  sound_level_plot <- reactive({
-    plot_sound_level(sound_data())
-  })
-  
-  observeEvent(input$fileJSON, {
-    #### sound calibration server side####
-    
-    output$`sound table` <- renderTable(sound_data()$volume_task,
-                                        digits = 1)
-    
-    output$`Dynamic Range Compression Model` <-
-      renderTable(
-        expr = sound_data()$DRCMforDisplay,
-        rownames = TRUE,
-        colnames = FALSE,
-        digits = 1
-      )
-    
-    output$sound_level_plot <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = sound_level_plot()[[1]],
-        width = sound_level_plot()[[2]],
-        height = sound_level_plot()[[3]],
-        device = svglite::svglite,
-        units = "in"
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      aspect <- if (!is.null(sound_level_plot()[[2]]) && sound_level_plot()[[2]] > 0) (sound_level_plot()[[3]] / sound_level_plot()[[2]]) else 1
-      png_h <- round(png_w * aspect)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "1000 Hz plot")
-    }, deleteFile = TRUE)
-    
-    
-    # output$`record freq plot system` <- renderImage({
-    #   outfile <- tempfile(fileext = '.svg')
-    #   ggsave(
-    #     file = outfile,
-    #     plot = record_freq_system_plot()$plot,
-    #     height = record_freq_system_plot()$height,
-    #     width = 8.5,
-    #     units = "in"
-    #   )
-    #   list(src = outfile,
-    #        contenttype = 'svg',
-    #        alt = "Power Spectral Density")
-    # }, deleteFile = TRUE)
-    
-    output$`record freq plot component` <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = record_freq_component_plot()$plot,
-        height = record_freq_component_plot()$height,
-        width = 8.5,
-        units = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      aspect <- (record_freq_component_plot()$height / 8.5)
-      png_h <- round(png_w * aspect)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "Power Spectral Density")
-    }, deleteFile = TRUE)
-    
-    output$`power variation` <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = recording_variation()$plot,
-        height = recording_variation()$height,
-        width = 8,
-        units = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      aspect <- (recording_variation()$height / 8)
-      png_h <- round(png_w * aspect)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "Power Spectral Density")
-    }, deleteFile = TRUE)
-    
-    output$`volume power variation` <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = volume_power_variation()$plot,
-        height = volume_power_variation()$height,
-        width = 8,
-        units = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      aspect <- (volume_power_variation()$height / 8)
-      png_h <- round(png_w * aspect)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "Power variation")
-    }, deleteFile = TRUE)
-    
-    
-    
-    
-    #### IIR ####
-    # output$IRtmpFour <- renderImage({
-    #   outfile <- tempfile(fileext = '.svg')
-    #   ggsave(file = outfile,
-    #          plot = iirPlots()[[1]],
-    #          height = iirPlots()[[3]])
-    #   list(src = outfile,
-    #        contenttype = 'svg',
-    #        alt = "IIR one")
-    # }, deleteFile = TRUE)
-    # 
-    # output$IRtmpFive <- renderImage({
-    #   outfile <- tempfile(fileext = '.svg')
-    #   ggsave(file = outfile,
-    #          plot = iirPlots()[[2]],
-    #          height = iirPlots()[[4]])
-    #   list(src = outfile,
-    #        contenttype = 'svg',
-    #        alt = "IIR two")
-    # }, deleteFile = TRUE)
-    
-    output$componentIIR0To10 <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = componentIIRPlots()$ten +
-          sound_theme_display,
-        height = 6,
-        width = 8,
-        unit = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((6/8) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "IIR 0 to 10 ms")
-    }, deleteFile = TRUE)
-    
-    output$componentIIR0To50 <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = componentIIRPlots()$fifty +
-          sound_theme_display,
-        height = 6,
-        width = 8,
-        unit = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((6/8) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "IIR 0 to 50 ms")
-    }, deleteFile = TRUE)
-    
-    output$componentIIR0To400 <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = componentIIRPlots()$schroeder +
-          sound_theme_display,
-        height = 5,
-        width = 8,
-        unit = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((5/8) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "IIR schroeder")
-    }, deleteFile = TRUE)
-    
-    
-    #### IR ####
-    
-    output$componentIRPSD <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = componentIR_PSD_plot()$plot,
-        height =  componentIR_PSD_plot()$height,
-        width = 8,
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      aspect <- (componentIR_PSD_plot()$height / 8)
-      png_h <- round(png_w * aspect)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "IIR two")
-    }, deleteFile = TRUE)
-    
-    output$componentIR0To6 <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = irPlots()[[1]],
-        height = 6,
-        width = 8,
-        unit = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((6/8) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "IIR two")
-    }, deleteFile = TRUE)
-    
-    output$componentIR0To50 <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = irPlots()[[2]],
-        height = 6,
-        width = 8,
-        unit = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((6/8) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "IIR two")
-    }, deleteFile = TRUE)
-    
-    output$componentIR0To400 <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = irPlots()[[3]],
-        height = 5,
-        width = 8,
-        unit = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      png_h <- round((5/8) * png_w)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "IIR two")
-    }, deleteFile = TRUE)
-    
-    # output$cumSumPowerPlotSystem <- renderImage({
-    #   outfile <- tempfile(fileext = '.svg')
-    #   ggsave(
-    #     file = outfile,
-    #     plot = cumSumPowerPlot()$p_system +
-    #       add_transducerTable_system(
-    #         sound_data()[[7]],
-    #         c("left", "bottom"),
-    #         subtitle = list(
-    #           c(
-    #             subtitleOne(),
-    #             subtitleTwo()$component,
-    #             subtitleThree()$component
-    #           )
-    #         ),
-    #         leftShift = 0.02
-    #       ) + sound_theme_display,
-    #     height = cumSumPowerPlot()$height_system,
-    #     unit = "in",
-    #   )
-    #   list(src = outfile,
-    #        contenttype = 'svg',
-    #        alt = "IIR two")
-    # }, deleteFile = TRUE)
-    
-    output$cumSumPowerPlotComponent <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = cumSumPowerPlot()$p_component +
-          add_transducerTable_component(
-            sound_data()[[7]],
-            c("left", "bottom"),
-            subtitle = list(
-              c(
-                subtitleOne(),
-                subtitleTwo()$component,
-                subtitleThree()$component
-              )
-            ),
-            transducerType = sound_data()$inputParameters$transducerTypeF,
-            leftShift = 0.02
-          ),
-        height = cumSumPowerPlot()$height_component,
-        width = 8,
-        unit = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      aspect <- (cumSumPowerPlot()$height_component / 8)
-      png_h <- round(png_w * aspect)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "IIR two")
-    }, deleteFile = TRUE)
-    
-    
-  })
-  
-  observeEvent(input$toShinyOptions, {
-    json <- fromJSON(input$toShinyOptions)
-    if (input$transducerType == "Loudspeakers") {
-      options <- json$createDates
-    } else {
-      if ("isDefault" %in% names(json)) {
-        options <-
-          ifelse(json$isDefault,
-                 paste0("default/", unlist(json$modelNumbers)),
-                 json$createDates)
-      } else {
-        options <- json$createDates
-      }
-      
-    }
-    options <- sort(unique(options), decreasing = F)
-    updateCheckboxGroupInput(
-      session,
-      'profileSelection',
-      label = "select profiles",
-      choices = options,
-      selected = NULL,
-      inline = FALSE
-    )
-    
-    session$sendCustomMessage("options", "true")
-    
-    df <- get_profile_table(json, transducerType) %>%
-      select(-label)
-    output$summaryStats <- renderTable({
-      get_profile_summary(df)
-    }, rownames = T, colnames = T)
-    output$profiles <- DT::renderDataTable(datatable(
-      df,
-      class = list(stripe = FALSE),
-      selection = 'none',
-      filter = "top",
-      options = list(
-        paging = FALSE,
-        searching = TRUE,
-        dom = 'Bfrtip',
-        rowCallback = JS(rowCallback)
-      )
-    ))
-    output$downloadProfileTable <- downloadHandler(
-      filename = "profiles-table.csv",
-      content = function(filename) {
-        write.csv(df, file = filename, row.names = FALSE)
-      }
-    )
-    
-  })
-  
-  observeEvent(input$doProfile, {
-    title = paste0(input$plotTitle, " ", input$transducerType)
-    p <- getFilteredProfilePlots(
-      input$transducerType,
-      fromJSON(input$totalData),
-      title,
-      input$profileSelection
-    )
-    
-    output$profilePlot <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = p$plot,
-        height = p$height,
-        width = 8,
-        unit = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      aspect <- (p$height / 8)
-      png_h <- round(png_w * aspect)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "profile plot")
-    }, deleteFile = TRUE)
-    
-    json <- fromJSON(input$toShiny)
-    
-    df <- get_profile_table(json, get_profile_table) %>%
-      filter(label %in% input$profileSelection) %>%
-      select(-label)
-    
-    output$summaryStats <- renderTable({
-      get_profile_summary(df)
-    }, rownames = T, colnames = T)
-    output$downloadProfileTable <- downloadHandler(
-      filename = "profiles-table.csv",
-      content = function(filename) {
-        write.csv(df, file = filename, row.names = FALSE)
-      }
-    )
-    
-    output$profiles <- DT::renderDataTable(datatable(
-      df,
-      class = list(stripe = FALSE),
-      selection = 'none',
-      filter = "top",
-      options = list(
-        paging = FALSE,
-        searching = TRUE,
-        dom = 'Bfrtip',
-        rowCallback = JS(rowCallback)
-      )
-    ))
-    
-    output$downloadProfilePlot <- downloadHandler(
-      filename = paste0("profile-plot.", input$fileProfile),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-          ggsave(
-            tmp_svg,
-            plot = p$plot,
-            height = p$height,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png(tmp_svg,
-                         file,
-                         height = p$height * 300,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = p$plot,
-            height = p$height,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileProfile == "svg",
-              svglite::svglite,
-              input$fileProfile
-            )
-          )
-        }
-      }
-    )
-    
-    output$shiftedProfilePlot <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = p$shiftedPlot,
-        height = p$height,
-        width = 8,
-        unit = "in",
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      aspect <- (p$height / 8)
-      png_h <- round(png_w * aspect)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "profile plot")
-    }, deleteFile = TRUE)
-    
-    output$downloadShiftedProfilePlot <- downloadHandler(
-      filename = paste0("profile-plot-shifted.", input$fileProfile),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-          ggsave(
-            tmp_svg,
-            plot = p$shiftedPlot,
-            height = p$height,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png(tmp_svg,
-                         file,
-                         height = p$height * 300,
-                         width = 1800,
-          )
-        } else {
-          ggsave(
-            file,
-            plot = p$shiftedPlot,
-            height = p$height,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileProfile == "svg",
-              svglite::svglite,
-              input$fileProfile
-            )
-          )
-        }
-      }
-    )
-    
-    output$profileAvgPlot <- renderImage({
-      tmp_svg <- tempfile(fileext = '.svg')
-      ggsave(
-        file = tmp_svg,
-        plot = p$avgPlot,
-        height = p$avgHeight,
-        width = 8,
-        unit = "in",
-        limitsize = FALSE,
-        device = svglite::svglite
-      )
-      disp_w <- 700
-      scale <- 2
-      png_w <- disp_w * scale
-      aspect <- (p$avgHeight / 8)
-      png_h <- round(png_w * aspect)
-      outfile <- tempfile(fileext = ".png")
-      rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-      list(src = outfile,
-           contenttype = 'image/png',
-           width = disp_w,
-           height = round(png_h/scale),
-           alt = "profile plot")
-    }, deleteFile = TRUE)
-    
-    output$downloadProfileAvgPlot <- downloadHandler(
-      filename = paste0('average-of-profiles',
-                        '.',
-                        input$fileProfile),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-          ggsave(
-            tmp_svg,
-            plot = p$avgPlot,
-            height = p$avgHeight,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png(tmp_svg,
-                         file,
-                         height = p$avgHeight * 300,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = p$avgPlot,
-            height = p$avgHeight,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileProfile == "svg",
-              svglite::svglite,
-              input$fileProfile
-            )
-          )
-        }
-      }
-    )
-    
-    output$profileAverage <- renderTable(p$tb)
-    output$profileAverageTitle <- renderText(p$title)
-    
-  })
-  
-  profile_plot <- reactive({
-    title = paste0(input$plotTitle, " ", input$transducerType)
-    getProfilePlots(input$transducerType,
-                    fromJSON(input$totalData),
-                    title)
-  })
-  
-  observeEvent(input$totalData, {
-    json <- fromJSON(input$toShiny)
-    if (input$transducerType == "Loudspeakers") {
-      options <- json$createDates
-    } else {
-      if ("isDefault" %in% names(json)) {
-        options <-
-          ifelse(
-            json$isDefault,
-            paste0(
-              "default/",
-              unlist(json$modelNumbers),
-              "/",
-              json$createDates
-            ),
-            json$createDates
-          )
-      } else {
-        options <- json$createDates
-      }
-      
-    }
-    options <- sort(unique(options), decreasing = F)
-    updateCheckboxGroupInput(
-      session,
-      'profileSelection',
-      label = "select profiles",
-      choices = options,
-      selected = NULL,
-      inline = FALSE
-    )
-    
-    session$sendCustomMessage("options", "true")
-    
-    df <- get_profile_table(json, transducerType) %>%
-      select(-label)
-    output$summaryStats <- renderTable({
-      get_profile_summary(df)
-    }, rownames = T, colnames = T)
-    output$profiles <- DT::renderDataTable(datatable(
-      df,
-      class = list(stripe = FALSE),
-      selection = 'none',
-      filter = "top",
-      options = list(
-        paging = FALSE,
-        searching = TRUE,
-        dom = 'Bfrtip',
-        rowCallback = JS(rowCallback)
-      )
-    ))
-    output$downloadProfileTable <- downloadHandler(
-      filename = "profiles-table.csv",
-      content = function(filename) {
-        write.csv(df, file = filename, row.names = FALSE)
-      }
-    )
-    output$profilePlot <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = profile_plot()$plot,
-        height = profile_plot()$height,
-        width = 8,
-        unit = "in",
-        limitsize = FALSE
-      )
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "profile plot")
-    }, deleteFile = TRUE)
-    
-    output$shiftedProfilePlot <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = profile_plot()$shiftedPlot,
-        height = profile_plot()$height,
-        width = 8,
-        unit = "in",
-        limitsize = FALSE
-      )
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "profile plot")
-    }, deleteFile = TRUE)
-    
-    output$profileAvgPlot <- renderImage({
-      outfile <- tempfile(fileext = '.svg')
-      ggsave(
-        file = outfile,
-        plot = profile_plot()$avgPlot,
-        height = profile_plot()$avgHeight,
-        width = 8,
-        unit = "in",
-        limitsize = FALSE
-      )
-      list(src = outfile,
-           contenttype = 'svg',
-           alt = "profile plot")
-    }, deleteFile = TRUE)
-    
-    output$profileAverage <- renderTable(profile_plot()$tb)
-    
-    output$profileAverageTitle <-
-      renderText(profile_plot()$title)
   })
   
   #### Event Handler ####
@@ -5632,200 +2397,107 @@ shinyServer(function(input, output, session) {
   #### download handlers ####
   
   
-  output$downloadAll = downloadHandler(
-    filename = 'plots.zip',
-    content = function(file) {
-      owd <- setwd(tempdir())
-      on.exit(setwd(owd))
-      
-      fileNames <- c()
-      
-      # Save correlation matrices (skip NULL/NA plots)
-      short_exp_name <- get_short_experiment_name(experiment_names())
-      if (!is.null(corrMatrix()$plot)) {
-        savePlot(corrMatrix()$plot, 
-                 paste0(short_exp_name, "correlation-matrix.", input$fileType),
-                 input$fileType, 
-                 width = corrMatrix()$width, 
-                 height = corrMatrix()$height)
-        fileNames <- c(fileNames, paste0(short_exp_name, "correlation-matrix.", input$fileType))
-        
-        if (!is.null(corrMatrix()$n_plot)) {
-          savePlot(corrMatrix()$n_plot, 
-                   paste0(short_exp_name, "pairwise-count-matrix.", input$fileType),
-                   input$fileType, 
-                   width = corrMatrix()$width, 
-                   height = corrMatrix()$height)
-          fileNames <- c(fileNames, paste0(short_exp_name, "pairwise-count-matrix.", input$fileType))
-        }
+  plotsTabDownloadSpecs <- reactive({
+    specs <- list()
+    correlation <- corrMatrix()
+    if (!is.null(correlation) && !is.null(correlation$plot)) {
+      specs <- c(specs, list(plot_download_spec(
+        correlation$plot,
+        "correlation-matrix",
+        width = correlation$width,
+        height = correlation$height
+      )))
+      if (!is.null(correlation$n_plot)) {
+        specs <- c(specs, list(plot_download_spec(
+          correlation$n_plot,
+          "pairwise-count-matrix",
+          width = correlation$width,
+          height = correlation$height
+        )))
       }
-     
-      if (!is.null(durationCorrMatrix()$plot)) {
-        savePlot(durationCorrMatrix()$plot, 
-                 paste0(short_exp_name, "duration-correlation-matrix.", input$fileType),
-                 input$fileType, 
-                 width = durationCorrMatrix()$width, 
-                 height = durationCorrMatrix()$height)
-        fileNames <- c(fileNames, paste0(short_exp_name, "duration-correlation-matrix.", input$fileType))
-      }
-      
-      # Save histograms (skip NULL/NA/placeholder plots)
-      if (length(histograms()$plotList) > 0) {
-        for (i in seq_along(histograms()$plotList)) {
-          if (!is_placeholder_plot(histograms()$plotList[[i]])) {
-            plotFileName <- paste0(short_exp_name, histograms()$fileNames[[i]], '.', input$fileType)
-            
-            savePlot(histograms()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
-            fileNames <- c(fileNames, plotFileName)
-          }
-        }
-      }
-      
-      # Save dot plots (skip NULL/NA/placeholder plots)
-      if (length(dotPlots()$plotList) > 0) {
-        for (i in seq_along(dotPlots()$plotList)) {
-          if (!is_placeholder_plot(dotPlots()$plotList[[i]])) {
-            plotFileName <- paste0(short_exp_name, dotPlots()$fileNames[[i]], '.', input$fileType)
-            
-            # Use larger dimensions for SD histogram to make legend readable
-            if (grepl("sd-log-density-histogram", dotPlots()$fileNames[[i]])) {
-              savePlot(dotPlots()$plotList[[i]], plotFileName, input$fileType, width = 12, height = 8)
-            } else {
-              savePlot(dotPlots()$plotList[[i]], plotFileName, input$fileType, width = 8, height = 6)
-            }
-            fileNames <- c(fileNames, plotFileName)
-          }
-        }
-      }
-      
-      # Save scatter diagrams (skip NULL/NA/placeholder plots)
-      if (length(scatterDiagrams()$plotList) > 0) {
-        for (i in seq_along(scatterDiagrams()$plotList)) {
-          if (!is_placeholder_plot(scatterDiagrams()$plotList[[i]])) {
-            plotFileName <- paste0(short_exp_name, scatterDiagrams()$fileNames[[i]], '.', input$fileType)
-            savePlot(scatterDiagrams()$plotList[[i]] + plt_theme_scatter, plotFileName, input$fileType)
-            fileNames <- c(fileNames, plotFileName)
-          }
-        }
-      }
-      
-      # Save distance scatter plots (skip NULL/NA/placeholder plots)
-      if (length(scatterDistance()$plotList) > 0) {
-        for (i in seq_along(scatterDistance()$plotList)) {
-          if (!is_placeholder_plot(scatterDistance()$plotList[[i]])) {
-            plotFileName <- paste0(short_exp_name, scatterDistance()$fileNames[[i]], '.', input$fileType)
-            savePlot(scatterDistance()$plotList[[i]] + plt_theme_scatter, plotFileName, input$fileType)
-            fileNames <- c(fileNames, plotFileName)
-          }
-        }
-      }
-      
-      # Save age plots (skip NULL/NA/placeholder plots)
-      if (length(agePlots()$plotList) > 0) {
-        for (i in seq_along(agePlots()$plotList)) {
-          if (!is_placeholder_plot(agePlots()$plotList[[i]])) {
-            plotFileName <- paste0(short_exp_name, agePlots()$fileNames[[i]], '.', input$fileType)
-            savePlot(agePlots()$plotList[[i]] + plt_theme, plotFileName, input$fileType)
-            fileNames <- c(fileNames, plotFileName)
-          }
-        }
-      }
-      
-      # Save ggriaph plots
-      # Create a list with plotList and title sublists
-      ggiraph_plots <- list(
-        plotList = list(
-          # RSVP Crowding plots
-          rsvpCrowding()$p_grade,                   
-          rsvpCrowding()$f_grade,   
-          rsvpCrowding()$p_font,                   
-          rsvpCrowding()$residual,                   
-          rsvpCrowding()$f_font,                  
-          
-          # RSVP Acuity plots
-          rsvpAcuityFoveal()[[2]],             
-          rsvpAcuityPeripheral()[[2]],         
-          
-          # RSVP Repeated Letter plots
-          rsvp_repeated_letter_crowding()[[2]],  
-          
-          # Ordinary Acuity plots
-          ordinaryAcuityFoveal()[[2]],           
-          ordinaryAcuityPeripheral()[[2]],       
-          
-          # Ordinary Crowding plots
-          ordinaryCrowdingPlots()[[1]],         
-          ordinaryCrowdingPlots()[[2]], 
-          ordinaryCrowdingPlots()[[3]],          
-          ordinaryCrowdingPlots()[[4]],          
-          
-          # Reading Repeated plots
-          readingRepeatedPlots()[[2]]            
-        ),
-        
-        fileNames = list(
-          # RSVP Crowding titles
-          "rsvp-vs-peripheral-crowding-by-grade",
-          "rsvp-vs-foveal-crowding-by-grade",
-          "rsvp-vs-peripheral-crowding-by-font",
-          "residual-rsvp-vs-residual-peripheral-crowding-by-font", 
-          "rsvp-vs-foveal-crowding-by-font",
-          
-          # RSVP Acuity titles
-          "rsvp-foveal-acuity-by-grade",
-          "rsvp-peripheral-acuity-by-grade",
-          
-          # RSVP Repeated Letter titles
-          "rsvp-repeated-letter-by-grade",
-          
-          # Ordinary Acuity titles
-          "ordinary-foveal-acuity-by-grade",
-          "ordinary-peripheral-acuity-by-grade",
-          
-          # Ordinary Crowding title
-          "ordinary-peripheral-crowding-by-age",
-          "ordinary-peripheral-crowding-by-grade",
-          "ordinary-foveal-crowding-by-age",
-          "ordinary-foveal-crowding-by-grade",
-          
-          # Reading Repeated titles
-          "reading-repeated-letter-by-grade"
-        )
-      )
-      if (length(ggiraph_plots$plotList) > 0) {
-        for (i in seq_along(ggiraph_plots$plotList)) {
+    }
 
-          if (!is_placeholder_plot(ggiraph_plots$plotList[[i]])) {
-            plotFileName <- paste0(short_exp_name, ggiraph_plots$fileNames[[i]], '.', input$fileType)
-            savePlot(ggiraph_plots$plotList[[i]] + plt_theme_ggiraph, plotFileName, input$fileType)
-            fileNames <- c(fileNames, plotFileName)
-          }
-        }
-      }
-      
-      # Save violin plots (skip NULL/NA/placeholder plots)
-      if (length(violinPlots()$plotList) > 0) {
-        for (i in seq_along(violinPlots()$plotList)) {
-          if (!is_placeholder_plot(violinPlots()$plotList[[i]])) {
-            plotFileName <- paste0(short_exp_name, violinPlots()$fileNames[[i]], '.', input$fileType)
-            savePlot(violinPlots()$plotList[[i]], plotFileName, input$fileType)
-            fileNames <- c(fileNames, plotFileName)
-          }
-        }
-      }
-      
-      # Save font comparison plots (skip NULL/NA/placeholder plots)
-      if (length(fontComparisonPlots()$plotList) > 0) {
-        for (i in seq_along(fontComparisonPlots()$plotList)) {
-          if (!is_placeholder_plot(fontComparisonPlots()$plotList[[i]])) {
-            plotFileName <- paste0(short_exp_name, fontComparisonPlots()$fileNames[[i]], '.', input$fileType)
-            savePlot(fontComparisonPlots()$plotList[[i]], plotFileName, input$fileType)
-            fileNames <- c(fileNames, plotFileName)
-          }
-        }
-      }
-      
-      zip(file, fileNames)
+    ggiraph_plots <- list(
+      plotList = list(
+        rsvpCrowding()$p_grade,
+        rsvpCrowding()$f_grade,
+        rsvpCrowding()$p_font,
+        rsvpCrowding()$residual,
+        rsvpCrowding()$f_font,
+        rsvpAcuityFoveal()[[2]],
+        rsvpAcuityPeripheral()[[2]],
+        rsvp_repeated_letter_crowding()[[2]],
+        ordinaryAcuityFoveal()[[2]],
+        ordinaryAcuityPeripheral()[[2]],
+        ordinaryCrowdingPlots()[[1]],
+        ordinaryCrowdingPlots()[[2]],
+        ordinaryCrowdingPlots()[[3]],
+        ordinaryCrowdingPlots()[[4]],
+        readingRepeatedPlots()[[2]]
+      ),
+      fileNames = list(
+        "rsvp-vs-peripheral-crowding-by-grade",
+        "rsvp-vs-foveal-crowding-by-grade",
+        "rsvp-vs-peripheral-crowding-by-font",
+        "residual-rsvp-vs-residual-peripheral-crowding-by-font",
+        "rsvp-vs-foveal-crowding-by-font",
+        "rsvp-foveal-acuity-by-grade",
+        "rsvp-peripheral-acuity-by-grade",
+        "rsvp-repeated-letter-by-grade",
+        "ordinary-foveal-acuity-by-grade",
+        "ordinary-peripheral-acuity-by-grade",
+        "ordinary-peripheral-crowding-by-age",
+        "ordinary-peripheral-crowding-by-grade",
+        "ordinary-foveal-crowding-by-age",
+        "ordinary-foveal-crowding-by-grade",
+        "reading-repeated-letter-by-grade"
+      )
+    )
+
+    c(
+      specs,
+      plot_list_download_specs(histograms()$plotList, histograms()$fileNames, theme = plt_theme),
+      plot_list_download_specs(scatterDiagrams()$plotList, scatterDiagrams()$fileNames, theme = plt_theme_scatter),
+      plot_list_download_specs(agePlots()$plotList, agePlots()$fileNames, theme = plt_theme),
+      plot_list_download_specs(ggiraph_plots$plotList, ggiraph_plots$fileNames, theme = plt_theme_ggiraph),
+      plot_list_download_specs(violinPlots()$plotList, violinPlots()$fileNames, theme = plt_theme, width = 8),
+      plot_list_download_specs(fontComparisonPlots()$plotList, fontComparisonPlots()$fileNames, theme = plt_theme, width = 8)
+    )
+  })
+
+  currentTabDownloadSpecs <- reactive({
+    tab <- input$navbar
+    if (is.null(tab)) {
+      tab <- "Plots"
+    }
+
+    switch(
+      tab,
+      "Plots" = plotsTabDownloadSpecs(),
+      "Distance" = distanceModule$downloadSpecs(),
+      "Quality" = qualityModule$downloadSpecs(),
+      "Timing" = timingModule$downloadSpecs(),
+      "Staircases" = staircasesModule$downloadSpecs(),
+      list()
+    )
+  })
+
+  output$downloadAll = downloadHandler(
+    filename = function() {
+      tab <- input$navbar
+      if (is.null(tab)) tab <- "plots"
+      paste0(tolower(tab), "-plots.zip")
+    },
+    content = function(file) {
+      tab <- input$navbar
+      if (is.null(tab)) tab <- "Plots"
+      save_download_specs_zip(
+        specs = currentTabDownloadSpecs(),
+        zip_file = file,
+        fileType = downloadFileType(),
+        prefix = get_short_experiment_name(experiment_names()),
+        empty_message = paste0("No plot bundle is available for the ", tab, " tab.")
+      )
     }
   )
   
@@ -5924,7 +2596,7 @@ shinyServer(function(input, output, session) {
       )
     },
     content = function(filename) {
-      openxlsx::write.xlsx(mergedParticipantDistanceTable(), file = filename)  # Using openxlsx
+      openxlsx::write.xlsx(distanceModule$mergedParticipantDistanceTable(), file = filename)  # Using openxlsx
     }
   )
   
@@ -5941,841 +2613,17 @@ shinyServer(function(input, output, session) {
     }
   )
   
-  output$`sound_data` <- downloadHandler(
-    filename = function() {
-      ifelse(
-        experiment_names() == "",
-        "sound-calibration.xlsx",
-        # Change file extension to .xlsx
-        paste0(get_short_experiment_name(experiment_names()), "sound-calibration.xlsx")
-      )
-    },
-    content = function(filename) {
-      openxlsx::write.xlsx(all_sound_data()[[1]], file = filename)  # Use openxlsx instead of write.csv
-    }
-  )
+  #### download plot handlers ####
   
-  #### update download handler ####
-  
-  toListen <- reactive({
-    list(input$file, input$fileType)
-  })
-  
-  
-  
-  toListenSound <- reactive({
-    list(input$fileJSON, input$fileTypeSound)
-  })
-  
-  toListenProfile <- reactive({
-    list(input$totalData, input$fileProfile)
-  })
-  
-  
-  observeEvent(toListenProfile(), {
-    output$downloadProfilePlot <- downloadHandler(
-      filename = paste0("profile-plot.", input$fileProfile),
-      content = function(file) {
-        if (input$fileProfile == "png") {
-          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-          ggsave(
-            tmp_svg,
-            plot = profile_plot()$plot,
-            height =  profile_plot()$height,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png(tmp_svg,
-                         file,
-                         height = profile_plot()$height * 300,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot =  profile_plot()$plot,
-            height =   profile_plot()$height,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileProfile == "svg",
-              svglite::svglite,
-              input$fileProfile
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadShiftedProfilePlot <- downloadHandler(
-      filename = paste0("profile-plot-shifted.", input$fileProfile),
-      content = function(file) {
-        if (input$fileProfile == "png") {
-          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-          ggsave(
-            tmp_svg,
-            plot =  profile_plot()$shiftedPlot,
-            height = profile_plot()$height,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png(tmp_svg,
-                         file,
-                         height =  profile_plot()$height * 300,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = profile_plot()$shiftedPlot,
-            height = profile_plot()$height,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileProfile == "svg",
-              svglite::svglite,
-              input$fileProfile
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadProfileAvgPlot <- downloadHandler(
-      filename = paste0('average-of-profiles',
-                        '.',
-                        input$fileProfile),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-          ggsave(
-            tmp_svg,
-            plot = profile_plot()$avgPlot,
-            height = profile_plot()$avgHeight,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png(tmp_svg,
-                         file,
-                         height = profile_plot()$avgHeight * 300,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = profile_plot()$avgPlot,
-            height = profile_plot()$avgHeight,
-            width = 8,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileProfile == "svg",
-              svglite::svglite,
-              input$fileProfile
-            )
-          )
-        }
-      }
-    )
-    
-  })
-  observeEvent(toListenSound(), {
-    output$file_name <-
-      renderPrint({
-        input$fileJSON$name
-      })
-    output$downloadSoundLevelPlot <- downloadHandler(
-      filename = paste(
-        paste0('sound-level-at-1000Hz.', input$fileTypeSound),
-        sep = "-"
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-          ggsave(
-            tmp_svg,
-            plot = sound_level_plot()[[1]],
-            width = sound_level_plot()[[2]],
-            height = sound_level_plot()[[3]],
-            unit = "in",
-            device = svglite::svglite
-          )
-          rsvg::rsvg_png(tmp_svg, file,
-                         height = 2000,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = sound_level_plot()[[1]],
-            width = sound_level_plot()[[2]],
-            height = sound_level_plot()[[3]],
-            unit = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite::svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadRecordFreqPlotSystem <- downloadHandler(
-      filename = paste0(
-        'loudspeaker+microphone-correction.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = record_freq_system_plot()$plot,
-            height = record_freq_system_plot()$height,
-            width = 8.5,
-            dpi = 100,
-            units = "in",
-            device = svglite::svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 2000,
-                         height = 4000)
-        } else {
-          ggsave(
-            file,
-            plot = record_freq_system_plot()$plot,
-            height = record_freq_system_plot()$height,
-            width = 8.5,
-            dpi = 100,
-            units = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadRecordFreqPlotComponent <- downloadHandler(
-      filename = paste0(
-        sound_data()[[12]]$transducerTypeF,
-        '-correction-plot.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = record_freq_component_plot()$plot,
-            height = record_freq_component_plot()$height,
-            width = 8.5,
-            units = "in",
-            device = svglite::svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 2000,
-                         height = 4000)
-        } else {
-          ggsave(
-            file,
-            plot = record_freq_component_plot()$plot,
-            height = record_freq_component_plot()$height,
-            width = 8.5,
-            units = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite::svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    # output$downloadIRtmpFour <- downloadHandler(
-    #   filename = paste0(
-    #     'power-spectral-density-of-system-iir.',
-    #     input$fileTypeSound
-    #   ),
-    #   content = function(file) {
-    #     if (input$fileTypeSound == "png") {
-    #       ggsave(
-    #         "tmp.svg",
-    #         plot = iirPlots()[[1]],
-    #         height = iirPlots()[[3]],
-    #         units = "in",
-    #         device = svglite::svglite
-    #       )
-    #       rsvg::rsvg_png("tmp.svg",
-    #                      file,
-    #                      width = 1800,
-    #                      height = 1800)
-    #     } else {
-    #       ggsave(
-    #         file,
-    #         plot = iirPlots()[[1]],
-    #         height = iirPlots()[[3]],
-    #         device = ifelse(
-    #           input$fileTypeSound == "svg",
-    #           svglite::svglite,
-    #           input$fileTypeSound
-    #         )
-    #       )
-    #     }
-    #   }
-    # )
-    # 
-    # output$downloadIRtmpFive <- downloadHandler(
-    #   filename = paste0(
-    #     'power-spectral-density-of-',
-    #     sound_data()[[12]]$transducerTypeF,
-    #     "-iir.",
-    #     input$fileTypeSound
-    #   ),
-    #   content = function(file) {
-    #     if (input$fileTypeSound == "png") {
-    #       ggsave(
-    #         "tmp.svg",
-    #         plot = iirPlots()[[2]],
-    #         height = iirPlots()[[4]],
-    #         device = svglite::svglite
-    #       )
-    #       rsvg::rsvg_png("tmp.svg",
-    #                      file,
-    #                      width = 1800,
-    #                      height = 1800)
-    #     } else {
-    #       ggsave(
-    #         file,
-    #         plot = iirPlots()[[2]],
-    #         height = iirPlots()[[4]],
-    #         device = ifelse(
-    #           input$fileTypeSound == "svg",
-    #           svglite::svglite,
-    #           input$fileTypeSound
-    #         )
-    #       )
-    #     }
-    #   }
-    # )
-    
-    output$downloadComponentIIR0To10 <- downloadHandler(
-      filename = paste0(
-        "6-ms-of-",
-        sound_data()[[12]]$transducerTypeF,
-        "-inverse-impulse-response",
-        '.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = componentIIRPlots()$ten +
-              sound_theme_display,
-            height = 6,
-            unit = "in",
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = componentIIRPlots()$ten +
-              sound_theme_display,
-            height = 6,
-            unit = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadComponentIIR0To50 <- downloadHandler(
-      filename = paste0(
-        "50-ms-of-",
-        sound_data()[[12]]$transducerTypeF,
-        "-inverse-impulse-response",
-        '.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = componentIIRPlots()$fifty +
-              sound_theme_display,
-            height = 6,
-            unit = "in",
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = componentIIRPlots()$fifty +
-              sound_theme_display,
-            height = 6,
-            unit = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadComponentIIR0To400 <- downloadHandler(
-      filename = paste0(
-        "Schroeder-plot-of-",
-        sound_data()[[12]]$transducerTypeF,
-        "-inverse-impulse-response",
-        '.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = componentIIRPlots()$schroeder +
-              sound_theme_display,
-            height = 5,
-            unit = "in",
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = componentIIRPlots()$schroeder +
-              sound_theme_display,
-            height = 5,
-            unit = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadComponentIR0To6 <- downloadHandler(
-      filename = paste0(
-        '6-ms-of-',
-        sound_data()[[12]]$transducerTypeF,
-        '-Impulse-Response.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = irPlots()[[1]],
-            device = svglite,
-            height = 6,
-            unit = "in",
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = irPlots()[[1]],
-            height = 6,
-            unit = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadComponentIR0To50 <- downloadHandler(
-      filename = paste0(
-        '50-ms-of-',
-        sound_data()[[12]]$transducerTypeF,
-        '-Impulse-Response.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = irPlots()[[2]],
-            height = 6,
-            unit = "in",
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = irPlots()[[2]],
-            height = 6,
-            unit = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadComponentIR0To400 <- downloadHandler(
-      filename = paste0(
-        "Schroeder-plot-of-",
-        sound_data()[[12]]$transducerTypeF,
-        "-impulse-response",
-        '.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot =  irPlots()[[3]],
-            height = 5,
-            unit = "in",
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = irPlots()[[3]],
-            height = 5,
-            unit = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadComponentIRPSD <- downloadHandler(
-      filename = paste0(
-        sound_data()[[12]]$transducerTypeF,
-        '-profile.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = componentIR_PSD_plot()$plot,
-            height =  componentIR_PSD_plot()$height,
-            width = 8,
-            dpi = 100,
-            unit = "in",
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = componentIR_PSD_plot()$plot,
-            height =  componentIR_PSD_plot()$height,
-            width = 8,
-            unit = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    # output$downloadCumSumPowerPlotSystem <- downloadHandler(
-    #   filename = paste0(
-    #     'cumulative-power-of-system-corrected-mls.',
-    #     input$fileTypeSound
-    #   ),
-    #   content = function(file) {
-    #     if (input$fileTypeSound == "png") {
-    #       ggsave(
-    #         "tmp.svg",
-    #         plot = cumSumPowerPlot()$p_system +
-    #           add_transducerTable_system(
-    #             sound_data()[[7]],
-    #             c("left", "bottom"),
-    #             subtitle = list(
-    #               c(
-    #                 subtitleOne(),
-    #                 subtitleTwo()$component,
-    #                 subtitleThree()$component
-    #               )
-    #             ),
-    #             leftShift = 0.02
-    #           ),
-    #         height = cumSumPowerPlot()$height_system,
-    #         units = "in",
-    #         device = svglite::svglite
-    #       )
-    #       rsvg::rsvg_png("tmp.svg",
-    #                      file,
-    #                      width = 1800,
-    #                      height = 1800)
-    #     } else {
-    #       ggsave(
-    #         file,
-    #         plot = cumSumPowerPlot()$p_system +
-    #           add_transducerTable_system(
-    #             sound_data()[[7]],
-    #             c("left", "bottom"),
-    #             subtitle = list(
-    #               c(
-    #                 subtitleOne(),
-    #                 subtitleTwo()$component,
-    #                 subtitleThree()$component
-    #               )
-    #             ),
-    #             leftShift = 0.02
-    #           ),
-    #         height = cumSumPowerPlot()$height_system,
-    #         device = ifelse(
-    #           input$fileTypeSound == "svg",
-    #           svglite::svglite,
-    #           input$fileTypeSound
-    #         )
-    #       )
-    #     }
-    #   }
-    # )
-    
-    output$downloadCumSumPowerPlotcomponent <- downloadHandler(
-      filename = paste0(
-        'cumulative-power-of-component-corrected-mls.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = cumSumPowerPlot()$p_component +
-              add_transducerTable_component(
-                sound_data()[[7]],
-                c("left", "bottom"),
-                subtitle = list(
-                  c(
-                    subtitleOne(),
-                    subtitleTwo()$component,
-                    subtitleThree()$component
-                  )
-                ),
-                transducerType = sound_data()$inputParameters$transducerTypeF,
-                leftShift = 0.02
-              ),
-            height = cumSumPowerPlot()$height_component,
-            unit = "in",
-            device = svglite::svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = cumSumPowerPlot()$p_component +
-              add_transducerTable_component(
-                sound_data()[[7]],
-                c("left", "bottom"),
-                subtitle = list(
-                  c(
-                    subtitleOne(),
-                    subtitleTwo()$component,
-                    subtitleThree()$component
-                  )
-                ),
-                transducerType = sound_data()$inputParameters$transducerTypeF,
-                leftShift = 0.02
-              ),
-            height = cumSumPowerPlot()$height_component,
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite::svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    output$downloadPowerVariation <- downloadHandler(
-      filename = paste0(
-        'power-variation-in-wideband-recordings.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = recording_variation()$plot,
-            height = recording_variation()$height,
-            width = 8,
-            unit = "in",
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = recording_variation()$plot,
-            height = recording_variation()$height,
-            width = 8,
-            unit = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadVolumePowerVariation <- downloadHandler(
-      filename = paste0(
-        'power-variation-in-1000hz-recordings.',
-        input$fileTypeSound
-      ),
-      content = function(file) {
-        if (input$fileTypeSound == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = volume_power_variation()$plot,
-            height = volume_power_variation()$height,
-            width = 8,
-            unit = "in",
-            dpi = 100,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         width = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = volume_power_variation()$plot,
-            height = volume_power_variation()$height,
-            width = 8,
-            unit = "in",
-            device = ifelse(
-              input$fileTypeSound == "svg",
-              svglite,
-              input$fileTypeSound
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadAutocorrelation <- downloadHandler(
-      # (1) make filename a function so the “.png” or “.svg” is applied at click‑time
-      filename = function() {
-        paste0("autocorrelation.", input$fileTypeSound)
-      },
-      # (2) explicitly tell the browser what it’s getting
-      contentType = switch(
-        input$fileTypeSound,
-        png = "image/png",
-        svg = "image/svg+xml"
-      ),
-      content = function(file) {
-        # generate the plot
-        files  <- input$fileJSON$data
-        json   <- fromJSON(files[1], simplifyDataFrame = FALSE)
-        plotAC <- get_autocorrelation_plot(json, sound_data())
-        
-        if (input$fileTypeSound == "png") {
-          # direct PNG raster device (avoids huge SVG → rsvg limits)
-          png(
-            filename = file,
-            width    = 8*300,  # 8 inches × 300 DPI
-            height   = 8*300,
-            res      = 300
-          )
-          print(plotAC)
-          dev.off()
-        } else {
-          # vector (SVG)
-          ggsave(
-            filename = file,
-            plot     = plotAC,
-            device   = "svg",
-            width    = 8,
-            height   = 8,
-            units    = "in"
-          )
-        }
-      }
-    )
-    
-    
-    
-    
-  })
-  
-  # download plots handlers
-  
-  observeEvent(toListen(), {
+  # download plot handlers
     ##### download handler for grade plots #####
     
     output$downloadCrowdingAgePlot <- downloadHandler(
-      filename = paste0('crowding-vs-age',
+      filename = function() paste0('crowding-vs-age',
                         '.',
-                        input$fileType),
+                        downloadFileType()),
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           ggsave(
             "tmp.svg",
             plot = plot_crowding_vs_age(df_list()$crowding) + plt_theme,
@@ -6794,9 +2642,9 @@ shinyServer(function(input, output, session) {
             unit = "in",
             limitsize = F,
             device = ifelse(
-              input$fileType == "svg",
+              downloadFileType() == "svg",
               svglite::svglite,
-              input$fileType
+              downloadFileType()
             )
           )
         }
@@ -6804,296 +2652,12 @@ shinyServer(function(input, output, session) {
       
     )
     
-    output$downlaodDurationByFont <- downloadHandler(
-      filename = paste0(
-        'targetMeasuredDurationSec-by-font-plot',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = durationPlot()$font,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         height = 1800,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = durationPlot()$font,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
-          )
-        }
-      }
-    )
-    
-    output$downlaodDurationByID <- downloadHandler(
-      filename = paste0(
-        'targetMeasuredDurationSec-by-participant-plot',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = durationPlot()$participant,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         height = 1800,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = durationPlot()$participant,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
-          )
-        }
-      }
-    )
-    
-    output$downlaodDurationWithFontPadding <- downloadHandler(
-      filename = paste0(
-        'targetMeasuredDurationSec-vs-fontNominalSizePx*(1+fontPadding)-by-font-plot',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = durationPlot()$fontPadding,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         height = 1800,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = durationPlot()$fontPadding,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
-          )
-        }
-      }
-    )
-    
-    output$downlaodLatenessByFont <- downloadHandler(
-      filename = paste0(
-        'targetMeasuredLatenessSec-by-font-plot',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = latenessPlot()$font,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         height = 1800,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = latenessPlot()$font,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
-          )
-        }
-      }
-    )
-    
-    output$downlaodLatenessByID <- downloadHandler(
-      filename = paste0(
-        'targetMeasuredLatenessSec-by-participant-plot',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = latenessPlot()$participant,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         height = 1800,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = latenessPlot()$participant,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
-          )
-        }
-      }
-    )
-    
-    output$downlaodLatenessWithFontPadding <- downloadHandler(
-      filename = paste0(
-        'targetMeasuredLatenessSec-vs-fontNominalSizePx*(1+fontPadding)-by-font-plot',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = latenessPlot()$fontPadding,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         height = 1800,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = latenessPlot()$fontPadding,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadDurationHist <- downloadHandler(
-      filename = paste0(
-        'targetMeasuredDurationSec-by-os-histogam',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot = duration_lateness_hist()$duration,
-            width = 6,
-            height = 4,
-            unit = "in",
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         height = 1800,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = duration_lateness_hist()$duration,
-            width = 6,
-            height = 4,
-            unit = "in",
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
-          )
-        }
-      }
-    )
-    
-    output$downloadLatenessHist <- downloadHandler(
-      filename = paste0(
-        'targetMeasuredLatenessSec-by-os-histogam',
-        '.',
-        input$fileType
-      ),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot =  duration_lateness_hist()$lateness,
-            unit = "in",
-            width = 6,
-            height = 4,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         height = 1800,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot = duration_lateness_hist()$lateness,
-            unit = "in",
-            width = 6,
-            height = 4,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
-          )
-        }
-      }
-    )
-    
     output$downloadAcuityAgePlot <- downloadHandler(
-      filename = paste0('acuity-vs-age',
+      filename = function() paste0('acuity-vs-age',
                         '.',
-                        input$fileType),
+                        downloadFileType()),
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           ggsave(
             "tmp.svg",
             plot = plot_acuity_vs_age(df_list()) + plt_theme,
@@ -7112,271 +2676,19 @@ shinyServer(function(input, output, session) {
             unit = "in",
             limitsize = F,
             device = ifelse(
-              input$fileType == "svg",
+              downloadFileType() == "svg",
               svglite::svglite,
-              input$fileType
+              downloadFileType()
             )
           )
         }
       }
     )
-    
-    ##### renderUI download handlers #####
-    
-    for (j in 1:length(agePlots()$plotList)) {
-      local({
-        ii <- j
-        
-        output[[paste0("downloadP", ii)]] <- downloadHandler(
-          filename = paste0(
-            experiment_names(),
-            agePlots()$fileNames[[ii]],
-            '.',
-            input$fileType
-          ),
-          content = function(file) {
-            # Skip download if plot is NULL/NA/placeholder
-            if (is_placeholder_plot(agePlots()$plotList[[ii]])) return(invisible(NULL))
-            
-            if (input$fileType == "png") {
-              ggsave(
-                "tmp.svg",
-                plot = agePlots()$plotList[[ii]] + plt_theme,
-                height = 6,
-                width = 6,
-                unit = "in",
-                limitsize = F,
-                device = svglite
-              )
-              rsvg::rsvg_png("tmp.svg",
-                             file,
-                             height = 1800,
-                             width = 1800)
-            } else {
-              ggsave(
-                file,
-                plot = agePlots()$plotList[[ii]] + plt_theme,
-                height = 6,
-                width = 6,
-                unit = "in",
-                limitsize = F,
-                device = ifelse(
-                  input$fileType == "svg",
-                  svglite::svglite,
-                  input$fileType
-                )
-              )
-            }
-          }
-        )
-      })
-    }
-    for (j in 1:length(histograms()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("downloadHist", ii)]] <- downloadHandler(
-          filename = paste0(
-            experiment_names(),
-            histograms()$fileNames[[ii]],
-            '.',
-            input$fileType
-          ),
-          content = function(file) {
-            # Skip download if plot is NULL/NA/placeholder
-            if (is_placeholder_plot(histograms()$plotList[[ii]])) return(invisible(NULL))
-            
-            if (input$fileType == "png") {
-              ggsave(
-                "tmp.svg",
-                plot = histograms()$plotList[[ii]] + plt_theme,
-                height = 6,
-                width = 6,
-                unit = "in",
-                limitsize = F,
-                device = svglite
-              )
-              rsvg::rsvg_png("tmp.svg",
-                             file,
-                             height = 1800,
-                             width = 1800)
-            } else {
-              ggsave(
-                file,
-                plot = histograms()$plotList[[ii]] + plt_theme,
-                height = 6,
-                width = 6,
-                unit = "in",
-                limitsize = F,
-                device = ifelse(
-                  input$fileType == "svg",
-                  svglite::svglite,
-                  input$fileType
-                )
-              )
-            }
-          }
-        )
-      })
-    }
-    for (j in 1:length(scatterDiagrams()$plotList)) {
-      local({
-        ii <- j
-        
-        output[[paste0("downloadScatter", ii)]] <-
-          downloadHandler(
-            filename = paste0(
-              get_short_experiment_name(experiment_names()),
-              scatterDiagrams()$fileNames[[ii]],
-              '.',
-              input$fileType
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (input$fileType == "png") {
-                ggsave(
-                  "tmp.svg",
-                  plot = scatterDiagrams()$plotList[[ii]] +
-                    plt_theme_scatter,
-                  height = 8,
-                  width = 12,
-                  unit = "in",
-                  limitsize = F,
-                  device = svglite
-                )
-                rsvg::rsvg_png("tmp.svg",
-                               file,
-                               height = 1600,
-                               width = 2400)
-              } else {
-                ggsave(
-                  file,
-                  plot = scatterDiagrams()$plotList[[ii]] +
-                    plt_theme_scatter,
-                  height = 8,
-                  width = 12,
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    input$fileType == "svg",
-                    svglite::svglite,
-                    input$fileType
-                  )
-                )
-              }
-            }
-          )
-      })
-    }
-    for (j in 1:length(fontComparisonPlots()$plotList)){
-      local({
-        ii <- j
-        output[[paste0("downloadFontComparison", ii)]] <-
-          downloadHandler(
-            filename = paste0(
-              get_short_experiment_name(experiment_names()),
-              fontComparisonPlots()$fileNames[[ii]],
-              '.',
-              input$fileType
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (input$fileType == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-                ggsave(
-                  tmp_svg,
-                  plot = fontComparisonPlots()$plotList[[ii]] +
-                    plt_theme,
-                  width = 8,
-                  height = 6,
-                  unit = "in",
-                  limitsize = F,
-                  device = svglite
-                )
-                rsvg::rsvg_png(tmp_svg,
-                               file,
-                               width = 1800,
-                               height = 1350)
-              } else {
-                ggsave(
-                  file,
-                  plot = fontComparisonPlots()$plotList[[ii]] +
-                    plt_theme,
-                  width = 8,
-                  height = 6,
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    input$fileType == "svg",
-                    svglite::svglite,
-                    input$fileType
-                  )
-                )
-              }
-            }
-          )
-      })
-    }
-    for (j in 1:length(violinPlots()$plotList)){
-      local({
-        ii <- j
-        output[[paste0("downloadViolin", ii)]] <-
-          downloadHandler(
-            filename = paste0(
-              get_short_experiment_name(experiment_names()),
-              violinPlots()$fileNames[[ii]],
-              '.',
-              input$fileType
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(violinPlots()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (input$fileType == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-                ggsave(
-                  tmp_svg,
-                  plot = violinPlots()$plotList[[ii]] +
-                    plt_theme,
-                  width = 8,
-                  height = 6,
-                  unit = "in",
-                  limitsize = F,
-                  device = svglite
-                )
-                rsvg::rsvg_png(tmp_svg,
-                               file,
-                               width = 1800,
-                               height = 1350)
-              } else {
-                ggsave(
-                  file,
-                  plot = violinPlots()$plotList[[ii]] +
-                    plt_theme,
-                  width = 8,
-                  height = 6,
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    input$fileType == "svg",
-                    svglite::svglite,
-                    input$fileType
-                  )
-                )
-              }
-            }
-          )
-        })
-    }
-    
     
     output$downloadRsvpCrowdingPeripheralGradePlot <- downloadHandler(
-      filename = paste(
+      filename = function() paste(
         app_title$default,
-        paste0('rsvp-vs-peripheral-crowding-by-grade.', input$fileType),
+        paste0('rsvp-vs-peripheral-crowding-by-grade.', downloadFileType()),
         sep = "-"
       ),
       content = function(file) {
@@ -7385,7 +2697,7 @@ shinyServer(function(input, output, session) {
         savePlot(
           plot = plot_with_title,
           filename = file,
-          fileType = input$fileType,
+          fileType = downloadFileType(),
           width = 8,
           height = 6
         )
@@ -7393,9 +2705,9 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadRsvpCrowdingPeripheralFontPlot <- downloadHandler(
-      filename = paste(
+      filename = function() paste(
         app_title$default,
-        paste0('rsvp-vs-peripheral-crowding-by-font.', input$fileType),
+        paste0('rsvp-vs-peripheral-crowding-by-font.', downloadFileType()),
         sep = "-"
       ),
       content = function(file) {
@@ -7404,7 +2716,7 @@ shinyServer(function(input, output, session) {
         savePlot(
           plot = plot_with_title,
           filename = file,
-          fileType = input$fileType,
+          fileType = downloadFileType(),
           width = 8,
           height = 6
         )
@@ -7412,11 +2724,11 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadRsvpResidualCrowding <- downloadHandler(
-      filename = paste(
+      filename = function() paste(
         app_title$default,
         paste0(
           'residual-rsvp-vs-residual-peripheral-crowding-by-grade.',
-          input$fileType
+          downloadFileType()
         ),
         sep = "-"
       ),
@@ -7426,7 +2738,7 @@ shinyServer(function(input, output, session) {
         savePlot(
           plot = plot_with_title,
           filename = file,
-          fileType = input$fileType,
+          fileType = downloadFileType(),
           width = 8,
           height = 6
         )
@@ -7438,7 +2750,7 @@ shinyServer(function(input, output, session) {
         paste0(
           experiment_names(),
           'rsvp-vs-foveal-crowding-by-grade.',
-          input$fileType
+          downloadFileType()
         )
       },
       content = function(file) {
@@ -7446,7 +2758,7 @@ shinyServer(function(input, output, session) {
         savePlot(
           plot = plot,
           filename = file,
-          fileType = input$fileType,
+          fileType = downloadFileType(),
           width = 8,
           height = 6
         )
@@ -7457,10 +2769,10 @@ shinyServer(function(input, output, session) {
       filename = function () {
         paste0(get_short_experiment_name(experiment_names()),
                'rsvp-vs-fovel-acuity-by-grade.',
-               input$fileType)
+               downloadFileType())
       },
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           base_plot <- rsvpAcuityFoveal()[[2]] + plt_theme
           plot_with_title <- add_experiment_title(base_plot, experiment_names())
           ggsave(
@@ -7494,10 +2806,10 @@ shinyServer(function(input, output, session) {
       filename = function () {
         paste0(get_short_experiment_name(experiment_names()),
                'rsvp-vs-crowding-factored-age.',
-               input$fileType)
+               downloadFileType())
       },
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           ggsave(
             "tmp.svg",
             plot = factor_out_age_and_plot(df_list()) +
@@ -7528,14 +2840,14 @@ shinyServer(function(input, output, session) {
         filename = function () {
           paste0(get_short_experiment_name(experiment_names()),
                  'rsvp-vs-periphreal-acuity-by-grade.',
-                 input$fileType)
+                 downloadFileType())
         },
         content = function(file) {
           base_plot <- rsvpAcuityPeripheral()$grade + plt_theme
           plot_with_title <- add_experiment_title(base_plot, experiment_names())
           savePlot(plot = plot_with_title,
                    filename = file,
-                   fileType = input$fileType,
+                   fileType = downloadFileType(),
                    width = 8,
                    height = 6
                    )
@@ -7547,10 +2859,10 @@ shinyServer(function(input, output, session) {
         filename = function () {
           paste0(get_short_experiment_name(experiment_names()),
                  'rsvp-vs-periphreal-acuity-by-font.',
-                 input$fileType)
+                 downloadFileType())
         },
         content = function(file) {
-          if (input$fileType == "png") {
+          if (downloadFileType() == "png") {
             base_plot <- rsvpAcuityPeripheral()$font + plt_theme
             plot_with_title <- add_experiment_title(base_plot, experiment_names())
             ggsave(
@@ -7585,11 +2897,11 @@ shinyServer(function(input, output, session) {
         paste0(
           experiment_names(),
           'rsvp-vs-repeated-letter-crowding-by-grade.',
-          input$fileType
+          downloadFileType()
         )
       },
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           ggsave(
             "tmp.svg",
             plot = rsvp_repeated_letter_crowding()[[2]] +
@@ -7619,34 +2931,34 @@ shinyServer(function(input, output, session) {
     
     #### reading plots downlaod ####
     output$downloadOrdinaryPeripheralAcuityGradePlot <- downloadHandler(
-      filename = paste0(
+      filename = function() paste0(
         get_short_experiment_name(experiment_names()),
         'reading-vs-peripheral-acuity-by-grade.',
-        input$fileType
+        downloadFileType()
       ),
       content = function(file) {
         plot <- ordinaryAcuityPeripheral()$grade + plt_theme
         savePlot(
           plot = plot,
           filename = file,
-          fileType = input$fileType,
+          fileType = downloadFileType(),
           width = 6
         )
       }
     )
     
     output$downloadOrdinaryPeripheralAcuityFontPlot <- downloadHandler(
-      filename = paste0(
+      filename = function() paste0(
         get_short_experiment_name(experiment_names()),
         'reading-vs-peripheral-acuity-by-font.',
-        input$fileType
+        downloadFileType()
       ),
       content = function(file) {
         plot <- ordinaryAcuityPeripheral()$font + plt_theme
         savePlot(
           plot = plot,
           filename = file,
-          fileType = input$fileType,
+          fileType = downloadFileType(),
           width = 6
         )
       }
@@ -7655,10 +2967,10 @@ shinyServer(function(input, output, session) {
     output$downloadOrdinaryFovealAcuityGradePlot <-
       downloadHandler(
         filename = function() {
-          paste0("ordinary_foveal_acuity_grade", input$fileType, sep = ".")
+          paste0("ordinary_foveal_acuity_grade", downloadFileType(), sep = ".")
         },
         content = function(file) {
-          if (input$fileType == "png") {
+          if (downloadFileType() == "png") {
             ggsave(
               "tmp.svg",
               plot = ordinaryAcuityFoveal()[[2]] +
@@ -7690,11 +3002,11 @@ shinyServer(function(input, output, session) {
           paste0(
             get_short_experiment_name(experiment_names()),
             "ordinary-reading-vs-foveal-crowding-by-font.",
-            input$fileType
+            downloadFileType()
           )
         },
         content = function(file) {
-          if (input$fileType == "png") {
+          if (downloadFileType() == "png") {
             ggsave(
               "tmp.svg",
               plot = ordinaryCrowdingPlots()[[2]] + plt_theme,
@@ -7723,11 +3035,11 @@ shinyServer(function(input, output, session) {
           paste0(
             get_short_experiment_name(experiment_names()),
             "ordinary-reading-vs-foveal-crowding-by-grade.",
-            input$fileType
+            downloadFileType()
           )
         },
         content = function(file) {
-          if (input$fileType == "png") {
+          if (downloadFileType() == "png") {
             base_plot <- ordinaryCrowdingPlots()[[4]] + plt_theme
             plot_with_title <- add_experiment_title(base_plot, experiment_names())
             ggsave(
@@ -7760,14 +3072,14 @@ shinyServer(function(input, output, session) {
           paste0(
             get_short_experiment_name(experiment_names()),
             "font-aggregated-reading-rsvp-vs-peripheral-crowding.",
-            input$fileType
+            downloadFileType()
           )
         },
         content = function(file) {
           plot <- fontAggregatedReadingRsvpCrowding()
           if (!is.null(plot)) {
             plot_with_title <- add_experiment_title(plot + plt_theme, experiment_names())
-            if (input$fileType == "png") {
+            if (downloadFileType() == "png") {
               ggsave(
                 "tmp.svg",
                 plot = plot_with_title,
@@ -7789,9 +3101,9 @@ shinyServer(function(input, output, session) {
                 height = 6,
                 unit = "in",
                 device = ifelse(
-                  input$fileType == "svg",
+                  downloadFileType() == "svg",
                   svglite::svglite,
-                  input$fileType
+                  downloadFileType()
                 ),
                 limitsize = FALSE
               )
@@ -7806,14 +3118,14 @@ shinyServer(function(input, output, session) {
           paste0(
             get_short_experiment_name(experiment_names()),
             "font-aggregated-ordinary-reading-vs-peripheral-crowding.",
-            input$fileType
+            downloadFileType()
           )
         },
         content = function(file) {
           plot <- fontAggregatedOrdinaryReadingCrowding()
           if (!is.null(plot)) {
             plot_with_title <- add_experiment_title(plot + plt_theme, experiment_names())
-            if (input$fileType == "png") {
+            if (downloadFileType() == "png") {
               ggsave(
                 "tmp.svg",
                 plot = plot_with_title,
@@ -7835,9 +3147,9 @@ shinyServer(function(input, output, session) {
                 height = 6,
                 unit = "in",
                 device = ifelse(
-                  input$fileType == "svg",
+                  downloadFileType() == "svg",
                   svglite::svglite,
-                  input$fileType
+                  downloadFileType()
                 ),
                 limitsize = FALSE
               )
@@ -7852,14 +3164,14 @@ shinyServer(function(input, output, session) {
           paste0(
             get_short_experiment_name(experiment_names()),
             "font-aggregated-rsvp-vs-peripheral-crowding.",
-            input$fileType
+            downloadFileType()
           )
         },
         content = function(file) {
           plot <- fontAggregatedRsvpCrowding()
           if (!is.null(plot)) {
             plot_with_title <- add_experiment_title(plot + plt_theme, experiment_names())
-            if (input$fileType == "png") {
+            if (downloadFileType() == "png") {
               ggsave(
                 "tmp.svg",
                 plot = plot_with_title,
@@ -7881,9 +3193,9 @@ shinyServer(function(input, output, session) {
                 height = 6,
                 unit = "in",
                 device = ifelse(
-                  input$fileType == "svg",
+                  downloadFileType() == "svg",
                   svglite::svglite,
-                  input$fileType
+                  downloadFileType()
                 ),
                 limitsize = FALSE
               )
@@ -7898,11 +3210,11 @@ shinyServer(function(input, output, session) {
           paste0(
             get_short_experiment_name(experiment_names()),
             "ordinary-reading-vs-peripheral-crowding-by-font.",
-            input$fileType
+            downloadFileType()
           )
         },
         content = function(file) {
-          if (input$fileType == "png") {
+          if (downloadFileType() == "png") {
             base_plot <- ordinaryCrowdingPlots()[[1]] + plt_theme
             plot_with_title <- add_experiment_title(base_plot, experiment_names())
             ggsave(
@@ -7937,11 +3249,11 @@ shinyServer(function(input, output, session) {
           paste0(
             get_short_experiment_name(experiment_names()),
             "ordinary-reading-vs-peripheral-crowding-by-grade.",
-            input$fileType
+            downloadFileType()
           )
         },
         content = function(file) {
-          if (input$fileType == "png") {
+          if (downloadFileType() == "png") {
             ggsave(
               "tmp.svg",
               plot = ordinaryCrowdingPlots()[[3]] +
@@ -7973,11 +3285,11 @@ shinyServer(function(input, output, session) {
         paste0(
           experiment_names(),
           "reading-vs-repeated-letter-crowding-by-grade.",
-          input$fileType
+          downloadFileType()
         )
       },
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           ggsave(
             "tmp.svg",
             plot = readingRepeatedPlots()[[2]] +
@@ -8005,11 +3317,11 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadCorrMatrixPlot <- downloadHandler(
-      filename = paste0(get_short_experiment_name(experiment_names()),
+      filename = function() paste0(get_short_experiment_name(experiment_names()),
                         'correlation-matrix.',
-                        input$fileType),
+                        downloadFileType()),
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           ggsave(
             "tmp.svg",
             plot =  corrMatrix()$plot,
@@ -8032,9 +3344,9 @@ shinyServer(function(input, output, session) {
             unit = "in",
             limitsize = F,
             device = ifelse(
-              input$fileType == "svg",
+              downloadFileType() == "svg",
               svglite::svglite,
-              input$fileType
+              downloadFileType()
             )
           )
         }
@@ -8042,9 +3354,9 @@ shinyServer(function(input, output, session) {
     )
     
     output$downloadNMatrixPlot <- downloadHandler(
-      filename = function() paste0(get_short_experiment_name(experiment_names()), "n-matrix.", input$fileType),
+      filename = function() paste0(get_short_experiment_name(experiment_names()), "n-matrix.", downloadFileType()),
       content = function(file) {
-        if (input$fileType == "png") {
+        if (downloadFileType() == "png") {
           ggsave("tmp.svg",
                  plot   = corrMatrix()$n_plot,
                  width  = corrMatrix()$width,
@@ -8063,62 +3375,12 @@ shinyServer(function(input, output, session) {
             height     = corrMatrix()$height,
             unit       = "in",
             limitsize  = FALSE,
-            device     = if (input$fileType=="svg") svglite::svglite else input$fileType
-          )
-        }
-      }
-    )
-    
-    
-    output$downloadDurationCorrMatrixPlot <- downloadHandler(
-      filename = paste0(get_short_experiment_name(experiment_names()),
-                        'duration-correlation-matrix.',
-                        input$fileType),
-      content = function(file) {
-        if (input$fileType == "png") {
-          ggsave(
-            "tmp.svg",
-            plot =  durationCorrMatrix()$plot,
-            width = durationCorrMatrix()$width,
-            height = durationCorrMatrix()$height,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         height = 1800,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot =  durationCorrMatrix()$plot,
-            width = durationCorrMatrix()$width,
-            height = durationCorrMatrix()$height,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              input$fileType == "svg",
-              svglite::svglite,
-              input$fileType
-            )
+            device     = if (downloadFileType()=="svg") svglite::svglite else downloadFileType()
           )
         }
       }
     )
     
 
-  })
-  
-  # download jupyter notebook handler
-  output$downloadNotebook <- downloadHandler(filename <-
-                                               function() {
-                                                 paste("sound_calibration_analysis", "ipynb", sep = ".")
-                                               },
-                                             
-                                             content <-
-                                               function(file) {
-                                                 file.copy("notebooks/sound_calibration_analysis.ipynb", file)
-                                               })
-  
+
 })

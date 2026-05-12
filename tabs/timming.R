@@ -1,62 +1,66 @@
 
-timingTab <- tabPanel(
-  'Timing',
+timingTabUI <- function(id) {
+  ns <- NS(id)
+  duration_corr_condition <- sprintf("output['%s']", ns("isDurationCorrMatrixAvailable"))
+  duration_condition <- sprintf("output['%s']", ns("isDuration"))
+  tagList(
     h2("Duration Correlation Matrix"),
     conditionalPanel(
-      'output.isDurationCorrMatrixAvailable',
+      duration_corr_condition,
       fixedRow(
         shinycssloaders::withSpinner(
-          plotOutput("durationCorrMatrixPlot", width = "100%", height = "100%"), 
+          plotOutput(ns("durationCorrMatrixPlot"), width = "100%", height = "100%"), 
           type = 4
         )
       ),
-      downloadButton("downloadDurationCorrMatrixPlot", "Download")
+      downloadButton(ns("downloadDurationCorrMatrixPlot"), "Download")
     ),
-    conditionalPanel('output.isDuration', 
+    conditionalPanel(duration_condition, 
                      h3("Histograms"),
-                     shinycssloaders::withSpinner(uiOutput("timingHistograms"), type = 4),
+                     shinycssloaders::withSpinner(uiOutput(ns("timingHistograms")), type = 4),
                      fixedRow(splitLayout(
                        cellWidths = c("50%", "50%"),
-                       shinycssloaders::withSpinner(imageOutput("durationHist", height = "100%"), type = 4),
-                       shinycssloaders::withSpinner(imageOutput("latenessHist", height = "100%"), type = 4)
+                       shinycssloaders::withSpinner(imageOutput(ns("durationHist"), height = "100%"), type = 4),
+                       shinycssloaders::withSpinner(imageOutput(ns("latenessHist"), height = "100%"), type = 4)
                      )),
                      fixedRow(splitLayout(
                        cellWidths = c("50%", "50%"),
-                       downloadButton("downloadDurationHist", "Download"),
-                       downloadButton("downloadLatenessHist", "Download")
+                       downloadButton(ns("downloadDurationHist"), "Download"),
+                       downloadButton(ns("downloadLatenessHist"), "Download")
                      )),
                      h3("Scatter diagrams"),
                      fixedRow(splitLayout(
                        cellWidths = c("50%", "50%"),
-                       shinycssloaders::withSpinner(imageOutput("durationByID", height = '100%'), type = 4),
-                       shinycssloaders::withSpinner(imageOutput("durationByFont", height = '100%'), type = 4)
+                       shinycssloaders::withSpinner(imageOutput(ns("durationByID"), height = '100%'), type = 4),
+                       shinycssloaders::withSpinner(imageOutput(ns("durationByFont"), height = '100%'), type = 4)
                      )),
                      fixedRow(splitLayout(
                        cellWidths = c("50%", "50%"),
-                       downloadButton("downlaodDurationByID", "Download"),
-                       downloadButton("downlaodDurationByFont", "Download")
+                       downloadButton(ns("downlaodDurationByID"), "Download"),
+                       downloadButton(ns("downlaodDurationByFont"), "Download")
                      )),
                      fixedRow(splitLayout(
                        cellWidths = c("50%", "50%"),
-                       shinycssloaders::withSpinner(imageOutput("latenessByID", height = '100%'), type = 4),
-                       shinycssloaders::withSpinner(imageOutput("latenessByFont", height = '100%'), type = 4)
+                       shinycssloaders::withSpinner(imageOutput(ns("latenessByID"), height = '100%'), type = 4),
+                       shinycssloaders::withSpinner(imageOutput(ns("latenessByFont"), height = '100%'), type = 4)
                      )),
                      fixedRow(splitLayout(
                        cellWidths = c("50%", "50%"),
-                       downloadButton("downlaodLatenessByID", "Download"),
-                       downloadButton("downlaodLatenessByFont", "Download")
+                       downloadButton(ns("downlaodLatenessByID"), "Download"),
+                       downloadButton(ns("downlaodLatenessByFont"), "Download")
                      )),
                      fixedRow(splitLayout(
                        cellWidths = c("50%", "50%"),
-                       shinycssloaders::withSpinner(imageOutput("durationWithFontPadding", height = '100%'), type = 4),
-                       shinycssloaders::withSpinner(imageOutput("latenessWithFontPadding", height = '100%'), type = 4)
+                       shinycssloaders::withSpinner(imageOutput(ns("durationWithFontPadding"), height = '100%'), type = 4),
+                       shinycssloaders::withSpinner(imageOutput(ns("latenessWithFontPadding"), height = '100%'), type = 4)
                      )),
                      fixedRow(splitLayout(
                        cellWidths = c("50%", "50%"),
-                       downloadButton("downlaodDurationWithFontPadding", "Download"),
-                       downloadButton("downlaodLatenessWithFontPadding", "Download")
+                       downloadButton(ns("downlaodDurationWithFontPadding"), "Download"),
+                       downloadButton(ns("downlaodLatenessWithFontPadding"), "Download")
                      )),
-                     shinycssloaders::withSpinner(uiOutput('scatterTime'),type=4),
-                     shinycssloaders::withSpinner(uiOutput('scatterTimeParticipant'),type=4)
+                     shinycssloaders::withSpinner(uiOutput(ns("scatterTime")),type=4),
+                     shinycssloaders::withSpinner(uiOutput(ns("scatterTimeParticipant")),type=4)
     )
 )
+}
