@@ -118,14 +118,19 @@ monitorFormSpree <- function(listFontParameters) {
     
     t <- t %>% select(-c(prolificParticipantID, prolificSession, ExperimentName,
                           OS, browser, browserVersion, deviceType, timestamp))
-    t <- initial %>% full_join(t, by = "pavloviaID") %>% 
-      mutate(hl = is.na(fontLatencySec))
-    
+    t <- initial %>% full_join(t, by = "pavloviaID", relationship = "many-to-many")
+    if ("fontLatencySec" %in% names(t)) {
+      t <- t %>% mutate(hl = is.na(fontLatencySec))
+    } else {
+      t <- t %>% mutate(hl = FALSE)
+    }
+
     t$OS = stringr::str_replace_all(t$OS, "OS X","macOS")
     if (listFontParameters) {
-      t <- t %>% select(pavloviaID, date, font, fontMaxPx, fontRenderMaxPx, fontString,
-                        block, conditionName, trial, fontLatencySec, hl)
-        
+      t <- t %>% select(any_of(c(
+        "pavloviaID", "date", "font", "fontMaxPx", "fontRenderMaxPx", "fontString",
+        "block", "conditionName", "trial", "fontLatencySec", "hl"
+      )))
     }
     return(t)
   }

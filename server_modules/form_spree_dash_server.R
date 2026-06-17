@@ -27,9 +27,17 @@ formSpreeTabServer <- function(id, app_profiler = NULL) {
           ))
         )
       ) %>%
-        formatStyle(names(formSpreeTable()),
-                    'hl',
-                    backgroundColor = styleEqual(c(TRUE, FALSE), c('yellow', 'white')))
+        {
+          tbl <- .
+          if ("hl" %in% names(formSpreeTable())) {
+            tbl <- tbl %>% formatStyle(
+              names(formSpreeTable()),
+              "hl",
+              backgroundColor = styleEqual(c(TRUE, FALSE), c("yellow", "white"))
+            )
+          }
+          tbl
+        }
       })
     })
   })
