@@ -169,25 +169,75 @@ get_lateness_and_duration <- function(all_files) {
   return(t)
 }
 
-generate_summary_table <- function(data_list, stairs, pretest, prolific) {
-  all_files <- tibble()
-  
-  fontParams <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
-    t <- data_list[[i]] %>%
-      mutate(block_condition = ifelse(block_condition == "", as.character(staircaseName), as.character(block_condition))) %>% 
-      filter(!is.na(fontSizePx) | !is.na(viewingDistanceCm)) %>% 
-      select(participant, date, block_condition,fontSizePx,viewingDistanceCm,fontRenderMaxPx,fontMaxPx)
-      t <- t %>% group_by(participant, date, block_condition) %>% 
-      summarize(fontSizePx = round(mean(as.numeric(fontSizePx),rm.na=T),1),
-                viewingDistanceCm = round(mean(as.numeric(viewingDistanceCm),rm.na=T),1),
-                fontRenderMaxPx = mean(as.numeric(fontRenderMaxPx),rm.na=T),
-                fontMaxPx = mean(as.numeric(fontMaxPx),rm.na=T),
-                .groups="drop")
-  } %>% 
-    mutate(block_condition = as.character(block_condition))
+first_nonempty_string <- function(values) {
+  values <- values[!is.na(values) & values != ""]
+  if (length(values) > 0) {
+    return(values[[1]])
+  }
+  ""
+}
 
-  params <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
-    t <- data_list[[i]] %>%
+normalize_block_condition_col <- function(df) {
+  if (!"block_condition" %in% names(df)) {
+    df$block_condition <- ""
+  }
+  df$block_condition <- as.character(df$block_condition)
+  df
+}
+
+empty_font_params <- function() {
+  tibble(
+    participant = character(),
+    date = character(),
+    block_condition = character(),
+    fontSizePx = double(),
+    viewingDistanceCm = double(),
+    fontRenderMaxPx = double(),
+    fontMaxPx = double()
+  )
+}
+
+ensure_font_params_joinable <- function(df) {
+  required <- c("participant", "date", "block_condition")
+  if (all(required %in% names(df))) {
+    return(df)
+  }
+  empty_font_params()
+}
+
+generate_summary_table <- function(data_list, stairs, pretest, prolific) {
+  fontParams <- bind_rows_or_empty(lapply(data_list, function(df) {
+    if (nrow(df) < 1) {
+      return(NULL)
+    }
+    df <- normalize_block_condition_col(df)
+    t <- df %>%
+      mutate(
+        block_condition = as.character(ifelse(
+          is.na(block_condition) | block_condition == "",
+          as.character(staircaseName),
+          block_condition
+        ))
+      ) %>%
+      filter(!is.na(fontSizePx) | !is.na(viewingDistanceCm)) %>%
+      select(participant, date, block_condition, fontSizePx, viewingDistanceCm, fontRenderMaxPx, fontMaxPx)
+    if (nrow(t) < 1) {
+      return(NULL)
+    }
+    t %>%
+      group_by(participant, date, block_condition) %>%
+      summarize(
+        fontSizePx = round(mean(as.numeric(fontSizePx), na.rm = TRUE), 1),
+        viewingDistanceCm = round(mean(as.numeric(viewingDistanceCm), na.rm = TRUE), 1),
+        fontRenderMaxPx = mean(as.numeric(fontRenderMaxPx), na.rm = TRUE),
+        fontMaxPx = mean(as.numeric(fontMaxPx), na.rm = TRUE),
+        .groups = "drop"
+      )
+  })) %>%
+    ensure_font_params_joinable()
+
+  params <- bind_rows_or_empty(lapply(data_list, function(df) {
+    df %>%
       filter(!is.na(staircaseName) & staircaseName != "") %>%
       select(
         participant,
@@ -197,7 +247,7 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
         deviceMemoryGB,
         mustTrackSec
       )
-  }
+  }))
   
   NQuestTrials <- stairs %>%
     arrange(participant, date, staircaseName) %>%
@@ -214,40 +264,50 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     mutate(date = as.character(date))
 
   params <- params %>%
+    mutate(
+      mustTrackSec = suppressWarnings(as.numeric(mustTrackSec)),
+      `heapLimitAfterDrawing (MB)` = suppressWarnings(as.numeric(`heapLimitAfterDrawing (MB)`)),
+      `heapTotalAfterDrawing (MB)` = suppressWarnings(as.numeric(`heapTotalAfterDrawing (MB)`))
+    ) %>%
     group_by(participant,
              deviceMemoryGB, 
              date) %>%
     summarize(
-      mustTrackSec = format(round(mean(
-        mustTrackSec, na.rm = T
-      ), 2), nsmall = 2),
+      mustTrackSec = format(round(mean(mustTrackSec, na.rm = TRUE), 2), nsmall = 2),
       `heapLimitAfterDrawing (MB)` = format(round(
-        mean(`heapLimitAfterDrawing (MB)`, na.rm = T), 2
+        mean(`heapLimitAfterDrawing (MB)`, na.rm = TRUE), 2
       ), nsmall = 2),
       heapTotalAvgMB = format(round(
-        mean(`heapTotalAfterDrawing (MB)`, na.rm = T), 2
+        mean(`heapTotalAfterDrawing (MB)`, na.rm = TRUE), 2
       ), nsmall = 2),
       .groups="drop"
     ) %>%
     mutate(date = as.character(date)) %>% 
-    left_join(NQuestTrials, by = c('participant', 'date')) %>%
+    left_join(NQuestTrials, by = c('participant', 'date'), relationship = 'many-to-many') %>%
     rename("Pavlovia session ID" = "participant")
     
   
   webGL <- get_webGL(data_list) %>% rename("Pavlovia session ID" = "participant")
   
-  comments_data <- foreach(i = 1:length(data_list), .combine = 'rbind') %do% {
-    t <- data_list[[i]] %>%
-      filter(!is.na(questionAndAnswerNickname),
-             questionAndAnswerNickname =="COMMENT") %>%
-      distinct(participant, date, questionAndAnswerNickname, questionAndAnswerResponse, questionAndAnswerQuestion) %>% 
-      mutate(date = as.character(date)) %>% 
+  comments_data <- bind_rows_or_empty(lapply(data_list, function(df) {
+    df %>%
+      filter(
+        !is.na(questionAndAnswerNickname),
+        questionAndAnswerNickname == "COMMENT"
+      ) %>%
+      distinct(
+        participant, date, questionAndAnswerNickname,
+        questionAndAnswerResponse, questionAndAnswerQuestion
+      ) %>%
+      mutate(date = as.character(date)) %>%
       rename(comment = questionAndAnswerResponse)
+  }))
 
-  }
-  
-  for (i in 1:length(data_list)) {
-    t <- data_list[[i]] %>%
+  all_files <- bind_rows_or_empty(lapply(data_list, function(df) {
+    if (nrow(df) == 0) {
+      return(NULL)
+    }
+    df %>%
       distinct(
         participant,
         date,
@@ -259,10 +319,10 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
         targetDurationSec,
         error,
         warning
-      ) %>% 
-      group_by(participant, block_condition) %>% 
-      mutate(trial = n()) %>% 
-      ungroup() %>% 
+      ) %>%
+      group_by(participant, block_condition) %>%
+      mutate(trial = n()) %>%
+      ungroup() %>%
       distinct(
         participant,
         date,
@@ -276,19 +336,28 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
         error,
         warning
       )
-    all_files <- rbind(all_files, t)
-  }
+  }))
 
-  logFont <- foreach(i = 1:length(data_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% distinct(participant, `_logFontBool`) %>%
+  logFont <- bind_rows_or_empty(lapply(data_list, function(df) {
+    df %>%
+      distinct(participant, `_logFontBool`) %>%
       filter(`_logFontBool` == TRUE) %>%
-      rename('Pavlovia session ID' = 'participant')
-  }
+      rename(`Pavlovia session ID` = participant)
+  }))
   
   trial <- all_files %>%
     select(participant, date, block_condition, trial) %>%
-    filter(block_condition != "") %>% 
+    filter(block_condition != "") %>%
     mutate(block_condition = as.character(block_condition))
+
+  if (!all(c("participant", "date", "block_condition") %in% names(trial))) {
+    trial <- tibble(
+      participant = character(),
+      date = character(),
+      block_condition = character(),
+      trial = integer()
+    )
+  }
   
   lateness_duration <- get_lateness_and_duration(all_files)
   
@@ -307,98 +376,89 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
               .groups = "drop")
   
   #### Get device and block condition columns ####
-  sessions = tibble()
-  for (i in 1:length(data_list)) {
-    if (nrow(data_list[[i]] >=  1)) {
-      experimentCompleteBool = ifelse(is.na(data_list[[i]]$experimentCompleteBool[1]) || 
-                                        length(data_list[[i]]$experimentCompleteBool[1]) == 0,
-                                      F,
-                                      data_list[[i]]$experimentCompleteBool[1])
-      
-        t <- data_list[[i]] %>% 
-          arrange(`Loudspeaker survey`)
-        
-        loudspeakerSurvey <-
-          t[t$`Loudspeaker survey` != "", ]$`Loudspeaker survey`
-        micSurvey <-
-          t[t$`Microphone survey` != "", ]$`Microphone survey`
-        needsUnmet <- t[t$`_needsUnmet` != "", ]$`_needsUnmet`
-        QRConnect <- t[t$QRConnect != "", ]$`QRConnect`
-        ComputerInfoFrom51Degrees <-
-          t[t$ComputerInfoFrom51Degrees != "", ]$`ComputerInfoFrom51Degrees`
-        
-        t <- t %>%
-          mutate(
-            `Loudspeaker survey` = ifelse(length(loudspeakerSurvey) == 0, '', loudspeakerSurvey),
-            `_needsUnmet` = ifelse(length(needsUnmet) == 0, '', needsUnmet),
-            `Microphone survey` = ifelse(length(micSurvey) == 0, '', micSurvey),
-            QRConnect = ifelse(length(QRConnect) == 0, '', QRConnect),
-            `ComputerInfoFrom51Degrees` = ifelse(
-              length(ComputerInfoFrom51Degrees) == 0,
-              '',
-              ComputerInfoFrom51Degrees
-            )
-          ) %>%
-          distinct(
-            ProlificParticipantID,
-            participant,
-            ProlificSessionID,
-            date,
-            deviceType,
-            deviceMemoryGB,
-            cores,
-            deviceSystemFamily,
-            browser,
-            resolution,
-            screenWidthCm,
-            cameraIsTopCenter,
-            rows,
-            cols,
-            kb,
-            ComputerInfoFrom51Degrees,
-            `_needsUnmet`,
-            `Loudspeaker survey`,
-            `Microphone survey`,
-            QRConnect,
-            snapshotsLink
-          )
-        
-        info <- data_list[[i]] %>%
-          distinct(
-            block,
-            block_condition,
-            conditionName,
-            targetTask,
-            targetKind,
-            thresholdParameter
-          ) %>%
-          dplyr::filter(block_condition != "")
-        if (nrow(info) > 0) {
-          info <- info %>% tail(1)
-        } else {
-          info <- tibble(
-            block = 0,
-            block_condition = NA,
-            conditionName = NA,
-            targetTask = NA,
-            targetKind = NA,
-            thresholdParameter = NA
-          )
-        }
-        
-        t <- cbind(t, info)
-        
-        if (t$participant[1] %in% error$participant) {
-          t$ok <- emoji("x")
-        } else if (!experimentCompleteBool) {
-          t$ok <- emoji("construction")
-        } else {
-          t$ok <- emoji("white_check_mark")
-        }
-        
-        sessions <- rbind(sessions, t)
+  sessions <- bind_rows_or_empty(lapply(data_list, function(df) {
+    if (nrow(df) < 1) {
+      return(NULL)
     }
-  }
+
+    experimentCompleteBool <- {
+      val <- df$experimentCompleteBool[[1]]
+      if (is.na(val) || length(val) == 0) {
+        FALSE
+      } else {
+        val
+      }
+    }
+
+    t <- df %>%
+      arrange(`Loudspeaker survey`) %>%
+      mutate(
+        `Loudspeaker survey` = first_nonempty_string(`Loudspeaker survey`),
+        `_needsUnmet` = first_nonempty_string(`_needsUnmet`),
+        `Microphone survey` = first_nonempty_string(`Microphone survey`),
+        QRConnect = first_nonempty_string(QRConnect),
+        ComputerInfoFrom51Degrees = first_nonempty_string(ComputerInfoFrom51Degrees)
+      ) %>%
+      distinct(
+        ProlificParticipantID,
+        participant,
+        ProlificSessionID,
+        date,
+        deviceType,
+        deviceMemoryGB,
+        cores,
+        deviceSystemFamily,
+        browser,
+        resolution,
+        screenWidthCm,
+        cameraIsTopCenter,
+        rows,
+        cols,
+        kb,
+        ComputerInfoFrom51Degrees,
+        `_needsUnmet`,
+        `Loudspeaker survey`,
+        `Microphone survey`,
+        QRConnect,
+        snapshotsLink
+      )
+
+    info <- df %>%
+      distinct(
+        block,
+        block_condition,
+        conditionName,
+        targetTask,
+        targetKind,
+        thresholdParameter
+      ) %>%
+      dplyr::filter(block_condition != "")
+
+    if (nrow(info) > 0) {
+      info <- info %>% tail(1)
+    } else {
+      info <- tibble(
+        block = 0,
+        block_condition = NA_character_,
+        conditionName = NA_character_,
+        targetTask = NA_character_,
+        targetKind = NA_character_,
+        thresholdParameter = NA_character_
+      )
+    }
+
+    t <- cbind(t, info)
+
+    t$ok <- if (t$participant[[1]] %in% error$participant) {
+      emoji("x")
+    } else if (!experimentCompleteBool) {
+      emoji("construction")
+    } else {
+      emoji("white_check_mark")
+    }
+
+    t
+  }))
   
   summary_df <- sessions %>%
     distinct() %>% 
@@ -471,23 +531,12 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     )
   
   #### order block_condition by splitting and order block and condition order ####
+  block_condition_parts <- stringr::str_split_fixed(summary_df$`block condition`, "_", 2)
   summary_df <- summary_df %>%
-    mutate(block_new = as.numeric(unlist(
-      lapply(
-        summary_df$`block condition`,
-        FUN = function(x) {
-          unlist(str_split(x, "[_]"))[1]
-        }
-      )
-    )),
-    condition = as.numeric(unlist(
-      lapply(
-        summary_df$`block condition`,
-        FUN = function(x) {
-          unlist(str_split(x, "[_]"))[2]
-        }
-      )
-    ))) %>%
+    mutate(
+      block_new = suppressWarnings(as.numeric(block_condition_parts[, 1])),
+      condition = suppressWarnings(as.numeric(block_condition_parts[, 2]))
+    ) %>%
     group_by(`Pavlovia session ID`, `block condition`, block) %>%
     mutate(block = max(block, block_new, na.rm = T)) %>%
     ungroup()
@@ -500,7 +549,7 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     select(-`block condition`) %>%
     mutate(`threshold parameter` = as.character(`threshold parameter`)) %>%
     left_join(logFont, by = c('Pavlovia session ID')) %>%
-    left_join(webGL, by = c('Pavlovia session ID','date')) %>%
+    left_join(webGL, by = c('Pavlovia session ID', 'date'), relationship = 'many-to-many') %>%
     # Preserve deviceMemoryGB from sessions before params join overwrites it
     mutate(deviceMemoryGB_preserved = deviceMemoryGB) %>%
     left_join(params, by = c('Pavlovia session ID', 'date')) %>%
@@ -524,6 +573,13 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
   return(final_summary_table)
 }
 
+
+empty_summary_datatable <- function() {
+  datatable(
+    data.frame(),
+    options = list(dom = "t", searching = FALSE, paging = FALSE, info = FALSE)
+  )
+}
 
 render_summary_datatable <- function(dt, participants, prolific_id) {
   dt$resolution_width <- as.integer(sub("^\\s*([0-9]+).*", "\\1", dt$resolution))

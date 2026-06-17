@@ -5,13 +5,21 @@ timingTabServer <- function(id,
                             experiment_names,
                             fileType,
                             uploaded_file,
+                            tab_active,
                             app_profiler = NULL) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
+  empty_plot_bundle <- function() {
+    list(plotList = list(), fileNames = list())
+  }
+
   #### duration data ####
   
   durationData <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
     if (is.null(files())) {
       return(NULL)
     }
@@ -21,6 +29,9 @@ timingTabServer <- function(id,
   })
 
   durationCorrMatrix <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
     if (is.null(files())) {
       return(NULL)
     }
@@ -30,9 +41,11 @@ timingTabServer <- function(id,
   })
 
   timingHistograms <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(empty_plot_bundle())
+    }
     if (is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
+      return(empty_plot_bundle())
     }
     
     l <- list()
@@ -46,10 +59,13 @@ timingTabServer <- function(id,
 
   timingHistRenderCount <- reactiveVal(0)
 
-  observeEvent(timingHistograms(), { timingHistRenderCount(0) }, ignoreInit = FALSE)
   observeEvent(files(), { timingHistRenderCount(0) }, ignoreInit = TRUE)
+  observeEvent(tab_active(), { timingHistRenderCount(0) }, ignoreInit = FALSE)
 
   observe({
+    if (!isTRUE(tab_active())) {
+      return()
+    }
     total <- length(timingHistograms()$plotList)
     current <- timingHistRenderCount()
     if (is.null(total) || total <= 0) return()
@@ -60,9 +76,11 @@ timingTabServer <- function(id,
   })
 
   scatterTime <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(empty_plot_bundle())
+    }
     if (is.null(uploaded_file()) | is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
+      return(empty_plot_bundle())
     }
     
     l <- list()
@@ -90,9 +108,11 @@ timingTabServer <- function(id,
   })
   
   scatterTimeParticipant <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(empty_plot_bundle())
+    }
     if (is.null(uploaded_file()) | is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
+      return(empty_plot_bundle())
     }
     
     l <- list()
@@ -121,6 +141,9 @@ timingTabServer <- function(id,
   
 
   duration_lateness_hist <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
     if (is.null(durationData())) {
       return(NULL)
     }
@@ -137,7 +160,7 @@ timingTabServer <- function(id,
   output$isDurationCorrMatrixAvailable <- reactive({
     return(!is.null(durationCorrMatrix()))
   })
-  outputOptions(output, 'isDurationCorrMatrixAvailable', suspendWhenHidden = FALSE)
+  outputOptions(output, 'isDurationCorrMatrixAvailable', suspendWhenHidden = TRUE)
   
 
   output$durationCorrMatrixPlot <- renderImage({
@@ -217,12 +240,18 @@ timingTabServer <- function(id,
   }, deleteFile = TRUE)
   
   durationPlot <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
     app_profile_time(app_profiler, "Timing duration plots", {
       plot_duraction_sec(durationData())
     })
   })
   
   latenessPlot <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
     app_profile_time(app_profiler, "Timing lateness plots", {
       plot_Lateness_sec(durationData())
     })
@@ -428,173 +457,10 @@ timingTabServer <- function(id,
     })
   }, deleteFile = TRUE)
 
-  #### rsvp ggiraph ####
-  
-  ordinaryAcuityFoveal <- reactive({
-    plot_acuity_reading(df_list()$acuity, df_list()$reading, 'foveal')
-  })
-  
-  ordinaryAcuityPeripheral <- reactive({
-    plot_acuity_reading(df_list()$acuity, df_list()$reading, 'peripheral')
-  })
-  
-  
-  output$rsvpCrowdingPeripheralGradePlot <-
-    ggiraph::renderGirafe({
-      tryCatch({
-        plot_with_title <- add_experiment_title(rsvpCrowding()$p_grade, experiment_names())
-        ggiraph::girafe(ggobj = plot_with_title)
-      }, error = function(e) {
-        log_detailed_error(e, "rsvpCrowdingPeripheralGradePlot")
-        error_plot <- ggplot() +
-          annotate(
-            "text",
-            x = 0.5,
-            y = 0.5,
-            label = paste("Error:", e$message),
-            color = "red",
-            size = 5,
-            hjust = 0.5,
-            vjust = 0.5
-          ) +
-          theme_void() +
-          labs(subtitle='rsvp-vs-peripheral-crowding-by-grade')
-        ggiraph::girafe(ggobj = error_plot)
-      })
-    })
-  
-  output$rsvpCrowdingPeripheralFontPlot <-
-    ggiraph::renderGirafe({
-      tryCatch({
-        plot_with_title <- add_experiment_title(rsvpCrowding()$p_font, experiment_names())
-        ggiraph::girafe(ggobj = plot_with_title)
-      }, error = function(e) {
-        log_error("rsvpCrowding p_font: ", conditionMessage(e))
-        error_plot <- ggplot() +
-          annotate(
-            "text",
-            x = 0.5,
-            y = 0.5,
-            label = paste("Error:", e$message),
-            color = "red",
-            size = 5,
-            hjust = 0.5,
-            vjust = 0.5
-          ) +
-          theme_void() +
-          labs(subtitle='rsvp-vs-peripheral-crowding-by-grade')
-        ggiraph::girafe(ggobj = error_plot)
-      })
-    })
- 
-  output$rsvpResidualCrowding <-
-    ggiraph::renderGirafe({
-      tryCatch({
-        plot_with_title <- add_experiment_title(rsvpCrowding()$residual, experiment_names())
-        ggiraph::girafe(ggobj = plot_with_title)
-      }, error = function(e) {
-        log_error("rsvpCrowding residual: ", conditionMessage(e))
-        error_plot <- ggplot() +
-          annotate(
-            "text",
-            x = 0.5,
-            y = 0.5,
-            label = paste("Error:", e$message),
-            color = "red",
-            size = 5,
-            hjust = 0.5,
-            vjust = 0.5
-          ) +
-          theme_void() +
-          labs(subtitle='residual-rsvp-vs-residual-peripheral-crowding-by-grade')
-        ggiraph::girafe(ggobj = error_plot)
-      })
-    })
-  
-  ordinaryCrowdingPlots <- reactive({
-    plot_reading_crowding(df_list())
-  })
-  
-  readingRepeatedPlots <- reactive({
-    plot_reading_repeated_letter_crowding(df_list())
-  })
-  
-  # Font-aggregated plots
-  fontAggregatedReadingRsvpCrowding <- reactive({
-    plot_font_aggregated_reading_rsvp_crowding(df_list())
-  })
-  
-  fontAggregatedOrdinaryReadingCrowding <- reactive({
-    plot_font_aggregated_ordinary_reading_crowding(df_list())
-  })
-  
-  fontAggregatedRsvpCrowding <- reactive({
-    plot_font_aggregated_rsvp_crowding(df_list())
-  })
-
-  output$rsvpCrowdingFovealGradePlot <- ggiraph::renderGirafe({
-    plot_with_title <- add_experiment_title(rsvpCrowding()$f_grade, experiment_names())
-    ggiraph::girafe(ggobj = plot_with_title)
-  })
-  
-  output$rsvpFovealAcuityGradePlot <- ggiraph::renderGirafe({
-    plot_with_title <- add_experiment_title(rsvpAcuityFoveal()[[2]], experiment_names())
-    ggiraph::girafe(ggobj = plot_with_title)
-  })
-  
-  output$rsvpPeripheralAcuityGradePlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(rsvpAcuityPeripheral()$grade, experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  output$rsvpPeripheralAcuityFontPlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(rsvpAcuityPeripheral()$font, experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  output$rsvpRepeatedGradePlot <- ggiraph::renderGirafe({
-    plot_with_title <- add_experiment_title(rsvp_repeated_letter_crowding()[[2]], experiment_names())
-    ggiraph::girafe(ggobj = plot_with_title)
-  })
-  
-  output$ordinaryFovealAcuityGradePlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(ordinaryAcuityFoveal()[[2]], experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  output$ordinaryPeripheralAcuityGradePlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(ordinaryAcuityPeripheral()$grade, experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  output$ordinaryPeripheralAcuityFontPlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(ordinaryAcuityPeripheral()$font, experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  # Peripheral Crowding Plots
-  output$ordinaryPeripheralCrowdingFontPlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[1]], experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-      
-      #temporarily change to colored by font
-    })
-  
-  output$ordinaryPeripheralCrowdingGradePlot <-
-    ggiraph::renderGirafe({
-      plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[3]], experiment_names())
-      ggiraph::girafe(ggobj = plot_with_title)
-    })
-  
-  # Font-aggregated plot outputs
-
   output$timingHistograms <- renderUI({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
     out <- list()
     i <- 1
     
@@ -788,10 +654,13 @@ timingTabServer <- function(id,
     
     return(out)
   })
-  
+  outputOptions(output, "timingHistograms", suspendWhenHidden = TRUE)
   
 
   output$scatterTimeParticipant <- renderUI({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
     out <- list()
     i = 1
     
@@ -956,8 +825,12 @@ timingTabServer <- function(id,
     
     return(out)
   })
+  outputOptions(output, "scatterTimeParticipant", suspendWhenHidden = TRUE)
   
   output$scatterTime <- renderUI({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
     out <- list()
     i = 1
     
@@ -1107,7 +980,7 @@ timingTabServer <- function(id,
     
     return(out)
   })
-  
+  outputOptions(output, "scatterTime", suspendWhenHidden = TRUE)
   
 
   toListenTiming <- reactive({
@@ -1440,6 +1313,9 @@ timingTabServer <- function(id,
   })
 
   downloadSpecs <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(list())
+    }
     specs <- list()
     duration_corr <- durationCorrMatrix()
     if (!is.null(duration_corr) && !is.null(duration_corr$plot)) {

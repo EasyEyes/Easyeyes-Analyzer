@@ -16,6 +16,10 @@ Dockerfile
 # Temporary files
 *.tmp
 *.temp
+Rplots.pdf
+
+# Local dev test data (not used in production)
+local-test-data/
 
 # Logs
 *.log

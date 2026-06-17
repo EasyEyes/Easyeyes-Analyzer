@@ -531,14 +531,14 @@ getCorrMatrix <- function(allData, pretest) {
     full_join(acuity, by = 'participant') %>% 
     mutate(participant = tolower(participant)) %>% 
     full_join(rsvp_speed %>% select(participant, block_avg_log_WPM) %>% mutate(participant = tolower(participant)), by = 'participant') %>% 
-    full_join(reading, by = 'participant')
+    full_join(reading, by = 'participant', relationship = 'many-to-many')
   
   if (nrow(pretest) > 0) {
     crowdingW <- crowdingW %>% 
       full_join(pretest_for_corr, by = 'participant')
   }
   if (!'Age' %in% names(crowdingW)) {
-    crowdingW <- crowdingW %>% full_join(age %>% mutate(participant = tolower(participant)), by = 'participant')
+    crowdingW <- crowdingW %>% full_join(age %>% mutate(participant = tolower(participant)), by = 'participant', relationship = 'many-to-many')
   }
   
   crowdingW <- crowdingW %>% 

@@ -65,7 +65,7 @@ extractStaircases <- function(df, info) {
       rsvpReadingResponseCorrectBool,
       `key_resp.corr`
     ) %>% 
-    inner_join(info, by = 'staircaseName') %>% 
+    inner_join(info, by = 'staircaseName', relationship = 'many-to-many') %>% 
     mutate(questType = case_when(
       thresholdParameter != "targetSizeDeg" &
         thresholdParameter != 'size' &

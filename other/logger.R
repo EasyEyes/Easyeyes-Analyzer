@@ -96,13 +96,26 @@ app_profile_time <- function(profiler, label, expr) {
 
   start <- proc.time()[["elapsed"]]
   ok <- FALSE
+  err_msg <- NULL
   on.exit({
     duration <- proc.time()[["elapsed"]] - start
     status <- if (ok) "complete" else "failed"
-    profiler$mark(paste0(label, " ", status), sprintf("duration %.3fs", duration))
+    detail <- sprintf("duration %.3fs", duration)
+    if (!ok && !is.null(err_msg) && nzchar(err_msg)) {
+      detail <- paste0(detail, " | ", err_msg)
+      message("[EasyEyes ERROR] ", label, ": ", err_msg)
+      log_error(label, ": ", err_msg)
+    }
+    profiler$mark(paste0(label, " ", status), detail)
   }, add = TRUE)
 
-  value <- eval(substitute(expr), parent.frame())
+  value <- tryCatch(
+    eval(substitute(expr), parent.frame()),
+    error = function(e) {
+      err_msg <<- conditionMessage(e)
+      stop(e)
+    }
+  )
   ok <- TRUE
   value
 }

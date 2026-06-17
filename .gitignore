@@ -2,8 +2,14 @@
 .Rhistory
 .RData
 .Ruserdata
+.DS_Store
 www/firebase-config.js
 tmp.svg
+Rplots.pdf
 docs/
 .logs/
 .positai
+
+# Optional local dev folder for experiment zips (not used by the app; safe if missing)
+local-test-data/*
+!local-test-data/.gitkeep

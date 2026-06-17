@@ -197,7 +197,7 @@ generate_threshold <-
     
     all_summary <- all_summary %>%
       # apply questSD filter
-      left_join(NQuestTrials, by = c('participant', 'block_condition')) %>% 
+      left_join(NQuestTrials, by = c('participant', 'block_condition'), relationship = 'many-to-many') %>% 
       filter(questSDAtEndOfTrialsLoop <= maxQuestSD) %>% 
       inner_join(wrongTrials, by = c('participant', 'block_condition'))
     
@@ -387,7 +387,7 @@ generate_threshold <-
       left_join(age, 
                 by = 'participant',
                 relationship = "many-to-many") %>% 
-      left_join(targetDurationSecs, by = c('participant', 'conditionName'))
+      left_join(targetDurationSecs, by = c('participant', 'conditionName'), relationship = 'many-to-many')
     
     quest_all_thresholds <- quest
     valid_ids <- unique(quest_all_thresholds$participant)
@@ -440,7 +440,7 @@ generate_threshold <-
     }
     
     rsvp_speed <- rsvp_speed %>% 
-      left_join(viewingdistance, by = c("conditionName", "participant"))
+      left_join(viewingdistance, by = c("conditionName", "participant"), relationship = 'many-to-many')
     
     nQs <- as.numeric(reading$readingNumberOfQuestions[1])
     

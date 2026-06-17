@@ -385,6 +385,153 @@ get_N_text <- function(data) {
   return(paste0(unique(t$text), collapse='\n'))
 }
 
+# Scale ggplot text/layers for on-screen PNG rendering (ragg path).
+apply_direct_png_theme <- function(plot, profile = c("default", "plots", "histogram")) {
+  profile <- match.arg(profile)
+  default_text_layer_size <- 3
+  stats_text_layer_size <- 4
+  text_layer_multiplier <- 2
+  lineheight_multiplier <- 0.5
+
+  sizes <- switch(
+    profile,
+    default = list(
+      title = 18, subtitle = 36, axis_title = 28, axis_text = 14,
+      legend_title = 28, legend_text = 20, strip = 28, caption = 20
+    ),
+    plots = list(
+      title = 18, subtitle = 36, axis_title = 28, axis_text = 20,
+      legend_title = 28, legend_text = 20, strip = 28, caption = 20
+    ),
+    histogram = list(
+      title = 14, subtitle = 29, axis_title = 22, axis_text = 20,
+      legend_title = 22, legend_text = 16, strip = 22, caption = 16
+    )
+  )
+
+  png_plot <- unserialize(serialize(plot, NULL))
+  axis_text_x <- if (profile == "histogram") {
+    ggplot2::element_text(size = sizes$axis_text, angle = -40, hjust = 0, vjust = 1)
+  } else {
+    ggplot2::element_text(size = sizes$axis_text)
+  }
+  png_plot <- png_plot +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(size = sizes$title, lineheight = lineheight_multiplier),
+      plot.subtitle = ggplot2::element_text(size = sizes$subtitle, lineheight = lineheight_multiplier),
+      axis.title = ggplot2::element_text(size = sizes$axis_title, lineheight = lineheight_multiplier),
+      axis.text = ggplot2::element_text(size = sizes$axis_text, lineheight = lineheight_multiplier),
+      axis.text.x = axis_text_x,
+      axis.text.y = ggplot2::element_text(size = sizes$axis_text, lineheight = lineheight_multiplier),
+      legend.title = ggplot2::element_text(size = sizes$legend_title, lineheight = lineheight_multiplier),
+      legend.text = ggplot2::element_text(size = sizes$legend_text, lineheight = lineheight_multiplier),
+      strip.text = ggplot2::element_text(size = sizes$strip, lineheight = lineheight_multiplier),
+      plot.caption = ggplot2::element_text(size = sizes$caption, lineheight = lineheight_multiplier)
+    )
+
+  for (layer_idx in seq_along(png_plot$layers)) {
+    geom <- png_plot$layers[[layer_idx]]$geom
+    if (inherits(geom, "GeomText") || inherits(geom, "GeomLabel") || inherits(geom, "GeomTextNpc")) {
+      layer_label <- as.character(c(
+        png_plot$layers[[layer_idx]]$aes_params$label,
+        png_plot$layers[[layer_idx]]$geom_params$label
+      ))
+      is_stats_layer <- any(grepl("N =|Sessions=|Mean =|SD =", layer_label))
+
+      size <- png_plot$layers[[layer_idx]]$aes_params$size
+      if (is.null(size)) size <- png_plot$layers[[layer_idx]]$geom_params$size
+      base_size <- if (is_stats_layer) stats_text_layer_size else default_text_layer_size
+      size_num <- if (length(size) == 1) suppressWarnings(as.numeric(size)) else NA_real_
+      if (!is.na(size_num)) {
+        scaled_size <- size_num * text_layer_multiplier
+        png_plot$layers[[layer_idx]]$aes_params$size <- scaled_size
+        png_plot$layers[[layer_idx]]$geom_params$size <- scaled_size
+      } else if (is.null(size)) {
+        scaled_size <- base_size * text_layer_multiplier
+        png_plot$layers[[layer_idx]]$aes_params$size <- scaled_size
+        png_plot$layers[[layer_idx]]$geom_params$size <- scaled_size
+      }
+
+      lineheight <- png_plot$layers[[layer_idx]]$aes_params$lineheight
+      if (is.null(lineheight)) lineheight <- png_plot$layers[[layer_idx]]$geom_params$lineheight
+      lineheight_num <- if (length(lineheight) == 1) suppressWarnings(as.numeric(lineheight)) else NA_real_
+      if (!is.na(lineheight_num)) {
+        scaled_lineheight <- lineheight_num * lineheight_multiplier
+        png_plot$layers[[layer_idx]]$aes_params$lineheight <- scaled_lineheight
+        png_plot$layers[[layer_idx]]$geom_params$lineheight <- scaled_lineheight
+      } else if (is.null(lineheight)) {
+        png_plot$layers[[layer_idx]]$aes_params$lineheight <- 0.6
+        png_plot$layers[[layer_idx]]$geom_params$lineheight <- 0.6
+      }
+    }
+  }
+
+  png_plot
+}
+
+# On-screen PNG via ragg (with svglite/rsvg fallback). Returns renderImage list().
+render_plots_display_png <- function(plot,
+                                     width_in,
+                                     height_in,
+                                     disp_w = 700,
+                                     disp_h = NULL,
+                                     use_png_theme = TRUE,
+                                     png_theme_profile = "plots",
+                                     limitsize = FALSE) {
+  width_in <- as.numeric(width_in)[1]
+  height_in <- as.numeric(height_in)[1]
+  if (is.na(width_in) || width_in <= 0) width_in <- 6
+  if (is.na(height_in) || height_in <= 0) height_in <- width_in
+  disp_w <- as.numeric(disp_w)[1]
+  if (is.na(disp_w) || disp_w <= 0) disp_w <- 700
+
+  scale <- 2
+  png_w <- round(disp_w * scale)
+  png_h <- round((height_in / width_in) * png_w)
+  outfile <- tempfile(fileext = ".png")
+  if (isTRUE(use_png_theme)) {
+    plot <- apply_direct_png_theme(plot, profile = png_theme_profile)
+  }
+
+  saved <- tryCatch({
+    ggplot2::ggsave(
+      file = outfile,
+      plot = plot,
+      width = width_in,
+      height = height_in,
+      unit = "in",
+      limitsize = limitsize,
+      device = ragg::agg_png,
+      dpi = png_w / width_in
+    )
+    TRUE
+  }, error = function(e) {
+    log_error("Direct ragg render failed, falling back to svglite: ", conditionMessage(e))
+    tmp_svg <- tempfile(fileext = ".svg")
+    ggplot2::ggsave(
+      file = tmp_svg,
+      plot = plot,
+      width = width_in,
+      height = height_in,
+      unit = "in",
+      limitsize = limitsize,
+      device = svglite
+    )
+    rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
+    TRUE
+  })
+  if (!isTRUE(saved)) {
+    stop("Plot render failed")
+  }
+
+  list(
+    src = outfile,
+    contenttype = "image/png",
+    width = disp_w,
+    height = if (is.null(disp_h)) round(png_h / scale) else as.numeric(disp_h)[1]
+  )
+}
+
 # Helper: return a PNG image response for renderImage using ragg
 render_png_response <- function(plot, width, height, units = "in", dpi = 144, limitsize = FALSE) {
   outfile <- tempfile(fileext = ".png")
@@ -491,4 +638,115 @@ handle_plot_error <- function(e, plot_id, experiment_names = NULL, plot_subtitle
     contenttype = 'image/svg+xml',
     alt = paste0("Error in ", plot_id, ": ", e$message)
   ))
+}
+
+# Class tag for one column vector (used before dplyr::bind_rows across sessions).
+column_bind_class <- function(vectors) {
+  non_empty <- vectors[vapply(vectors, length, integer(1)) > 0]
+  if (length(non_empty) == 0) {
+    return("character")
+  }
+
+  tags <- unique(vapply(non_empty, function(x) {
+    if (is.list(x) && !is.data.frame(x)) {
+      return("character")
+    }
+    if (inherits(x, "POSIXt")) {
+      return("POSIXt")
+    }
+    if (inherits(x, "Date")) {
+      return("Date")
+    }
+    if (is.factor(x)) {
+      return("character")
+    }
+    if (is.logical(x)) {
+      return("logical")
+    }
+    if (is.integer(x)) {
+      return("integer")
+    }
+    if (is.numeric(x)) {
+      return("double")
+    }
+    if (is.character(x)) {
+      return("character")
+    }
+    "character"
+  }, character(1)))
+
+  if (length(tags) == 1) {
+    return(tags[[1]])
+  }
+  if (all(tags %in% c("integer", "double"))) {
+    return("double")
+  }
+  "character"
+}
+
+coerce_column_to_bind_class <- function(x, target_class) {
+  if (is.factor(x)) {
+    x <- as.character(x)
+  }
+  if (length(x) == 0) {
+    return(switch(
+      target_class,
+      character = character(0),
+      logical = logical(0),
+      integer = integer(0),
+      double = double(0),
+      Date = structure(numeric(0), class = "Date"),
+      POSIXt = structure(numeric(0), class = c("POSIXct", "POSIXt")),
+      character(0)
+    ))
+  }
+
+  switch(
+    target_class,
+    character = as.character(x),
+    logical = as.logical(x),
+    integer = suppressWarnings(as.integer(x)),
+    double = suppressWarnings(as.numeric(x)),
+    Date = suppressWarnings(as.Date(x)),
+    POSIXt = suppressWarnings(as.POSIXct(as.character(x), tz = "UTC")),
+    as.character(x)
+  )
+}
+
+harmonize_chunks_for_bind_rows <- function(chunks) {
+  all_cols <- unique(unlist(lapply(chunks, names), use.names = FALSE))
+  col_targets <- stats::setNames(
+    lapply(all_cols, function(col) {
+      vectors <- lapply(chunks, function(df) {
+        if (col %in% names(df)) df[[col]] else logical(0)
+      })
+      column_bind_class(vectors)
+    }),
+    all_cols
+  )
+
+  lapply(chunks, function(df) {
+    n <- nrow(df)
+    for (col in all_cols) {
+      target <- col_targets[[col]]
+      if (col %in% names(df)) {
+        df[[col]] <- coerce_column_to_bind_class(df[[col]], target)
+      } else if (n == 0) {
+        df[[col]] <- coerce_column_to_bind_class(logical(0), target)
+      } else {
+        df[[col]] <- coerce_column_to_bind_class(rep(NA, n), target)
+      }
+    }
+    df[, all_cols, drop = FALSE]
+  })
+}
+
+# Bind session chunks with compatible column types (character/logical mixes, etc.).
+bind_rows_or_empty <- function(chunks) {
+  chunks <- chunks[!vapply(chunks, is.null, logical(1))]
+  chunks <- chunks[vapply(chunks, is.data.frame, logical(1))]
+  if (length(chunks) == 0) {
+    return(tibble::tibble())
+  }
+  dplyr::bind_rows(harmonize_chunks_for_bind_rows(chunks))
 }

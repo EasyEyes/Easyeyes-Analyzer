@@ -56,12 +56,7 @@ get_crowding_hist <- function(crowding) {
       ) +
       labs(x = 'Log foveal crowding (deg)',
            y = 'Count',
-           subtitle ='Histogram of foveal\ncrowding') + 
-      theme(
-        plot.title = element_text(size = rel(0.5)),  # Scale down title size
-        axis.title = element_text(size = rel(0.5)),  # Scale down axis title size
-        axis.text = element_text(size = rel(0.5))    # Scale down axis text size
-      )
+           subtitle ='Histogram of foveal\ncrowding')
   } else {
     p1 <- NULL
   }
@@ -460,8 +455,7 @@ get_grade_histogram <- function(age) {
     ) +
     labs(x = 'Grade',
          y = 'Count',
-         subtitle = 'Histogram of grades') +
-    theme_minimal()  # Consistent minimal theme
+         subtitle = 'Histogram of grades')
   
   return(p)
 }
@@ -556,11 +550,6 @@ get_reading_CQ_hist <- function(reading_pre, minCQAccuracy) {
         ),
         inherit.aes = FALSE,
         hjust = 1, vjust = 1
-      ) +
-      theme_minimal() +
-      theme(
-        plot.title          = element_text(size = 10, lineheight = 0.9, margin = margin(b = 5)),
-        plot.title.position = "plot"
       )
 
     if (!is.null(minCQAccuracy) && is.finite(minCQAccuracy)) {
@@ -632,11 +621,6 @@ get_prop_correct_hist_list <- function(quest, max_chars_per_line = 25) {
         ),
         inherit.aes = FALSE,
         hjust = 1, vjust = 1
-      ) +
-      theme_minimal() +
-      theme(
-        plot.title          = element_text(size = 10, lineheight = 0.9, margin = margin(b = 5)),
-        plot.title.position = "plot"
       )
   })
   
@@ -707,7 +691,6 @@ append_hist_list <- function(data_list, plot_list, fileNames, experimentNames){
       n = nrow(data)
       p <- ggplot(data, aes(x = .data[[var]])) +
         geom_histogram(color=NA, fill="gray80") + 
-        theme_bw() +
         ggpp::geom_text_npc(
           aes(npcx = 'right',
               npcy = 'top'),
@@ -750,8 +733,7 @@ append_hist_list <- function(data_list, plot_list, fileNames, experimentNames){
         x     = 'spacingMinDeg',
         y     = 'Count',
         subtitle = 'Histogram of\nspacingMinDeg'
-      ) + 
-      hist_theme
+      )
     
     p <-  add_experiment_title(p, experimentNames)
     

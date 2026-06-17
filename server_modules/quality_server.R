@@ -7,14 +7,21 @@ qualityTabServer <- function(id,
                              experiment_names,
                              fileType,
                              uploaded_file,
+                             tab_active,
                              app_profiler = NULL) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
+  empty_plot_bundle <- function() {
+    list(plotList = list(), fileNames = list())
+  }
+
   histogramsQuality <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(empty_plot_bundle())
+    }
     if (is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
+      return(empty_plot_bundle())
     }
 
     app_profile_time(app_profiler, "Quality histogram list", {
@@ -35,10 +42,15 @@ qualityTabServer <- function(id,
 
   qualityHistRenderCount <- reactiveVal(0)
 
-  observeEvent(histogramsQuality(), { qualityHistRenderCount(0) }, ignoreInit = FALSE)
   observeEvent(files(), { qualityHistRenderCount(0) }, ignoreInit = TRUE)
+  observeEvent(tab_active(), {
+    qualityHistRenderCount(0)
+  }, ignoreInit = FALSE)
 
   observe({
+    if (!isTRUE(tab_active())) {
+      return()
+    }
     total <- length(histogramsQuality()$plotList)
     current <- qualityHistRenderCount()
     if (is.null(total) || total <= 0) return()
@@ -49,9 +61,11 @@ qualityTabServer <- function(id,
   })
 
   scatterQuality <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(empty_plot_bundle())
+    }
     if (is.null(uploaded_file()) | is.null(files())) {
-      return(list(plotList = list(),
-                  fileNames = list()))
+      return(empty_plot_bundle())
     }
     app_profile_time(app_profiler, "Quality scatter list", {
       l <- list()
@@ -100,6 +114,9 @@ qualityTabServer <- function(id,
   
 
   output$qualityHistograms <- renderUI({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
     out <- list()
     i <- 1
     
@@ -291,7 +308,12 @@ qualityTabServer <- function(id,
   })
   
 
+  outputOptions(output, "qualityHistograms", suspendWhenHidden = TRUE)
+
   output$qualityScatters <- renderUI({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
     out <- list()
     i = 1
     while (i <= length(scatterQuality()$plotList) - 1) {
@@ -434,7 +456,12 @@ qualityTabServer <- function(id,
     return(out)
   })
   
+  outputOptions(output, "qualityScatters", suspendWhenHidden = TRUE)
+
   downloadSpecs <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(list())
+    }
     c(
       plot_list_download_specs(histogramsQuality()$plotList, histogramsQuality()$fileNames, theme = hist_theme, width = 4, height = 4),
       plot_list_download_specs(scatterQuality()$plotList, scatterQuality()$fileNames, theme = plt_theme_scatter, width = 7, height = 4, append_index = TRUE)

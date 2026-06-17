@@ -827,6 +827,11 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
 }
 
 get_distance_calibration <- function(data_list, minRulerCm) {
+  if (is.null(minRulerCm) || length(minRulerCm) == 0 || is.na(minRulerCm)[1]) {
+    minRulerCm <- 0
+  } else {
+    minRulerCm <- as.numeric(minRulerCm)[1]
+  }
   if (length(data_list) == 0) {
     return(list(
       filtered = list(),

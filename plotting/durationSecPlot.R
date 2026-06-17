@@ -99,7 +99,7 @@ get_duration_corr <- function(data_list, conditionNameInput) {
   params <- params %>% select(-c(trialGivenToQuestErrorCheckLabels, trialGivenToQuestChecks)) %>% 
     left_join(trialGivenToQuest, by = 'order') %>% 
     select(-order) %>% 
-    left_join(webGL, by = "participant") %>% 
+    left_join(webGL, by = "participant", relationship = "many-to-many") %>% 
     left_join(summary, by = c("participant", "block")) %>% 
     select(-c(participant, block))
   
@@ -706,7 +706,7 @@ plot_badLatenessTrials_vs_memory <- function(data_list,conditionNameInput) {
   
   if (!is.null(conditionNameInput) & length(conditionNameInput) > 0 ) {
     params <- params %>%
-      left_join(info, by = c("participant", "block_condition")) %>% 
+      left_join(info, by = c("participant", "block_condition"), relationship = "many-to-many") %>% 
       filter(conditionName %in% conditionNameInput)
   } 
   
@@ -801,7 +801,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
   
   params <- params %>%
     filter(!is.na(font)) %>%
-    left_join(webGL, by = 'participant') %>%
+    left_join(webGL, by = 'participant', relationship = 'many-to-many') %>%
     arrange(hardwareConcurrency) %>%
     mutate(hardwareConcurrency = as.factor(hardwareConcurrency))
   
@@ -1656,7 +1656,7 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
   webGL <- get_webGL(data_list)
   params <- params %>%
     filter(!is.na(font)) %>%
-    left_join(webGL, by = 'participant') %>%
+    left_join(webGL, by = 'participant', relationship = 'many-to-many') %>%
     arrange(hardwareConcurrency) %>%
     mutate(hardwareConcurrency = as.factor(hardwareConcurrency))
   

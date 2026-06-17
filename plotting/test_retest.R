@@ -54,7 +54,7 @@ get_test_retest <- function(df_list){
     
     test_retest <- test %>% 
       select(participant, font, conditionName, test) %>% 
-      inner_join(retest, by = c("participant", "font", "conditionName")) %>% 
+      inner_join(retest, by = c("participant", "font", "conditionName"), relationship = "many-to-many") %>% 
       rename(test=test.x,
              retest = test.y) %>% 
       filter(!is.na(test), !is.na(retest))

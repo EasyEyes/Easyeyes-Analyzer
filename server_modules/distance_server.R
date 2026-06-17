@@ -7,102 +7,105 @@ distanceTabServer <- function(id,
                               calibrateTrackDistanceCheckLengthSDLogAllowed,
                               fileType,
                               uploaded_file,
+                              tab_active,
                               app_profiler = NULL,
                               maxDistanceDotSlots = 20,
                               maxDistanceScatterSlots = 20) {
   moduleServer(id, function(input, output, session) {
 
-  apply_direct_png_theme <- function(plot) {
-    default_text_layer_size <- 3
-    stats_text_layer_size <- 4
-    text_layer_multiplier <- 2
-    lineheight_multiplier <- 0.5
-
-    # Layer objects can be shared across ggplot copies. Deep-copy before mutating
-    # layer params so PNG-only text tuning cannot leak into SVG/download renders.
-    png_plot <- unserialize(serialize(plot, NULL))
-    png_plot <- png_plot +
-      ggplot2::theme(
-        plot.title = ggplot2::element_text(size = 18, lineheight = lineheight_multiplier),
-        plot.subtitle = ggplot2::element_text(size = 36, lineheight = lineheight_multiplier),
-        axis.title = ggplot2::element_text(size = 28, lineheight = lineheight_multiplier),
-        axis.text = ggplot2::element_text(size = 28, lineheight = lineheight_multiplier),
-        legend.title = ggplot2::element_text(size = 28, lineheight = lineheight_multiplier),
-        legend.text = ggplot2::element_text(size = 20, lineheight = lineheight_multiplier),
-        strip.text = ggplot2::element_text(size = 28, lineheight = lineheight_multiplier),
-        plot.caption = ggplot2::element_text(size = 20, lineheight = lineheight_multiplier)
-      )
-
-    for (layer_idx in seq_along(png_plot$layers)) {
-      geom <- png_plot$layers[[layer_idx]]$geom
-      if (inherits(geom, "GeomText") || inherits(geom, "GeomLabel") || inherits(geom, "GeomTextNpc")) {
-        layer_label <- as.character(c(
-          png_plot$layers[[layer_idx]]$aes_params$label,
-          png_plot$layers[[layer_idx]]$geom_params$label
-        ))
-        is_stats_layer <- any(grepl("N =|Sessions=|Mean =|SD =", layer_label))
-
-        size <- png_plot$layers[[layer_idx]]$aes_params$size
-        if (is.null(size)) size <- png_plot$layers[[layer_idx]]$geom_params$size
-        base_size <- if (is_stats_layer) stats_text_layer_size else default_text_layer_size
-        scaled_size <- if (is.null(size)) {
-          base_size * text_layer_multiplier
-        } else {
-          size * text_layer_multiplier
-        }
-        png_plot$layers[[layer_idx]]$aes_params$size <- scaled_size
-        png_plot$layers[[layer_idx]]$geom_params$size <- scaled_size
-
-        lineheight <- png_plot$layers[[layer_idx]]$aes_params$lineheight
-        if (is.null(lineheight)) lineheight <- png_plot$layers[[layer_idx]]$geom_params$lineheight
-        scaled_lineheight <- if (is.null(lineheight)) {
-          0.6
-        } else {
-          lineheight * lineheight_multiplier
-        }
-        png_plot$layers[[layer_idx]]$aes_params$lineheight <- scaled_lineheight
-        png_plot$layers[[layer_idx]]$geom_params$lineheight <- scaled_lineheight
-      }
+  distanceCacheVersion <- reactiveVal(0L)
+  observeEvent(tab_active(), {
+    if (isTRUE(tab_active())) {
+      distanceCacheVersion(distanceCacheVersion() + 1L)
     }
+  }, ignoreInit = TRUE)
 
-    png_plot
-  }
-
-  distanceCalibration <- reactive({
-    app_profile_time(app_profiler, "Distance calibration", {
-      get_distance_calibration(files()$data_list, minRulerCm())
-    })
-  }) %>% bindCache(uploaded_file()$datapath, minRulerCm())
-  
-  participantInfoForDistance <- reactive({
-    participant_info <- NULL
-    if (!is.null(df_list()) && is.list(df_list()) && "participant_info" %in% names(df_list())) {
-      participant_info <- df_list()$participant_info
+  # Coalesce debounced NULLs so bindCache keys stay stable until the user edits a control.
+  distanceMinRulerCm <- reactive({
+    val <- minRulerCm()
+    if (is.null(val) || length(val) == 0 || is.na(val)[1]) {
+      0
+    } else {
+      as.numeric(val)[1]
     }
-    participant_info
+  })
+  distanceCalibSD <- reactive({
+    val <- calibrateTrackDistanceCheckLengthSDLogAllowed()
+    if (is.null(val) || length(val) == 0 || is.na(val)[1]) {
+      0.012
+    } else {
+      as.numeric(val)[1]
+    }
   })
 
+  distanceCalibration <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
+    app_profile_time(app_profiler, "Distance calibration", {
+      get_distance_calibration(files()$data_list, distanceMinRulerCm())
+    })
+  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCacheVersion())
+  
+  participantInfoForDistance <- reactive({
+    tryCatch({
+      if (!is.null(df_list()) && is.list(df_list()) && "participant_info" %in% names(df_list())) {
+        df_list()$participant_info
+      } else {
+        NULL
+      }
+    }, error = function(e) {
+      log_warn("participantInfoForDistance unavailable: ", conditionMessage(e))
+      NULL
+    })
+  })
+
+  empty_dot_bundle <- function() {
+    list(plotList = list(), fileNames = list(), heights = list())
+  }
+
+  safe_distance_calibration <- function() {
+    tryCatch(distanceCalibration(), error = function(e) NULL)
+  }
+
   distanceDotPlotsBundle <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
+    cal <- safe_distance_calibration()
+    if (is.null(cal)) {
+      return(NULL)
+    }
     app_profile_time(app_profiler, "Distance dot bundle", {
       plot_distance_dot_bundle(
-        distanceCalibration(),
-        calibrateTrackDistanceCheckLengthSDLogAllowed(),
+        cal,
+        distanceCalibSD(),
         participant_info = participantInfoForDistance()
       )
     })
   })
 
   distanceScatterPlotsBundle <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(NULL)
+    }
+    cal <- safe_distance_calibration()
+    if (is.null(cal)) {
+      return(NULL)
+    }
     app_profile_time(app_profiler, "Distance scatter bundle", {
       plot_distance_scatter_bundle(
-        distanceCalibration(),
-        calibrateTrackDistanceCheckLengthSDLogAllowed(),
+        cal,
+        distanceCalibSD(),
         participant_info = participantInfoForDistance()
       )
     })
   })
   #### dotPlots ####
   dotPlots <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(empty_dot_bundle())
+    }
     app_profile_time(app_profiler, "Distance dot plot list", {
     if (is.null(files())) {
       return(list(plotList = list(), fileNames = list()))
@@ -234,22 +237,27 @@ distanceTabServer <- function(id,
       heights = heights
     ))
     })
-  }) %>% bindCache(uploaded_file()$datapath, minRulerCm(), calibrateTrackDistanceCheckLengthSDLogAllowed())
+  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCalibSD(), distanceCacheVersion())
   
   # Progressive rendering controls for distance dot plots.
   dotRenderCount <- reactiveVal(0)
   dotRenderedCount <- reactiveVal(0)
 
-  observeEvent(dotPlots(), {
-    dotRenderCount(0)
-    dotRenderedCount(0)
-  }, ignoreInit = FALSE)
   observeEvent(files(), {
     dotRenderCount(0)
     dotRenderedCount(0)
   }, ignoreInit = TRUE)
+  observeEvent(tab_active(), {
+    if (isTRUE(tab_active())) {
+      dotRenderCount(0)
+      dotRenderedCount(0)
+    }
+  }, ignoreInit = TRUE)
 
   observe({
+    if (!isTRUE(tab_active())) {
+      return()
+    }
     total <- min(length(dotPlots()$plotList), maxDistanceDotSlots)
     current <- dotRenderCount()
     if (is.null(total) || total <= 0) return()
@@ -268,15 +276,19 @@ distanceTabServer <- function(id,
   # NOTE: sizeCheck plots are produced by the split distance bundles and read from their local bundle objects.
   
   scatterDistance <- reactive({
-    app_profile_time(app_profiler, "Distance scatter plot list", {
-    if (is.null(uploaded_file()) | is.null(files())) {
-      return(list(plotList = list(), fileNames = list()))
+    if (!isTRUE(tab_active())) {
+      return(list(plotList = list(), fileNames = list(), heights = list(), renderModes = list()))
     }
+    if (is.null(uploaded_file()) || is.null(files())) {
+      return(list(plotList = list(), fileNames = list(), heights = list(), renderModes = list()))
+    }
+    if (!isTRUE(dotImagesReady())) {
+      return(list(plotList = list(), fileNames = list(), heights = list(), renderModes = list()))
+    }
+
+    app_profile_time(app_profiler, "Distance scatter plot list", {
     l <- list()
     fileNames <- list()
-
-    dotPlots()
-    req(dotImagesReady())
 
     # Distance-specific plots come from the scatter-only distance bundle.
     dp <- distanceScatterPlotsBundle()
@@ -359,11 +371,14 @@ distanceTabServer <- function(id,
       renderModes = renderModes
     ))
     })
-  }) %>% bindCache(uploaded_file()$datapath, minRulerCm(), calibrateTrackDistanceCheckLengthSDLogAllowed())
+  })
 
   distanceScatterRenderCount <- reactiveVal(0)
 
   mergedParticipantDistanceTable <- reactive({
+    if (!isTRUE(tab_active())) {
+      return(tibble())
+    }
     if (is.null(uploaded_file()) | is.null(files())) {
       return(tibble())
     }
@@ -568,13 +583,18 @@ distanceTabServer <- function(id,
 
   #### fixed distance scatter plots ####
 
-  observeEvent({
-    req(dotImagesReady())
-    scatterDistance()
-  }, { distanceScatterRenderCount(0) }, ignoreInit = FALSE)
+  observeEvent(dotImagesReady(), {
+    if (!isTRUE(tab_active()) || !isTRUE(dotImagesReady())) {
+      return(invisible(NULL))
+    }
+    distanceScatterRenderCount(0)
+  }, ignoreInit = TRUE)
   observeEvent(files(), { distanceScatterRenderCount(0) }, ignoreInit = TRUE)
 
   observe({
+    if (!isTRUE(tab_active())) {
+      return()
+    }
     req(dotImagesReady())
     total <- min(length(scatterDistance()$plotList), maxDistanceScatterSlots)
     current <- distanceScatterRenderCount()

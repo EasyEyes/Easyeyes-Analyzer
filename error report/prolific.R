@@ -2,6 +2,26 @@ source('./other/formSpree.R')
 
 
 
+# Read one prolific.csv entry from a ZIP via unzip -p (no full archive extract).
+read_prolific_from_zip <- function(zip_path, entry_name) {
+  tmpf <- tempfile(fileext = ".csv")
+  on.exit(unlink(tmpf), add = TRUE)
+  status <- system2("unzip", c("-p", zip_path, entry_name), stdout = tmpf, stderr = FALSE)
+  if (!identical(status, 0L) || !file.exists(tmpf) || file.info(tmpf)$size == 0) {
+    return(tibble())
+  }
+  read_prolific(tmpf)
+}
+
+# Bind new prolific rows into the accumulator; no-op when chunk is empty.
+append_prolific_rows <- function(prolificDT, chunk) {
+  if (nrow(chunk) > 0) {
+    dplyr::bind_rows(prolificDT, chunk)
+  } else {
+    prolificDT
+  }
+}
+
 find_prolific_from_files <- function(file) {
   file_list <- file$data
   file_names <- file$name
@@ -92,8 +112,8 @@ combineProlific <- function(prolificData, summary_table, pretest){
     if (is.null(formSpree)) {
       formSpree <- tibble()
     } else {
-      formSpree <- formSpree %>% filter(`ProlificSessionID` %in% unique(prolificData$prolificSessionID),
-                                        !`ProlificSessionID` %in% unique(summary_table$prolificSessionID))
+      formSpree <- formSpree %>% filter(`ProlificSessionID` %in% unique(prolificData$ProlificSessionID),
+                                        !`ProlificSessionID` %in% unique(summary_table$ProlificSessionID))
     }
     # join prolific data to only latest session
 
@@ -109,7 +129,7 @@ combineProlific <- function(prolificData, summary_table, pretest){
     
     t <- summary_table %>%
       left_join(latest_per_participant, by = c("Prolific participant ID","ProlificSessionID", "date")) %>% 
-      mutate(`Completion code` = ifelse(`Completion code` == "" & `ProlificSessionID` %in% unique(prolificData$prolificSessionID), 'TRIED AGAIN', `Completion code`))
+      mutate(`Completion code` = ifelse(`Completion code` == "" & `ProlificSessionID` %in% unique(prolificData$ProlificSessionID), 'TRIED AGAIN', `Completion code`))
     
   }
   
@@ -140,7 +160,8 @@ combineProlific <- function(prolificData, summary_table, pretest){
     left_join(pretest %>%
                 rename('Pavlovia session ID' = 'participant') %>%
                 select(`Pavlovia session ID`, `Participant ID`),
-              by = 'Pavlovia session ID') %>% 
+              by = 'Pavlovia session ID',
+              relationship = 'many-to-many') %>% 
     distinct(`Participant ID`,`Prolific participant ID`, `Prolific session ID`, `Pavlovia session ID`,
              `device type`, system, browser, resolution, screenWidthCm, cameraIsTopCenter, `Phone QR connect`, date, `Prolific min`,
              `Prolific status`,`Completion code`, ok, unmetNeeds, error, warning, cores, GB,
@@ -164,7 +185,7 @@ get_prolific_file_counts <- function(prolificData, summary_table) {
   formSpree_count <- 0
   if (!is.null(formSpree) && nrow(formSpree) > 0) {
     formSpree <- formSpree %>%
-      filter(`ProlificSessionID` %in% unique(prolificData$prolificSessionID),
+      filter(`ProlificSessionID` %in% unique(prolificData$ProlificSessionID),
              !`ProlificSessionID` %in% unique(summary_table$ProlificSessionID))
     formSpree_count <- nrow(formSpree)
   }

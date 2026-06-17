@@ -127,6 +127,217 @@ normalize_filename <- function(filename) {
   return(normalized)
 }
 
+# Italian and newer pretest files use "OMT"; older files use "OMT_words read".
+normalize_pretest_omt_column <- function(pretest) {
+  tryCatch({
+    if (!is.data.frame(pretest) || nrow(pretest) == 0) {
+      return(pretest)
+    }
+
+    has_omt <- "OMT" %in% names(pretest)
+    has_owr <- "OMT_words read" %in% names(pretest)
+    if (!has_omt && !has_owr) {
+      return(pretest)
+    }
+
+    if (has_omt && has_owr) {
+      omt_vals <- suppressWarnings(as.numeric(pretest$OMT))
+      owr_raw <- pretest[["OMT_words read"]]
+      owr_num <- suppressWarnings(as.numeric(owr_raw))
+      missing_owr <- is.na(owr_num) | (!is.na(owr_raw) & as.character(owr_raw) == "")
+      if (any(missing_owr, na.rm = TRUE) && any(!is.na(omt_vals))) {
+        pretest[["OMT_words read"]][missing_owr] <- as.character(omt_vals[missing_owr])
+      }
+      return(pretest)
+    }
+
+    if (has_omt && !has_owr) {
+      omt_vals <- suppressWarnings(as.numeric(pretest$OMT))
+      # Only alias OMT when most values look numeric (reading speed), not arbitrary codes.
+      if (sum(!is.na(omt_vals)) >= max(1, ceiling(0.1 * nrow(pretest)))) {
+        pretest <- pretest %>% rename(`OMT_words read` = OMT)
+      }
+    }
+    pretest
+  }, error = function(e) {
+    log_warn("normalize_pretest_omt_column failed: ", conditionMessage(e))
+    pretest
+  })
+}
+
+pretest_omt_non_empty <- function(pretest) {
+  if (!is.data.frame(pretest) || nrow(pretest) == 0) {
+    return(0L)
+  }
+  best <- 0L
+  for (col in c("OMT_words read", "OMT")) {
+    if (!col %in% names(pretest)) next
+    vals <- pretest[[col]]
+    best <- max(best, sum(!is.na(vals) & vals != "", na.rm = TRUE))
+  }
+  best
+}
+
+score_pretest_table <- function(pretest) {
+  if (!is.data.frame(pretest) || nrow(pretest) == 0) {
+    return(-Inf)
+  }
+  score <- nrow(pretest)
+  if (any(c("participant", "PavloviaSessionID", "ID", "participantID") %in% names(pretest))) {
+    score <- score + 1e6
+  }
+  score <- score + pretest_omt_non_empty(pretest) * 10
+  if ("Grade" %in% names(pretest)) score <- score + 100
+  if ("Exclude?" %in% names(pretest)) score <- score + 50
+  score
+}
+
+read_pretest_raw <- function(source, entry = NULL, tmp = tempdir()) {
+  tryCatch({
+    target <- if (!is.null(entry)) entry else source
+    is_xlsx <- grepl("pretest\\.xlsx$", target, ignore.case = TRUE)
+
+    if (!is.null(entry)) {
+      if (is_xlsx) {
+        try(unzip(source, files = entry, exdir = tmp), silent = TRUE)
+        file_path <- file.path(tmp, entry)
+        if (!file.exists(file_path)) {
+          return(NULL)
+        }
+        pretest <- readxl::read_xlsx(file_path, col_types = "text")
+        column_names <- names(pretest)
+        date_columns <- grep("date", column_names, ignore.case = TRUE, value = TRUE)
+        if (length(date_columns) > 0) {
+          col_types <- ifelse(column_names %in% date_columns, "date", "text")
+          pretest <- readxl::read_xlsx(file_path, col_types = col_types)
+        }
+      } else {
+        cmd <- sprintf("unzip -p %s %s", shQuote(source), shQuote(entry))
+        pretest <- data.table::fread(cmd = cmd, data.table = FALSE, showProgress = FALSE)
+      }
+    } else if (is_xlsx) {
+      pretest <- readxl::read_xlsx(source, col_types = "text")
+      column_names <- names(pretest)
+      date_columns <- grep("date", column_names, ignore.case = TRUE, value = TRUE)
+      if (length(date_columns) > 0) {
+        col_types <- ifelse(column_names %in% date_columns, "date", "text")
+        pretest <- readxl::read_xlsx(source, col_types = col_types)
+      }
+    } else {
+      pretest <- data.table::fread(source, data.table = FALSE, showProgress = FALSE)
+    }
+
+    if (!is.data.frame(pretest) || nrow(pretest) == 0) {
+      return(NULL)
+    }
+    pretest
+  }, error = function(e) {
+    log_warn("Could not read pretest file: ", conditionMessage(e))
+    NULL
+  })
+}
+
+apply_pretest_post_read_standardization <- function(pretest) {
+  if (!is.data.frame(pretest) || nrow(pretest) == 0) {
+    return(tibble())
+  }
+
+  tryCatch({
+    if ("PavloviaSessionID" %in% names(pretest)) {
+      pretest <- pretest %>%
+        rename(participant = PavloviaSessionID) %>%
+        select(where(~sum(!is.na(.)) > 0))
+      if (!"Grade" %in% names(pretest)) {
+        pretest$Grade <- -1
+      }
+      pretest <- pretest %>%
+        mutate(
+          Grade = ifelse(is.na(Grade), -1, Grade),
+          Grade = ifelse(Grade == "R", "0", Grade)
+        )
+      if (!"Skilled reader?" %in% names(pretest)) {
+        pretest$`Skilled reader?` <- "unknown"
+      }
+      if (!"ParticipantCode" %in% names(pretest)) {
+        pretest$ParticipantCode <- pretest$participant
+      }
+      if ("participantID" %in% names(pretest)) {
+        pretest$ParticipantCode <- pretest$participantID
+      }
+      pretest$`Participant ID` <- pretest$ParticipantCode
+    }
+
+    if ("ID" %in% names(pretest) && !"participant" %in% names(pretest)) {
+      pretest <- pretest %>%
+        rename(participant = ID) %>%
+        select(where(~sum(!is.na(.)) > 0))
+      if (!"Grade" %in% names(pretest)) {
+        pretest$Grade <- -1
+      }
+      pretest <- pretest %>%
+        mutate(
+          Grade = ifelse(is.na(Grade), -1, Grade),
+          Grade = ifelse(Grade == "R", "0", Grade)
+        )
+      pretest$`Participant ID` <- pretest$participant
+    }
+
+    if (!"Date of Birth" %in% names(pretest)) {
+      pretest$birthDate <- NA
+    } else {
+      pretest <- pretest %>% rename(birthDate = `Date of Birth`)
+    }
+
+    if (!"Age" %in% names(pretest)) {
+      pretest$Age <- NA
+    } else {
+      pretest$Age <- suppressWarnings(as.numeric(pretest$Age))
+    }
+
+    normalize_pretest_omt_column(pretest)
+  }, error = function(e) {
+    log_warn("Pretest standardization failed: ", conditionMessage(e))
+    tibble()
+  })
+}
+
+# When several pretest files exist in a zip, pick the richest one; otherwise keep legacy order.
+pick_pretest_zip_entry <- function(all_pretest, zip_path, tmp = tempdir()) {
+  if (length(all_pretest) == 0) {
+    return(NA_character_)
+  }
+  if (length(all_pretest) == 1) {
+    return(all_pretest[1])
+  }
+
+  scores <- vapply(
+    all_pretest,
+    function(entry) {
+      score_pretest_table(read_pretest_raw(zip_path, entry = entry, tmp = tmp))
+    },
+    numeric(1)
+  )
+
+  if (all(!is.finite(scores))) {
+    return(all_pretest[1])
+  }
+
+  best_idx <- which.max(scores)
+  if (scores[best_idx] <= 0) {
+    return(all_pretest[1])
+  }
+
+  # Preserve prior behavior unless another candidate is clearly better.
+  if (best_idx != 1L && scores[best_idx] > scores[1L]) {
+    log_debug(
+      "Selected pretest zip entry ", all_pretest[best_idx],
+      " (score ", scores[best_idx], " vs ", scores[1L], ")"
+    )
+    return(all_pretest[best_idx])
+  }
+  all_pretest[1]
+}
+
 check_file_names <- function(file) {
   file_names <- file$name
   file_paths <- file$datapath
@@ -228,11 +439,6 @@ ensure_columns <- function(t, file_name = NULL) {
   # First, normalize new "Distance" column names to old "TrackDistance" format for compatibility
   t <- normalize_distance_column_names(t)
   
-  # Helper to add a column if missing
-  add_col <- function(df, col, value) {
-    if (!col %in% colnames(df)) df[[col]] <- value
-    df
-  }
   # List of columns and their default values
   breaked_fileName = str_split(file_name, "[_]")[[1]]
 
@@ -355,8 +561,11 @@ ensure_columns <- function(t, file_name = NULL) {
     warning = "",
     snapshotsLink = ""
   )
-  for (col in names(required_cols)) {
-    t <- add_col(t, col, required_cols[[col]])
+  missing_cols <- setdiff(names(required_cols), names(t))
+  if (length(missing_cols) > 0) {
+    for (col in missing_cols) {
+      t[[col]] <- required_cols[[col]]
+    }
   }
   
   t <- t %>% 
@@ -426,7 +635,11 @@ ensure_columns <- function(t, file_name = NULL) {
                       .default = ""
                     ),
                     resolution = paste0(screenWidthPx, " x ", screenHeightPx),
-                    block_condition = ifelse(block_condition == "",staircaseName, block_condition))
+                    block_condition = as.character(ifelse(
+                      is.na(block_condition) | block_condition == "",
+                      staircaseName,
+                      block_condition
+                    )))
   
   if (is.na(t$psychojsWindowDimensions[1])) {
     t$psychojsWindowDimensions = 'NA,NA'
@@ -445,6 +658,104 @@ ensure_columns <- function(t, file_name = NULL) {
   t
 }
 
+#### read_files helpers ####
+
+# True when a zip::zip_list() result contains at least one non-directory,
+# non-__MACOSX file with uncompressed size > 0. Used to skip empty archives
+# without calling check_empty_archive() again after check_file_names().
+zip_listing_has_data <- function(zl) {
+  entries <- zl$filename
+  entries <- entries[!grepl("/$", entries)]
+  entries <- entries[!grepl("^__MACOSX/", entries)]
+  if (length(entries) == 0) {
+    return(FALSE)
+  }
+  sizes <- zl$uncompressed_size[match(entries, zl$filename)]
+  any(!is.na(sizes) & sizes > 0, na.rm = TRUE)
+}
+
+# Per-session QUEST end-state table: quest mean/SD rows joined to condition
+# metadata (info). Joins on block_condition or staircaseName depending on
+# which key is unique within the file.
+build_quest_summaries <- function(t, info) {
+  summaries <- t %>%
+    dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>%
+    select(
+      block_condition,
+      staircaseName,
+      questMeanAtEndOfTrialsLoop,
+      questSDAtEndOfTrialsLoop
+    )
+  if (n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
+    summaries <- summaries %>%
+      select(-staircaseName) %>%
+      left_join(info, by = "block_condition", relationship = "many-to-many")
+  } else {
+    summaries <- summaries %>%
+      select(-block_condition)
+    summaries <- merge(info, summaries, by = "staircaseName")
+  }
+  summaries
+}
+
+# Participant IDs must be character so rbind/bind_rows across sessions
+# does not coerce mixed types.
+coerce_participant_char <- function(df) {
+  if ("participant" %in% names(df)) {
+    df <- df %>% mutate(participant = as.character(participant))
+  }
+  df
+}
+
+# Normalize one results CSV, build stair/summary tables, and append to the
+# session lists at index j. Returns updated lists, experiment vector, j, and
+# added = TRUE/FALSE. Skips empty frames, fread placeholders, and Prolific
+# export files (Submission id column).
+append_parsed_session <- function(
+    t, file_label, kb,
+    data_list, stair_list, summary_list, experiment, j) {
+  unchanged <- list(
+    data_list = data_list,
+    stair_list = stair_list,
+    summary_list = summary_list,
+    experiment = experiment,
+    j = j,
+    added = FALSE
+  )
+  if (
+    !is.data.frame(t) || is.null(nrow(t)) || is.na(nrow(t)) || nrow(t) == 0 ||
+      "placeholder" %in% names(t) || "Submission id" %in% names(t)
+  ) {
+    return(unchanged)
+  }
+
+  t <- ensure_columns(t, file_label)
+  t$kb <- kb
+
+  info <- t %>%
+    dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
+    distinct(
+      experiment, participant, block, block_condition, staircaseName,
+      conditionName, targetKind, font, thresholdParameter
+    )
+
+  summaries <- build_quest_summaries(t, info)
+  stairdf <- extractStaircases(t, info)
+
+  data_list[[j]] <- coerce_participant_char(t)
+  summary_list[[j]] <- coerce_participant_char(summaries)
+  stair_list[[j]] <- coerce_participant_char(stairdf)
+  experiment[j] <- trimws(t$experiment[1])
+
+  unchanged$data_list <- data_list
+  unchanged$stair_list <- stair_list
+  unchanged$summary_list <- summary_list
+  unchanged$experiment <- experiment
+  unchanged$j <- j + 1
+  unchanged$added <- TRUE
+  unchanged
+}
+
 read_files <- function(file, progress = NULL){
   if(is.null(file)) return(list())
   file_list <- file$data
@@ -456,10 +767,10 @@ read_files <- function(file, progress = NULL){
   stair_list <- list()
   summary_list <- list()
   n <- length(file_list)
-  experiment <- rep(NA,n)
-  readingCorpus <- c()
-  j = 1
+  experiment <- rep(NA, n)
+  j <- 1
   pretest <- tibble()
+  prolificDT <- tibble()
 
   for (i in 1 : n) {
     if (!is.null(progress)) {
@@ -473,145 +784,74 @@ read_files <- function(file, progress = NULL){
     t <- tibble(placeholder = "")
     
     if (grepl("pretest.xlsx", file_names[i]) | grepl("pretest.csv", file_names[i])) {
-      if (grepl("pretest.xlsx", file_names[i])) {
-        pretest <- readxl::read_xlsx(file_list[i], col_types = 'text')
-        column_names <- names(pretest)
-        date_columns <- grep('date', column_names, ignore.case = TRUE, value = TRUE)
-        # If there are any columns with 'date' in the name, reload the file with date columns
-        if (length(date_columns) > 0) {
-          col_types <- ifelse(column_names %in% date_columns, 'date', 'text')
-          pretest <- readxl::read_xlsx(file_list[i], col_types = col_types)
-        }
-        
-      } else {
-        pretest <- data.table::fread(file_list[i], data.table = FALSE, showProgress = FALSE)
-      }
-      
-      if ('PavloviaSessionID' %in% names(pretest)) {
-        pretest <- pretest %>% 
-          rename('participant' = 'PavloviaSessionID') %>% 
-          select(where(~sum(!is.na(.)) >0)) %>% 
-          mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
-          mutate(Grade = ifelse(Grade == 'R', '0', Grade))
-        if (!'Skilled reader?' %in% names(pretest)) {
-          pretest$`Skilled reader?` = 'unknown'
-        }
-        if (!'ParticipantCode' %in% names(pretest)) {
-          pretest$ParticipantCode = pretest$participant
-        }
-        if ('participantID' %in% names(pretest)) {
-          pretest$ParticipantCode = pretest$participantID
-        }
-        pretest$`Participant ID` = pretest$ParticipantCode
-      }
-      
-      if ('ID' %in% names(pretest)) {
-        pretest <- pretest %>% 
-          rename('participant' = 'ID') %>% 
-          select(where(~sum(!is.na(.)) >0)) %>% 
-          mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
-          mutate(Grade = ifelse(Grade == 'R', '0', Grade))
-        
-        pretest$`Participant ID` = pretest$participant
-      }
-      if (!'Date of Birth' %in% names(pretest)) {
-        pretest$birthDate = NA
-      } else {
-        pretest <- pretest %>% rename('birthDate' = 'Date of Birth')
-      }
-      
-      if (!'Age' %in% names(pretest)) {
-        pretest$Age = NA
-      } else {
-        pretest$Age <- as.numeric(pretest$Age)
-      }
+      pretest <- read_pretest_raw(file_list[i])
+      pretest <- apply_pretest_post_read_standardization(pretest)
     }
 
-    if (grepl(".csv", file_names[i]) & !grepl("pretest.csv", file_names[i])){ 
-      try({t <- data.table::fread(file_list[i], data.table = FALSE, showProgress = FALSE)}, silent = TRUE)
-      if(!is.data.frame(t) || is.null(nrow(t)) || is.na(nrow(t)) || nrow(t) == 0) {
+    if (grepl("prolific\\.csv$", file_names[i], ignore.case = TRUE)) {
+      prolificDT <- append_prolific_rows(prolificDT, read_prolific(file_list[i]))
+      next
+    }
+
+    if (grepl(".csv", file_names[i]) & !grepl("pretest.csv", file_names[i])) {
+      try({
+        t <- data.table::fread(file_list[i], data.table = FALSE, showProgress = FALSE)
+      }, silent = TRUE)
+      if (!is.data.frame(t) || is.null(nrow(t)) || is.na(nrow(t)) || nrow(t) == 0) {
         t <- tibble(placeholder = "")
       }
-      if (!'Submission id' %in% names(t)){
-        inf <- file.info(file_list[i])
-        t <- ensure_columns(t, file_names[i])
-        t$kb <- round(inf$size / 1024)
-        
-        info <- t %>% 
-          dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
-          distinct(experiment, participant, block, block_condition, staircaseName, conditionName, 
-                   targetKind, font, thresholdParameter)
-        
-        summaries <- t %>% 
-          dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
-          select(
-            block_condition,
-            staircaseName, 
-            questMeanAtEndOfTrialsLoop,
-            questSDAtEndOfTrialsLoop
-          )
-        if(n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
-          summaries <- summaries %>% 
-            select(-staircaseName) %>% 
-            left_join(info, by = "block_condition")
-        } else {
-          summaries <- summaries %>% 
-            select(-block_condition)
-          summaries <- merge(info, summaries, by = ("staircaseName"))
-        }
-        # for stair plots
-
-        if (nrow(t) > 0)  {
-          stairdf <- extractStaircases(t, info)
-          # CRITICAL FIX: Ensure participant column is character for summary data
-          if ("participant" %in% names(summaries)) {
-            summaries <- summaries %>% mutate(participant = as.character(participant))
-          }
-          summary_list[[j]] <- summaries 
-          # CRITICAL FIX: Ensure participant column is character for main data
-          if ("participant" %in% names(t)) {
-            t <- t %>% mutate(participant = as.character(participant))
-          }
-          data_list[[j]] <- t
-          # CRITICAL FIX: Ensure participant column is character for stair data
-          if ("participant" %in% names(stairdf)) {
-            stairdf <- stairdf %>% mutate(participant = as.character(participant))
-          }
-          stair_list[[j]] <-  stairdf 
-          t$experiment <- trimws(t$experiment[1])
-          experiment[j] <- trimws(t$experiment[1])
-          j = j + 1
-          readingCorpus <- c(readingCorpus,unique(t$readingCorpus))
-        }
-      } else {
-        next
-      }
+      inf <- file.info(file_list[i])
+      parsed <- append_parsed_session(
+        t, file_names[i], round(inf$size / 1024),
+        data_list, stair_list, summary_list, experiment, j
+      )
+      data_list <- parsed$data_list
+      stair_list <- parsed$stair_list
+      summary_list <- parsed$summary_list
+      experiment <- parsed$experiment
+      j <- parsed$j
     }
     if (grepl(".zip", file_names[i])) {
       log_debug("ZIP detected: ", file_names[i])
-      # Check if this zip file is empty and skip it if so
-      empty_result <- tryCatch({
-        check_empty_archive(file_list[i])
-      }, error = function(e) {
-        log_warn("Could not read zip file ", file_names[i], ": ", e$message)
-        return(NA)
-      })
-      
-      if (is.na(empty_result)) {
-        log_warn("Skipping unreadable zip: ", file_names[i])
+      zl <- tryCatch(
+        zip::zip_list(file_list[i]),
+        error = function(e) {
+          log_warn("Could not read zip file ", file_names[i], ": ", e$message)
+          e
+        }
+      )
+      if (inherits(zl, "error")) {
         next
-      } else if (empty_result) {
+      }
+      if (!zip_listing_has_data(zl)) {
         log_debug("Skipping empty zip: ", file_names[i])
         next
       }
-      
-      # Proceed with processing non-empty zip file
-      zl <- zip::zip_list(file_list[i])
+
       zip_file_names <- zl$filename
       zip_file_names <- zip_file_names[!grepl("^~", basename(zip_file_names))]
+      prolific_csvs <- zip_file_names[
+        grepl("prolific\\.csv$", zip_file_names, ignore.case = TRUE) &
+          !grepl("__MACOSX", zip_file_names)
+      ]
+      for (pf in prolific_csvs) {
+        prolificDT <- append_prolific_rows(
+          prolificDT,
+          read_prolific_from_zip(file_list[i], pf)
+        )
+      }
+
       all_csv <- zip_file_names[grepl(".csv$", zip_file_names, ignore.case = TRUE)]
-      all_csv <- all_csv[!grepl("__MACOSX", all_csv) & !grepl("cursor", all_csv) & !grepl("pretest\\.csv$", all_csv, ignore.case = TRUE)]
-      all_pretest <- zip_file_names[grepl("pretest\\.csv$", zip_file_names, ignore.case = TRUE) | grepl("pretest\\.xlsx$", zip_file_names, ignore.case = TRUE)]
+      all_csv <- all_csv[
+        !grepl("__MACOSX", all_csv) &
+          !grepl("cursor", all_csv) &
+          !grepl("pretest\\.csv$", all_csv, ignore.case = TRUE) &
+          !grepl("prolific\\.csv$", all_csv, ignore.case = TRUE)
+      ]
+      all_pretest <- zip_file_names[
+        grepl("pretest\\.csv$", zip_file_names, ignore.case = TRUE) |
+          grepl("pretest\\.xlsx$", zip_file_names, ignore.case = TRUE)
+      ]
       all_pretest <- all_pretest[!grepl("__MACOSX", all_pretest)]
       m <- length(all_csv)
       log_debug("ZIP contains ", m, " CSV files")
@@ -636,121 +876,30 @@ read_files <- function(file, progress = NULL){
           file_path <- file.path(tmp, all_csv[k])
           try({t <- data.table::fread(file_path, data.table = FALSE, showProgress = FALSE)}, silent = TRUE)
         }
-        if(!is.data.frame(t) || is.null(nrow(t)) || is.na(nrow(t)) || nrow(t) == 0) {
+        if (!is.data.frame(t) || is.null(nrow(t)) || is.na(nrow(t)) || nrow(t) == 0) {
           t <- tibble(placeholder = "")
         }
-        if (!'Submission id' %in% names(t)) {
-          t <- ensure_columns(t, all_csv[k])
-          # Use uncompressed size from zip listing where available
-          size_row <- zl$uncompressed_size[match(all_csv[k], zl$filename)]
-          if (!is.na(size_row) && length(size_row) == 1) {
-            t$kb <- round(size_row / 1024)
-          } else {
-            t$kb <- NA
-          }
-         
-          info <- t %>% 
-            dplyr::filter(is.na(questMeanAtEndOfTrialsLoop)) %>%
-            distinct(experiment,participant, block, block_condition, staircaseName, conditionName, 
-                     targetKind, font, thresholdParameter)
-          
-          summaries <- t %>% 
-            dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>% 
-            select(
-              block_condition,
-              staircaseName, 
-              questMeanAtEndOfTrialsLoop,
-              questSDAtEndOfTrialsLoop
-            )
-          if(n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
-            summaries <- summaries %>% 
-              select(-staircaseName) %>% 
-              left_join(info, by = "block_condition")
-          } else {
-            summaries <- summaries %>% 
-              select(-block_condition)
-            summaries <- merge(info, summaries, by = ("staircaseName"))
-          }
-          
-          # for stair plots
-          stairdf <- extractStaircases(t, info)
-          if (nrow(t) > 0)  {
-            # CRITICAL FIX: Ensure participant column is character for summary data
-            if ("participant" %in% names(summaries)) {
-              summaries <- summaries %>% mutate(participant = as.character(participant))
-            }
-            summary_list[[j]] <- summaries
-            # CRITICAL FIX: Ensure participant column is character for main data
-            if ("participant" %in% names(t)) {
-              t <- t %>% mutate(participant = as.character(participant))
-            }
-            data_list[[j]] <- t
-            # CRITICAL FIX: Ensure participant column is character for stair data
-            if ("participant" %in% names(stairdf)) {
-              stairdf <- stairdf %>% mutate(participant = as.character(participant))
-            }
-            stair_list[[j]] <- stairdf
-            t$experiment <- trimws(t$experiment[1])
-            experiment[j] <- trimws(t$experiment[1])
-            readingCorpus <- c(readingCorpus,unique(t$readingCorpus))
-            j = j + 1
-          }
+        size_row <- zl$uncompressed_size[match(all_csv[k], zl$filename)]
+        kb <- if (!is.na(size_row) && length(size_row) == 1) {
+          round(size_row / 1024)
+        } else {
+          NA
         }
+        parsed <- append_parsed_session(
+          t, all_csv[k], kb,
+          data_list, stair_list, summary_list, experiment, j
+        )
+        data_list <- parsed$data_list
+        stair_list <- parsed$stair_list
+        summary_list <- parsed$summary_list
+        experiment <- parsed$experiment
+        j <- parsed$j
       }
       if (length(all_pretest) > 0) {
-        if (grepl("pretest.xlsx$", all_pretest[1], ignore.case = TRUE)) {
-          # Extract only the xlsx and read it
-          try(unzip(file_list[i], files = all_pretest[1], exdir = tmp), silent = TRUE)
-          file_path = file.path(tmp, all_pretest[1])
-          pretest <- readxl::read_xlsx(file_path, col_types = 'text')
-          column_names <- names(pretest)
-          date_columns <- grep('date', column_names, ignore.case = TRUE, value = TRUE)
-          # If there are any columns with 'date' in the name, reload the file with date columns
-          if (length(date_columns) > 0) {
-            col_types <- ifelse(column_names %in% date_columns, 'date', 'text')
-            pretest <- readxl::read_xlsx(file_path, col_types = col_types)
-          }
-        } 
-        else {
-          # Stream pretest.csv directly from the zip
-          cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_pretest[1]))
-          pretest <- data.table::fread(cmd = cmd, data.table = FALSE, showProgress = FALSE)
-        }
-        
-        if ('PavloviaSessionID' %in% names(pretest)) {
-          pretest <- pretest %>% 
-            rename('participant' = 'PavloviaSessionID') %>% 
-            select(where(~sum(!is.na(.)) >0)) %>% 
-            mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
-            mutate(Grade = ifelse(Grade == 'R', '0', Grade))
-          if (!'Skilled reader?' %in% names(pretest)) {
-            pretest$`Skilled reader?` = 'unknown'
-          }
-          if (!'ParticipantCode' %in% names(pretest)) {
-            pretest$ParticipantCode = pretest$participant
-          }
-          if ('participantID' %in% names(pretest)) {
-            pretest$ParticipantCode = pretest$participantID
-          }
-          pretest$`Participant ID` = pretest$ParticipantCode
-        }
-        if ('ID' %in% names(pretest)) {
-          pretest <- pretest %>% 
-            rename('participant' = 'ID') %>% 
-            select(where(~sum(!is.na(.)) >0)) %>% 
-            mutate(Grade = ifelse(is.na(Grade), -1, Grade)) %>% 
-            mutate(Grade = ifelse(Grade == 'R', '0', Grade))
-          pretest$`Participant ID` = pretest$participant
-        }
-        if (!'Date of Birth' %in% names(pretest)) {
-          pretest$birthDate = NA
-        } else {
-          pretest <- pretest %>% rename('birthDate' = 'Date of Birth')
-        }
-        if (!'Age' %in% names(pretest)) {
-          pretest$Age = NA
-        } else {
-          pretest$Age <- as.numeric(pretest$Age)
+        pretest_file <- pick_pretest_zip_entry(all_pretest, file_list[i], tmp)
+        if (!is.na(pretest_file)) {
+          pretest <- read_pretest_raw(file_list[i], entry = pretest_file, tmp = tmp)
+          pretest <- apply_pretest_post_read_standardization(pretest)
         }
       }
     }
@@ -853,21 +1002,19 @@ read_files <- function(file, progress = NULL){
     df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, BirthMonthYear,age))
   }
   
-  readingCorpus <- readingCorpus[readingCorpus!="" & !is.na(readingCorpus)]
   experiment <- experiment[!is.na(experiment)]
-  experiment <- experiment[experiment!=""]
+  experiment <- experiment[experiment != ""]
   stairs <- do.call(rbind, stair_list)
-  prolific <- find_prolific_from_files(file)
 
   log_info("Preprocess complete: ", length(data_list), " sessions loaded")
-  return(list(data_list = data_list, 
-              summary_list = summary_list, 
-              experiment = unique(experiment),
-              readingCorpus = paste(unique(readingCorpus), collapse = "-"),
-              df = df,
-              pretest = pretest,
-              stairs = stairs,
-              prolific = prolific
+  return(list(
+    data_list = data_list,
+    summary_list = summary_list,
+    experiment = unique(experiment),
+    df = df,
+    pretest = pretest,
+    stairs = stairs,
+    prolific = prolificDT
   ))
 }
 

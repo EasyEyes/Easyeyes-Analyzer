@@ -41,8 +41,7 @@ plot_auditory_crowding <- function(quest, crowding) {
                             label = paste0("N=", dplyr::n_distinct(sound_t$participant))) +
         labs(subtitle = "Histogram of mean \nauditoryCrowdingMelodyDb",
              x = "auditoryCrowdingMelodyDb (dB)",
-             y = "Count") +
-        theme_bw()
+             y = "Count")
     } else {
       p_hist <- ggplot(sound_t, aes(x = auditoryCrowdingMelodyDb)) +
         geom_histogram(color = "black", fill = "grey", bins = 20, alpha = 0.8) +
@@ -53,8 +52,7 @@ plot_auditory_crowding <- function(quest, crowding) {
                             label = paste0("N=", dplyr::n_distinct(sound_t$participant))) +
         labs(subtitle = "Histogram of mean \nauditoryCrowdingMelodyDb",
              x = "auditoryCrowdingMelodyDb (dB)",
-             y = "Count") +
-        theme_bw()
+             y = "Count")
     }
   }
 

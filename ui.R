@@ -212,9 +212,9 @@ shinyUI(
     ),
     # tabs
     tabPanel("Sessions", value = "Sessions", sessionTab),
-    tabPanel("Stats", value = "Stats", statTab),
+    tabPanel("Stats", value = "Stats", statTabUI("stats")),
     tabPanel("Plots", value = "Plots", plotsTab),
-    tabPanel("ANOVA", value = "Anova", anovaTab),
+    tabPanel("ANOVA", value = "Anova", anovaTabUI("anova")),
     tabPanel("Distance", value = "Distance", distanceTabUI("distance")),
     tabPanel("Quality", value = "Quality", qualityTabUI("quality")),
     tabPanel("Timing", value = 'Timing', timingTabUI("timing")),
