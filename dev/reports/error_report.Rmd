@@ -78,8 +78,8 @@ knitr::opts_chunk$set(echo = FALSE, inlcude = FALSE, warning=FALSE)
 ```{r, echo = F, inlcude = FALSE, message=FALSE}
 library(DT)
 library(dplyr)
-source("./error report/random_rgb.R")
-source("./error report/summary_table.R")
+source("R/report/random_rgb.R")
+source("R/report/summary_table.R")
 ```
 
 ```{css, include = TRUE}

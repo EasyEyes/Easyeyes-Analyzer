@@ -1,6 +1,3 @@
-require(jsonlite)
-require(dplyr)
-
 # setwd("~/Downloads/data")
 # jsonFile <- fromJSON("SoundCalibrationScientistQuick36_LoudGreenGoose726_0001_May_13%2C_2025_2_15_PM_UTC-04_00_sound.json", simplifyDataFrame = F)
 # sound_data <- preprocessJSON(jsonFile)
@@ -38,7 +35,7 @@ preprocessJSON <- function(jsonFile) {
     mutate_if(is.numeric, round, digits = 1) %>% 
     rename("gain" = "gainDBSPL") %>% 
     select(`T`, W, `1/R`, gain, RMSError)
-  names = colnames(DRCMforDisplay)
+  drcm_column_names <- colnames(DRCMforDisplay)
   DRCMforDisplay <- t(DRCMforDisplay)
   
   
@@ -135,7 +132,7 @@ preprocessJSON <- function(jsonFile) {
     volume_task = volume_task,
     model = model,
     DRCMforDisplay = DRCMforDisplay,
-    names = names,
+    names = drcm_column_names,
     dynamic_range_compression_model = dynamic_range_compression_model,
     recording_vs_freq = recording_vs_freq,
     transducerTable = transducerTable,

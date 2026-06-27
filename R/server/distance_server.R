@@ -13,12 +13,16 @@ distanceTabServer <- function(id,
                               maxDistanceScatterSlots = 20) {
   moduleServer(id, function(input, output, session) {
 
-  distanceCacheVersion <- reactiveVal(0L)
+  distanceTabEverOpened <- reactiveVal(FALSE)
   observeEvent(tab_active(), {
     if (isTRUE(tab_active())) {
-      distanceCacheVersion(distanceCacheVersion() + 1L)
+      distanceTabEverOpened(TRUE)
     }
   }, ignoreInit = TRUE)
+
+  distanceShouldCompute <- reactive({
+    isTRUE(distanceTabEverOpened())
+  })
 
   # Coalesce debounced NULLs so bindCache keys stay stable until the user edits a control.
   distanceMinRulerCm <- reactive({
@@ -38,14 +42,18 @@ distanceTabServer <- function(id,
     }
   })
 
-  distanceCalibration <- reactive({
-    if (!isTRUE(tab_active())) {
-      return(NULL)
-    }
+  distanceCalibrationCached <- reactive({
     app_profile_time(app_profiler, "Distance calibration", {
       get_distance_calibration(files()$data_list, distanceMinRulerCm())
     })
-  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCacheVersion())
+  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm())
+
+  distanceCalibration <- reactive({
+    if (!isTRUE(distanceShouldCompute())) {
+      return(NULL)
+    }
+    distanceCalibrationCached()
+  })
   
   participantInfoForDistance <- reactive({
     tryCatch({
@@ -65,13 +73,10 @@ distanceTabServer <- function(id,
   }
 
   safe_distance_calibration <- function() {
-    tryCatch(distanceCalibration(), error = function(e) NULL)
+    tryCatch(distanceCalibrationCached(), error = function(e) NULL)
   }
 
-  distanceDotPlotsBundle <- reactive({
-    if (!isTRUE(tab_active())) {
-      return(NULL)
-    }
+  distanceDotPlotsBundleCached <- reactive({
     cal <- safe_distance_calibration()
     if (is.null(cal)) {
       return(NULL)
@@ -83,12 +88,16 @@ distanceTabServer <- function(id,
         participant_info = participantInfoForDistance()
       )
     })
-  })
+  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCalibSD())
 
-  distanceScatterPlotsBundle <- reactive({
-    if (!isTRUE(tab_active())) {
+  distanceDotPlotsBundle <- reactive({
+    if (!isTRUE(distanceShouldCompute())) {
       return(NULL)
     }
+    distanceDotPlotsBundleCached()
+  })
+
+  distanceScatterPlotsBundleCached <- reactive({
     cal <- safe_distance_calibration()
     if (is.null(cal)) {
       return(NULL)
@@ -100,12 +109,16 @@ distanceTabServer <- function(id,
         participant_info = participantInfoForDistance()
       )
     })
+  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCalibSD())
+
+  distanceScatterPlotsBundle <- reactive({
+    if (!isTRUE(distanceShouldCompute())) {
+      return(NULL)
+    }
+    distanceScatterPlotsBundleCached()
   })
   #### dotPlots ####
-  dotPlots <- reactive({
-    if (!isTRUE(tab_active())) {
-      return(empty_dot_bundle())
-    }
+  dotPlotsCached <- reactive({
     app_profile_time(app_profiler, "Distance dot plot list", {
     if (is.null(files())) {
       return(list(plotList = list(), fileNames = list()))
@@ -115,7 +128,7 @@ distanceTabServer <- function(id,
     fileNames <- list()
     
     # SD histogram and distance-related dot plots go here with larger sizing
-    dp <- distanceDotPlotsBundle()
+    dp <- distanceDotPlotsBundleCached()
     if (is.null(dp)) {
       return(list(plotList = list(), fileNames = list()))
     }
@@ -237,7 +250,14 @@ distanceTabServer <- function(id,
       heights = heights
     ))
     })
-  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCalibSD(), distanceCacheVersion())
+  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCalibSD())
+
+  dotPlots <- reactive({
+    if (!isTRUE(distanceShouldCompute())) {
+      return(empty_dot_bundle())
+    }
+    dotPlotsCached()
+  })
   
   # Progressive rendering controls for distance dot plots.
   dotRenderCount <- reactiveVal(0)
@@ -246,11 +266,10 @@ distanceTabServer <- function(id,
   observeEvent(files(), {
     dotRenderCount(0)
     dotRenderedCount(0)
-  }, ignoreInit = TRUE)
-  observeEvent(tab_active(), {
-    if (isTRUE(tab_active())) {
-      dotRenderCount(0)
-      dotRenderedCount(0)
+    if (is.null(files())) {
+      distanceTabEverOpened(FALSE)
+    } else if (isTRUE(tab_active())) {
+      distanceTabEverOpened(TRUE)
     }
   }, ignoreInit = TRUE)
 
@@ -275,14 +294,8 @@ distanceTabServer <- function(id,
   #### scatterDistance ####
   # NOTE: sizeCheck plots are produced by the split distance bundles and read from their local bundle objects.
   
-  scatterDistance <- reactive({
-    if (!isTRUE(tab_active())) {
-      return(list(plotList = list(), fileNames = list(), heights = list(), renderModes = list()))
-    }
+  scatterDistanceCached <- reactive({
     if (is.null(uploaded_file()) || is.null(files())) {
-      return(list(plotList = list(), fileNames = list(), heights = list(), renderModes = list()))
-    }
-    if (!isTRUE(dotImagesReady())) {
       return(list(plotList = list(), fileNames = list(), heights = list(), renderModes = list()))
     }
 
@@ -291,7 +304,7 @@ distanceTabServer <- function(id,
     fileNames <- list()
 
     # Distance-specific plots come from the scatter-only distance bundle.
-    dp <- distanceScatterPlotsBundle()
+    dp <- distanceScatterPlotsBundleCached()
     if (is.null(dp)) {
       return(list(plotList = list(), fileNames = list()))
     }
@@ -371,19 +384,26 @@ distanceTabServer <- function(id,
       renderModes = renderModes
     ))
     })
+  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCalibSD())
+
+  scatterDistance <- reactive({
+    if (!isTRUE(distanceShouldCompute())) {
+      return(list(plotList = list(), fileNames = list(), heights = list(), renderModes = list()))
+    }
+    scatterDistanceCached()
   })
 
   distanceScatterRenderCount <- reactiveVal(0)
 
   mergedParticipantDistanceTable <- reactive({
-    if (!isTRUE(tab_active())) {
+    if (!isTRUE(distanceShouldCompute())) {
       return(tibble())
     }
     if (is.null(uploaded_file()) | is.null(files())) {
       return(tibble())
     }
     app_profile_time(app_profiler, "Distance merged participant table", {
-      get_merged_participant_distance_info(distanceCalibration(), df_list()$participant_info)
+      get_merged_participant_distance_info(distanceCalibrationCached(), df_list()$participant_info)
     })
   })
   

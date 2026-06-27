@@ -1,6 +1,6 @@
 library(dplyr)
 library(DT)
-source('./other/utility.R')
+source("R/utils/utility.R")
 # Each time update the summary table, the rmd report need to be updated accordingly.
 
 data_table_call_back = "

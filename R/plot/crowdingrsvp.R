@@ -1,6 +1,6 @@
 library(ggcorrplot) 
 library(tidyr)
-source('./constant.R')
+source("R/constant.R")
 
 plot_rsvp_crowding_acuity <- function(allData) {
   if (is.null(allData)) {

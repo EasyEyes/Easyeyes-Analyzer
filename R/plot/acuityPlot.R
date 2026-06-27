@@ -1,4 +1,4 @@
-source('./constant.R')
+source("R/constant.R")
 
 
 # get_foveal_acuity_vs_age <- function(acuity) {

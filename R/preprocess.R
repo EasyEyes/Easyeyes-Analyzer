@@ -1,7 +1,7 @@
 library(dplyr)
 library(stringr)
 library(readr)
-source('./plotting/simulatedRSVP.R')
+source("R/plot/simulatedRSVP.R")
 
 # Helper function to normalize column names from new "Distance" format to old "TrackDistance" format
 # This provides backward compatibility: new data files use "calibrateDistance..." while 

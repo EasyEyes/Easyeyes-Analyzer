@@ -12,7 +12,7 @@ add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
   return(values * 10^log_factor)
 }
 
-source('./constant.R')
+source("R/constant.R")
 get_duration_data <- function(data_list, conditionNameInput) {
   df <- foreach(i=1:length(data_list), .combine = 'rbind') %do% {
     data_list[[i]] %>%

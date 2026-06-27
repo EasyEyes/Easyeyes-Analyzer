@@ -1,4 +1,4 @@
-source('./constant.R')
+source("R/constant.R")
 
 
 crowding_by_side <- function(crowding) {

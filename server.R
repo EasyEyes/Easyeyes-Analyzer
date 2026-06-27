@@ -27,60 +27,10 @@ library(ggnewscale)
 
 # showtext_auto(F)
 
-source("./other/logger.R")
+source("R/load_app.R")
+
 is_local <- Sys.getenv("SHINY_PORT") == ""
 init_logger(enabled = is_local)
-
-source('constant.R')
-source("preprocess.R")
-
-source("threshold_and_warning.R")
-
-source("./error report/random_rgb.R")
-source("./error report/summary_table.R")
-source("./error report/prolific.R")
-
-
-source("./plotting/mean_median_plot.R")
-source("./plotting/regression_plot.R")
-source("./plotting/histogram.R")
-source("./plotting/diagram.R")
-source("./plotting/crowding_plot.R")
-source("./plotting/test_retest.R")
-source("./plotting/scatter_plots.R")
-source("./plotting/readingPlots.R")
-source("./plotting/customized_inplot_table.R")
-source("./plotting/profile_plot.R")
-source("./plotting/simulatedRSVP.R")
-source("./plotting/font_aggregated_plots.R")
-source("./plotting/acuityPlot.R")
-source('./plotting/crowdingrsvp.R')
-source('./plotting/repeated-letter-crowding.R')
-source('./plotting/durationSecPlot.R')
-source('./plotting/participant_styles.R')
-source('./plotting/distancePlot.R')
-source('./plotting/minDegPlot.R')
-source('./plotting/violin_plot.R')
-source('./plotting/font_comparision_plots.R')
-source('./plotting/auditory_crowding.R')
-
-source("./other/getBits.R")
-source("./other/sound_plots.R")
-source("./other/read_json.R")
-source("./other/formSpree.R")
-source("./other/utility.R")
-source("./other/anova_by_font.R")
-source("./server_modules/sound_server.R")
-source("./server_modules/profile_server.R")
-source("./server_modules/staircases_server.R")
-source("./server_modules/timing_server.R")
-source("./server_modules/quality_server.R")
-source("./server_modules/distance_server.R")
-source("./server_modules/form_spree_dash_server.R")
-source("./server_modules/anova_server.R")
-source("./server_modules/stat_server.R")
-source("./server_modules/plots_reading_rsvp_outputs.R")
-source("./server_modules/plots_tab_server.R")
 
 #### server code ####
 
@@ -687,8 +637,8 @@ shinyServer(function(input, output, session) {
       )
     },
     content = function(file) {
-      tempReport <- file.path(tempdir(), "error report.Rmd")
-      file.copy("rmd/error report.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "error_report.Rmd")
+      file.copy("dev/reports/error_report.Rmd", tempReport, overwrite = TRUE)
       
       rmarkdown::render(
         tempReport,

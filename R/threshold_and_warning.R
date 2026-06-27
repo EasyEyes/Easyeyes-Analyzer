@@ -132,6 +132,14 @@ generate_threshold <-
     # For italian data, reading OMT_words read as reading speed
     
     if (nrow(reading) == 0 & 'OMT_words read' %in% names(pretest)) {
+      omt_raw <- pretest[["OMT_words read"]]
+      message(
+        "OMT_words read before as.numeric: class=",
+        paste(class(omt_raw), collapse = "/"),
+        ", n=", length(omt_raw),
+        ", non-empty=", sum(!is.na(omt_raw) & nzchar(trimws(as.character(omt_raw))))
+      )
+      print(omt_raw)
       reading <- pretest %>% 
         select(participant, `OMT_words read`) %>% 
         mutate(`OMT_words read` = as.numeric(`OMT_words read`)) %>% 
@@ -148,7 +156,7 @@ generate_threshold <-
                log_WPM = log10(`OMT_words read`)) %>% 
         rename(wordPerMin = `OMT_words read`)
     }
-    
+    log_debug("reading from pretest.xlsx: ", nrow(reading))
     reading <- reading %>% filter(wordPerMin <= maxReadingSpeed)
     
     

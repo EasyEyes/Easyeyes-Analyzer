@@ -1,0 +1,13 @@
+# Load UI tab modules.
+source("R/constant.R")
+source("R/ui/session.R")
+source("R/ui/stat.R")
+source("R/ui/plots.R")
+source("R/ui/staircases.R")
+source("R/ui/sound.R")
+source("R/ui/profile.R")
+source("R/ui/formSpreeDash.R")
+source("R/ui/timming.R")
+source("R/ui/quality.R")
+source("R/ui/anova.R")
+source("R/ui/distance.R")

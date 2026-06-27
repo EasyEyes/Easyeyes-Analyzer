@@ -1,16 +1,5 @@
 # Tab modules
-source('./constant.R')
-source('./tabs/session.R')
-source('./tabs/stat.R')
-source('./tabs/plots.R')
-source('./tabs/staircases.R')
-source('./tabs/sound.R')
-source('./tabs/profile.R')
-source('./tabs/formSpreeDash.R')
-source('./tabs/timming.R')
-source('./tabs/quality.R')
-source('./tabs/anova.R')
-source('./tabs/distance.R')
+source("R/load_ui.R")
 # packages
 library(shiny)
 library(shinytitle)
