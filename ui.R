@@ -19,16 +19,33 @@ shinyUI(
                     src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"),
         tags$script(src = "ui.js"),
         tags$script(src = "controlPanel.js"),
+        tags$script(src = "fileUploadProgress.js"),
         tags$link(rel = "stylesheet", type = "text/css", href = "ui.css"),
         tags$script(HTML("
           Shiny.addCustomMessageHandler('updateFileProgress', function(data) {
-            var bar = document.getElementById('file-progress-bar');
-            var pct = document.getElementById('file-progress-pct');
-            var detail = document.getElementById('file-progress-detail');
-            if (bar) bar.style.width = data.value + '%';
-            if (pct) pct.innerText = Math.round(data.value) + '%';
-            if (detail) detail.innerText = data.detail || '';
+            var phase = data.phase || 'reading';
+            if (window.EasyEyesFileProgress) {
+              if (phase === 'uploading') {
+                window.EasyEyesFileProgress.setUploading(
+                  data.value, data.detail
+                );
+              } else {
+                window.EasyEyesFileProgress.setReading(
+                  data.value, data.detail
+                );
+              }
+            } else {
+              var bar = document.getElementById('file-progress-bar');
+              var pct = document.getElementById('file-progress-pct');
+              var detail = document.getElementById('file-progress-detail');
+              if (bar) bar.style.width = data.value + '%';
+              if (pct) pct.innerText = Math.round(data.value) + '%';
+              if (detail) detail.innerText = data.detail || '';
+            }
             if (data.close) {
+              if (window.EasyEyesFileProgress) {
+                window.EasyEyesFileProgress.reset();
+              }
               setTimeout(function() {
                 try { swal.close(); } catch(e) {}
               }, 600);

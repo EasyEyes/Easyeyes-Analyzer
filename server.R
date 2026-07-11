@@ -44,15 +44,16 @@ shinyServer(function(input, output, session) {
                {
                  app_profiler$reset("file upload dialog opened")
                  shinyalert(
-                   title = "Reading file(s) ...",
+                   title = "Uploading file(s)...",
                    text = paste0(
                      '<div style="margin-top: 20px; padding: 0 10px;">',
                      '  <div style="background-color: #e0e0e0; border-radius: 8px; overflow: hidden; height: 28px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);">',
                      '    <div id="file-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #004192, #0066cc); border-radius: 8px; transition: width 0.3s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px;">',
-                     '      <span id="file-progress-pct" style="color: white; font-size: 13px; font-weight: bold;"></span>',
+                     '      <span id="file-progress-pct" style="color: white; font-size: 13px; font-weight: bold;">0%</span>',
                      '    </div>',
                      '  </div>',
-                     '  <p id="file-progress-detail" style="margin-top: 14px; color: #555; font-size: 14px;">Starting...</p>',
+                     '  <p id="file-progress-detail" style="margin-top: 14px; color: #555; font-size: 14px;">',
+                     'Starting browser upload...</p>',
                      '</div>'
                    ),
                    size = "m",
@@ -69,6 +70,18 @@ shinyServer(function(input, output, session) {
                },
                ignoreNULL = FALSE,
                ignoreInit = TRUE)
+
+  # Ping the modal as soon as Shiny accepts the upload, before heavy
+  # files()/read_files work. Keeps the UI from sitting on "Starting...".
+  observeEvent(input$file, {
+    req(input$file)
+    session$sendCustomMessage("updateFileProgress", list(
+      value = 0,
+      detail = "Upload complete. Reading file(s)...",
+      phase = "reading",
+      close = FALSE
+    ))
+  }, ignoreInit = TRUE)
   
   
   output$instruction <- renderText(instruction)
@@ -76,18 +89,35 @@ shinyServer(function(input, output, session) {
   #### reactive objects ####
   files <- reactive({
     req(input$file)
-    app_profiler$reset("file upload received")
+    # Gap since "dialog opened" is OS file picker + browser HTTP upload
+    # (no R work yet). report_previous prints that wait, then restarts the
+    # clock so read_files timings start from here.
+    app_profiler$reset(
+      "file upload received (picker + browser upload)",
+      report_previous = TRUE
+    )
     app_profiler$mark(
       "uploaded files available",
-      paste(length(input$file$name), "file(s):", paste(basename(input$file$name), collapse = ", "))
+      paste(
+        length(input$file$name),
+        "file(s):",
+        paste(basename(input$file$name), collapse = ", ")
+      )
     )
     check <- check_file_names(input$file)
     if (is.null(check)) {
+      session$sendCustomMessage("updateFileProgress", list(
+        value = 0,
+        detail = "Upload complete. Reading file(s)...",
+        phase = "reading",
+        close = FALSE
+      ))
       t <- app_profile_time(app_profiler, "read_files", {
         read_files(input$file, progress = function(value, message, detail) {
         session$sendCustomMessage('updateFileProgress', list(
           value = round(value * 100, 1),
           detail = detail,
+          phase = "reading",
           close = FALSE
         ))
       })
@@ -95,6 +125,7 @@ shinyServer(function(input, output, session) {
       session$sendCustomMessage('updateFileProgress', list(
         value = 100,
         detail = "Processing results...",
+        phase = "reading",
         close = FALSE
       ))
       log_info("File reading complete")

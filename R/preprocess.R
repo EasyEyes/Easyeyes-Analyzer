@@ -1,11 +1,19 @@
-library(dplyr)
-library(stringr)
-library(readr)
-source("R/plot/simulatedRSVP.R")
+# =============================================================================
+# File:        R/preprocess.R
+# Project:     Easyeyes-Analyzer
+# Description: Ingest uploaded CSV/ZIP experiment files, normalize columns,
+#              extract pretest/prolific metadata, and build session data lists
+#              for downstream thresholding and plotting.
+# Author:      EasyEyes team
+# Depends:     dplyr, stringr, readr, data.table, zip, readxl
+# Notes:       Sourced by R/load_app.R. Entry point: read_files().
+#              Relies on dplyr/stringr/readr from server.R and
+#              extractStaircases() from R/plot/simulatedRSVP.R (loaded later).
+# =============================================================================
 
-# Helper function to normalize column names from new "Distance" format to old "TrackDistance" format
-# This provides backward compatibility: new data files use "calibrateDistance..." while 
-# the plotting code expects "calibrateTrackDistance..."
+# Helper: normalize new "Distance" column names to old "TrackDistance"
+# format. New files use "calibrateDistance..."; plotting expects
+# "calibrateTrackDistance...".
 normalize_distance_column_names <- function(df) {
   if (is.null(df) || !is.data.frame(df) || ncol(df) == 0) return(df)
   
@@ -15,9 +23,14 @@ normalize_distance_column_names <- function(df) {
   # Pattern: calibrateDistance* -> calibrateTrackDistance*
   # Pattern: _calibrateDistance* -> _calibrateTrackDistance*
   
-  # For columns that start with "_calibrateDistance" but not "_calibrateTrackDistance"
-  new_underscore_cols <- grep("^_calibrateDistance", col_names, value = TRUE)
-  new_underscore_cols <- new_underscore_cols[!grepl("^_calibrateTrackDistance", new_underscore_cols)]
+  # Columns starting with "_calibrateDistance" (not already Track)
+  new_underscore_cols <- grep(
+    "^_calibrateDistance", col_names, value = TRUE
+  )
+  already_track <- grepl(
+    "^_calibrateTrackDistance", new_underscore_cols
+  )
+  new_underscore_cols <- new_underscore_cols[!already_track]
   
   for (col in new_underscore_cols) {
     old_col <- sub("^_calibrateDistance", "_calibrateTrackDistance", col)
@@ -26,9 +39,10 @@ normalize_distance_column_names <- function(df) {
     }
   }
   
-  # For columns that start with "calibrateDistance" but not "calibrateTrackDistance"
+  # Columns starting with "calibrateDistance" (not already Track)
   new_cols <- grep("^calibrateDistance", col_names, value = TRUE)
-  new_cols <- new_cols[!grepl("^calibrateTrackDistance", new_cols)]
+  already_track <- grepl("^calibrateTrackDistance", new_cols)
+  new_cols <- new_cols[!already_track]
   
   for (col in new_cols) {
     old_col <- sub("^calibrateDistance", "calibrateTrackDistance", col)
@@ -88,23 +102,31 @@ check_empty_archive <- function(file) {
   # List contents; if this fails, return NA
   info <- tryCatch(zip::zip_list(path), error = function(e) e)
   if (inherits(info, "error")) {
-    warning(sprintf("Couldn't read archive '%s': %s", basename(path), conditionMessage(info)))
+    warning(sprintf(
+      "Couldn't read archive '%s': %s",
+      basename(path),
+      conditionMessage(info)
+    ))
     return(NA)
   }
 
   # Drop directories and Mac metadata
-  info <- info[!grepl("/$", info$filename), , drop = FALSE]           # remove directory entries
-  info <- info[!grepl("^__MACOSX/", info$filename), , drop = FALSE]   # remove __MACOSX
+  info <- info[!grepl("/$", info$filename), , drop = FALSE]
+  info <- info[
+    !grepl("^__MACOSX/", info$filename), , drop = FALSE
+  ]
 
   # Empty if no files remain, or all remaining files are 0 bytes
   if (nrow(info) == 0) return(TRUE)
-  has_nonempty_file <- any(!is.na(info$uncompressed_size) & info$uncompressed_size > 0)
+  has_nonempty_file <- any(
+    !is.na(info$uncompressed_size) & info$uncompressed_size > 0
+  )
   return(!has_nonempty_file)
 }
 
 # Helper function to normalize filenames by removing browser download suffixes
 normalize_filename <- function(filename) {
-  # Remove download suffixes commonly added by browsers when downloading duplicate files
+  # Remove browser download suffixes on duplicate filenames
   # Patterns handled:
   # - " (1)", " (2)", etc. - Standard macOS/Windows/Chrome pattern
   # - "_(1)", "_(2)", etc. - Underscore variant (e.g. .results_(1).zip)
@@ -119,7 +141,12 @@ normalize_filename <- function(filename) {
   normalized <- gsub("_\\([0-9]+\\)(?=\\.[^.]*$)", "", normalized, perl = TRUE)
   
   # Remove " - Copy" and " - Copy (number)" patterns
-  normalized <- gsub("\\s+-\\s+Copy(\\s+\\([0-9]+\\))?(?=\\.[^.]*$)", "", normalized, perl = TRUE)
+  normalized <- gsub(
+    "\\s+-\\s+Copy(\\s+\\([0-9]+\\))?(?=\\.[^.]*$)",
+    "",
+    normalized,
+    perl = TRUE
+  )
   
   # Remove ".number" pattern (before the final extension)
   normalized <- gsub("\\.[0-9]+(?=\\.[^.]*$)", "", normalized, perl = TRUE)
@@ -144,16 +171,19 @@ normalize_pretest_omt_column <- function(pretest) {
       omt_vals <- suppressWarnings(as.numeric(pretest$OMT))
       owr_raw <- pretest[["OMT_words read"]]
       owr_num <- suppressWarnings(as.numeric(owr_raw))
-      missing_owr <- is.na(owr_num) | (!is.na(owr_raw) & as.character(owr_raw) == "")
+      missing_owr <- is.na(owr_num) |
+        (!is.na(owr_raw) & as.character(owr_raw) == "")
       if (any(missing_owr, na.rm = TRUE) && any(!is.na(omt_vals))) {
-        pretest[["OMT_words read"]][missing_owr] <- as.character(omt_vals[missing_owr])
+        pretest[["OMT_words read"]][missing_owr] <- as.character(
+          omt_vals[missing_owr]
+        )
       }
       return(pretest)
     }
 
     if (has_omt && !has_owr) {
       omt_vals <- suppressWarnings(as.numeric(pretest$OMT))
-      # Only alias OMT when most values look numeric (reading speed), not arbitrary codes.
+      # Alias OMT only when values look numeric (reading speed).
       if (sum(!is.na(omt_vals)) >= max(1, ceiling(0.1 * nrow(pretest)))) {
         pretest <- pretest %>% rename(`OMT_words read` = OMT)
       }
@@ -183,7 +213,10 @@ score_pretest_table <- function(pretest) {
     return(-Inf)
   }
   score <- nrow(pretest)
-  if (any(c("participant", "PavloviaSessionID", "ID", "participantID") %in% names(pretest))) {
+  id_cols <- c(
+    "participant", "PavloviaSessionID", "ID", "participantID"
+  )
+  if (any(id_cols %in% names(pretest))) {
     score <- score + 1e6
   }
   score <- score + pretest_omt_non_empty(pretest) * 10
@@ -206,25 +239,43 @@ read_pretest_raw <- function(source, entry = NULL, tmp = tempdir()) {
         }
         pretest <- readxl::read_xlsx(file_path, col_types = "text")
         column_names <- names(pretest)
-        date_columns <- grep("date", column_names, ignore.case = TRUE, value = TRUE)
+        date_columns <- grep(
+          "date", column_names, ignore.case = TRUE, value = TRUE
+        )
         if (length(date_columns) > 0) {
-          col_types <- ifelse(column_names %in% date_columns, "date", "text")
-          pretest <- readxl::read_xlsx(file_path, col_types = col_types)
+          col_types <- ifelse(
+            column_names %in% date_columns, "date", "text"
+          )
+          pretest <- readxl::read_xlsx(
+            file_path, col_types = col_types
+          )
         }
       } else {
-        cmd <- sprintf("unzip -p %s %s", shQuote(source), shQuote(entry))
-        pretest <- data.table::fread(cmd = cmd, data.table = FALSE, showProgress = FALSE)
+        cmd <- sprintf(
+          "unzip -p %s %s", shQuote(source), shQuote(entry)
+        )
+        pretest <- data.table::fread(
+          cmd = cmd, data.table = FALSE, showProgress = FALSE
+        )
       }
     } else if (is_xlsx) {
       pretest <- readxl::read_xlsx(source, col_types = "text")
       column_names <- names(pretest)
-      date_columns <- grep("date", column_names, ignore.case = TRUE, value = TRUE)
+      date_columns <- grep(
+        "date", column_names, ignore.case = TRUE, value = TRUE
+      )
       if (length(date_columns) > 0) {
-        col_types <- ifelse(column_names %in% date_columns, "date", "text")
-        pretest <- readxl::read_xlsx(source, col_types = col_types)
+        col_types <- ifelse(
+          column_names %in% date_columns, "date", "text"
+        )
+        pretest <- readxl::read_xlsx(
+          source, col_types = col_types
+        )
       }
     } else {
-      pretest <- data.table::fread(source, data.table = FALSE, showProgress = FALSE)
+      pretest <- data.table::fread(
+        source, data.table = FALSE, showProgress = FALSE
+      )
     }
 
     if (!is.data.frame(pretest) || nrow(pretest) == 0) {
@@ -301,7 +352,7 @@ apply_pretest_post_read_standardization <- function(pretest) {
   })
 }
 
-# When several pretest files exist in a zip, pick the richest one; otherwise keep legacy order.
+# Pick richest pretest in a zip; else keep legacy first-entry order.
 pick_pretest_zip_entry <- function(all_pretest, zip_path, tmp = tempdir()) {
   if (length(all_pretest) == 0) {
     return(NA_character_)
@@ -346,8 +397,11 @@ check_file_names <- function(file) {
   # Normalize filenames to handle browser download suffixes
   normalized_names <- sapply(file_names, normalize_filename)
   
-  is_valid <- sapply(normalized_names, 
-                     function(name) any(sapply(valid_endings, function(ext) grepl(paste0(ext, "$"), name))))
+  is_valid <- sapply(normalized_names, function(name) {
+    any(sapply(valid_endings, function(ext) {
+      grepl(paste0(ext, "$"), name)
+    }))
+  })
   invalid_files <- file_names[!is_valid]
   
   # Check for empty zip files
@@ -406,13 +460,15 @@ check_file_names <- function(file) {
         "&nbsp;&nbsp;&nbsp;• .csv<br>",
         "&nbsp;&nbsp;&nbsp;• .prolific.csv<br>",
         "&nbsp;&nbsp;&nbsp;• .pretest.xlsx<br>",
-        "<em>Note: Browser download suffixes like ' (1)' or '_(1)' are automatically ignored.</em><br><br>"
+        "<em>Note: Browser download suffixes like ' (1)' ",
+        "or '_(1)' are automatically ignored.</em><br><br>"
       )
     }
     
     if (has_unreadable_empty_files) {
       help_text <- paste0(help_text, 
-        "Zip files must contain experiment data (.csv files) and be readable.<br><br>"
+        "Zip files must contain experiment data ",
+        "(.csv files) and be readable.<br><br>"
       )
     }
     
@@ -435,12 +491,65 @@ check_file_names <- function(file) {
   return(NULL)
 }
 
+# First non-missing, non-empty scalar from a vector (session-level metadata).
+first_non_empty <- function(x, default = NA) {
+  if (is.null(x) || length(x) == 0) {
+    return(default)
+  }
+  keep <- !is.na(x)
+  if (is.character(x) || is.factor(x)) {
+    keep <- keep & as.character(x) != ""
+  }
+  x <- x[keep]
+  if (length(x) == 0) {
+    return(default)
+  }
+  x[[1]]
+}
+
+# Smallest non-NA value (matches sort(x)[1] with NAs last).
+first_sorted <- function(x, default = NA) {
+  x <- x[!is.na(x)]
+  if (length(x) == 0) {
+    return(default)
+  }
+  sort(x)[[1]]
+}
+
+# Prefer a non-NA unique screen dim when several exist (legacy).
+pick_screen_dim <- function(x) {
+  u <- unique(x)
+  if (length(u) <= 1) {
+    return(NA)
+  }
+  u <- u[!is.na(u)]
+  if (length(u) == 0) {
+    return(NA)
+  }
+  u[[1]]
+}
+
 ensure_columns <- function(t, file_name = NULL) {
-  # First, normalize new "Distance" column names to old "TrackDistance" format for compatibility
+  # Normalize Distance column names to TrackDistance for compatibility
   t <- normalize_distance_column_names(t)
-  
-  # List of columns and their default values
-  breaked_fileName = str_split(file_name, "[_]")[[1]]
+
+  name_parts <- if (!is.null(file_name)) {
+    str_split(file_name, "[_]")[[1]]
+  } else {
+    NULL
+  }
+  participant_default <- if (!is.null(name_parts)) {
+    name_parts[1]
+  } else {
+    ""
+  }
+  prolific_id_default <- if (
+    !is.null(name_parts) && length(name_parts) >= 2
+  ) {
+    name_parts[2]
+  } else {
+    ""
+  }
 
   required_cols <- list(
     `_calibrateTrackDistance` = "",
@@ -507,8 +616,8 @@ ensure_columns <- function(t, file_name = NULL) {
     `Microphone survey` = "",
     mustTrackSec = NA,
     OBJCT = "",
-    participant = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][1] else "",
-    ProlificParticipantID = if (!is.null(file_name)) str_split(file_name, "[_]")[[1]][2] else "",
+    participant = participant_default,
+    ProlificParticipantID = prolific_id_default,
     ProlificSessionID = "",
     psychojsWindowDimensions = "NA,NA",
     pxPerCm = NA,
@@ -567,94 +676,117 @@ ensure_columns <- function(t, file_name = NULL) {
       t[[col]] <- required_cols[[col]]
     }
   }
-  
-  t <- t %>% 
-    mutate(system = str_replace_all(deviceSystem, "OS X","macOS"),
-           deviceSystemFamily = str_replace_all(deviceSystemFamily, "OS X","macOS"),
-           screenWidthCm = ifelse(is.na(pxPerCm) | pxPerCm <= 0, NA, round(screenWidthPx / pxPerCm,1))
-           )
-  t$rows = nrow(t)
-  t$cols = ifelse('placeholder' %in% names(t), 1, ncol(t))
-  t$date = t$date[t$date != "" & !is.na(t$date)][1]
-  t$rulerLength = t$rulerLength[t$rulerLength != "" & !is.na(t$rulerLength)][1]
-  t$rulerUnit = t$rulerUnit[t$rulerUnit != "" & !is.na(t$rulerUnit)][1]
-  t$deviceMemoryGB = sort(t$deviceMemoryGB)[1]
-  t$cameraIsTopCenter =  t$cameraIsTopCenter[t$cameraIsTopCenter != "" & !is.na(t$cameraIsTopCenter)][1]
-  t$viewingDistanceWhichEye = t$viewingDistanceWhichEye[t$viewingDistanceWhichEye != "" & !is.na(t$viewingDistanceWhichEye)][1]
-  t$viewingDistanceWhichPoint = t$viewingDistanceWhichPoint[t$viewingDistanceWhichPoint != "" & !is.na(t$viewingDistanceWhichPoint)][1]
-  t$screenWidthCm = sort(t$screenWidthCm)[1]
-  t$distanceObjectCm = sort(t$distanceObjectCm)[1]
-  t$experimentCompleteBool = sort(t$experimentCompleteBool)[1]
-  # calibrateTrackDistance has been renamed as __calibrateTrackDistance
-  t$calibrateTrackDistance = t$calibrateTrackDistance[t$calibrateTrackDistance != "" & !is.na(t$calibrateTrackDistance)][1]
-  t$`_calibrateTrackDistance` = t$`_calibrateTrackDistance`[t$`_calibrateTrackDistance` != "" & !is.na(t$`_calibrateTrackDistance`)][1]
-  t$`_calibrateTrackDistancePupil` = t$`_calibrateTrackDistancePupil`[t$`_calibrateTrackDistancePupil` != "" & !is.na(t$`_calibrateTrackDistancePupil`)][1]
-  t$hardwareConcurrency = ifelse(sum(!is.na(t$hardwareConcurrency)) >= 1,
-                                 unique(t$hardwareConcurrency[!is.na(t$hardwareConcurrency)& t$hardwareConcurrency != ""]), 
-                                 "")
-  
-  t$deviceBrowser = ifelse(sum(!is.na(t$deviceBrowser)) >= 1,
-                           unique(t$deviceBrowser[!is.na(t$deviceBrowser)& t$deviceBrowser != ""]), 
-                           "")
-  
-  t$deviceBrowserVersion = ifelse(sum(!is.na(t$deviceBrowserVersion)) >= 1,
-                                  unique(t$deviceBrowserVersion[!is.na(t$deviceBrowserVersion)& t$deviceBrowserVersion != ""]), 
-                                  "")
-   
-  t$deviceSystemFamily =  ifelse(sum(!is.na(t$deviceSystemFamily)) >= 1,
-                                 unique(t$deviceSystemFamily[!is.na(t$deviceSystemFamily)& t$deviceSystemFamily != ""]), 
-                                 "")
-  
-  t$deviceSystem =  ifelse(sum(!is.na(t$deviceSystem)) >= 1,
-                                 unique(t$deviceSystem[!is.na(t$deviceSystem) & t$deviceSystem != ""]), 
-                                 "")
-  
-  t$deviceType = ifelse(sum(!is.na(t$deviceType)) >= 1,
-                        unique(t$deviceType[!is.na(t$deviceType)& t$deviceType != ""]), 
-                        "")
-  
-  t <- impute_column(t, 'block',0)
-  t <- impute_column(t, 'thresholdParameter', '')
-  t <- impute_column(t, 'targetTask', '')
-  t <- impute_column(t, 'targetKind', '')
 
-  screenWidth <- ifelse(length(unique(t$screenWidthPx)) > 1,
-                        unique(t$screenWidthPx)[!is.na(unique(t$screenWidthPx))] , 
-                        NA)
-  screenHeight <- ifelse(length(unique(t$screenHeightPx)) > 1,
-                         unique(t$screenHeightPx)[!is.na(unique(t$screenHeightPx))] , 
-                         NA)
-  
-  t <- t %>% mutate(screenWidthPx = screenWidth,
-                    screenHeightPx = screenHeight,
-                    browser = case_when(
-                      deviceBrowser == "" | is.na(deviceBrowser) ~ "",
-                      !is.na(deviceBrowserVersion) & deviceBrowserVersion != "" ~ paste(deviceBrowser, 
-                                                                                        str_split(deviceBrowserVersion, "[.]")[[1]][1]),
-                      !is.na(deviceBrowser) & deviceBrowser != "" ~ deviceBrowser,
-                      .default = ""
-                    ),
-                    resolution = paste0(screenWidthPx, " x ", screenHeightPx),
-                    block_condition = as.character(ifelse(
-                      is.na(block_condition) | block_condition == "",
-                      staircaseName,
-                      block_condition
-                    )))
-  
-  if (is.na(t$psychojsWindowDimensions[1])) {
-    t$psychojsWindowDimensions = 'NA,NA'
+  # Session-level scalars: scan each metadata column once, then broadcast.
+  date_val <- first_non_empty(t$date, "")
+  device_system <- first_non_empty(t$deviceSystem, "")
+  device_system_family <- str_replace_all(
+    first_non_empty(t$deviceSystemFamily, ""),
+    "OS X",
+    "macOS"
+  )
+  device_browser <- first_non_empty(t$deviceBrowser, "")
+  device_browser_version <- first_non_empty(t$deviceBrowserVersion, "")
+  device_type <- first_non_empty(t$deviceType, "")
+  cores_val <- first_non_empty(t$hardwareConcurrency, "")
+  px_per_cm <- first_sorted(suppressWarnings(as.numeric(t$pxPerCm)))
+  screen_width_px <- pick_screen_dim(t$screenWidthPx)
+  screen_height_px <- pick_screen_dim(t$screenHeightPx)
+  if (!is.na(px_per_cm) && px_per_cm > 0 && !is.na(screen_width_px)) {
+    screen_width_cm <- round(screen_width_px / px_per_cm, 1)
+  } else {
+    sw_cm <- suppressWarnings(
+      as.numeric(t$screenWidthPx) / as.numeric(t$pxPerCm)
+    )
+    sw_cm[is.na(as.numeric(t$pxPerCm)) | as.numeric(t$pxPerCm) <= 0] <- NA
+    screen_width_cm <- first_sorted(round(sw_cm, 1))
   }
-  psychojsWindowDimensions <- lapply(str_split(t$psychojsWindowDimensions[1],","), parse_number)[[1]]
-  
-  WindowDimensions <- paste0(psychojsWindowDimensions, collapse = " x ")
-  
-  t$resolution = ifelse(t$resolution[1] == "NA x NA", WindowDimensions, t$resolution)
-  t$resolution = ifelse(t$resolution[1] == "NA x NA", "", t$resolution)
-  t$screenWidthPx = ifelse(is.na(t$screenWidthPx[1]), psychojsWindowDimensions[1], t$screenWidthPx[1])
 
-  t <- t %>% 
-    rename("cores" = "hardwareConcurrency")
+  t$date <- date_val
+  t$rulerLength <- first_non_empty(t$rulerLength)
+  t$rulerUnit <- first_non_empty(t$rulerUnit, "")
+  t$deviceMemoryGB <- first_sorted(t$deviceMemoryGB)
+  t$cameraIsTopCenter <- first_non_empty(t$cameraIsTopCenter, "")
+  t$viewingDistanceWhichEye <- first_non_empty(t$viewingDistanceWhichEye, "")
+  t$viewingDistanceWhichPoint <- first_non_empty(
+    t$viewingDistanceWhichPoint, ""
+  )
+  t$distanceObjectCm <- first_sorted(t$distanceObjectCm)
+  t$experimentCompleteBool <- first_sorted(t$experimentCompleteBool)
+  t$calibrateTrackDistance <- first_non_empty(t$calibrateTrackDistance, "")
+  t$`_calibrateTrackDistance` <- first_non_empty(
+    t$`_calibrateTrackDistance`, ""
+  )
+  t$`_calibrateTrackDistancePupil` <- first_non_empty(
+    t$`_calibrateTrackDistancePupil`, ""
+  )
+  t$hardwareConcurrency <- cores_val
+  t$deviceBrowser <- device_browser
+  t$deviceBrowserVersion <- device_browser_version
+  t$deviceSystemFamily <- device_system_family
+  t$deviceSystem <- device_system
+  t$deviceType <- device_type
+  t$system <- str_replace_all(device_system, "OS X", "macOS")
+  t$screenWidthCm <- screen_width_cm
+  t$screenWidthPx <- screen_width_px
+  t$screenHeightPx <- screen_height_px
+  t$rows <- nrow(t)
+  t$cols <- ifelse("placeholder" %in% names(t), 1, ncol(t))
 
+  t <- impute_column(t, "block", 0)
+  t <- impute_column(t, "thresholdParameter", "")
+  t <- impute_column(t, "targetTask", "")
+  t <- impute_column(t, "targetKind", "")
+
+  has_browser_ver <- !is.na(device_browser_version) &&
+    nzchar(as.character(device_browser_version))
+  browser_major <- if (has_browser_ver) {
+    str_split(
+      as.character(device_browser_version), "[.]"
+    )[[1]][1]
+  } else {
+    ""
+  }
+  browser_val <- if (
+    is.na(device_browser) || !nzchar(as.character(device_browser))
+  ) {
+    ""
+  } else if (nzchar(browser_major)) {
+    paste(device_browser, browser_major)
+  } else {
+    device_browser
+  }
+
+  t$browser <- browser_val
+  t$block_condition <- as.character(ifelse(
+    is.na(t$block_condition) | t$block_condition == "",
+    t$staircaseName,
+    t$block_condition
+  ))
+
+  psycho_raw <- t$psychojsWindowDimensions[1]
+  if (is.na(psycho_raw) || identical(psycho_raw, "")) {
+    psycho_raw <- "NA,NA"
+    t$psychojsWindowDimensions <- "NA,NA"
+  }
+  psychojsWindowDimensions <- lapply(
+    str_split(psycho_raw, ","), parse_number
+  )[[1]]
+  window_dimensions <- paste0(psychojsWindowDimensions, collapse = " x ")
+
+  resolution <- paste0(t$screenWidthPx[1], " x ", t$screenHeightPx[1])
+  if (identical(resolution, "NA x NA")) {
+    resolution <- window_dimensions
+  }
+  if (identical(resolution, "NA x NA")) {
+    resolution <- ""
+  }
+  t$resolution <- resolution
+  if (is.na(t$screenWidthPx[1])) {
+    t$screenWidthPx <- psychojsWindowDimensions[1]
+  }
+
+  t <- t %>% rename("cores" = "hardwareConcurrency")
   t
 }
 
@@ -686,7 +818,9 @@ build_quest_summaries <- function(t, info) {
       questMeanAtEndOfTrialsLoop,
       questSDAtEndOfTrialsLoop
     )
-  if (n_distinct(summaries$staircaseName) < n_distinct(summaries$block_condition)) {
+  n_stair <- n_distinct(summaries$staircaseName)
+  n_block <- n_distinct(summaries$block_condition)
+  if (n_stair < n_block) {
     summaries <- summaries %>%
       select(-staircaseName) %>%
       left_join(info, by = "block_condition", relationship = "many-to-many")
@@ -760,8 +894,10 @@ read_files <- function(file, progress = NULL){
   if(is.null(file)) return(list())
   file_list <- file$data
   file_names <- file$name
-  file_list <- file_list[!grepl("cursor", basename(file_names)) & !grepl("^~", basename(file_names))]
-  file_names <- file_names[!grepl("cursor", basename(file_names)) & !grepl("^~", basename(file_names))]
+  keep <- !grepl("cursor", basename(file_names)) &
+    !grepl("^~", basename(file_names))
+  file_list <- file_list[keep]
+  file_names <- file_names[keep]
   log_info("read_files: ", length(file_names), " files uploaded")
   data_list <- list()
   stair_list <- list()
@@ -783,21 +919,31 @@ read_files <- function(file, progress = NULL){
     log_debug("Processing file ", i, "/", n, ": ", file_names[i])
     t <- tibble(placeholder = "")
     
-    if (grepl("pretest.xlsx", file_names[i]) | grepl("pretest.csv", file_names[i])) {
+    is_pretest <- grepl("pretest.xlsx", file_names[i]) |
+      grepl("pretest.csv", file_names[i])
+    if (is_pretest) {
       pretest <- read_pretest_raw(file_list[i])
       pretest <- apply_pretest_post_read_standardization(pretest)
     }
 
     if (grepl("prolific\\.csv$", file_names[i], ignore.case = TRUE)) {
-      prolificDT <- append_prolific_rows(prolificDT, read_prolific(file_list[i]))
+      prolificDT <- append_prolific_rows(
+        prolificDT, read_prolific(file_list[i])
+      )
       next
     }
 
     if (grepl(".csv", file_names[i]) & !grepl("pretest.csv", file_names[i])) {
       try({
-        t <- data.table::fread(file_list[i], data.table = FALSE, showProgress = FALSE)
+        t <- data.table::fread(
+          file_list[i], data.table = FALSE, showProgress = FALSE
+        )
       }, silent = TRUE)
-      if (!is.data.frame(t) || is.null(nrow(t)) || is.na(nrow(t)) || nrow(t) == 0) {
+      empty_df <- !is.data.frame(t) ||
+        is.null(nrow(t)) ||
+        is.na(nrow(t)) ||
+        nrow(t) == 0
+      if (empty_df) {
         t <- tibble(placeholder = "")
       }
       inf <- file.info(file_list[i])
@@ -841,7 +987,9 @@ read_files <- function(file, progress = NULL){
         )
       }
 
-      all_csv <- zip_file_names[grepl(".csv$", zip_file_names, ignore.case = TRUE)]
+      all_csv <- zip_file_names[
+        grepl(".csv$", zip_file_names, ignore.case = TRUE)
+      ]
       all_csv <- all_csv[
         !grepl("__MACOSX", all_csv) &
           !grepl("cursor", all_csv) &
@@ -864,19 +1012,43 @@ read_files <- function(file, progress = NULL){
             detail = sprintf("Session %d of %d: %s", k, m, basename(all_csv[k]))
           )
         }
-        # Stream CSV directly from zip without extracting to disk; fallback to extracting just this file
-        cmd <- sprintf("unzip -p %s %s", shQuote(file_list[i]), shQuote(all_csv[k]))
+        # Stream CSV from zip; fall back to extracting this file
+        cmd <- sprintf(
+          "unzip -p %s %s",
+          shQuote(file_list[i]),
+          shQuote(all_csv[k])
+        )
         read_ok <- TRUE
         t <- tryCatch(
-          data.table::fread(cmd = cmd, data.table = FALSE, showProgress = FALSE),
-          error = function(e) { read_ok <<- FALSE; e }
+          data.table::fread(
+            cmd = cmd, data.table = FALSE, showProgress = FALSE
+          ),
+          error = function(e) {
+            read_ok <<- FALSE
+            e
+          }
         )
         if (!read_ok || inherits(t, "error")) {
-          try(unzip(file_list[i], files = all_csv[k], exdir = tmp), silent = TRUE)
+          try(
+            unzip(
+              file_list[i], files = all_csv[k], exdir = tmp
+            ),
+            silent = TRUE
+          )
           file_path <- file.path(tmp, all_csv[k])
-          try({t <- data.table::fread(file_path, data.table = FALSE, showProgress = FALSE)}, silent = TRUE)
+          try({
+            t <- data.table::fread(
+              file_path,
+              data.table = FALSE,
+              showProgress = FALSE
+            )
+          }, silent = TRUE)
         }
-        if (!is.data.frame(t) || is.null(nrow(t)) || is.na(nrow(t)) || nrow(t) == 0) {
+        empty_df <- !is.data.frame(t) ||
+          is.null(nrow(t)) ||
+          is.na(nrow(t)) ||
+          nrow(t) == 0
+        if (empty_df) {
           t <- tibble(placeholder = "")
         }
         size_row <- zl$uncompressed_size[match(all_csv[k], zl$filename)]
@@ -898,7 +1070,9 @@ read_files <- function(file, progress = NULL){
       if (length(all_pretest) > 0) {
         pretest_file <- pick_pretest_zip_entry(all_pretest, file_list[i], tmp)
         if (!is.na(pretest_file)) {
-          pretest <- read_pretest_raw(file_list[i], entry = pretest_file, tmp = tmp)
+          pretest <- read_pretest_raw(
+            file_list[i], entry = pretest_file, tmp = tmp
+          )
           pretest <- apply_pretest_post_read_standardization(pretest)
         }
       }
@@ -906,24 +1080,30 @@ read_files <- function(file, progress = NULL){
   }
   
   if (!is.null(progress)) {
-    progress(value = 0.95, message = "Processing data...", detail = "Merging sessions")
+    progress(
+      value = 0.95,
+      message = "Processing data...",
+      detail = "Merging sessions"
+    )
   }
   
-  # Use pretest to override age
-  if (nrow(pretest) > 0 ) {
-    toJoin <- pretest %>% 
-      select(participant, Age, birthDate) %>% 
-      rename('birthDate_pre' = 'birthDate',
-             'Age_pre' = 'Age')
+  # Use pretest to override age on a compact participant table, then map back.
+  toJoin <- NULL
+  if (nrow(pretest) > 0) {
+    toJoin <- pretest %>%
+      select(participant, Age, birthDate) %>%
+      rename(
+        birthDate_pre = birthDate,
+        Age_pre = Age
+      ) %>%
+      distinct(participant, .keep_all = TRUE)
   }
-  
-  df <- tibble()
-  
-  # Remove any NULL entries from lists that might have been created by skipped files
+
+  # Drop NULL entries left by skipped files
   data_list <- data_list[!sapply(data_list, is.null)]
   stair_list <- stair_list[!sapply(stair_list, is.null)]
   summary_list <- summary_list[!sapply(summary_list, is.null)]
-  
+
   # Safety check: if no data was processed, return empty structure
   if (length(data_list) == 0) {
     return(list(
@@ -935,73 +1115,106 @@ read_files <- function(file, progress = NULL){
       prolific = tibble()
     ))
   }
-  
-  for (i in 1:length(data_list)) {
-    if (!'ParticipantCode' %in% names(data_list[[i]])) {
-      data_list[[i]]$ParticipantCode = ''
-    }
-    if (!'participant' %in% names(data_list[[i]])) {
-      data_list[[i]]$participant = ''
-    }
-    if (!'Birthdate' %in% names(data_list[[i]])) {
-      data_list[[i]]$Birthdate = ''
-    }
-    
-    if (!'BirthMonthYear' %in% names(data_list[[i]])) {
-      data_list[[i]]$BirthMonthYear = ''
-    }
-    
-    if (!'BirthYear' %in% names(data_list[[i]])) {
-      data_list[[i]]$BirthYear = NA
-    }
-    
-    
-    unique_participantCode = unique(data_list[[i]]$ParticipantCode)
-    if (length(unique_participantCode) > 1) {
 
-      data_list[[i]]$ParticipantCode = get_first_non_na(data_list[[i]]$ParticipantCode)
-    } else {
-      data_list[[i]]$ParticipantCode = ''
+  df_parts <- vector("list", length(data_list))
+  for (i in seq_along(data_list)) {
+    if (!"ParticipantCode" %in% names(data_list[[i]])) {
+      data_list[[i]]$ParticipantCode <- ""
     }
-    
-    unique_Birthdate = unique(data_list[[i]]$BirthMonthYear)
-    unique_BirthYear = unique(data_list[[i]]$BirthYear)
-    if (length(unique_Birthdate) > 1) {
-      data_list[[i]]$BirthMonthYear = get_first_non_na(data_list[[i]]$BirthMonthYear)
-      clean_date <- gsub("([0-9]{2})h([0-9]{2})\\.([0-9]{2})\\.([0-9]{3})", "\\1:\\2:\\3.\\4", get_first_non_na(data_list[[i]]$date))
-      clean_date <- sub("_", "T", clean_date)
-      
-      # Parse with parse_date_time
-      parsed_time <- parse_date_time(substr(clean_date, 1, 10), orders = "Ymd", tz = "UTC")
-      data_list[[i]]$age = round(interval(parse_date_time(data_list[[i]]$BirthMonthYear[1], orders = c('my')), parsed_time) / years(1),2)
+    if (!"participant" %in% names(data_list[[i]])) {
+      data_list[[i]]$participant <- ""
+    }
+    if (!"Birthdate" %in% names(data_list[[i]])) {
+      data_list[[i]]$Birthdate <- ""
+    }
+    if (!"BirthMonthYear" %in% names(data_list[[i]])) {
+      data_list[[i]]$BirthMonthYear <- ""
+    }
+    if (!"BirthYear" %in% names(data_list[[i]])) {
+      data_list[[i]]$BirthYear <- NA
+    }
+
+    unique_participantCode <- unique(data_list[[i]]$ParticipantCode)
+    if (length(unique_participantCode) > 1) {
+      data_list[[i]]$ParticipantCode <- get_first_non_na(
+        data_list[[i]]$ParticipantCode
+      )
     } else {
-      data_list[[i]]$BirthMonthYear = ''
-      data_list[[i]]$age = NA
-      if (length(unique_BirthYear) > 1 & length(unique_Birthdate) == 1 ) {
-        data_list[[i]]$BirthYear = max(as.numeric(arabic_to_western(data_list[[i]]$BirthYear)), na.rm = T)
-        data_list[[i]]$age = year(data_list[[i]]$date[1]) - data_list[[i]]$BirthYear[1]
+      data_list[[i]]$ParticipantCode <- ""
+    }
+
+    unique_Birthdate <- unique(data_list[[i]]$BirthMonthYear)
+    unique_BirthYear <- unique(data_list[[i]]$BirthYear)
+    if (length(unique_Birthdate) > 1) {
+      data_list[[i]]$BirthMonthYear <- get_first_non_na(
+        data_list[[i]]$BirthMonthYear
+      )
+      clean_date <- gsub(
+        "([0-9]{2})h([0-9]{2})\\.([0-9]{2})\\.([0-9]{3})",
+        "\\1:\\2:\\3.\\4",
+        get_first_non_na(data_list[[i]]$date)
+      )
+      clean_date <- sub("_", "T", clean_date)
+      parsed_time <- parse_date_time(
+        substr(clean_date, 1, 10),
+        orders = "Ymd",
+        tz = "UTC"
+      )
+      data_list[[i]]$age <- round(
+        interval(
+          parse_date_time(data_list[[i]]$BirthMonthYear[1], orders = c("my")),
+          parsed_time
+        ) / years(1),
+        2
+      )
+    } else {
+      data_list[[i]]$BirthMonthYear <- ""
+      data_list[[i]]$age <- NA
+      if (length(unique_BirthYear) > 1 && length(unique_Birthdate) == 1) {
+        data_list[[i]]$BirthYear <- max(
+          as.numeric(arabic_to_western(data_list[[i]]$BirthYear)),
+          na.rm = TRUE
+        )
+        data_list[[i]]$age <- (
+          year(data_list[[i]]$date[1]) -
+            data_list[[i]]$BirthYear[1]
+        )
       } else {
-        data_list[[i]]$BirthYear = ''
-        data_list[[i]]$age = NA
+        data_list[[i]]$BirthYear <- ""
+        data_list[[i]]$age <- NA
       }
     }
-    
-   
-    #Override
-    if (nrow(pretest) > 0) {
-      data_list[[i]] <- data_list[[i]] %>%
-        left_join(toJoin, by = 'participant', relationship = "many-to-many") %>% 
-        mutate(ageByPretestBirthDate =  round(interval(birthDate_pre, date) / years(1),2)) %>% 
-        mutate(age = case_when(
-          !is.na(ageByPretestBirthDate) ~ ageByPretestBirthDate,
-          !is.na(Age_pre) & is.na(ageByPretestBirthDate) ~ Age_pre,
-          is.na(birthDate_pre) & is.na(Age_pre) ~ age,
-          .default = NA
-        ))
+
+    # Pretest age override: join only distinct participants, then broadcast age.
+    if (!is.null(toJoin)) {
+      session_date <- data_list[[i]]$date[1]
+      participant_age <- data_list[[i]] %>%
+        distinct(participant, .keep_all = TRUE) %>%
+        select(participant, age) %>%
+        left_join(toJoin, by = "participant") %>%
+        mutate(
+          ageByPretestBirthDate = round(
+            interval(birthDate_pre, session_date) / years(1),
+            2
+          ),
+          age = case_when(
+            !is.na(ageByPretestBirthDate) ~ ageByPretestBirthDate,
+            !is.na(Age_pre) & is.na(ageByPretestBirthDate) ~ Age_pre,
+            is.na(birthDate_pre) & is.na(Age_pre) ~ age,
+            .default = NA
+          )
+        ) %>%
+        select(participant, age)
+      data_list[[i]]$age <- participant_age$age[
+        match(data_list[[i]]$participant, participant_age$participant)
+      ]
     }
-    df <- rbind(df, data_list[[i]] %>% distinct(participant, ParticipantCode, BirthMonthYear,age))
+
+    df_parts[[i]] <- data_list[[i]] %>%
+      distinct(participant, ParticipantCode, BirthMonthYear, age)
   }
-  
+  df <- bind_rows(df_parts)
+
   experiment <- experiment[!is.na(experiment)]
   experiment <- experiment[experiment != ""]
   stairs <- do.call(rbind, stair_list)

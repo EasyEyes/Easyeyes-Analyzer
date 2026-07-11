@@ -58,11 +58,24 @@ create_app_profiler <- function(name = "session", enabled = TRUE) {
   }
 
   list(
-    reset = function(label = "start") {
+    # Restart the profiling clock. If report_previous=TRUE and a prior START
+    # exists, also emit elapsed time since that START (useful for gaps that
+    # are mostly client/upload wait, not R work).
+    reset = function(label = "start", report_previous = FALSE) {
       t <- now()
+      if (isTRUE(report_previous) && !is.null(state$start)) {
+        elapsed <- t - state$start
+        emit(sprintf(
+          "%s | +%.3fs since previous START | %s",
+          state$name,
+          elapsed,
+          label
+        ))
+      } else {
+        emit(paste0(state$name, " | START | ", label))
+      }
       state$start <- t
       state$last <- t
-      emit(paste0(state$name, " | START | ", label))
       invisible(NULL)
     },
     mark = function(label, detail = NULL) {

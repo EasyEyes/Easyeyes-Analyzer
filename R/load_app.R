@@ -1,6 +1,7 @@
 # Load all server-side R modules in dependency order.
 source("R/utils/logger.R")
 source("R/constant.R")
+source("R/plot/simulatedRSVP.R")  # extractStaircases() used by preprocess
 source("R/preprocess.R")
 source("R/threshold_and_warning.R")
 
@@ -18,7 +19,6 @@ source("R/plot/scatter_plots.R")
 source("R/plot/readingPlots.R")
 source("R/plot/customized_inplot_table.R")
 source("R/plot/profile_plot.R")
-source("R/plot/simulatedRSVP.R")
 source("R/plot/font_aggregated_plots.R")
 source("R/plot/acuityPlot.R")
 source("R/plot/crowdingrsvp.R")
