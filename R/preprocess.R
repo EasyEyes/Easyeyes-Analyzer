@@ -1211,6 +1211,13 @@ read_files <- function(file, progress = NULL){
     }
 
     df_parts[[i]] <- data_list[[i]] %>%
+      transmute(
+        participant = as.character(participant),
+        ParticipantCode = as.character(ParticipantCode),
+        # Sessions may store BirthMonthYear as char or numeric; unify for bind_rows.
+        BirthMonthYear = as.character(BirthMonthYear),
+        age = suppressWarnings(as.numeric(age))
+      ) %>%
       distinct(participant, ParticipantCode, BirthMonthYear, age)
   }
   df <- bind_rows(df_parts)
