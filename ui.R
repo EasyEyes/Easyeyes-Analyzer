@@ -17,8 +17,11 @@ shinyUI(
       tags$head(
         tags$script(type = "text/javascript",
                     src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"),
+        # JSZip used to DEFLATE STORE zips / pack CSVs before Shiny upload
+        tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"),
         tags$script(src = "ui.js"),
         tags$script(src = "controlPanel.js"),
+        tags$script(src = "compressBeforeUpload.js"),
         tags$script(src = "fileUploadProgress.js"),
         tags$link(rel = "stylesheet", type = "text/css", href = "ui.css"),
         tags$script(HTML("

@@ -138,22 +138,45 @@
     }
 
     state.phase = "uploading";
-    if (info.pct >= 99.5) {
-      state.lastPct = 100;
+
+    // Shiny's FileUploader calls onProgress(file, 0) at the start of EVERY
+    // file, which sets the native bar to 0% even when earlier files already
+    // finished. Ignore that regression so the modal doesn't jump around.
+    if (
+      state.lastPct > 1 &&
+      info.pct < state.lastPct - 1 &&
+      info.pct < 5
+    ) {
+      // Keep prior %; refresh detail with the new filename if present.
       setModalProgress(
-        100,
-        buildUploadDetail(100, info.fileName),
+        state.lastPct,
+        buildUploadDetail(state.lastPct, info.fileName),
         "Uploading file(s)..."
       );
+      return;
+    }
+
+    // Keep progress monotonic across files.
+    var pct = info.pct;
+    if (pct < state.lastPct) {
+      pct = state.lastPct;
+    }
+
+    // Do NOT treat mid-batch peaks as "upload complete". Shiny may briefly
+    // report ~100% for overall bytes while still active, or we may be
+    // between files. Wait until the progress widget deactivates, or until
+    // shiny:inputchanged (handled elsewhere).
+    if (pct >= 99.5 && !shinyProgressActive()) {
+      state.lastPct = 100;
       markWaitingForServer();
       return;
     }
 
-    if (Math.abs(info.pct - state.lastPct) < 0.05) return;
-    state.lastPct = info.pct;
+    if (Math.abs(pct - state.lastPct) < 0.05 && pct < 99.5) return;
+    state.lastPct = pct;
     setModalProgress(
-      info.pct,
-      buildUploadDetail(info.pct, info.fileName),
+      pct,
+      buildUploadDetail(pct, info.fileName),
       "Uploading file(s)..."
     );
   }
@@ -253,11 +276,54 @@
     if (input.dataset.easyeyesUploadBound === "1") return true;
     input.dataset.easyeyesUploadBound = "1";
 
-    input.addEventListener("change", function () {
-      if (this.files && this.files.length > 0) {
-        onFilesChosen(this.files);
-      }
-    });
+    // Capture phase so we can compress BEFORE Shiny's uploader runs.
+    input.addEventListener(
+      "change",
+      function (event) {
+        var el = this;
+        if (!el.files || el.files.length === 0) return;
+
+        // Second change after we assigned a compressed File — let Shiny run.
+        if (el.dataset.easyeyesPrecompressed === "1") {
+          onFilesChosen(el.files);
+          return;
+        }
+
+        event.stopImmediatePropagation();
+        event.preventDefault();
+
+        var files = el.files;
+        var runUploadAsIs = function () {
+          // Re-dispatch so Shiny uploads the original selection.
+          el.dataset.easyeyesPrecompressed = "1";
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+          window.setTimeout(function () {
+            delete el.dataset.easyeyesPrecompressed;
+          }, 0);
+        };
+
+        if (
+          !window.EasyEyesCompressUpload ||
+          !EasyEyesCompressUpload.maybeCompressBeforeUpload
+        ) {
+          onFilesChosen(files);
+          runUploadAsIs();
+          return;
+        }
+
+        EasyEyesCompressUpload.maybeCompressBeforeUpload(el, files).then(
+          function (handled) {
+            if (handled) {
+              // Compress path already re-dispatched change with new files.
+              return;
+            }
+            onFilesChosen(files);
+            runUploadAsIs();
+          }
+        );
+      },
+      true
+    );
     return true;
   }
 
