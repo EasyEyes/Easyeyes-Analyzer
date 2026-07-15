@@ -50,7 +50,12 @@ register_plots_tab_server <- function(output,
                                       fontAggregatedReadingRsvpCrowding,
                                       fontAggregatedOrdinaryReadingCrowding,
                                       fontAggregatedRsvpCrowding,
-                                      app_profiler = NULL) {
+                                      app_profiler = NULL,
+                                      maxPlotsHistSlots = 36,
+                                      maxPlotsAgeSlots = 12,
+                                      maxPlotsScatterSlots = 30,
+                                      maxPlotsViolinSlots = 10,
+                                      maxPlotsFontComparisonSlots = 10) {
 
   crowdingPlot <- reactive({
     if (is.null(crowdingBySide())) {
@@ -357,32 +362,41 @@ register_plots_tab_server <- function(output,
     )
     })
   })
-  # Progressive rendering for Plots tab renderImage slots (p*, hist*, scatter*).
+  # Progressive rendering follows Plots tab page order:
+  # histograms → violin → font comparison → scatter → age / RSVP later sections.
   plotsRenderCount <- reactiveVal(0)
   histRenderCount <- reactiveVal(0)
+  histRenderedCount <- reactiveVal(0)
+  violinRenderCount <- reactiveVal(0)
+  violinRenderedCount <- reactiveVal(0)
+  fontComparisonRenderCount <- reactiveVal(0)
+  fontComparisonRenderedCount <- reactiveVal(0)
   scatterRenderCount <- reactiveVal(0)
+  scatterRenderedCount <- reactiveVal(0)
 
-  observeEvent(agePlots(), { plotsRenderCount(0) }, ignoreInit = FALSE)
-  observeEvent(histograms(), { histRenderCount(0) }, ignoreInit = FALSE)
-  observeEvent(scatterDiagrams(), { scatterRenderCount(0) }, ignoreInit = FALSE)
-  observeEvent(files(), {
-    plotsRenderCount(0)
-    histRenderCount(0)
+  reset_downstream_render_counts <- function() {
+    violinRenderCount(0)
+    violinRenderedCount(0)
+    fontComparisonRenderCount(0)
+    fontComparisonRenderedCount(0)
     scatterRenderCount(0)
+    scatterRenderedCount(0)
+    plotsRenderCount(0)
+  }
+
+  observeEvent(histograms(), {
+    histRenderCount(0)
+    histRenderedCount(0)
+    reset_downstream_render_counts()
+  }, ignoreInit = FALSE)
+  observeEvent(files(), {
+    histRenderCount(0)
+    histRenderedCount(0)
+    reset_downstream_render_counts()
   }, ignoreInit = TRUE)
 
   observe({
-    total <- length(agePlots()$plotList)
-    current <- plotsRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      plotsRenderCount(current + 1)
-    }
-  })
-
-  observe({
-    total <- length(histograms()$plotList)
+    total <- min(length(histograms()$plotList), maxPlotsHistSlots)
     current <- histRenderCount()
     if (is.null(total) || total <= 0) return()
     if (current < total) {
@@ -391,13 +405,123 @@ register_plots_tab_server <- function(output,
     }
   })
 
+  histImagesReady <- reactive({
+    total <- min(length(histograms()$plotList), maxPlotsHistSlots)
+    is.null(total) || total <= 0 || histRenderedCount() >= total
+  })
+
+  observeEvent(histImagesReady(), {
+    if (!isTRUE(histImagesReady())) return(invisible(NULL))
+    violinRenderCount(0)
+    violinRenderedCount(0)
+  }, ignoreInit = TRUE)
+
+  observeEvent(violinPlots(), {
+    if (isTRUE(histImagesReady())) {
+      violinRenderCount(0)
+      violinRenderedCount(0)
+    }
+  }, ignoreInit = FALSE)
+
   observe({
-    total <- length(scatterDiagrams()$plotList)
+    req(histImagesReady())
+    total <- min(length(violinPlots()$plotList), maxPlotsViolinSlots)
+    current <- violinRenderCount()
+    if (is.null(total) || total <= 0) return()
+    if (current < total) {
+      invalidateLater(200, session)
+      violinRenderCount(current + 1)
+    }
+  })
+
+  violinImagesReady <- reactive({
+    if (!isTRUE(histImagesReady())) return(FALSE)
+    total <- min(length(violinPlots()$plotList), maxPlotsViolinSlots)
+    is.null(total) || total <= 0 || violinRenderedCount() >= total
+  })
+
+  observeEvent(violinImagesReady(), {
+    if (!isTRUE(violinImagesReady())) return(invisible(NULL))
+    fontComparisonRenderCount(0)
+    fontComparisonRenderedCount(0)
+  }, ignoreInit = TRUE)
+
+  observeEvent(fontComparisonPlots(), {
+    if (isTRUE(violinImagesReady())) {
+      fontComparisonRenderCount(0)
+      fontComparisonRenderedCount(0)
+    }
+  }, ignoreInit = FALSE)
+
+  observe({
+    req(violinImagesReady())
+    total <- min(length(fontComparisonPlots()$plotList), maxPlotsFontComparisonSlots)
+    current <- fontComparisonRenderCount()
+    if (is.null(total) || total <= 0) return()
+    if (current < total) {
+      invalidateLater(200, session)
+      fontComparisonRenderCount(current + 1)
+    }
+  })
+
+  fontComparisonImagesReady <- reactive({
+    if (!isTRUE(violinImagesReady())) return(FALSE)
+    total <- min(length(fontComparisonPlots()$plotList), maxPlotsFontComparisonSlots)
+    is.null(total) || total <= 0 || fontComparisonRenderedCount() >= total
+  })
+
+  observeEvent(fontComparisonImagesReady(), {
+    if (!isTRUE(fontComparisonImagesReady())) return(invisible(NULL))
+    scatterRenderCount(0)
+    scatterRenderedCount(0)
+  }, ignoreInit = TRUE)
+
+  observeEvent(scatterDiagrams(), {
+    if (isTRUE(fontComparisonImagesReady())) {
+      scatterRenderCount(0)
+      scatterRenderedCount(0)
+    }
+  }, ignoreInit = FALSE)
+
+  observe({
+    req(fontComparisonImagesReady())
+    total <- min(length(scatterDiagrams()$plotList), maxPlotsScatterSlots)
     current <- scatterRenderCount()
     if (is.null(total) || total <= 0) return()
     if (current < total) {
       invalidateLater(200, session)
       scatterRenderCount(current + 1)
+    }
+  })
+
+  scatterImagesReady <- reactive({
+    if (!isTRUE(fontComparisonImagesReady())) return(FALSE)
+    total <- min(length(scatterDiagrams()$plotList), maxPlotsScatterSlots)
+    is.null(total) || total <= 0 || scatterRenderedCount() >= total
+  })
+
+  # RSVP / ordinary / age sections sit below scatters on the page.
+  laterSectionsReady <- reactive({
+    isTRUE(scatterImagesReady())
+  })
+
+  observeEvent(scatterImagesReady(), {
+    if (!isTRUE(scatterImagesReady())) return(invisible(NULL))
+    plotsRenderCount(0)
+  }, ignoreInit = TRUE)
+
+  observeEvent(agePlots(), {
+    if (isTRUE(scatterImagesReady())) plotsRenderCount(0)
+  }, ignoreInit = FALSE)
+
+  observe({
+    req(scatterImagesReady())
+    total <- min(length(agePlots()$plotList), maxPlotsAgeSlots)
+    current <- plotsRenderCount()
+    if (is.null(total) || total <= 0) return()
+    if (current < total) {
+      invalidateLater(200, session)
+      plotsRenderCount(current + 1)
     }
   })
   gradePlots <- reactive({
@@ -588,6 +712,7 @@ register_plots_tab_server <- function(output,
   }, deleteFile = TRUE)
   
   output$fontAggregatedReadingRsvpCrowdingPlot <- renderImage({
+    req(laterSectionsReady())
     app_profile_time(app_profiler, "Plots font-aggregated reading RSVP crowding image", {
     tryCatch({
       plot <- fontAggregatedReadingRsvpCrowding()
@@ -606,6 +731,7 @@ register_plots_tab_server <- function(output,
   }, deleteFile = TRUE)
   
   output$fontAggregatedOrdinaryReadingCrowdingPlot <- renderImage({
+    req(laterSectionsReady())
     app_profile_time(app_profiler, "Plots font-aggregated ordinary reading crowding image", {
     tryCatch({
       plot <- fontAggregatedOrdinaryReadingCrowding()
@@ -624,6 +750,7 @@ register_plots_tab_server <- function(output,
   }, deleteFile = TRUE)
   
   output$fontAggregatedRsvpCrowdingPlot <- renderImage({
+    req(laterSectionsReady())
     app_profile_time(app_profiler, "Plots font-aggregated RSVP crowding image", {
     tryCatch({
       plot <- fontAggregatedRsvpCrowding()
@@ -641,54 +768,93 @@ register_plots_tab_server <- function(output,
     })
   }, deleteFile = TRUE)
   
-  #### age plots ####
-  output$plots <- renderUI({
-    plotList <- agePlots()$plotList
-    fileNames <- agePlots()$fileNames
-    n <- length(plotList)
-    out <- list()
-    if (n == 0) {
-      return(out)
-    }
-    
-    for (i in seq(from = 1, to = n, by = 2)) {
-      if (i + 1 <= n) {
-        out[[length(out) + 1]] <- splitLayout(
-          cellWidths = c("50%", "50%"),
-          withSpinner(plotOutput(paste0("p", i), width = "100%", height = "100%"), type = 4),
-          withSpinner(plotOutput(paste0("p", i + 1), width = "100%", height = "100%"), type = 4)
-        )
-        out[[length(out) + 1]] <- splitLayout(
-          cellWidths = c("50%", "50%"),
-          downloadButton(paste0("downloadP", i), 'Download'),
-          downloadButton(paste0("downloadP", i + 1), 'Download')
-        )
-      } else {
-        out[[length(out) + 1]] <- splitLayout(
-          cellWidths = c("50%", "50%"),
-          withSpinner(plotOutput(paste0("p", i), width = "100%", height = "100%"), type = 4),
-          div()
-        )
-        out[[length(out) + 1]] <- splitLayout(
-          cellWidths = c("50%", "50%"),
-          downloadButton(paste0("downloadP", i), 'Download'),
-          div()
-        )
-      }
-    }
-    
-    for (j in 1:length( plotList)) {
-      local({
-        i <- j
-        output[[paste0("p", i)]] <-
-          renderImage({
-          req(i <= plotsRenderCount())
-          app_profile_time(app_profiler, paste0("Plots age image ", i), {
+  #### fixed histogram slots ####
+  for (i in seq_len(maxPlotsHistSlots)) {
+    local({
+      ii <- i
+
+      output[[paste0("hasHist", ii)]] <- reactive({
+        # Keep placeholder "x name" plots visible (previous renderUI behavior).
+        length(histograms()$plotList) >= ii
+      })
+      outputOptions(output, paste0("hasHist", ii), suspendWhenHidden = FALSE)
+
+      output[[paste0("histTitle", ii)]] <- renderText({
+        req(length(histograms()$fileNames) >= ii)
+        histograms()$fileNames[[ii]]
+      })
+
+      output[[paste0("hist", ii)]] <- renderImage({
+        req(ii <= histRenderCount())
+        req(length(histograms()$plotList) >= ii)
+        app_profile_time(app_profiler, paste0("Plots histogram image ", ii), {
+          plot_to_save <- with_plots_histogram_theme(histograms()$plotList[[ii]])
+          disp_w <- session$clientData[[paste0("output_hist", ii, "_width")]]
+          if (is.null(disp_w) || is.na(disp_w) || disp_w <= 0) disp_w <- 380
+          result <- render_plots_display_png(
+            plot_to_save,
+            width_in = 3.5,
+            height_in = 3.5,
+            disp_w = disp_w,
+            disp_h = disp_w,
+            png_theme_profile = "histogram",
+            limitsize = FALSE
+          )
+          if (isolate(histRenderedCount()) < ii) histRenderedCount(ii)
+          result
+        })
+      }, deleteFile = TRUE)
+      outputOptions(output, paste0("hist", ii), suspendWhenHidden = TRUE)
+
+      output[[paste0("downloadHist", ii)]] <- downloadHandler(
+        filename = function() paste0(
+          get_short_experiment_name(experiment_names()),
+          histograms()$fileNames[[ii]],
+          ".", downloadFileType()
+        ),
+        content = function(file) {
+          req(length(histograms()$plotList) >= ii)
+          if (is_placeholder_plot(histograms()$plotList[[ii]])) return(invisible(NULL))
+          save_plots_histogram(
+            file = file,
+            plot = histograms()$plotList[[ii]],
+            file_type = downloadFileType()
+          )
+        }
+      )
+    })
+  }
+
+  #### fixed age plot slots ####
+  for (i in seq_len(maxPlotsAgeSlots)) {
+    local({
+      ii <- i
+
+      output[[paste0("hasAge", ii)]] <- reactive({
+        req(scatterImagesReady())
+        length(agePlots()$plotList) >= ii
+      })
+      outputOptions(output, paste0("hasAge", ii), suspendWhenHidden = FALSE)
+
+      output[[paste0("ageTitle", ii)]] <- renderText({
+        req(scatterImagesReady())
+        req(length(agePlots()$fileNames) >= ii)
+        agePlots()$fileNames[[ii]]
+      })
+
+      output[[paste0("age", ii)]] <- renderImage({
+        req(scatterImagesReady())
+        req(ii <= plotsRenderCount())
+        req(length(agePlots()$plotList) >= ii)
+        app_profile_time(app_profiler, paste0("Plots age image ", ii), {
           tryCatch({
-            plot_to_save <- if (is_placeholder_plot(plotList[[i]])) plotList[[i]] else plotList[[i]] + plt_theme
+            plot_to_save <- if (is_placeholder_plot(agePlots()$plotList[[ii]])) {
+              agePlots()$plotList[[ii]]
+            } else {
+              agePlots()$plotList[[ii]] + plt_theme
+            }
             render_plots_display_png(plot_to_save, width_in = 6, height_in = 6, disp_w = 700, limitsize = FALSE)
           }, error = function(e) {
-            # Show error in a ggplot-friendly way
             error_plot <- ggplot() +
               annotate(
                 "text",
@@ -701,186 +867,42 @@ register_plots_tab_server <- function(output,
                 vjust = 0.5
               ) +
               theme_void() +
-              labs(subtitle=fileNames[[i]])
+              labs(subtitle = agePlots()$fileNames[[ii]])
             render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
           })
-          })
-        
-      }, deleteFile = TRUE)
-
-        
-        output[[paste0("downloadP", i)]] <- downloadHandler(
-          filename = function() {
-            idx <- i
-            base <- if (!is.null(fileNames) && length(fileNames) >= idx && !is.null(fileNames[[idx]])) {
-              fileNames[[idx]]
-            } else {
-              paste0("plot-", idx)
-            }
-            paste0(get_short_experiment_name(experiment_names()), base, ".", downloadFileType())
-          },
-          content = function(file) {
-            # Skip download if plot is NULL/NA/placeholder
-            if (i > length(plotList) || is_placeholder_plot(plotList[[i]])) return(invisible(NULL))
-            plot <- plotList[[i]] + plt_theme
-            savePlot(
-              plot = plot,
-              filename = file,
-              fileType = downloadFileType(),
-              width = 6,
-              height = 4
-            )
-          }
-        )
-      })
-    }
-    
-    return(out)
-  })
-  
-  output$histograms <- renderUI({
-    out    <- list()
-    plots  <- histograms()$plotList
-    files  <- histograms()$fileNames
-    n      <- length(plots)
-    nPerRow <- 6
-    
-    if (n == 0) {
-      return(out)
-    }
-    
-    for (i in seq(1, n, by = nPerRow)) {
-      idx <- i:min(i + nPerRow - 1, n)
-      
-      # --- row of plots ---
-      plot_cells <- lapply(idx, function(j) {
-        shinycssloaders::withSpinner(
-          plotOutput(paste0("hist", j),
-                     width  = "100%",
-                     height = "100%"),
-          type = 4
-        )
-      })
-      # pad out any missing cells so splitLayout stays stable
-      if (length(plot_cells) < nPerRow)
-        plot_cells <- c(plot_cells, rep("", nPerRow - length(plot_cells)))
-      
-      out[[length(out) + 1]] <- do.call(splitLayout, c(
-        list(
-          cellWidths = rep("16.66%", nPerRow),
-          style      = "overflow-x: hidden; white-space: nowrap;"
-        ),
-        plot_cells
-      ))
-      
-      # --- row of download buttons ---
-      dl_cells <- lapply(idx, function(j) {
-        downloadButton(paste0("downloadHist", j), "Download")
-      })
-      if (length(dl_cells) < nPerRow)
-        dl_cells <- c(dl_cells, rep("", nPerRow - length(dl_cells)))
-      
-      out[[length(out) + 1]] <- do.call(splitLayout, c(
-        list(
-          cellWidths = rep("16.66%", nPerRow),
-          style      = "overflow-x: hidden; white-space: nowrap;"
-        ),
-        dl_cells
-      ))
-    }
-    
-    # register each renderImage & downloadHandler (unchanged)
-    for (j in seq_along(plots)) {
-      local({
-        jj <- j
-       
-      output[[paste0("hist", jj)]] <- renderImage({
-        req(jj <= histRenderCount())
-        app_profile_time(app_profiler, paste0("Plots histogram image ", jj), {
-        plot_to_save <- with_plots_histogram_theme(plots[[jj]])
-        disp_w <- session$clientData[[paste0("output_", "hist", jj, "_width")]]
-        if (is.null(disp_w) || is.na(disp_w) || disp_w <= 0) disp_w <- 380
-        render_plots_display_png(
-          plot_to_save,
-          width_in = 3.5,
-          height_in = 3.5,
-          disp_w = disp_w,
-          disp_h = disp_w,
-          png_theme_profile = "histogram",
-          limitsize = FALSE
-        )
-          # tryCatch({
-          #   outfile <- tempfile(fileext = '.svg')
-          #   ggsave(
-          #     file = outfile,
-          #     plot =  plots[[jj]],
-          #     device = svglite,
-          #     width = 2.5,
-          #     height = 2.5,
-          #     unit = 'in'
-          #   )
-          #   list(src = outfile, contenttype = 'svg')
-          # }, error = function(e) {
-          #   error_plot <- ggplot() +
-          #     annotate(
-          #       "text",
-          #       x = 0.5,
-          #       y = 0.5,
-          #       label = paste("Error:", e$message),
-          #       color = "red",
-          #       size = 5,
-          #       hjust = 0.5,
-          #       vjust = 0.5
-          #     ) +
-          #     theme_void() +
-          #     labs(subtitle=files[[jj]])
-          #   
-          #   # Save the error plot to a temp file
-          #   outfile <- tempfile(fileext = '.svg')
-          #   ggsave(
-          #     file = outfile,
-          #     plot = error_plot,
-          #     device = svglite,
-          #     width = 2.5,
-          #     height = 2.5,
-          #     unit = 'in'
-          #   )
-          #   list(
-          #     src = outfile,
-          #     contenttype = 'svg',
-          #     alt = paste0("Error in ", files[[jj]])
-          #   )
-          # })
         })
-        }, deleteFile = TRUE)
-        outputOptions(output, paste0("hist", jj), suspendWhenHidden = TRUE)
-        
-        output[[paste0("downloadHist", jj)]] <- downloadHandler(
-          filename = function() paste0(
-            get_short_experiment_name(experiment_names()),
-            files[[jj]],
-            ".", downloadFileType()
-          ),
-          content = function(file) {
-            # Skip download if plot is NULL/NA/placeholder
-            if (is_placeholder_plot(plots[[jj]])) return(invisible(NULL))
+      }, deleteFile = TRUE)
+      outputOptions(output, paste0("age", ii), suspendWhenHidden = TRUE)
 
-            save_plots_histogram(
-              file = file,
-              plot = plots[[jj]],
-              file_type = downloadFileType()
-            )
+      output[[paste0("downloadAge", ii)]] <- downloadHandler(
+        filename = function() {
+          base <- if (!is.null(agePlots()$fileNames) && length(agePlots()$fileNames) >= ii && !is.null(agePlots()$fileNames[[ii]])) {
+            agePlots()$fileNames[[ii]]
+          } else {
+            paste0("plot-", ii)
           }
-        )
-      })
-    }
-    
-    return(out)
-  })
-  
+          paste0(get_short_experiment_name(experiment_names()), base, ".", downloadFileType())
+        },
+        content = function(file) {
+          req(length(agePlots()$plotList) >= ii)
+          if (is_placeholder_plot(agePlots()$plotList[[ii]])) return(invisible(NULL))
+          plot <- agePlots()$plotList[[ii]] + plt_theme
+          savePlot(
+            plot = plot,
+            filename = file,
+            fileType = downloadFileType(),
+            width = 6,
+            height = 4
+          )
+        }
+      )
+    })
+  }
+
   observeEvent(stackedPlots(), {
     # RSVP
     output$stackedRsvpPlot <- renderImage({
+      req(histImagesReady())
       app_profile_time(app_profiler, "Plots stacked RSVP image", {
       base_plot <- stackedPlots()$rsvp_plot +
         plt_theme +
@@ -995,6 +1017,7 @@ register_plots_tab_server <- function(output,
     
     # Crowding
     output$stackedCrowdingPlot <- renderImage({
+      req(histImagesReady())
       app_profile_time(app_profiler, "Plots stacked crowding image", {
       render_plots_display_png(
         stackedPlots()$crowding_plot + plt_theme + stacked_theme,
@@ -1052,6 +1075,7 @@ register_plots_tab_server <- function(output,
     
     # Foveal Acuity
     output$stackedFovealAcuityPlot <- renderImage({
+      req(histImagesReady())
       app_profile_time(app_profiler, "Plots stacked foveal acuity image", {
       render_plots_display_png(
         stackedPlots()$foveal_acuity_plot + plt_theme + stacked_theme,
@@ -1108,6 +1132,7 @@ register_plots_tab_server <- function(output,
     
     # Foveal Crowding
     output$stackedFovealCrowdingPlot <- renderImage({
+      req(histImagesReady())
       app_profile_time(app_profiler, "Plots stacked foveal crowding image", {
       render_plots_display_png(
         stackedPlots()$foveal_crowding_plot + plt_theme + stacked_theme,
@@ -1160,6 +1185,7 @@ register_plots_tab_server <- function(output,
     
     # Foveal Repeated
     output$stackedFovealRepeatedPlot <- renderImage({
+      req(histImagesReady())
       app_profile_time(app_profiler, "Plots stacked foveal repeated image", {
       render_plots_display_png(
         stackedPlots()$foveal_repeated_plot + plt_theme + stacked_theme,
@@ -1212,6 +1238,7 @@ register_plots_tab_server <- function(output,
     
     # Peripheral Acuity
     output$stackedPeripheralAcuityPlot <- renderImage({
+      req(histImagesReady())
       app_profile_time(app_profiler, "Plots stacked peripheral acuity image", {
       render_plots_display_png(
         stackedPlots()$peripheral_acuity_plot + plt_theme + stacked_theme,
@@ -1264,168 +1291,124 @@ register_plots_tab_server <- function(output,
       )
   })
   
-  output$scatters <- renderUI({
-    out <- list()
-    i = 1
-    while (i <= length(scatterDiagrams()$plotList) - 1) {
-      out[[i]] <-  splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("scatter", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("scatter", i + 1),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      out[[i + 1]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        downloadButton(paste0("downloadScatter", i), 'Download'),
-        downloadButton(paste0("downloadScatter", i +
-                                1), 'Download')
-      )
-      i = i + 2
-    }
-    if (i == length(scatterDiagrams()$plotList)) {
-      out[[i]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("scatter", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                  downloadButton(paste0("downloadScatter", i), 'Download'))
-    }
-    for (j in 1:length(scatterDiagrams()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("scatter", ii)]] <- renderImage({
-          req(ii <= scatterRenderCount())
+  #### fixed scatter slots ####
+  for (i in seq_len(maxPlotsScatterSlots)) {
+    local({
+      ii <- i
 
-          app_profile_time(app_profiler, paste0("Plots scatter image ", ii), {
+      output[[paste0("hasScatter", ii)]] <- reactive({
+        req(fontComparisonImagesReady())
+        length(scatterDiagrams()$plotList) >= ii
+      })
+      outputOptions(output, paste0("hasScatter", ii), suspendWhenHidden = FALSE)
+
+      output[[paste0("scatterTitle", ii)]] <- renderText({
+        req(fontComparisonImagesReady())
+        req(length(scatterDiagrams()$fileNames) >= ii)
+        scatterDiagrams()$fileNames[[ii]]
+      })
+
+      output[[paste0("scatter", ii)]] <- renderImage({
+        req(fontComparisonImagesReady())
+        req(ii <= scatterRenderCount())
+        req(length(scatterDiagrams()$plotList) >= ii)
+        app_profile_time(app_profiler, paste0("Plots scatter image ", ii), {
           tryCatch({
             plot_to_save <- if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) {
               scatterDiagrams()$plotList[[ii]]
             } else {
               scatterDiagrams()$plotList[[ii]] + plt_theme_scatter
             }
-            render_plots_display_png(plot_to_save, width_in = 7, height_in = 7, disp_w = 700, limitsize = FALSE)
+            result <- render_plots_display_png(plot_to_save, width_in = 7, height_in = 7, disp_w = 700, limitsize = FALSE)
+            if (isolate(scatterRenderedCount()) < ii) scatterRenderedCount(ii)
+            result
           }, error = function(e) {
-          handle_plot_error(e, paste0("scatter", ii), experiment_names(), scatterDiagrams()$fileNames[[ii]])
+            if (isolate(scatterRenderedCount()) < ii) scatterRenderedCount(ii)
+            handle_plot_error(e, paste0("scatter", ii), experiment_names(), scatterDiagrams()$fileNames[[ii]])
           })
-          })
-          
-        }, deleteFile = TRUE)
-        outputOptions(output, paste0("scatter", ii), suspendWhenHidden = TRUE)
-        output[[paste0("downloadScatter", ii)]] <-
-          downloadHandler(
-            filename = function() paste0(
-              get_short_experiment_name(experiment_names()),
-              scatterDiagrams()$fileNames[[ii]],
-              '.',
-              downloadFileType()
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (downloadFileType() == "png") {
-                ggsave(
-                  filename = file,
-                  plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-                  device = ragg::agg_png,
-                  width = 7,
-                  height = 7,
-                  units = "in",
-                  dpi = 200,
-                  limitsize = FALSE
-                )
-              } else {
-                ggsave(
-                  file,
-                  plot = scatterDiagrams()$plotList[[ii]] +
-                    plt_theme_scatter,
-                  width = 7,
-                  height = 7,
-                  units = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    downloadFileType() == "svg",
-                    svglite::svglite,
-                    downloadFileType()
-                  )
-                )
-              }
-            }
-          )
+        })
+      }, deleteFile = TRUE)
+      outputOptions(output, paste0("scatter", ii), suspendWhenHidden = TRUE)
+
+      output[[paste0("downloadScatter", ii)]] <- downloadHandler(
+        filename = function() paste0(
+          get_short_experiment_name(experiment_names()),
+          scatterDiagrams()$fileNames[[ii]],
+          ".",
+          downloadFileType()
+        ),
+        content = function(file) {
+          req(fontComparisonImagesReady())
+          req(length(scatterDiagrams()$plotList) >= ii)
+          if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) return(invisible(NULL))
+
+          if (downloadFileType() == "png") {
+            ggsave(
+              filename = file,
+              plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+              device = ragg::agg_png,
+              width = 7,
+              height = 7,
+              units = "in",
+              dpi = 200,
+              limitsize = FALSE
+            )
+          } else {
+            ggsave(
+              file,
+              plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+              width = 7,
+              height = 7,
+              units = "in",
+              limitsize = FALSE,
+              device = ifelse(
+                downloadFileType() == "svg",
+                svglite::svglite,
+                downloadFileType()
+              )
+            )
+          }
+        }
+      )
+    })
+  }
+
+  #### fixed violin slots ####
+  for (i in seq_len(maxPlotsViolinSlots)) {
+    local({
+      ii <- i
+
+      output[[paste0("hasViolin", ii)]] <- reactive({
+        req(histImagesReady())
+        length(violinPlots()$plotList) >= ii
       })
-    }
-    return(out)
-  })
-  
-  output$violinPlots <- renderUI({
-    out <- list()
-    i = 1
-    while (i <= length(violinPlots()$plotList) - 1) {
-      out[[i]] <-  splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("violin", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("violin", i + 1),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      out[[i + 1]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        downloadButton(paste0("downloadViolin", i), 'Download'),
-        downloadButton(paste0("downloadViolin", i +
-                                1), 'Download')
-      )
-      i = i + 2
-    }
-    if (i == length(violinPlots()$plotList)) {
-      out[[i]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("violin", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                  downloadButton(paste0("downloadViolin", i), 'Download'))
-    }
-    
-    # Generate the plots and download handlers
-    for (j in 1:length(violinPlots()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("violin", ii)]] <- renderImage({
-          app_profile_time(app_profiler, paste0("Plots violin image ", ii), {
+      outputOptions(output, paste0("hasViolin", ii), suspendWhenHidden = FALSE)
+
+      output[[paste0("violinTitle", ii)]] <- renderText({
+        req(histImagesReady())
+        req(length(violinPlots()$fileNames) >= ii)
+        violinPlots()$fileNames[[ii]]
+      })
+
+      output[[paste0("violin", ii)]] <- renderImage({
+        req(histImagesReady())
+        req(ii <= violinRenderCount())
+        req(length(violinPlots()$plotList) >= ii)
+        app_profile_time(app_profiler, paste0("Plots violin image ", ii), {
           tryCatch({
-            render_plots_display_png(
-              violinPlots()$plotList[[ii]] + plt_theme,
+            result <- render_plots_display_png(
+              if (is_placeholder_plot(violinPlots()$plotList[[ii]])) {
+                violinPlots()$plotList[[ii]]
+              } else {
+                violinPlots()$plotList[[ii]] + plt_theme
+              },
               width_in = 8,
               height_in = 6,
               disp_w = 700,
               limitsize = FALSE
             )
+            if (isolate(violinRenderedCount()) < ii) violinRenderedCount(ii)
+            result
           }, error = function(e) {
             error_plot <- ggplot() +
               annotate(
@@ -1439,118 +1422,95 @@ register_plots_tab_server <- function(output,
                 vjust = 0.5
               ) +
               theme_void() +
-              labs(subtitle=violinPlots()$fileNames[[ii]])
-            render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
+              labs(subtitle = violinPlots()$fileNames[[ii]])
+            result <- render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
+            if (isolate(violinRenderedCount()) < ii) violinRenderedCount(ii)
+            result
           })
-          })
-        }, deleteFile = TRUE)
-        
-        output[[paste0("downloadViolin", ii)]] <-
-          downloadHandler(
-            filename = function() paste0(
-              get_short_experiment_name(experiment_names()),
-              violinPlots()$fileNames[[ii]],
-              '.',
-              downloadFileType()
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(violinPlots()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (downloadFileType() == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-                ggsave(
-                  tmp_svg,
-                  plot = violinPlots()$plotList[[ii]] +
-                    plt_theme,
-                  width = 8,
-                  height = 6,
-                  unit = "in",
-                  limitsize = F,
-                  device = svglite
-                )
-                rsvg::rsvg_png(tmp_svg,
-                               file,
-                               width = 1800,
-                               height = 1350)
-              } else {
-                ggsave(
-                  file,
-                  plot = violinPlots()$plotList[[ii]] +
-                    plt_theme,
-                  width = 8,
-                  height = 6,
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    downloadFileType() == "svg",
-                    svglite::svglite,
-                    downloadFileType()
-                  )
-                )
-              }
-            }
-          )
+        })
+      }, deleteFile = TRUE)
+      outputOptions(output, paste0("violin", ii), suspendWhenHidden = TRUE)
+
+      output[[paste0("downloadViolin", ii)]] <- downloadHandler(
+        filename = function() paste0(
+          get_short_experiment_name(experiment_names()),
+          violinPlots()$fileNames[[ii]],
+          ".",
+          downloadFileType()
+        ),
+        content = function(file) {
+          req(histImagesReady())
+          req(length(violinPlots()$plotList) >= ii)
+          if (is_placeholder_plot(violinPlots()$plotList[[ii]])) return(invisible(NULL))
+
+          if (downloadFileType() == "png") {
+            tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+            ggsave(
+              tmp_svg,
+              plot = violinPlots()$plotList[[ii]] + plt_theme,
+              width = 8,
+              height = 6,
+              unit = "in",
+              limitsize = FALSE,
+              device = svglite
+            )
+            rsvg::rsvg_png(tmp_svg, file, width = 1800, height = 1350)
+          } else {
+            ggsave(
+              file,
+              plot = violinPlots()$plotList[[ii]] + plt_theme,
+              width = 8,
+              height = 6,
+              unit = "in",
+              limitsize = FALSE,
+              device = ifelse(
+                downloadFileType() == "svg",
+                svglite::svglite,
+                downloadFileType()
+              )
+            )
+          }
+        }
+      )
+    })
+  }
+
+  #### fixed font comparison slots ####
+  for (i in seq_len(maxPlotsFontComparisonSlots)) {
+    local({
+      ii <- i
+
+      output[[paste0("hasFontComparison", ii)]] <- reactive({
+        req(violinImagesReady())
+        length(fontComparisonPlots()$plotList) >= ii
       })
-    }
-    
-    return(out)
-  })
-  
-  output$fontComparisonPlots <- renderUI({
-    out <- list()
-    i = 1
-    while (i <= length(fontComparisonPlots()$plotList) - 1) {
-      out[[i]] <-  splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("fontComparison", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("fontComparison", i + 1),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      out[[i + 1]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        downloadButton(paste0("downloadFontComparison", i), 'Download'),
-        downloadButton(paste0("downloadFontComparison", i + 1), 'Download')
-      )
-      i = i + 2
-    }
-    if (i == length(fontComparisonPlots()$plotList)) {
-      out[[i]] <- splitLayout(
-        cellWidths = c("50%", "50%"),
-        shinycssloaders::withSpinner(plotOutput(
-          paste0("fontComparison", i),
-          width = "100%",
-          height = "100%"
-        ),
-        type = 4)
-      )
-      out[[i + 1]] <- splitLayout(cellWidths = c("50%", "50%"),
-                                  downloadButton(paste0("downloadFontComparison", i), 'Download'))
-    }
-    
-    # Generate the plots and download handlers
-    for (j in 1:length(fontComparisonPlots()$plotList)) {
-      local({
-        ii <- j
-        output[[paste0("fontComparison", ii)]] <- renderImage({
-          app_profile_time(app_profiler, paste0("Plots font comparison image ", ii), {
+      outputOptions(output, paste0("hasFontComparison", ii), suspendWhenHidden = FALSE)
+
+      output[[paste0("fontComparisonTitle", ii)]] <- renderText({
+        req(violinImagesReady())
+        req(length(fontComparisonPlots()$fileNames) >= ii)
+        fontComparisonPlots()$fileNames[[ii]]
+      })
+
+      output[[paste0("fontComparison", ii)]] <- renderImage({
+        req(violinImagesReady())
+        req(ii <= fontComparisonRenderCount())
+        req(length(fontComparisonPlots()$plotList) >= ii)
+        app_profile_time(app_profiler, paste0("Plots font comparison image ", ii), {
           tryCatch({
-            render_plots_display_png(
-              fontComparisonPlots()$plotList[[ii]] + plt_theme,
+            result <- render_plots_display_png(
+              if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) {
+                fontComparisonPlots()$plotList[[ii]]
+              } else {
+                fontComparisonPlots()$plotList[[ii]] + plt_theme
+              },
               width_in = 8,
               height_in = 6,
               disp_w = 700,
               limitsize = FALSE
             )
+            if (isolate(fontComparisonRenderedCount()) < ii) fontComparisonRenderedCount(ii)
+            result
           }, error = function(e) {
             error_plot <- ggplot() +
               annotate(
@@ -1564,69 +1524,65 @@ register_plots_tab_server <- function(output,
                 vjust = 0.5
               ) +
               theme_void() +
-              labs(subtitle=fontComparisonPlots()$fileNames[[ii]])
-            render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
+              labs(subtitle = fontComparisonPlots()$fileNames[[ii]])
+            result <- render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
+            if (isolate(fontComparisonRenderedCount()) < ii) fontComparisonRenderedCount(ii)
+            result
           })
-          })
-        }, deleteFile = TRUE)
-        
-        output[[paste0("downloadFontComparison", ii)]] <-
-          downloadHandler(
-            filename = function() paste0(
-              get_short_experiment_name(experiment_names()),
-              fontComparisonPlots()$fileNames[[ii]],
-              '.',
-              downloadFileType()
-            ),
-            content = function(file) {
-              # Skip download if plot is NULL/NA/placeholder
-              if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) return(invisible(NULL))
-              
-              if (downloadFileType() == "png") {
-                tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-                ggsave(
-                  tmp_svg,
-                  plot = fontComparisonPlots()$plotList[[ii]] +
-                    plt_theme,
-                  width = 8,
-                  height = 6,
-                  unit = "in",
-                  limitsize = F,
-                  device = svglite
-                )
-                rsvg::rsvg_png(tmp_svg,
-                               file,
-                               width = 1800,
-                               height = 1350)
-              } else {
-                ggsave(
-                  file,
-                  plot = fontComparisonPlots()$plotList[[ii]] +
-                    plt_theme,
-                  width = 8,
-                  height = 6,
-                  unit = "in",
-                  limitsize = F,
-                  device = ifelse(
-                    downloadFileType() == "svg",
-                    svglite::svglite,
-                    downloadFileType()
-                  )
-                )
-              }
-            }
-          )
-      })
-    }
-    
-    return(out)
-  })
+        })
+      }, deleteFile = TRUE)
+      outputOptions(output, paste0("fontComparison", ii), suspendWhenHidden = TRUE)
+
+      output[[paste0("downloadFontComparison", ii)]] <- downloadHandler(
+        filename = function() paste0(
+          get_short_experiment_name(experiment_names()),
+          fontComparisonPlots()$fileNames[[ii]],
+          ".",
+          downloadFileType()
+        ),
+        content = function(file) {
+          req(violinImagesReady())
+          req(length(fontComparisonPlots()$plotList) >= ii)
+          if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) return(invisible(NULL))
+
+          if (downloadFileType() == "png") {
+            tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
+            ggsave(
+              tmp_svg,
+              plot = fontComparisonPlots()$plotList[[ii]] + plt_theme,
+              width = 8,
+              height = 6,
+              unit = "in",
+              limitsize = FALSE,
+              device = svglite
+            )
+            rsvg::rsvg_png(tmp_svg, file, width = 1800, height = 1350)
+          } else {
+            ggsave(
+              file,
+              plot = fontComparisonPlots()$plotList[[ii]] + plt_theme,
+              width = 8,
+              height = 6,
+              unit = "in",
+              limitsize = FALSE,
+              device = ifelse(
+                downloadFileType() == "svg",
+                svglite::svglite,
+                downloadFileType()
+              )
+            )
+          }
+        }
+      )
+    })
+  }
 
   list(
     agePlots = agePlots,
     histograms = histograms,
     scatterDiagrams = scatterDiagrams,
     violinPlots = violinPlots,
-    fontComparisonPlots = fontComparisonPlots
+    fontComparisonPlots = fontComparisonPlots,
+    laterSectionsReady = laterSectionsReady
   )
 }

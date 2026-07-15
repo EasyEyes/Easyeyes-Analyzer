@@ -446,19 +446,6 @@ shinyServer(function(input, output, session) {
     })
   })
 
-  register_plots_reading_rsvp_ggiraph_outputs(
-    output = output,
-    experiment_names = experiment_names,
-    rsvpCrowding = rsvpCrowding,
-    rsvpAcuityFoveal = rsvpAcuityFoveal,
-    rsvpAcuityPeripheral = rsvpAcuityPeripheral,
-    rsvp_repeated_letter_crowding = rsvp_repeated_letter_crowding,
-    ordinaryAcuityFoveal = ordinaryAcuityFoveal,
-    ordinaryAcuityPeripheral = ordinaryAcuityPeripheral,
-    ordinaryCrowdingPlots = ordinaryCrowdingPlots,
-    readingRepeatedPlots = readingRepeatedPlots
-  )
-
   plotsTab <- register_plots_tab_server(
     output = output,
     session = session,
@@ -476,6 +463,20 @@ shinyServer(function(input, output, session) {
     fontAggregatedOrdinaryReadingCrowding = fontAggregatedOrdinaryReadingCrowding,
     fontAggregatedRsvpCrowding = fontAggregatedRsvpCrowding,
     app_profiler = app_profiler
+  )
+
+  register_plots_reading_rsvp_ggiraph_outputs(
+    output = output,
+    experiment_names = experiment_names,
+    rsvpCrowding = rsvpCrowding,
+    rsvpAcuityFoveal = rsvpAcuityFoveal,
+    rsvpAcuityPeripheral = rsvpAcuityPeripheral,
+    rsvp_repeated_letter_crowding = rsvp_repeated_letter_crowding,
+    ordinaryAcuityFoveal = ordinaryAcuityFoveal,
+    ordinaryAcuityPeripheral = ordinaryAcuityPeripheral,
+    ordinaryCrowdingPlots = ordinaryCrowdingPlots,
+    readingRepeatedPlots = readingRepeatedPlots,
+    later_sections_ready = plotsTab$laterSectionsReady
   )
 
   #### Event Handler ####

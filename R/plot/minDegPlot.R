@@ -62,11 +62,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
                    color = NA, fill = "gray80") +
     scale_x_log10(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
-    ggpp::geom_text_npc(
-      aes(npcx = 'right',
-          npcy = 'top'),
-      label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N)
-    ) +
+    histogram_stats_text_npc(stats$mean, stats$sd, stats$N) +
     labs(
       x = 'sizeMinDeg',
       y = 'Count',

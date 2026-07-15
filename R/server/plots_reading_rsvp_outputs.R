@@ -10,9 +10,18 @@ register_plots_reading_rsvp_ggiraph_outputs <- function(output,
                                                          ordinaryAcuityFoveal,
                                                          ordinaryAcuityPeripheral,
                                                          ordinaryCrowdingPlots,
-                                                         readingRepeatedPlots) {
+                                                         readingRepeatedPlots,
+                                                         later_sections_ready = NULL) {
+  ready <- function() {
+    if (is.null(later_sections_ready)) {
+      return(TRUE)
+    }
+    isTRUE(later_sections_ready())
+  }
+
   output$rsvpCrowdingPeripheralGradePlot <-
     ggiraph::renderGirafe({
+      req(ready())
       tryCatch({
         plot_with_title <- add_experiment_title(rsvpCrowding()$p_grade, experiment_names())
         ggiraph::girafe(ggobj = plot_with_title)
@@ -37,6 +46,7 @@ register_plots_reading_rsvp_ggiraph_outputs <- function(output,
 
   output$rsvpCrowdingPeripheralFontPlot <-
     ggiraph::renderGirafe({
+      req(ready())
       tryCatch({
         plot_with_title <- add_experiment_title(rsvpCrowding()$p_font, experiment_names())
         ggiraph::girafe(ggobj = plot_with_title)
@@ -61,6 +71,7 @@ register_plots_reading_rsvp_ggiraph_outputs <- function(output,
 
   output$rsvpResidualCrowding <-
     ggiraph::renderGirafe({
+      req(ready())
       tryCatch({
         plot_with_title <- add_experiment_title(rsvpCrowding()$residual, experiment_names())
         ggiraph::girafe(ggobj = plot_with_title)
@@ -84,11 +95,13 @@ register_plots_reading_rsvp_ggiraph_outputs <- function(output,
     })
 
   output$rsvpCrowdingFovealGradePlot <- ggiraph::renderGirafe({
+    req(ready())
     plot_with_title <- add_experiment_title(rsvpCrowding()$f_grade, experiment_names())
     ggiraph::girafe(ggobj = plot_with_title)
   })
 
   output$rsvpFovealAcuityGradePlot <- ggiraph::renderGirafe({
+    req(ready())
     acuity_plots <- rsvpAcuityFoveal()
     plot_with_title <- add_experiment_title(acuity_plots$grade, experiment_names())
     ggiraph::girafe(ggobj = plot_with_title)
@@ -96,70 +109,82 @@ register_plots_reading_rsvp_ggiraph_outputs <- function(output,
 
   output$rsvpPeripheralAcuityGradePlot <-
     ggiraph::renderGirafe({
+      req(ready())
       plot_with_title <- add_experiment_title(rsvpAcuityPeripheral()$grade, experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
 
   output$rsvpPeripheralAcuityFontPlot <-
     ggiraph::renderGirafe({
+      req(ready())
       plot_with_title <- add_experiment_title(rsvpAcuityPeripheral()$font, experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
 
   output$rsvpRepeatedGradePlot <- ggiraph::renderGirafe({
+    req(ready())
     plot_with_title <- add_experiment_title(rsvp_repeated_letter_crowding()[[2]], experiment_names())
     ggiraph::girafe(ggobj = plot_with_title)
   })
 
   output$ordinaryFovealAcuityGradePlot <-
     ggiraph::renderGirafe({
+      req(ready())
       plot_with_title <- add_experiment_title(ordinaryAcuityFoveal()$grade, experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
 
   output$ordinaryFovealAcuityFontPlot <-
     ggiraph::renderGirafe({
+      req(ready())
       plot_with_title <- add_experiment_title(ordinaryAcuityFoveal()$font, experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
 
   output$ordinaryPeripheralAcuityGradePlot <-
     ggiraph::renderGirafe({
+      req(ready())
       plot_with_title <- add_experiment_title(ordinaryAcuityPeripheral()$grade, experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
 
   output$ordinaryPeripheralAcuityFontPlot <-
     ggiraph::renderGirafe({
+      req(ready())
       plot_with_title <- add_experiment_title(ordinaryAcuityPeripheral()$font, experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
 
   output$ordinaryPeripheralCrowdingFontPlot <-
     ggiraph::renderGirafe({
+      req(ready())
       plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[1]], experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
 
   output$ordinaryPeripheralCrowdingGradePlot <-
     ggiraph::renderGirafe({
+      req(ready())
       plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[3]], experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
 
   output$ordinaryFovealCrowdingFontPlot <-
     ggiraph::renderGirafe({
+      req(ready())
       plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[2]], experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
 
   output$ordinaryFovealCrowdingGradePlot <-
     ggiraph::renderGirafe({
+      req(ready())
       plot_with_title <- add_experiment_title(ordinaryCrowdingPlots()[[4]], experiment_names())
       ggiraph::girafe(ggobj = plot_with_title)
     })
 
   output$readingRepeatedGradePlot <- ggiraph::renderGirafe({
+    req(ready())
     plot_with_title <- add_experiment_title(readingRepeatedPlots()[[2]], experiment_names())
     ggiraph::girafe(ggobj = plot_with_title)
   })

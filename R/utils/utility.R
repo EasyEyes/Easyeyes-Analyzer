@@ -436,7 +436,11 @@ apply_direct_png_theme <- function(plot, profile = c("default", "plots", "histog
         png_plot$layers[[layer_idx]]$aes_params$label,
         png_plot$layers[[layer_idx]]$geom_params$label
       ))
-      is_stats_layer <- any(grepl("N =|Sessions=|Mean =|SD =", layer_label))
+      is_stats_layer <- any(grepl(
+        "(?i)(\\bN\\s*=|Sessions\\s*=|\\bMean\\s*=|\\bsd\\s*=)",
+        layer_label,
+        perl = TRUE
+      ))
 
       size <- png_plot$layers[[layer_idx]]$aes_params$size
       if (is.null(size)) size <- png_plot$layers[[layer_idx]]$geom_params$size

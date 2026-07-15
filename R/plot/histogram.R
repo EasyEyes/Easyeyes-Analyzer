@@ -1,5 +1,53 @@
 library(patchwork)
 
+# Match the age-histogram corner stats look (null size → PNG theme uses
+# default_text_layer_size = 3, then * text_layer_multiplier = 2 → displayed size 6).
+hist_stats_label_size <- 3
+
+histogram_stats_label <- function(mean, sd, N) {
+  paste0("mean=", mean, "\n sd=", sd, "\n N=", N)
+}
+
+# Shared top-right mean/sd/N label for plot histograms.
+histogram_stats_text_npc <- function(mean, sd, N, size = hist_stats_label_size) {
+  ggpp::geom_text_npc(
+    aes(npcx = "right", npcy = "top"),
+    label = histogram_stats_label(mean, sd, N),
+    size = size,
+    hjust = 1,
+    vjust = 1
+  )
+}
+
+histogram_stats_annotate <- function(x, y = Inf, mean, sd, N, size = hist_stats_label_size) {
+  annotate(
+    "text",
+    x = x,
+    y = y,
+    label = histogram_stats_label(mean, sd, N),
+    hjust = 1.05,
+    vjust = 1,
+    size = size
+  )
+}
+
+histogram_stats_geom_text <- function(mean, sd, N, size = hist_stats_label_size) {
+  geom_text(
+    data = tibble::tibble(
+      mean = mean,
+      sd = sd,
+      N = N,
+      x = Inf,
+      y = Inf
+    ),
+    aes(x = x, y = y, label = histogram_stats_label(mean, sd, N)),
+    inherit.aes = FALSE,
+    hjust = 1,
+    vjust = 1,
+    size = size
+  )
+}
+
 get_fluency_histogram <- function(fluency){
   
   if(nrow(fluency) == 0) {
@@ -49,11 +97,7 @@ get_crowding_hist <- function(crowding) {
       geom_histogram(aes(x = log_crowding_distance_deg),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
-      ggpp::geom_text_npc(
-        aes( npcx = 'right',
-             npcy = 'top',
-             label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
-      ) +
+      histogram_stats_text_npc(stats1$mean, stats1$sd, stats1$N) +
       labs(x = 'Log foveal crowding (deg)',
            y = 'Count',
            subtitle ='Histogram of foveal\ncrowding')
@@ -76,11 +120,7 @@ get_crowding_hist <- function(crowding) {
     geom_histogram(aes(x = log_crowding_distance_deg),color=NA, fill="gray80") +
    scale_x_continuous(expand = c(0, 0)) + 
    scale_y_continuous(expand = c(0, 0)) + 
-   ggpp::geom_text_npc(
-     aes( npcx = 'right',
-          npcy = 'top',
-          label = paste0('mean=',stats2$mean,'\n sd=', stats2$sd, '\n N=', stats2$N))
-   ) + 
+   histogram_stats_text_npc(stats2$mean, stats2$sd, stats2$N) + 
     labs(x = 'Log peripheral crowding (deg)',
          y = 'Count',
          subtitle ='Histogram of peripheral\ncrowding',
@@ -120,11 +160,7 @@ get_acuity_hist <- function(acuity) {
       geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
-      ggpp::geom_text_npc(
-        aes( npcx = 'right',
-             npcy = 'top',
-             label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
-      ) +
+      histogram_stats_text_npc(stats1$mean, stats1$sd, stats1$N) +
       labs(x = 'Log acuity (deg)',
            y = 'Count',
            subtitle ='Histogram of foveal\nacuity')
@@ -148,11 +184,7 @@ get_acuity_hist <- function(acuity) {
       geom_histogram(aes(x = questMeanAtEndOfTrialsLoop),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
-      ggpp::geom_text_npc(
-        aes( npcx = 'right',
-             npcy = 'top',
-             label = paste0('mean=',stats2$mean,'\n sd=', stats2$sd, '\n N=', stats2$N))
-      ) +
+      histogram_stats_text_npc(stats2$mean, stats2$sd, stats2$N) +
       labs(x = 'Log acuity (deg)',
            y = 'Count',
            subtitle ="Histogram of peripheral\nacuity\nGeometric average of left \nand right thresholds")
@@ -197,11 +229,7 @@ get_reading_hist <- function(data) {
       geom_histogram(aes(x = log_WPM),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
-      ggpp::geom_text_npc(
-        aes( npcx = 'right',
-             npcy = 'top',
-             label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', nrow(data)))
-      ) 
+      histogram_stats_text_npc(stats1$mean, stats1$sd, nrow(data))
     if (data$targetKind[1] == 'rsvpReading') {
       p1 <- p1 + 
         labs(x = 'Log RSVP reading speed (w/min)',
@@ -235,11 +263,7 @@ get_repeatedLetter_hist <- function(repeated) {
       geom_histogram(aes(x = log_crowding_distance_deg),color=NA, fill="gray80") +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
-      ggpp::geom_text_npc(
-        aes( npcx = 'right',
-             npcy = 'top',
-             label = paste0('mean=',stats1$mean,'\n sd=', stats1$sd, '\n N=', stats1$N))
-      ) +
+      histogram_stats_text_npc(stats1$mean, stats1$sd, stats1$N) +
       labs(x = 'Log repeated-letter crowding (deg)',
            y = 'Count',
            subtitle ='Histogram of\nrepeated-letter crowding')
@@ -295,13 +319,7 @@ generate_histograms_by_grade <- function(data) {
             expand = c(0, 0)
           ) +
           scale_y_continuous(expand = c(0, 0)) +
-          annotate(
-            "text",
-            x = global_max, y = Inf,
-            label = paste0("mean=", stats$mean, "\nsd=", stats$sd,  "\nN=", stats$N),
-            hjust = 1.05, vjust = 1,
-            size = 4
-          ) +
+          histogram_stats_annotate(x = global_max, mean = stats$mean, sd = stats$sd, N = stats$N) +
           plt_theme +
           # Remove x-axis tick marks and labels for all but the bottom plot
           theme(
@@ -414,11 +432,7 @@ get_age_histogram <- function(data) {
     geom_histogram(aes(x = age), color = NA, fill = "gray80") +
     scale_x_continuous(expand = c(0, 0)) + 
     scale_y_continuous(expand = c(0, 0)) + 
-    ggpp::geom_text_npc(
-      aes(npcx = 'right',
-          npcy = 'top',
-          label = paste0('mean=', stats$mean, '\n sd=', stats$sd, '\n N=', stats$N))
-    ) +
+    histogram_stats_text_npc(stats$mean, stats$sd, stats$N) +
     labs(x = 'Age',
          y = 'Count',
          subtitle = 'Histogram of age')
@@ -448,11 +462,7 @@ get_grade_histogram <- function(age) {
     geom_histogram(color = NA, fill = "gray80") +
     scale_x_continuous(expand = c(0, 0)) + 
     scale_y_continuous(expand = c(0, 0)) + 
-    ggpp::geom_text_npc(
-      aes(npcx = 'right',
-          npcy = 'top',
-          label = paste0('mean=', stats$mean, '\n sd=', stats$sd, '\n N=', stats$N))
-    ) +
+    histogram_stats_text_npc(stats$mean, stats$sd, stats$N) +
     labs(x = 'Grade',
          y = 'Count',
          subtitle = 'Histogram of grades')
@@ -482,12 +492,7 @@ add_questsd_hist <- function(quest, lists) {
       geom_histogram(color = NA, fill = "gray80", bins = 30) +
       scale_x_continuous(expand = c(0, 0)) + 
       scale_y_continuous(expand = c(0, 0)) + 
-      ggpp::geom_text_npc(
-        aes(npcx = 'right',
-            npcy = 'top'),
-        label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N),
-        hjust = 1, vjust = 1
-      ) +
+      histogram_stats_text_npc(stats$mean, stats$sd, stats$N) +
       labs(
         x = 'Quest SD',
         y = 'Count',
@@ -538,19 +543,7 @@ get_reading_CQ_hist <- function(reading_pre, minCQAccuracy) {
       scale_x_continuous(name = "Comprehension accuracy", expand = c(0, 0)) +
       scale_y_continuous(name = "Count",                 expand = c(0, 0)) +
       labs(subtitle = subtitle_text) +
-      geom_text(
-        data = stats_sub,
-        aes(
-          x = Inf, y = Inf,
-          label = paste0(
-            "mean=", round(mean, 2),
-            "\n sd=",   round(sd,   2),
-            "\n N=",    N
-          )
-        ),
-        inherit.aes = FALSE,
-        hjust = 1, vjust = 1
-      )
+      histogram_stats_geom_text(mean = round(stats_sub$mean, 2), sd = round(stats_sub$sd, 2), N = stats_sub$N)
 
     if (!is.null(minCQAccuracy) && is.finite(minCQAccuracy)) {
       p <- p + geom_vline(xintercept = minCQAccuracy, linetype = "dashed", color = "red", linewidth = 0.8)
@@ -609,19 +602,7 @@ get_prop_correct_hist_list <- function(quest, max_chars_per_line = 25) {
       scale_x_continuous(name = "Proportion correct", expand = c(0, 0)) +
       scale_y_continuous(name = "Count",            expand = c(0, 0)) +
       labs(subtitle = wrapped_title) +
-      geom_text(
-        data = stats_sub,
-        aes(
-          x = Inf, y = Inf,
-          label = paste0(
-            "mean=", round(mean, 2),
-            "\n sd=",   round(sd,   2),
-            "\n N=",    N
-          )
-        ),
-        inherit.aes = FALSE,
-        hjust = 1, vjust = 1
-      )
+      histogram_stats_geom_text(mean = round(stats_sub$mean, 2), sd = round(stats_sub$sd, 2), N = stats_sub$N)
   })
   
   names(hist_list) <- names(quest_list)
@@ -691,11 +672,7 @@ append_hist_list <- function(data_list, plot_list, fileNames, experimentNames){
       n = nrow(data)
       p <- ggplot(data, aes(x = .data[[var]])) +
         geom_histogram(color=NA, fill="gray80") + 
-        ggpp::geom_text_npc(
-          aes(npcx = 'right',
-              npcy = 'top'),
-          label = paste0('mean = ', avg, '\n sd = ', sd, '\n N = ', n)
-        ) +
+        histogram_stats_text_npc(avg, sd, n) +
         labs(subtitle = paste("Histogram of\n", var))
       
       if (var == "deviceMemoryGB") {
@@ -722,11 +699,7 @@ append_hist_list <- function(data_list, plot_list, fileNames, experimentNames){
     p <- ggplot(minDeg %>% filter(thresholdParameter == 'spacingDeg')) + 
       geom_histogram(aes(x = minDeg),
                      color = NA, fill = "gray80") +
-      ggpp::geom_text_npc(
-        aes(npcx = 'right',
-            npcy = 'top'),
-        label = paste0('mean = ', stats$mean, '\n sd = ', stats$sd, '\n N = ', stats$N)
-      ) +
+      histogram_stats_text_npc(stats$mean, stats$sd, stats$N) +
       scale_x_log10(expand = c(0, 0)) +
       scale_y_continuous(expand = c(0, 0)) +
       labs(
