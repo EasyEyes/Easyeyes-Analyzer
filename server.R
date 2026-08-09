@@ -226,8 +226,23 @@ shinyServer(function(input, output, session) {
   maxReadingSpeed <- reactive(input$maxReadingSpeed) %>% debounce(2000)
   minRulerCm <- reactive({input$minRulerCm}) %>% debounce(2000)
   minCQAccuracy <- reactive({input$minCQAccuracy}) %>% debounce(2000)
+
+  # Single short-ruler exclusion list shared by threshold, Distance, and Stats.
+  shortRulerParticipantIDs <- reactive({
+    st <- summary_table()
+    if (is.null(st)) {
+      return(character())
+    }
+    short_ruler_participant_ids(st, minRulerCm())
+  })
+
   df_list <- reactive({
     if (is.null(files())) {
+      return(NULL)
+    }
+    # Depend on summary_table() so Sessions compute is shared (not rebuilt inside generate_threshold).
+    sessions_summary <- summary_table()
+    if (is.null(sessions_summary)) {
       return(NULL)
     }
     df_list <- app_profile_time(app_profiler, "generate_threshold", {
@@ -245,8 +260,9 @@ shinyServer(function(input, output, session) {
       maxQuestSD(),
       conditionNames(),
       maxReadingSpeed(),
-      minRulerCm(),
-      minCQAccuracy()
+      minCQAccuracy(),
+      sessions_summary = sessions_summary,
+      shortRulerParticipantIDs = shortRulerParticipantIDs()
     )
     })
     return(
@@ -309,8 +325,9 @@ shinyServer(function(input, output, session) {
     "distance",
     files = files,
     df_list = df_list,
+    summary_table = summary_table,
     experiment_names = experiment_names,
-    minRulerCm = minRulerCm,
+    shortRulerParticipantIDs = shortRulerParticipantIDs,
     calibrateTrackDistanceCheckLengthSDLogAllowed = calibrateTrackDistanceCheckLengthSDLogAllowed,
     fileType = downloadFileType,
     uploaded_file = reactive(input$file),
@@ -321,6 +338,8 @@ shinyServer(function(input, output, session) {
   statTabServer(
     "stats",
     df_list = df_list,
+    summary_table = summary_table,
+    shortRulerParticipantIDs = shortRulerParticipantIDs,
     experiment_names = experiment_names,
     mergedParticipantDistanceTable = distanceModule$mergedParticipantDistanceTable,
     uploaded_file = reactive(input$file)

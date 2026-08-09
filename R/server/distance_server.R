@@ -2,8 +2,9 @@
 distanceTabServer <- function(id,
                               files,
                               df_list,
+                              summary_table,
                               experiment_names,
-                              minRulerCm,
+                              shortRulerParticipantIDs,
                               calibrateTrackDistanceCheckLengthSDLogAllowed,
                               fileType,
                               uploaded_file,
@@ -25,13 +26,9 @@ distanceTabServer <- function(id,
   })
 
   # Coalesce debounced NULLs so bindCache keys stay stable until the user edits a control.
-  distanceMinRulerCm <- reactive({
-    val <- minRulerCm()
-    if (is.null(val) || length(val) == 0 || is.na(val)[1]) {
-      0
-    } else {
-      as.numeric(val)[1]
-    }
+  distanceShortRulerIDs <- reactive({
+    ids <- shortRulerParticipantIDs()
+    if (is.null(ids)) character() else as.character(ids)
   })
   distanceCalibSD <- reactive({
     val <- calibrateTrackDistanceCheckLengthSDLogAllowed()
@@ -44,9 +41,9 @@ distanceTabServer <- function(id,
 
   distanceCalibrationCached <- reactive({
     app_profile_time(app_profiler, "Distance calibration", {
-      get_distance_calibration(files()$data_list, distanceMinRulerCm())
+      get_distance_calibration(files()$data_list, distanceShortRulerIDs())
     })
-  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm())
+  }) %>% bindCache(uploaded_file()$datapath, distanceShortRulerIDs())
 
   distanceCalibration <- reactive({
     if (!isTRUE(distanceShouldCompute())) {
@@ -57,11 +54,11 @@ distanceTabServer <- function(id,
   
   participantInfoForDistance <- reactive({
     tryCatch({
-      if (!is.null(df_list()) && is.list(df_list()) && "participant_info" %in% names(df_list())) {
-        df_list()$participant_info
-      } else {
-        NULL
+      st <- summary_table()
+      if (is.null(st)) {
+        return(NULL)
       }
+      participant_info_from_summary(st, exclude_participant_ids = distanceShortRulerIDs())
     }, error = function(e) {
       log_warn("participantInfoForDistance unavailable: ", conditionMessage(e))
       NULL
@@ -88,7 +85,7 @@ distanceTabServer <- function(id,
         participant_info = participantInfoForDistance()
       )
     })
-  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCalibSD())
+  }) %>% bindCache(uploaded_file()$datapath, distanceShortRulerIDs(), distanceCalibSD())
 
   distanceDotPlotsBundle <- reactive({
     if (!isTRUE(distanceShouldCompute())) {
@@ -109,7 +106,7 @@ distanceTabServer <- function(id,
         participant_info = participantInfoForDistance()
       )
     })
-  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCalibSD())
+  }) %>% bindCache(uploaded_file()$datapath, distanceShortRulerIDs(), distanceCalibSD())
 
   distanceScatterPlotsBundle <- reactive({
     if (!isTRUE(distanceShouldCompute())) {
@@ -250,7 +247,7 @@ distanceTabServer <- function(id,
       heights = heights
     ))
     })
-  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCalibSD())
+  }) %>% bindCache(uploaded_file()$datapath, distanceShortRulerIDs(), distanceCalibSD())
 
   dotPlots <- reactive({
     if (!isTRUE(distanceShouldCompute())) {
@@ -384,7 +381,7 @@ distanceTabServer <- function(id,
       renderModes = renderModes
     ))
     })
-  }) %>% bindCache(uploaded_file()$datapath, distanceMinRulerCm(), distanceCalibSD())
+  }) %>% bindCache(uploaded_file()$datapath, distanceShortRulerIDs(), distanceCalibSD())
 
   scatterDistance <- reactive({
     if (!isTRUE(distanceShouldCompute())) {
@@ -403,7 +400,7 @@ distanceTabServer <- function(id,
       return(tibble())
     }
     app_profile_time(app_profiler, "Distance merged participant table", {
-      get_merged_participant_distance_info(distanceCalibrationCached(), df_list()$participant_info)
+      get_merged_participant_distance_info(distanceCalibrationCached(), participantInfoForDistance())
     })
   })
   

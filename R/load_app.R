@@ -7,6 +7,7 @@ source("R/threshold_and_warning.R")
 
 source("R/report/random_rgb.R")
 source("R/report/summary_table.R")
+source("R/report/participant_info.R")  # enrich_summary_with_distance_fields used by generate_summary_table at runtime
 source("R/report/prolific.R")
 
 source("R/plot/mean_median_plot.R")

@@ -826,11 +826,9 @@ get_merged_participant_distance_info <- function(data_or_results, participant_in
   return(merged_data)
 }
 
-get_distance_calibration <- function(data_list, minRulerCm) {
-  if (is.null(minRulerCm) || length(minRulerCm) == 0 || is.na(minRulerCm)[1]) {
-    minRulerCm <- 0
-  } else {
-    minRulerCm <- as.numeric(minRulerCm)[1]
+get_distance_calibration <- function(data_list, shortRulerParticipantIDs = character()) {
+  if (is.null(shortRulerParticipantIDs)) {
+    shortRulerParticipantIDs <- character()
   }
   if (length(data_list) == 0) {
     return(list(
@@ -855,23 +853,24 @@ get_distance_calibration <- function(data_list, minRulerCm) {
   }
   
   # =============================================================================
-  # BUILD `participant_info` (ruler length filter) + `filtered` (filtered_data_list)
+  # Filter data_list using shared short-ruler exclusions (from summary_table)
   # =============================================================================
-  # Get participant ruler info to determine who to exclude
-  participant_info_list <- list()
-  
+  filtered_data_list <- list()
   for (i in 1:length(data_list)) {
-    t <- data_list[[i]] %>%
-      select(participant, rulerLength, rulerUnit) %>%
-      distinct() %>%
-      filter(!is.na(rulerLength), !is.na(rulerUnit))
+    filtered_data <- data_list[[i]]
+    if (length(shortRulerParticipantIDs) > 0) {
+      filtered_data <- filtered_data %>%
+        filter(!participant %in% shortRulerParticipantIDs)
+    }
     
-    if (nrow(t) > 0) {
-      participant_info_list[[length(participant_info_list) + 1]] <- t
+    if (nrow(filtered_data) > 0) {
+      # Extract COMMON parameters from distanceCalibrationJSON to populate empty columns
+      filtered_data <- extract_common_params_from_JSON(filtered_data)
+      filtered_data_list[[length(filtered_data_list) + 1]] <- filtered_data
     }
   }
-  
-  if (length(participant_info_list) == 0) {
+
+  if (length(filtered_data_list) == 0) {
     return(list(
       filtered = list(),
       sizeCheck = tibble(),
@@ -892,28 +891,12 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       checkJSON = tibble()
     ))
   }
-  
-  # Combine and process ruler information
-  participant_info <- do.call(rbind, participant_info_list) %>%
-    distinct() %>%
-    mutate(
-      # Convert ruler length to cm
-      rulerCm = case_when(
-        !is.na(rulerLength) & rulerUnit == "cm" ~ rulerLength,
-        !is.na(rulerLength) & rulerUnit == "inches" ~ rulerLength * 2.54,
-        .default = NA_real_
-      )
-    ) %>%
-    group_by(participant) %>%
-    summarize(
-      rulerCm = first(rulerCm[!is.na(rulerCm)]),
-      .groups = "drop"
-    ) %>%
-    filter(rulerCm >= minRulerCm)
-  
-  # Filter the original data_list to only include participants with acceptable ruler lengths
-  valid_participants <- participant_info$participant
-  
+
+  valid_participants <- unique(unlist(lapply(filtered_data_list, function(df) {
+    if ("participant" %in% names(df)) unique(na.omit(df$participant)) else character()
+  })))
+  valid_participants <- valid_participants[!is.na(valid_participants) & valid_participants != ""]
+
   if (length(valid_participants) == 0) {
     return(list(
       filtered = list(),
@@ -934,18 +917,6 @@ get_distance_calibration <- function(data_list, minRulerCm) {
       TJSON = tibble(),
       checkJSON = tibble()
     ))
-  }
-  
-  filtered_data_list <- list()
-  for (i in 1:length(data_list)) {
-    filtered_data <- data_list[[i]] %>%
-      filter(participant %in% valid_participants)
-    
-    if (nrow(filtered_data) > 0) {
-      # Extract COMMON parameters from distanceCalibrationJSON to populate empty columns
-      filtered_data <- extract_common_params_from_JSON(filtered_data)
-      filtered_data_list[[length(filtered_data_list) + 1]] <- filtered_data
-    }
   }
   
   # =============================================================================

@@ -1,6 +1,8 @@
 #### Stats server module ####
 statTabServer <- function(id,
                           df_list,
+                          summary_table,
+                          shortRulerParticipantIDs,
                           experiment_names,
                           mergedParticipantDistanceTable,
                           uploaded_file) {
@@ -34,8 +36,11 @@ statTabServer <- function(id,
     })
 
     output$participantInfo <- renderTable({
-      req(df_list())
-      df_list()$participant_info
+      req(summary_table())
+      participant_info_from_summary(
+        summary_table(),
+        exclude_participant_ids = shortRulerParticipantIDs()
+      )
     }, width = "100%", spacing = "xs")
 
     output$thresholdOne <- downloadHandler(

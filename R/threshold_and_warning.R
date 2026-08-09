@@ -2,12 +2,219 @@ library(foreach)
 library(dplyr)
 library(stringr)
 
-englishChild <- readxl::read_xlsx('Basic_Exclude.xlsx') %>%
+englishChild <- readxl::read_xlsx(file.path("resources", "Basic_Exclude.xlsx")) %>%
   mutate(participant = tolower(ID))
+
+bind_threshold_chunks <- function(chunks) {
+  chunks <- Filter(function(x) !is.null(x) && is.data.frame(x) && nrow(x) > 0, chunks)
+  if (length(chunks) == 0) {
+    return(tibble())
+  }
+  # Match pre-refactor foreach(.combine = "rbind") leniency: dplyr::bind_rows
+  # is strict about types (e.g. questionAndAnswerResponse as character vs double).
+  dplyr::bind_rows(harmonize_chunks_for_bind_rows(chunks))
+}
+
+# One walk over data_list for all threshold extracts.
+# Viewing-distance rows are only taken for i <= length(summary_list) to match
+# the historical foreach(i = 1:length(summary_list)) indexing into data_list.
+collect_threshold_data_list_inputs <- function(data_list, summary_list_len = length(data_list)) {
+  age_chunks <- list()
+  reading_chunks <- list()
+  eccentricity_chunks <- list()
+  duration_chunks <- list()
+  viewing_chunks <- list()
+  reading_q_chunks <- list()
+  fluency_chunks <- list()
+  qa_chunks <- list()
+
+  n <- length(data_list)
+  if (n == 0) {
+    return(list(
+      age = tibble(),
+      reading = tibble(),
+      eccentricityDeg = tibble(),
+      targetDurationSecs = tibble(),
+      viewingdistance = tibble(),
+      reading_questions = list(),
+      fluency = tibble(),
+      QA = tibble()
+    ))
+  }
+
+  for (i in seq_len(n)) {
+    df <- data_list[[i]]
+    if (is.null(df) || nrow(df) < 1) {
+      next
+    }
+
+    # age
+    if (all(c("participant", "age") %in% names(df))) {
+      age_chunks[[length(age_chunks) + 1]] <- df %>%
+        select(participant, age) %>%
+        filter(!is.na(age)) %>%
+        distinct()
+    }
+
+    # reading
+    needed_reading <- c(
+      "experiment", "date", "block_condition", "participant", "conditionName", "font",
+      "readingPages", "readingPageWords", "readingPageDurationOnsetToOffsetSec",
+      "targetKind", "thresholdParameter", "readingNumberOfQuestions"
+    )
+    if (all(needed_reading %in% names(df))) {
+      reading_chunks[[length(reading_chunks) + 1]] <- df %>%
+        select(all_of(needed_reading)) %>%
+        filter(readingPages > 1) %>%
+        group_by(experiment, date, participant, block_condition, conditionName, font) %>%
+        mutate(trial = row_number()) %>%
+        ungroup() %>%
+        mutate(wordPerMin = ifelse(
+          trial < 3 & tolower(participant) %in% englishChild$participant,
+          9.5 / as.numeric(readingPageDurationOnsetToOffsetSec) * 60,
+          as.numeric(readingPageWords) / as.numeric(readingPageDurationOnsetToOffsetSec) * 60
+        )) %>%
+        mutate(log_WPM = log10(wordPerMin)) %>%
+        filter(targetKind == "reading" & font != "")
+    }
+
+    # eccentricity
+    if (all(c("participant", "conditionName", "targetEccentricityXDeg", "targetEccentricityYDeg") %in% names(df))) {
+      eccentricity_chunks[[length(eccentricity_chunks) + 1]] <- df %>%
+        distinct(participant, conditionName, targetEccentricityXDeg, targetEccentricityYDeg)
+    }
+
+    # target duration
+    if (all(c("participant", "conditionName", "targetDurationSec") %in% names(df))) {
+      duration_chunks[[length(duration_chunks) + 1]] <- df %>%
+        select(participant, conditionName, targetDurationSec) %>%
+        filter(!is.na(targetDurationSec)) %>%
+        distinct()
+    }
+
+    # viewing distance (legacy: only first length(summary_list) files)
+    if (i <= summary_list_len &&
+        all(c("conditionName", "participant", "viewingDistanceDesiredCm") %in% names(df))) {
+      viewing_chunks[[length(viewing_chunks) + 1]] <- df %>%
+        select(conditionName, participant, viewingDistanceDesiredCm) %>%
+        filter(!is.na(viewingDistanceDesiredCm)) %>%
+        distinct()
+    }
+
+    # reading comprehension questions (block assignment deferred until reading is known)
+    if ("readWordIdentifiedBool" %in% names(df)) {
+      rq <- df %>%
+        filter(!is.na(readWordIdentifiedBool)) %>%
+        select(participant, readWordIdentifiedBool)
+      if (nrow(rq) > 0) {
+        reading_q_chunks[[length(reading_q_chunks) + 1]] <- rq
+      }
+    }
+
+    # fluency
+    if ("questionAndAnswerCorrectAnswer" %in% names(df) && "conditionName" %in% names(df)) {
+      fl <- df %>%
+        filter(grepl("fluency", conditionName, fixed = TRUE)) %>%
+        select(
+          block, participant, conditionName, questionAndAnswerResponse, `trials.thisN`,
+          questionAndAnswerNickname, questionAndAnswerQuestion, targetKind, questionAndAnswerCorrectAnswer
+        )
+      if (nrow(fl) > 0) {
+        fluency_chunks[[length(fluency_chunks) + 1]] <- fl
+      }
+    }
+
+    # QA
+    qa_cols <- c(
+      "experiment", "participant", "block", "block_condition", "conditionName",
+      "blockShuffleGroups2", "questionAndAnswerQuestion", "questionAndAnswerNickname",
+      "questionAndAnswerResponse", "questionAndAnswerCorrectAnswer"
+    )
+    if (all(qa_cols %in% names(df))) {
+      qa <- df %>%
+        distinct(
+          experiment, participant, block, block_condition, conditionName, blockShuffleGroups2,
+          questionAndAnswerQuestion, questionAndAnswerNickname, questionAndAnswerResponse,
+          questionAndAnswerCorrectAnswer
+        ) %>%
+        filter(
+          !is.na(questionAndAnswerNickname),
+          !is.na(questionAndAnswerQuestion),
+          questionAndAnswerNickname != "",
+          questionAndAnswerQuestion != ""
+        ) %>%
+        mutate(
+          correct = (questionAndAnswerResponse == questionAndAnswerCorrectAnswer),
+          questionAndAnswerNickname = case_when(
+            questionAndAnswerNickname == "CMFRTAmareddine" ~ "CMFRTSaudiTextv1",
+            questionAndAnswerNickname == "CMFRTMakdessi" ~ "CMFRTSaudiTextv2",
+            questionAndAnswerNickname == "CMFRTKafa" ~ "CMFRTSaudiTextv3",
+            .default = questionAndAnswerNickname
+          )
+        )
+      if (nrow(qa) > 0) {
+        qa_chunks[[length(qa_chunks) + 1]] <- qa
+      }
+    }
+  }
+
+  list(
+    age = bind_threshold_chunks(age_chunks),
+    reading = bind_threshold_chunks(reading_chunks),
+    eccentricityDeg = bind_threshold_chunks(eccentricity_chunks),
+    targetDurationSecs = bind_threshold_chunks(duration_chunks),
+    viewingdistance = bind_threshold_chunks(viewing_chunks),
+    reading_questions = reading_q_chunks,
+    fluency = bind_threshold_chunks(fluency_chunks),
+    QA = bind_threshold_chunks(qa_chunks)
+  )
+}
+
+collect_threshold_summary_list_inputs <- function(summary_list) {
+  if (length(summary_list) == 0) {
+    return(tibble())
+  }
+  chunks <- vector("list", length(summary_list))
+  for (i in seq_along(summary_list)) {
+    s <- summary_list[[i]]
+    if (is.null(s) || !is.data.frame(s) || nrow(s) < 1) {
+      next
+    }
+    chunks[[i]] <- s %>% mutate(order = i)
+  }
+  bind_threshold_chunks(chunks)
+}
+
+apply_reading_accuracy_from_chunks <- function(reading, reading_q_chunks, nQs) {
+  reading_accuracy <- tibble()
+  if (is.na(nQs) || nQs <= 0 || length(reading_q_chunks) == 0) {
+    return(reading)
+  }
+  for (readingQuestions in reading_q_chunks) {
+    if (nrow(readingQuestions) == 0) {
+      next
+    }
+    n_blocks <- nrow(readingQuestions) / nQs
+    r <- reading %>% filter(participant == readingQuestions$participant[1])
+    blocks <- unique(r$block_condition)[1:n_blocks]
+    readingQuestions <- cbind(readingQuestions, tibble(block_condition = rep(blocks, each = nQs)))
+    reading_accuracy <- rbind(reading_accuracy, readingQuestions)
+  }
+  if (nrow(reading_accuracy) > 0) {
+    reading_accuracy <- reading_accuracy %>%
+      group_by(participant, block_condition) %>%
+      summarize(accuracy = mean(readWordIdentifiedBool),
+                .groups = "drop")
+    reading <- reading %>% left_join(reading_accuracy, by = c("participant", "block_condition"))
+    reading <- reading %>% mutate(accuracy = factor(accuracy, levels = c(0, 0.2, 0.4, 0.6, 0.8, 1)))
+  }
+  reading
+}
 
 generate_threshold <- 
   function(data_list, summary_list, df, pretest, stairs, prolific, filterInput, skillFilter, minNQuestTrials, 
-           minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed, minRulerCm, minCQAccuracy) {
+           minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed, minCQAccuracy,
+           sessions_summary = NULL, shortRulerParticipantIDs = NULL) {
     
     log_info("generate_threshold: data_list=", length(data_list), " summary_list=", length(summary_list))
     if (is.null(data_list)) {
@@ -16,14 +223,11 @@ generate_threshold <-
     if (length(data_list) == 0) {
       return(list())
     }
-    
+
+    extracted <- collect_threshold_data_list_inputs(data_list, length(summary_list))
+
     #### age ####
-    age <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-      data_list[[i]] %>% 
-        select(participant, age) %>% 
-        filter(!is.na(age)) %>% 
-        distinct()
-    }
+    age <- extracted$age
 
     #### NQuestTrials ####
     NQuestTrials <- stairs %>%
@@ -112,23 +316,7 @@ generate_threshold <-
     
     ################################ READING #######################################
     
-    reading <- tibble()
-    for (i in 1:length(data_list)) {
-      t <- data_list[[i]] %>% 
-        select(experiment, date, block_condition, participant, conditionName, font, readingPages, readingPageWords, readingPageDurationOnsetToOffsetSec,
-               targetKind, thresholdParameter, readingNumberOfQuestions) %>% 
-        filter(readingPages > 1) %>% 
-        group_by(experiment, date, participant, block_condition, conditionName, font) %>%
-        mutate(trial = row_number()) %>% 
-        ungroup() %>% 
-        mutate(wordPerMin = ifelse(trial < 3 & tolower(participant) %in% englishChild$participant,
-                                   9.5 / as.numeric(readingPageDurationOnsetToOffsetSec) * 60, 
-                                   as.numeric(readingPageWords)/ as.numeric(readingPageDurationOnsetToOffsetSec) * 60)) %>% 
-        mutate(log_WPM = log10(wordPerMin)) %>% 
-        filter(targetKind == "reading" & font !="")
-      
-      reading <- rbind(reading, t)
-    }
+    reading <- extracted$reading
     # For italian data, reading OMT_words read as reading speed
     
     if (nrow(reading) == 0 & 'OMT_words read' %in% names(pretest)) {
@@ -182,9 +370,7 @@ generate_threshold <-
     
     #### combine all thresholds #####
     
-    all_summary <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
-      summary_list[[i]] %>% mutate(order = i)
-    }
+    all_summary <- collect_threshold_summary_list_inputs(summary_list)
     
     # Check if participant column exists before filtering
     if (!"participant" %in% names(all_summary)) {
@@ -294,16 +480,14 @@ generate_threshold <-
       dplyr::summarize(avg_wordPerMin = 10^(mean(log_WPM, na.rm = T)),
                        .groups = "drop")
     
-    eccentricityDeg <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-      t <- data_list[[i]] %>%
-        distinct(participant, conditionName, targetEccentricityXDeg, targetEccentricityYDeg)
+    eccentricityDeg <- extracted$eccentricityDeg
+    if (nrow(eccentricityDeg) > 0) {
+      eccentricityDeg <- eccentricityDeg %>% 
+        filter(!is.na(targetEccentricityXDeg),
+               !is.na(targetEccentricityYDeg)) %>% 
+        mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg),
+               targetEccentricityYDeg = as.numeric(targetEccentricityYDeg))
     }
-    
-    eccentricityDeg <- eccentricityDeg %>% 
-      filter(!is.na(targetEccentricityXDeg),
-             !is.na(targetEccentricityYDeg)) %>% 
-      mutate(targetEccentricityXDeg = as.numeric(targetEccentricityXDeg),
-             targetEccentricityYDeg = as.numeric(targetEccentricityYDeg))
     
     all_summary <- all_summary %>%
       mutate(questType = case_when(
@@ -363,13 +547,11 @@ generate_threshold <-
       select(-thresholdParameter)
     
     
-    targetDurationSecs <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-      data_list[[i]] %>% 
-        select(participant, conditionName, targetDurationSec) %>% 
-        filter(!is.na(targetDurationSec)) %>% 
-        distinct()
-    }
+    targetDurationSecs <- extracted$targetDurationSecs
     
+    if (nrow(age) == 0) {
+      age <- tibble(participant = character(), age = numeric())
+    }
     if ('Age' %in% names(pretest) & nrow(pretest) > 0) {
       if (all(is.na(age$age))) {
         age <- age %>%
@@ -440,56 +622,22 @@ generate_threshold <-
     
     #### get viewing distance and font size####
     
-    viewingdistance <- foreach(i = 1 : length(summary_list), .combine = "rbind") %do% {
-      data_list[[i]] %>% 
-        select(conditionName, participant, viewingDistanceDesiredCm) %>% 
-        filter(!is.na(viewingDistanceDesiredCm)) %>% 
-        distinct()
-    }
+    viewingdistance <- extracted$viewingdistance
     
     rsvp_speed <- rsvp_speed %>% 
       left_join(viewingdistance, by = c("conditionName", "participant"), relationship = 'many-to-many')
     
-    nQs <- as.numeric(reading$readingNumberOfQuestions[1])
+    nQs <- if ("readingNumberOfQuestions" %in% names(reading) && nrow(reading) > 0) {
+      as.numeric(reading$readingNumberOfQuestions[1])
+    } else {
+      NA_real_
+    }
     
     ################################ READING RETENTION #######################################
     
-    reading_accuracy <- tibble()
-    if (!is.na(nQs) & nQs > 0) { 
-      for (i in 1:length(data_list)) {
-        t <- data_list[[i]]
-        if ("readWordIdentifiedBool" %in% colnames(t)) {
-          readingQuestions <- t %>% 
-            filter(!is.na(readWordIdentifiedBool)) %>% 
-            select(participant,readWordIdentifiedBool)
-          if(nrow(readingQuestions) > 0) {
-            n_blocks = nrow(readingQuestions)/nQs
-            r <- reading %>% filter(participant == readingQuestions$participant[1])
-            blocks <- unique(r$block_condition)[1:n_blocks]
-            readingQuestions <- cbind(readingQuestions,tibble(block_condition = rep(blocks,each = nQs)))
-            reading_accuracy <- rbind(reading_accuracy,readingQuestions)
-          }
-        }
-      }
-    }
-    if (nrow(reading_accuracy) > 0) {
-      reading_accuracy <- reading_accuracy %>% 
-        group_by(participant, block_condition) %>% 
-        summarize(accuracy = mean(readWordIdentifiedBool),
-                  .groups="drop")
-      reading <- reading %>% left_join(reading_accuracy, by = c("participant", "block_condition") )
-      # Use mutate to handle empty tibbles safely
-      reading <- reading %>% mutate(accuracy = factor(accuracy, levels = c(0,0.2,0.4,0.6,0.8,1)))
-    }
+    reading <- apply_reading_accuracy_from_chunks(reading, extracted$reading_questions, nQs)
     
-    fluency <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-      if("questionAndAnswerCorrectAnswer" %in% colnames(data_list[[i]])) {
-        data_list[[i]] %>% filter(grepl("fluency", conditionName, fixed=TRUE) ) %>% 
-          select(block, participant, conditionName, questionAndAnswerResponse, `trials.thisN`,
-                 questionAndAnswerNickname, questionAndAnswerQuestion, targetKind, questionAndAnswerCorrectAnswer)
-      }
-    }
-    if(is.null(fluency)) fluency = tibble()
+    fluency <- extracted$fluency
     if (nrow(fluency) > 0) {
       fluency <- fluency %>% 
         group_by(participant) %>% 
@@ -517,314 +665,24 @@ generate_threshold <-
     
     #### beauty and comfort ####
 
-    QA <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-      data_list[[i]] %>% 
-        distinct(experiment,
-                 participant,
-                 block,
-                 block_condition, 
-                 conditionName, 
-                 blockShuffleGroups2,
-                 questionAndAnswerQuestion, 
-                 questionAndAnswerNickname, 
-                 questionAndAnswerResponse,
-                 questionAndAnswerCorrectAnswer) %>%
-        filter(!is.na(questionAndAnswerNickname),
-               !is.na(questionAndAnswerQuestion),
-               questionAndAnswerNickname != "", 
-               questionAndAnswerQuestion != ""
-        ) %>% 
-        # The rename of questionAndAnswerNickname is to fix an error in previous experiment setting
-        mutate(correct = (questionAndAnswerResponse == questionAndAnswerCorrectAnswer),
-               questionAndAnswerNickname = case_when(questionAndAnswerNickname=="CMFRTAmareddine" ~"CMFRTSaudiTextv1",
-                                                     questionAndAnswerNickname=="CMFRTMakdessi" ~"CMFRTSaudiTextv2",
-                                                     questionAndAnswerNickname=="CMFRTKafa" ~"CMFRTSaudiTextv3",
-                                                     .default = questionAndAnswerNickname))
-    } %>% 
-      filter(!blockShuffleGroups2=="readin5") %>% 
-      arrange(experiment, participant, block, block_condition)
+    QA <- extracted$QA
+    if (nrow(QA) > 0) {
+      QA <- QA %>%
+        filter(!blockShuffleGroups2=="readin5") %>% 
+        arrange(experiment, participant, block, block_condition)
+    }
     
     # write.csv(QA %>% filter(questionAndAnswerCorrectAnswer != "",
     #                                   !is.na(questionAndAnswerCorrectAnswer)),
     #           'QA.csv')
-    #### participant information table ####
-    
-    participant_info_list <- list()
-    
-    for (i in 1:length(data_list)) {
-      # Extract data with standardized columns
-      # Check if objectName column exists
-      has_objectName <- "objectName" %in% names(data_list[[i]])
-      
-      temp_data <- data_list[[i]] %>% 
-        select(participant, pxPerCm,
-               rulerLength, rulerUnit, 
-               calibrateTrackDistance, distanceObjectCm,
-               any_of("objectName")) %>%
-        distinct() %>%
-        filter(!is.na(participant)) %>%
-        mutate(
-          rulerLength = as.numeric(rulerLength),
-          rulerUnit = as.character(rulerUnit),
-          calibrateTrackDistance = as.character(calibrateTrackDistance),
-          distanceObjectCm = as.numeric(distanceObjectCm)
-        )
-      
-      # Add objectName column if it doesn't exist
-      if (!has_objectName) {
-        temp_data <- temp_data %>% mutate(objectName = NA_character_)
-      } else {
-        temp_data <- temp_data %>% mutate(objectName = as.character(objectName))
-      }
-      
-      temp_data <- temp_data %>%
-        select(participant, pxPerCm,
-               rulerLength, rulerUnit, 
-               calibrateTrackDistance, distanceObjectCm, objectName)
-      
-      participant_info_list[[i]] <- temp_data
+    #### short ruler filter (IDs computed once upstream from summary_table) ####
+    if (is.null(sessions_summary)) {
+      sessions_summary <- generate_summary_table(data_list, stairs, pretest, prolific)
     }
-    
-    # Combine all datasets with consistent column structure and consolidate duplicates
-    participant_info <- do.call(rbind, participant_info_list) %>%
-      distinct() %>%
-      mutate(
-        # Convert ruler length to cm
-        rulerCm = case_when(
-          !is.na(rulerLength) & rulerUnit == "cm" ~ rulerLength,
-          !is.na(rulerLength) & rulerUnit == "inches" ~ rulerLength * 2.54,
-          .default = NA_real_
-        )
-      ) %>%
-      group_by(participant) %>%
-      summarize(
-        rulerCm = first(rulerCm[!is.na(rulerCm)]),
-        calibrateTrackDistance = first(calibrateTrackDistance[!is.na(calibrateTrackDistance)]),
-        distanceObjectCm = first(distanceObjectCm[!is.na(distanceObjectCm)]),
-        pxPerCm =  first(pxPerCm[!is.na(pxPerCm)]),
-        objectName = first(objectName[!is.na(objectName) & objectName != ""]),
-        .groups = "drop"
-      )
-    
-    # Extract COMMENT and OBJCT responses directly for participant info table
-    participant_qa_list <- list()
-    
-    for (i in 1:length(data_list)) {
-      # Extract COMMENT and OBJCT data directly
-      temp_qa <- data_list[[i]] %>%
-        filter(!is.na(questionAndAnswerNickname),
-               questionAndAnswerNickname %in% c("COMMENT", "OBJCT")) %>%
-        distinct(participant, questionAndAnswerNickname, questionAndAnswerResponse, questionAndAnswerQuestion)
-      
-      if (nrow(temp_qa) > 0) {
-        participant_qa_list[[i]] <- temp_qa
-      }
+    if (is.null(shortRulerParticipantIDs)) {
+      shortRulerParticipantIDs <- character()
     }
-    
-    # Combine all participant QA data
-    if (length(participant_qa_list) > 0) {
-      participant_qa <- do.call(rbind, participant_qa_list) %>%
-        distinct()
-    } else {
-      participant_qa <- tibble(participant = character(), 
-                               questionAndAnswerNickname = character(), 
-                               questionAndAnswerResponse = character(),
-                               questionAndAnswerQuestion = character())
-    }
-    
-    # Split into comments and objects
-    comments_data <- participant_qa %>%
-      filter(questionAndAnswerNickname == "COMMENT") %>%
-      distinct(participant, questionAndAnswerResponse) %>%
-      rename(Comment = questionAndAnswerResponse)
-    
-    objects_data <- participant_qa %>%
-      filter(questionAndAnswerNickname == "OBJCT") %>% 
-      distinct(participant, questionAndAnswerResponse) %>%
-      rename(Object = questionAndAnswerResponse)
-    
-    # Extract objectName from distanceCalibrationTJSON.COMMON for "paper" method
-    # This provides the object name when _calibrateDistance is "paper"
-    object_name_from_json <- tibble(participant = character(), ObjectFromJSON = character())
-    for (i in 1:length(data_list)) {
-      if ("distanceCalibrationTJSON" %in% names(data_list[[i]])) {
-        tryCatch({
-          participant_id <- first(na.omit(data_list[[i]]$participant))
-          if (is.na(participant_id) || participant_id == "") next
-          
-          raw_json <- data_list[[i]]$distanceCalibrationTJSON
-          raw_json <- raw_json[!is.na(raw_json) & raw_json != ""]
-          if (length(raw_json) == 0) next
-          
-          json_txt <- raw_json[1]
-          # Sanitize JSON string (same logic as sanitize_json_string in distancePlot.R)
-          json_txt <- trimws(as.character(json_txt))
-          # Remove outer quotes if present
-          if (nchar(json_txt) >= 2 && substr(json_txt, 1, 1) == '"' && substr(json_txt, nchar(json_txt), nchar(json_txt)) == '"') {
-            json_txt <- substr(json_txt, 2, nchar(json_txt) - 1)
-          }
-          # Fix CSV escaping: replace doubled quotes with single quotes
-          json_txt <- gsub('""', '"', json_txt, fixed = TRUE)
-          json_txt <- gsub("\\\\n", " ", json_txt)
-          json_txt <- gsub("\\\\t", " ", json_txt)
-          json_txt <- gsub("\n", " ", json_txt)
-          json_txt <- gsub("\t", " ", json_txt)
-          
-          parsed_json <- jsonlite::fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
-          
-          # Extract objectName from COMMON section
-          if (!is.null(parsed_json$COMMON) && !is.null(parsed_json$COMMON$objectName)) {
-            obj_name <- parsed_json$COMMON$objectName
-            if (length(obj_name) > 0 && !is.na(obj_name[1]) && obj_name[1] != "") {
-              object_name_from_json <- rbind(object_name_from_json, 
-                tibble(participant = participant_id, ObjectFromJSON = obj_name[1]))
-            }
-          }
-        }, error = function(e) {
-          # Skip if JSON parsing fails
-        })
-      }
-    }
-    
-    # Merge Q&A objects with JSON objects (Q&A takes priority)
-    if (nrow(object_name_from_json) > 0) {
-      objects_data <- objects_data %>%
-        full_join(object_name_from_json, by = "participant") %>%
-        mutate(Object = ifelse(is.na(Object) | Object == "", ObjectFromJSON, Object)) %>%
-        select(participant, Object)
-    }
-    
-    # Extract objectSuggestion from distanceCalibrationJSON
-    object_suggestion_from_json <- tibble(participant = character(), objectSuggestion = character())
-    for (i in 1:length(data_list)) {
-      json_col <- if ("distanceCalibrationJSON" %in% names(data_list[[i]])) {
-        "distanceCalibrationJSON"
-      } else if ("distanceCalibrationTJSON" %in% names(data_list[[i]])) {
-        "distanceCalibrationTJSON"
-      } else {
-        NULL
-      }
-      
-      if (!is.null(json_col)) {
-        tryCatch({
-          participant_id <- first(na.omit(data_list[[i]]$participant))
-          if (is.na(participant_id) || participant_id == "") next
-          
-          raw_json <- data_list[[i]][[json_col]]
-          raw_json <- raw_json[!is.na(raw_json) & raw_json != ""]
-          if (length(raw_json) == 0) next
-          
-          json_txt <- raw_json[1]
-          # Sanitize JSON string
-          json_txt <- trimws(as.character(json_txt))
-          if (nchar(json_txt) >= 2 && substr(json_txt, 1, 1) == '"' && substr(json_txt, nchar(json_txt), nchar(json_txt)) == '"') {
-            json_txt <- substr(json_txt, 2, nchar(json_txt) - 1)
-          }
-          json_txt <- gsub('""', '"', json_txt, fixed = TRUE)
-          json_txt <- gsub("\\\\n", " ", json_txt)
-          json_txt <- gsub("\\\\t", " ", json_txt)
-          json_txt <- gsub("\n", " ", json_txt)
-          json_txt <- gsub("\t", " ", json_txt)
-          
-          parsed_json <- jsonlite::fromJSON(json_txt, simplifyVector = TRUE, simplifyDataFrame = TRUE, flatten = TRUE)
-          
-          # Extract objectSuggestion (top-level array in distanceCalibrationJSON)
-          if (!is.null(parsed_json$objectSuggestion)) {
-            obj_suggestion <- parsed_json$objectSuggestion
-            # Get the first non-empty value from the array
-            non_empty_suggestions <- obj_suggestion[!is.na(obj_suggestion) & obj_suggestion != ""]
-            if (length(non_empty_suggestions) > 0) {
-              object_suggestion_from_json <- rbind(object_suggestion_from_json, 
-                tibble(participant = participant_id, objectSuggestion = non_empty_suggestions[1]))
-            } else {
-              # If all values are empty, still record the participant with empty string
-              object_suggestion_from_json <- rbind(object_suggestion_from_json, 
-                tibble(participant = participant_id, objectSuggestion = ""))
-            }
-          }
-        }, error = function(e) {
-          # Skip if JSON parsing fails
-        })
-      }
-    }
-    
-    sessions_data <- generate_summary_table(data_list, stairs, pretest, prolific)
-    
-    # Extract the needed columns from sessions data
-    # Handle case where Prolific participant ID might not exist
-    if ("Prolific participant ID" %in% names(sessions_data)) {
-      sessions_columns <- sessions_data %>%
-        select(`Pavlovia session ID`, `Prolific participant ID`, `device type`, `Prolific min`, system, browser, ok, screenWidthCm, resolution) %>%
-        rename(
-          PavloviaParticipantID = `Pavlovia session ID`,
-          ProlificParticipantID = `Prolific participant ID`,
-          screenResolutionXY = resolution,
-        ) %>%
-        distinct()
-    } else {
-      sessions_columns <- sessions_data %>%
-        select(`Pavlovia session ID`, `device type`, `Prolific min`, system, browser, ok, screenWidthCm, resolution) %>%
-        mutate(ProlificParticipantID = NA_character_) %>%
-        rename(
-          PavloviaParticipantID = `Pavlovia session ID`,
-          screenResolutionXY = resolution,
-        ) %>%
-        distinct()
-    }
-    
-    # Join all data together
-    participant_info <- sessions_columns %>%
-      rename(participant = PavloviaParticipantID) %>%
-      left_join(comments_data, by = "participant") %>%
-      left_join(objects_data, by = "participant") %>%
-      left_join(object_suggestion_from_json, by = "participant") %>%
-      full_join(participant_info, by = "participant") %>%
-      rename(PavloviaParticipantID = participant) %>%
-      mutate(
-        # Keep numeric columns as numbers so Excel/CSV exports are usable
-        objectLengthCm = ifelse(!is.na(distanceObjectCm) & is.finite(distanceObjectCm), round(distanceObjectCm, 1), NA_real_),
-        rulerCm = case_when(
-          !is.na(rulerCm) ~ round(as.numeric(rulerCm), 0),
-          .default = NA_real_
-        ),
-        screenWidthCm = ifelse(!is.na(screenWidthCm) & is.finite(as.numeric(screenWidthCm)), round(as.numeric(screenWidthCm), 1), NA_real_),
-        pxPerCm = ifelse(!is.na(pxPerCm), round(as.numeric(pxPerCm), 1), NA_real_),
-        # Use objectName from CSV as fallback for Object when empty
-        Object = ifelse(
-          is.na(Object) | Object == "",
-          ifelse(!is.na(objectName) & objectName != "", objectName, NA_character_),
-          Object
-        )
-      ) %>%
-      {if("ProlificParticipantID" %in% names(.)) rename(., `Prolific Participant ID` = ProlificParticipantID) else mutate(., `Prolific Participant ID` = NA_character_)} %>%
-      select(ok, PavloviaParticipantID, `Prolific Participant ID`, `device type`, system, browser, `Prolific min`, 
-             screenWidthCm, screenResolutionXY, rulerCm, pxPerCm, objectLengthCm, Object, objectSuggestion, Comment) %>%
-      mutate(
-        ok_priority = case_when(
-          ok == "✅" ~ 1,  # ✅ (white_check_mark) first
-          ok == "🚧" ~ 2,  # 🚧 (construction) second  
-          ok == "❌" ~ 3,  # ❌ (x) last
-          is.na(ok) ~ 4,   # NA last
-          .default = 5     # Any other status
-        )
-      ) %>%
-      arrange(ok_priority, PavloviaParticipantID) %>%
-      select(-ok_priority)  # Remove the helper column
-    
-
-    if ("ok" %in% names(participant_info)) {
-      status_counts <- participant_info %>% 
-        group_by(ok) %>% 
-        summarize(count = n(), .groups = "drop") %>%
-        arrange(match(ok, c("✅", "🚧", "❌", NA)))
-    }
-    
-    # Applied filter: 
-    # TODO: Move all filter after this point
-    # Get ruler length < minRulerCm
-    shortRuler <- participant_info %>% 
-      filter(as.numeric(rulerCm) < minRulerCm) %>% 
-      distinct(PavloviaParticipantID)
+    shortRuler <- tibble(PavloviaParticipantID = shortRulerParticipantIDs)
     
     if (nrow(pretest) > 0) {
       if (!'Grade' %in% names(pretest)) {
@@ -871,8 +729,6 @@ generate_threshold <-
       filter(!participant %in% shortRuler$PavloviaParticipantID)
     QA <- QA %>%
       filter(!participant %in% shortRuler$PavloviaParticipantID)
-    participant_info <- participant_info %>%
-      filter(!PavloviaParticipantID %in% shortRuler$PavloviaParticipantID)
     
     #### Generate ratings summary stat table ####
     
@@ -1134,7 +990,6 @@ generate_threshold <-
                 beauty = beauty,
                 familiarity = familiarity,
                 QA = QA %>% select(-block),
-                participant_info = participant_info,
                 reading_pre = reading_pre
     ))
   }

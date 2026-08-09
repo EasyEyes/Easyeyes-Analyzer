@@ -384,11 +384,9 @@ register_plots_tab_server <- function(output,
     plotsRenderCount(0)
   }
 
-  observeEvent(histograms(), {
-    histRenderCount(0)
-    histRenderedCount(0)
-    reset_downstream_render_counts()
-  }, ignoreInit = FALSE)
+  # Reset progressive gates only on new uploads (Distance-tab pattern).
+  # Do NOT reset on histograms()/df_list() invalidation — filter debounce and
+  # plot-list rebuilds would restart hist rendering forever mid-flight.
   observeEvent(files(), {
     histRenderCount(0)
     histRenderedCount(0)
@@ -416,13 +414,6 @@ register_plots_tab_server <- function(output,
     violinRenderedCount(0)
   }, ignoreInit = TRUE)
 
-  observeEvent(violinPlots(), {
-    if (isTRUE(histImagesReady())) {
-      violinRenderCount(0)
-      violinRenderedCount(0)
-    }
-  }, ignoreInit = FALSE)
-
   observe({
     req(histImagesReady())
     total <- min(length(violinPlots()$plotList), maxPlotsViolinSlots)
@@ -446,13 +437,6 @@ register_plots_tab_server <- function(output,
     fontComparisonRenderedCount(0)
   }, ignoreInit = TRUE)
 
-  observeEvent(fontComparisonPlots(), {
-    if (isTRUE(violinImagesReady())) {
-      fontComparisonRenderCount(0)
-      fontComparisonRenderedCount(0)
-    }
-  }, ignoreInit = FALSE)
-
   observe({
     req(violinImagesReady())
     total <- min(length(fontComparisonPlots()$plotList), maxPlotsFontComparisonSlots)
@@ -475,13 +459,6 @@ register_plots_tab_server <- function(output,
     scatterRenderCount(0)
     scatterRenderedCount(0)
   }, ignoreInit = TRUE)
-
-  observeEvent(scatterDiagrams(), {
-    if (isTRUE(fontComparisonImagesReady())) {
-      scatterRenderCount(0)
-      scatterRenderedCount(0)
-    }
-  }, ignoreInit = FALSE)
 
   observe({
     req(fontComparisonImagesReady())
@@ -509,10 +486,6 @@ register_plots_tab_server <- function(output,
     if (!isTRUE(scatterImagesReady())) return(invisible(NULL))
     plotsRenderCount(0)
   }, ignoreInit = TRUE)
-
-  observeEvent(agePlots(), {
-    if (isTRUE(scatterImagesReady())) plotsRenderCount(0)
-  }, ignoreInit = FALSE)
 
   observe({
     req(scatterImagesReady())
@@ -788,20 +761,47 @@ register_plots_tab_server <- function(output,
         req(ii <= histRenderCount())
         req(length(histograms()$plotList) >= ii)
         app_profile_time(app_profiler, paste0("Plots histogram image ", ii), {
-          plot_to_save <- with_plots_histogram_theme(histograms()$plotList[[ii]])
-          disp_w <- session$clientData[[paste0("output_hist", ii, "_width")]]
-          if (is.null(disp_w) || is.na(disp_w) || disp_w <= 0) disp_w <- 380
-          result <- render_plots_display_png(
-            plot_to_save,
-            width_in = 3.5,
-            height_in = 3.5,
-            disp_w = disp_w,
-            disp_h = disp_w,
-            png_theme_profile = "histogram",
-            limitsize = FALSE
-          )
-          if (isolate(histRenderedCount()) < ii) histRenderedCount(ii)
-          result
+          # Fixed display width: clientData widths reflow in the 6-column grid
+          # as each hist appears, re-invalidating every prior hist renderImage
+          # and looking like an infinite generation loop.
+          disp_w <- 280
+          tryCatch({
+            plot_to_save <- with_plots_histogram_theme(histograms()$plotList[[ii]])
+            result <- render_plots_display_png(
+              plot_to_save,
+              width_in = 3.5,
+              height_in = 3.5,
+              disp_w = disp_w,
+              disp_h = disp_w,
+              png_theme_profile = "histogram",
+              limitsize = FALSE
+            )
+            if (isolate(histRenderedCount()) < ii) histRenderedCount(ii)
+            result
+          }, error = function(e) {
+            if (isolate(histRenderedCount()) < ii) histRenderedCount(ii)
+            error_plot <- ggplot() +
+              annotate(
+                "text",
+                x = 0.5,
+                y = 0.5,
+                label = paste("Error:", e$message),
+                color = "red",
+                size = 4,
+                hjust = 0.5,
+                vjust = 0.5
+              ) +
+              theme_void()
+            render_plots_display_png(
+              error_plot,
+              width_in = 3.5,
+              height_in = 3.5,
+              disp_w = disp_w,
+              disp_h = disp_w,
+              use_png_theme = FALSE,
+              limitsize = FALSE
+            )
+          })
         })
       }, deleteFile = TRUE)
       outputOptions(output, paste0("hist", ii), suspendWhenHidden = TRUE)
