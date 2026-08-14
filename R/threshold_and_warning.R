@@ -6,13 +6,33 @@ englishChild <- readxl::read_xlsx(file.path("resources", "Basic_Exclude.xlsx")) 
   mutate(participant = tolower(ID))
 
 bind_threshold_chunks <- function(chunks) {
-  chunks <- Filter(function(x) !is.null(x) && is.data.frame(x) && nrow(x) > 0, chunks)
+  chunks <- Filter(function(x) !is.null(x) && is.data.frame(x), chunks)
   if (length(chunks) == 0) {
     return(tibble())
   }
-  # Match pre-refactor foreach(.combine = "rbind") leniency: dplyr::bind_rows
-  # is strict about types (e.g. questionAndAnswerResponse as character vs double).
+  # Keep 0-row frames so bind_rows preserves column schema (foreach rbind did).
+  # Harmonize types: dplyr::bind_rows is strict (e.g. character vs double QA).
   dplyr::bind_rows(harmonize_chunks_for_bind_rows(chunks))
+}
+
+empty_reading_thresholds <- function() {
+  tibble(
+    experiment = character(),
+    date = character(),
+    block_condition = character(),
+    participant = character(),
+    conditionName = character(),
+    font = character(),
+    readingPages = numeric(),
+    readingPageWords = numeric(),
+    readingPageDurationOnsetToOffsetSec = numeric(),
+    targetKind = character(),
+    thresholdParameter = character(),
+    readingNumberOfQuestions = numeric(),
+    trial = integer(),
+    wordPerMin = numeric(),
+    log_WPM = numeric()
+  )
 }
 
 # One walk over data_list for all threshold extracts.
@@ -31,8 +51,8 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
   n <- length(data_list)
   if (n == 0) {
     return(list(
-      age = tibble(),
-      reading = tibble(),
+      age = tibble(participant = character(), age = numeric()),
+      reading = empty_reading_thresholds(),
       eccentricityDeg = tibble(),
       targetDurationSecs = tibble(),
       viewingdistance = tibble(),
@@ -69,13 +89,13 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         group_by(experiment, date, participant, block_condition, conditionName, font) %>%
         mutate(trial = row_number()) %>%
         ungroup() %>%
-        mutate(wordPerMin = ifelse(
+        mutate(wordPerMin = as.numeric(ifelse(
           trial < 3 & tolower(participant) %in% englishChild$participant,
           9.5 / as.numeric(readingPageDurationOnsetToOffsetSec) * 60,
           as.numeric(readingPageWords) / as.numeric(readingPageDurationOnsetToOffsetSec) * 60
-        )) %>%
-        mutate(log_WPM = log10(wordPerMin)) %>%
-        filter(targetKind == "reading" & font != "")
+        ))) %>%
+        mutate(log_WPM = as.numeric(log10(wordPerMin))) %>%
+        filter(targetKind == "reading" & font != "", !is.na(wordPerMin))
     }
 
     # eccentricity
@@ -317,6 +337,9 @@ generate_threshold <-
     ################################ READING #######################################
     
     reading <- extracted$reading
+    if (!"wordPerMin" %in% names(reading)) {
+      reading <- empty_reading_thresholds()
+    }
     # For italian data, reading OMT_words read as reading speed
     
     if (nrow(reading) == 0 & 'OMT_words read' %in% names(pretest)) {
@@ -345,7 +368,18 @@ generate_threshold <-
         rename(wordPerMin = `OMT_words read`)
     }
     log_debug("reading from pretest.xlsx: ", nrow(reading))
-    reading <- reading %>% filter(wordPerMin <= maxReadingSpeed)
+    if ("wordPerMin" %in% names(reading)) {
+      if (!"log_WPM" %in% names(reading)) {
+        reading$log_WPM <- NA_real_
+      }
+      reading <- reading %>%
+        mutate(
+          wordPerMin = suppressWarnings(as.numeric(wordPerMin)),
+          log_WPM = suppressWarnings(as.numeric(log_WPM)),
+          log_WPM = ifelse(is.na(log_WPM) & !is.na(wordPerMin), log10(wordPerMin), log_WPM)
+        ) %>%
+        filter(!is.na(wordPerMin), is.finite(wordPerMin), wordPerMin <= maxReadingSpeed)
+    }
     
     
     if (nrow(pretest) > 0) {

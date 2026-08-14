@@ -14,7 +14,10 @@ add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
 plot_violins <- function(df_list) {
   crowding = df_list$crowding %>% mutate(y = 10^log_crowding_distance_deg)
   rsvp = df_list$rsvp %>% mutate(y = 10^block_avg_log_WPM)
-  reading = df_list$reading %>% mutate(y = 10^log_WPM)
+  reading = df_list$reading %>%
+    mutate(log_WPM = suppressWarnings(as.numeric(log_WPM))) %>%
+    filter(!is.na(log_WPM), is.finite(log_WPM)) %>%
+    mutate(y = 10^log_WPM)
   
   # Debug reading data
   # print("Reading data for violin plot:")
