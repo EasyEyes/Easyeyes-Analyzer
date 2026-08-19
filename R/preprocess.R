@@ -863,6 +863,10 @@ append_parsed_session <- function(
     return(unchanged)
   }
 
+  if (!"participant" %in% names(t)) {
+    log_warn("Session file missing participant column: ", file_label)
+  }
+
   t <- ensure_columns(t, file_label)
   t$kb <- kb
 

@@ -5,10 +5,10 @@ library(stringr)
 englishChild <- readxl::read_xlsx(file.path("resources", "Basic_Exclude.xlsx")) %>%
   mutate(participant = tolower(ID))
 
-bind_threshold_chunks <- function(chunks) {
+bind_threshold_chunks <- function(chunks, empty = tibble()) {
   chunks <- Filter(function(x) !is.null(x) && is.data.frame(x), chunks)
   if (length(chunks) == 0) {
-    return(tibble())
+    return(empty)
   }
   # Keep 0-row frames so bind_rows preserves column schema (foreach rbind did).
   # Harmonize types: dplyr::bind_rows is strict (e.g. character vs double QA).
@@ -35,6 +35,73 @@ empty_reading_thresholds <- function() {
   )
 }
 
+empty_age <- function() {
+  tibble(participant = character(), age = numeric())
+}
+
+empty_eccentricity <- function() {
+  tibble(
+    participant = character(),
+    conditionName = character(),
+    targetEccentricityXDeg = numeric(),
+    targetEccentricityYDeg = numeric()
+  )
+}
+
+empty_target_duration <- function() {
+  tibble(
+    participant = character(),
+    conditionName = character(),
+    targetDurationSec = numeric()
+  )
+}
+
+empty_viewing_distance <- function() {
+  tibble(
+    conditionName = character(),
+    participant = character(),
+    viewingDistanceDesiredCm = numeric()
+  )
+}
+
+empty_fluency <- function() {
+  tibble(
+    block = numeric(),
+    participant = character(),
+    conditionName = character(),
+    questionAndAnswerResponse = character(),
+    `trials.thisN` = numeric(),
+    questionAndAnswerNickname = character(),
+    questionAndAnswerQuestion = character(),
+    targetKind = character(),
+    questionAndAnswerCorrectAnswer = character()
+  )
+}
+
+empty_qa <- function() {
+  tibble(
+    experiment = character(),
+    participant = character(),
+    block = numeric(),
+    block_condition = character(),
+    conditionName = character(),
+    blockShuffleGroups2 = character(),
+    questionAndAnswerQuestion = character(),
+    questionAndAnswerNickname = character(),
+    questionAndAnswerResponse = character(),
+    questionAndAnswerCorrectAnswer = character(),
+    correct = logical()
+  )
+}
+
+# dplyr::filter(participant %in% ...) errors on 0-column tibbles (no `participant`).
+filter_out_short_ruler <- function(df, short_ruler_ids) {
+  if (!is.data.frame(df) || !"participant" %in% names(df)) {
+    return(df)
+  }
+  df %>% filter(!participant %in% short_ruler_ids)
+}
+
 # One walk over data_list for all threshold extracts.
 # Viewing-distance rows are only taken for i <= length(summary_list) to match
 # the historical foreach(i = 1:length(summary_list)) indexing into data_list.
@@ -51,14 +118,14 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
   n <- length(data_list)
   if (n == 0) {
     return(list(
-      age = tibble(participant = character(), age = numeric()),
+      age = empty_age(),
       reading = empty_reading_thresholds(),
-      eccentricityDeg = tibble(),
-      targetDurationSecs = tibble(),
-      viewingdistance = tibble(),
+      eccentricityDeg = empty_eccentricity(),
+      targetDurationSecs = empty_target_duration(),
+      viewingdistance = empty_viewing_distance(),
       reading_questions = list(),
-      fluency = tibble(),
-      QA = tibble()
+      fluency = empty_fluency(),
+      QA = empty_qa()
     ))
   }
 
@@ -179,14 +246,14 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
   }
 
   list(
-    age = bind_threshold_chunks(age_chunks),
-    reading = bind_threshold_chunks(reading_chunks),
-    eccentricityDeg = bind_threshold_chunks(eccentricity_chunks),
-    targetDurationSecs = bind_threshold_chunks(duration_chunks),
-    viewingdistance = bind_threshold_chunks(viewing_chunks),
+    age = bind_threshold_chunks(age_chunks, empty_age()),
+    reading = bind_threshold_chunks(reading_chunks, empty_reading_thresholds()),
+    eccentricityDeg = bind_threshold_chunks(eccentricity_chunks, empty_eccentricity()),
+    targetDurationSecs = bind_threshold_chunks(duration_chunks, empty_target_duration()),
+    viewingdistance = bind_threshold_chunks(viewing_chunks, empty_viewing_distance()),
     reading_questions = reading_q_chunks,
-    fluency = bind_threshold_chunks(fluency_chunks),
-    QA = bind_threshold_chunks(qa_chunks)
+    fluency = bind_threshold_chunks(fluency_chunks, empty_fluency()),
+    QA = bind_threshold_chunks(qa_chunks, empty_qa())
   )
 }
 
@@ -678,7 +745,7 @@ generate_threshold <-
         summarize(accuracy = mean(questionAndAnswerResponse == questionAndAnswerCorrectAnswer),
                   .groups="drop")
     } else {
-      fluency = tibble()
+      fluency <- tibble(participant = character(), accuracy = numeric())
     }
     
     if ('Grade' %in% names(pretest)) {
@@ -700,6 +767,9 @@ generate_threshold <-
     #### beauty and comfort ####
 
     QA <- extracted$QA
+    if (!"participant" %in% names(QA)) {
+      QA <- empty_qa()
+    }
     if (nrow(QA) > 0) {
       QA <- QA %>%
         filter(!blockShuffleGroups2=="readin5") %>% 
@@ -737,32 +807,20 @@ generate_threshold <-
       basicExclude <- tibble(participant = '')
     }
     
-    reading <-  reading %>% 
-      filter(!participant %in% shortRuler$PavloviaParticipantID)
-    crowding <- crowding %>% 
-      filter(!participant %in% shortRuler$PavloviaParticipantID)
-    rsvp <-rsvp_speed %>%
-      filter(!participant %in% shortRuler$PavloviaParticipantID)
-    # fluency <- fluency %>%
-    #   filter(!participant %in% shortRuler$PavloviaParticipantID)
-    acuity <- acuity %>%
-      filter(!participant %in% shortRuler$PavloviaParticipantID)
-    repeatedLetters <- repeatedLetters %>%
-      filter(!participant %in% shortRuler$PavloviaParticipantID)
-    quest <- quest %>%
-      filter(!participant %in% shortRuler$PavloviaParticipantID)
-    quest_all_thresholds <- quest_all_thresholds %>%
-      filter(!participant %in% shortRuler$PavloviaParticipantID)
-    age <-  age %>%
-      filter(!participant %in% shortRuler$PavloviaParticipantID)
-    # threshold <- threshold %>%
-    #   filter(!participant %in% shortRuler$PavloviaParticipantID)
-    # threshold_each <- threshold_each %>%
-    #   filter(!participant %in% shortRuler$PavloviaParticipantID)
-    all_summary <- all_summary %>% 
-      filter(!participant %in% shortRuler$PavloviaParticipantID)
-    QA <- QA %>%
-      filter(!participant %in% shortRuler$PavloviaParticipantID)
+    short_ruler_ids <- shortRuler$PavloviaParticipantID
+    reading <- filter_out_short_ruler(reading, short_ruler_ids)
+    crowding <- filter_out_short_ruler(crowding, short_ruler_ids)
+    rsvp <- filter_out_short_ruler(rsvp_speed, short_ruler_ids)
+    # fluency <- filter_out_short_ruler(fluency, short_ruler_ids)
+    acuity <- filter_out_short_ruler(acuity, short_ruler_ids)
+    repeatedLetters <- filter_out_short_ruler(repeatedLetters, short_ruler_ids)
+    quest <- filter_out_short_ruler(quest, short_ruler_ids)
+    quest_all_thresholds <- filter_out_short_ruler(quest_all_thresholds, short_ruler_ids)
+    age <- filter_out_short_ruler(age, short_ruler_ids)
+    # threshold <- filter_out_short_ruler(threshold, short_ruler_ids)
+    # threshold_each <- filter_out_short_ruler(threshold_each, short_ruler_ids)
+    all_summary <- filter_out_short_ruler(all_summary, short_ruler_ids)
+    QA <- filter_out_short_ruler(QA, short_ruler_ids)
     
     #### Generate ratings summary stat table ####
     
@@ -901,21 +959,25 @@ generate_threshold <-
     # And then link to nearest reading block
     # for example block 3 CQ questions should link to block 2 reading
     # And then apply filter
-    comprehension_ac <- QA %>%
-      group_by(experiment, participant, block) %>% 
-      # Calculate accuracy in percentage
-      summarize(CQAccuracy = mean(correct*100, na.rm = T), .groups = 'drop',
-                Nquestions = sum(!is.na(correct))) %>% 
-      mutate(block=as.numeric(block)-1)
+    if (nrow(QA) > 0 && "correct" %in% names(QA)) {
+      comprehension_ac <- QA %>%
+        group_by(experiment, participant, block) %>%
+        summarize(CQAccuracy = mean(correct * 100, na.rm = T), .groups = "drop",
+                  Nquestions = sum(!is.na(correct))) %>%
+        mutate(block = as.numeric(block) - 1)
 
-    reading_pre <- reading %>% 
-      mutate(block = ifelse(length(str_split(block_condition,'_')) == 0,
-                            NA,
-                            as.numeric(str_split(block_condition,'_')[[1]][1]))) %>% 
-      left_join(comprehension_ac, by = c("experiment", "participant","block"))
-    
-    reading <- reading_pre %>% 
-      filter(CQAccuracy >= minCQAccuracy)
+      reading_pre <- reading %>%
+        mutate(block = ifelse(length(str_split(block_condition, "_")) == 0,
+                              NA,
+                              as.numeric(str_split(block_condition, "_")[[1]][1]))) %>%
+        left_join(comprehension_ac, by = c("experiment", "participant", "block"))
+
+      reading <- reading_pre %>%
+        filter(CQAccuracy >= minCQAccuracy)
+    } else {
+      reading_pre <- reading %>%
+        mutate(CQAccuracy = NA_real_, Nquestions = NA_real_)
+    }
 
     
     # continue to summarize statistics
@@ -1023,7 +1085,7 @@ generate_threshold <-
                 comfort = comfort,
                 beauty = beauty,
                 familiarity = familiarity,
-                QA = QA %>% select(-block),
+                QA = if ("block" %in% names(QA)) QA %>% select(-block) else QA,
                 reading_pre = reading_pre
     ))
   }
