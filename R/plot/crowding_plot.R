@@ -1211,8 +1211,10 @@ plot_crowding_vs_age <- function(crowding){
 
 
 
-# Shared prep for crowding vs duration plots.
-# Returns list(crowding, per_side, per_participant_lr, geom_mean) or NULL.
+# ---------------------------------------------------------------------------
+# Crowding vs duration (shared prep + three plots with common log axes)
+# ---------------------------------------------------------------------------
+
 prepare_crowding_vs_duration <- function(crowding) {
   if (is.null(crowding) || nrow(crowding) == 0) {
     return(NULL)
@@ -1254,8 +1256,7 @@ prepare_crowding_vs_duration <- function(crowding) {
     exp(mean(log(x)))
   }
 
-  # Mean ± SE of log(linear values), then back-transform.
-  # On a log y-axis the error bars are equal length up and down.
+  # Mean ± SE of log(linear values), then back-transform (symmetric on log axis).
   log_mean_se <- function(x) {
     x <- x[is.finite(x) & x > 0]
     n <- length(x)
@@ -1289,7 +1290,84 @@ prepare_crowding_vs_duration <- function(crowding) {
   )
 }
 
-crowding_vs_duration_theme_scales <- function(p, n_label, subtitle) {
+# Snap a positive value down/up to 1, 2, or 5 × 10^k (integer-friendly log ticks).
+crowding_duration_floor_nice <- function(v) {
+  if (!is.finite(v) || v <= 0) return(v)
+  exp10 <- floor(log10(v) + 1e-12)
+  mant <- v / (10^exp10)
+  choice <- max(c(1, 2, 5)[c(1, 2, 5) <= mant + 1e-12], na.rm = TRUE)
+  choice * (10^exp10)
+}
+
+crowding_duration_ceiling_nice <- function(v) {
+  if (!is.finite(v) || v <= 0) return(v)
+  exp10 <- floor(log10(v) + 1e-12)
+  mant <- v / (10^exp10)
+  choices <- c(1, 2, 5, 10)
+  choice <- min(choices[choices >= mant - 1e-12], na.rm = TRUE)
+  choice * (10^exp10)
+}
+
+# Shared log limits for all three plots; equalize log spans so 1 log unit
+# is the same length on x and y with coord_fixed(1). Y breaks: 0.1, 0.3, 1, 3, 10, ...
+crowding_duration_shared_scales <- function(x_vals, y_vals) {
+  x_vals <- x_vals[is.finite(x_vals) & x_vals > 0]
+  y_vals <- y_vals[is.finite(y_vals) & y_vals > 0]
+  if (length(x_vals) == 0 || length(y_vals) == 0) {
+    return(NULL)
+  }
+
+  pad <- 0.08
+  lx <- range(log10(x_vals))
+  ly <- range(log10(y_vals))
+  lx <- lx + c(-1, 1) * pad * max(diff(lx), 0.2)
+  ly <- ly + c(-1, 1) * pad * max(diff(ly), 0.2)
+
+  # Equal log span → square panel under coord_fixed(ratio = 1).
+  span <- max(diff(lx), diff(ly))
+  lx <- mean(lx) + c(-0.5, 0.5) * span
+  ly <- mean(ly) + c(-0.5, 0.5) * span
+
+  xlim <- 10^lx
+  ylim <- 10^ly
+  ylim <- c(
+    crowding_duration_floor_nice(ylim[1]),
+    crowding_duration_ceiling_nice(ylim[2])
+  )
+  # Re-sync x span to (possibly snapped) y log span for equal aspect.
+  y_span <- diff(log10(ylim))
+  x_mid <- mean(log10(xlim))
+  xlim <- 10^(x_mid + c(-0.5, 0.5) * y_span)
+  xlim <- c(
+    crowding_duration_floor_nice(xlim[1]),
+    crowding_duration_ceiling_nice(xlim[2])
+  )
+  # Final equalize after x snap
+  span <- max(diff(log10(xlim)), diff(log10(ylim)))
+  xlim <- 10^(mean(log10(xlim)) + c(-0.5, 0.5) * span)
+  ylim <- 10^(mean(log10(ylim)) + c(-0.5, 0.5) * span)
+  ylim <- c(
+    crowding_duration_floor_nice(ylim[1]),
+    crowding_duration_ceiling_nice(ylim[2])
+  )
+  y_span <- diff(log10(ylim))
+  xlim <- 10^(mean(log10(xlim)) + c(-0.5, 0.5) * y_span)
+
+  log_lo <- floor(log10(ylim[1])) - 1L
+  log_hi <- ceiling(log10(ylim[2])) + 1L
+  # Label 0.1, 0.3, 1, 3, 10, 30, ... when inside the y range.
+  y_breaks <- as.vector(outer(c(1, 3), 10^(log_lo:log_hi)))
+  y_breaks <- sort(unique(y_breaks[y_breaks >= ylim[1] * 0.999 & y_breaks <= ylim[2] * 1.001]))
+
+  x_log_lo <- floor(log10(xlim[1])) - 1L
+  x_log_hi <- ceiling(log10(xlim[2])) + 1L
+  x_breaks <- as.vector(outer(c(1, 2, 5), 10^(x_log_lo:x_log_hi)))
+  x_breaks <- sort(unique(x_breaks[x_breaks >= xlim[1] * 0.999 & x_breaks <= xlim[2] * 1.001]))
+
+  list(xlim = xlim, ylim = ylim, x_breaks = x_breaks, y_breaks = y_breaks)
+}
+
+crowding_vs_duration_apply_scales <- function(p, n_label, subtitle, scales) {
   p +
     ggpp::geom_text_npc(
       aes(npcx = "right", npcy = "top", label = paste0("N = ", n_label)),
@@ -1303,13 +1381,17 @@ crowding_vs_duration_theme_scales <- function(p, n_label, subtitle) {
       long = unit(7, "pt")
     ) +
     scale_x_log10(
+      breaks = scales$x_breaks,
       labels = scales::label_number(accuracy = NULL),
-      expand = expansion(mult = c(0.05, 0.05))
+      expand = c(0, 0)
     ) +
     scale_y_log10(
+      breaks = scales$y_breaks,
       labels = scales::label_number(accuracy = NULL),
-      expand = expansion(mult = c(0.05, 0.05))
+      expand = c(0, 0)
     ) +
+    # One log10 unit has the same length on x and y.
+    coord_fixed(ratio = 1, xlim = scales$xlim, ylim = scales$ylim, expand = FALSE) +
     labs(
       subtitle = subtitle,
       x = "Duration (sec)",
@@ -1319,71 +1401,44 @@ crowding_vs_duration_theme_scales <- function(p, n_label, subtitle) {
     guides(color = guide_legend(title = NULL))
 }
 
-# Geometric mean across participants ± SE of log values (symmetric on log axis).
-plot_crowding_vs_duration <- function(crowding) {
+# Build all three crowding-vs-duration plots with shared axis ranges.
+# Returns list(mean, by_side, by_participant); any entry may be NULL.
+plot_crowding_vs_duration_plots <- function(crowding) {
   prep <- prepare_crowding_vs_duration(crowding)
-  if (is.null(prep)) return(NULL)
+  if (is.null(prep)) {
+    return(list(mean = NULL, by_side = NULL, by_participant = NULL))
+  }
 
-  message("plot_crowding_vs_duration: raw crowding (", nrow(prep$crowding), " rows)")
+  message("plot_crowding_vs_duration_plots: raw crowding (", nrow(prep$crowding), " rows)")
   print(prep$crowding, n = 100)
 
+  geom_mean <- prep$geom_mean
   log_mean_se <- prep$log_mean_se
-  summary_df <- prep$per_participant_lr %>%
+
+  # --- mean across participants (L/R geo mean per participant) ---
+  mean_df <- prep$per_participant_lr %>%
     group_by(questType, targetDurationSec) %>%
     summarize(stats = list(log_mean_se(crowding_deg)), .groups = "drop") %>%
     tidyr::unnest_wider(stats)
 
-  if (nrow(summary_df) == 0) return(NULL)
-
-  n_total <- n_distinct(prep$per_participant_lr$participant)
-  p <- ggplot(summary_df, aes(x = targetDurationSec, y = crowding_deg, color = questType)) +
-    geom_line(aes(group = questType), linewidth = 0.6) +
-    geom_point(size = 6) +
-    geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05)
-  crowding_vs_duration_theme_scales(p, n_total, "Crowding vs duration")
-}
-
-# Mean across participants ± SE of log values, separate lines for left and right.
-plot_crowding_vs_duration_by_side <- function(crowding) {
-  prep <- prepare_crowding_vs_duration(crowding)
-  if (is.null(prep)) return(NULL)
-
-  geom_mean <- prep$geom_mean
-  log_mean_se <- prep$log_mean_se
+  # --- by side ---
   per_side <- prep$per_side %>%
     filter(side %in% c("L", "R")) %>%
     mutate(side = factor(side, levels = c("L", "R"), labels = c("Left", "Right")))
 
-  if (nrow(per_side) == 0) return(NULL)
+  by_side_df <- NULL
+  if (nrow(per_side) > 0) {
+    per_participant_side <- per_side %>%
+      group_by(participant, side, targetDurationSec) %>%
+      summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop")
 
-  # One value per participant × side × duration (geo mean across questType/fonts).
-  per_participant_side <- per_side %>%
-    group_by(participant, side, targetDurationSec) %>%
-    summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop")
+    by_side_df <- per_participant_side %>%
+      group_by(side, targetDurationSec) %>%
+      summarize(stats = list(log_mean_se(crowding_deg)), .groups = "drop") %>%
+      tidyr::unnest_wider(stats)
+  }
 
-  summary_df <- per_participant_side %>%
-    group_by(side, targetDurationSec) %>%
-    summarize(stats = list(log_mean_se(crowding_deg)), .groups = "drop") %>%
-    tidyr::unnest_wider(stats)
-
-  if (nrow(summary_df) == 0) return(NULL)
-
-  n_total <- n_distinct(per_participant_side$participant)
-  p <- ggplot(summary_df, aes(x = targetDurationSec, y = crowding_deg, color = side)) +
-    geom_line(aes(group = side), linewidth = 0.6) +
-    geom_point(size = 6) +
-    geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05)
-  crowding_vs_duration_theme_scales(p, n_total, "Crowding vs duration by side")
-}
-
-# One line per participant; each point is geometric mean of left and right,
-# with ±SE of log(trial values) at that duration (symmetric on log axis).
-plot_crowding_vs_duration_by_participant <- function(crowding) {
-  prep <- prepare_crowding_vs_duration(crowding)
-  if (is.null(prep)) return(NULL)
-
-  geom_mean <- prep$geom_mean
-
+  # --- by participant ---
   trial_se <- prep$crowding %>%
     group_by(participant, targetDurationSec) %>%
     summarize(
@@ -1394,7 +1449,7 @@ plot_crowding_vs_duration_by_participant <- function(crowding) {
       .groups = "drop"
     )
 
-  per_participant <- prep$per_participant_lr %>%
+  by_participant_df <- prep$per_participant_lr %>%
     group_by(participant, targetDurationSec) %>%
     summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop") %>%
     left_join(trial_se, by = c("participant", "targetDurationSec")) %>%
@@ -1404,15 +1459,63 @@ plot_crowding_vs_duration_by_participant <- function(crowding) {
       ymax = crowding_deg * exp(se_log)
     )
 
-  if (nrow(per_participant) == 0) return(NULL)
+  # Shared limits from all plotted points and error bars.
+  x_all <- c(
+    mean_df$targetDurationSec,
+    if (!is.null(by_side_df)) by_side_df$targetDurationSec,
+    by_participant_df$targetDurationSec
+  )
+  y_all <- c(
+    mean_df$crowding_deg, mean_df$ymin, mean_df$ymax,
+    if (!is.null(by_side_df)) c(by_side_df$crowding_deg, by_side_df$ymin, by_side_df$ymax),
+    by_participant_df$crowding_deg, by_participant_df$ymin, by_participant_df$ymax
+  )
+  scales <- crowding_duration_shared_scales(x_all, y_all)
+  if (is.null(scales)) {
+    return(list(mean = NULL, by_side = NULL, by_participant = NULL))
+  }
 
-  n_total <- n_distinct(per_participant$participant)
-  p <- ggplot(
-    per_participant,
-    aes(x = targetDurationSec, y = crowding_deg, color = participant, group = participant)
-  ) +
-    geom_line(linewidth = 0.6) +
-    geom_point(size = 6) +
-    geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05)
-  crowding_vs_duration_theme_scales(p, n_total, "Crowding vs duration by participant")
+  n_total <- n_distinct(prep$per_participant_lr$participant)
+
+  p_mean <- if (nrow(mean_df) > 0) {
+    crowding_vs_duration_apply_scales(
+      ggplot(mean_df, aes(x = targetDurationSec, y = crowding_deg, color = questType)) +
+        geom_line(aes(group = questType), linewidth = 0.6) +
+        geom_point(size = 6) +
+        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05),
+      n_total, "Crowding vs duration", scales
+    )
+  } else {
+    NULL
+  }
+
+  p_side <- if (!is.null(by_side_df) && nrow(by_side_df) > 0) {
+    n_side <- n_distinct(per_side$participant)
+    crowding_vs_duration_apply_scales(
+      ggplot(by_side_df, aes(x = targetDurationSec, y = crowding_deg, color = side)) +
+        geom_line(aes(group = side), linewidth = 0.6) +
+        geom_point(size = 6) +
+        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05),
+      n_side, "Crowding vs duration by side", scales
+    )
+  } else {
+    NULL
+  }
+
+  p_participant <- if (nrow(by_participant_df) > 0) {
+    crowding_vs_duration_apply_scales(
+      ggplot(
+        by_participant_df,
+        aes(x = targetDurationSec, y = crowding_deg, color = participant, group = participant)
+      ) +
+        geom_line(linewidth = 0.6) +
+        geom_point(size = 6) +
+        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05),
+      n_total, "Crowding vs duration by participant", scales
+    )
+  } else {
+    NULL
+  }
+
+  list(mean = p_mean, by_side = p_side, by_participant = p_participant)
 }

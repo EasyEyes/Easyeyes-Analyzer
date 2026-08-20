@@ -305,6 +305,7 @@ register_plots_tab_server <- function(output,
     regression_plots <- regression_reading_plot(df_list(), colorFont())
     test_retest_plots <- get_test_retest(df_list())
   aud_plots <- plot_auditory_crowding(df_list()$quest_all_thresholds, df_list()$crowding)
+    crowding_duration_plots <- plot_crowding_vs_duration_plots(df_list()$crowding)
     
     plot_calls <- list(
       list(plot = aud_plots$scatter, fname = 'auditory-crowding-melody-db-vs-crowding-threshold'),
@@ -325,9 +326,9 @@ register_plots_tab_server <- function(output,
       list(plot = regression_acuity_plot(df_list()), fname = 'ordinary-reading-rsvp-reading-vs-acuity'),
       list(plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp), fname = 'reading-vs-RSVP-reading-plot'),
       list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade'),
-      list(plot = plot_crowding_vs_duration(df_list()$crowding), fname = 'crowding-vs-duration'),
-      list(plot = plot_crowding_vs_duration_by_side(df_list()$crowding), fname = 'crowding-vs-duration-by-side'),
-      list(plot = plot_crowding_vs_duration_by_participant(df_list()$crowding), fname = 'crowding-vs-duration-by-participant'),
+      list(plot = crowding_duration_plots$mean, fname = 'crowding-vs-duration'),
+      list(plot = crowding_duration_plots$by_side, fname = 'crowding-vs-duration-by-side'),
+      list(plot = crowding_duration_plots$by_participant, fname = 'crowding-vs-duration-by-participant'),
       list(plot = plot_badLatenessTrials_vs_memory(files()$data_list,conditionNames()), fname="badLatenessTrials-vs-deviceMemoryGB-by-participant"),
       list(plot = minDegPlots()$scatter, fname="foveal-crowding-vs-spacingMinDeg")
     )
