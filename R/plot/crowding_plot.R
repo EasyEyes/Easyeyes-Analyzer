@@ -1254,6 +1254,24 @@ prepare_crowding_vs_duration <- function(crowding) {
     exp(mean(log(x)))
   }
 
+  # Mean ± SE of log(linear values), then back-transform.
+  # On a log y-axis the error bars are equal length up and down.
+  log_mean_se <- function(x) {
+    x <- x[is.finite(x) & x > 0]
+    n <- length(x)
+    if (n == 0) {
+      return(list(n = 0L, crowding_deg = NA_real_, ymin = NA_real_, ymax = NA_real_))
+    }
+    mean_log <- mean(log(x))
+    se_log <- if (n > 1) sd(log(x)) / sqrt(n) else 0
+    list(
+      n = n,
+      crowding_deg = exp(mean_log),
+      ymin = exp(mean_log - se_log),
+      ymax = exp(mean_log + se_log)
+    )
+  }
+
   per_side <- crowding %>%
     group_by(participant, questType, targetDurationSec, side) %>%
     summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop")
@@ -1266,7 +1284,8 @@ prepare_crowding_vs_duration <- function(crowding) {
     crowding = crowding,
     per_side = per_side,
     per_participant_lr = per_participant_lr,
-    geom_mean = geom_mean
+    geom_mean = geom_mean,
+    log_mean_se = log_mean_se
   )
 }
 
@@ -1300,7 +1319,7 @@ crowding_vs_duration_theme_scales <- function(p, n_label, subtitle) {
     guides(color = guide_legend(title = NULL))
 }
 
-# Geometric mean across participants ± SE (geo mean of left and right per participant).
+# Geometric mean across participants ± SE of log values (symmetric on log axis).
 plot_crowding_vs_duration <- function(crowding) {
   prep <- prepare_crowding_vs_duration(crowding)
   if (is.null(prep)) return(NULL)
@@ -1308,21 +1327,11 @@ plot_crowding_vs_duration <- function(crowding) {
   message("plot_crowding_vs_duration: raw crowding (", nrow(prep$crowding), " rows)")
   print(prep$crowding, n = 100)
 
-  geom_mean <- prep$geom_mean
+  log_mean_se <- prep$log_mean_se
   summary_df <- prep$per_participant_lr %>%
     group_by(questType, targetDurationSec) %>%
-    summarize(
-      n = dplyr::n(),
-      se = sd(crowding_deg, na.rm = TRUE) / sqrt(n),
-      crowding_deg = geom_mean(crowding_deg),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      ymin = crowding_deg - se,
-      ymax = crowding_deg + se,
-      ymin = ifelse(is.na(ymin) | ymin <= 0, crowding_deg, ymin),
-      ymax = ifelse(is.na(ymax), crowding_deg, ymax)
-    )
+    summarize(stats = list(log_mean_se(crowding_deg)), .groups = "drop") %>%
+    tidyr::unnest_wider(stats)
 
   if (nrow(summary_df) == 0) return(NULL)
 
@@ -1334,12 +1343,13 @@ plot_crowding_vs_duration <- function(crowding) {
   crowding_vs_duration_theme_scales(p, n_total, "Crowding vs duration")
 }
 
-# Mean across participants ± SE, separate lines for left and right.
+# Mean across participants ± SE of log values, separate lines for left and right.
 plot_crowding_vs_duration_by_side <- function(crowding) {
   prep <- prepare_crowding_vs_duration(crowding)
   if (is.null(prep)) return(NULL)
 
   geom_mean <- prep$geom_mean
+  log_mean_se <- prep$log_mean_se
   per_side <- prep$per_side %>%
     filter(side %in% c("L", "R")) %>%
     mutate(side = factor(side, levels = c("L", "R"), labels = c("Left", "Right")))
@@ -1353,18 +1363,8 @@ plot_crowding_vs_duration_by_side <- function(crowding) {
 
   summary_df <- per_participant_side %>%
     group_by(side, targetDurationSec) %>%
-    summarize(
-      n = dplyr::n(),
-      se = sd(crowding_deg, na.rm = TRUE) / sqrt(n),
-      crowding_deg = geom_mean(crowding_deg),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      ymin = crowding_deg - se,
-      ymax = crowding_deg + se,
-      ymin = ifelse(is.na(ymin) | ymin <= 0, crowding_deg, ymin),
-      ymax = ifelse(is.na(ymax), crowding_deg, ymax)
-    )
+    summarize(stats = list(log_mean_se(crowding_deg)), .groups = "drop") %>%
+    tidyr::unnest_wider(stats)
 
   if (nrow(summary_df) == 0) return(NULL)
 
@@ -1377,31 +1377,31 @@ plot_crowding_vs_duration_by_side <- function(crowding) {
 }
 
 # One line per participant; each point is geometric mean of left and right,
-# with ±SE across trials (rows) at that duration.
+# with ±SE of log(trial values) at that duration (symmetric on log axis).
 plot_crowding_vs_duration_by_participant <- function(crowding) {
   prep <- prepare_crowding_vs_duration(crowding)
   if (is.null(prep)) return(NULL)
 
   geom_mean <- prep$geom_mean
 
-  # Trial-level SE within participant × duration (all sides).
-  trial_stats <- prep$crowding %>%
+  trial_se <- prep$crowding %>%
     group_by(participant, targetDurationSec) %>%
     summarize(
-      n_trials = dplyr::n(),
-      se = sd(crowding_deg, na.rm = TRUE) / sqrt(n_trials),
+      se_log = {
+        x <- crowding_deg[is.finite(crowding_deg) & crowding_deg > 0]
+        if (length(x) > 1) sd(log(x)) / sqrt(length(x)) else 0
+      },
       .groups = "drop"
     )
 
   per_participant <- prep$per_participant_lr %>%
     group_by(participant, targetDurationSec) %>%
     summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop") %>%
-    left_join(trial_stats, by = c("participant", "targetDurationSec")) %>%
+    left_join(trial_se, by = c("participant", "targetDurationSec")) %>%
     mutate(
-      ymin = crowding_deg - se,
-      ymax = crowding_deg + se,
-      ymin = ifelse(is.na(ymin) | ymin <= 0, crowding_deg, ymin),
-      ymax = ifelse(is.na(ymax), crowding_deg, ymax)
+      se_log = ifelse(is.na(se_log), 0, se_log),
+      ymin = crowding_deg * exp(-se_log),
+      ymax = crowding_deg * exp(se_log)
     )
 
   if (nrow(per_participant) == 0) return(NULL)

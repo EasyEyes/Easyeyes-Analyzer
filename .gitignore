@@ -9,6 +9,7 @@ Rplots.pdf
 docs/
 .logs/
 .positai
+.env
 
 # Optional local dev folder for experiment zips (not used by the app; safe if missing)
 local-test-data/*
