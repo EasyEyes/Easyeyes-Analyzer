@@ -1210,127 +1210,10 @@ plot_crowding_vs_age <- function(crowding){
 }
 
 
-# plot_crowding_vs_age <- function(crowding){
-# 
-#   crowding <- crowding %>%
-#     mutate(ageN = as.numeric(age)) %>% 
-#     filter(!is.na(ageN))
-# 
-#   if (nrow(crowding) == 0) {
-#     return(NULL)
-#   } 
-#   
-#   eccs_periph <- sort(unique(crowding$targetEccentricityXDeg[crowding$targetEccentricityXDeg > 0]))
-#   eccs_int    <- as.integer(round(eccs_periph))
-#   ecc_label   <- paste0("X ecc = ", paste(eccs_int, collapse = ", "), " deg")
-#   
-#   foveal <- crowding %>% 
-#     filter(questType == 'Foveal crowding') %>% 
-#     select(participant, questType, ageN,log_crowding_distance_deg)
-#   # Only right visual field
-#   peripheral <- crowding %>% 
-#     filter(targetEccentricityXDeg > 0) %>% 
-#     group_by(participant, questType, ageN) %>% 
-#     summarize(log_crowding_distance_deg = mean(log_crowding_distance_deg, na.rm =T))
-#   
-#   age_values <- seq(4, 10, by = 0.1)
-#   log_crowding_distance_deg <- 0.0535 + 1.5294 * (age_values^-1.9438)
-# 
-#   foveal_curve <- data.frame(ageN = age_values, log_crowding_distance_deg = log_crowding_distance_deg)
-#   if (nrow(foveal) > 0) {
-#     foveal_stats <- foveal %>% 
-#       do(fit = lm(log_crowding_distance_deg ~ ageN, data = .)) %>%
-#       transmute(coef = map(fit, tidy)) %>%
-#       unnest(coef) %>%
-#       filter(term == "ageN") %>%  
-#       mutate(slope = format(round(estimate, 2),nsmall=2)) %>%  
-#       select(slope)
-#     foveal_slope <- foveal_stats$slope[1]
-#     # calculate correlation foveal data
-#     foveal_corr <- foveal %>% 
-#       summarize(cor = format(round(cor(ageN,log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)) %>% 
-#       select(cor)
-#     foveal_corr <- foveal_corr$cor[1]
-#   } else {
-#     foveal_slope = NA
-#     foveal_corr = NA
-#   }
-#  
-#   
-#   # calculate slope peripheral data
-#   if (nrow(peripheral) > 0) {
-#     model <- lm(log_crowding_distance_deg ~ ageN, data = peripheral)
-#     p_slope <- tidy(model) %>%
-#       filter(term == "ageN") %>%
-#       mutate(slope = format(round(estimate, 2), nsmall = 2)) %>%
-#       select(slope)
-#     # calculate correlation peripheral data
-#     peripheral_corr <- format(round(cor(peripheral$ageN, peripheral$log_crowding_distance_deg,use = "complete.obs"),2),nsmall=2)
-#   } else {
-#     p_slope = tibble(slope = NA)
-#     peripheral_corr = NA
-#   }
-#   
-#  label = paste0('Foveal: slope=', foveal_slope, ', R=', foveal_corr, ', N=', nrow(foveal), '\n',
-#                 'Peripheral: slope=', p_slope$slope[1], ', R=', peripheral_corr,  ', N=', nrow(peripheral), ', ' , ecc_label)
-#  t <- rbind(foveal, peripheral)
-#   p <- ggplot(data = crowding, aes(x = ageN, 
-#                               y = 10^(log_crowding_distance_deg),
-#                               color = questType
-#                               )) + 
-#     annotation_logticks(
-#       sides = "l", 
-#       short = unit(2, "pt"), 
-#       mid   = unit(2, "pt"), 
-#       long  = unit(7, "pt")
-#     ) +
-#     geom_point()+ 
-#     geom_smooth(method='lm', se=F) + 
-#     ggpp::geom_text_npc(
-#       size = 12/.pt,
-#       aes(npcx = "right",
-#           npcy = "top",
-#           label = label)) +
-#     scale_y_log10() + 
-#     # scale_x_continuous(breaks = c(seq(2,18,2), seq(20 , 50, 10))) + 
-#     
-#     guides(color=guide_legend(title = ''),
-#            shape=guide_legend(title = '',
-#                               ncol=1)) + 
-#     labs(x = 'Age',
-#          y = 'Crowding distance (deg)',
-#          subtitle = 'Geometric average of left and right thresholds',
-#          title = 'Foveal and peripheral\ncrowding vs age')
-#   
-#   uniq <- n_distinct(crowding$ageN)
-#   if (uniq > 1) {
-#     p <- p + scale_x_continuous(
-#       breaks = scales::pretty_breaks(n = 5),
-#       expand = expansion(mult = c(0.05, 0.05))
-#     ) +
-#       theme(
-#         axis.text.x = element_text(
-#           angle = ifelse(uniq > 4, 45, 0),
-#           hjust = ifelse(uniq > 4, 1, 0.5)
-#         )
-#       )
-#   } else {
-#     a <- unique(crowding$ageN)
-#     p <- p + scale_x_continuous(
-#       breaks = a,
-#       limits = a + c(-1, 1),
-#       expand = c(0, 0)
-#     )
-#   }
-#   return(p)
-# }
 
-
-# Crowding distance (deg) vs targetDurationSec.
-# 1) Convert to linear crowding (deg): 10^log_crowding_distance_deg
-# 2) Geometric mean of left and right (linear)
-# 3) Geometric mean across participants ± SE (SE of participant linear values)
-plot_crowding_vs_duration <- function(crowding) {
+# Shared prep for crowding vs duration plots.
+# Returns list(crowding, per_side, per_participant_lr, geom_mean) or NULL.
+prepare_crowding_vs_duration <- function(crowding) {
   if (is.null(crowding) || nrow(crowding) == 0) {
     return(NULL)
   }
@@ -1338,9 +1221,6 @@ plot_crowding_vs_duration <- function(crowding) {
   if (!all(required %in% names(crowding))) {
     return(NULL)
   }
-
-  message("plot_crowding_vs_duration: raw crowding (", nrow(crowding), " rows)")
-  print(crowding, n = 100)
 
   if (!"targetEccentricityXDeg" %in% names(crowding)) {
     crowding$targetEccentricityXDeg <- NA_real_
@@ -1351,7 +1231,13 @@ plot_crowding_vs_duration <- function(crowding) {
       targetDurationSec = suppressWarnings(as.numeric(targetDurationSec)),
       log_crowding_distance_deg = suppressWarnings(as.numeric(log_crowding_distance_deg)),
       targetEccentricityXDeg = suppressWarnings(as.numeric(targetEccentricityXDeg)),
-      crowding_deg = 10^log_crowding_distance_deg
+      crowding_deg = 10^log_crowding_distance_deg,
+      side = dplyr::case_when(
+        is.na(targetEccentricityXDeg) ~ "C",
+        targetEccentricityXDeg < 0 ~ "L",
+        targetEccentricityXDeg > 0 ~ "R",
+        TRUE ~ "C"
+      )
     ) %>%
     filter(
       !is.na(targetDurationSec), is.finite(targetDurationSec), targetDurationSec > 0,
@@ -1362,55 +1248,32 @@ plot_crowding_vs_duration <- function(crowding) {
     return(NULL)
   }
 
-  # Geometric mean helper on positive linear values.
   geom_mean <- function(x) {
     x <- x[is.finite(x) & x > 0]
     if (length(x) == 0) return(NA_real_)
     exp(mean(log(x)))
   }
 
-  # Per side (geo mean if multiple), then geo mean of left and right.
-  per_participant <- crowding %>%
-    mutate(
-      side = dplyr::case_when(
-        is.na(targetEccentricityXDeg) ~ "C",
-        targetEccentricityXDeg < 0 ~ "L",
-        targetEccentricityXDeg > 0 ~ "R",
-        TRUE ~ "C"
-      )
-    ) %>%
+  per_side <- crowding %>%
     group_by(participant, questType, targetDurationSec, side) %>%
-    summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop") %>%
+    summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop")
+
+  per_participant_lr <- per_side %>%
     group_by(participant, questType, targetDurationSec) %>%
     summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop")
 
-  summary_df <- per_participant %>%
-    group_by(questType, targetDurationSec) %>%
-    summarize(
-      n = dplyr::n(),
-      se = sd(crowding_deg, na.rm = TRUE) / sqrt(n),
-      crowding_deg = geom_mean(crowding_deg),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      ymin = crowding_deg - se,
-      ymax = crowding_deg + se,
-      ymin = ifelse(is.na(ymin) | ymin <= 0, crowding_deg, ymin),
-      ymax = ifelse(is.na(ymax), crowding_deg, ymax)
-    )
+  list(
+    crowding = crowding,
+    per_side = per_side,
+    per_participant_lr = per_participant_lr,
+    geom_mean = geom_mean
+  )
+}
 
-  if (nrow(summary_df) == 0) {
-    return(NULL)
-  }
-
-  n_total <- n_distinct(per_participant$participant)
-
-  ggplot(summary_df, aes(x = targetDurationSec, y = crowding_deg, color = questType)) +
-    geom_line(aes(group = questType), linewidth = 0.6) +
-    geom_point(size = 3) +
-    geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05) +
-    ggpp::geom_label_npc(
-      aes(npcx = "right", npcy = "top", label = paste0("N = ", n_total)),
+crowding_vs_duration_theme_scales <- function(p, n_label, subtitle) {
+  p +
+    ggpp::geom_text_npc(
+      aes(npcx = "right", npcy = "top", label = paste0("N = ", n_label)),
       size = 12 / .pt,
       inherit.aes = FALSE
     ) +
@@ -1429,10 +1292,127 @@ plot_crowding_vs_duration <- function(crowding) {
       expand = expansion(mult = c(0.05, 0.05))
     ) +
     labs(
-      subtitle = "Crowding vs duration",
+      subtitle = subtitle,
       x = "Duration (sec)",
       y = "Crowding distance (deg)",
       color = ""
     ) +
     guides(color = guide_legend(title = NULL))
+}
+
+# Geometric mean across participants ± SE (geo mean of left and right per participant).
+plot_crowding_vs_duration <- function(crowding) {
+  prep <- prepare_crowding_vs_duration(crowding)
+  if (is.null(prep)) return(NULL)
+
+  message("plot_crowding_vs_duration: raw crowding (", nrow(prep$crowding), " rows)")
+  print(prep$crowding, n = 100)
+
+  geom_mean <- prep$geom_mean
+  summary_df <- prep$per_participant_lr %>%
+    group_by(questType, targetDurationSec) %>%
+    summarize(
+      n = dplyr::n(),
+      se = sd(crowding_deg, na.rm = TRUE) / sqrt(n),
+      crowding_deg = geom_mean(crowding_deg),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      ymin = crowding_deg - se,
+      ymax = crowding_deg + se,
+      ymin = ifelse(is.na(ymin) | ymin <= 0, crowding_deg, ymin),
+      ymax = ifelse(is.na(ymax), crowding_deg, ymax)
+    )
+
+  if (nrow(summary_df) == 0) return(NULL)
+
+  n_total <- n_distinct(prep$per_participant_lr$participant)
+  p <- ggplot(summary_df, aes(x = targetDurationSec, y = crowding_deg, color = questType)) +
+    geom_line(aes(group = questType), linewidth = 0.6) +
+    geom_point(size = 6) +
+    geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05)
+  crowding_vs_duration_theme_scales(p, n_total, "Crowding vs duration")
+}
+
+# Mean across participants ± SE, separate lines for left and right.
+plot_crowding_vs_duration_by_side <- function(crowding) {
+  prep <- prepare_crowding_vs_duration(crowding)
+  if (is.null(prep)) return(NULL)
+
+  geom_mean <- prep$geom_mean
+  per_side <- prep$per_side %>%
+    filter(side %in% c("L", "R")) %>%
+    mutate(side = factor(side, levels = c("L", "R"), labels = c("Left", "Right")))
+
+  if (nrow(per_side) == 0) return(NULL)
+
+  # One value per participant × side × duration (geo mean across questType/fonts).
+  per_participant_side <- per_side %>%
+    group_by(participant, side, targetDurationSec) %>%
+    summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop")
+
+  summary_df <- per_participant_side %>%
+    group_by(side, targetDurationSec) %>%
+    summarize(
+      n = dplyr::n(),
+      se = sd(crowding_deg, na.rm = TRUE) / sqrt(n),
+      crowding_deg = geom_mean(crowding_deg),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      ymin = crowding_deg - se,
+      ymax = crowding_deg + se,
+      ymin = ifelse(is.na(ymin) | ymin <= 0, crowding_deg, ymin),
+      ymax = ifelse(is.na(ymax), crowding_deg, ymax)
+    )
+
+  if (nrow(summary_df) == 0) return(NULL)
+
+  n_total <- n_distinct(per_participant_side$participant)
+  p <- ggplot(summary_df, aes(x = targetDurationSec, y = crowding_deg, color = side)) +
+    geom_line(aes(group = side), linewidth = 0.6) +
+    geom_point(size = 6) +
+    geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05)
+  crowding_vs_duration_theme_scales(p, n_total, "Crowding vs duration by side")
+}
+
+# One line per participant; each point is geometric mean of left and right,
+# with ±SE across trials (rows) at that duration.
+plot_crowding_vs_duration_by_participant <- function(crowding) {
+  prep <- prepare_crowding_vs_duration(crowding)
+  if (is.null(prep)) return(NULL)
+
+  geom_mean <- prep$geom_mean
+
+  # Trial-level SE within participant × duration (all sides).
+  trial_stats <- prep$crowding %>%
+    group_by(participant, targetDurationSec) %>%
+    summarize(
+      n_trials = dplyr::n(),
+      se = sd(crowding_deg, na.rm = TRUE) / sqrt(n_trials),
+      .groups = "drop"
+    )
+
+  per_participant <- prep$per_participant_lr %>%
+    group_by(participant, targetDurationSec) %>%
+    summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop") %>%
+    left_join(trial_stats, by = c("participant", "targetDurationSec")) %>%
+    mutate(
+      ymin = crowding_deg - se,
+      ymax = crowding_deg + se,
+      ymin = ifelse(is.na(ymin) | ymin <= 0, crowding_deg, ymin),
+      ymax = ifelse(is.na(ymax), crowding_deg, ymax)
+    )
+
+  if (nrow(per_participant) == 0) return(NULL)
+
+  n_total <- n_distinct(per_participant$participant)
+  p <- ggplot(
+    per_participant,
+    aes(x = targetDurationSec, y = crowding_deg, color = participant, group = participant)
+  ) +
+    geom_line(linewidth = 0.6) +
+    geom_point(size = 6) +
+    geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05)
+  crowding_vs_duration_theme_scales(p, n_total, "Crowding vs duration by participant")
 }
