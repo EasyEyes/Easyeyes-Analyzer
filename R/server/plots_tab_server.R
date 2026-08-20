@@ -325,6 +325,7 @@ register_plots_tab_server <- function(output,
       list(plot = regression_acuity_plot(df_list()), fname = 'ordinary-reading-rsvp-reading-vs-acuity'),
       list(plot = plot_reading_rsvp(df_list()$reading, df_list()$rsvp), fname = 'reading-vs-RSVP-reading-plot'),
       list(plot = get_crowding_vs_repeatedLetter(df_list()$crowding, df_list()$repeatedLetters)$grade, fname = 'crowding-vs-repeated-letters-crowding-grade'),
+      list(plot = plot_crowding_vs_duration(df_list()$crowding), fname = 'crowding-vs-duration'),
       list(plot = plot_badLatenessTrials_vs_memory(files()$data_list,conditionNames()), fname="badLatenessTrials-vs-deviceMemoryGB-by-participant"),
       list(plot = minDegPlots()$scatter, fname="foveal-crowding-vs-spacingMinDeg")
     )

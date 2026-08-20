@@ -1325,3 +1325,114 @@ plot_crowding_vs_age <- function(crowding){
 #   return(p)
 # }
 
+
+# Crowding distance (deg) vs targetDurationSec.
+# 1) Convert to linear crowding (deg): 10^log_crowding_distance_deg
+# 2) Geometric mean of left and right (linear)
+# 3) Geometric mean across participants ± SE (SE of participant linear values)
+plot_crowding_vs_duration <- function(crowding) {
+  if (is.null(crowding) || nrow(crowding) == 0) {
+    return(NULL)
+  }
+  required <- c("participant", "log_crowding_distance_deg", "targetDurationSec", "questType")
+  if (!all(required %in% names(crowding))) {
+    return(NULL)
+  }
+
+  message("plot_crowding_vs_duration: raw crowding (", nrow(crowding), " rows)")
+  print(crowding, n = 100)
+
+  if (!"targetEccentricityXDeg" %in% names(crowding)) {
+    crowding$targetEccentricityXDeg <- NA_real_
+  }
+
+  crowding <- crowding %>%
+    mutate(
+      targetDurationSec = suppressWarnings(as.numeric(targetDurationSec)),
+      log_crowding_distance_deg = suppressWarnings(as.numeric(log_crowding_distance_deg)),
+      targetEccentricityXDeg = suppressWarnings(as.numeric(targetEccentricityXDeg)),
+      crowding_deg = 10^log_crowding_distance_deg
+    ) %>%
+    filter(
+      !is.na(targetDurationSec), is.finite(targetDurationSec), targetDurationSec > 0,
+      !is.na(crowding_deg), is.finite(crowding_deg), crowding_deg > 0
+    )
+
+  if (nrow(crowding) == 0) {
+    return(NULL)
+  }
+
+  # Geometric mean helper on positive linear values.
+  geom_mean <- function(x) {
+    x <- x[is.finite(x) & x > 0]
+    if (length(x) == 0) return(NA_real_)
+    exp(mean(log(x)))
+  }
+
+  # Per side (geo mean if multiple), then geo mean of left and right.
+  per_participant <- crowding %>%
+    mutate(
+      side = dplyr::case_when(
+        is.na(targetEccentricityXDeg) ~ "C",
+        targetEccentricityXDeg < 0 ~ "L",
+        targetEccentricityXDeg > 0 ~ "R",
+        TRUE ~ "C"
+      )
+    ) %>%
+    group_by(participant, questType, targetDurationSec, side) %>%
+    summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop") %>%
+    group_by(participant, questType, targetDurationSec) %>%
+    summarize(crowding_deg = geom_mean(crowding_deg), .groups = "drop")
+
+  summary_df <- per_participant %>%
+    group_by(questType, targetDurationSec) %>%
+    summarize(
+      n = dplyr::n(),
+      se = sd(crowding_deg, na.rm = TRUE) / sqrt(n),
+      crowding_deg = geom_mean(crowding_deg),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      ymin = crowding_deg - se,
+      ymax = crowding_deg + se,
+      ymin = ifelse(is.na(ymin) | ymin <= 0, crowding_deg, ymin),
+      ymax = ifelse(is.na(ymax), crowding_deg, ymax)
+    )
+
+  if (nrow(summary_df) == 0) {
+    return(NULL)
+  }
+
+  n_total <- n_distinct(per_participant$participant)
+
+  ggplot(summary_df, aes(x = targetDurationSec, y = crowding_deg, color = questType)) +
+    geom_line(aes(group = questType), linewidth = 0.6) +
+    geom_point(size = 3) +
+    geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05) +
+    ggpp::geom_label_npc(
+      aes(npcx = "right", npcy = "top", label = paste0("N = ", n_total)),
+      size = 12 / .pt,
+      inherit.aes = FALSE
+    ) +
+    annotation_logticks(
+      sides = "bl",
+      short = unit(2, "pt"),
+      mid = unit(2, "pt"),
+      long = unit(7, "pt")
+    ) +
+    scale_x_log10(
+      labels = scales::label_number(accuracy = NULL),
+      expand = expansion(mult = c(0.05, 0.05))
+    ) +
+    scale_y_log10(
+      labels = scales::label_number(accuracy = NULL),
+      expand = expansion(mult = c(0.05, 0.05))
+    ) +
+    labs(
+      subtitle = "Crowding vs duration",
+      x = "Duration (sec)",
+      y = "Crowding distance (deg)",
+      color = ""
+    ) +
+    guides(color = guide_legend(title = NULL))
+}

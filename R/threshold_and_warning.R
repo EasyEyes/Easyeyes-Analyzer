@@ -175,7 +175,8 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
     if (all(c("participant", "conditionName", "targetDurationSec") %in% names(df))) {
       duration_chunks[[length(duration_chunks) + 1]] <- df %>%
         select(participant, conditionName, targetDurationSec) %>%
-        filter(!is.na(targetDurationSec)) %>%
+        mutate(targetDurationSec = suppressWarnings(as.numeric(targetDurationSec))) %>%
+        filter(!is.na(targetDurationSec), is.finite(targetDurationSec), targetDurationSec > 0) %>%
         distinct()
     }
 
@@ -678,7 +679,8 @@ generate_threshold <-
       left_join(age, 
                 by = 'participant',
                 relationship = "many-to-many") %>% 
-      left_join(targetDurationSecs, by = c('participant', 'conditionName'), relationship = 'many-to-many')
+      left_join(targetDurationSecs, by = c('participant', 'conditionName'), relationship = 'many-to-many') %>%
+      mutate(targetDurationSec = suppressWarnings(as.numeric(targetDurationSec)))
     
     quest_all_thresholds <- quest
     valid_ids <- unique(quest_all_thresholds$participant)
@@ -703,8 +705,8 @@ generate_threshold <-
     
     rsvp_speed <- quest %>% 
       filter(questType == "RSVP reading") %>% 
-      select(experiment, participant,conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop,
-             font, Grade, age,`Skilled reader?`,ParticipantCode) %>%
+      select(experiment, participant, conditionName, questMeanAtEndOfTrialsLoop, questSDAtEndOfTrialsLoop,
+             font, Grade, age, `Skilled reader?`, ParticipantCode, targetDurationSec) %>%
       dplyr::rename(log_duration_s_RSVP = questMeanAtEndOfTrialsLoop) %>% 
       mutate(block_avg_log_WPM = log10(60) - log_duration_s_RSVP,
              targetKind = 'rsvpReading') 
