@@ -54,6 +54,28 @@ normalize_distance_column_names <- function(df) {
   return(df)
 }
 
+# Newer data files name this column `unmetNeeds`; older ones `_needsUnmet`.
+# Keep `_needsUnmet` as the canonical name used downstream.
+normalize_unmet_needs_column <- function(df) {
+  if (is.null(df) || !is.data.frame(df) || ncol(df) == 0) return(df)
+
+  has_new <- "unmetNeeds" %in% names(df)
+  has_old <- "_needsUnmet" %in% names(df)
+  if (!has_new) return(df)
+
+  if (!has_old) {
+    df[["_needsUnmet"]] <- df[["unmetNeeds"]]
+  } else {
+    old <- as.character(df[["_needsUnmet"]])
+    new <- as.character(df[["unmetNeeds"]])
+    empty_old <- is.na(old) | old == ""
+    old[empty_old] <- new[empty_old]
+    df[["_needsUnmet"]] <- old
+  }
+
+  return(df)
+}
+
 impute_column <- function(df, colname, preceding_value) {
   col <- df[[colname]]
   
@@ -532,6 +554,7 @@ pick_screen_dim <- function(x) {
 ensure_columns <- function(t, file_name = NULL) {
   # Normalize Distance column names to TrackDistance for compatibility
   t <- normalize_distance_column_names(t)
+  t <- normalize_unmet_needs_column(t)
 
   name_parts <- if (!is.null(file_name)) {
     str_split(file_name, "[_]")[[1]]
