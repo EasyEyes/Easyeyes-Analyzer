@@ -1,5 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
   let profilesLoaded = false;
+  const profileNS = window.easyeyesProfileNS || "";
+  const profileId = (id) => profileNS + id;
+  const getProfileElement = (id) => document.getElementById(profileId(id)) || document.getElementById(id);
+
   async function loadProfiles() {
   // window.alert = function (message) {
   //   // Do nothing or log the message to console
@@ -17,9 +21,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // };
   let toShiny;
   let toShinyOptions;
-  const profileNS = window.easyeyesProfileNS || "";
-  const profileId = (id) => profileNS + id;
-  const getProfileElement = (id) => document.getElementById(profileId(id)) || document.getElementById(id);
   const setProfileInput = (id, value) => Shiny.setInputValue(profileId(id), value);
   let checkBoxs = [];
   getProfileElement("profilePlot").innerHTML =
