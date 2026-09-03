@@ -12,6 +12,7 @@ shinyUI(
     id = "navbar",
     title = div(textOutput("app_title"),
                 div(id = "timer", "00:00:00")),
+    windowTitle = "EasyEyes Analysis",
     use_shiny_title(),
     header = tagList(
       tags$head(

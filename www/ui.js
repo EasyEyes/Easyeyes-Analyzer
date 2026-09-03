@@ -1,11 +1,11 @@
 // JavaScript function to update document title based on active tab
 function updateTitleBasedOnTab(tabName) {
-  document.title = tabName + " | EasyEyes Analysis";
+  document.title = "EasyEyes Analysis | " + tabName.trim();
 }
 
 // Set initial title to 'EasyEyes Analysis' with the default tab
 document.addEventListener("DOMContentLoaded", function () {
-  updateTitleBasedOnTab("Session"); // Default tab name
+  updateTitleBasedOnTab("Sessions");
 });
 
 // Update title whenever a tab is clicked
