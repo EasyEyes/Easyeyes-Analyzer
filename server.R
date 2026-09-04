@@ -210,9 +210,8 @@ shinyServer(function(input, output, session) {
     if (is.null(summary) || nrow(summary) == 0) {
       return(empty_summary_datatable())
     }
-    participants <- unique(summary$`Pavlovia session ID`)
     prolific_id <- unique(summary$`Prolific participant ID`)
-    render_summary_datatable(summary, participants, prolific_id)
+    render_summary_datatable(summary, prolific_id)
   })
   
   minNQuestTrials <-reactive({input$NQuestTrials}) %>% debounce(1000)

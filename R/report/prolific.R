@@ -107,13 +107,20 @@ combineProlific <- function(prolificData, summary_table, pretest){
                                   Nationality = NA)
     formSpree <- tibble()
   } else {
-    # Get most recent logs from fromSpree 
-    formSpree <- getFormSpree() 
-    if (is.null(formSpree)) {
-      formSpree <- tibble()
+    # Get most recent logs from FormSpree (optional; must not fail the summary)
+    formSpree <- getFormSpree()
+    if (
+      !is.null(formSpree) &&
+        nrow(formSpree) > 0 &&
+        "ProlificSessionID" %in% names(formSpree)
+    ) {
+      formSpree <- formSpree %>%
+        filter(
+          ProlificSessionID %in% unique(prolificData$ProlificSessionID),
+          !ProlificSessionID %in% unique(summary_table$ProlificSessionID)
+        )
     } else {
-      formSpree <- formSpree %>% filter(`ProlificSessionID` %in% unique(prolificData$ProlificSessionID),
-                                        !`ProlificSessionID` %in% unique(summary_table$ProlificSessionID))
+      formSpree <- tibble()
     }
     # join prolific data to only latest session
 
@@ -129,7 +136,7 @@ combineProlific <- function(prolificData, summary_table, pretest){
     
     t <- summary_table %>%
       left_join(latest_per_participant, by = c("Prolific participant ID","ProlificSessionID", "date")) %>% 
-      mutate(`Completion code` = ifelse(`Completion code` == "" & `ProlificSessionID` %in% unique(prolificData$ProlificSessionID), 'TRIED AGAIN', `Completion code`))
+      mutate(`Completion code` = ifelse(`Completion code` == "" & ProlificSessionID %in% unique(prolificData$ProlificSessionID), 'TRIED AGAIN', `Completion code`))
     
   }
   
@@ -183,10 +190,17 @@ get_prolific_file_counts <- function(prolificData, summary_table) {
   
   formSpree <- getFormSpree()
   formSpree_count <- 0
-  if (!is.null(formSpree) && nrow(formSpree) > 0) {
+  if (
+    !is.null(formSpree) &&
+      nrow(formSpree) > 0 &&
+      "ProlificSessionID" %in% names(formSpree) &&
+      "ProlificSessionID" %in% names(summary_table)
+  ) {
     formSpree <- formSpree %>%
-      filter(`ProlificSessionID` %in% unique(prolificData$ProlificSessionID),
-             !`ProlificSessionID` %in% unique(summary_table$ProlificSessionID))
+      filter(
+        ProlificSessionID %in% unique(prolificData$ProlificSessionID),
+        !ProlificSessionID %in% unique(summary_table$ProlificSessionID)
+      )
     formSpree_count <- nrow(formSpree)
   }
   

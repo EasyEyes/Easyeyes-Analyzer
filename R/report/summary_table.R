@@ -1020,6 +1020,11 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     distance_cols = distance_cols
   )
 
+  if ("Prolific participant ID" %in% names(final_summary_table)) {
+    final_summary_table <- final_summary_table %>%
+      dplyr::arrange(`Prolific participant ID`, date, `Pavlovia session ID`)
+  }
+
   return(final_summary_table)
 }
 
@@ -1031,12 +1036,19 @@ empty_summary_datatable <- function() {
   )
 }
 
-render_summary_datatable <- function(dt, participants, prolific_id) {
+render_summary_datatable <- function(dt, prolific_id) {
+  if ("Prolific participant ID" %in% names(dt)) {
+    dt <- dt %>%
+      dplyr::arrange(`Prolific participant ID`, date, `Pavlovia session ID`)
+  }
+
   dt$resolution_width <- as.integer(sub("^\\s*([0-9]+).*", "\\1", dt$resolution))
   
   # compute one‐based indices for DataTables
   res_col   <- which(names(dt) == "resolution")
   width_col <- which(names(dt) == "resolution_width")
+  # DT with default rownames: JS col 0 = rownames, data col j -> JS index j
+  prolific_col <- which(names(dt) == "Prolific participant ID")
   
   datatable(
     dt,
@@ -1050,6 +1062,7 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
       paging = FALSE,
       scrollX = TRUE,
       fixedHeader = TRUE,
+      order = if (length(prolific_col) == 1) list(list(prolific_col, "asc")) else list(),
       dom = 'lrtip',
       language = list(info = 'Showing _TOTAL_ entries',
                       infoFiltered =  "(filtered from _MAX_ entries)"),
@@ -1172,10 +1185,11 @@ render_summary_datatable <- function(dt, participants, prolific_id) {
     callback = JS(data_table_call_back)
   ) %>%
     formatStyle(names(dt), color = 'black', lineHeight = "15px") %>%
-    formatStyle(names(dt)[-1],
-                'Pavlovia session ID',
-                backgroundColor = styleEqual(participants, random_rgb(length(participants)))) %>%
-    formatStyle(names(dt)[1],
-                'Prolific participant ID',
-                backgroundColor = styleEqual(prolific_id, random_rgb(length(prolific_id))))
+    # Same Prolific participant ID → same row color across all columns
+    # (including multiple Pavlovia retries of one Prolific submission).
+    formatStyle(
+      names(dt),
+      "Prolific participant ID",
+      backgroundColor = styleEqual(prolific_id, random_rgb(length(prolific_id)))
+    )
 }

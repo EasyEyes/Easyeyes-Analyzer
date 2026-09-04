@@ -127,7 +127,6 @@ top:0px;
 
 dt <- params$data
 print(ncol(dt))
-participants <- unique(dt$`Pavlovia session ID`)
 prolific_id <- unique(dt$`Prolific participant ID`)
 
 ```
@@ -135,7 +134,7 @@ prolific_id <- unique(dt$`Prolific participant ID`)
 
 ```{r, include = TRUE}
 set.seed(2023)
-render_summary_datatable(dt, participants, prolific_id)
+render_summary_datatable(dt, prolific_id)
 ```
 
 
