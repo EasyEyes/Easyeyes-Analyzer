@@ -529,6 +529,52 @@ first_non_empty <- function(x, default = NA) {
   x[[1]]
 }
 
+# Parse the Pavlovia timestamp embedded in an EasyEyes session CSV filename.
+# Filenames vary in length / field count:
+#   with Prolific:
+#     PavloviaID_ProlificID_Experiment_0001_YYYY-MM-DD_HHhMM.SS.mmm_UTC-4.csv
+#   without Prolific:
+#     PavloviaID_Experiment_0001_YYYY-MM-DD_HHhMM.SS.mmm_UTC-4.csv
+#   timezone suffix optional: _UTC, _UTC1, _UTC-4, _UTC+3, _UTC530, …
+# Match the timestamp by regex (not by underscore index) so both shapes work.
+# Returns a CSV-like date string (no timezone) suitable for parse_date_time later,
+# or "" if no timestamp is found.
+extract_date_from_filename <- function(file_name) {
+  if (is.null(file_name) || length(file_name) == 0) {
+    return("")
+  }
+  base <- basename(as.character(file_name[[1]]))
+  if (is.na(base) || !nzchar(base)) {
+    return("")
+  }
+  # Core stamp always present when Pavlovia named the file.
+  pat <- "[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}h[0-9]{2}\\.[0-9]{2}\\.[0-9]{3}"
+  m <- regexpr(pat, base, perl = TRUE)
+  if (length(m) == 0 || m[[1]] < 0) {
+    return("")
+  }
+  regmatches(base, m)[[1]]
+}
+
+# Strip Pavlovia timezone suffixes before lubridate parsing.
+# Handles: "UTC+3", "UTC-4", "UTC+5:30", "UTC+05:30", "UTC", "UTC530".
+# Old pattern "UTC[+-]\\d+" left ":30" behind for India offsets and broke parsing.
+strip_pavlovia_timezone <- function(date_chr) {
+  stringr::str_remove(
+    as.character(date_chr),
+    "\\s*UTC[+-]?\\d*(:\\d+)?"
+  )
+}
+
+# Parse a Pavlovia/EasyEyes date string to POSIXct (NA if unparseable).
+parse_pavlovia_date <- function(date_chr) {
+  lubridate::parse_date_time(
+    strip_pavlovia_timezone(date_chr),
+    orders = c("ymdHMS", "mdyHMS"),
+    quiet = TRUE
+  )
+}
+
 # Smallest non-NA value (matches sort(x)[1] with NAs last).
 first_sorted <- function(x, default = NA) {
   x <- x[!is.na(x)]
@@ -702,6 +748,16 @@ ensure_columns <- function(t, file_name = NULL) {
 
   # Session-level scalars: scan each metadata column once, then broadcast.
   date_val <- first_non_empty(t$date, "")
+  # Incomplete / errored CSVs may lack a usable date column; fall back to the
+  # timestamp embedded in the Pavlovia filename (Prolific or non-Prolific shape).
+  if (is.null(date_val) || is.na(date_val) || !nzchar(as.character(date_val))) {
+    date_from_name <- extract_date_from_filename(file_name)
+    if (nzchar(date_from_name)) {
+      date_val <- date_from_name
+    } else {
+      date_val <- ""
+    }
+  }
   device_system <- first_non_empty(t$deviceSystem, "")
   device_system_family <- str_replace_all(
     first_non_empty(t$deviceSystemFamily, ""),

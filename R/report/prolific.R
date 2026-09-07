@@ -1,5 +1,46 @@
 source("R/utils/formSpree.R")
 
+# =============================================================================
+# Prolific ↔ Sessions summary mapping (overview)
+# =============================================================================
+# Upstream:
+#   - Experiment CSVs carry ProlificParticipantID / ProlificSessionID (from the
+#     file or Pavlovia columns). summary_table.R renames them to
+#     "Prolific participant ID" and keeps ProlificSessionID until combineProlific
+#     renames it to "Prolific session ID".
+#   - prolific.csv (standalone or *.prolific.csv inside a results ZIP) is read
+#     into `prolificData` via read_prolific() / read_prolific_from_zip() during
+#     preprocess (append_prolific_rows).
+#
+# Join keys (one Prolific submission → many Pavlovia retries is common):
+#   "Prolific participant ID"  ↔  Participant.id
+#   ProlificSessionID          ↔  Submission.id
+#
+# Intended display rule (boss / product intent):
+#   For a given (Prolific participant ID, ProlificSessionID), only the *last*
+#   summary row (latest `date`) should show the real Prolific Status from
+#   prolific.csv. Earlier retries should show Prolific status "Tried again"
+#   (and Completion code "Tried again" when blank).
+#
+# What combineProlific does:
+#   1. Pick the single max-`date` row per (Prolific participant ID,
+#      ProlificSessionID), join prolific.csv fields onto that key triple
+#      including `date`.
+#   2. left_join back to all summary rows on
+#      (Prolific participant ID, ProlificSessionID, date).
+#      → Only rows whose `date` equals that max date receive ProlificStatus /
+#        Completion code / Age / Sex / etc. Other dates stay NA/blank for
+#        those columns.
+#   3. Then, for any row still missing Completion code whose ProlificSessionID
+#      appears in prolific.csv, set both Completion code and ProlificStatus to
+#      "Tried again" (Shiny label, mixed case — not from Prolific).
+#   4. FormSpree is fetched and filtered below but is not joined into `t` here;
+#      it does not affect Sessions Prolific status.
+#
+# Note: If several summary rows share the same max date, step 2 still attaches
+#   the real Prolific status to all of them. Reliable dates (including UTC+5:30)
+#   are required so retries are distinguishable.
+# =============================================================================
 
 
 # Read one prolific.csv entry from a ZIP via unzip -p (no full archive extract).
@@ -22,6 +63,9 @@ append_prolific_rows <- function(prolificDT, chunk) {
   }
 }
 
+# Discover prolific.csv / *.prolific.csv from uploaded files or ZIPs.
+# (Primary ingest path in the app is preprocess::read_files + append_prolific_rows;
+#  this helper remains for standalone / legacy callers.)
 find_prolific_from_files <- function(file) {
   file_list <- file$data
   file_names <- file$name
@@ -63,6 +107,19 @@ find_prolific_from_files <- function(file) {
   return(prolificDT)
 }
 
+# Parse one Prolific export CSV into the columns used by combineProlific.
+#
+# prolific.csv (read.csv → spaces become dots)          →  internal name
+# -------------------------------------------------------------------------
+# Participant.id                                        →  Prolific participant ID
+# Submission.id                                         →  ProlificSessionID
+# Status                                                →  ProlificStatus
+# Completion.code                                       →  Completion code
+# Time.taken (seconds)                                  →  prolificMin (minutes, char)
+# Age / Sex / Nationality                               →  Age / Sex / Nationality
+#   (Sex shortened F/M; CONSENT_REVOKED cleared)
+#
+# Returns empty tibble if required id columns are missing.
 read_prolific <- function(fileProlific) {
   t <- tibble()
   try(t <- read.csv(fileProlific))
@@ -96,9 +153,24 @@ read_prolific <- function(fileProlific) {
   
 }
 
+# Attach Prolific (and optional pretest / font) fields onto the Sessions summary.
+#
+# Inputs:
+#   prolificData  – rows from read_prolific(); may be empty.
+#   summary_table – per session/condition rows from generate_summary_table(),
+#                   already renamed to "Prolific participant ID" and still using
+#                   ProlificSessionID + formatted character `date`.
+#   pretest       – optional pretest Participant ID by Pavlovia session.
+#
+# prolificData columns joined onto the "latest date" summary key:
+#   ProlificStatus, Completion code, prolificMin, Age, Sex, Nationality
+# (then renamed for the UI: Prolific status, Prolific min, Prolific session ID, …).
+#
+# See file-header comment for join semantics and known inconsistency.
 combineProlific <- function(prolificData, summary_table, pretest){
 
   if (is.null(prolificData) | nrow(prolificData) == 0) {
+    # No prolific.csv: leave placeholder Prolific columns; nothing to join.
     t <- summary_table %>% mutate(ProlificStatus= ' ',
                                   prolificMin = NaN,
                                   `Completion code` = NA,
@@ -107,7 +179,8 @@ combineProlific <- function(prolificData, summary_table, pretest){
                                   Nationality = NA)
     formSpree <- tibble()
   } else {
-    # Get most recent logs from FormSpree (optional; must not fail the summary)
+    # Optional FormSpree pull (counts / legacy path). Filtered here but not
+    # merged into `t` below — Sessions Prolific status comes only from prolific.csv.
     formSpree <- getFormSpree()
     if (
       !is.null(formSpree) &&
@@ -122,8 +195,10 @@ combineProlific <- function(prolificData, summary_table, pretest){
     } else {
       formSpree <- tibble()
     }
-    # join prolific data to only latest session
 
+    # --- Map prolific.csv → summary rows (current behavior) ----------------
+    # Step A: one "latest" key per (Prolific participant ID, ProlificSessionID)
+    #         = row with maximum `date` string; attach prolific.csv fields.
     latest_per_participant <- summary_table %>%
       group_by(`Prolific participant ID`, ProlificSessionID) %>%
       slice_max(order_by = date, n = 1, with_ties = FALSE) %>%
@@ -134,12 +209,23 @@ combineProlific <- function(prolificData, summary_table, pretest){
              date = as.character(date),
              ProlificSessionID = as.character(ProlificSessionID))
     
+    # Step B: re-join to *all* summary rows on participant + session + date.
+    #         Only rows matching that latest date get ProlificStatus / etc.
+    # Step C: blank Completion code on any row whose ProlificSessionID is in
+    #         prolific.csv → set Completion code and ProlificStatus to
+    #         "Tried again" (Shiny label for non-final / unmatched retries).
     t <- summary_table %>%
       left_join(latest_per_participant, by = c("Prolific participant ID","ProlificSessionID", "date")) %>% 
-      mutate(`Completion code` = ifelse(`Completion code` == "" & ProlificSessionID %in% unique(prolificData$ProlificSessionID), 'TRIED AGAIN', `Completion code`))
-    
+      mutate(
+        .tried_again = (is.na(`Completion code`) | `Completion code` == "") &
+          ProlificSessionID %in% unique(prolificData$ProlificSessionID),
+        `Completion code` = ifelse(.tried_again, "Tried again", `Completion code`),
+        ProlificStatus = ifelse(.tried_again, "Tried again", ProlificStatus)
+      ) %>%
+      select(-.tried_again)
   }
   
+  # Display names for the Sessions table / downloads.
   t <- t %>%
     rename('Prolific session ID' = 'ProlificSessionID',
            'Computer 51 deg' = 'computer51Deg',
@@ -181,6 +267,8 @@ combineProlific <- function(prolificData, summary_table, pretest){
   return(t)
 }
 
+# UI file-status counts: prolific.csv row count + FormSpree rows for submission
+# IDs in prolific.csv that are not already present in the summary table.
 get_prolific_file_counts <- function(prolificData, summary_table) {
   prolific_count <- if (!is.null(prolificData) && nrow(prolificData) > 0) {
     nrow(prolificData)

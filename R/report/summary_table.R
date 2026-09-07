@@ -1002,8 +1002,7 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     mutate(deviceMemoryGB = deviceMemoryGB_preserved) %>%
     select(-deviceMemoryGB_preserved) %>%
     rename("GB" = "deviceMemoryGB") %>%
-    mutate(date = parse_date_time(str_remove(date, " UTC[+-]\\d+"),
-                                  orders = c("ymdHMS", "mdyHMS"))) %>%
+    mutate(date = parse_pavlovia_date(date)) %>%
     mutate(date = format(date, "%b %d, %Y, %H:%M:%S"))
 
   summary_df <- summary_df %>%
