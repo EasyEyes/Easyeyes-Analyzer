@@ -16,30 +16,17 @@ source("R/utils/formSpree.R")
 #   "Prolific participant ID"  ↔  Participant.id
 #   ProlificSessionID          ↔  Submission.id
 #
-# Intended display rule (boss / product intent):
-#   For a given (Prolific participant ID, ProlificSessionID), only the *last*
-#   summary row (latest `date`) should show the real Prolific Status from
-#   prolific.csv. Earlier retries should show Prolific status "Tried again"
-#   (and Completion code "Tried again" when blank).
-#
-# What combineProlific does:
-#   1. Pick the single max-`date` row per (Prolific participant ID,
-#      ProlificSessionID), join prolific.csv fields onto that key triple
-#      including `date`.
-#   2. left_join back to all summary rows on
-#      (Prolific participant ID, ProlificSessionID, date).
-#      → Only rows whose `date` equals that max date receive ProlificStatus /
-#        Completion code / Age / Sex / etc. Other dates stay NA/blank for
-#        those columns.
-#   3. Then, for any row still missing Completion code whose ProlificSessionID
-#      appears in prolific.csv, set both Completion code and ProlificStatus to
-#      "Tried again" (Shiny label, mixed case — not from Prolific).
-#   4. FormSpree is fetched and filtered below but is not joined into `t` here;
-#      it does not affect Sessions Prolific status.
-#
-# Note: If several summary rows share the same max date, step 2 still attaches
-#   the real Prolific status to all of them. Reliable dates (including UTC+5:30)
-#   are required so retries are distinguishable.
+# Display rules:
+#   1. Join prolific.csv fields onto every summary row that shares the Prolific
+#      participant + session IDs (Status, Completion code, min, Age, Sex, …).
+#   2. "Tried again" (Shiny label, mixed case — not from Prolific):
+#      If and only if there is a *later Pavlovia session* for the same Prolific
+#      session (same Prolific participant ID + ProlificSessionID, later `date`),
+#      set BOTH ProlificStatus and Completion code to "Tried again" on the
+#      earlier Pavlovia session's rows.
+#      Do NOT invent "Tried again" merely because Completion code / status is
+#      blank in prolific.csv (a single session with blank code stays blank).
+#   3. FormSpree is fetched and filtered below but is not joined into `t` here.
 # =============================================================================
 
 
@@ -162,11 +149,11 @@ read_prolific <- function(fileProlific) {
 #                   ProlificSessionID + formatted character `date`.
 #   pretest       – optional pretest Participant ID by Pavlovia session.
 #
-# prolificData columns joined onto the "latest date" summary key:
+# prolificData columns joined by Prolific IDs:
 #   ProlificStatus, Completion code, prolificMin, Age, Sex, Nationality
 # (then renamed for the UI: Prolific status, Prolific min, Prolific session ID, …).
 #
-# See file-header comment for join semantics and known inconsistency.
+# See file-header comment for "Tried again" rule.
 combineProlific <- function(prolificData, summary_table, pretest){
 
   if (is.null(prolificData) | nrow(prolificData) == 0) {
@@ -196,33 +183,61 @@ combineProlific <- function(prolificData, summary_table, pretest){
       formSpree <- tibble()
     }
 
-    # --- Map prolific.csv → summary rows (current behavior) ----------------
-    # Step A: one "latest" key per (Prolific participant ID, ProlificSessionID)
-    #         = row with maximum `date` string; attach prolific.csv fields.
-    latest_per_participant <- summary_table %>%
-      group_by(`Prolific participant ID`, ProlificSessionID) %>%
-      slice_max(order_by = date, n = 1, with_ties = FALSE) %>%
-      ungroup() %>%
-        select(`Prolific participant ID`, ProlificSessionID, date) %>%
-      left_join(prolificData, by = c("Prolific participant ID","ProlificSessionID")) %>% 
-      mutate(`Prolific participant ID` = as.character(`Prolific participant ID`),
-             date = as.character(date),
-             ProlificSessionID = as.character(ProlificSessionID))
-    
-    # Step B: re-join to *all* summary rows on participant + session + date.
-    #         Only rows matching that latest date get ProlificStatus / etc.
-    # Step C: blank Completion code on any row whose ProlificSessionID is in
-    #         prolific.csv → set Completion code and ProlificStatus to
-    #         "Tried again" (Shiny label for non-final / unmatched retries).
+    # Join prolific.csv onto all rows sharing the Prolific IDs.
     t <- summary_table %>%
-      left_join(latest_per_participant, by = c("Prolific participant ID","ProlificSessionID", "date")) %>% 
       mutate(
-        .tried_again = (is.na(`Completion code`) | `Completion code` == "") &
-          ProlificSessionID %in% unique(prolificData$ProlificSessionID),
+        `Prolific participant ID` = as.character(`Prolific participant ID`),
+        ProlificSessionID = as.character(ProlificSessionID),
+        date = as.character(date)
+      ) %>%
+      left_join(
+        prolificData %>%
+          mutate(
+            `Prolific participant ID` = as.character(`Prolific participant ID`),
+            ProlificSessionID = as.character(ProlificSessionID)
+          ),
+        by = c("Prolific participant ID", "ProlificSessionID")
+      )
+  }
+
+  # "Tried again" only when a later Pavlovia session exists for the same
+  # Prolific session — never merely because Completion code / status is blank.
+  latest_pavlovia <- t %>%
+    filter(
+      !is.na(ProlificSessionID),
+      ProlificSessionID != "",
+      !is.na(`Pavlovia session ID`),
+      `Pavlovia session ID` != ""
+    ) %>%
+    mutate(
+      .date_order = suppressWarnings(
+        lubridate::parse_date_time(date, orders = c("b d Y HMS", "ymdHMS"), quiet = TRUE)
+      )
+    ) %>%
+    group_by(`Prolific participant ID`, ProlificSessionID) %>%
+    slice_max(order_by = .date_order, n = 1, with_ties = FALSE) %>%
+    ungroup() %>%
+    select(
+      `Prolific participant ID`,
+      ProlificSessionID,
+      latest_pavlovia = `Pavlovia session ID`
+    )
+
+  if (nrow(latest_pavlovia) > 0) {
+    t <- t %>%
+      left_join(
+        latest_pavlovia,
+        by = c("Prolific participant ID", "ProlificSessionID")
+      ) %>%
+      mutate(
+        .tried_again = !is.na(latest_pavlovia) &
+          !is.na(ProlificSessionID) &
+          ProlificSessionID != "" &
+          as.character(`Pavlovia session ID`) != as.character(latest_pavlovia),
         `Completion code` = ifelse(.tried_again, "Tried again", `Completion code`),
         ProlificStatus = ifelse(.tried_again, "Tried again", ProlificStatus)
       ) %>%
-      select(-.tried_again)
+      select(-latest_pavlovia, -.tried_again)
   }
   
   # Display names for the Sessions table / downloads.
