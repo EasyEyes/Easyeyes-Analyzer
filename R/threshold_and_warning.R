@@ -102,6 +102,36 @@ filter_out_short_ruler <- function(df, short_ruler_ids) {
   df %>% filter(!participant %in% short_ruler_ids)
 }
 
+# Expand both the original Q&A fields and numbered question groups (01, 02, ...).
+# The Compare3Languages studies save beauty/familiarity in these numbered groups.
+session_question_answers <- function(df) {
+  keys <- c("experiment", "participant", "block", "block_condition", "conditionName", "blockShuffleGroups2")
+  fields <- c("questionAndAnswerQuestion", "questionAndAnswerNickname",
+              "questionAndAnswerResponse", "questionAndAnswerCorrectAnswer")
+  nicknames <- grep("^questionAndAnswerNickname[0-9]*$", names(df), value = TRUE)
+  chunks <- lapply(nicknames, function(nickname) {
+    suffix <- sub("^questionAndAnswerNickname", "", nickname)
+    values <- df[, intersect(keys, names(df)), drop = FALSE]
+    for (field in fields) {
+      column <- paste0(field, suffix)
+      values[[field]] <- if (column %in% names(df)) as.character(df[[column]]) else ""
+    }
+    values
+  })
+  dplyr::bind_rows(chunks) %>% dplyr::distinct()
+}
+
+# Map rating identifiers to the same font filenames used by reading and QUEST.
+comparison_rating_font <- function(font) {
+  key <- tolower(sub("^(CMFRT-|beauty-)", "", as.character(font)))
+  map <- c(naskh = "NotoNaskhArabic-Regular.ttf", naskhl = "NotoNaskhArabic-Regular.ttf",
+           nastaliq = "NotoNastaliqUrdu-Regular.woff2", notonastaliqurdu = "NotoNastaliqUrdu-Regular.woff2",
+           badeen = "BadeenDisplay-Regular.ttf", kufi = "Kufi LT Regular.woff2")
+  value <- unname(map[key])
+  value[is.na(value)] <- as.character(font)[is.na(value)]
+  value
+}
+
 # One walk over data_list for all threshold extracts.
 # Viewing-distance rows are only taken for i <= length(summary_list) to match
 # the historical foreach(i = 1:length(summary_list)) indexing into data_list.
@@ -227,7 +257,7 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         !is.na(df$questionAndAnswerNickname) &
           str_trim(as.character(df$questionAndAnswerNickname)) != ""
       )
-      qa <- df
+      qa <- session_question_answers(df)
       for (col in c("experiment", "participant", "block", "block_condition",
                     "conditionName", "blockShuffleGroups2")) {
         if (!col %in% names(qa)) {
@@ -1017,8 +1047,9 @@ generate_threshold <-
       mutate(questionAndAnswerResponse = as.numeric(arabic_to_western(questionAndAnswerResponse))) %>% 
       filter(!is.na(questionAndAnswerResponse)) %>% 
       mutate(type =  case_when(substr(questionAndAnswerNickname, 1, 5) == "CMFRT" ~ "CMFRT",
-                               grepl('bty', tolower(questionAndAnswerNickname))   ~ "BTY",
-                               grepl('familiarity', tolower(questionAndAnswerNickname)) ~ "FAMILIARITY",
+                               grepl('bty', tolower(questionAndAnswerNickname)) &
+                                 toupper(questionAndAnswerNickname) != "BTYSFL" ~ "BTY",
+                               grepl('familiarity|^fmlrty$', tolower(questionAndAnswerNickname)) ~ "FAMILIARITY",
                                .default = "")) 
 
     comfort <- ratings_raw %>% 
@@ -1077,6 +1108,10 @@ generate_threshold <-
         conditionName=="beauty-SaudiTextv3" ~ "SaudiTextv3-Regular.otf",
         TRUE ~ conditionName
       ))
+
+    comfort <- comfort %>% mutate(font = comparison_rating_font(font))
+    beauty <- beauty %>% mutate(font = comparison_rating_font(font))
+    familiarity <- familiarity %>% mutate(font = comparison_rating_font(font))
 
     ratings <- rbind(comfort,beauty,familiarity) %>% 
       group_by(type,font) %>% 

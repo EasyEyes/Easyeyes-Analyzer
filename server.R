@@ -314,6 +314,10 @@ shinyServer(function(input, output, session) {
   
   downloadFileType <- reactive(input$fileType)
 
+  observeEvent(input$navbar, {
+    session$sendCustomMessage("updateControlPanel", input$navbar)
+  }, ignoreNULL = TRUE)
+
   distanceTabActive <- reactive({
     isTRUE(input$navbar == "Distance")
   })
@@ -384,6 +388,15 @@ shinyServer(function(input, output, session) {
     "anova",
     df_list = df_list,
     experiment_names = experiment_names,
+    app_profiler = app_profiler
+  )
+
+  languagesModule <- languagesTabServer(
+    "languages",
+    df_list = df_list,
+    experiment_names = experiment_names,
+    fileType = downloadFileType,
+    data_list = reactive(files()$data_list),
     app_profiler = app_profiler
   )
   
@@ -641,6 +654,7 @@ shinyServer(function(input, output, session) {
     switch(
       tab,
       "Plots" = plotsTabDownloadSpecs(),
+      "Languages" = languagesModule$downloadSpecs(),
       "Distance" = distanceModule$downloadSpecs(),
       "Quality" = qualityModule$downloadSpecs(),
       "Timing" = timingModule$downloadSpecs(),

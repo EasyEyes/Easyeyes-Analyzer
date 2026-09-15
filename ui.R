@@ -21,7 +21,7 @@ shinyUI(
         # JSZip used to DEFLATE STORE zips / pack CSVs before Shiny upload
         tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"),
         tags$script(src = "ui.js"),
-        tags$script(src = "controlPanel.js"),
+        tags$script(src = "controlPanel.js?v=languages"),
         tags$script(src = "compressBeforeUpload.js"),
         tags$script(src = "fileUploadProgress.js"),
         tags$link(rel = "stylesheet", type = "text/css", href = "ui.css"),
@@ -224,6 +224,7 @@ shinyUI(
     tabPanel("Sessions", value = "Sessions", sessionTab),
     tabPanel("Stats", value = "Stats", statTabUI("stats")),
     tabPanel("Plots", value = "Plots", plotsTabUI()),
+    tabPanel("Languages", value = "Languages", languagesTabUI("languages")),
     tabPanel("ANOVA", value = "Anova", anovaTabUI("anova")),
     tabPanel("Distance", value = "Distance", distanceTabUI("distance")),
     tabPanel("Quality", value = "Quality", qualityTabUI("quality")),
