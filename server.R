@@ -224,7 +224,11 @@ shinyServer(function(input, output, session) {
   minWrongTrials <- reactive(input$NWrongTrials) %>% debounce(5000)
   maxReadingSpeed <- reactive(input$maxReadingSpeed) %>% debounce(2000)
   minRulerCm <- reactive({input$minRulerCm}) %>% debounce(2000)
-  minCQAccuracy <- reactive({input$minCQAccuracy}) %>% debounce(2000)
+  minCQAccuracy <- reactive({
+    cutoff <- input$minCQAccuracy
+    message("[CQ filter] UI cutoff received: ", cutoff, "% (debounced 2s)")
+    cutoff
+  }) %>% debounce(2000)
 
   # Single short-ruler exclusion list shared by threshold, Distance, and Stats.
   shortRulerParticipantIDs <- reactive({

@@ -114,6 +114,9 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
   reading_q_chunks <- list()
   fluency_chunks <- list()
   qa_chunks <- list()
+  qa_sessions_with_cols <- 0L
+  qa_sessions_missing_cols <- 0L
+  qa_nickname_rows <- 0L
 
   n <- length(data_list)
   if (n == 0) {
@@ -212,14 +215,26 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
       }
     }
 
-    # QA
-    qa_cols <- c(
-      "experiment", "participant", "block", "block_condition", "conditionName",
-      "blockShuffleGroups2", "questionAndAnswerQuestion", "questionAndAnswerNickname",
+    # QA. Do not require blockShuffleGroups2 — that column is often blank/missing
+    # and used to be a hard gate that silently produced 0 QA rows.
+    qa_needed <- c(
+      "questionAndAnswerQuestion", "questionAndAnswerNickname",
       "questionAndAnswerResponse", "questionAndAnswerCorrectAnswer"
     )
-    if (all(qa_cols %in% names(df))) {
-      qa <- df %>%
+    if (all(qa_needed %in% names(df))) {
+      qa_sessions_with_cols <- qa_sessions_with_cols + 1L
+      qa_nickname_rows <- qa_nickname_rows + sum(
+        !is.na(df$questionAndAnswerNickname) &
+          str_trim(as.character(df$questionAndAnswerNickname)) != ""
+      )
+      qa <- df
+      for (col in c("experiment", "participant", "block", "block_condition",
+                    "conditionName", "blockShuffleGroups2")) {
+        if (!col %in% names(qa)) {
+          qa[[col]] <- if (identical(col, "block")) NA_real_ else ""
+        }
+      }
+      qa <- qa %>%
         distinct(
           experiment, participant, block, block_condition, conditionName, blockShuffleGroups2,
           questionAndAnswerQuestion, questionAndAnswerNickname, questionAndAnswerResponse,
@@ -228,11 +243,14 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         filter(
           !is.na(questionAndAnswerNickname),
           !is.na(questionAndAnswerQuestion),
-          questionAndAnswerNickname != "",
-          questionAndAnswerQuestion != ""
+          str_trim(as.character(questionAndAnswerNickname)) != "",
+          str_trim(as.character(questionAndAnswerQuestion)) != ""
         ) %>%
         mutate(
-          correct = (questionAndAnswerResponse == questionAndAnswerCorrectAnswer),
+          correct = (
+            str_trim(as.character(questionAndAnswerResponse)) ==
+              str_trim(as.character(questionAndAnswerCorrectAnswer))
+          ),
           questionAndAnswerNickname = case_when(
             questionAndAnswerNickname == "CMFRTAmareddine" ~ "CMFRTSaudiTextv1",
             questionAndAnswerNickname == "CMFRTMakdessi" ~ "CMFRTSaudiTextv2",
@@ -243,8 +261,23 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
       if (nrow(qa) > 0) {
         qa_chunks[[length(qa_chunks) + 1]] <- qa
       }
+    } else {
+      qa_sessions_missing_cols <- qa_sessions_missing_cols + 1L
+      if (qa_sessions_missing_cols == 1L) {
+        cq_console(
+          "session missing QA columns: ",
+          paste(setdiff(qa_needed, names(df)), collapse = ", ")
+        )
+      }
     }
   }
+
+  cq_console(
+    "QA extract: sessions with Q&A columns=", qa_sessions_with_cols,
+    " missing columns=", qa_sessions_missing_cols,
+    " raw nickname rows=", qa_nickname_rows,
+    " kept session chunks=", length(qa_chunks)
+  )
 
   list(
     age = bind_threshold_chunks(age_chunks, empty_age()),
@@ -297,6 +330,133 @@ apply_reading_accuracy_from_chunks <- function(reading, reading_q_chunks, nQs) {
     reading <- reading %>% mutate(accuracy = factor(accuracy, levels = c(0, 0.2, 0.4, 0.6, 0.8, 1)))
   }
   reading
+}
+
+# Score comprehension questions in QA block N and attach them to reading block N-1.
+# Only items with a non-empty correct answer count (comfort/beauty/comments do not).
+score_reading_comprehension <- function(QA) {
+  if (nrow(QA) == 0 || !"questionAndAnswerCorrectAnswer" %in% names(QA)) {
+    return(tibble(
+      experiment = character(),
+      participant = character(),
+      block = numeric(),
+      CQAccuracy = numeric(),
+      Nquestions = numeric()
+    ))
+  }
+  QA %>%
+    filter(
+      !is.na(questionAndAnswerCorrectAnswer),
+      str_trim(as.character(questionAndAnswerCorrectAnswer)) != ""
+    ) %>%
+    mutate(
+      correct = str_trim(as.character(questionAndAnswerResponse)) ==
+        str_trim(as.character(questionAndAnswerCorrectAnswer))
+    ) %>%
+    group_by(experiment, participant, block) %>%
+    summarize(
+      CQAccuracy = mean(correct * 100, na.rm = TRUE),
+      Nquestions = sum(!is.na(correct)),
+      .groups = "drop"
+    ) %>%
+    mutate(block = as.numeric(block) - 1)
+}
+
+cq_console <- function(...) {
+  msg <- paste0("[CQ filter] ", paste(..., collapse = ""))
+  message(msg)
+  log_info(msg)
+}
+
+apply_reading_comprehension_filter <- function(reading, QA, minCQAccuracy) {
+  n_reading <- if (is.data.frame(reading)) nrow(reading) else 0L
+  n_qa <- if (is.data.frame(QA)) nrow(QA) else 0L
+  cq_console(
+    "cutoff=", minCQAccuracy,
+    "% | ordinary-reading rows=", n_reading,
+    " | QA rows=", n_qa
+  )
+
+  if (nrow(QA) == 0 || !"questionAndAnswerCorrectAnswer" %in% names(QA)) {
+    cq_console("no Q&A with correct answers — filter skipped, keeping all reading rows")
+    reading_pre <- reading %>%
+      mutate(CQAccuracy = NA_real_, Nquestions = NA_real_)
+    return(list(reading = reading_pre, reading_pre = reading_pre))
+  }
+
+  comprehension_ac <- score_reading_comprehension(QA)
+  cq_console(
+    "scored comprehension blocks=", nrow(comprehension_ac),
+    " (comfort/empty-answer items excluded)"
+  )
+  if (nrow(comprehension_ac) > 0) {
+    cq_console(
+      "score min/median/max=",
+      round(min(comprehension_ac$CQAccuracy, na.rm = TRUE), 1), "/",
+      round(stats::median(comprehension_ac$CQAccuracy, na.rm = TRUE), 1), "/",
+      round(max(comprehension_ac$CQAccuracy, na.rm = TRUE), 1),
+      " | Nquestions=",
+      paste(sort(unique(comprehension_ac$Nquestions)), collapse = ",")
+    )
+  }
+
+  reading_pre <- reading %>%
+    mutate(block = as.numeric(str_extract(as.character(block_condition), "^[0-9]+"))) %>%
+    left_join(comprehension_ac, by = c("experiment", "participant", "block"))
+
+  n_scored <- sum(is.finite(reading_pre$CQAccuracy))
+  n_unmatched <- sum(is.na(reading_pre$CQAccuracy))
+  cq_console(
+    "joined to reading: scored=", n_scored,
+    " unmatched(NA, kept)=", n_unmatched
+  )
+
+  # Missing CQ scores are not failures: keep unmatched ordinary-reading rows.
+  reading_filtered <- reading_pre %>%
+    filter(is.na(CQAccuracy) | CQAccuracy >= minCQAccuracy)
+
+  dropped <- reading_pre %>%
+    filter(!is.na(CQAccuracy), CQAccuracy < minCQAccuracy)
+  surviving_blocks <- reading_filtered %>%
+    distinct(participant, block_condition, CQAccuracy, Nquestions) %>%
+    arrange(participant, block_condition)
+  cq_console(
+    "kept rows=", nrow(reading_filtered),
+    " dropped rows=", nrow(dropped),
+    " | unique surviving participant-blocks=", nrow(surviving_blocks)
+  )
+  if (nrow(surviving_blocks) > 0) {
+    cq_console("surviving participant-blocks:")
+    for (i in seq_len(nrow(surviving_blocks))) {
+      row <- surviving_blocks[i, ]
+      score_txt <- if (is.na(row$CQAccuracy)) {
+        "NA (no CQ, kept)"
+      } else {
+        paste0(round(row$CQAccuracy, 1), "% Nq=", row$Nquestions)
+      }
+      cq_console("  ", row$participant, "  ", row$block_condition, "  CQ=", score_txt)
+    }
+  }
+  if (nrow(dropped) > 0) {
+    dropped_preview <- dropped %>%
+      distinct(participant, block_condition, block, CQAccuracy, Nquestions)
+    preview_n <- min(15L, nrow(dropped_preview))
+    cq_console("dropped preview (participant block_condition score):")
+    for (i in seq_len(preview_n)) {
+      row <- dropped_preview[i, ]
+      cq_console(
+        "  ", row$participant, " ", row$block_condition,
+        " CQ=", round(row$CQAccuracy, 1), "% Nq=", row$Nquestions
+      )
+    }
+    if (nrow(dropped_preview) > preview_n) {
+      cq_console("  ... ", nrow(dropped_preview) - preview_n, " more")
+    }
+  } else {
+    cq_console("nothing dropped — every scored row is >= cutoff, or all scores are NA")
+  }
+
+  list(reading = reading_filtered, reading_pre = reading_pre)
 }
 
 generate_threshold <- 
@@ -772,9 +932,28 @@ generate_threshold <-
     if (!"participant" %in% names(QA)) {
       QA <- empty_qa()
     }
+    cq_console("extracted QA rows=", nrow(QA))
     if (nrow(QA) > 0) {
+      shuffle_vals <- unique(as.character(QA$blockShuffleGroups2))
+      shuffle_vals <- shuffle_vals[!is.na(shuffle_vals) & nzchar(shuffle_vals)]
+      nick_n <- QA %>%
+        mutate(nick = str_trim(as.character(questionAndAnswerNickname))) %>%
+        summarize(
+          cq = sum(grepl("^CQ", nick, ignore.case = TRUE)),
+          cmfrt = sum(grepl("^CMFRT", nick, ignore.case = TRUE)),
+          other = n() - cq - cmfrt
+        )
+      cq_console(
+        "QA nicknames: CQ=", nick_n$cq,
+        " CMFRT=", nick_n$cmfrt,
+        " other=", nick_n$other
+      )
+      if (length(shuffle_vals) > 0) {
+        cq_console("blockShuffleGroups2 values: ", paste(head(shuffle_vals, 12), collapse = ", "))
+      } else {
+        cq_console("blockShuffleGroups2 is blank/NA on all QA rows")
+      }
       QA <- QA %>%
-        filter(!blockShuffleGroups2=="readin5") %>% 
         arrange(experiment, participant, block, block_condition)
     }
     
@@ -825,8 +1004,15 @@ generate_threshold <-
     QA <- filter_out_short_ruler(QA, short_ruler_ids)
     
     #### Generate ratings summary stat table ####
-    
-    ratings_raw <- QA %>% 
+    # Exclude the "readin5" shuffle-group typo from ratings only — not from
+    # comprehension scoring. dplyr::filter(!x=="readin5") also dropped NA rows,
+    # which wiped QA when shuffle group was blank.
+
+    ratings_raw <- QA %>%
+      filter(
+        is.na(blockShuffleGroups2) |
+          as.character(blockShuffleGroups2) != "readin5"
+      ) %>%
       select(-c(questionAndAnswerQuestion,questionAndAnswerCorrectAnswer)) %>% 
       mutate(questionAndAnswerResponse = as.numeric(arabic_to_western(questionAndAnswerResponse))) %>% 
       filter(!is.na(questionAndAnswerResponse)) %>% 
@@ -957,29 +1143,12 @@ generate_threshold <-
         .groups="drop")
     
 
-    # Calculate and apply reading comprehension accuracy
-    # And then link to nearest reading block
-    # for example block 3 CQ questions should link to block 2 reading
-    # And then apply filter
-    if (nrow(QA) > 0 && "correct" %in% names(QA)) {
-      comprehension_ac <- QA %>%
-        group_by(experiment, participant, block) %>%
-        summarize(CQAccuracy = mean(correct * 100, na.rm = T), .groups = "drop",
-                  Nquestions = sum(!is.na(correct))) %>%
-        mutate(block = as.numeric(block) - 1)
-
-      reading_pre <- reading %>%
-        mutate(block = ifelse(length(str_split(block_condition, "_")) == 0,
-                              NA,
-                              as.numeric(str_split(block_condition, "_")[[1]][1]))) %>%
-        left_join(comprehension_ac, by = c("experiment", "participant", "block"))
-
-      reading <- reading_pre %>%
-        filter(CQAccuracy >= minCQAccuracy)
-    } else {
-      reading_pre <- reading %>%
-        mutate(CQAccuracy = NA_real_, Nquestions = NA_real_)
-    }
+    # Calculate and apply reading comprehension accuracy.
+    # QA in block N is attached to ordinary reading in block N-1.
+    # Comfort/beauty/comments (no correct answer) are excluded from the score.
+    comprehension_filtered <- apply_reading_comprehension_filter(reading, QA, minCQAccuracy)
+    reading <- comprehension_filtered$reading
+    reading_pre <- comprehension_filtered$reading_pre
 
     
     # continue to summarize statistics
