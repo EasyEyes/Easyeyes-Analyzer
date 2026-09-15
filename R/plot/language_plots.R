@@ -157,15 +157,17 @@ plot_language_by_font <- function(data,
   summ$font <- factor(summ$font, levels = sort(unique(summ$font)))
 
   # Language ordering is fixed by SUPPORTED_LANGUAGES so colours stay stable.
+  # The same order is used for the horizontal dodge: Arabic left, Urdu right.
   summ$language <- factor(summ$language, levels = SUPPORTED_LANGUAGES)
+  dodge <- ggplot2::position_dodge(width = 0.3)
 
   p <- ggplot2::ggplot(summ,
                        ggplot2::aes(x = font, y = mean,
                                     color = language, group = language)) +
-    ggplot2::geom_line(linewidth = 0.8) +
-    ggplot2::geom_point(size = 3) +
-    ggplot2::geom_errorbar(ggplot2::aes(ymin = lower, ymax = upper),
-                           width = 0.2, linewidth = 0.6, na.rm = TRUE) +
+    ggplot2::geom_line(linewidth = 0.8, position = dodge) +
+    ggplot2::geom_linerange(ggplot2::aes(ymin = lower, ymax = upper),
+                            linewidth = 0.6, na.rm = TRUE, position = dodge) +
+    ggplot2::geom_point(size = 3, position = dodge) +
     ggplot2::scale_color_manual(
       values = LANGUAGE_COLORS,
       breaks = SUPPORTED_LANGUAGES,

@@ -52,6 +52,13 @@ stopifnot(a$n == 2L, abs(a$mean - 400) < 1e-8,
           identical(p$scales$get_scales("colour")$labels,
                     c("ar (Arabic), Average N=1.5", "fa (Persian), Average N=0.5", "ur (Urdu), Average N=0")),
           identical(unname(p$scales$get_scales("colour")$map(SUPPORTED_LANGUAGES)), unname(LANGUAGE_COLORS)))
+stopifnot(identical(levels(p$data$language), SUPPORTED_LANGUAGES))
+geoms <- vapply(p$layers, function(l) class(l$geom)[1], character(1))
+stopifnot("GeomLinerange" %in% geoms, !"GeomErrorbar" %in% geoms)
+dodge_widths <- vapply(p$layers, function(l) {
+  if (inherits(l$position, "PositionDodge")) l$position$width else NA_real_
+}, numeric(1))
+stopifnot(sum(!is.na(dodge_widths)) == 3L, length(unique(dodge_widths[!is.na(dodge_widths)])) == 1L)
 stopifnot(all(prepare_language_reading_proportion_correct(d)$value == 0.8))
 # Invalid values and unsupported languages yield an explicit empty-data state.
 bad <- reading
