@@ -39,6 +39,7 @@ shinyServer(function(input, output, session) {
     name = paste0("session-", substr(session$token, 1, 6)),
     enabled = identical(Sys.getenv("EASYEYES_PROFILE", if (is_local) "true" else "false"), "true")
   )
+  emptyArchives <- reactiveVal(character())
 
   observeEvent(input$file_click,
                {
@@ -105,6 +106,7 @@ shinyServer(function(input, output, session) {
       )
     )
     check <- check_file_names(input$file)
+    empty_zips <- empty_archive_names(input$file)
     if (is.null(check)) {
       session$sendCustomMessage("updateFileProgress", list(
         value = 0,
@@ -129,9 +131,11 @@ shinyServer(function(input, output, session) {
         close = FALSE
       ))
       log_info("File reading complete")
+      emptyArchives(empty_zips)
       return(t)
     } else {
       closeAlert()
+      emptyArchives(character())
       log_warn("Invalid file name(s) uploaded")
       shinyalert(
         title = check,
@@ -139,16 +143,18 @@ shinyServer(function(input, output, session) {
         closeOnClickOutside = TRUE,
         size = 'l',
         html = TRUE,
-        type = "error",
+        type = "",
         showConfirmButton = FALSE,
         showCancelButton = FALSE,
-        animation = TRUE
+        animation = TRUE,
+        imageUrl = ""
       )
       return(NULL)
     }
-  }) %>% bindCache(input$file$datapath)
+  })
   
   output$fileStatusMessage <- renderUI({
+    empty_note <- empty_archive_warning_html(emptyArchives())
     if (!is.null(files())) {
       prolific_counts <-
         get_prolific_file_counts(files()$prolific, summary_table())
@@ -165,9 +171,12 @@ shinyServer(function(input, output, session) {
           ' prolific record.<br>',
           'Read ',
           prolific_counts$formSpree_count,
-          ' formSpree records.'
+          ' formSpree records.',
+          if (!is.null(empty_note)) paste0('<br>', empty_note) else ''
         )
       )
+    } else if (!is.null(empty_note)) {
+      HTML(empty_note)
     }
   })
   
@@ -519,6 +528,24 @@ shinyServer(function(input, output, session) {
   observeEvent(files(),
                {
                  if (!is.null(files())) {
+                   closeAlert()
+                   empty_zips <- emptyArchives()
+                   if (length(empty_zips) > 0) {
+                     shinyalert(
+                       title = empty_archive_warning_html(empty_zips),
+                       closeOnEsc = TRUE,
+                       closeOnClickOutside = TRUE,
+                       size = "m",
+                       html = TRUE,
+                       type = "",
+                       showConfirmButton = TRUE,
+                       confirmButtonText = "OK",
+                       confirmButtonCol = "#004192",
+                       showCancelButton = FALSE,
+                       animation = TRUE,
+                       imageUrl = ""
+                     )
+                   }
                    # Extract file names from the uploaded files
                    names <- input$file$name
                    
@@ -569,8 +596,6 @@ shinyServer(function(input, output, session) {
                      selected = df_list()$conditionNames,
                      inline = FALSE
                    )
-                   
-                   closeAlert()
                  }
                })
   

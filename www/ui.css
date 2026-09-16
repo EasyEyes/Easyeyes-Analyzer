@@ -42,6 +42,12 @@
 }
 
 /* Sweet alert styles... */
+.sweet-alert .sa-icon,
+.sweet-alert .sa-error,
+.swal-icon,
+.swal2-icon {
+  display: none !important;
+}
 .sweet-alert.alert-size-s {
   position: fixed !important;
   top: 50% !important;

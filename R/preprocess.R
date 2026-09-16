@@ -146,6 +146,45 @@ check_empty_archive <- function(file) {
   return(!has_nonempty_file)
 }
 
+# Names of uploaded ZIPs that are empty or unreadable. These are warnings,
+# not fatal errors: read_files() skips them and the rest of the batch proceeds.
+empty_archive_names <- function(file) {
+  if (is.null(file) || length(file$name) == 0) {
+    return(character())
+  }
+  zip_indices <- grep("\\.zip$", file$name, ignore.case = TRUE)
+  empty <- character()
+  for (i in zip_indices) {
+    empty_result <- tryCatch(
+      check_empty_archive(file$datapath[i]),
+      error = function(e) NA
+    )
+    if (isTRUE(empty_result) || is.na(empty_result)) {
+      empty <- c(empty, file$name[i])
+    }
+  }
+  unique(empty)
+}
+
+empty_archive_warning_html <- function(names) {
+  names <- unique(as.character(names))
+  names <- names[!is.na(names) & nzchar(names)]
+  if (length(names) == 0L) {
+    return(NULL)
+  }
+  escape <- function(x) {
+    x <- gsub("&", "&amp;", x, fixed = TRUE)
+    x <- gsub("<", "&lt;", x, fixed = TRUE)
+    gsub(">", "&gt;", x, fixed = TRUE)
+  }
+  icon <- "\u26A0\uFE0F "
+  if (length(names) == 1L) {
+    paste0(icon, escape(names), " is empty.")
+  } else {
+    paste0(icon, "These archives are empty:<br>", paste(escape(names), collapse = "<br>"))
+  }
+}
+
 # Helper function to normalize filenames by removing browser download suffixes
 normalize_filename <- function(filename) {
   # Remove browser download suffixes on duplicate filenames
@@ -413,7 +452,6 @@ pick_pretest_zip_entry <- function(all_pretest, zip_path, tmp = tempdir()) {
 
 check_file_names <- function(file) {
   file_names <- file$name
-  file_paths <- file$datapath
   valid_endings <- c(".results.zip", ".csv", ".prolific.csv", ".pretest.xlsx")
   
   # Normalize filenames to handle browser download suffixes
@@ -425,92 +463,25 @@ check_file_names <- function(file) {
     }))
   })
   invalid_files <- file_names[!is_valid]
-  
-  # Check for empty zip files
-  zip_indices <- grep("\\.zip$", file_names, ignore.case = TRUE)
-  unreadable_empty_files <- c()
-  
-  if (length(zip_indices) > 0) {
-    for (i in zip_indices) {
-      zip_path <- file_paths[i]
-      zip_name <- file_names[i]
-      
-      empty_result <- tryCatch({
-        check_empty_archive(zip_path)
-      }, error = function(e) {
-        return(NA)
-      })
-      
-      if (is.na(empty_result) || empty_result) {
-        # Combine both unreadable (NA) and empty (TRUE) files
-        unreadable_empty_files <- c(unreadable_empty_files, zip_name)
-      }
-    }
-  }
-  
-  # Now determine what message to return based on what problems we found
+
+  # Empty archives are warnings, handled by empty_archive_names(); do not block.
   has_invalid_names <- length(invalid_files) > 0
-  has_unreadable_empty_files <- length(unreadable_empty_files) > 0
-  
-  # Build comprehensive error message showing ALL problems
-  error_sections <- c()
-  
-  if (has_invalid_names) {
-    error_sections <- c(error_sections, paste0(
-      "<strong>Incompatible filename(s):</strong><br>", 
-      paste(invalid_files, collapse = ", ")
-    ))
+  if (!has_invalid_names) {
+    return(NULL)
   }
-  
-  if (has_unreadable_empty_files) {
-    error_sections <- c(error_sections, paste0(
-      "<strong>Unreadable/empty zip file(s):</strong><br>", 
-      paste(unreadable_empty_files, collapse = ", ")
-    ))
-  }
-  
-  # If we have any problems, return comprehensive message
-  if (length(error_sections) > 0) {
-    
-    # Build help text based on what problems we found
-    help_text <- ""
-    
-    if (has_invalid_names) {
-      help_text <- paste0(help_text, 
-        "Compatible filenames must have one of these endings:<br>",
-        "&nbsp;&nbsp;&nbsp;• .results.zip<br>",
-        "&nbsp;&nbsp;&nbsp;• .csv<br>",
-        "&nbsp;&nbsp;&nbsp;• .prolific.csv<br>",
-        "&nbsp;&nbsp;&nbsp;• .pretest.xlsx<br>",
-        "<em>Note: Browser download suffixes like ' (1)' ",
-        "or '_(1)' are automatically ignored.</em><br><br>"
-      )
-    }
-    
-    if (has_unreadable_empty_files) {
-      help_text <- paste0(help_text, 
-        "Zip files must contain experiment data ",
-        "(.csv files) and be readable.<br><br>"
-      )
-    }
-    
-    # Use appropriate title based on number of error types
-    title <- if (length(error_sections) > 1) {
-      "Sorry. Multiple issues found:<br><br>"
-    } else {
-      "Sorry. File issue found:<br><br>"
-    }
-    
-    return(paste0(
-      title,
-      paste(error_sections, collapse = "<br><br>"),
-      "<br><br>",
-      help_text
-    ))
-  }
-  
-  # No problems found
-  return(NULL)
+
+  paste0(
+    "Incompatible filename(s):<br>",
+    paste(invalid_files, collapse = ", "),
+    "<br><br>",
+    "Compatible filenames must have one of these endings:<br>",
+    "&nbsp;&nbsp;&nbsp;• .results.zip<br>",
+    "&nbsp;&nbsp;&nbsp;• .csv<br>",
+    "&nbsp;&nbsp;&nbsp;• .prolific.csv<br>",
+    "&nbsp;&nbsp;&nbsp;• .pretest.xlsx<br>",
+    "<em>Note: Browser download suffixes like ' (1)' ",
+    "or '_(1)' are automatically ignored.</em>"
+  )
 }
 
 # First non-missing, non-empty scalar from a vector (session-level metadata).

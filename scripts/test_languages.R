@@ -65,6 +65,19 @@ bad <- reading
 bad$wordPerMin <- c(NA, Inf, 0, -1, NaN)
 stopifnot(is.null(plot_language_reading_speed(list(reading = add_language_column(bad, meta)))))
 stopifnot(is.null(plot_language_reading_speed(list(reading = reading))))
+empty_dir <- tempfile("empty-archive-")
+dir.create(empty_dir)
+file.create(file.path(empty_dir, "nothing.csv"))
+empty_zip <- tempfile("persian", fileext = ".results.zip")
+zip::zipr(empty_zip, files = "nothing.csv", root = empty_dir)
+empty_file <- data.frame(name = "persian.results.zip", datapath = empty_zip,
+                         stringsAsFactors = FALSE)
+stopifnot(is.null(check_file_names(empty_file)))
+stopifnot(identical(empty_archive_names(empty_file), "persian.results.zip"))
+empty_warning <- empty_archive_warning_html(empty_archive_names(empty_file))
+stopifnot(grepl("persian.results.zip is empty", empty_warning, fixed = TRUE),
+          grepl("\u26A0", empty_warning))
+stopifnot(length(read_files(empty_file)$data_list) == 0L)
 # Read both question layouts, deduplicate identical exported questions, and
 # preserve the correct-answer field for comprehension scoring.
 qa <- tibble(experiment = "study", participant = "s1", block = 1,
