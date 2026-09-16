@@ -58,7 +58,7 @@ stopifnot("GeomLinerange" %in% geoms, !"GeomErrorbar" %in% geoms)
 dodge_widths <- vapply(p$layers, function(l) {
   if (inherits(l$position, "PositionDodge")) l$position$width else NA_real_
 }, numeric(1))
-stopifnot(sum(!is.na(dodge_widths)) == 3L, length(unique(dodge_widths[!is.na(dodge_widths)])) == 1L)
+stopifnot(sum(!is.na(dodge_widths)) == 3L, unique(dodge_widths[!is.na(dodge_widths)]) == 0.1)
 stopifnot(all(prepare_language_reading_proportion_correct(d)$value == 0.8))
 # Invalid values and unsupported languages yield an explicit empty-data state.
 bad <- reading

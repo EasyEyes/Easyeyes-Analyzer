@@ -159,7 +159,7 @@ plot_language_by_font <- function(data,
   # Language ordering is fixed by SUPPORTED_LANGUAGES so colours stay stable.
   # The same order is used for the horizontal dodge: Arabic left, Urdu right.
   summ$language <- factor(summ$language, levels = SUPPORTED_LANGUAGES)
-  dodge <- ggplot2::position_dodge(width = 0.3)
+  dodge <- ggplot2::position_dodge(width = 0.1)
 
   p <- ggplot2::ggplot(summ,
                        ggplot2::aes(x = font, y = mean,
