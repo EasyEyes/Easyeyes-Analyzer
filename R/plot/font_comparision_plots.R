@@ -93,7 +93,8 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
   # ---- helper: one plot ----
   create_font_plot <- function(data, title, ylabel,
                                use_log_scale = TRUE,
-                               use_geometric_mean = TRUE) {
+                               use_geometric_mean = TRUE,
+                               abbreviate_fonts = FALSE) {
     if (nrow(data) == 0) return(NULL)
     
     # summary stats
@@ -168,8 +169,15 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
     y_limits <- compute_y_limits(summary_data, use_log = (use_log_scale && use_geometric_mean))
     baseline <- y_limits[1]
 
-    # label position near bottom
-    label_y <- if (use_log_scale && use_geometric_mean) baseline * 1.05 else baseline + diff(y_limits) * 0.05
+    # label position near bottom — keep clear of the axis
+    label_y <- if (use_log_scale && use_geometric_mean) {
+      baseline * 1.25
+    } else {
+      baseline + diff(y_limits) * 0.08
+    }
+
+    # 140% of prior sizes; leave plot subtitle/title (filename) alone for plt_theme
+    text_scale <- 1.4
 
     # plot
     p <- ggplot(summary_data, aes(x = font, fill = font)) +
@@ -187,22 +195,22 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
       geom_errorbar(
         aes(ymin = pmax(mean_val - se_lower, if (use_log_scale && use_geometric_mean) 1e-4 else -Inf),
             ymax = mean_val + se_upper),
-        width = 0.18, size = 0.5, color = "black"
+        width = 0, linewidth = 1, color = "black"
       ) +
       geom_text(
         aes(label = paste0("N=", n_participants), y = label_y),
-        vjust = 0.5, size = 3.6, color = "black", fontface = "bold"
+        vjust = 0, size = 3.6 * text_scale, color = "black", fontface = "bold"
       ) +
       scale_fill_manual(values = font_colors, guide = "none") +
       theme_minimal(base_size = 12) +
       theme(
         plot.background = element_rect(fill = "white", color = NA),
         panel.background = element_rect(fill = "white", color = NA),
-        axis.text.x = element_text(size = 9, color = "black", angle = 45, hjust = 1, vjust = 1),
+        axis.text.x = element_text(size = 9 * text_scale, color = "black", angle = 45, hjust = 1, vjust = 1),
         axis.ticks.x = element_line(color = "black"),
-        axis.text.y = element_text(size = 10, color = "black"),
-        axis.title.x = element_text(size = 12, margin = margin(t = 10), color = "black"),
-        axis.title.y = element_text(size = 12, margin = margin(r = 10), color = "black"),
+        axis.text.y = element_text(size = 10 * text_scale, color = "black"),
+        axis.title.x = element_text(size = 12 * text_scale, margin = margin(t = 10), color = "black"),
+        axis.title.y = element_text(size = 12 * text_scale, margin = margin(r = 10), color = "black"),
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.y = element_line(color = "gray90", size = 0.3),
@@ -210,6 +218,10 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
         axis.line = element_line(color = "black", size = 0.5)
       ) +
       labs(subtitle = title, x = "Fonts", y = ylabel)
+
+    if (abbreviate_fonts) {
+      p <- p + scale_x_discrete(labels = strip_font_filetype)
+    }
 
     if (use_log_scale && use_geometric_mean) {
       p <- p + scale_y_log10(limits = y_limits, expand = c(0, 0)) +
@@ -228,7 +240,9 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
     rsvp    = create_font_plot(rsvp_data,    "RSVP",   "RSVP Reading Speed (WPM)",            use_log_scale = TRUE,  use_geometric_mean = TRUE),
     crowding= create_font_plot(crowding_data,"Crowding","Crowding Distance (deg)",            use_log_scale = TRUE,  use_geometric_mean = TRUE),
     reading = create_font_plot(reading_data, "Reading","Ordinary Reading Speed (WPM)",        use_log_scale = TRUE,  use_geometric_mean = TRUE),
-    acuity  = create_font_plot(acuity_data,  "Acuity", "Acuity Threshold (deg)",              use_log_scale = TRUE,  use_geometric_mean = TRUE),
+    acuity  = create_font_plot(acuity_data,  "Acuity", "Acuity (deg)",
+                               use_log_scale = TRUE,  use_geometric_mean = TRUE,
+                               abbreviate_fonts = TRUE),
     comfort = create_font_plot(comfort_data, "Comfort","Comfort Rating",                      use_log_scale = FALSE, use_geometric_mean = FALSE),
     beauty  = create_font_plot(beauty_data,  "Beauty", "Beauty Rating",                       use_log_scale = FALSE, use_geometric_mean = FALSE),
     familiarity  = create_font_plot(familiarity_data,  "Familiarity", "Familiarity",          use_log_scale = FALSE, use_geometric_mean = FALSE)

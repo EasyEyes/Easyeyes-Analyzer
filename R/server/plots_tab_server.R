@@ -1409,6 +1409,8 @@ register_plots_tab_server <- function(output,
               width_in = 8,
               height_in = 6,
               disp_w = 700,
+              text_scale = 1.4,
+              scale_axis_text = FALSE,
               limitsize = FALSE
             )
             if (isolate(violinRenderedCount()) < ii) violinRenderedCount(ii)
@@ -1447,11 +1449,18 @@ register_plots_tab_server <- function(output,
           req(length(violinPlots()$plotList) >= ii)
           if (is_placeholder_plot(violinPlots()$plotList[[ii]])) return(invisible(NULL))
 
+          plot_to_save <- apply_direct_png_theme(
+            violinPlots()$plotList[[ii]] + plt_theme,
+            profile = "plots",
+            text_scale = 1.4,
+            scale_axis_text = FALSE
+          )
+
           if (downloadFileType() == "png") {
             tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
             ggsave(
               tmp_svg,
-              plot = violinPlots()$plotList[[ii]] + plt_theme,
+              plot = plot_to_save,
               width = 8,
               height = 6,
               unit = "in",
@@ -1462,7 +1471,7 @@ register_plots_tab_server <- function(output,
           } else {
             ggsave(
               file,
-              plot = violinPlots()$plotList[[ii]] + plt_theme,
+              plot = plot_to_save,
               width = 8,
               height = 6,
               unit = "in",
@@ -1511,6 +1520,7 @@ register_plots_tab_server <- function(output,
               width_in = 8,
               height_in = 6,
               disp_w = 700,
+              text_scale = 1.4,
               limitsize = FALSE
             )
             if (isolate(fontComparisonRenderedCount()) < ii) fontComparisonRenderedCount(ii)
@@ -1549,11 +1559,17 @@ register_plots_tab_server <- function(output,
           req(length(fontComparisonPlots()$plotList) >= ii)
           if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) return(invisible(NULL))
 
+          plot_to_save <- apply_direct_png_theme(
+            fontComparisonPlots()$plotList[[ii]] + plt_theme,
+            profile = "plots",
+            text_scale = 1.4
+          )
+
           if (downloadFileType() == "png") {
             tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
             ggsave(
               tmp_svg,
-              plot = fontComparisonPlots()$plotList[[ii]] + plt_theme,
+              plot = plot_to_save,
               width = 8,
               height = 6,
               unit = "in",
@@ -1564,7 +1580,7 @@ register_plots_tab_server <- function(output,
           } else {
             ggsave(
               file,
-              plot = fontComparisonPlots()$plotList[[ii]] + plt_theme,
+              plot = plot_to_save,
               width = 8,
               height = 6,
               unit = "in",

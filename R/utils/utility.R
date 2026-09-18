@@ -21,6 +21,11 @@ get_first_non_na <- function(values) {
 }
 
 
+# Drop common font file extensions for axis labels (e.g. ".woff2", ".otf", ".ttf").
+strip_font_filetype <- function(fonts) {
+  sub("\\.(woff2|otf|ttf)$", "", as.character(fonts), ignore.case = TRUE)
+}
+
 # Helper function to add experiment name to plot title
 add_experiment_title <- function(plot, experiment_name) {
   short_name <- get_short_experiment_name(experiment_name)
@@ -386,8 +391,16 @@ get_N_text <- function(data) {
 }
 
 # Scale ggplot text/layers for on-screen PNG rendering (ragg path).
-apply_direct_png_theme <- function(plot, profile = c("default", "plots", "histogram")) {
+apply_direct_png_theme <- function(plot,
+                                   profile = c("default", "plots", "histogram"),
+                                   text_scale = 1,
+                                   scale_title = FALSE,
+                                   scale_subtitle = FALSE,
+                                   scale_axis_title = TRUE,
+                                   scale_axis_text = TRUE) {
   profile <- match.arg(profile)
+  text_scale <- as.numeric(text_scale)[1]
+  if (is.na(text_scale) || text_scale <= 0) text_scale <- 1
   default_text_layer_size <- 3
   stats_text_layer_size <- 4
   text_layer_multiplier <- 2
@@ -409,9 +422,35 @@ apply_direct_png_theme <- function(plot, profile = c("default", "plots", "histog
     )
   )
 
+  # Scale body text; keep filename (title) / measure subtitle unless requested
+  if (isTRUE(scale_title)) sizes$title <- sizes$title * text_scale
+  if (isTRUE(scale_subtitle)) sizes$subtitle <- sizes$subtitle * text_scale
+  if (isTRUE(scale_axis_title)) sizes$axis_title <- sizes$axis_title * text_scale
+  if (isTRUE(scale_axis_text)) {
+    sizes$axis_text <- sizes$axis_text * text_scale
+    sizes$legend_title <- sizes$legend_title * text_scale
+    sizes$legend_text <- sizes$legend_text * text_scale
+    sizes$strip <- sizes$strip * text_scale
+    sizes$caption <- sizes$caption * text_scale
+  }
+
   png_plot <- unserialize(serialize(plot, NULL))
+
+  # Preserve angled x tick labels from the plot theme when present (e.g. font bars)
+  existing_x <- png_plot$theme$axis.text.x
+  x_angle <- if (!is.null(existing_x) && !is.null(existing_x$angle) && !is.na(existing_x$angle)) existing_x$angle else NULL
+  x_hjust <- if (!is.null(existing_x) && !is.null(existing_x$hjust) && !is.na(existing_x$hjust)) existing_x$hjust else NULL
+  x_vjust <- if (!is.null(existing_x) && !is.null(existing_x$vjust) && !is.na(existing_x$vjust)) existing_x$vjust else NULL
+
   axis_text_x <- if (profile == "histogram") {
     ggplot2::element_text(size = sizes$axis_text, angle = -40, hjust = 0, vjust = 1)
+  } else if (!is.null(x_angle)) {
+    ggplot2::element_text(
+      size = sizes$axis_text,
+      angle = x_angle,
+      hjust = if (is.null(x_hjust)) 1 else x_hjust,
+      vjust = if (is.null(x_vjust)) 1 else x_vjust
+    )
   } else {
     ggplot2::element_text(size = sizes$axis_text)
   }
@@ -419,7 +458,10 @@ apply_direct_png_theme <- function(plot, profile = c("default", "plots", "histog
     ggplot2::theme(
       plot.title = ggplot2::element_text(size = sizes$title, lineheight = lineheight_multiplier),
       plot.subtitle = ggplot2::element_text(size = sizes$subtitle, lineheight = lineheight_multiplier),
+      # Set x/y explicitly so plot-level axis.title.x/y cannot keep tiny sizes
       axis.title = ggplot2::element_text(size = sizes$axis_title, lineheight = lineheight_multiplier),
+      axis.title.x = ggplot2::element_text(size = sizes$axis_title, lineheight = lineheight_multiplier),
+      axis.title.y = ggplot2::element_text(size = sizes$axis_title, lineheight = lineheight_multiplier),
       axis.text = ggplot2::element_text(size = sizes$axis_text, lineheight = lineheight_multiplier),
       axis.text.x = axis_text_x,
       axis.text.y = ggplot2::element_text(size = sizes$axis_text, lineheight = lineheight_multiplier),
@@ -481,6 +523,11 @@ render_plots_display_png <- function(plot,
                                      disp_h = NULL,
                                      use_png_theme = TRUE,
                                      png_theme_profile = "plots",
+                                     text_scale = 1,
+                                     scale_title = FALSE,
+                                     scale_subtitle = FALSE,
+                                     scale_axis_title = TRUE,
+                                     scale_axis_text = TRUE,
                                      limitsize = FALSE) {
   width_in <- as.numeric(width_in)[1]
   height_in <- as.numeric(height_in)[1]
@@ -494,7 +541,15 @@ render_plots_display_png <- function(plot,
   png_h <- round((height_in / width_in) * png_w)
   outfile <- tempfile(fileext = ".png")
   if (isTRUE(use_png_theme)) {
-    plot <- apply_direct_png_theme(plot, profile = png_theme_profile)
+    plot <- apply_direct_png_theme(
+      plot,
+      profile = png_theme_profile,
+      text_scale = text_scale,
+      scale_title = scale_title,
+      scale_subtitle = scale_subtitle,
+      scale_axis_title = scale_axis_title,
+      scale_axis_text = scale_axis_text
+    )
   }
 
   saved <- tryCatch({

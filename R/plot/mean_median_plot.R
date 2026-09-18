@@ -76,8 +76,8 @@ mean_plot <- function(reading_rsvp_crowding_df){
     geom_point(aes(shape = targetKind), size = 3) + 
     scale_y_log10() +
     scale_x_log10() + 
-    geom_errorbar(aes(ymin=10^(avg_log_SpeedWPM-se), ymax=10^(avg_log_SpeedWPM+se)), width=0) +
-    geom_errorbar(aes(xmin=(mean_bouma_factor-se_bouma_factor), xmax=(mean_bouma_factor+se_bouma_factor)), width=0) +
+    geom_errorbar(aes(ymin=10^(avg_log_SpeedWPM-se), ymax=10^(avg_log_SpeedWPM+se)), width=0, linewidth=1) +
+    geom_errorbar(aes(xmin=(mean_bouma_factor-se_bouma_factor), xmax=(mean_bouma_factor+se_bouma_factor)), width=0, linewidth=1) +
     theme_bw() + 
     # annotate("text", 10^(max(rsvp_vs_ordinary_vs_crowding$mean_bouma_factor)), 
     #          y=10^(min(rsvp_vs_ordinary_vs_crowding$avg_log_SpeedWPM - rsvp_vs_ordinary_vs_crowding$se)), 

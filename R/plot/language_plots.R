@@ -166,7 +166,7 @@ plot_language_by_font <- function(data,
                                     color = language, group = language)) +
     ggplot2::geom_line(linewidth = 0.8, position = dodge) +
     ggplot2::geom_linerange(ggplot2::aes(ymin = lower, ymax = upper),
-                            linewidth = 0.6, na.rm = TRUE, position = dodge) +
+                            linewidth = 1.2, na.rm = TRUE, position = dodge) +
     ggplot2::geom_point(size = 3, position = dodge) +
     ggplot2::scale_color_manual(
       values = LANGUAGE_COLORS,

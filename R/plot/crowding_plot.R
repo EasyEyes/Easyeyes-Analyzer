@@ -1482,7 +1482,7 @@ plot_crowding_vs_duration_plots <- function(crowding) {
       ggplot(mean_df, aes(x = targetDurationSec, y = crowding_deg, color = questType)) +
         geom_line(aes(group = questType), linewidth = 0.6) +
         geom_point(size = 6) +
-        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05),
+        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0, linewidth = 1),
       n_total, "Crowding vs duration", scales
     )
   } else {
@@ -1495,7 +1495,7 @@ plot_crowding_vs_duration_plots <- function(crowding) {
       ggplot(by_side_df, aes(x = targetDurationSec, y = crowding_deg, color = side)) +
         geom_line(aes(group = side), linewidth = 0.6) +
         geom_point(size = 6) +
-        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05),
+        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0, linewidth = 1),
       n_side, "Crowding vs duration by side", scales
     )
   } else {
@@ -1510,7 +1510,7 @@ plot_crowding_vs_duration_plots <- function(crowding) {
       ) +
         geom_line(linewidth = 0.6) +
         geom_point(size = 6) +
-        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.05),
+        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0, linewidth = 1),
       n_total, "Crowding vs duration by participant", scales
     )
   } else {

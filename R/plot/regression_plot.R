@@ -479,9 +479,9 @@ regression_and_mean_plot_byfont <- function(df_list, reading_rsvp_crowding_df){
                 fullrange=T) +
     scale_linetype_manual(values = c(1, 2)) +
     geom_errorbar(aes(ymin=10^(avg_log_SpeedWPM-se),
-                      ymax=10^(avg_log_SpeedWPM+se)), width=0) +
+                      ymax=10^(avg_log_SpeedWPM+se)), width=0, linewidth=1) +
     geom_errorbar(aes(xmin=(mean_bouma_factor-se_bouma_factor),
-                      xmax=(mean_bouma_factor+se_bouma_factor)), width=0) +
+                      xmax=(mean_bouma_factor+se_bouma_factor)), width=0, linewidth=1) +
     # geom_point(data = t, aes(x = bouma_factor, y = 10^(avg_log_WPM), color = font, shape = targetKind),alpha = 0.5) +
     # geom_smooth(data = t, 
     #             aes(x = bouma_factor, 

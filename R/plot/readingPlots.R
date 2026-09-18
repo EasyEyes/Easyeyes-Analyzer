@@ -61,7 +61,7 @@ plot_rsvp_vs_x_height <- function(rsvp_speed){
     # geom_errorbar(aes(ymin=60/(10^(m-se/2)),
     #                   ymax=60/(10^(m+se/2))), width=0, position = pd) +
     geom_errorbar(aes(ymin=60/(10^(m-se/2)),
-                      ymax=60/(10^(m+se/2))), width=0) +
+                      ymax=60/(10^(m+se/2))), width=0, linewidth=1) +
     xlab("x height (mm)") +
     ylab("Reading speed (w/min) ") +
     guides(color = guide_legend(title = "viewing distance (cm)")) + 
@@ -79,7 +79,7 @@ plot_rsvp_vs_x_height <- function(rsvp_speed){
     # geom_errorbar(aes(ymin=60/(10^(m-se/2)),
     #                   ymax=60/(10^(m+se/2))), width=0, position = pd) +
     geom_errorbar(aes(ymin=60/(10^(m-se/2)),
-                      ymax=60/(10^(m+se/2))), width=0) +
+                      ymax=60/(10^(m+se/2))), width=0, linewidth=1) +
     xlab("x height (mm)") +
     ylab("Reading speed (w/min)") +
     guides(color = guide_legend(title = "viewing distance (cm)")) + 

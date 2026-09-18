@@ -26,7 +26,8 @@ plot_violins <- function(df_list) {
   # print(summary(reading$y))
   # print("Any NA values in reading y:")
   # print(sum(is.na(reading$y)))
-  acuity = df_list$acuity %>% mutate(y = questMeanAtEndOfTrialsLoop)
+  # Linear acuity (deg), same transform as font-comparison bar plot
+  acuity = df_list$acuity %>% mutate(y = 10^questMeanAtEndOfTrialsLoop)
   beauty = df_list$beauty %>%
     mutate(y = questionAndAnswerResponse) %>%
     filter(!is.na(y))
@@ -39,7 +40,10 @@ plot_violins <- function(df_list) {
     mutate(y = questionAndAnswerResponse) %>%
     filter(!is.na(y))
   
-  create_plot <- function(data, ylabel, title, xlimits = NULL) {
+  create_plot <- function(data, ylabel, title, xlimits = NULL,
+                          abbreviate_fonts = FALSE,
+                          use_log_scale = FALSE,
+                          axis_label_scale = 1) {
     p <- NULL
     
     if (nrow(data) > 0) {
@@ -61,8 +65,11 @@ plot_violins <- function(df_list) {
       
       # Create labels with N counts for each font and apply ordering
       font_labels <- participant_counts %>%
-        mutate(label = paste0(font, "\n(N=", n_participants, ")"),
-               font_factor = factor(font, levels = font_order)) %>%
+        mutate(
+          font_display = if (abbreviate_fonts) strip_font_filetype(font) else font,
+          label = paste0(font_display, "\n(N=", n_participants, ")"),
+          font_factor = factor(font, levels = font_order)
+        ) %>%
         arrange(font_factor)
       
       # Update data with new labels and filter out infinite values
@@ -70,6 +77,10 @@ plot_violins <- function(df_list) {
         left_join(font_labels, by = "font") %>%
         mutate(font_label = factor(label, levels = font_labels$label)) %>%
         filter(is.finite(y))  # Remove -Inf, Inf, NA values for plotting
+
+      if (use_log_scale) {
+        plot_data <- plot_data %>% filter(y > 0)
+      }
       
       # Apply x-axis limits if specified (filter data to limits)
       if (!is.null(xlimits)) {
@@ -81,6 +92,8 @@ plot_violins <- function(df_list) {
       mean_data <- plot_data %>%
         group_by(font_label) %>%
         summarise(mean_y = mean(y, na.rm = TRUE), .groups = "drop")
+
+      axis_title_size <- 14 * axis_label_scale
       
       p <- ggplot(plot_data, aes(x = font_label, y = y)) +
         geom_violin(trim = FALSE, alpha = 0.5) +
@@ -95,7 +108,9 @@ plot_violins <- function(df_list) {
         theme_minimal(base_size = 14) +
         theme(
           plot.background = element_rect(fill = "white", color = NA),
-          panel.background = element_rect(fill = "white", color = NA)
+          panel.background = element_rect(fill = "white", color = NA),
+          axis.title.x = element_text(size = axis_title_size),
+          axis.title.y = element_text(size = axis_title_size)
         ) +
         labs(
           subtitle = title,
@@ -103,18 +118,13 @@ plot_violins <- function(df_list) {
           y = ylabel
         )
       
-      # Apply log scaling to y-axis for specific plot types (becomes x-axis after coord_flip)
-      if (grepl("Reading|RSVP|Crowding", title)) {
+      # Log scale: linear tick labels with log spacing (matches font-comparison bars)
+      if (use_log_scale || grepl("Reading|RSVP|Crowding", title)) {
         p <- p + scale_y_log10(breaks = scales::log_breaks()) +
           annotation_logticks(sides = "b",
                       short = unit(2, "pt"),
                       mid   = unit(2, "pt"),
                       long  = unit(7, "pt"))
-        
-        # Apply x-axis limits if specified (for log scale plots)
-        # if (!is.null(xlimits)) {
-        #   p <- p + coord_flip(ylim = xlimits)
-        # }
       } else {
         # For non-log scale plots, add standard tick marks
         p <- p + theme(
@@ -122,11 +132,6 @@ plot_violins <- function(df_list) {
           axis.ticks.y = element_line(color = "black", size = 0.5),
           axis.ticks.length = unit(4, "pt")
         )
-        
-        # # Apply x-axis limits if specified (for non-log scale plots)
-        # if (!is.null(xlimits)) {
-        #   p <- p + coord_flip(ylim = xlimits)
-        # }
       }
     }
     return(p)
@@ -149,7 +154,10 @@ plot_violins <- function(df_list) {
     reading = create_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font"),
     rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font"),
     crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
-    acuity = create_plot(acuity, "acuity (deg)", "Acuity Threshold by Font"),
+    acuity = create_plot(acuity, "Acuity (deg)", "Acuity vs. font",
+                         abbreviate_fonts = TRUE,
+                         use_log_scale = TRUE,
+                         axis_label_scale = 1.4),
     beauty = create_plot(beauty, "Beauty Rating", "Beauty Rating by Font"),
     cmfrt = create_plot(comfort, "Comfort Rating", "Comfort Rating by Font"),
     familiarity = create_plot(familiarity_data, "familiarity", "Familiarity by Font")
