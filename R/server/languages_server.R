@@ -127,12 +127,21 @@ languagesTabServer <- function(id,
             writeLines("No data available.", file)
             return(invisible())
           }
-          savePlot(
-            plot = p,
-            filename = file,
-            fileType = fileType(),
-            width = 8,
-            height = 6
+          # Match on-screen Languages render (theme applied once, then same saver).
+          png_plot <- apply_direct_png_theme(p, profile = "plots")
+          png_plot <- png_plot + ggplot2::theme(
+            axis.text.x = ggplot2::element_text(size = 20, angle = 45, hjust = 1, vjust = 1)
+          )
+          save_plots_display_download(
+            file = file,
+            plot = png_plot,
+            file_type = fileType(),
+            width_in = 8,
+            height_in = 6,
+            disp_w = 700,
+            use_png_theme = FALSE,
+            limitsize = FALSE,
+            vector_size_scale = 1.4
           )
         }
       )
@@ -161,7 +170,8 @@ languagesTabServer <- function(id,
       )
       specs <- Filter(function(s) !is.null(s$plot), specs)
       lapply(specs, function(s) plot_download_spec(
-        style_language_plot(s$plot), s$name, theme = plt_theme, width = 8, height = 6
+        style_language_plot(s$plot), s$name, theme = plt_theme, width = 8, height = 6,
+        disp_w = 700, use_png_theme = TRUE
       ))
     })
 

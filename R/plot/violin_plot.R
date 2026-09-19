@@ -67,7 +67,7 @@ plot_violins <- function(df_list) {
       font_labels <- participant_counts %>%
         mutate(
           font_display = if (abbreviate_fonts) strip_font_filetype(font) else font,
-          label = paste0(font_display, "\n(N=", n_participants, ")"),
+          label = paste0(font_display, " (N=", n_participants, ")"),
           font_factor = factor(font, levels = font_order)
         ) %>%
         arrange(font_factor)
@@ -104,13 +104,14 @@ plot_violins <- function(df_list) {
                          y = mean_y, 
                          yend = mean_y),
                      color = "red", size = 1, alpha = 0.8) +
-        coord_flip() +
         theme_minimal(base_size = 14) +
         theme(
           plot.background = element_rect(fill = "white", color = NA),
           panel.background = element_rect(fill = "white", color = NA),
           axis.title.x = element_text(size = axis_title_size),
-          axis.title.y = element_text(size = axis_title_size)
+          axis.title.y = element_text(size = axis_title_size),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+          plot.margin = margin(t = 5.5, r = 5.5, b = 18, l = 5.5)
         ) +
         labs(
           subtitle = title,
@@ -121,7 +122,7 @@ plot_violins <- function(df_list) {
       # Log scale: linear tick labels with log spacing (matches font-comparison bars)
       if (use_log_scale || grepl("Reading|RSVP|Crowding", title)) {
         p <- p + scale_y_log10(breaks = scales::log_breaks()) +
-          annotation_logticks(sides = "b",
+          annotation_logticks(sides = "l",
                       short = unit(2, "pt"),
                       mid   = unit(2, "pt"),
                       long  = unit(7, "pt"))

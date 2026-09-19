@@ -610,14 +610,18 @@ shinyServer(function(input, output, session) {
         correlation$plot,
         "correlation-matrix",
         width = correlation$width,
-        height = correlation$height
+        height = correlation$height,
+        disp_w = 700,
+        use_png_theme = TRUE
       )))
       if (!is.null(correlation$n_plot)) {
         specs <- c(specs, list(plot_download_spec(
           correlation$n_plot,
           "pairwise-count-matrix",
           width = correlation$width,
-          height = correlation$height
+          height = correlation$height,
+          disp_w = 700,
+          use_png_theme = TRUE
         )))
       }
     }
@@ -661,12 +665,35 @@ shinyServer(function(input, output, session) {
 
     c(
       specs,
-      plot_list_download_specs(plotsTab$histograms()$plotList, plotsTab$histograms()$fileNames, theme = hist_theme, width = 3.5, height = 3.5),
-      plot_list_download_specs(plotsTab$scatterDiagrams()$plotList, plotsTab$scatterDiagrams()$fileNames, theme = plt_theme_scatter),
-      plot_list_download_specs(plotsTab$agePlots()$plotList, plotsTab$agePlots()$fileNames, theme = plt_theme),
-      plot_list_download_specs(ggiraph_plots$plotList, ggiraph_plots$fileNames, theme = plt_theme_ggiraph),
-      plot_list_download_specs(plotsTab$violinPlots()$plotList, plotsTab$violinPlots()$fileNames, theme = plt_theme, width = 8),
-      plot_list_download_specs(plotsTab$fontComparisonPlots()$plotList, plotsTab$fontComparisonPlots()$fileNames, theme = plt_theme, width = 8)
+      plot_list_download_specs(
+        plotsTab$histograms()$plotList, plotsTab$histograms()$fileNames,
+        theme = hist_theme, width = 3.5, height = 3.5, disp_w = 280,
+        use_png_theme = TRUE, png_theme_profile = "histogram"
+      ),
+      plot_list_download_specs(
+        plotsTab$scatterDiagrams()$plotList, plotsTab$scatterDiagrams()$fileNames,
+        theme = plt_theme_scatter, width = 7, height = 7, disp_w = 700,
+        use_png_theme = TRUE
+      ),
+      plot_list_download_specs(
+        plotsTab$agePlots()$plotList, plotsTab$agePlots()$fileNames,
+        theme = plt_theme, width = 6, height = 6, disp_w = 700,
+        use_png_theme = TRUE
+      ),
+      plot_list_download_specs(
+        ggiraph_plots$plotList, ggiraph_plots$fileNames,
+        theme = plt_theme_ggiraph, disp_w = 700, use_png_theme = TRUE
+      ),
+      plot_list_download_specs(
+        plotsTab$violinPlots()$plotList, plotsTab$violinPlots()$fileNames,
+        theme = plt_theme, width = 8, height = 6, disp_w = 700,
+        use_png_theme = TRUE, text_scale = 1.4
+      ),
+      plot_list_download_specs(
+        plotsTab$fontComparisonPlots()$plotList, plotsTab$fontComparisonPlots()$fileNames,
+        theme = plt_theme, width = 8, height = 6, disp_w = 700,
+        use_png_theme = TRUE, text_scale = 1.4
+      )
     )
   })
 
@@ -1465,63 +1492,34 @@ shinyServer(function(input, output, session) {
                         'correlation-matrix.',
                         downloadFileType()),
       content = function(file) {
-        if (downloadFileType() == "png") {
-          ggsave(
-            "tmp.svg",
-            plot =  corrMatrix()$plot,
-            width = corrMatrix()$width,
-            height = corrMatrix()$height,
-            unit = "in",
-            limitsize = F,
-            device = svglite
-          )
-          rsvg::rsvg_png("tmp.svg",
-                         file,
-                         height = 1800,
-                         width = 1800)
-        } else {
-          ggsave(
-            file,
-            plot =  corrMatrix()$plot,
-            width = corrMatrix()$width,
-            height = corrMatrix()$height,
-            unit = "in",
-            limitsize = F,
-            device = ifelse(
-              downloadFileType() == "svg",
-              svglite::svglite,
-              downloadFileType()
-            )
-          )
-        }
+        p <- add_experiment_title(corrMatrix()$plot, experiment_names())
+        save_plots_display_download(
+          file = file,
+          plot = p,
+          file_type = downloadFileType(),
+          width_in = corrMatrix()$width,
+          height_in = corrMatrix()$height,
+          disp_w = 700,
+          limitsize = FALSE,
+          vector_size_scale = 1.4
+        )
       }
     )
     
     output$downloadNMatrixPlot <- downloadHandler(
       filename = function() paste0(get_short_experiment_name(experiment_names()), "n-matrix.", downloadFileType()),
       content = function(file) {
-        if (downloadFileType() == "png") {
-          ggsave("tmp.svg",
-                 plot   = corrMatrix()$n_plot,
-                 width  = corrMatrix()$width,
-                 height = corrMatrix()$height,
-                 unit   = "in",
-                 limitsize = FALSE,
-                 device = svglite)
-          rsvg::rsvg_png("tmp.svg", file,
-                         width  = 1800,
-                         height = 1800)
-        } else {
-          ggsave(
-            file,
-            plot       = corrMatrix()$n_plot,
-            width      = corrMatrix()$width,
-            height     = corrMatrix()$height,
-            unit       = "in",
-            limitsize  = FALSE,
-            device     = if (downloadFileType()=="svg") svglite::svglite else downloadFileType()
-          )
-        }
+        p <- add_experiment_title(corrMatrix()$n_plot, experiment_names())
+        save_plots_display_download(
+          file = file,
+          plot = p,
+          file_type = downloadFileType(),
+          width_in = corrMatrix()$width,
+          height_in = corrMatrix()$height,
+          disp_w = 700,
+          limitsize = FALSE,
+          vector_size_scale = 1.4
+        )
       }
     )
     

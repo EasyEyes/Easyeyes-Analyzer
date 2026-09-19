@@ -21,9 +21,9 @@ get_first_non_na <- function(values) {
 }
 
 
-# Drop common font file extensions for axis labels (e.g. ".woff2", ".otf", ".ttf").
+# Drop common font file extensions for axis labels (e.g. ".woff2", ".woff", ".otf", ".ttf").
 strip_font_filetype <- function(fonts) {
-  sub("\\.(woff2|otf|ttf)$", "", as.character(fonts), ignore.case = TRUE)
+  sub("\\.(woff2|woff|otf|ttf)$", "", as.character(fonts), ignore.case = TRUE)
 }
 
 # Helper function to add experiment name to plot title
@@ -54,30 +54,57 @@ add_experiment_title <- function(plot, experiment_name) {
   return(plot)
 }
 
-# Consistent way of saving plot using rsvg_png
-savePlot <- function(plot, filename, fileType, width = 8, height = 6) {
-  if (fileType == "png") {
-    ggsave('tmp.svg', plot = plot, width = width, unit = 'in', device = svglite)
-    rsvg::rsvg_png("tmp.svg", filename, width = width*300, height = height*300)
-  } else {
-    ggsave(
-      filename = filename,
-      plot = plot,
-      width = width,
-      height = height,
-      unit = 'in',
-      device = ifelse(fileType == "svg", svglite::svglite, fileType)
-    )
+# Consistent plot download: PNG matches Plots-tab on-screen render when
+# use_png_theme=TRUE; SVG/PDF use the same theme on a 140% larger canvas.
+# Default use_png_theme=FALSE preserves legacy callers outside Plots/Languages.
+savePlot <- function(plot,
+                     filename,
+                     fileType,
+                     width = 8,
+                     height = 6,
+                     disp_w = NULL,
+                     use_png_theme = FALSE,
+                     png_theme_profile = "plots",
+                     text_scale = 1,
+                     vector_size_scale = 1.4,
+                     limitsize = FALSE) {
+  if (is.null(disp_w) || !is.finite(disp_w) || disp_w <= 0) {
+    disp_w <- max(280, round(700 * (as.numeric(width)[1] / 8)))
   }
+  save_plots_display_download(
+    file = filename,
+    plot = plot,
+    file_type = fileType,
+    width_in = width,
+    height_in = height,
+    disp_w = disp_w,
+    use_png_theme = use_png_theme,
+    png_theme_profile = png_theme_profile,
+    text_scale = text_scale,
+    limitsize = limitsize,
+    vector_size_scale = vector_size_scale
+  )
 }
 
-plot_download_spec <- function(plot, filename, theme = NULL, width = 8, height = 6) {
+plot_download_spec <- function(plot,
+                               filename,
+                               theme = NULL,
+                               width = 8,
+                               height = 6,
+                               disp_w = NULL,
+                               use_png_theme = FALSE,
+                               png_theme_profile = "plots",
+                               text_scale = 1) {
   list(
     plot = plot,
     filename = filename,
     theme = theme,
     width = width,
-    height = height
+    height = height,
+    disp_w = disp_w,
+    use_png_theme = use_png_theme,
+    png_theme_profile = png_theme_profile,
+    text_scale = text_scale
   )
 }
 
@@ -87,7 +114,11 @@ plot_list_download_specs <- function(plotList,
                                      width = 8,
                                      height = 6,
                                      heights = NULL,
-                                     append_index = FALSE) {
+                                     append_index = FALSE,
+                                     disp_w = NULL,
+                                     use_png_theme = FALSE,
+                                     png_theme_profile = "plots",
+                                     text_scale = 1) {
   if (length(plotList) < 1) {
     return(list())
   }
@@ -100,7 +131,11 @@ plot_list_download_specs <- function(plotList,
       filename = filename,
       theme = theme,
       width = width,
-      height = spec_height
+      height = spec_height,
+      disp_w = disp_w,
+      use_png_theme = use_png_theme,
+      png_theme_profile = png_theme_profile,
+      text_scale = text_scale
     )
   })
 }
@@ -131,7 +166,12 @@ save_download_specs_zip <- function(specs, zip_file, fileType, prefix = "", empt
         filename = filename,
         fileType = fileType,
         width = width,
-        height = height
+        height = height,
+        disp_w = spec$disp_w,
+        use_png_theme = isTRUE(spec$use_png_theme),
+        png_theme_profile = if (is.null(spec$png_theme_profile)) "plots" else spec$png_theme_profile,
+        text_scale = if (is.null(spec$text_scale)) 1 else spec$text_scale,
+        vector_size_scale = 1.4
       )
       saved_files <- c(saved_files, filename)
     }
@@ -515,6 +555,168 @@ apply_direct_png_theme <- function(plot,
   png_plot
 }
 
+# Prepare a plot the same way on-screen PNGs are prepared.
+prepare_plots_display_plot <- function(plot,
+                                       use_png_theme = TRUE,
+                                       png_theme_profile = "plots",
+                                       text_scale = 1,
+                                       scale_title = FALSE,
+                                       scale_subtitle = FALSE,
+                                       scale_axis_title = TRUE,
+                                       scale_axis_text = TRUE) {
+  if (isTRUE(use_png_theme)) {
+    plot <- apply_direct_png_theme(
+      plot,
+      profile = png_theme_profile,
+      text_scale = text_scale,
+      scale_title = scale_title,
+      scale_subtitle = scale_subtitle,
+      scale_axis_title = scale_axis_title,
+      scale_axis_text = scale_axis_text
+    )
+  }
+  plot
+}
+
+# Pixel geometry used by on-screen plot PNGs (and matching downloads).
+plots_display_png_geometry <- function(width_in, height_in, disp_w = 700) {
+  width_in <- as.numeric(width_in)[1]
+  height_in <- as.numeric(height_in)[1]
+  if (is.na(width_in) || width_in <= 0) width_in <- 6
+  if (is.na(height_in) || height_in <= 0) height_in <- width_in
+  disp_w <- as.numeric(disp_w)[1]
+  if (is.na(disp_w) || disp_w <= 0) disp_w <- 700
+
+  scale <- 2
+  png_w <- round(disp_w * scale)
+  png_h <- round((height_in / width_in) * png_w)
+  list(
+    width_in = width_in,
+    height_in = height_in,
+    disp_w = disp_w,
+    scale = scale,
+    png_w = png_w,
+    png_h = png_h,
+    dpi = png_w / width_in
+  )
+}
+
+# Save a PNG with the exact same theme/device/dpi as the Plots-tab on-screen image.
+ggsave_plots_display_png <- function(file,
+                                     plot,
+                                     width_in,
+                                     height_in,
+                                     disp_w = 700,
+                                     use_png_theme = TRUE,
+                                     png_theme_profile = "plots",
+                                     text_scale = 1,
+                                     scale_title = FALSE,
+                                     scale_subtitle = FALSE,
+                                     scale_axis_title = TRUE,
+                                     scale_axis_text = TRUE,
+                                     limitsize = FALSE) {
+  geom <- plots_display_png_geometry(width_in, height_in, disp_w)
+  plot <- prepare_plots_display_plot(
+    plot,
+    use_png_theme = use_png_theme,
+    png_theme_profile = png_theme_profile,
+    text_scale = text_scale,
+    scale_title = scale_title,
+    scale_subtitle = scale_subtitle,
+    scale_axis_title = scale_axis_title,
+    scale_axis_text = scale_axis_text
+  )
+
+  tryCatch({
+    ggplot2::ggsave(
+      file = file,
+      plot = plot,
+      width = geom$width_in,
+      height = geom$height_in,
+      unit = "in",
+      limitsize = limitsize,
+      device = ragg::agg_png,
+      dpi = geom$dpi
+    )
+  }, error = function(e) {
+    log_error("Direct ragg render failed, falling back to svglite: ", conditionMessage(e))
+    tmp_svg <- tempfile(fileext = ".svg")
+    ggplot2::ggsave(
+      file = tmp_svg,
+      plot = plot,
+      width = geom$width_in,
+      height = geom$height_in,
+      unit = "in",
+      limitsize = limitsize,
+      device = svglite
+    )
+    rsvg::rsvg_png(tmp_svg, file, width = geom$png_w, height = geom$png_h)
+  })
+
+  invisible(geom)
+}
+
+# Download helper: PNG matches on-screen render; SVG/PDF share the same theme
+# and use a larger canvas (default 140%) so text/layout stay closer to PNG.
+save_plots_display_download <- function(file,
+                                        plot,
+                                        file_type,
+                                        width_in,
+                                        height_in,
+                                        disp_w = 700,
+                                        use_png_theme = TRUE,
+                                        png_theme_profile = "plots",
+                                        text_scale = 1,
+                                        scale_title = FALSE,
+                                        scale_subtitle = FALSE,
+                                        scale_axis_title = TRUE,
+                                        scale_axis_text = TRUE,
+                                        limitsize = FALSE,
+                                        vector_size_scale = 1.4) {
+  if (identical(file_type, "png")) {
+    ggsave_plots_display_png(
+      file = file,
+      plot = plot,
+      width_in = width_in,
+      height_in = height_in,
+      disp_w = disp_w,
+      use_png_theme = use_png_theme,
+      png_theme_profile = png_theme_profile,
+      text_scale = text_scale,
+      scale_title = scale_title,
+      scale_subtitle = scale_subtitle,
+      scale_axis_title = scale_axis_title,
+      scale_axis_text = scale_axis_text,
+      limitsize = limitsize
+    )
+    return(invisible(NULL))
+  }
+
+  vector_size_scale <- as.numeric(vector_size_scale)[1]
+  if (is.na(vector_size_scale) || vector_size_scale <= 0) vector_size_scale <- 1
+
+  plot <- prepare_plots_display_plot(
+    plot,
+    use_png_theme = use_png_theme,
+    png_theme_profile = png_theme_profile,
+    text_scale = text_scale,
+    scale_title = scale_title,
+    scale_subtitle = scale_subtitle,
+    scale_axis_title = scale_axis_title,
+    scale_axis_text = scale_axis_text
+  )
+  ggplot2::ggsave(
+    file = file,
+    plot = plot,
+    width = width_in * vector_size_scale,
+    height = height_in * vector_size_scale,
+    unit = "in",
+    limitsize = limitsize,
+    device = if (identical(file_type, "svg")) svglite::svglite else file_type
+  )
+  invisible(NULL)
+}
+
 # On-screen PNG via ragg (with svglite/rsvg fallback). Returns renderImage list().
 render_plots_display_png <- function(plot,
                                      width_in,
@@ -529,65 +731,28 @@ render_plots_display_png <- function(plot,
                                      scale_axis_title = TRUE,
                                      scale_axis_text = TRUE,
                                      limitsize = FALSE) {
-  width_in <- as.numeric(width_in)[1]
-  height_in <- as.numeric(height_in)[1]
-  if (is.na(width_in) || width_in <= 0) width_in <- 6
-  if (is.na(height_in) || height_in <= 0) height_in <- width_in
-  disp_w <- as.numeric(disp_w)[1]
-  if (is.na(disp_w) || disp_w <= 0) disp_w <- 700
-
-  scale <- 2
-  png_w <- round(disp_w * scale)
-  png_h <- round((height_in / width_in) * png_w)
   outfile <- tempfile(fileext = ".png")
-  if (isTRUE(use_png_theme)) {
-    plot <- apply_direct_png_theme(
-      plot,
-      profile = png_theme_profile,
-      text_scale = text_scale,
-      scale_title = scale_title,
-      scale_subtitle = scale_subtitle,
-      scale_axis_title = scale_axis_title,
-      scale_axis_text = scale_axis_text
-    )
-  }
-
-  saved <- tryCatch({
-    ggplot2::ggsave(
-      file = outfile,
-      plot = plot,
-      width = width_in,
-      height = height_in,
-      unit = "in",
-      limitsize = limitsize,
-      device = ragg::agg_png,
-      dpi = png_w / width_in
-    )
-    TRUE
-  }, error = function(e) {
-    log_error("Direct ragg render failed, falling back to svglite: ", conditionMessage(e))
-    tmp_svg <- tempfile(fileext = ".svg")
-    ggplot2::ggsave(
-      file = tmp_svg,
-      plot = plot,
-      width = width_in,
-      height = height_in,
-      unit = "in",
-      limitsize = limitsize,
-      device = svglite
-    )
-    rsvg::rsvg_png(tmp_svg, outfile, width = png_w, height = png_h)
-    TRUE
-  })
-  if (!isTRUE(saved)) {
-    stop("Plot render failed")
-  }
+  geom <- ggsave_plots_display_png(
+    file = outfile,
+    plot = plot,
+    width_in = width_in,
+    height_in = height_in,
+    disp_w = disp_w,
+    use_png_theme = use_png_theme,
+    png_theme_profile = png_theme_profile,
+    text_scale = text_scale,
+    scale_title = scale_title,
+    scale_subtitle = scale_subtitle,
+    scale_axis_title = scale_axis_title,
+    scale_axis_text = scale_axis_text,
+    limitsize = limitsize
+  )
 
   list(
     src = outfile,
     contenttype = "image/png",
-    width = disp_w,
-    height = if (is.null(disp_h)) round(png_h / scale) else as.numeric(disp_h)[1]
+    width = geom$disp_w,
+    height = if (is.null(disp_h)) round(geom$png_h / geom$scale) else as.numeric(disp_h)[1]
   )
 }
 

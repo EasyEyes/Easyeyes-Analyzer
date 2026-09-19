@@ -169,11 +169,11 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
     y_limits <- compute_y_limits(summary_data, use_log = (use_log_scale && use_geometric_mean))
     baseline <- y_limits[1]
 
-    # label position near bottom — keep clear of the axis
+    # label as low as possible without touching the axis
     label_y <- if (use_log_scale && use_geometric_mean) {
-      baseline * 1.25
+      baseline * 1.06
     } else {
-      baseline + diff(y_limits) * 0.08
+      baseline + diff(y_limits) * 0.02
     }
 
     # 140% of prior sizes; leave plot subtitle/title (filename) alone for plt_theme
@@ -217,7 +217,7 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
         panel.grid.minor.y = element_blank(),
         axis.line = element_line(color = "black", size = 0.5)
       ) +
-      labs(subtitle = title, x = "Fonts", y = ylabel)
+      labs(x = "Fonts", y = ylabel)
 
     if (abbreviate_fonts) {
       p <- p + scale_x_discrete(labels = strip_font_filetype)

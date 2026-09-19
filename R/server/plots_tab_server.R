@@ -10,29 +10,17 @@ with_plots_histogram_theme <- function(plot) {
 
 save_plots_histogram <- function(file, plot, file_type) {
   plot <- with_plots_histogram_theme(plot)
-  if (file_type == "png") {
-    plot <- apply_direct_png_theme(plot, profile = "histogram")
-    ggplot2::ggsave(
-      filename = file,
-      plot = plot,
-      device = ragg::agg_png,
-      width = 3.5,
-      height = 3.5,
-      units = "in",
-      dpi = 200,
-      limitsize = FALSE
-    )
-  } else {
-    ggplot2::ggsave(
-      file,
-      plot = plot,
-      width = 3.5,
-      height = 3.5,
-      units = "in",
-      limitsize = FALSE,
-      device = if (file_type == "svg") svglite::svglite else file_type
-    )
-  }
+  save_plots_display_download(
+    file = file,
+    plot = plot,
+    file_type = file_type,
+    width_in = 3.5,
+    height_in = 3.5,
+    disp_w = 280,
+    png_theme_profile = "histogram",
+    limitsize = FALSE,
+    vector_size_scale = 1.4
+  )
 }
 
 register_plots_tab_server <- function(output,
@@ -275,10 +263,7 @@ register_plots_tab_server <- function(output,
     
     for (call in plot_calls) {
       plot <- call$plot
-      if (!is.null(plot)) {
-        # Don't add color scale for font comparison plots since they use fill, not color
-        plot <- add_experiment_title(plot, experiment_names())
-      }
+      # No in-plot title: measure is on the y-axis; filename is shown above the image.
       res <- append_plot_list(l, fileNames, plot, call$fname)
       l <- res$plotList
       fileNames <- res$fileNames
@@ -890,13 +875,14 @@ register_plots_tab_server <- function(output,
         content = function(file) {
           req(length(agePlots()$plotList) >= ii)
           if (is_placeholder_plot(agePlots()$plotList[[ii]])) return(invisible(NULL))
-          plot <- agePlots()$plotList[[ii]] + plt_theme
-          savePlot(
-            plot = plot,
-            filename = file,
-            fileType = downloadFileType(),
-            width = 6,
-            height = 4
+          save_plots_display_download(
+            file = file,
+            plot = agePlots()$plotList[[ii]] + plt_theme,
+            file_type = downloadFileType(),
+            width_in = 6,
+            height_in = 6,
+            disp_w = 700,
+            limitsize = FALSE
           )
         }
       )
@@ -904,10 +890,7 @@ register_plots_tab_server <- function(output,
   }
 
   observeEvent(stackedPlots(), {
-    # RSVP
-    output$stackedRsvpPlot <- renderImage({
-      req(histImagesReady())
-      app_profile_time(app_profiler, "Plots stacked RSVP image", {
+    build_stacked_rsvp_plot <- function() {
       base_plot <- stackedPlots()$rsvp_plot +
         plt_theme +
         theme(
@@ -930,8 +913,14 @@ register_plots_tab_server <- function(output,
           plot.title = element_text(size = 12, margin = margin(b = 2)),
           plot.margin = margin(5, 5, 5, 5, "pt")
         )
-      p <- add_experiment_title(base_plot, experiment_names())
-      render_plots_display_png(p, width_in = 6, height_in = 8, disp_w = 600)
+      add_experiment_title(base_plot, experiment_names())
+    }
+
+    # RSVP
+    output$stackedRsvpPlot <- renderImage({
+      req(histImagesReady())
+      app_profile_time(app_profiler, "Plots stacked RSVP image", {
+      render_plots_display_png(build_stacked_rsvp_plot(), width_in = 6, height_in = 8, disp_w = 600)
       })
     }, deleteFile = TRUE)
     
@@ -944,78 +933,15 @@ register_plots_tab_server <- function(output,
         )
       },
       content = function(file) {
-        if (downloadFileType() == "png") {
-          tmp_svg <- tempfile(fileext = ".svg")
-          base_plot <- stackedPlots()$rsvp_plot +
-            plt_theme +
-            theme(
-              axis.text.x = element_text(),
-              axis.ticks.x = element_line(),
-              plot.title = element_text(size = 14, margin = margin(b = 1)),
-              plot.margin = margin(
-                t = 2,
-                r = 5,
-                b = 2,
-                l = 5
-              )
-            ) +
-            theme(
-              legend.position = "top",
-              legend.key.size = unit(2, "mm"),
-              legend.title = element_text(size = 8),
-              legend.text = element_text(size = 8),
-              axis.text = element_text(size = 11),
-              plot.title = element_text(size = 12, margin = margin(b = 2)),
-              plot.margin = margin(5, 5, 5, 5, "pt")
-            )
-          plot_with_title <- add_experiment_title(base_plot, experiment_names())
-          ggsave(
-            filename = tmp_svg,
-            plot = plot_with_title,
-            device = svglite,
-            width = 6,
-            height = 8,
-            unit = "in"
-          )
-          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
-        } else {
-          base_plot <- stackedPlots()$rsvp_plot +
-            plt_theme +
-            theme(
-              axis.text.x = element_text(),
-              axis.ticks.x = element_line(),
-              plot.title = element_text(size = 14, margin = margin(b = 1)),
-              plot.margin = margin(
-                t = 2,
-                r = 5,
-                b = 2,
-                l = 5
-              )
-            ) +
-            theme(
-              legend.position = "top",
-              legend.key.size = unit(2, "mm"),
-              legend.title = element_text(size = 8),
-              legend.text = element_text(size = 8),
-              axis.text = element_text(size = 11),
-              plot.title = element_text(size = 12, margin = margin(b = 2)),
-              plot.margin = margin(5, 5, 5, 5, "pt")
-            )
-          plot_with_title <- add_experiment_title(base_plot, experiment_names())
-          ggsave(
-            filename = file,
-            plot = plot_with_title,
-            device = ifelse(
-              downloadFileType() == "svg",
-              svglite::svglite,
-              downloadFileType()
-            ),
-            width = 6,
-            height = 8,
-            unit = "in",
-            limitsize = FALSE
-          )
-        }
+        save_plots_display_download(
+          file = file,
+          plot = build_stacked_rsvp_plot(),
+          file_type = downloadFileType(),
+          width_in = 6,
+          height_in = 8,
+          disp_w = 600,
+          limitsize = FALSE
+        )
       }
     )
     
@@ -1041,39 +967,15 @@ register_plots_tab_server <- function(output,
         )
       },
       content = function(file) {
-        if (downloadFileType() == "png") {
-          tmp_svg <- tempfile(fileext = ".svg")
-          base_plot <- stackedPlots()$crowding_plot +
-            plt_theme +
-            stacked_theme
-          plot_with_title <- add_experiment_title(base_plot, experiment_names())
-          ggsave(
-            filename = tmp_svg,
-            plot = plot_with_title,
-            device = svglite,
-            width = 6,
-            height = 8,
-            unit = "in"
-          )
-          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
-        } else {
-          base_plot <- stackedPlots()$crowding_plot +
-            plt_theme + stacked_theme
-          plot_with_title <- add_experiment_title(base_plot, experiment_names())
-          ggsave(
-            filename = file,
-            plot = plot_with_title,
-            device = ifelse(
-              downloadFileType() == "svg",
-              svglite::svglite,
-              downloadFileType()
-            ),
-            width = 6,
-            height = 8,
-            unit = "in",
-            limitsize = FALSE
-          )
-        }
+        save_plots_display_download(
+          file = file,
+          plot = stackedPlots()$crowding_plot + plt_theme + stacked_theme,
+          file_type = downloadFileType(),
+          width_in = 6,
+          height_in = 8,
+          disp_w = 600,
+          limitsize = FALSE
+        )
       }
     )
     
@@ -1099,38 +1001,15 @@ register_plots_tab_server <- function(output,
         )
       },
       content = function(file) {
-        if (downloadFileType() == "png") {
-          tmp_svg <- tempfile(fileext = ".svg")
-          base_plot <- stackedPlots()$foveal_acuity_plot +
-            plt_theme + stacked_theme
-          plot_with_title <- add_experiment_title(base_plot, experiment_names())
-          ggsave(
-            filename = tmp_svg,
-            plot = plot_with_title,
-            device = svglite,
-            width = 6,
-            height = 8,
-            unit = "in"
-          )
-          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
-        } else {
-          base_plot <- stackedPlots()$foveal_acuity_plot +
-            plt_theme + stacked_theme
-          plot_with_title <- add_experiment_title(base_plot, experiment_names())
-          ggsave(
-            filename = file,
-            plot = plot_with_title,
-            device = ifelse(
-              downloadFileType() == "svg",
-              svglite::svglite,
-              downloadFileType()
-            ),
-            width = 8,
-            height = 6,
-            unit = "in",
-            limitsize = FALSE
-          )
-        }
+        save_plots_display_download(
+          file = file,
+          plot = stackedPlots()$foveal_acuity_plot + plt_theme + stacked_theme,
+          file_type = downloadFileType(),
+          width_in = 6,
+          height_in = 8,
+          disp_w = 600,
+          limitsize = FALSE
+        )
       }
     )
     
@@ -1156,34 +1035,15 @@ register_plots_tab_server <- function(output,
         )
       },
       content = function(file) {
-        if (downloadFileType() == "png") {
-          tmp_svg <- tempfile(fileext = ".svg")
-          ggsave(
-            filename = tmp_svg,
-            plot = stackedPlots()$foveal_crowding_plot +
-              plt_theme + stacked_theme,
-            device = svglite,
-            width = 6,
-            height = 8,
-            unit = "in"
-          )
-          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
-        } else {
-          ggsave(
-            filename = file,
-            plot = stackedPlots()$foveal_crowding_plot +
-              plt_theme + stacked_theme,
-            device = ifelse(
-              downloadFileType() == "svg",
-              svglite::svglite,
-              downloadFileType()
-            ),
-            width = 6,
-            height = 8,
-            unit = "in",
-            limitsize = FALSE
-          )
-        }
+        save_plots_display_download(
+          file = file,
+          plot = stackedPlots()$foveal_crowding_plot + plt_theme + stacked_theme,
+          file_type = downloadFileType(),
+          width_in = 6,
+          height_in = 8,
+          disp_w = 600,
+          limitsize = FALSE
+        )
       }
     )
     
@@ -1209,34 +1069,15 @@ register_plots_tab_server <- function(output,
         )
       },
       content = function(file) {
-        if (downloadFileType() == "png") {
-          tmp_svg <- tempfile(fileext = ".svg")
-          ggsave(
-            filename = tmp_svg,
-            plot = stackedPlots()$foveal_repeated_plot +
-              plt_theme + stacked_theme,
-            device = svglite,
-            width = 6,
-            height = 8,
-            unit = "in"
-          )
-          rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
-        } else {
-          ggsave(
-            filename = file,
-            plot = stackedPlots()$foveal_repeated_plot +
-              plt_theme + stacked_theme,
-            device = ifelse(
-              downloadFileType() == "svg",
-              svglite::svglite,
-              downloadFileType()
-            ),
-            width = 6,
-            height = 8,
-            unit = "in",
-            limitsize = FALSE
-          )
-        }
+        save_plots_display_download(
+          file = file,
+          plot = stackedPlots()$foveal_repeated_plot + plt_theme + stacked_theme,
+          file_type = downloadFileType(),
+          width_in = 6,
+          height_in = 8,
+          disp_w = 600,
+          limitsize = FALSE
+        )
       }
     )
     
@@ -1263,34 +1104,15 @@ register_plots_tab_server <- function(output,
           )
         },
         content = function(file) {
-          if (downloadFileType() == "png") {
-            tmp_svg <- tempfile(fileext = ".svg")
-            ggsave(
-              filename = tmp_svg,
-              plot = stackedPlots()$peripheral_acuity_plot +
-                plt_theme + stacked_theme,
-              device = svglite,
-              width = 6,
-              height = 8,
-              unit = "in"
-            )
-            rsvg::rsvg_png(tmp_svg, file, height = 900, width = 900)
-          } else {
-            ggsave(
-              filename = file,
-              plot = stackedPlots()$peripheral_acuity_plot +
-                plt_theme + stacked_theme,
-              device = ifelse(
-                downloadFileType() == "svg",
-                svglite::svglite,
-                downloadFileType()
-              ),
-              width = 6,
-              height = 8,
-              unit = "in",
-              limitsize = FALSE
-            )
-          }
+          save_plots_display_download(
+            file = file,
+            plot = stackedPlots()$peripheral_acuity_plot + plt_theme + stacked_theme,
+            file_type = downloadFileType(),
+            width_in = 6,
+            height_in = 8,
+            disp_w = 600,
+            limitsize = FALSE
+          )
         }
       )
   })
@@ -1346,32 +1168,15 @@ register_plots_tab_server <- function(output,
           req(length(scatterDiagrams()$plotList) >= ii)
           if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) return(invisible(NULL))
 
-          if (downloadFileType() == "png") {
-            ggsave(
-              filename = file,
-              plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-              device = ragg::agg_png,
-              width = 7,
-              height = 7,
-              units = "in",
-              dpi = 200,
-              limitsize = FALSE
-            )
-          } else {
-            ggsave(
-              file,
-              plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
-              width = 7,
-              height = 7,
-              units = "in",
-              limitsize = FALSE,
-              device = ifelse(
-                downloadFileType() == "svg",
-                svglite::svglite,
-                downloadFileType()
-              )
-            )
-          }
+          save_plots_display_download(
+            file = file,
+            plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+            file_type = downloadFileType(),
+            width_in = 7,
+            height_in = 7,
+            disp_w = 700,
+            limitsize = FALSE
+          )
         }
       )
     })
@@ -1449,40 +1254,17 @@ register_plots_tab_server <- function(output,
           req(length(violinPlots()$plotList) >= ii)
           if (is_placeholder_plot(violinPlots()$plotList[[ii]])) return(invisible(NULL))
 
-          plot_to_save <- apply_direct_png_theme(
-            violinPlots()$plotList[[ii]] + plt_theme,
-            profile = "plots",
+          save_plots_display_download(
+            file = file,
+            plot = violinPlots()$plotList[[ii]] + plt_theme,
+            file_type = downloadFileType(),
+            width_in = 8,
+            height_in = 6,
+            disp_w = 700,
             text_scale = 1.4,
-            scale_axis_text = FALSE
+            scale_axis_text = FALSE,
+            limitsize = FALSE
           )
-
-          if (downloadFileType() == "png") {
-            tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-            ggsave(
-              tmp_svg,
-              plot = plot_to_save,
-              width = 8,
-              height = 6,
-              unit = "in",
-              limitsize = FALSE,
-              device = svglite
-            )
-            rsvg::rsvg_png(tmp_svg, file, width = 1800, height = 1350)
-          } else {
-            ggsave(
-              file,
-              plot = plot_to_save,
-              width = 8,
-              height = 6,
-              unit = "in",
-              limitsize = FALSE,
-              device = ifelse(
-                downloadFileType() == "svg",
-                svglite::svglite,
-                downloadFileType()
-              )
-            )
-          }
         }
       )
     })
@@ -1559,39 +1341,16 @@ register_plots_tab_server <- function(output,
           req(length(fontComparisonPlots()$plotList) >= ii)
           if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) return(invisible(NULL))
 
-          plot_to_save <- apply_direct_png_theme(
-            fontComparisonPlots()$plotList[[ii]] + plt_theme,
-            profile = "plots",
-            text_scale = 1.4
+          save_plots_display_download(
+            file = file,
+            plot = fontComparisonPlots()$plotList[[ii]] + plt_theme,
+            file_type = downloadFileType(),
+            width_in = 8,
+            height_in = 6,
+            disp_w = 700,
+            text_scale = 1.4,
+            limitsize = FALSE
           )
-
-          if (downloadFileType() == "png") {
-            tmp_svg <- tempfile(tmpdir = tempdir(), fileext = ".svg")
-            ggsave(
-              tmp_svg,
-              plot = plot_to_save,
-              width = 8,
-              height = 6,
-              unit = "in",
-              limitsize = FALSE,
-              device = svglite
-            )
-            rsvg::rsvg_png(tmp_svg, file, width = 1800, height = 1350)
-          } else {
-            ggsave(
-              file,
-              plot = plot_to_save,
-              width = 8,
-              height = 6,
-              unit = "in",
-              limitsize = FALSE,
-              device = ifelse(
-                downloadFileType() == "svg",
-                svglite::svglite,
-                downloadFileType()
-              )
-            )
-          }
         }
       )
     })
