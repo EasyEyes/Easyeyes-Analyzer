@@ -217,7 +217,7 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
         panel.grid.minor.y = element_blank(),
         axis.line = element_line(color = "black", size = 0.5)
       ) +
-      labs(x = "Fonts", y = ylabel)
+      labs(x = "Font", y = ylabel)
 
     if (abbreviate_fonts) {
       p <- p + scale_x_discrete(labels = strip_font_filetype)

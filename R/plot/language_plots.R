@@ -176,7 +176,7 @@ plot_language_by_font <- function(data,
       drop = FALSE,
       name = NULL
     ) +
-    ggplot2::labs(x = "Fonts", y = y_label, subtitle = subtitle,
+    ggplot2::labs(x = "Font", y = y_label, subtitle = subtitle,
                   caption = "Error bars: ±1 SE across participants (per-font N ≥ 2).\nAverage N: mean participant count across the fonts shown, after filtering.") +
     ggplot2::guides(color = ggplot2::guide_legend(ncol = 1)) +
     ggplot2::scale_x_discrete(labels = language_font_labels) +
