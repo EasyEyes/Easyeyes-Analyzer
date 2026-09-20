@@ -1232,11 +1232,11 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
   }
   
   # 11) badLatenessTrials vs. heapUsedAfterDrawingAvg (blockAvg) (y=badLatenessTrials)
-  if (n_distinct(blockAvg$heapUsedAfterDrawingAvg) > 1 & n_distinct(blockAvg$badLatenessTrials) > 1) {
+  filtered_block <- blockAvg %>%
+    filter(is.finite(heapUsedAfterDrawingAvg), is.finite(badLatenessTrials))
+  if (n_distinct(filtered_block$heapUsedAfterDrawingAvg, na.rm = TRUE) > 1 &
+      n_distinct(filtered_block$badLatenessTrials, na.rm = TRUE) > 1) {
     num_legend_items <- n_distinct(params$participant)
-    
-    filtered_block <- blockAvg %>%
-      filter(!is.na(heapUsedAfterDrawingAvg), !is.na(badLatenessTrials))
     
     y_min <- min(filtered_block$badLatenessTrials, na.rm = TRUE)
     y_max <- max(filtered_block$badLatenessTrials, na.rm = TRUE)
@@ -1252,8 +1252,7 @@ append_scatter_time_participant <- function(data_list, plot_list, fileNames, con
                   ) +
       ggpp::geom_text_npc(aes(npcx = 'left',
                              npcy = 'top'),
-                            label = paste0('N=', n),
-                          position=position_jitter(width=0.1, height=0.1)) + 
+                            label = paste0('N=', n)) +
       plt_theme_scatter +
       scale_color(blockAvg$participant) +  
       guides(color = guide_legend(
@@ -1798,9 +1797,14 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
     fileNames[[j]] <- 'targetMeasuredDurationSec-vs-fontNominalSizePx-by-fontPadding'
     j = j + 1
   }
-  if (n_distinct(params$fontNominalSizePx) > 1 & n_distinct(params$deltaHeapUsedMB) > 1) {
-    filtered_params <- params %>%
-      filter(!is.na(fontNominalSizePx), !is.na(fontPadding), !is.na(deltaHeapUsedMB))
+  # Check variation only among usable pairs; missing values are not variation.
+  filtered_params <- params %>%
+    filter(is.finite(fontNominalSizePx), is.finite(fontPadding),
+           is.finite(deltaHeapUsedMB),
+           is.finite(fontNominalSizePx * (1 + fontPadding)),
+           fontNominalSizePx * (1 + fontPadding) > 0)
+  if (n_distinct(filtered_params$fontNominalSizePx, na.rm = TRUE) > 1 &
+      n_distinct(filtered_params$deltaHeapUsedMB, na.rm = TRUE) > 1) {
     
     n = nrow(filtered_params)
 
@@ -1815,8 +1819,8 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
       scale_color_manual(values = font_color_palette(unique(filtered_params$font))) +
       guides(color=guide_legend(ncol=3, title = '')) +
       scale_x_log10() +
-      scale_y_log10() +
-      coord_fixed() +
+      # Memory differences can be zero or negative, so keep the Y axis linear.
+      scale_y_continuous() +
       labs(subtitle = 'deltaHeapUsedMB vs.fontNominalSizePx*(1+fontPadding)\ncolored by font',
            caption = 'Points jittered to avoid occlusion.')
     fileNames[[j]] <- 'deltaHeapUsedMB-vs-fontNominalSizePx-by-font'
@@ -1829,7 +1833,6 @@ append_scatter_time <- function(data_list, plot_list, fileNames, conditionNameIn
     fileNames = fileNames
   ))
 }
-
 
 
 

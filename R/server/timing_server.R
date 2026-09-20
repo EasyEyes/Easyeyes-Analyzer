@@ -154,13 +154,18 @@ timingTabServer <- function(id,
   
 
   output$isDuration <- reactive({
-    return(nrow(durationData()) > 0)
+    data <- durationData()
+    !is.null(data) && nrow(data) > 0
   })
   
+  # These flags have no DOM output binding; keep them running so they can
+  # reveal the conditional panels. Data work remains gated by tab_active().
+  outputOptions(output, "isDuration", suspendWhenHidden = FALSE)
+
   output$isDurationCorrMatrixAvailable <- reactive({
     return(!is.null(durationCorrMatrix()))
   })
-  outputOptions(output, 'isDurationCorrMatrixAvailable', suspendWhenHidden = TRUE)
+  outputOptions(output, 'isDurationCorrMatrixAvailable', suspendWhenHidden = FALSE)
   
 
   output$durationCorrMatrixPlot <- renderImage({
@@ -482,13 +487,13 @@ timingTabServer <- function(id,
           ),
           type = 4),
           shinycssloaders::withSpinner(plotOutput(
-            paste0("timingHist", i + 2),
+            ns(paste0("timingHist", i + 2)),
             width = "100%",
             height = "100%"
           ),
           type = 4),
           shinycssloaders::withSpinner(plotOutput(
-            paste0("timingHist", i + 3),
+            ns(paste0("timingHist", i + 3)),
             width = "100%",
             height = "100%"
           ),
