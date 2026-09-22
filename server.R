@@ -41,6 +41,10 @@ shinyServer(function(input, output, session) {
   )
   emptyArchives <- reactiveVal(character())
 
+  # Error-name → explanation map for the Sessions summary error popup
+  # (from data/error_explanations.csv; synced by GitHub Action).
+  session$sendCustomMessage("setErrorExplanations", load_error_explanations())
+
   observeEvent(input$file_click,
                {
                  app_profiler$reset("file upload dialog opened")

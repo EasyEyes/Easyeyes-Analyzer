@@ -1,131 +1,16 @@
 library(dplyr)
 library(DT)
 source("R/utils/utility.R")
+source("R/report/error_explanations.R")
 # Each time update the summary table, the rmd report need to be updated accordingly.
 
-data_table_call_back = "
-    // error column call back
-    table.column(18).nodes().to$().css({cursor: 'pointer'});
-    var format1 = function(d) {
-      return '<p>' + d[18] + '</p>';
-    };
-    table.on('click', 'td.errorC-control', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(format1(row.data())).show();
-      }
-    });
-     // warning column call back
-    table.column(19).nodes().to$().css({cursor: 'pointer'});
-    var format2 = function(d) {
-      return '<p>' + d[19] + '</p>';
-    };
-    table.on('click', 'td.warnC-control', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(format2(row.data())).show();
-      }
-    });
-    
-    // computer51Deg column call back
-     table.column(34).nodes().to$().css({cursor: 'pointer'});
-    var format8 = function(d) {
-      return '<p>' + d[34] + '</p>';
-    };
-    table.on('click', 'td.computer51Deg', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(format8(row.data())).show();
-      }
-    });
-
-    table.column(35).nodes().to$().css({cursor: 'pointer'});
-    var format6 = function(d) {
-      return '<p>' + d[35] + '</p>';
-    };
-    table.on('click', 'td.loudspeakerSurvey', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(format6(row.data())).show();
-      }
-    });
-
-    table.column(36).nodes().to$().css({cursor: 'pointer'});
-    var format5 = function(d) {
-      return '<p>' + d[36] + '</p>';
-    };
-    table.on('click', 'td.microphoneSurvey', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      console.log(td);
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(format5(row.data())).show();
-      }
-    });
-    
-    table.column(40).nodes().to$().css({cursor: 'pointer'});
-    var formatComment = function(d) {
-      return '<p>' + d[40] + '</p>';
-    };
-    table.on('click', 'td.comment', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      console.log(td);
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(formatComment(row.data())).show();
-      }
-    });
-
-    table.column(2).nodes().to$().css({cursor: 'pointer'});
-    table.column(3).nodes().to$().css({cursor: 'pointer'});
-    table.column(4).nodes().to$().css({cursor: 'pointer'});
-
-    var format3 = function(d) {
-    return '<p>' + d[2] + '</p> <p>' + d[3]+  '</p> <p>' + d[4] + '</p>';
-    };
-
-
-    table.on('click', 'td.information-control1', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(format3(row.data())).show();
-      }
-    });
-    table.on('click', 'td.information-control2', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(format3(row.data())).show();
-      }
-    });
-    table.on('click', 'td.information-control3', function() {
-      var td = $(this), row = table.row(td.closest('tr'));
-      if (row.child.isShown()) {
-        row.child.hide();
-      } else {
-        row.child(format3(row.data())).show();
-      }
-    });
-
-    $('div.has-feedback input[type=\"search\"]').attr('placeholder', '');
-
-    $('#search').keyup(function(){
-      table.search($(this).val()).draw() ;
-})
-  "
+# JS lives in www/summaryTable.js (loaded from ui.R). DT wraps this as
+# function(table) { ... }, so only the body goes here.
+data_table_call_back <- paste(
+  "if (window.initSummaryTableCallbacks) {",
+  "  window.initSummaryTableCallbacks(table);",
+  "}"
+)
 
 get_lateness_and_duration <- function(all_files) {
   required <- c(

@@ -1,5 +1,6 @@
 # Tab modules
 source("R/load_ui.R")
+source("R/report/error_explanations.R")
 # packages
 library(shiny)
 library(shinytitle)
@@ -24,6 +25,12 @@ shinyUI(
         tags$script(src = "controlPanel.js?v=languages"),
         tags$script(src = "compressBeforeUpload.js"),
         tags$script(src = "fileUploadProgress.js"),
+        tags$script(src = "summaryTable.js"),
+        tags$script(HTML(paste0(
+          "window.errorExplanations = ",
+          error_explanations_json(),
+          ";"
+        ))),
         tags$link(rel = "stylesheet", type = "text/css", href = "ui.css"),
         tags$script(HTML("
           Shiny.addCustomMessageHandler('updateFileProgress', function(data) {

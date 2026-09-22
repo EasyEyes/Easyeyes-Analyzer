@@ -1,0 +1,53 @@
+# Sync error explanations from the EasyEyes Google Sheet into the repo.
+# Sheet: https://docs.google.com/spreadsheets/d/1x65NjykMm-XUOz98Eu_oo6ON2xspm_h0Q0M2u6UGtug
+# Tab gid=472289738 (name, explanation)
+#
+# Requires the sheet to be readable via the public CSV export URL
+# (Anyone with the link can view). If the sheet becomes private, switch
+# this workflow to a Google service-account secret.
+
+name: Sync error explanations
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-error-explanations
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Google Sheet CSV
+        env:
+          SHEET_ID: 1x65NjykMm-XUOz98Eu_oo6ON2xspm_h0Q0M2u6UGtug
+          SHEET_GID: "472289738"
+        run: |
+          mkdir -p data
+          curl -fsSL -A "Mozilla/5.0" \
+            -o data/error_explanations.csv \
+            "https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}"
+          # Sanity check: must look like CSV with expected headers
+          head -1 data/error_explanations.csv | grep -qi 'name'
+          head -1 data/error_explanations.csv | grep -qi 'explanation'
+          test -s data/error_explanations.csv
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/error_explanations.csv
+          if git diff --staged --quiet; then
+            echo "No changes to error_explanations.csv"
+          else
+            git commit -m "Sync error explanations from Google Sheet"
+            git push
+          fi
