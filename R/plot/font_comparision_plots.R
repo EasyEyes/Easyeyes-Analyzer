@@ -36,6 +36,12 @@ ordinary_mean_se <- function(x) {
   c(mean = mean(x), se = sd(x) / sqrt(length(x)))
 }
 
+
+font_comparison_axis_label <- function(fonts) {
+  fonts <- strip_font_filetype(fonts)
+  ifelse(fonts == "AgoesaDisplayRegular", "Agoesa", fonts)
+}
+
 # Main function to create font comparison plots (fixed)
 # font_colors_map: optional tibble with columns font,color OR named vector font->color
 plot_font_comparison <- function(df_list, font_colors_map = NULL) {
@@ -198,8 +204,12 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
         width = 0, linewidth = 1, color = "black"
       ) +
       geom_text(
-        aes(label = paste0("N=", n_participants), y = label_y),
-        vjust = 0, size = 3.6 * text_scale, color = "black", fontface = "bold"
+        aes(label = paste0("N=\n", n_participants), y = label_y),
+        vjust = 0,
+        size = 1,
+        lineheight = 2.4,
+        color = "black",
+        fontface = "plain"
       ) +
       scale_fill_manual(values = font_colors, guide = "none") +
       theme_minimal(base_size = 12) +
@@ -220,7 +230,7 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
       labs(x = "Font", y = ylabel)
 
     if (abbreviate_fonts) {
-      p <- p + scale_x_discrete(labels = strip_font_filetype)
+      p <- p + scale_x_discrete(labels = font_comparison_axis_label)
     }
 
     if (use_log_scale && use_geometric_mean) {
