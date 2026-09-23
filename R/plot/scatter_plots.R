@@ -383,3 +383,376 @@ familiarity_vs_crowding_scatter <- function(df_list, font_colors = NULL) {
   
   p + guides(color = guide_legend(title = "Font", ncol = 2))
 }
+
+#### Font-aggregated acuity scatters ####
+
+# Resolve a named font->color vector from optional tibble/named vector + palette.
+resolve_font_colors <- function(fonts, font_colors = NULL) {
+  fonts <- sort(unique(as.character(fonts)))
+  fonts <- fonts[!is.na(fonts) & fonts != ""]
+  if (length(fonts) == 0) {
+    return(character())
+  }
+  cols_map <- NULL
+  if (!is.null(font_colors)) {
+    if (is.data.frame(font_colors) && all(c("font", "color") %in% names(font_colors))) {
+      cols_map <- stats::setNames(as.character(font_colors$color), as.character(font_colors$font))
+    } else if (is.vector(font_colors) && !is.null(names(font_colors))) {
+      cols_map <- font_colors
+    }
+  }
+  if (is.null(cols_map)) {
+    return(font_color_palette(fonts))
+  }
+  missing <- setdiff(fonts, names(cols_map))
+  if (length(missing) > 0) {
+    fill <- rep(colorPalette, length.out = length(missing))
+    names(fill) <- missing
+    cols_map <- c(cols_map, fill)
+  }
+  out <- cols_map[fonts]
+  names(out) <- fonts
+  out
+}
+
+# One point per font: geometric mean acuity vs SD of log acuity.
+acuity_geomean_vs_sd_scatter <- function(df_list, font_colors = NULL) {
+  acuity <- df_list$acuity
+  if (is.null(acuity) || nrow(acuity) == 0) {
+    return(NULL)
+  }
+
+  summary_data <- acuity %>%
+    mutate(
+      log_acuity = suppressWarnings(as.numeric(questMeanAtEndOfTrialsLoop)),
+      acuity_deg = 10^log_acuity
+    ) %>%
+    filter(is.finite(log_acuity), is.finite(acuity_deg), acuity_deg > 0) %>%
+    group_by(font) %>%
+    summarise(
+      geomean_acuity = 10^mean(log_acuity, na.rm = TRUE),
+      sd_log_acuity = sd(log_acuity, na.rm = TRUE),
+      n = dplyr::n(),
+      .groups = "drop"
+    ) %>%
+    filter(is.finite(geomean_acuity), is.finite(sd_log_acuity), n >= 2)
+
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  summary_data <- summary_data %>%
+    mutate(
+      font_label = font_comparison_axis_label(font),
+      font_label = factor(font_label, levels = sort(unique(font_label)))
+    )
+
+  cols <- resolve_font_colors(summary_data$font_label, {
+    if (is.null(font_colors)) {
+      NULL
+    } else if (is.data.frame(font_colors) && all(c("font", "color") %in% names(font_colors))) {
+      font_colors %>%
+        mutate(font = font_comparison_axis_label(font))
+    } else if (is.vector(font_colors) && !is.null(names(font_colors))) {
+      stats::setNames(unname(font_colors), font_comparison_axis_label(names(font_colors)))
+    } else {
+      NULL
+    }
+  })
+
+  ggplot(summary_data, aes(x = sd_log_acuity, y = geomean_acuity, color = font_label)) +
+    geom_point(size = 3.5) +
+    scale_y_log10() +
+    annotation_logticks(
+      sides = "l",
+      short = unit(2, "pt"),
+      mid = unit(2, "pt"),
+      long = unit(7, "pt")
+    ) +
+    scale_color_manual(values = cols, name = "Font") +
+    theme_bw() +
+    theme(
+      legend.position = "bottom",
+      legend.box = "horizontal",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    ) +
+    labs(
+      subtitle = "Geometric mean acuity vs SD of log acuity",
+      x = "SD of log acuity",
+      y = "Geometric mean acuity (deg)"
+    ) +
+    guides(color = guide_legend(title = "Font", nrow = 4, byrow = TRUE))
+}
+
+# Crowding24FontsTable1.xlsx: col A = font, col J = geometric-mean Bouma b.
+# Crowding threshold at 5°: s = b * |ecc| with ecc = 5°.
+CROWDING24_BOUMA_PATH <- "data/Crowding24FontsTable1.xlsx"
+CROWDING24_ECCENTRICITY_DEG <- 5
+
+# Hardcoded bridge: archive result-file font names ↔ Excel Table 1 display names.
+# (Independent of the standalone Acuity24Fonts-metrics CSV.)
+CROWDING24_FONT_BRIDGE <- tibble::tibble(
+  excel_font = c(
+    "Adobe Caslon Regular",
+    "Agoesa",
+    "Arial Regular",
+    "Baskerville Pro Regular",
+    "Courier Prime",
+    "Edwardian Script ITC Pro Regular",
+    "Extenda 10 Pica",
+    "Frutiger Pro 55 Roman",
+    "Georgia Regular",
+    "Haut Relief NF",
+    "Le Monde Livre Std Regular",
+    "Letraflex Regular",
+    "LiebeLotte",
+    "Museo Sans 500",
+    "OMFUG",
+    "Optimistic Text",
+    "Proxima Nova",
+    "Rollerscript Smooth",
+    "Sabon Next Pro Regular",
+    "Scarlet Wood Bold",
+    "TheSans Plain",
+    "Times New Roman",
+    "Tiny 5x3 100",
+    "Zapfino Extra Pro Regular"
+  ),
+  font_from_csv = c(
+    "Caslon.woff2",
+    "AgoesaDisplayRegular.woff2",
+    "Arial.woff2",
+    "Baskerville.woff2",
+    "Courier.ttf",
+    "Edwardian.ttf",
+    "Extenda 10 Pica.woff2",
+    "Frutiger.woff2",
+    "Georgia.woff2",
+    "HautRelief.woff2",
+    "LeMonde.otf",
+    "Letraflex.woff2",
+    "LiebeLotte.woff2",
+    "Museo.woff2",
+    "Omfug.woff",
+    "Optimistic.woff2",
+    "ProximaNova.woff2",
+    "Rollerscript.woff2",
+    "Sabon.woff2",
+    "ScarletWood.woff",
+    "TheSans.woff2",
+    "TimesNewRoman.woff2",
+    "Tiny.otf",
+    "Zapfino.otf"
+  )
+)
+
+normalize_font_match_key <- function(fonts) {
+  fonts <- as.character(fonts)
+  fonts <- gsub("\u00AD", "", fonts, fixed = TRUE) # soft hyphen
+  fonts <- strip_font_filetype(fonts)
+  fonts <- tolower(trimws(fonts))
+  fonts <- gsub("[^a-z0-9]+", "", fonts)
+  fonts
+}
+
+load_crowding24_bouma_table <- function(path = CROWDING24_BOUMA_PATH,
+                                        eccentricity_deg = CROWDING24_ECCENTRICITY_DEG) {
+  empty <- tibble::tibble(
+    excel_font = character(),
+    bouma = numeric(),
+    crowding_deg = numeric(),
+    excel_key = character()
+  )
+  if (!file.exists(path)) {
+    return(empty)
+  }
+  raw <- suppressMessages(readxl::read_excel(path, col_names = FALSE))
+  if (ncol(raw) < 10) {
+    return(empty)
+  }
+  font <- gsub("\u00AD", "", trimws(as.character(raw[[1]])), fixed = TRUE)
+  bouma <- suppressWarnings(as.numeric(as.character(raw[[10]])))
+  keep <- !is.na(font) & font != "" & font != "Font" &
+    is.finite(bouma) & bouma > 0
+  if (!any(keep)) {
+    return(empty)
+  }
+  ecc <- suppressWarnings(as.numeric(eccentricity_deg)[1])
+  if (!is.finite(ecc) || ecc <= 0) {
+    ecc <- CROWDING24_ECCENTRICITY_DEG
+  }
+  kept_font <- font[keep]
+  kept_bouma <- bouma[keep]
+  tibble::tibble(
+    excel_font = kept_font,
+    bouma = kept_bouma,
+    crowding_deg = kept_bouma * abs(ecc),
+    excel_key = normalize_font_match_key(kept_font)
+  ) %>%
+    distinct(excel_key, .keep_all = TRUE)
+}
+
+# Map archive font labels → Excel Bouma crowding via the hardcoded bridge.
+match_archive_fonts_to_bouma <- function(archive_fonts,
+                                         bridge = CROWDING24_FONT_BRIDGE,
+                                         bouma_table = NULL) {
+  if (is.null(bouma_table)) {
+    bouma_table <- load_crowding24_bouma_table()
+  }
+  archive_fonts <- unique(as.character(archive_fonts))
+  archive_fonts <- archive_fonts[!is.na(archive_fonts) & archive_fonts != ""]
+  empty <- tibble::tibble(
+    archive_font = character(),
+    excel_font = character(),
+    bouma = numeric(),
+    crowding_deg = numeric()
+  )
+  if (length(archive_fonts) == 0 || nrow(bridge) == 0 || nrow(bouma_table) == 0) {
+    return(empty)
+  }
+
+  bridge <- bridge %>%
+    mutate(
+      archive_key = normalize_font_match_key(font_from_csv),
+      excel_key = normalize_font_match_key(excel_font)
+    )
+
+  arch_df <- tibble::tibble(archive_font = archive_fonts) %>%
+    mutate(archive_key = normalize_font_match_key(archive_font))
+
+  # Prefer exact archive-key match.
+  exact <- arch_df %>%
+    inner_join(
+      bridge %>% select(archive_key, excel_font, excel_key),
+      by = "archive_key"
+    )
+
+  unmatched <- arch_df %>%
+    filter(!archive_font %in% exact$archive_font)
+
+  # Fallback: unique substring match against archive or excel keys.
+  fuzzy_rows <- list()
+  if (nrow(unmatched) > 0) {
+    for (i in seq_len(nrow(unmatched))) {
+      ak <- unmatched$archive_key[[i]]
+      if (!nzchar(ak)) next
+      scores <- vapply(seq_len(nrow(bridge)), function(j) {
+        score <- 0L
+        ark <- bridge$archive_key[[j]]
+        ek <- bridge$excel_key[[j]]
+        if (nzchar(ark) && (grepl(ak, ark, fixed = TRUE) || grepl(ark, ak, fixed = TRUE))) {
+          score <- max(score, nchar(ak) + nchar(ark) + 1000L)
+        }
+        if (nzchar(ek) && (grepl(ak, ek, fixed = TRUE) || grepl(ek, ak, fixed = TRUE))) {
+          score <- max(score, nchar(ak) + nchar(ek))
+        }
+        score
+      }, integer(1))
+      if (!any(scores > 0L)) next
+      best <- which(scores == max(scores))
+      if (length(best) != 1L) next
+      j <- best[[1L]]
+      fuzzy_rows[[length(fuzzy_rows) + 1L]] <- tibble::tibble(
+        archive_font = unmatched$archive_font[[i]],
+        archive_key = ak,
+        excel_font = bridge$excel_font[[j]],
+        excel_key = bridge$excel_key[[j]]
+      )
+    }
+  }
+
+  mapped <- bind_rows(exact, bind_rows(fuzzy_rows))
+  if (nrow(mapped) == 0) {
+    return(empty)
+  }
+
+  mapped %>%
+    distinct(archive_font, .keep_all = TRUE) %>%
+    inner_join(
+      bouma_table %>% select(excel_key, bouma, crowding_deg),
+      by = "excel_key"
+    ) %>%
+    select(archive_font, excel_font, bouma, crowding_deg) %>%
+    filter(is.finite(crowding_deg), crowding_deg > 0)
+}
+
+# One point per font: archive geometric-mean acuity vs Excel Bouma crowding
+# (s = b×5°), with hardcoded archive↔Excel font-name bridge.
+acuity_vs_crowding_by_font_scatter <- function(df_list, font_colors = NULL) {
+  acuity <- df_list$acuity
+  if (is.null(acuity) || nrow(acuity) == 0) {
+    return(NULL)
+  }
+
+  bouma_table <- load_crowding24_bouma_table()
+  if (nrow(bouma_table) == 0) {
+    return(NULL)
+  }
+
+  acuity_summary <- acuity %>%
+    mutate(log_acuity = suppressWarnings(as.numeric(questMeanAtEndOfTrialsLoop))) %>%
+    filter(is.finite(log_acuity)) %>%
+    group_by(font) %>%
+    summarise(
+      geomean_acuity = 10^mean(log_acuity, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    filter(is.finite(geomean_acuity), geomean_acuity > 0)
+
+  font_map <- match_archive_fonts_to_bouma(acuity_summary$font, bouma_table = bouma_table)
+  if (nrow(font_map) == 0) {
+    return(NULL)
+  }
+
+  summary_data <- acuity_summary %>%
+    inner_join(font_map, by = c("font" = "archive_font"))
+
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  summary_data <- summary_data %>%
+    mutate(
+      font_label = font_comparison_axis_label(excel_font),
+      font_label = factor(font_label, levels = sort(unique(font_label)))
+    )
+
+  cols <- resolve_font_colors(summary_data$font_label, {
+    if (is.null(font_colors)) {
+      NULL
+    } else if (is.data.frame(font_colors) && all(c("font", "color") %in% names(font_colors))) {
+      font_colors %>%
+        mutate(font = font_comparison_axis_label(font))
+    } else if (is.vector(font_colors) && !is.null(names(font_colors))) {
+      stats::setNames(unname(font_colors), font_comparison_axis_label(names(font_colors)))
+    } else {
+      NULL
+    }
+  })
+
+  ggplot(summary_data, aes(x = crowding_deg, y = geomean_acuity, color = font_label)) +
+    geom_point(size = 3.5) +
+    scale_x_log10() +
+    scale_y_log10() +
+    annotation_logticks(
+      sides = "bl",
+      short = unit(2, "pt"),
+      mid = unit(2, "pt"),
+      long = unit(7, "pt")
+    ) +
+    scale_color_manual(values = cols, name = "Font") +
+    theme_bw() +
+    theme(
+      legend.position = "bottom",
+      legend.box = "horizontal",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    ) +
+    labs(
+      subtitle = "Acuity vs Crowding (Bouma×5° from Crowding24FontsTable1)",
+      x = "Crowding (deg)",
+      y = "Acuity (deg)"
+    ) +
+    guides(color = guide_legend(title = "Font", nrow = 4, byrow = TRUE))
+}

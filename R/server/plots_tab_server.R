@@ -213,20 +213,27 @@ register_plots_tab_server <- function(output,
     fileNames <- list()
     violins <- plot_violins(df_list())
     plot_calls <- list(
-      list(plot = violins$reading, fname = 'reading-violin-by-font-plot'),
-      list(plot = violins$rsvp, fname = 'rsvp-violin-by-font-plot'),
-      list(plot = violins$crowding, fname = 'crowding-violin-by-font-plot'),
-      list(plot = violins$acuity, fname = 'acuity-violin-by-font-plot'),
-      list(plot = violins$beauty, fname = 'beauty-violin-by-font-plot'),
-      list(plot = violins$cmfrt, fname = 'comfort-violin-by-font-plot'),
-      list(plot = violins$familiarity, fname = 'familiarity-violin-by-font-plot')
+      list(plot = violins$reading, fname = 'reading-violin-by-font-plot', keep_colors = FALSE),
+      list(plot = violins$rsvp, fname = 'rsvp-violin-by-font-plot', keep_colors = FALSE),
+      list(plot = violins$crowding, fname = 'crowding-violin-by-font-plot', keep_colors = FALSE),
+      list(plot = violins$acuity, fname = 'acuity-violin-by-font-plot', keep_colors = FALSE),
+      list(
+        plot = violins$acuity_by_phrase_group,
+        fname = 'acuity-violin-by-font-phrase-group-plot',
+        keep_colors = TRUE
+      ),
+      list(plot = violins$beauty, fname = 'beauty-violin-by-font-plot', keep_colors = FALSE),
+      list(plot = violins$cmfrt, fname = 'comfort-violin-by-font-plot', keep_colors = FALSE),
+      list(plot = violins$familiarity, fname = 'familiarity-violin-by-font-plot', keep_colors = FALSE)
     )
     
     for (call in plot_calls) {
       plot <- call$plot
       if (!is.null(plot)) {
-        # Avoid overriding color scale for plots that define their own font colors
-        plot <- plot + scale_color_manual(values = colorPalette)
+        # Avoid overriding color scale for plots that define their own colors
+        if (!isTRUE(call$keep_colors)) {
+          plot <- plot + scale_color_manual(values = colorPalette)
+        }
         plot <- add_experiment_title(plot, experiment_names())
       }
       res <- append_plot_list(l, fileNames, plot, call$fname)
@@ -333,7 +340,15 @@ register_plots_tab_server <- function(output,
       list(plot = comfort_vs_crowding_scatter(df_list(), colorFont()), fname = 'comfort-vs-crowding-scatter'),
       list(plot = beauty_vs_crowding_scatter(df_list(), colorFont()), fname = 'beauty-vs-crowding-scatter'),
       list(plot = beauty_vs_comfort_scatter(df_list(), colorFont()), fname = 'beauty-vs-comfort-scatter'),
-      list(plot = familiarity_vs_crowding_scatter(df_list(), colorFont()), fname = 'familiarity-vs-crowding-scatter')
+      list(plot = familiarity_vs_crowding_scatter(df_list(), colorFont()), fname = 'familiarity-vs-crowding-scatter'),
+      list(
+        plot = acuity_geomean_vs_sd_scatter(df_list(), colorFont()),
+        fname = 'acuity-geomean-vs-sd-log-acuity-by-font'
+      ),
+      list(
+        plot = acuity_vs_crowding_by_font_scatter(df_list(), colorFont()),
+        fname = 'acuity-vs-crowding-by-font-bouma-table1'
+      )
     )
     
     for (call in comfort_beauty_plots) {

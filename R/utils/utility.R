@@ -26,6 +26,12 @@ strip_font_filetype <- function(fonts) {
   sub("\\.(woff2|woff|otf|ttf)$", "", as.character(fonts), ignore.case = TRUE)
 }
 
+# Short display names for font axis labels (shared by violin + font-comparison plots).
+font_comparison_axis_label <- function(fonts) {
+  fonts <- strip_font_filetype(fonts)
+  ifelse(fonts == "AgoesaDisplayRegular", "Agoesa", fonts)
+}
+
 # Helper function to add experiment name to plot title
 add_experiment_title <- function(plot, experiment_name) {
   short_name <- get_short_experiment_name(experiment_name)

@@ -36,12 +36,6 @@ ordinary_mean_se <- function(x) {
   c(mean = mean(x), se = sd(x) / sqrt(length(x)))
 }
 
-
-font_comparison_axis_label <- function(fonts) {
-  fonts <- strip_font_filetype(fonts)
-  ifelse(fonts == "AgoesaDisplayRegular", "Agoesa", fonts)
-}
-
 # Main function to create font comparison plots (fixed)
 # font_colors_map: optional tibble with columns font,color OR named vector font->color
 plot_font_comparison <- function(df_list, font_colors_map = NULL) {

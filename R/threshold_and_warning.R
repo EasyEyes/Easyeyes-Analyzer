@@ -144,6 +144,7 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
   reading_q_chunks <- list()
   fluency_chunks <- list()
   qa_chunks <- list()
+  phrases_chunks <- list()
   qa_sessions_with_cols <- 0L
   qa_sessions_missing_cols <- 0L
   qa_nickname_rows <- 0L
@@ -158,7 +159,12 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
       viewingdistance = empty_viewing_distance(),
       reading_questions = list(),
       fluency = empty_fluency(),
-      QA = empty_qa()
+      QA = empty_qa(),
+      phrasesColumnName = tibble(
+        participant = character(),
+        conditionName = character(),
+        phrasesColumnName = character()
+      )
     ))
   }
 
@@ -174,6 +180,29 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         select(participant, age) %>%
         filter(!is.na(age)) %>%
         distinct()
+    }
+
+    # Phrase-group labels (A', B', …) from _phrasesColumnName / _phraseColumnName
+    phrase_src <- intersect(
+      c("_phrasesColumnName", "_phraseColumnName", "phrasesColumnName"),
+      names(df)
+    )
+    if (length(phrase_src) > 0 && "participant" %in% names(df)) {
+      src <- phrase_src[[1]]
+      phrase_rows <- df %>%
+        mutate(
+          phrasesColumnName = str_trim(as.character(.data[[src]])),
+          conditionName = if ("conditionName" %in% names(df)) {
+            as.character(conditionName)
+          } else {
+            NA_character_
+          }
+        ) %>%
+        filter(!is.na(phrasesColumnName), phrasesColumnName != "") %>%
+        distinct(participant, conditionName, phrasesColumnName)
+      if (nrow(phrase_rows) > 0) {
+        phrases_chunks[[length(phrases_chunks) + 1]] <- phrase_rows
+      }
     }
 
     # reading
@@ -317,7 +346,15 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
     viewingdistance = bind_threshold_chunks(viewing_chunks, empty_viewing_distance()),
     reading_questions = reading_q_chunks,
     fluency = bind_threshold_chunks(fluency_chunks, empty_fluency()),
-    QA = bind_threshold_chunks(qa_chunks, empty_qa())
+    QA = bind_threshold_chunks(qa_chunks, empty_qa()),
+    phrasesColumnName = bind_threshold_chunks(
+      phrases_chunks,
+      tibble(
+        participant = character(),
+        conditionName = character(),
+        phrasesColumnName = character()
+      )
+    )
   )
 }
 
@@ -912,7 +949,42 @@ generate_threshold <-
     #### acuity ####
     acuity <- quest %>% 
       filter(questType == 'Foveal acuity' | questType == 'Peripheral acuity')
-    
+
+    # Attach phrase-group labels (A', B', … H') when present in the raw CSVs.
+    phrases <- extracted$phrasesColumnName
+    if (!is.null(phrases) && nrow(phrases) > 0 && nrow(acuity) > 0) {
+      by_condition <- phrases %>%
+        filter(!is.na(conditionName), conditionName != "") %>%
+        distinct(participant, conditionName, phrasesColumnName)
+      by_participant <- phrases %>%
+        group_by(participant) %>%
+        summarize(
+          phrasesColumnName = {
+            vals <- unique(phrasesColumnName[!is.na(phrasesColumnName) & phrasesColumnName != ""])
+            if (length(vals) == 1) vals[[1]] else NA_character_
+          },
+          .groups = "drop"
+        ) %>%
+        filter(!is.na(phrasesColumnName))
+
+      if (nrow(by_condition) > 0) {
+        acuity <- acuity %>%
+          left_join(by_condition, by = c("participant", "conditionName"))
+      } else {
+        acuity <- acuity %>% mutate(phrasesColumnName = NA_character_)
+      }
+      if (nrow(by_participant) > 0) {
+        acuity <- acuity %>%
+          left_join(by_participant, by = "participant", suffix = c("", "_p")) %>%
+          mutate(
+            phrasesColumnName = dplyr::coalesce(phrasesColumnName, phrasesColumnName_p)
+          ) %>%
+          select(-dplyr::any_of("phrasesColumnName_p"))
+      }
+    } else if (nrow(acuity) > 0 && !"phrasesColumnName" %in% names(acuity)) {
+      acuity <- acuity %>% mutate(phrasesColumnName = NA_character_)
+    }
+
     #### get viewing distance and font size####
     
     viewingdistance <- extracted$viewingdistance
