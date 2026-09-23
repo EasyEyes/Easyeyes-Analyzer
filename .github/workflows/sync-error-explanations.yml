@@ -1,6 +1,7 @@
-# Sync error explanations from the EasyEyes Google Sheet into the repo.
+# Sync error + unmetNeeds explanations from the EasyEyes Google Sheet into the repo.
 # Sheet: https://docs.google.com/spreadsheets/d/1x65NjykMm-XUOz98Eu_oo6ON2xspm_h0Q0M2u6UGtug
-# Tab gid=472289738 (name, explanation)
+# - gid=472289738 → data/error_explanations.csv (name, explanation)
+# - gid=1287694458 → data/unmet_needs_explanations.csv (_s, explanation)
 #
 # Requires the sheet to be readable via the public CSV export URL
 # (Anyone with the link can view). If the sheet becomes private, switch
@@ -26,28 +27,56 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Google Sheet CSV
+      - name: Download Google Sheet CSVs
         env:
           SHEET_ID: 1x65NjykMm-XUOz98Eu_oo6ON2xspm_h0Q0M2u6UGtug
-          SHEET_GID: "472289738"
+          ERROR_GID: "472289738"
+          GLOSSARY_GID: "1287694458"
         run: |
           mkdir -p data
           curl -fsSL -A "Mozilla/5.0" \
             -o data/error_explanations.csv \
-            "https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}"
-          # Sanity check: must look like CSV with expected headers
+            "https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${ERROR_GID}"
           head -1 data/error_explanations.csv | grep -qi 'name'
           head -1 data/error_explanations.csv | grep -qi 'explanation'
           test -s data/error_explanations.csv
+
+          curl -fsSL -A "Mozilla/5.0" \
+            -o /tmp/glossary.csv \
+            "https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GLOSSARY_GID}"
+          head -1 /tmp/glossary.csv | grep -q '_s'
+          head -1 /tmp/glossary.csv | grep -qi 'EXPLANATION'
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+          with open("/tmp/glossary.csv", newline="", encoding="utf-8") as f:
+              rows = list(csv.DictReader(f))
+          out = []
+          for r in rows:
+              name = (r.get("_s") or "").strip()
+              expl = (r.get("EXPLANATION") or "").strip()
+              if not name or not expl or name.startswith("__"):
+                  continue
+              out.append({"_s": name, "explanation": expl})
+          path = Path("data/unmet_needs_explanations.csv")
+          with path.open("w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=["_s", "explanation"])
+              w.writeheader()
+              w.writerows(out)
+          assert path.stat().st_size > 0
+          print(f"wrote {len(out)} unmet-needs glossary rows")
+          need_n = sum(1 for r in out if r["_s"].startswith("_need"))
+          print(f"of which {need_n} are _need* (used by the app)")
+          PY
 
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/error_explanations.csv
+          git add data/error_explanations.csv data/unmet_needs_explanations.csv
           if git diff --staged --quiet; then
-            echo "No changes to error_explanations.csv"
+            echo "No changes to explanation CSVs"
           else
-            git commit -m "Sync error explanations from Google Sheet"
+            git commit -m "Sync error and unmetNeeds explanations from Google Sheet"
             git push
           fi

@@ -8,24 +8,56 @@
   "use strict";
 
   window.errorExplanations = window.errorExplanations || {};
+  window.unmetNeedsExplanations = window.unmetNeedsExplanations || {};
+
+  function redrawSummaryTables() {
+    if (window.jQuery && jQuery.fn.dataTable) {
+      try {
+        jQuery.fn.dataTable.tables({ visible: true, api: true }).draw(false);
+      } catch (e) {
+        /* table may not be ready yet */
+      }
+    }
+  }
 
   function setErrorExplanations(map) {
     window.errorExplanations = map && typeof map === "object" ? map : {};
+    redrawSummaryTables();
   }
 
-  if (window.Shiny && Shiny.addCustomMessageHandler) {
-    Shiny.addCustomMessageHandler("setErrorExplanations", setErrorExplanations);
+  function setUnmetNeedsExplanations(map) {
+    window.unmetNeedsExplanations = map && typeof map === "object" ? map : {};
+    redrawSummaryTables();
+  }
+
+  var explanationHandlersRegistered = false;
+  function registerExplanationHandlers() {
+    if (!(window.Shiny && Shiny.addCustomMessageHandler)) return;
+    if (!explanationHandlersRegistered) {
+      Shiny.addCustomMessageHandler("setErrorExplanations", setErrorExplanations);
+      Shiny.addCustomMessageHandler("setUnmetNeedsExplanations", setUnmetNeedsExplanations);
+      explanationHandlersRegistered = true;
+    }
+    if (Shiny.setInputValue) {
+      Shiny.setInputValue("summaryExplanationsReady", Date.now(), {
+        priority: "event",
+      });
+    }
+  }
+
+  function onReady(fn) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", fn);
+    } else {
+      fn();
+    }
+  }
+
+  onReady(registerExplanationHandlers);
+  if (window.jQuery) {
+    jQuery(document).on("shiny:connected", registerExplanationHandlers);
   } else {
-    document.addEventListener("DOMContentLoaded", function () {
-      if (window.Shiny && Shiny.addCustomMessageHandler) {
-        Shiny.addCustomMessageHandler("setErrorExplanations", setErrorExplanations);
-      }
-    });
-    $(document).on("shiny:connected", function () {
-      if (window.Shiny && Shiny.addCustomMessageHandler) {
-        Shiny.addCustomMessageHandler("setErrorExplanations", setErrorExplanations);
-      }
-    });
+    document.addEventListener("shiny:connected", registerExplanationHandlers);
   }
 
   function showSummaryDetailModal(title, html) {
@@ -73,14 +105,32 @@
       .replace(/'/g, "&#39;");
   }
 
-  // Longest-name-first scan: find every sheet `name` that appears in the
-  // error cell (comma-separated, <br>-separated, or embedded). Longer names
-  // win over shorter prefixes (e.g. rc:camera… before rc:).
-  function findAllErrorMatches(rawHtml) {
-    var map = window.errorExplanations || {};
-    var plain = String(rawHtml || "")
+  function cellTextToPlain(rawHtml) {
+    return String(rawHtml || "")
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<[^>]+>/g, " ");
+  }
+
+  // Parameter Glossary `_s` keys lead with `_`. Ensure unmetNeeds tokens do too
+  // before matching (e.g. needMemoryGB → _needMemoryGB).
+  function withLeadingUnderscores(plain) {
+    return String(plain).replace(
+      /(^|[\s,;]+)(_*)([A-Za-z][\w]*)/g,
+      function (_m, sep, _us, name) {
+        return sep + "_" + name;
+      }
+    );
+  }
+
+  // Longest-name-first scan against a name→explanation map.
+  // options.prefixUnderscore: normalize cell text so tokens match `_s` keys.
+  function findAllNameMatches(rawHtml, map, options) {
+    map = map || {};
+    options = options || {};
+    var plain = cellTextToPlain(rawHtml);
+    if (options.prefixUnderscore) {
+      plain = withLeadingUnderscores(plain);
+    }
     if (!plain.trim()) return [];
 
     var names = Object.keys(map).sort(function (a, b) {
@@ -98,13 +148,19 @@
 
     function isTokenStart(idx) {
       if (idx <= 0) return true;
-      // Allow match after whitespace, comma, semicolon, or newline.
       return /[\s,;]/.test(plain.charAt(idx - 1));
+    }
+
+    var ignore = {};
+    if (options.ignoreNames) {
+      for (var n = 0; n < options.ignoreNames.length; n++) {
+        ignore[options.ignoreNames[n]] = true;
+      }
     }
 
     for (var i = 0; i < names.length; i++) {
       var name = names[i];
-      if (!name) continue;
+      if (!name || ignore[name]) continue;
       var from = 0;
       while (from < plain.length) {
         var idx = plain.indexOf(name, from);
@@ -126,14 +182,12 @@
     return matched;
   }
 
-  // Show an explanation for every matched name in the cell; if none match,
-  // fall back to the original error text.
-  function formatErrorPopupContent(rawHtml) {
+  function formatExplanationPopupContent(rawHtml, map, options) {
     if (rawHtml == null || rawHtml === "" || rawHtml === "null") {
       return "<em>No details</em>";
     }
 
-    var matches = findAllErrorMatches(rawHtml);
+    var matches = findAllNameMatches(rawHtml, map, options);
     if (!matches.length) {
       return "<p>" + rawHtml + "</p>";
     }
@@ -155,6 +209,59 @@
     return out.join("<hr style=\"margin:8px 0;border:0;border-top:1px solid #ddd;\">");
   }
 
+  function formatExplainedCellDisplay(data, map, cssClass, options) {
+    if (data == null || data === "" || data === "null" || data === "undefined") {
+      return data;
+    }
+    var display = String(data);
+    if (display.length > 30) {
+      display = display.substr(0, 30) + "...";
+    }
+    if (findAllNameMatches(data, map, options).length > 0) {
+      return (
+        '<span class="' +
+        cssClass +
+        '" style="text-decoration:underline;text-underline-offset:2px">' +
+        display +
+        "</span>"
+      );
+    }
+    return display;
+  }
+
+  // Details live in unmetNeeds; skip sheet explanation UI for this error.
+  var ERROR_EXPLAIN_IGNORE = ["compatibilityNotMet"];
+
+  window.formatErrorCellDisplay = function (data) {
+    return formatExplainedCellDisplay(
+      data,
+      window.errorExplanations,
+      "error-has-explanation",
+      { ignoreNames: ERROR_EXPLAIN_IGNORE }
+    );
+  };
+
+  window.formatUnmetNeedsCellDisplay = function (data) {
+    return formatExplainedCellDisplay(
+      data,
+      window.unmetNeedsExplanations,
+      "unmetNeeds-has-explanation",
+      { prefixUnderscore: true }
+    );
+  };
+
+  function formatErrorPopupContent(rawHtml) {
+    return formatExplanationPopupContent(rawHtml, window.errorExplanations, {
+      ignoreNames: ERROR_EXPLAIN_IGNORE,
+    });
+  }
+
+  function formatUnmetNeedsPopupContent(rawHtml) {
+    return formatExplanationPopupContent(rawHtml, window.unmetNeedsExplanations, {
+      prefixUnderscore: true,
+    });
+  }
+
   function toggleChildRow(table, td, html) {
     var row = table.row($(td).closest("tr"));
     if (row.child.isShown()) {
@@ -172,12 +279,45 @@
     if (!table || !$) return;
 
     // error column: popup with explanation when name matches the sheet
+    // (compatibilityNotMet is excluded — details are in unmetNeeds)
     table.column(18).nodes().to$().css({ cursor: "pointer" });
     table.on("click", "td.errorC-control", function () {
       var data = table.row($(this).closest("tr")).data();
       if (!data) return;
-      showSummaryDetailModal("Error", formatErrorPopupContent(data[18]));
+      var raw = data[18];
+      var matches = findAllNameMatches(raw, window.errorExplanations, {
+        ignoreNames: ERROR_EXPLAIN_IGNORE,
+      });
+      if (!matches.length) {
+        var plain = cellTextToPlain(raw).replace(/\s+/g, " ").trim();
+        if (!plain || plain === "compatibilityNotMet") return;
+      }
+      showSummaryDetailModal("Error", formatErrorPopupContent(raw));
     });
+
+    // unmetNeeds column: popup using Parameter Glossary (_s → EXPLANATION)
+    var unmetIdx = -1;
+    table.columns().every(function () {
+      var header = $(this.header()).text().trim();
+      if (header === "unmetNeeds") unmetIdx = this.index();
+    });
+    if (unmetIdx >= 0) {
+      table.column(unmetIdx).nodes().to$().css({ cursor: "pointer" });
+    }
+    if (unmetIdx >= 0) {
+      table.on("click", "tbody td", function () {
+        var cell = table.cell(this);
+        if (!cell || !cell.index) return;
+        var info = cell.index();
+        if (!info || info.column !== unmetIdx) return;
+        var rowData = table.row($(this).closest("tr")).data();
+        if (!rowData) return;
+        showSummaryDetailModal(
+          "unmetNeeds",
+          formatUnmetNeedsPopupContent(rowData[unmetIdx])
+        );
+      });
+    }
 
     // warning column: expand under row
     table.column(19).nodes().to$().css({ cursor: "pointer" });

@@ -2,6 +2,7 @@ library(dplyr)
 library(DT)
 source("R/utils/utility.R")
 source("R/report/error_explanations.R")
+source("R/report/unmet_needs_explanations.R")
 # Each time update the summary table, the rmd report need to be updated accordingly.
 
 # JS lives in www/summaryTable.js (loaded from ui.R). DT wraps this as
@@ -933,24 +934,9 @@ render_summary_datatable <- function(dt, prolific_id) {
   width_col <- which(names(dt) == "resolution_width")
   # DT with default rownames: JS col 0 = rownames, data col j -> JS index j
   prolific_col <- which(names(dt) == "Prolific participant ID")
+  unmet_col <- which(names(dt) == "unmetNeeds")
   
-  datatable(
-    dt,
-    class = list(stripe = FALSE, 'compact'),
-    selection = 'none',
-    extensions = 'FixedHeader',
-    filter = "top",
-    escape = FALSE,
-    options = list(
-      autoWidth = TRUE,
-      paging = FALSE,
-      scrollX = TRUE,
-      fixedHeader = TRUE,
-      order = if (length(prolific_col) == 1) list(list(prolific_col, "asc")) else list(),
-      dom = 'lrtip',
-      language = list(info = 'Showing _TOTAL_ entries',
-                      infoFiltered =  "(filtered from _MAX_ entries)"),
-      columnDefs = list(
+  column_defs <- list(
         list(visible = FALSE, targets = c(0, width_col)),  # Hide first column and resolution_width column
         list(
           targets   = res_col,
@@ -962,8 +948,9 @@ render_summary_datatable <- function(dt, prolific_id) {
           className = 'errorC-control',
           render = JS(
             "function(data, type, row, meta) {",
-            "  return type === 'display' && data && data.length > 30 ?",
-            "    data.substr(0, 30) + '...' : data;",
+            "  if (type !== 'display') return data;",
+            "  if (window.formatErrorCellDisplay) return window.formatErrorCellDisplay(data);",
+            "  return data && data.length > 30 ? data.substr(0, 30) + '...' : data;",
             "}"
           )
         ),
@@ -977,7 +964,30 @@ render_summary_datatable <- function(dt, prolific_id) {
             "    data.substr(0, 30) + '...' : data;",
             "}"
           )
-        ),
+        )
+  )
+
+  if (length(unmet_col) == 1) {
+    column_defs <- c(
+      column_defs,
+      list(list(
+        targets = unmet_col,
+        width = '100px',
+        className = 'unmetNeeds-control',
+        render = JS(
+          "function(data, type, row, meta) {",
+          "  if (type !== 'display') return data;",
+          "  if (window.formatUnmetNeedsCellDisplay) return window.formatUnmetNeedsCellDisplay(data);",
+          "  return data && data.length > 30 ? data.substr(0, 30) + '...' : data;",
+          "}"
+        )
+      ))
+    )
+  }
+
+  column_defs <- c(
+    column_defs,
+    list(
         list(
           targets = c(34),
           width = '50px',
@@ -1064,7 +1074,26 @@ render_summary_datatable <- function(dt, prolific_id) {
           targets = c(9:15, 18:29, 34:43),
           className = 'dt-center'
         )
-      )
+    )
+  )
+
+  datatable(
+    dt,
+    class = list(stripe = FALSE, 'compact'),
+    selection = 'none',
+    extensions = 'FixedHeader',
+    filter = "top",
+    escape = FALSE,
+    options = list(
+      autoWidth = TRUE,
+      paging = FALSE,
+      scrollX = TRUE,
+      fixedHeader = TRUE,
+      order = if (length(prolific_col) == 1) list(list(prolific_col, "asc")) else list(),
+      dom = 'lrtip',
+      language = list(info = 'Showing _TOTAL_ entries',
+                      infoFiltered =  "(filtered from _MAX_ entries)"),
+      columnDefs = column_defs
     ),
     callback = JS(data_table_call_back)
   ) %>%

@@ -41,9 +41,16 @@ shinyServer(function(input, output, session) {
   )
   emptyArchives <- reactiveVal(character())
 
-  # Error-name → explanation map for the Sessions summary error popup
-  # (from data/error_explanations.csv; synced by GitHub Action).
-  session$sendCustomMessage("setErrorExplanations", load_error_explanations())
+  # Explanation maps for Sessions summary popups (CSV kept in sync by GitHub Action).
+  send_summary_explanations <- function() {
+    session$sendCustomMessage("setErrorExplanations", load_error_explanations())
+    session$sendCustomMessage("setUnmetNeedsExplanations", load_unmet_needs_explanations())
+  }
+  send_summary_explanations()
+  # Re-send after the client registers handlers (avoids a startup race).
+  observeEvent(input$summaryExplanationsReady, {
+    send_summary_explanations()
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
   observeEvent(input$file_click,
                {

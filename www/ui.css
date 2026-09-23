@@ -127,6 +127,15 @@ div.datatable-wide {
   padding-right: 0;
 }
 
+/* Sessions summary: underline cells that have a sheet explanation */
+td.errorC-control .error-has-explanation,
+td.unmetNeeds-control .unmetNeeds-has-explanation,
+span.error-has-explanation,
+span.unmetNeeds-has-explanation {
+  text-decoration: underline !important;
+  text-underline-offset: 2px;
+}
+
 
 /* profile page */
 

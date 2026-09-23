@@ -1,6 +1,17 @@
 # Tab modules
 source("R/load_ui.R")
 source("R/report/error_explanations.R")
+source("R/report/unmet_needs_explanations.R")
+# Cache-bust www/ assets so browser picks up JS/CSS edits on refresh.
+www_asset_version <- function(filename) {
+  info <- file.info(file.path("www", filename))
+  if (is.null(info) || is.na(info$mtime[[1]])) {
+    return(as.character(as.integer(Sys.time())))
+  }
+  as.character(as.integer(info$mtime[[1]]))
+}
+summary_table_js_v <- www_asset_version("summaryTable.js")
+ui_css_v <- www_asset_version("ui.css")
 # packages
 library(shiny)
 library(shinytitle)
@@ -25,13 +36,19 @@ shinyUI(
         tags$script(src = "controlPanel.js?v=languages"),
         tags$script(src = "compressBeforeUpload.js"),
         tags$script(src = "fileUploadProgress.js"),
-        tags$script(src = "summaryTable.js"),
+        tags$script(src = paste0("summaryTable.js?v=", summary_table_js_v)),
         tags$script(HTML(paste0(
           "window.errorExplanations = ",
           error_explanations_json(),
+          ";\nwindow.unmetNeedsExplanations = ",
+          unmet_needs_explanations_json(),
           ";"
         ))),
-        tags$link(rel = "stylesheet", type = "text/css", href = "ui.css"),
+        tags$link(
+          rel = "stylesheet",
+          type = "text/css",
+          href = paste0("ui.css?v=", ui_css_v)
+        ),
         tags$script(HTML("
           Shiny.addCustomMessageHandler('updateFileProgress', function(data) {
             var phase = data.phase || 'reading';
