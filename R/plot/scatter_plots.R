@@ -889,7 +889,12 @@ prepare_crowding_acuity_size_ratio_data <- function(df_list) {
       ),
       log10_r = log10(r),
       r_lo = 10^(log10_r - se_log_r),
-      r_hi = 10^(log10_r + se_log_r)
+      r_hi = 10^(log10_r + se_log_r),
+      # Horizontal ±SE(log Bouma) from Excel col K / sqrt(N_crowding).
+      se_log_bouma = se_log_crowding,
+      log10_bouma = log10(bouma),
+      bouma_lo = 10^(log10_bouma - se_log_bouma),
+      bouma_hi = 10^(log10_bouma + se_log_bouma)
     ) %>%
     filter(
       is.finite(r), r > 0,
@@ -934,7 +939,9 @@ crowding_acuity_size_ratio_vs_bouma_scatter <- function(df_list, font_colors = N
   # Equal log-decade length on x and y; pad for error-bar extent.
   y_vals <- c(summary_data$r, summary_data$r_lo, summary_data$r_hi)
   y_vals <- y_vals[is.finite(y_vals) & y_vals > 0]
-  x_range <- range(log10(summary_data$bouma), finite = TRUE)
+  x_vals <- c(summary_data$bouma, summary_data$bouma_lo, summary_data$bouma_hi)
+  x_vals <- x_vals[is.finite(x_vals) & x_vals > 0]
+  x_range <- range(log10(x_vals), finite = TRUE)
   y_range <- range(log10(y_vals), finite = TRUE)
   x_span <- diff(x_range)
   y_span <- diff(y_range)
@@ -949,6 +956,12 @@ crowding_acuity_size_ratio_vs_bouma_scatter <- function(df_list, font_colors = N
     geom_errorbar(
       aes(ymin = r_lo, ymax = r_hi),
       width = 0,
+      linewidth = 0.6,
+      na.rm = TRUE
+    ) +
+    geom_errorbarh(
+      aes(xmin = bouma_lo, xmax = bouma_hi),
+      height = 0,
       linewidth = 0.6,
       na.rm = TRUE
     ) +
