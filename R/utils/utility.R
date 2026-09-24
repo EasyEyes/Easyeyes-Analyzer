@@ -11,6 +11,34 @@ ptToPx <- function(pt, pxPerCm) {
   return ((2.54 * pt) / 72) * pxPerCm
 }
 
+# Parse fontBoundingBoxReNominalRect strings like "[(-0.2,-0.3),(0.2,0.3)]"
+# into numeric coords; MATLAB-style width = nums[3]-nums[1].
+parse_font_bbox_rect_nums <- function(s) {
+  nums <- stringr::str_match_all(
+    as.character(s),
+    "[-+]?[0-9]*\\.?[0-9]+(?:[eE][-+]?[0-9]+)?"
+  )[[1]][, 1]
+  nums <- suppressWarnings(as.numeric(nums))
+  nums[is.finite(nums)]
+}
+
+bbox_width_from_font_rect <- function(s) {
+  nums <- parse_font_bbox_rect_nums(s)
+  if (length(nums) < 4) {
+    return(NA_real_)
+  }
+  nums[3] - nums[1]
+}
+
+# Corrected nominal bounding-box width (points→cm scale via pxPerCm).
+font_bbox_width_re_nominal <- function(rect, px_per_cm) {
+  width <- vapply(as.character(rect), bbox_width_from_font_rect, numeric(1))
+  px <- suppressWarnings(as.numeric(px_per_cm))
+  out <- width * px * 2.54 / 72
+  out[!(is.finite(width) & is.finite(px) & px > 0)] <- NA_real_
+  out
+}
+
 # Helper to get first non-NA calibration parameter value
 get_first_non_na <- function(values) {
   non_na_values <- values[!is.na(values) & values != ""]

@@ -145,6 +145,8 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
   fluency_chunks <- list()
   qa_chunks <- list()
   phrases_chunks <- list()
+  px_chunks <- list()
+  bbox_chunks <- list()
   qa_sessions_with_cols <- 0L
   qa_sessions_missing_cols <- 0L
   qa_nickname_rows <- 0L
@@ -164,6 +166,15 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         participant = character(),
         conditionName = character(),
         phrasesColumnName = character()
+      ),
+      pxPerCm = tibble(
+        participant = character(),
+        pxPerCm = numeric()
+      ),
+      fontBoundingBoxReNominalRect = tibble(
+        participant = character(),
+        font = character(),
+        fontBoundingBoxReNominalRect = character()
       )
     ))
   }
@@ -202,6 +213,41 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         distinct(participant, conditionName, phrasesColumnName)
       if (nrow(phrase_rows) > 0) {
         phrases_chunks[[length(phrases_chunks) + 1]] <- phrase_rows
+      }
+    }
+
+    # Session pxPerCm (usually filled on one calibration row).
+    if ("participant" %in% names(df) && "pxPerCm" %in% names(df)) {
+      px_rows <- df %>%
+        mutate(pxPerCm = suppressWarnings(as.numeric(pxPerCm))) %>%
+        filter(is.finite(pxPerCm), pxPerCm > 0) %>%
+        group_by(participant) %>%
+        summarize(pxPerCm = dplyr::first(pxPerCm), .groups = "drop")
+      if (nrow(px_rows) > 0) {
+        px_chunks[[length(px_chunks) + 1]] <- px_rows
+      }
+    }
+
+    # Font bounding-box rect (for corrected nominal width).
+    if (all(c("participant", "font", "fontBoundingBoxReNominalRect") %in% names(df))) {
+      bbox_rows <- df %>%
+        mutate(
+          font = str_trim(as.character(font)),
+          fontBoundingBoxReNominalRect = as.character(fontBoundingBoxReNominalRect)
+        ) %>%
+        filter(
+          !is.na(font), font != "", font != "Roboto",
+          !is.na(fontBoundingBoxReNominalRect),
+          fontBoundingBoxReNominalRect != "",
+          fontBoundingBoxReNominalRect != "NA"
+        ) %>%
+        group_by(participant, font) %>%
+        summarize(
+          fontBoundingBoxReNominalRect = dplyr::first(fontBoundingBoxReNominalRect),
+          .groups = "drop"
+        )
+      if (nrow(bbox_rows) > 0) {
+        bbox_chunks[[length(bbox_chunks) + 1]] <- bbox_rows
       }
     }
 
@@ -353,6 +399,21 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         participant = character(),
         conditionName = character(),
         phrasesColumnName = character()
+      )
+    ),
+    pxPerCm = bind_threshold_chunks(
+      px_chunks,
+      tibble(
+        participant = character(),
+        pxPerCm = numeric()
+      )
+    ),
+    fontBoundingBoxReNominalRect = bind_threshold_chunks(
+      bbox_chunks,
+      tibble(
+        participant = character(),
+        font = character(),
+        fontBoundingBoxReNominalRect = character()
       )
     )
   )
@@ -983,6 +1044,46 @@ generate_threshold <-
       }
     } else if (nrow(acuity) > 0 && !"phrasesColumnName" %in% names(acuity)) {
       acuity <- acuity %>% mutate(phrasesColumnName = NA_character_)
+    }
+
+    # Attach pxPerCm + fontBoundingBoxReNominalRect; compute corrected bbox width.
+    # fontBoundingBoxWidthReNominal = width*pxPerCm*2.54/72
+    # width = fontBoundingBoxReNominalRect[3]-fontBoundingBoxReNominalRect[1]
+    if (nrow(acuity) > 0) {
+      px_tbl <- extracted$pxPerCm
+      if (is.null(px_tbl) || nrow(px_tbl) == 0) {
+        acuity <- acuity %>% mutate(pxPerCm = NA_real_)
+      } else {
+        px_tbl <- px_tbl %>%
+          group_by(participant) %>%
+          summarize(pxPerCm = dplyr::first(pxPerCm[is.finite(pxPerCm) & pxPerCm > 0]), .groups = "drop")
+        acuity <- acuity %>%
+          left_join(px_tbl, by = "participant")
+      }
+
+      bbox_tbl <- extracted$fontBoundingBoxReNominalRect
+      if (is.null(bbox_tbl) || nrow(bbox_tbl) == 0) {
+        acuity <- acuity %>%
+          mutate(
+            fontBoundingBoxReNominalRect = NA_character_,
+            fontBoundingBoxWidthReNominal = NA_real_
+          )
+      } else {
+        bbox_tbl <- bbox_tbl %>%
+          group_by(participant, font) %>%
+          summarize(
+            fontBoundingBoxReNominalRect = dplyr::first(fontBoundingBoxReNominalRect),
+            .groups = "drop"
+          )
+        acuity <- acuity %>%
+          left_join(bbox_tbl, by = c("participant", "font")) %>%
+          mutate(
+            fontBoundingBoxWidthReNominal = font_bbox_width_re_nominal(
+              fontBoundingBoxReNominalRect,
+              pxPerCm
+            )
+          )
+      }
     }
 
     #### get viewing distance and font size####

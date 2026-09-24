@@ -179,6 +179,14 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
     # 140% of prior sizes; leave plot subtitle/title (filename) alone for plt_theme
     text_scale <- 1.4
 
+    # Size N= labels to nearly fill each bar's width (bars get narrower with more fonts).
+    # geom_rect uses ±0.35 → bar fills 70% of a category slot; panel ~6" of the 8" plot.
+    n_fonts <- dplyr::n_distinct(summary_data$font)
+    bar_width_mm <- (6 * 0.70 / max(n_fonts, 1)) * 25.4
+    # "~N=" / "XX" ≈ 2 glyphs; ggplot size is mm (~0.55×size per character width).
+    n_label_size <- (0.90 * bar_width_mm) / (2 * 0.55)
+    n_label_size <- max(2.2, min(7.5, n_label_size))
+
     # plot
     p <- ggplot(summary_data, aes(x = font, fill = font)) +
       # bars drawn with explicit baseline to support log scale
@@ -200,8 +208,8 @@ plot_font_comparison <- function(df_list, font_colors_map = NULL) {
       geom_text(
         aes(label = paste0("N=\n", n_participants), y = label_y),
         vjust = 0,
-        size = 1,
-        lineheight = 2.4,
+        size = n_label_size,
+        lineheight = 0.95,
         color = "black",
         fontface = "plain"
       ) +

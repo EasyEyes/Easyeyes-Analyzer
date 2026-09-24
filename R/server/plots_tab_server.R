@@ -348,6 +348,10 @@ register_plots_tab_server <- function(output,
       list(
         plot = acuity_vs_crowding_by_font_scatter(df_list(), colorFont()),
         fname = 'acuity-vs-crowding-by-font-bouma-table1'
+      ),
+      list(
+        plot = crowding_acuity_size_ratio_vs_bouma_scatter(df_list(), colorFont()),
+        fname = 'crowding-acuity-size-ratio-vs-bouma'
       )
     )
     
