@@ -566,6 +566,10 @@ load_crowding24_bouma_table <- function(path = CROWDING24_BOUMA_PATH,
     crowding_deg = numeric(),
     # Excel col G: spacing over nominal size (= fontSpacingReNominal)
     fontSpacingReNominal = numeric(),
+    # Excel col K: SD of log Bouma (= SD of log crowding, up to additive constant)
+    sd_log_bouma = numeric(),
+    # Excel col O: N for crowding Bouma estimates
+    N_crowding = numeric(),
     excel_key = character()
   )
   if (!file.exists(path)) {
@@ -582,6 +586,16 @@ load_crowding24_bouma_table <- function(path = CROWDING24_BOUMA_PATH,
   } else {
     rep(NA_real_, length(font))
   }
+  sd_log_bouma <- if (ncol(raw) >= 11) {
+    suppressWarnings(as.numeric(as.character(raw[[11]])))
+  } else {
+    rep(NA_real_, length(font))
+  }
+  n_crowding <- if (ncol(raw) >= 15) {
+    suppressWarnings(as.numeric(as.character(raw[[15]])))
+  } else {
+    rep(NA_real_, length(font))
+  }
   keep <- !is.na(font) & font != "" & font != "Font" &
     is.finite(bouma) & bouma > 0
   if (!any(keep)) {
@@ -594,11 +608,15 @@ load_crowding24_bouma_table <- function(path = CROWDING24_BOUMA_PATH,
   kept_font <- font[keep]
   kept_bouma <- bouma[keep]
   kept_spacing <- spacing[keep]
+  kept_sd <- sd_log_bouma[keep]
+  kept_n <- n_crowding[keep]
   tibble::tibble(
     excel_font = kept_font,
     bouma = kept_bouma,
     crowding_deg = kept_bouma * abs(ecc),
     fontSpacingReNominal = kept_spacing,
+    sd_log_bouma = kept_sd,
+    N_crowding = kept_n,
     excel_key = normalize_font_match_key(kept_font)
   ) %>%
     distinct(excel_key, .keep_all = TRUE)
@@ -618,7 +636,9 @@ match_archive_fonts_to_bouma <- function(archive_fonts,
     excel_font = character(),
     bouma = numeric(),
     crowding_deg = numeric(),
-    fontSpacingReNominal = numeric()
+    fontSpacingReNominal = numeric(),
+    sd_log_bouma = numeric(),
+    N_crowding = numeric()
   )
   if (length(archive_fonts) == 0 || nrow(bridge) == 0 || nrow(bouma_table) == 0) {
     return(empty)
@@ -683,13 +703,14 @@ match_archive_fonts_to_bouma <- function(archive_fonts,
     distinct(archive_font, .keep_all = TRUE) %>%
     inner_join(
       bouma_table %>% select(
-        excel_key, bouma, crowding_deg, fontSpacingReNominal
+        excel_key, bouma, crowding_deg, fontSpacingReNominal,
+        sd_log_bouma, N_crowding
       ),
       by = "excel_key"
     ) %>%
     select(
       archive_font, excel_font, bouma, crowding_deg,
-      fontSpacingReNominal
+      fontSpacingReNominal, sd_log_bouma, N_crowding
     ) %>%
     filter(is.finite(crowding_deg), crowding_deg > 0)
 }
@@ -774,18 +795,18 @@ acuity_vs_crowding_by_font_scatter <- function(df_list, font_colors = NULL) {
     guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
 }
 
-# One point per font: Crowding:Acuity size ratio r vs Bouma factor.
+# Build per-font Crowding:Acuity size ratio table (shared by ratio scatters).
 # r = (crowdingThresholdDeg / fontSpacingReNominal) /
 #     (acuityDeg / fontBoundingBoxWidthReNominal)
-# fontSpacingReNominal from Excel col G; bbox width from uploaded archives
-# (fontBoundingBoxReNominalRect + pxPerCm on acuity rows).
-crowding_acuity_size_ratio_vs_bouma_scatter <- function(df_list, font_colors = NULL) {
+# Also computes SE(log10 r) from Table-1 SD(log Bouma)/sqrt(N_crowding) and
+# sample SD(log acuity)/sqrt(N_acuity).
+prepare_crowding_acuity_size_ratio_data <- function(df_list) {
   acuity <- df_list$acuity
+  empty <- tibble::tibble()
   if (is.null(acuity) || nrow(acuity) == 0) {
-    return(NULL)
+    return(empty)
   }
 
-  # Recompute bbox width from raw rect + pxPerCm when width is missing but inputs exist.
   if (!"fontBoundingBoxWidthReNominal" %in% names(acuity) ||
       !any(is.finite(suppressWarnings(as.numeric(acuity$fontBoundingBoxWidthReNominal))))) {
     if (all(c("fontBoundingBoxReNominalRect", "pxPerCm") %in% names(acuity))) {
@@ -800,12 +821,12 @@ crowding_acuity_size_ratio_vs_bouma_scatter <- function(df_list, font_colors = N
   }
 
   if (!"fontBoundingBoxWidthReNominal" %in% names(acuity)) {
-    return(NULL)
+    return(empty)
   }
 
   bouma_table <- load_crowding24_bouma_table()
   if (nrow(bouma_table) == 0) {
-    return(NULL)
+    return(empty)
   }
 
   acuity_summary <- acuity %>%
@@ -819,6 +840,8 @@ crowding_acuity_size_ratio_vs_bouma_scatter <- function(df_list, font_colors = N
     group_by(font) %>%
     summarise(
       acuityDeg = 10^mean(log_acuity, na.rm = TRUE),
+      sd_log_acuity = sd(log_acuity, na.rm = TRUE),
+      N_acuity = dplyr::n(),
       fontBoundingBoxWidthReNominal = median(
         fontBoundingBoxWidthReNominal[is.finite(fontBoundingBoxWidthReNominal) &
                                         fontBoundingBoxWidthReNominal > 0],
@@ -834,32 +857,53 @@ crowding_acuity_size_ratio_vs_bouma_scatter <- function(df_list, font_colors = N
 
   font_map <- match_archive_fonts_to_bouma(acuity_summary$font, bouma_table = bouma_table)
   if (nrow(font_map) == 0) {
-    return(NULL)
+    return(empty)
   }
 
-  summary_data <- acuity_summary %>%
+  acuity_summary %>%
     inner_join(font_map, by = c("font" = "archive_font")) %>%
     mutate(
       crowding_over_spacing = crowding_deg / fontSpacingReNominal,
       acuity_over_bbox = acuityDeg / fontBoundingBoxWidthReNominal,
-      r = crowding_over_spacing / acuity_over_bbox
+      r = crowding_over_spacing / acuity_over_bbox,
+      # SE(log crowding) uses Table-1 SD(log Bouma); additive constants cancel in SD.
+      se_log_crowding = dplyr::if_else(
+        is.finite(sd_log_bouma) & is.finite(N_crowding) & N_crowding > 0,
+        sd_log_bouma / sqrt(N_crowding),
+        NA_real_
+      ),
+      se_log_acuity = dplyr::if_else(
+        is.finite(sd_log_acuity) & is.finite(N_acuity) & N_acuity > 1,
+        sd_log_acuity / sqrt(N_acuity),
+        NA_real_
+      ),
+      se_log_r = sqrt(
+        dplyr::coalesce(se_log_crowding, 0)^2 +
+          dplyr::coalesce(se_log_acuity, 0)^2
+      ),
+      # Only keep SE when at least one component is available.
+      se_log_r = dplyr::if_else(
+        is.finite(se_log_crowding) | is.finite(se_log_acuity),
+        se_log_r,
+        NA_real_
+      ),
+      log10_r = log10(r),
+      r_lo = 10^(log10_r - se_log_r),
+      r_hi = 10^(log10_r + se_log_r)
     ) %>%
     filter(
       is.finite(r), r > 0,
       is.finite(bouma), bouma > 0,
       is.finite(fontSpacingReNominal), fontSpacingReNominal > 0
     )
+}
 
-  if (nrow(summary_data) == 0) {
-    return(NULL)
-  }
-
+font_scatter_legend_cols <- function(summary_data, font_colors = NULL) {
   summary_data <- summary_data %>%
     mutate(
       font_label = font_comparison_axis_label(font),
       font_label = factor(font_label, levels = sort(unique(font_label)))
     )
-
   cols <- resolve_font_colors(summary_data$font_label, {
     if (is.null(font_colors)) {
       NULL
@@ -872,10 +916,26 @@ crowding_acuity_size_ratio_vs_bouma_scatter <- function(df_list, font_colors = N
       NULL
     }
   })
+  list(data = summary_data, cols = cols)
+}
 
-  # Equal log-decade length on x and y (both log10 → coord_fixed ratio 1).
+# One point per font: Crowding:Acuity size ratio r vs Bouma factor,
+# with vertical ±SE(log r) error bars on the log scale.
+crowding_acuity_size_ratio_vs_bouma_scatter <- function(df_list, font_colors = NULL) {
+  summary_data <- prepare_crowding_acuity_size_ratio_data(df_list)
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  styled <- font_scatter_legend_cols(summary_data, font_colors)
+  summary_data <- styled$data
+  cols <- styled$cols
+
+  # Equal log-decade length on x and y; pad for error-bar extent.
+  y_vals <- c(summary_data$r, summary_data$r_lo, summary_data$r_hi)
+  y_vals <- y_vals[is.finite(y_vals) & y_vals > 0]
   x_range <- range(log10(summary_data$bouma), finite = TRUE)
-  y_range <- range(log10(summary_data$r), finite = TRUE)
+  y_range <- range(log10(y_vals), finite = TRUE)
   x_span <- diff(x_range)
   y_span <- diff(y_range)
   pad <- 0.05 * max(x_span, y_span, 0.1)
@@ -886,6 +946,12 @@ crowding_acuity_size_ratio_vs_bouma_scatter <- function(df_list, font_colors = N
   y_lim <- 10^c(y_mid - half, y_mid + half)
 
   ggplot(summary_data, aes(x = bouma, y = r, color = font_label)) +
+    geom_errorbar(
+      aes(ymin = r_lo, ymax = r_hi),
+      width = 0,
+      linewidth = 0.6,
+      na.rm = TRUE
+    ) +
     geom_point(size = 3.5) +
     scale_x_log10(limits = x_lim) +
     scale_y_log10(limits = y_lim) +
@@ -907,6 +973,51 @@ crowding_acuity_size_ratio_vs_bouma_scatter <- function(df_list, font_colors = N
     labs(
       subtitle = "Crowding:Acuity size ratio vs Bouma factor",
       x = "Bouma factor",
+      y = "Crowding:Acuity size ratio r"
+    ) +
+    guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
+}
+
+# Hybrid: Crowding:Acuity size ratio r vs SD of log acuity (both log-spaced).
+crowding_acuity_size_ratio_vs_sd_log_acuity_scatter <- function(df_list,
+                                                                font_colors = NULL) {
+  summary_data <- prepare_crowding_acuity_size_ratio_data(df_list)
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  summary_data <- summary_data %>%
+    filter(is.finite(sd_log_acuity), sd_log_acuity > 0, N_acuity >= 2)
+
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  styled <- font_scatter_legend_cols(summary_data, font_colors)
+  summary_data <- styled$data
+  cols <- styled$cols
+
+  ggplot(summary_data, aes(x = sd_log_acuity, y = r, color = font_label)) +
+    geom_point(size = 3.5) +
+    scale_x_log10() +
+    scale_y_log10() +
+    annotation_logticks(
+      sides = "bl",
+      short = unit(2, "pt"),
+      mid = unit(2, "pt"),
+      long = unit(7, "pt")
+    ) +
+    scale_color_manual(values = cols, name = "Font") +
+    theme_bw() +
+    theme(
+      legend.position = "bottom",
+      legend.box = "horizontal",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    ) +
+    labs(
+      subtitle = "Crowding:Acuity size ratio vs SD of log acuity",
+      x = "SD of log acuity",
       y = "Crowding:Acuity size ratio r"
     ) +
     guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))

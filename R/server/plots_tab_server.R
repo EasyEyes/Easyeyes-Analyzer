@@ -352,6 +352,10 @@ register_plots_tab_server <- function(output,
       list(
         plot = crowding_acuity_size_ratio_vs_bouma_scatter(df_list(), colorFont()),
         fname = 'crowding-acuity-size-ratio-vs-bouma'
+      ),
+      list(
+        plot = crowding_acuity_size_ratio_vs_sd_log_acuity_scatter(df_list(), colorFont()),
+        fname = 'crowding-acuity-size-ratio-vs-sd-log-acuity'
       )
     )
     
