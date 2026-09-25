@@ -356,7 +356,16 @@ register_plots_tab_server <- function(output,
       list(
         plot = crowding_acuity_size_ratio_vs_sd_log_acuity_scatter(df_list(), colorFont()),
         fname = 'crowding-acuity-size-ratio-vs-sd-log-acuity'
+      ),
+      list(
+        plot = crowding_acuity_size_ratio_vs_acuity_xheight_scatter(df_list(), colorFont()),
+        fname = 'crowding-acuity-size-ratio-vs-acuity-xheight'
       )
+      # Waiting on Table-1 crowding x-height formula before enabling.
+      # list(
+      #   plot = crowding_xheight_vs_acuity_xheight_scatter(df_list(), colorFont()),
+      #   fname = 'crowding-xheight-vs-acuity-xheight'
+      # )
     )
     
     for (call in comfort_beauty_plots) {

@@ -146,7 +146,7 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
   qa_chunks <- list()
   phrases_chunks <- list()
   px_chunks <- list()
-  bbox_chunks <- list()
+  font_metric_chunks <- list()
   qa_sessions_with_cols <- 0L
   qa_sessions_missing_cols <- 0L
   qa_nickname_rows <- 0L
@@ -174,7 +174,8 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
       fontBoundingBoxReNominalRect = tibble(
         participant = character(),
         font = character(),
-        fontBoundingBoxReNominalRect = character()
+        fontBoundingBoxReNominalRect = character(),
+        fontXHeightReNominal = numeric()
       )
     ))
   }
@@ -228,12 +229,17 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
       }
     }
 
-    # Font bounding-box rect (for corrected nominal width).
+    # Font bounding-box rect + x-height (for corrected nominal width / x-height size).
     if (all(c("participant", "font", "fontBoundingBoxReNominalRect") %in% names(df))) {
-      bbox_rows <- df %>%
+      metric_rows <- df %>%
         mutate(
           font = str_trim(as.character(font)),
-          fontBoundingBoxReNominalRect = as.character(fontBoundingBoxReNominalRect)
+          fontBoundingBoxReNominalRect = as.character(fontBoundingBoxReNominalRect),
+          fontXHeightReNominal = if ("fontXHeightReNominal" %in% names(df)) {
+            suppressWarnings(as.numeric(fontXHeightReNominal))
+          } else {
+            NA_real_
+          }
         ) %>%
         filter(
           !is.na(font), font != "", font != "Roboto",
@@ -244,10 +250,14 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         group_by(participant, font) %>%
         summarize(
           fontBoundingBoxReNominalRect = dplyr::first(fontBoundingBoxReNominalRect),
+          fontXHeightReNominal = {
+            vals <- fontXHeightReNominal[is.finite(fontXHeightReNominal) & fontXHeightReNominal > 0]
+            if (length(vals)) dplyr::first(vals) else NA_real_
+          },
           .groups = "drop"
         )
-      if (nrow(bbox_rows) > 0) {
-        bbox_chunks[[length(bbox_chunks) + 1]] <- bbox_rows
+      if (nrow(metric_rows) > 0) {
+        font_metric_chunks[[length(font_metric_chunks) + 1]] <- metric_rows
       }
     }
 
@@ -409,11 +419,12 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
       )
     ),
     fontBoundingBoxReNominalRect = bind_threshold_chunks(
-      bbox_chunks,
+      font_metric_chunks,
       tibble(
         participant = character(),
         font = character(),
-        fontBoundingBoxReNominalRect = character()
+        fontBoundingBoxReNominalRect = character(),
+        fontXHeightReNominal = numeric()
       )
     )
   )
@@ -1066,13 +1077,21 @@ generate_threshold <-
         acuity <- acuity %>%
           mutate(
             fontBoundingBoxReNominalRect = NA_character_,
-            fontBoundingBoxWidthReNominal = NA_real_
+            fontBoundingBoxWidthReNominal = NA_real_,
+            fontXHeightReNominal = NA_real_
           )
       } else {
+        if (!"fontXHeightReNominal" %in% names(bbox_tbl)) {
+          bbox_tbl$fontXHeightReNominal <- NA_real_
+        }
         bbox_tbl <- bbox_tbl %>%
           group_by(participant, font) %>%
           summarize(
             fontBoundingBoxReNominalRect = dplyr::first(fontBoundingBoxReNominalRect),
+            fontXHeightReNominal = {
+              vals <- fontXHeightReNominal[is.finite(fontXHeightReNominal) & fontXHeightReNominal > 0]
+              if (length(vals)) dplyr::first(vals) else NA_real_
+            },
             .groups = "drop"
           )
         acuity <- acuity %>%

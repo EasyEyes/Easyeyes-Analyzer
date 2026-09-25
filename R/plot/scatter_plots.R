@@ -799,7 +799,9 @@ acuity_vs_crowding_by_font_scatter <- function(df_list, font_colors = NULL) {
 # r = (crowdingThresholdDeg / fontSpacingReNominal) /
 #     (acuityDeg / fontBoundingBoxWidthReNominal)
 # Also computes SE(log10 r) from Table-1 SD(log Bouma)/sqrt(N_crowding) and
-# sample SD(log acuity)/sqrt(N_acuity).
+# sample SD(log acuity)/sqrt(N_acuity), plus x-height sizes:
+#   acuityXHeightDeg = acuityBoundingBoxWidthDeg * xHeight / bboxWidth
+#   crowdingXHeightDeg = crowdingSpacingDeg * xHeight / spacing
 prepare_crowding_acuity_size_ratio_data <- function(df_list) {
   acuity <- df_list$acuity
   empty <- tibble::tibble()
@@ -823,6 +825,9 @@ prepare_crowding_acuity_size_ratio_data <- function(df_list) {
   if (!"fontBoundingBoxWidthReNominal" %in% names(acuity)) {
     return(empty)
   }
+  if (!"fontXHeightReNominal" %in% names(acuity)) {
+    acuity$fontXHeightReNominal <- NA_real_
+  }
 
   bouma_table <- load_crowding24_bouma_table()
   if (nrow(bouma_table) == 0) {
@@ -834,12 +839,14 @@ prepare_crowding_acuity_size_ratio_data <- function(df_list) {
       log_acuity = suppressWarnings(as.numeric(questMeanAtEndOfTrialsLoop)),
       fontBoundingBoxWidthReNominal = suppressWarnings(
         as.numeric(fontBoundingBoxWidthReNominal)
-      )
+      ),
+      fontXHeightReNominal = suppressWarnings(as.numeric(fontXHeightReNominal))
     ) %>%
     filter(is.finite(log_acuity)) %>%
     group_by(font) %>%
     summarise(
-      acuityDeg = 10^mean(log_acuity, na.rm = TRUE),
+      # quest threshold is acuity as bounding-box width (deg)
+      acuityBoundingBoxWidthDeg = 10^mean(log_acuity, na.rm = TRUE),
       sd_log_acuity = sd(log_acuity, na.rm = TRUE),
       N_acuity = dplyr::n(),
       fontBoundingBoxWidthReNominal = median(
@@ -847,10 +854,16 @@ prepare_crowding_acuity_size_ratio_data <- function(df_list) {
                                         fontBoundingBoxWidthReNominal > 0],
         na.rm = TRUE
       ),
+      fontXHeightReNominal = median(
+        fontXHeightReNominal[is.finite(fontXHeightReNominal) &
+                               fontXHeightReNominal > 0],
+        na.rm = TRUE
+      ),
       .groups = "drop"
     ) %>%
+    mutate(acuityDeg = acuityBoundingBoxWidthDeg) %>%
     filter(
-      is.finite(acuityDeg), acuityDeg > 0,
+      is.finite(acuityBoundingBoxWidthDeg), acuityBoundingBoxWidthDeg > 0,
       is.finite(fontBoundingBoxWidthReNominal),
       fontBoundingBoxWidthReNominal > 0
     )
@@ -864,8 +877,14 @@ prepare_crowding_acuity_size_ratio_data <- function(df_list) {
     inner_join(font_map, by = c("font" = "archive_font")) %>%
     mutate(
       crowding_over_spacing = crowding_deg / fontSpacingReNominal,
-      acuity_over_bbox = acuityDeg / fontBoundingBoxWidthReNominal,
+      acuity_over_bbox = acuityBoundingBoxWidthDeg / fontBoundingBoxWidthReNominal,
       r = crowding_over_spacing / acuity_over_bbox,
+      # Convert bounding-box acuity threshold → x-height deg
+      acuityXHeightDeg = acuityBoundingBoxWidthDeg *
+        fontXHeightReNominal / fontBoundingBoxWidthReNominal,
+      # Convert spacing crowding threshold → x-height deg
+      crowdingXHeightDeg = crowding_deg *
+        fontXHeightReNominal / fontSpacingReNominal,
       # SE(log crowding) uses Table-1 SD(log Bouma); additive constants cancel in SD.
       se_log_crowding = dplyr::if_else(
         is.finite(sd_log_bouma) & is.finite(N_crowding) & N_crowding > 0,
@@ -894,7 +913,12 @@ prepare_crowding_acuity_size_ratio_data <- function(df_list) {
       se_log_bouma = se_log_crowding,
       log10_bouma = log10(bouma),
       bouma_lo = 10^(log10_bouma - se_log_bouma),
-      bouma_hi = 10^(log10_bouma + se_log_bouma)
+      bouma_hi = 10^(log10_bouma + se_log_bouma),
+      # Horizontal ±SE on acuityXHeight: same log-SE as acuity (scale factor cancels).
+      # User asked to use SD of log Bouma for horizontal bars on the x-height plot.
+      log10_acuity_xheight = log10(acuityXHeightDeg),
+      acuityXHeight_lo = 10^(log10_acuity_xheight - se_log_bouma),
+      acuityXHeight_hi = 10^(log10_acuity_xheight + se_log_bouma)
     ) %>%
     filter(
       is.finite(r), r > 0,
@@ -1032,6 +1056,146 @@ crowding_acuity_size_ratio_vs_sd_log_acuity_scatter <- function(df_list,
       subtitle = "Crowding:Acuity size ratio vs SD of log acuity",
       x = "SD of log acuity",
       y = "Crowding:Acuity size ratio r"
+    ) +
+    guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
+}
+
+# Equal-aspect log10 limits covering points (and optional error-bar extents).
+equal_log10_limits <- function(x, y) {
+  x <- x[is.finite(x) & x > 0]
+  y <- y[is.finite(y) & y > 0]
+  if (length(x) == 0 || length(y) == 0) {
+    return(list(x = c(NA_real_, NA_real_), y = c(NA_real_, NA_real_)))
+  }
+  x_range <- range(log10(x), finite = TRUE)
+  y_range <- range(log10(y), finite = TRUE)
+  x_span <- diff(x_range)
+  y_span <- diff(y_range)
+  pad <- 0.05 * max(x_span, y_span, 0.1)
+  half <- 0.5 * max(x_span, y_span) + pad
+  list(
+    x = 10^c(mean(x_range) - half, mean(x_range) + half),
+    y = 10^c(mean(y_range) - half, mean(y_range) + half)
+  )
+}
+
+# Crowding:Acuity size ratio r vs acuity x-height (deg), with horizontal
+# ±SE from Table-1 SD(log Bouma)/sqrt(N).
+crowding_acuity_size_ratio_vs_acuity_xheight_scatter <- function(df_list,
+                                                                 font_colors = NULL) {
+  summary_data <- prepare_crowding_acuity_size_ratio_data(df_list)
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  summary_data <- summary_data %>%
+    filter(
+      is.finite(acuityXHeightDeg), acuityXHeightDeg > 0,
+      is.finite(fontXHeightReNominal), fontXHeightReNominal > 0
+    )
+
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  styled <- font_scatter_legend_cols(summary_data, font_colors)
+  summary_data <- styled$data
+  cols <- styled$cols
+
+  lims <- equal_log10_limits(
+    c(summary_data$acuityXHeightDeg, summary_data$acuityXHeight_lo, summary_data$acuityXHeight_hi),
+    c(summary_data$r, summary_data$r_lo, summary_data$r_hi)
+  )
+
+  ggplot(summary_data, aes(x = acuityXHeightDeg, y = r, color = font_label)) +
+    geom_errorbar(
+      aes(ymin = r_lo, ymax = r_hi),
+      width = 0,
+      linewidth = 0.6,
+      na.rm = TRUE
+    ) +
+    geom_errorbarh(
+      aes(xmin = acuityXHeight_lo, xmax = acuityXHeight_hi),
+      height = 0,
+      linewidth = 0.6,
+      na.rm = TRUE
+    ) +
+    geom_point(size = 3.5) +
+    scale_x_log10(limits = lims$x) +
+    scale_y_log10(limits = lims$y) +
+    coord_fixed(ratio = 1) +
+    annotation_logticks(
+      sides = "bl",
+      short = unit(2, "pt"),
+      mid = unit(2, "pt"),
+      long = unit(7, "pt")
+    ) +
+    scale_color_manual(values = cols, name = "Font") +
+    theme_bw() +
+    theme(
+      legend.position = "bottom",
+      legend.box = "horizontal",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    ) +
+    labs(
+      subtitle = "Crowding:Acuity size ratio vs acuity x-height",
+      x = "Acuity x-height (deg)",
+      y = "Crowding:Acuity size ratio r"
+    ) +
+    guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
+}
+
+# Crowding x-height vs acuity x-height (both deg, log-spaced).
+crowding_xheight_vs_acuity_xheight_scatter <- function(df_list, font_colors = NULL) {
+  summary_data <- prepare_crowding_acuity_size_ratio_data(df_list)
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  summary_data <- summary_data %>%
+    filter(
+      is.finite(acuityXHeightDeg), acuityXHeightDeg > 0,
+      is.finite(crowdingXHeightDeg), crowdingXHeightDeg > 0,
+      is.finite(fontXHeightReNominal), fontXHeightReNominal > 0
+    )
+
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  styled <- font_scatter_legend_cols(summary_data, font_colors)
+  summary_data <- styled$data
+  cols <- styled$cols
+
+  lims <- equal_log10_limits(
+    summary_data$acuityXHeightDeg,
+    summary_data$crowdingXHeightDeg
+  )
+
+  ggplot(summary_data, aes(x = acuityXHeightDeg, y = crowdingXHeightDeg, color = font_label)) +
+    geom_point(size = 3.5) +
+    scale_x_log10(limits = lims$x) +
+    scale_y_log10(limits = lims$y) +
+    coord_fixed(ratio = 1) +
+    annotation_logticks(
+      sides = "bl",
+      short = unit(2, "pt"),
+      mid = unit(2, "pt"),
+      long = unit(7, "pt")
+    ) +
+    scale_color_manual(values = cols, name = "Font") +
+    theme_bw() +
+    theme(
+      legend.position = "bottom",
+      legend.box = "horizontal",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    ) +
+    labs(
+      subtitle = "Crowding x-height vs acuity x-height",
+      x = "Acuity x-height (deg)",
+      y = "Crowding x-height (deg)"
     ) +
     guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
 }
