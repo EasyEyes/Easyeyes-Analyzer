@@ -549,6 +549,155 @@ CROWDING24_FONT_BRIDGE <- tibble::tibble(
   )
 )
 
+# Paper-style two-letter abbreviations + filenames to look for under fonts/
+# (app-bundled; required for shinyapps.io). Prefer .otf/.ttf — ragg/systemfonts
+# do not reliably render .woff/.woff2.
+CROWDING24_FONT_ABBREVS <- tibble::tibble(
+  excel_font = CROWDING24_FONT_BRIDGE$excel_font,
+  abbr = c(
+    "Ca", "Ag", "Ar", "Ba", "Co", "Ed", "Ex", "Fr", "Ge", "Ha",
+    "Le", "Le", "Li", "Mu", "Om", "Op", "Pr", "Ro", "Sa", "Sc",
+    "Th", "Ti", "Ti", "Za"
+  ),
+  # Search order in fonts/; first existing file wins.
+  app_font_files = I(list(
+    c("Caslon.otf", "Caslon.ttf", "AdobeCaslon.otf", "Adobe Caslon Regular.ttf"),
+    c("Agoesa.otf", "AgoesaDisplay-Regular.otf", "AgoesaDisplayRegular.otf",
+      "AgoesaDisplayRegular.ttf"),
+    c("Arial.ttf", "Arial.otf", "Arial Regular.ttf"),
+    c("Baskerville.otf", "Baskerville.ttf", "Baskerville Pro Regular.otf"),
+    c("Courier.ttf", "Courier.otf", "CourierPrime.ttf", "Courier Prime.ttf"),
+    c("Edwardian.ttf", "Edwardian.otf", "EdwardianScript.ttf"),
+    c("Extenda 10 Pica.otf", "Extenda10Pica.otf", "Extenda.otf", "Extenda.ttf"),
+    c("Frutiger.otf", "Frutiger.ttf", "Frutiger Pro 55 Roman.otf"),
+    c("Georgia.ttf", "Georgia.otf", "Georgia Regular.ttf"),
+    c("HautRelief.otf", "HautRelief.ttf", "Haut Relief NF.otf"),
+    c("LeMonde.otf", "LeMonde.ttf", "Le Monde Livre Std Regular.otf"),
+    c("Letraflex.otf", "Letraflex.ttf", "Letraflex Regular.otf"),
+    c("LiebeLotte.otf", "LiebeLotte.ttf"),
+    c("Museo.otf", "Museo.ttf", "MuseoSans.otf", "Museo Sans 500.otf"),
+    c("Omfug.otf", "Omfug.ttf", "OMFUG.otf"),
+    c("Optimistic.otf", "Optimistic.ttf", "Optimistic Text.otf"),
+    c("ProximaNova.otf", "ProximaNova.ttf", "Proxima Nova.otf"),
+    c("Rollerscript.otf", "Rollerscript.ttf", "Rollerscript Smooth.otf"),
+    c("Sabon.otf", "Sabon.ttf", "Sabon Next Pro Regular.otf"),
+    c("ScarletWood.otf", "ScarletWood.ttf", "Scarlet Wood Bold.otf"),
+    c("TheSans.otf", "TheSans.ttf", "TheSans Plain.otf"),
+    c("Times New Roman.ttf", "TimesNewRoman.ttf", "TimesNewRoman.otf"),
+    c("Tiny.otf", "Tiny.ttf", "Tiny 5x3 100.otf"),
+    c("Zapfino.otf", "Zapfino.ttf", "Zapfino Extra Pro Regular.otf")
+  ))
+)
+
+.crowding24_registered_fonts <- new.env(parent = emptyenv())
+
+crowding24_app_fonts_dir <- function() {
+  dirs <- c(
+    file.path(getwd(), "fonts"),
+    "fonts"
+  )
+  for (d in dirs) {
+    if (dir.exists(d)) {
+      return(normalizePath(d, winslash = "/", mustWork = FALSE))
+    }
+  }
+  normalizePath(file.path(getwd(), "fonts"), winslash = "/", mustWork = FALSE)
+}
+
+find_crowding24_app_font_file <- function(filenames,
+                                          fonts_dir = crowding24_app_fonts_dir()) {
+  filenames <- as.character(filenames)
+  filenames <- filenames[!is.na(filenames) & nzchar(filenames)]
+  if (length(filenames) == 0 || !dir.exists(fonts_dir)) {
+    return(NA_character_)
+  }
+  existing <- list.files(fonts_dir, full.names = FALSE)
+  if (length(existing) == 0) {
+    return(NA_character_)
+  }
+  existing_lc <- tolower(existing)
+  for (fn in filenames) {
+    hit <- which(existing_lc == tolower(fn))
+    if (length(hit) > 0) {
+      return(file.path(fonts_dir, existing[[hit[[1]]]]))
+    }
+  }
+  # Stem match: "Arial.woff2" request can hit "Arial.ttf" already listed, but
+  # also allow any listed stem against any supported extension on disk.
+  stems <- unique(tolower(tools::file_path_sans_ext(filenames)))
+  for (stem in stems) {
+    hit <- which(tools::file_path_sans_ext(existing_lc) == stem &
+                   grepl("\\.(otf|ttf|ttc)$", existing_lc))
+    if (length(hit) > 0) {
+      return(file.path(fonts_dir, existing[[hit[[1]]]]))
+    }
+  }
+  NA_character_
+}
+
+# Register an app font file under a stable family name for geom_text(family=...).
+register_crowding24_app_font <- function(excel_font, path) {
+  family <- paste0("ee_", normalize_font_match_key(excel_font))
+  if (identical(.crowding24_registered_fonts[[family]], path)) {
+    return(family)
+  }
+  ok <- tryCatch({
+    systemfonts::register_font(name = family, plain = path)
+    TRUE
+  }, error = function(e) {
+    # Re-register after clearing prior entry with same name, if any.
+    tryCatch({
+      systemfonts::clear_registry()
+      # Re-register everything previously tracked, then this font.
+      prev <- as.list(.crowding24_registered_fonts)
+      rm(list = ls(envir = .crowding24_registered_fonts), envir = .crowding24_registered_fonts)
+      for (nm in names(prev)) {
+        systemfonts::register_font(name = nm, plain = prev[[nm]])
+        .crowding24_registered_fonts[[nm]] <- prev[[nm]]
+      }
+      systemfonts::register_font(name = family, plain = path)
+      TRUE
+    }, error = function(e2) FALSE)
+  })
+  if (!isTRUE(ok)) {
+    return(NA_character_)
+  }
+  .crowding24_registered_fonts[[family]] <- path
+  family
+}
+
+# Resolve each excel font to a family registered from fonts/ (deploy-safe).
+# Does not use machine system fonts. Missing files → "sans".
+resolve_crowding24_plot_font_families <- function(excel_fonts,
+                                                  abbrevs = CROWDING24_FONT_ABBREVS) {
+  excel_fonts <- as.character(excel_fonts)
+  out <- rep("sans", length(excel_fonts))
+  if (length(excel_fonts) == 0) {
+    return(out)
+  }
+  if (!requireNamespace("systemfonts", quietly = TRUE)) {
+    return(out)
+  }
+  fonts_dir <- crowding24_app_fonts_dir()
+  # Ensure ./fonts is scanned (systemfonts also auto-scans this folder).
+  tryCatch(systemfonts::scan_local_fonts(), error = function(e) invisible(NULL))
+
+  for (i in seq_along(excel_fonts)) {
+    row <- abbrevs[abbrevs$excel_font == excel_fonts[[i]], , drop = FALSE]
+    if (nrow(row) == 0) next
+    path <- find_crowding24_app_font_file(
+      unlist(row$app_font_files[[1]], use.names = FALSE),
+      fonts_dir = fonts_dir
+    )
+    if (is.na(path)) next
+    family <- register_crowding24_app_font(excel_fonts[[i]], path)
+    if (!is.na(family) && nzchar(family)) {
+      out[[i]] <- family
+    }
+  }
+  out
+}
+
 normalize_font_match_key <- function(fonts) {
   fonts <- as.character(fonts)
   fonts <- gsub("\u00AD", "", fonts, fixed = TRUE) # soft hyphen
@@ -569,7 +718,7 @@ load_crowding24_bouma_table <- function(path = CROWDING24_BOUMA_PATH,
     xHeightReNominal = numeric(),
     # Excel col G: spacing over nominal size
     fontSpacingReNominal = numeric(),
-    # Excel col D: Display / Script / Text:* → Text, Display, Script
+    # Excel col D: Display / Script / Text: Serif / Text: Sans Serif
     font_category = character(),
     # Excel col K: SD of log Bouma (= SD of log crowding, up to additive constant)
     sd_log_bouma = numeric(),
@@ -627,15 +776,16 @@ load_crowding24_bouma_table <- function(path = CROWDING24_BOUMA_PATH,
   kept_spacing <- spacing[keep]
   kept_sd <- sd_log_bouma[keep]
   kept_n <- n_crowding[keep]
-  # Map Table-1 style → Text / Display / Script (paper figure categories).
-  # Scarlet Wood is listed under Display in the figure key.
+  # Map Table-1 style → Text (sans/serif) / Display / Script (paper figure).
+  # Match "Sans Serif" before "Serif" so "Text: Sans Serif" is not lumped with serif.
   font_category <- dplyr::case_when(
+    grepl("^text:.*sans", kept_style, ignore.case = TRUE) ~ "Text (sans serif)",
+    grepl("^text:.*serif", kept_style, ignore.case = TRUE) ~ "Text (serif)",
     grepl("^text", kept_style, ignore.case = TRUE) ~ "Text",
     grepl("^display", kept_style, ignore.case = TRUE) ~ "Display",
     grepl("^script", kept_style, ignore.case = TRUE) ~ "Script",
     TRUE ~ NA_character_
   )
-  font_category[grepl("scarlet\\s*wood", kept_font, ignore.case = TRUE)] <- "Display"
   tibble::tibble(
     excel_font = kept_font,
     bouma = kept_bouma,
@@ -846,11 +996,27 @@ prepare_crowding_acuity_size_ratio_data <- function(df_list) {
   if (!"fontBoundingBoxWidthReNominal" %in% names(acuity) ||
       !any(is.finite(suppressWarnings(as.numeric(acuity$fontBoundingBoxWidthReNominal))))) {
     if (all(c("fontBoundingBoxReNominalRect", "pxPerCm") %in% names(acuity))) {
+      # Prefer new CSV width; else rect + optional ×k via height test (utility.R).
+      height_good <- font_bbox_good_height(acuity)
+      if (is.null(height_good)) {
+        height_good <- rep(NA_real_, nrow(acuity))
+      }
+      csv_width <- if ("fontBoundingBoxWidthReNominal" %in% names(acuity)) {
+        suppressWarnings(as.numeric(acuity$fontBoundingBoxWidthReNominal))
+      } else {
+        rep(NA_real_, nrow(acuity))
+      }
+      from_rect <- font_bbox_width_re_nominal(
+        acuity$fontBoundingBoxReNominalRect,
+        acuity$pxPerCm,
+        height_good = height_good
+      )
       acuity <- acuity %>%
         mutate(
-          fontBoundingBoxWidthReNominal = font_bbox_width_re_nominal(
-            fontBoundingBoxReNominalRect,
-            pxPerCm
+          fontBoundingBoxWidthReNominal = dplyr::if_else(
+            is.finite(csv_width) & csv_width > 0,
+            csv_width,
+            from_rect
           )
         )
     }
@@ -1096,6 +1262,7 @@ crowding_acuity_size_ratio_vs_sd_log_acuity_scatter <- function(df_list,
 }
 
 # Equal-aspect log10 limits covering points (and optional error-bar extents).
+# X and y share the same log-span length but are centered independently.
 equal_log10_limits <- function(x, y) {
   x <- x[is.finite(x) & x > 0]
   y <- y[is.finite(y) & y > 0]
@@ -1112,6 +1279,37 @@ equal_log10_limits <- function(x, y) {
     x = 10^c(mean(x_range) - half, mean(x_range) + half),
     y = 10^c(mean(y_range) - half, mean(y_range) + half)
   )
+}
+
+# Identical x/y log10 limits (union of both axes) so y = x is a true diagonal.
+shared_log10_limits <- function(x, y) {
+  vals <- c(x, y)
+  vals <- vals[is.finite(vals) & vals > 0]
+  if (length(vals) == 0) {
+    return(list(x = c(NA_real_, NA_real_), y = c(NA_real_, NA_real_)))
+  }
+  r <- range(log10(vals), finite = TRUE)
+  pad <- 0.05 * max(diff(r), 0.1)
+  lim <- 10^c(r[1] - pad, r[2] + pad)
+  list(x = lim, y = lim)
+}
+
+# Expand a log10 [lo, hi] limit so value lies strictly inside (for reference lines).
+expand_log10_limits_to_include <- function(lim, value, pad_frac = 0.05) {
+  if (length(lim) < 2 || !all(is.finite(lim)) || !is.finite(value) || value <= 0) {
+    return(lim)
+  }
+  log_lim <- log10(lim)
+  log_v <- log10(value)
+  span <- max(diff(log_lim), 0.1)
+  pad <- pad_frac * span
+  if (log_v <= log_lim[1]) {
+    log_lim[1] <- log_v - pad
+  }
+  if (log_v >= log_lim[2]) {
+    log_lim[2] <- log_v + pad
+  }
+  10^log_lim
 }
 
 # Crowding:Acuity size ratio r vs acuity x-height (deg), with horizontal
@@ -1141,8 +1339,16 @@ crowding_acuity_size_ratio_vs_acuity_xheight_scatter <- function(df_list,
     c(summary_data$acuityXHeightDeg, summary_data$acuityXHeight_lo, summary_data$acuityXHeight_hi),
     c(summary_data$r, summary_data$r_lo, summary_data$r_hi)
   )
+  # Keep horizontal r = 1 inside the panel (not clipped when all r > 1).
+  lims$y <- expand_log10_limits_to_include(lims$y, 1)
 
   ggplot(summary_data, aes(x = acuityXHeightDeg, y = r, color = font_label)) +
+    geom_hline(
+      yintercept = 1,
+      linetype = "longdash",
+      linewidth = 0.6,
+      color = "gray40"
+    ) +
     geom_errorbar(
       aes(ymin = r_lo, ymax = r_hi),
       width = 0,
@@ -1181,10 +1387,11 @@ crowding_acuity_size_ratio_vs_acuity_xheight_scatter <- function(df_list,
     guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
 }
 
-# Same as ratio vs acuity x-height, but colored by Text / Display / Script.
-# Colors matched to the paper figure (Text teal, Display magenta, Script salmon).
+# Colors for Text (sans) / Text (serif) / Display / Script.
+# Display & Script match the paper figure; Text is split into two hues.
 CROWDING24_FONT_CATEGORY_COLORS <- c(
-  Text = "#5CAFA9",
+  `Text (sans serif)` = "#5CAFA9",
+  `Text (serif)` = "#3A7CA5",
   Display = "#A84464",
   Script = "#F4A4A0"
 )
@@ -1196,17 +1403,22 @@ crowding_acuity_size_ratio_vs_acuity_xheight_by_category_scatter <- function(df_
     return(NULL)
   }
 
+  category_levels <- c(
+    "Text (sans serif)",
+    "Text (serif)",
+    "Display",
+    "Script"
+  )
+
   summary_data <- summary_data %>%
     filter(
       is.finite(acuityXHeightDeg), acuityXHeightDeg > 0,
       is.finite(archive_xHeightReNominal), archive_xHeightReNominal > 0,
-      !is.na(font_category), font_category != ""
+      !is.na(font_category), font_category != "",
+      font_category %in% category_levels
     ) %>%
     mutate(
-      font_category = factor(
-        font_category,
-        levels = c("Text", "Display", "Script")
-      )
+      font_category = factor(font_category, levels = category_levels)
     )
 
   if (nrow(summary_data) == 0) {
@@ -1217,12 +1429,20 @@ crowding_acuity_size_ratio_vs_acuity_xheight_by_category_scatter <- function(df_
     c(summary_data$acuityXHeightDeg, summary_data$acuityXHeight_lo, summary_data$acuityXHeight_hi),
     c(summary_data$r, summary_data$r_lo, summary_data$r_hi)
   )
+  # Keep horizontal r = 1 inside the panel (not clipped when all r > 1).
+  lims$y <- expand_log10_limits_to_include(lims$y, 1)
 
   cols <- CROWDING24_FONT_CATEGORY_COLORS[
     intersect(names(CROWDING24_FONT_CATEGORY_COLORS), levels(summary_data$font_category))
   ]
 
   ggplot(summary_data, aes(x = acuityXHeightDeg, y = r, color = font_category)) +
+    geom_hline(
+      yintercept = 1,
+      linetype = "longdash",
+      linewidth = 0.6,
+      color = "gray40"
+    ) +
     geom_errorbar(
       aes(ymin = r_lo, ymax = r_hi),
       width = 0,
@@ -1284,12 +1504,19 @@ crowding_xheight_vs_acuity_xheight_scatter <- function(df_list, font_colors = NU
   summary_data <- styled$data
   cols <- styled$cols
 
-  lims <- equal_log10_limits(
+  lims <- shared_log10_limits(
     summary_data$acuityXHeightDeg,
     summary_data$crowdingXHeightDeg
   )
 
   ggplot(summary_data, aes(x = acuityXHeightDeg, y = crowdingXHeightDeg, color = font_label)) +
+    geom_abline(
+      intercept = 0,
+      slope = 1,
+      linetype = "longdash",
+      linewidth = 0.6,
+      color = "gray40"
+    ) +
     geom_point(size = 3.5) +
     scale_x_log10(limits = lims$x) +
     scale_y_log10(limits = lims$y) +
@@ -1314,4 +1541,80 @@ crowding_xheight_vs_acuity_xheight_scatter <- function(df_list, font_colors = NU
       y = "Crowding x-height (deg)"
     ) +
     guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
+}
+
+# Same crowding vs acuity x-height plot, but each font is a two-letter
+# abbreviation drawn in that font (via systemfonts + ragg), not a colored dot.
+crowding_xheight_vs_acuity_xheight_font_abbrev_scatter <- function(df_list,
+                                                                   font_colors = NULL) {
+  summary_data <- prepare_crowding_acuity_size_ratio_data(df_list)
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  summary_data <- summary_data %>%
+    filter(
+      is.finite(acuityXHeightDeg), acuityXHeightDeg > 0,
+      is.finite(crowdingXHeightDeg), crowdingXHeightDeg > 0,
+      is.finite(xHeightReNominal), xHeightReNominal > 0,
+      is.finite(archive_xHeightReNominal), archive_xHeightReNominal > 0
+    )
+
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  abbrev_map <- CROWDING24_FONT_ABBREVS %>%
+    select(excel_font, abbr)
+
+  summary_data <- summary_data %>%
+    left_join(abbrev_map, by = "excel_font") %>%
+    mutate(
+      abbr = dplyr::if_else(
+        is.na(abbr) | abbr == "",
+        toupper(substr(gsub("[^A-Za-z]", "", excel_font), 1, 2)),
+        abbr
+      ),
+      plot_family = resolve_crowding24_plot_font_families(excel_font)
+    )
+
+  lims <- shared_log10_limits(
+    summary_data$acuityXHeightDeg,
+    summary_data$crowdingXHeightDeg
+  )
+
+  ggplot(summary_data, aes(x = acuityXHeightDeg, y = crowdingXHeightDeg)) +
+    geom_abline(
+      intercept = 0,
+      slope = 1,
+      linetype = "longdash",
+      linewidth = 0.6,
+      color = "gray40"
+    ) +
+    geom_text(
+      aes(label = abbr, family = plot_family),
+      size = 4.5,
+      color = "black",
+      show.legend = FALSE
+    ) +
+    scale_x_log10(limits = lims$x) +
+    scale_y_log10(limits = lims$y) +
+    coord_fixed(ratio = 1) +
+    annotation_logticks(
+      sides = "bl",
+      short = unit(2, "pt"),
+      mid = unit(2, "pt"),
+      long = unit(7, "pt")
+    ) +
+    theme_bw() +
+    theme(
+      legend.position = "none",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    ) +
+    labs(
+      subtitle = "Crowding x-height vs acuity x-height (font abbreviations)",
+      x = "Acuity x-height (deg)",
+      y = "Crowding x-height (deg)"
+    )
 }

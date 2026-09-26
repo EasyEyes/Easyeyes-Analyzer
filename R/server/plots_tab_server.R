@@ -372,6 +372,14 @@ register_plots_tab_server <- function(output,
         plot = crowding_xheight_vs_acuity_xheight_scatter(df_list(), colorFont()),
         fname = 'crowding-xheight-vs-acuity-xheight'
       )
+      # Temporary: font-abbrev plot needs bundled fonts/ files for shinyapps.io
+      # list(
+      #   plot = crowding_xheight_vs_acuity_xheight_font_abbrev_scatter(
+      #     df_list(),
+      #     colorFont()
+      #   ),
+      #   fname = 'crowding-xheight-vs-acuity-xheight-font-abbrev'
+      # )
     )
     
     for (call in comfort_beauty_plots) {

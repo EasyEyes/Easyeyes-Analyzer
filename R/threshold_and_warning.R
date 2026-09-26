@@ -175,7 +175,9 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         participant = character(),
         font = character(),
         fontBoundingBoxReNominalRect = character(),
-        fontXHeightReNominal = numeric()
+        fontXHeightReNominal = numeric(),
+        fontBoundingBoxHeightReNominal = numeric(),
+        fontBoundingBoxWidthReNominal = numeric()
       )
     ))
   }
@@ -229,14 +231,33 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
       }
     }
 
-    # Font bounding-box rect + x-height (for corrected nominal width / x-height size).
+    # Font bounding-box rect + related ReNominal metrics (width / height / x-height).
+    # See font_bbox_width_re_nominal() in utility.R for the old px↔pt scale bug.
     if (all(c("participant", "font", "fontBoundingBoxReNominalRect") %in% names(df))) {
+      height_col <- if ("fontBoundingBoxHeightReNominal" %in% names(df)) {
+        "fontBoundingBoxHeightReNominal"
+      } else if ("fontCharacterSetHeightReNominal" %in% names(df)) {
+        "fontCharacterSetHeightReNominal"
+      } else {
+        NULL
+      }
       metric_rows <- df %>%
         mutate(
           font = str_trim(as.character(font)),
           fontBoundingBoxReNominalRect = as.character(fontBoundingBoxReNominalRect),
           fontXHeightReNominal = if ("fontXHeightReNominal" %in% names(df)) {
             suppressWarnings(as.numeric(fontXHeightReNominal))
+          } else {
+            NA_real_
+          },
+          fontBoundingBoxHeightReNominal = if (!is.null(height_col)) {
+            suppressWarnings(as.numeric(.data[[height_col]]))
+          } else {
+            NA_real_
+          },
+          # New EasyEyes CSVs may already report corrected width; prefer when finite.
+          fontBoundingBoxWidthReNominal = if ("fontBoundingBoxWidthReNominal" %in% names(df)) {
+            suppressWarnings(as.numeric(fontBoundingBoxWidthReNominal))
           } else {
             NA_real_
           }
@@ -252,6 +273,18 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
           fontBoundingBoxReNominalRect = dplyr::first(fontBoundingBoxReNominalRect),
           fontXHeightReNominal = {
             vals <- fontXHeightReNominal[is.finite(fontXHeightReNominal) & fontXHeightReNominal > 0]
+            if (length(vals)) dplyr::first(vals) else NA_real_
+          },
+          fontBoundingBoxHeightReNominal = {
+            vals <- fontBoundingBoxHeightReNominal[
+              is.finite(fontBoundingBoxHeightReNominal) & fontBoundingBoxHeightReNominal > 0
+            ]
+            if (length(vals)) dplyr::first(vals) else NA_real_
+          },
+          fontBoundingBoxWidthReNominal = {
+            vals <- fontBoundingBoxWidthReNominal[
+              is.finite(fontBoundingBoxWidthReNominal) & fontBoundingBoxWidthReNominal > 0
+            ]
             if (length(vals)) dplyr::first(vals) else NA_real_
           },
           .groups = "drop"
@@ -424,7 +457,9 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         participant = character(),
         font = character(),
         fontBoundingBoxReNominalRect = character(),
-        fontXHeightReNominal = numeric()
+        fontXHeightReNominal = numeric(),
+        fontBoundingBoxHeightReNominal = numeric(),
+        fontBoundingBoxWidthReNominal = numeric()
       )
     )
   )
@@ -1057,9 +1092,10 @@ generate_threshold <-
       acuity <- acuity %>% mutate(phrasesColumnName = NA_character_)
     }
 
-    # Attach pxPerCm + fontBoundingBoxReNominalRect; compute corrected bbox width.
-    # fontBoundingBoxWidthReNominal = width*pxPerCm*2.54/72
-    # width = fontBoundingBoxReNominalRect[3]-fontBoundingBoxReNominalRect[1]
+    # Attach pxPerCm + fontBoundingBoxReNominalRect; compute nominal bbox width.
+    # Old EasyEyes CSVs need × (pxPerCm*2.54/72) iff Gus's height test says so;
+    # see font_bbox_width_re_nominal() in utility.R. Prefer CSV
+    # fontBoundingBoxWidthReNominal when already present and finite.
     if (nrow(acuity) > 0) {
       px_tbl <- extracted$pxPerCm
       if (is.null(px_tbl) || nrow(px_tbl) == 0) {
@@ -1078,11 +1114,18 @@ generate_threshold <-
           mutate(
             fontBoundingBoxReNominalRect = NA_character_,
             fontBoundingBoxWidthReNominal = NA_real_,
+            fontBoundingBoxHeightReNominal = NA_real_,
             fontXHeightReNominal = NA_real_
           )
       } else {
         if (!"fontXHeightReNominal" %in% names(bbox_tbl)) {
           bbox_tbl$fontXHeightReNominal <- NA_real_
+        }
+        if (!"fontBoundingBoxHeightReNominal" %in% names(bbox_tbl)) {
+          bbox_tbl$fontBoundingBoxHeightReNominal <- NA_real_
+        }
+        if (!"fontBoundingBoxWidthReNominal" %in% names(bbox_tbl)) {
+          bbox_tbl$fontBoundingBoxWidthReNominal <- NA_real_
         }
         bbox_tbl <- bbox_tbl %>%
           group_by(participant, font) %>%
@@ -1092,16 +1135,35 @@ generate_threshold <-
               vals <- fontXHeightReNominal[is.finite(fontXHeightReNominal) & fontXHeightReNominal > 0]
               if (length(vals)) dplyr::first(vals) else NA_real_
             },
+            fontBoundingBoxHeightReNominal = {
+              vals <- fontBoundingBoxHeightReNominal[
+                is.finite(fontBoundingBoxHeightReNominal) & fontBoundingBoxHeightReNominal > 0
+              ]
+              if (length(vals)) dplyr::first(vals) else NA_real_
+            },
+            fontBoundingBoxWidthReNominal_csv = {
+              vals <- fontBoundingBoxWidthReNominal[
+                is.finite(fontBoundingBoxWidthReNominal) & fontBoundingBoxWidthReNominal > 0
+              ]
+              if (length(vals)) dplyr::first(vals) else NA_real_
+            },
             .groups = "drop"
           )
         acuity <- acuity %>%
           left_join(bbox_tbl, by = c("participant", "font")) %>%
           mutate(
-            fontBoundingBoxWidthReNominal = font_bbox_width_re_nominal(
-              fontBoundingBoxReNominalRect,
-              pxPerCm
+            fontBoundingBoxWidthReNominal = dplyr::if_else(
+              is.finite(fontBoundingBoxWidthReNominal_csv) &
+                fontBoundingBoxWidthReNominal_csv > 0,
+              fontBoundingBoxWidthReNominal_csv,
+              font_bbox_width_re_nominal(
+                fontBoundingBoxReNominalRect,
+                pxPerCm,
+                height_good = fontBoundingBoxHeightReNominal
+              )
             )
-          )
+          ) %>%
+          select(-fontBoundingBoxWidthReNominal_csv)
       }
     }
 

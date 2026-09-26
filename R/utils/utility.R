@@ -12,7 +12,7 @@ ptToPx <- function(pt, pxPerCm) {
 }
 
 # Parse fontBoundingBoxReNominalRect strings like "[(-0.2,-0.3),(0.2,0.3)]"
-# into numeric coords; MATLAB-style width = nums[3]-nums[1].
+# into numeric coords; MATLAB-style width = nums[3]-nums[1], height = nums[4]-nums[2].
 parse_font_bbox_rect_nums <- function(s) {
   nums <- stringr::str_match_all(
     as.character(s),
@@ -30,12 +30,97 @@ bbox_width_from_font_rect <- function(s) {
   nums[3] - nums[1]
 }
 
-# Corrected nominal bounding-box width (points→cm scale via pxPerCm).
-font_bbox_width_re_nominal <- function(rect, px_per_cm) {
-  width <- vapply(as.character(rect), bbox_width_from_font_rect, numeric(1))
+bbox_height_from_font_rect <- function(s) {
+  nums <- parse_font_bbox_rect_nums(s)
+  if (length(nums) < 4) {
+    return(NA_real_)
+  }
+  nums[4] - nums[2]
+}
+
+# ---------------------------------------------------------------------------
+# fontBoundingBoxReNominalRect scale bug (EasyEyes / Acuity24Fonts archives)
+#
+# Background (Denis ↔ Gus, Sep 2026):
+#   - With targetSizeIsHeight=FALSE, acuity size is letter WIDTH in deg.
+#   - Width = ink width of the widest glyph in fontCharacterSet, re nominal size
+#     (glyphs on a shared baseline, horizontally centered; union bbox / nominal).
+#   - Older CSVs wrote fontBoundingBoxReNominalRect with a spurious px↔pt scale.
+#     Recover with k = pxPerCm * 2.54 / 72 (that participant's pxPerCm).
+#   - Fixed EasyEyes builds report the rect (and fontBoundingBoxWidthReNominal)
+#     already unitless re nominal — do NOT multiply by k again.
+#   - A separate reporting bug vertically recentered the box; width is unaffected.
+#     Height column fontCharacterSetHeightReNominal (renamed
+#     fontBoundingBoxHeightReNominal) was already correct and is used as h_good.
+#
+# How to decide whether this row still needs ×k (Gus; idempotent):
+#   h_maybeBuggy = height from fontBoundingBoxReNominalRect (y2 - y1)
+#   h_good       = fontBoundingBoxHeightReNominal, else fontCharacterSetHeightReNominal
+#   Apply ×k iff |h_good - h_maybeBuggy| > |h_good - k * h_maybeBuggy|
+# ---------------------------------------------------------------------------
+
+font_bbox_px_pt_scale <- function(px_per_cm) {
   px <- suppressWarnings(as.numeric(px_per_cm))
-  out <- width * px * 2.54 / 72
-  out[!(is.finite(width) & is.finite(px) & px > 0)] <- NA_real_
+  k <- px * 2.54 / 72
+  k[!(is.finite(px) & px > 0)] <- NA_real_
+  k
+}
+
+# TRUE when the rect still looks pre-fix (needs ×k).
+font_bbox_needs_px_pt_correction <- function(h_maybe_buggy, h_good, k) {
+  h_m <- suppressWarnings(as.numeric(h_maybe_buggy))
+  h_g <- suppressWarnings(as.numeric(h_good))
+  kk <- suppressWarnings(as.numeric(k))
+  ok <- is.finite(h_m) & h_m > 0 & is.finite(h_g) & h_g > 0 & is.finite(kk) & kk > 0
+  out <- rep(FALSE, length(h_m))
+  out[ok] <- abs(h_g[ok] - h_m[ok]) > abs(h_g[ok] - kk[ok] * h_m[ok])
+  out
+}
+
+# Pick the "good" height column from a data frame / named list of vectors.
+font_bbox_good_height <- function(df) {
+  if (is.null(df)) {
+    return(NULL)
+  }
+  if (is.data.frame(df) || is.list(df)) {
+    if ("fontBoundingBoxHeightReNominal" %in% names(df)) {
+      return(suppressWarnings(as.numeric(df[["fontBoundingBoxHeightReNominal"]])))
+    }
+    if ("fontCharacterSetHeightReNominal" %in% names(df)) {
+      return(suppressWarnings(as.numeric(df[["fontCharacterSetHeightReNominal"]])))
+    }
+  }
+  NULL
+}
+
+# Nominal bounding-box width from fontBoundingBoxReNominalRect.
+# Multiplies by k = pxPerCm*2.54/72 only when height_good says the rect is buggy.
+# If height_good is missing, falls back to applying ×k (legacy Acuity24Fonts
+# archives always needed it; safer for old data than skipping).
+font_bbox_width_re_nominal <- function(rect, px_per_cm, height_good = NULL) {
+  width <- vapply(as.character(rect), bbox_width_from_font_rect, numeric(1))
+  height_maybe <- vapply(as.character(rect), bbox_height_from_font_rect, numeric(1))
+  k <- font_bbox_px_pt_scale(px_per_cm)
+
+  n <- length(width)
+  if (is.null(height_good)) {
+    height_good <- rep(NA_real_, n)
+  } else {
+    height_good <- suppressWarnings(as.numeric(height_good))
+    if (length(height_good) == 1L && n > 1L) {
+      height_good <- rep(height_good, n)
+    }
+  }
+
+  needs_k <- font_bbox_needs_px_pt_correction(height_maybe, height_good, k)
+  # No usable h_good → keep legacy behavior (apply ×k) for old archives.
+  no_h <- !(is.finite(height_good) & height_good > 0)
+  needs_k[no_h & is.finite(k) & k > 0] <- TRUE
+
+  out <- width
+  out[needs_k] <- width[needs_k] * k[needs_k]
+  out[!(is.finite(width) & width > 0)] <- NA_real_
+  out[needs_k & !(is.finite(k) & k > 0)] <- NA_real_
   out
 }
 
