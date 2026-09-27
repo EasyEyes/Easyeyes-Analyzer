@@ -11,7 +11,9 @@ library(shiny)
 library(dplyr)
 library(readr)
 library(stringr)
-library(emojifont)
+library(emojifont) # enables showtext_auto(TRUE); do not turn it off globally
+# (that changes text sizes for every plot). Abbrev plots temporarily disable
+# showtext only inside ggsave_plots_display_png(), then restore it.
 library(ggpubr)
 library(shinyjs)
 library(lubridate)
@@ -21,11 +23,6 @@ library(patchwork)
 library(grid)
 library(gridExtra)
 library(ggnewscale)
-# library(showtext)
-# library(systemfonts)
-# Enables automatic font loading for showtext
-
-# showtext_auto(F)
 
 source("R/load_app.R")
 

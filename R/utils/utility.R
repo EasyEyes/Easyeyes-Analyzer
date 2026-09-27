@@ -746,28 +746,54 @@ ggsave_plots_display_png <- function(file,
     scale_axis_text = scale_axis_text
   )
 
+  # PNG theme sizes (e.g. axis_title=28) are calibrated for showtext_auto(TRUE)
+  # from emojifont. Turning showtext off makes those sizes ~50% larger on screen.
+  # Keep showtext on for all Plots-tab PNGs; register ee_* via sysfonts::font_add.
+  if (requireNamespace("showtext", quietly = TRUE)) {
+    tryCatch(showtext::showtext_auto(TRUE), error = function(e) invisible(NULL))
+  }
+
+  needs_ee_fonts <- FALSE
+  if (exists("plot_uses_crowding24_ee_fonts", mode = "function")) {
+    needs_ee_fonts <- isTRUE(plot_uses_crowding24_ee_fonts(plot))
+  }
+  if (needs_ee_fonts && exists("ensure_crowding24_plot_fonts_registered", mode = "function")) {
+    ee_fams <- if (exists("crowding24_ee_families_in_plot", mode = "function")) {
+      crowding24_ee_families_in_plot(plot)
+    } else {
+      NULL
+    }
+    ensure_crowding24_plot_fonts_registered(families = ee_fams)
+  }
+  on.exit({
+    if (needs_ee_fonts && exists("release_crowding24_plot_fonts", mode = "function")) {
+      release_crowding24_plot_fonts()
+    }
+  }, add = TRUE)
+
   tryCatch({
     ggplot2::ggsave(
-      file = file,
+      filename = file,
       plot = plot,
       width = geom$width_in,
       height = geom$height_in,
-      unit = "in",
+      units = "in",
       limitsize = limitsize,
       device = ragg::agg_png,
       dpi = geom$dpi
     )
   }, error = function(e) {
     log_error("Direct ragg render failed, falling back to svglite: ", conditionMessage(e))
+    # svglite cannot use systemfonts ee_* aliases — fall back without custom faces.
     tmp_svg <- tempfile(fileext = ".svg")
     ggplot2::ggsave(
-      file = tmp_svg,
+      filename = tmp_svg,
       plot = plot,
       width = geom$width_in,
       height = geom$height_in,
-      unit = "in",
+      units = "in",
       limitsize = limitsize,
-      device = svglite
+      device = svglite::svglite
     )
     rsvg::rsvg_png(tmp_svg, file, width = geom$png_w, height = geom$png_h)
   })

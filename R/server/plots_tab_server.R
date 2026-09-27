@@ -265,7 +265,15 @@ register_plots_tab_server <- function(output,
       list(plot = font_comparisons$comfort, fname = 'comfort-font-comparison-plot'),
       list(plot = font_comparisons$beauty, fname = 'beauty-font-comparison-plot'),
       list(plot = font_comparisons$acuity, fname = 'acuity-font-comparison-plot'),
-      list(plot = font_comparisons$familiarity, fname = 'familiarity-font-comparison-plot')
+      list(plot = font_comparisons$familiarity, fname = 'familiarity-font-comparison-plot'),
+      list(
+        plot = crowding_acuity_size_ratio_r_histogram(df_list(), colorFont()),
+        fname = 'crowding-acuity-size-ratio-r-histogram'
+      ),
+      list(
+        plot = crowding_acuity_size_ratio_r_dot_histogram(df_list(), colorFont()),
+        fname = 'crowding-acuity-size-ratio-r-dot-histogram-by-font-group'
+      )
     )
     
     for (call in plot_calls) {
@@ -366,20 +374,28 @@ register_plots_tab_server <- function(output,
           df_list(),
           colorFont()
         ),
-        fname = 'crowding-acuity-size-ratio-vs-acuity-xheight-by-category'
+        fname = 'crowding-acuity-size-ratio-vs-acuity-xheight-colored-by-font-group'
+      ),
+      list(
+        plot = crowding_xheight_vs_acuity_xheight_by_category_scatter(
+          df_list(),
+          colorFont()
+        ),
+        fname = 'crowding-xheight-vs-acuity-xheight-colored-by-font-group'
+      ),
+      # Font-file abbrev plots last: registering fonts/ is expensive; do it only
+      # for these two, then release the systemfonts registry.
+      list(
+        plot = crowding_acuity_size_ratio_vs_acuity_xheight_font_abbrev_scatter(
+          df_list(),
+          colorFont()
+        ),
+        fname = 'crowding-acuity-size-ratio-vs-acuity-xheight-font-abbrev'
       ),
       list(
         plot = crowding_xheight_vs_acuity_xheight_scatter(df_list(), colorFont()),
         fname = 'crowding-xheight-vs-acuity-xheight'
       )
-      # Temporary: font-abbrev plot needs bundled fonts/ files for shinyapps.io
-      # list(
-      #   plot = crowding_xheight_vs_acuity_xheight_font_abbrev_scatter(
-      #     df_list(),
-      #     colorFont()
-      #   ),
-      #   fname = 'crowding-xheight-vs-acuity-xheight-font-abbrev'
-      # )
     )
     
     for (call in comfort_beauty_plots) {

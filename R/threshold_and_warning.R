@@ -176,6 +176,7 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         font = character(),
         fontBoundingBoxReNominalRect = character(),
         fontXHeightReNominal = numeric(),
+        fontSpacingReNominal = numeric(),
         fontBoundingBoxHeightReNominal = numeric(),
         fontBoundingBoxWidthReNominal = numeric()
       )
@@ -250,6 +251,11 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
           } else {
             NA_real_
           },
+          fontSpacingReNominal = if ("fontSpacingReNominal" %in% names(df)) {
+            suppressWarnings(as.numeric(fontSpacingReNominal))
+          } else {
+            NA_real_
+          },
           fontBoundingBoxHeightReNominal = if (!is.null(height_col)) {
             suppressWarnings(as.numeric(.data[[height_col]]))
           } else {
@@ -273,6 +279,10 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
           fontBoundingBoxReNominalRect = dplyr::first(fontBoundingBoxReNominalRect),
           fontXHeightReNominal = {
             vals <- fontXHeightReNominal[is.finite(fontXHeightReNominal) & fontXHeightReNominal > 0]
+            if (length(vals)) dplyr::first(vals) else NA_real_
+          },
+          fontSpacingReNominal = {
+            vals <- fontSpacingReNominal[is.finite(fontSpacingReNominal) & fontSpacingReNominal > 0]
             if (length(vals)) dplyr::first(vals) else NA_real_
           },
           fontBoundingBoxHeightReNominal = {
@@ -458,6 +468,7 @@ collect_threshold_data_list_inputs <- function(data_list, summary_list_len = len
         font = character(),
         fontBoundingBoxReNominalRect = character(),
         fontXHeightReNominal = numeric(),
+        fontSpacingReNominal = numeric(),
         fontBoundingBoxHeightReNominal = numeric(),
         fontBoundingBoxWidthReNominal = numeric()
       )
@@ -1115,11 +1126,15 @@ generate_threshold <-
             fontBoundingBoxReNominalRect = NA_character_,
             fontBoundingBoxWidthReNominal = NA_real_,
             fontBoundingBoxHeightReNominal = NA_real_,
-            fontXHeightReNominal = NA_real_
+            fontXHeightReNominal = NA_real_,
+            fontSpacingReNominal = NA_real_
           )
       } else {
         if (!"fontXHeightReNominal" %in% names(bbox_tbl)) {
           bbox_tbl$fontXHeightReNominal <- NA_real_
+        }
+        if (!"fontSpacingReNominal" %in% names(bbox_tbl)) {
+          bbox_tbl$fontSpacingReNominal <- NA_real_
         }
         if (!"fontBoundingBoxHeightReNominal" %in% names(bbox_tbl)) {
           bbox_tbl$fontBoundingBoxHeightReNominal <- NA_real_
@@ -1133,6 +1148,10 @@ generate_threshold <-
             fontBoundingBoxReNominalRect = dplyr::first(fontBoundingBoxReNominalRect),
             fontXHeightReNominal = {
               vals <- fontXHeightReNominal[is.finite(fontXHeightReNominal) & fontXHeightReNominal > 0]
+              if (length(vals)) dplyr::first(vals) else NA_real_
+            },
+            fontSpacingReNominal = {
+              vals <- fontSpacingReNominal[is.finite(fontSpacingReNominal) & fontSpacingReNominal > 0]
               if (length(vals)) dplyr::first(vals) else NA_real_
             },
             fontBoundingBoxHeightReNominal = {
