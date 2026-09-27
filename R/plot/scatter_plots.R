@@ -1730,6 +1730,8 @@ log10_breaks_1_3 <- function(lims) {
 # Tick lengths via guide_axis_logticks: only powers of 10 are long; every other
 # decade mark (including labeled 3) uses the same ordinary short length — so
 # labels do not inflate tick size the way scale major ticks would.
+# Pair with theme(axis.ticks.length = unit(-…, "pt")) so ticks point into the
+# panel (guide_axis_logticks defaults to outside; annotation_logticks was inside).
 apply_equal_log10_scatter_scales <- function(lims) {
   logtick_guide <- ggplot2::guide_axis_logticks(
     long = 2.5,
@@ -1813,7 +1815,8 @@ crowding_acuity_size_ratio_vs_acuity_xheight_scatter <- function(df_list,
       legend.box = "horizontal",
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      axis.ticks.length = unit(4, "pt")
+      # Negative length → ticks inside the panel (like annotation_logticks).
+      axis.ticks.length = unit(-4, "pt")
     ) +
     labs(
       subtitle = "Crowding:Acuity size ratio vs acuity x-height",
@@ -1883,7 +1886,8 @@ crowding_acuity_size_ratio_vs_acuity_xheight_font_abbrev_scatter <- function(df_
       legend.position = "none",
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      axis.ticks.length = unit(4, "pt")
+      # Negative length → ticks inside the panel (like annotation_logticks).
+      axis.ticks.length = unit(-4, "pt")
     ) +
     labs(
       subtitle = "Crowding:Acuity size ratio vs acuity x-height (font abbreviations)",
@@ -1970,7 +1974,8 @@ crowding_acuity_size_ratio_vs_acuity_xheight_by_category_scatter <- function(df_
       legend.box = "horizontal",
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      axis.ticks.length = unit(4, "pt")
+      # Negative length → ticks inside the panel (like annotation_logticks).
+      axis.ticks.length = unit(-4, "pt")
     ) +
     labs(
       subtitle = paste0(
@@ -2039,7 +2044,8 @@ crowding_xheight_vs_acuity_xheight_scatter <- function(df_list, font_colors = NU
       legend.position = "none",
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      axis.ticks.length = unit(4, "pt")
+      # Negative length → ticks inside the panel (like annotation_logticks).
+      axis.ticks.length = unit(-4, "pt")
     ) +
     labs(
       subtitle = subtitle,
@@ -2106,7 +2112,8 @@ crowding_xheight_vs_acuity_xheight_by_category_scatter <- function(df_list,
       legend.box = "horizontal",
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      axis.ticks.length = unit(4, "pt")
+      # Negative length → ticks inside the panel (like annotation_logticks).
+      axis.ticks.length = unit(-4, "pt")
     ) +
     labs(
       subtitle = paste0(
@@ -2216,7 +2223,8 @@ crowding_acuity_size_ratio_r_histogram <- function(df_list, font_colors = NULL) 
       legend.position = "none",
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      axis.ticks.length = unit(4, "pt")
+      # Negative length → ticks inside the panel (like annotation_logticks).
+      axis.ticks.length = unit(-4, "pt")
     ) +
     labs(
       subtitle = "Histogram of Crowding:Acuity size ratio r",
@@ -2322,7 +2330,8 @@ crowding_acuity_size_ratio_r_dot_histogram <- function(df_list, font_colors = NU
       legend.box = "horizontal",
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      axis.ticks.length = unit(4, "pt")
+      # Negative length → ticks inside the panel (like annotation_logticks).
+      axis.ticks.length = unit(-4, "pt")
     ) +
     labs(
       subtitle = paste0(
