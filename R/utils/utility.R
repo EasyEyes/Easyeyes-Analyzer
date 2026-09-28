@@ -632,7 +632,9 @@ apply_direct_png_theme <- function(plot,
 
   for (layer_idx in seq_along(png_plot$layers)) {
     geom <- png_plot$layers[[layer_idx]]$geom
-    if (inherits(geom, "GeomText") || inherits(geom, "GeomLabel") || inherits(geom, "GeomTextNpc")) {
+    if (inherits(geom, "GeomText") || inherits(geom, "GeomLabel") ||
+        inherits(geom, "GeomTextNpc") || inherits(geom, "GeomTextRepel") ||
+        inherits(geom, "GeomLabelRepel")) {
       layer_label <- as.character(c(
         png_plot$layers[[layer_idx]]$aes_params$label,
         png_plot$layers[[layer_idx]]$geom_params$label
@@ -652,9 +654,19 @@ apply_direct_png_theme <- function(plot,
         png_plot$layers[[layer_idx]]$aes_params$size <- scaled_size
         png_plot$layers[[layer_idx]]$geom_params$size <- scaled_size
       } else if (is.null(size)) {
-        scaled_size <- base_size * text_layer_multiplier
-        png_plot$layers[[layer_idx]]$aes_params$size <- scaled_size
-        png_plot$layers[[layer_idx]]$geom_params$size <- scaled_size
+        # Size may be mapped (e.g. aes(size = abbrev_size) for equalized x-heights).
+        ld <- png_plot$layers[[layer_idx]]$data
+        scaled_mapped <- FALSE
+        if (is.data.frame(ld) && "abbrev_size" %in% names(ld)) {
+          png_plot$layers[[layer_idx]]$data$abbrev_size <-
+            suppressWarnings(as.numeric(ld$abbrev_size)) * text_layer_multiplier
+          scaled_mapped <- TRUE
+        }
+        if (!scaled_mapped) {
+          scaled_size <- base_size * text_layer_multiplier
+          png_plot$layers[[layer_idx]]$aes_params$size <- scaled_size
+          png_plot$layers[[layer_idx]]$geom_params$size <- scaled_size
+        }
       }
 
       lineheight <- png_plot$layers[[layer_idx]]$aes_params$lineheight

@@ -126,7 +126,15 @@ register_plots_tab_server <- function(output,
     list(plot = get_reading_hist(df_list()$reading),              fname = 'reading-speed-histogram'),
     list(plot = get_repeatedLetter_hist(df_list()$repeatedLetters), fname = 'repeated-letter-crowding-histogram'),
     list(plot = get_age_histogram(df_list()$age),                 fname = 'age-histogram'),
-    list(plot = get_grade_histogram(df_list()$age),               fname = 'grade-histogram')
+    list(plot = get_grade_histogram(df_list()$age),               fname = 'grade-histogram'),
+    list(
+      plot = crowding_acuity_size_ratio_r_histogram(df_list(), colorFont()),
+      fname = 'crowding-acuity-size-ratio-r-histogram'
+    ),
+    list(
+      plot = crowding_acuity_size_ratio_r_dot_histogram(df_list(), colorFont()),
+      fname = 'crowding-acuity-size-ratio-r-dot-histogram-by-font-group'
+    )
     # CQ accuracy histograms are added via reading_CQ_calls below
   )
 
@@ -265,15 +273,7 @@ register_plots_tab_server <- function(output,
       list(plot = font_comparisons$comfort, fname = 'comfort-font-comparison-plot'),
       list(plot = font_comparisons$beauty, fname = 'beauty-font-comparison-plot'),
       list(plot = font_comparisons$acuity, fname = 'acuity-font-comparison-plot'),
-      list(plot = font_comparisons$familiarity, fname = 'familiarity-font-comparison-plot'),
-      list(
-        plot = crowding_acuity_size_ratio_r_histogram(df_list(), colorFont()),
-        fname = 'crowding-acuity-size-ratio-r-histogram'
-      ),
-      list(
-        plot = crowding_acuity_size_ratio_r_dot_histogram(df_list(), colorFont()),
-        fname = 'crowding-acuity-size-ratio-r-dot-histogram-by-font-group'
-      )
+      list(plot = font_comparisons$familiarity, fname = 'familiarity-font-comparison-plot')
     )
     
     for (call in plot_calls) {
@@ -355,16 +355,16 @@ register_plots_tab_server <- function(output,
       ),
       list(
         plot = acuity_vs_crowding_by_font_scatter(df_list(), colorFont()),
-        fname = 'acuity-vs-crowding-by-font-bouma-table1'
+        fname = 'acuity-vs-crowding-by-font'
       ),
       list(
-        plot = crowding_acuity_size_ratio_vs_bouma_scatter(df_list(), colorFont()),
-        fname = 'crowding-acuity-size-ratio-vs-bouma'
+        plot = crowding_vs_acuity_by_font_scatter(df_list(), colorFont()),
+        fname = 'crowding-vs-acuity-by-font'
       ),
-      list(
-        plot = crowding_acuity_size_ratio_vs_sd_log_acuity_scatter(df_list(), colorFont()),
-        fname = 'crowding-acuity-size-ratio-vs-sd-log-acuity'
-      ),
+      # list(
+      #   plot = crowding_acuity_size_ratio_vs_sd_log_acuity_scatter(df_list(), colorFont()),
+      #   fname = 'crowding-acuity-size-ratio-vs-sd-log-acuity'
+      # ),
       list(
         plot = crowding_acuity_size_ratio_vs_acuity_xheight_scatter(df_list(), colorFont()),
         fname = 'crowding-acuity-size-ratio-vs-acuity-xheight'
@@ -383,15 +383,7 @@ register_plots_tab_server <- function(output,
         ),
         fname = 'crowding-xheight-vs-acuity-xheight-colored-by-font-group'
       ),
-      # Font-file abbrev plots last: registering fonts/ is expensive; do it only
-      # for these two, then release the systemfonts registry.
-      list(
-        plot = crowding_acuity_size_ratio_vs_acuity_xheight_font_abbrev_scatter(
-          df_list(),
-          colorFont()
-        ),
-        fname = 'crowding-acuity-size-ratio-vs-acuity-xheight-font-abbrev'
-      ),
+      # Font-file abbrev plot last: registering fonts/ is expensive; release after.
       list(
         plot = crowding_xheight_vs_acuity_xheight_scatter(df_list(), colorFont()),
         fname = 'crowding-xheight-vs-acuity-xheight'
