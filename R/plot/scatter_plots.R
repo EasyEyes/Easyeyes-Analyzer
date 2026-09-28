@@ -896,10 +896,28 @@ plot_uses_crowding24_ee_fonts <- function(plot) {
 }
 
 crowding24_ee_families_in_plot <- function(plot) {
-  if (is.null(plot) || !inherits(plot, "ggplot")) {
+  if (is.null(plot)) {
     return(character())
   }
-  fams <- character()
+  tagged <- attr(plot, "crowding24_ee_families", exact = TRUE)
+  if (is.character(tagged) && length(tagged) > 0) {
+    return(unique(tagged[startsWith(tagged, "ee_") & !is.na(tagged)]))
+  }
+  # patchwork: walk child plots (and the assembled ggplot layers if present).
+  if (inherits(plot, "patchwork")) {
+    fams <- character()
+    children <- tryCatch(plot$patches$plots, error = function(e) NULL)
+    if (is.list(children)) {
+      for (child in children) {
+        fams <- c(fams, crowding24_ee_families_in_plot(child))
+      }
+    }
+  } else {
+    fams <- character()
+  }
+  if (!inherits(plot, "ggplot")) {
+    return(unique(fams))
+  }
   for (layer in plot$layers) {
     fam <- layer$aes_params$family
     if (is.null(fam)) fam <- layer$geom_params$family
@@ -914,6 +932,14 @@ crowding24_ee_families_in_plot <- function(plot) {
     }
   }
   unique(fams)
+}
+
+# Tag a plot/patchwork so PNG render registers these ee_* faces.
+tag_crowding24_ee_families <- function(plot, families) {
+  families <- unique(as.character(families))
+  families <- families[startsWith(families, "ee_") & !is.na(families) & nzchar(families)]
+  attr(plot, "crowding24_ee_families") <- families
+  plot
 }
 
 # Measure lowercase "x" height (px at size/res) for an ee_* family or font file.
@@ -2259,6 +2285,246 @@ crowding_xheight_vs_acuity_xheight_by_category_scatter <- function(df_list,
       y = "Crowding x-height (deg)"
     ) +
     guides(color = guide_legend(title = "Font group", nrow = 1))
+}
+
+# Shared prep for crowding×acuity x-height scatters colored by individual font.
+prepare_crowding_xheight_vs_acuity_xheight_by_font_data <- function(df_list,
+                                                                     font_colors = NULL) {
+  summary_data <- prepare_crowding_acuity_size_ratio_data(df_list)
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  summary_data <- summary_data %>%
+    filter(
+      is.finite(acuityXHeightDeg), acuityXHeightDeg > 0,
+      is.finite(crowdingXHeightDeg), crowdingXHeightDeg > 0,
+      is.finite(archive_xHeightReNominal), archive_xHeightReNominal > 0
+    )
+
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  styled <- font_scatter_legend_cols(summary_data, font_colors)
+  summary_data <- styled$data
+  cols <- styled$cols
+  summary_data <- summary_data %>%
+    mutate(plot_family = resolve_crowding24_plot_font_families(excel_font))
+
+  lims <- shared_log10_limits(
+    summary_data$acuityXHeightDeg,
+    summary_data$crowdingXHeightDeg
+  )
+
+  list(data = summary_data, cols = cols, lims = lims)
+}
+
+# Crowding x-height vs acuity x-height, one colored point per font (standard legend).
+crowding_xheight_vs_acuity_xheight_by_font_scatter <- function(df_list,
+                                                               font_colors = NULL) {
+  prep <- prepare_crowding_xheight_vs_acuity_xheight_by_font_data(df_list, font_colors)
+  if (is.null(prep)) {
+    return(NULL)
+  }
+
+  ggplot(
+    prep$data,
+    aes(x = acuityXHeightDeg, y = crowdingXHeightDeg, color = font_label)
+  ) +
+    geom_abline(
+      intercept = 0,
+      slope = 1,
+      linetype = "longdash",
+      linewidth = 0.6,
+      color = "gray40"
+    ) +
+    geom_point(size = 3.5) +
+    apply_equal_log10_scatter_scales(prep$lims) +
+    scale_color_manual(values = prep$cols, name = "Font") +
+    theme_bw() +
+    theme(
+      legend.position = "top",
+      legend.box = "horizontal",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.ticks.length = unit(-4, "pt")
+    ) +
+    labs(
+      subtitle = "Crowding x-height vs acuity x-height",
+      x = "Acuity x-height (deg)",
+      y = "Crowding x-height (deg)"
+    ) +
+    guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
+}
+
+# Custom legend: each font name typeset in that font (ee_* / fonts/).
+crowding24_native_font_legend_plot <- function(labels,
+                                               families,
+                                               colors,
+                                               ncol = 4,
+                                               text_size = 3.2) {
+  labels <- as.character(labels)
+  families <- as.character(families)
+  n <- length(labels)
+  if (n == 0) {
+    return(ggplot() + theme_void())
+  }
+  if (length(families) == 1L) families <- rep(families, n)
+  if (length(families) != n) {
+    stop("labels and families must have the same length")
+  }
+  col_vals <- if (!is.null(names(colors))) {
+    unname(colors[as.character(labels)])
+  } else {
+    as.character(colors)[seq_len(n)]
+  }
+  col_vals[is.na(col_vals) | !nzchar(col_vals)] <- "gray40"
+
+  nrow_leg <- ceiling(n / ncol)
+  idx <- seq_len(n)
+  df <- data.frame(
+    label = labels,
+    family = families,
+    color = col_vals,
+    col = ((idx - 1L) %% ncol) + 1L,
+    row = nrow_leg - ((idx - 1L) %/% ncol),
+    stringsAsFactors = FALSE
+  )
+
+  # Slight x-height equalization so mixed faces read at similar size.
+  df$text_size <- crowding24_equalize_xheight_sizes(
+    df$family,
+    base_size = text_size
+  )
+
+  p <- ggplot(df, aes(x = col, y = row)) +
+    geom_point(aes(color = label), size = 3.2) +
+    scale_color_manual(values = stats::setNames(df$color, df$label), guide = "none") +
+    scale_x_continuous(limits = c(0.55, ncol + 0.95), expand = c(0, 0), breaks = NULL) +
+    scale_y_continuous(limits = c(0.45, nrow_leg + 0.55), expand = c(0, 0), breaks = NULL) +
+    coord_cartesian(clip = "off") +
+    theme_void() +
+    theme(
+      axis.text = element_blank(),
+      axis.ticks = element_blank(),
+      axis.title = element_blank(),
+      axis.line = element_blank(),
+      panel.grid = element_blank(),
+      plot.margin = margin(t = 2, r = 4, b = 2, l = 4)
+    )
+
+  fams <- unique(df$family)
+  for (fam in fams) {
+    layer_data <- df[df$family == fam, , drop = FALSE]
+    p <- p +
+      ggplot2::geom_text(
+        data = layer_data,
+        ggplot2::aes(x = col + 0.12, y = row, label = label, size = text_size),
+        family = fam,
+        hjust = 0,
+        vjust = 0.5,
+        color = "black",
+        show.legend = FALSE,
+        inherit.aes = FALSE
+      )
+  }
+  p + ggplot2::scale_size_identity()
+}
+
+# Copy of by-font x-height scatter: legend names drawn in each font's own face.
+crowding_xheight_vs_acuity_xheight_by_font_native_legend_scatter <- function(
+    df_list,
+    font_colors = NULL) {
+  prep <- prepare_crowding_xheight_vs_acuity_xheight_by_font_data(df_list, font_colors)
+  if (is.null(prep)) {
+    return(NULL)
+  }
+
+  summary_data <- prep$data
+  cols <- prep$cols
+  lims <- prep$lims
+
+  p_main <- ggplot(
+    summary_data,
+    aes(x = acuityXHeightDeg, y = crowdingXHeightDeg, color = font_label)
+  ) +
+    geom_abline(
+      intercept = 0,
+      slope = 1,
+      linetype = "longdash",
+      linewidth = 0.6,
+      color = "gray40"
+    ) +
+    geom_point(size = 3.5) +
+    apply_equal_log10_scatter_scales(lims) +
+    scale_color_manual(values = cols, guide = "none") +
+    theme_bw() +
+    theme(
+      legend.position = "none",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_blank(),
+      axis.ticks.length = unit(-4, "pt"),
+      axis.title = element_text(size = 14),
+      axis.text = element_text(size = 14),
+      plot.margin = margin(t = 0.05, r = 0.1, b = 0.1, l = 0.1, "inch")
+    ) +
+    labs(
+      x = "Acuity x-height (deg)",
+      y = "Crowding x-height (deg)"
+    )
+
+  # Title above legend (plot "subtitle" is the visible figure title).
+  # Experiment name is added later via add_experiment_title() as plot.title.
+  p_title <- ggplot() +
+    theme_void() +
+    theme(
+      plot.title = element_text(size = 9, hjust = 0, margin = margin(b = 0)),
+      plot.title.position = "plot",
+      plot.subtitle = element_text(size = 18, hjust = 0, margin = margin(t = 2, b = 2)),
+      plot.margin = margin(t = 0.05, r = 0.1, b = 0, l = 0.1, "inch")
+    ) +
+    labs(subtitle = "Crowding x-height vs acuity x-height")
+  attr(p_title, "crowding24_title_panel") <- TRUE
+
+  # One legend row per unique font_label (stable color / family).
+  legend_rows <- summary_data %>%
+    dplyr::distinct(font_label, plot_family, .keep_all = FALSE) %>%
+    dplyr::arrange(font_label)
+  legend_labels <- as.character(legend_rows$font_label)
+  legend_families <- as.character(legend_rows$plot_family)
+
+  p_leg <- crowding24_native_font_legend_plot(
+    labels = legend_labels,
+    families = legend_families,
+    colors = cols,
+    ncol = 4
+  )
+  attr(p_leg, "crowding24_legend_panel") <- TRUE
+
+  n_fonts <- length(legend_labels)
+  n_leg_rows <- max(1L, ceiling(n_fonts / 4))
+  leg_height <- 0.10 + 0.055 * n_leg_rows
+  # Room for experiment name + measure title.
+  title_height <- 0.14
+
+  if (!requireNamespace("patchwork", quietly = TRUE)) {
+    # Fallback: return main plot only if patchwork is unavailable.
+    return(tag_crowding24_ee_families(p_main, legend_families))
+  }
+
+  # Experiment name + title → native-font legend → scatter.
+  combined <- patchwork::wrap_plots(
+    p_title,
+    p_leg,
+    p_main,
+    ncol = 1,
+    heights = c(title_height, leg_height, 1)
+  )
+  combined <- tag_crowding24_ee_families(combined, legend_families)
+  attr(combined, "crowding24_native_legend_patchwork") <- TRUE
+  combined
 }
 
 # Alias kept for older call sites / plot lists.

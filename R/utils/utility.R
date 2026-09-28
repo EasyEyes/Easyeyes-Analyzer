@@ -156,6 +156,34 @@ add_experiment_title <- function(plot, experiment_name) {
  
   # Remove trailing underscore for title display
   short_name <- gsub("_$", "", short_name)
+
+  # Native-font legend patchwork: title panel is first (experiment name above
+  # measure subtitle); do not attach labs(title=) to the scatter panel or it
+  # lands under the legend.
+  if (isTRUE(attr(plot, "crowding24_native_legend_patchwork", exact = TRUE)) &&
+      inherits(plot, "patchwork") &&
+      is.list(plot$patches$plots)) {
+    for (i in seq_along(plot$patches$plots)) {
+      child <- plot$patches$plots[[i]]
+      if (!isTRUE(attr(child, "crowding24_title_panel", exact = TRUE))) {
+        next
+      }
+      child <- child +
+        ggplot2::labs(title = short_name) +
+        ggplot2::theme(
+          plot.title = ggplot2::element_text(
+            size = 9,
+            hjust = 0,
+            margin = ggplot2::margin(b = 0)
+          ),
+          plot.title.position = "plot"
+        )
+      attr(child, "crowding24_title_panel") <- TRUE
+      plot$patches$plots[[i]] <- child
+      return(plot)
+    }
+  }
+
   # Get the current title
   original_title <- plot$labels$title
   
@@ -591,6 +619,81 @@ apply_direct_png_theme <- function(plot,
     sizes$legend_text <- sizes$legend_text * text_scale
     sizes$strip <- sizes$strip * text_scale
     sizes$caption <- sizes$caption * text_scale
+  }
+
+  # Native-font legend plots are patchwork (title / legend / main).
+  # Recurse into children for sizing; never apply axis text globally via `&`
+  # (that reintroduces row/column numbers on the void legend panel).
+  if (inherits(plot, "patchwork")) {
+    png_plot <- unserialize(serialize(plot, NULL))
+    if (is.list(png_plot$patches$plots)) {
+      for (i in seq_along(png_plot$patches$plots)) {
+        child <- png_plot$patches$plots[[i]]
+        if (!(inherits(child, "ggplot") && !inherits(child, "patchwork"))) {
+          next
+        }
+        if (isTRUE(attr(child, "crowding24_legend_panel", exact = TRUE))) {
+          child2 <- unserialize(serialize(child, NULL))
+          for (layer_idx in seq_along(child2$layers)) {
+            geom <- child2$layers[[layer_idx]]$geom
+            if (inherits(geom, "GeomText") || inherits(geom, "GeomLabel")) {
+              size <- child2$layers[[layer_idx]]$aes_params$size
+              if (is.null(size)) size <- child2$layers[[layer_idx]]$geom_params$size
+              size_num <- if (length(size) == 1) suppressWarnings(as.numeric(size)) else NA_real_
+              if (!is.na(size_num)) {
+                scaled <- size_num * text_layer_multiplier
+                child2$layers[[layer_idx]]$aes_params$size <- scaled
+                child2$layers[[layer_idx]]$geom_params$size <- scaled
+              } else {
+                ld <- child2$layers[[layer_idx]]$data
+                if (is.data.frame(ld) && "text_size" %in% names(ld)) {
+                  child2$layers[[layer_idx]]$data$text_size <-
+                    suppressWarnings(as.numeric(ld$text_size)) * text_layer_multiplier
+                }
+              }
+            }
+          }
+          # Keep axes fully suppressed after PNG theme processing.
+          child2 <- child2 +
+            ggplot2::theme(
+              axis.text = ggplot2::element_blank(),
+              axis.ticks = ggplot2::element_blank(),
+              axis.title = ggplot2::element_blank(),
+              axis.line = ggplot2::element_blank()
+            )
+          attr(child2, "crowding24_legend_panel") <- TRUE
+          png_plot$patches$plots[[i]] <- child2
+        } else if (isTRUE(attr(child, "crowding24_title_panel", exact = TRUE))) {
+          child2 <- apply_direct_png_theme(
+            child,
+            profile = profile,
+            text_scale = text_scale,
+            scale_title = TRUE,
+            scale_subtitle = TRUE,
+            scale_axis_title = FALSE,
+            scale_axis_text = FALSE
+          )
+          attr(child2, "crowding24_title_panel") <- TRUE
+          png_plot$patches$plots[[i]] <- child2
+        } else {
+          png_plot$patches$plots[[i]] <- apply_direct_png_theme(
+            child,
+            profile = profile,
+            text_scale = text_scale,
+            scale_title = scale_title,
+            scale_subtitle = scale_subtitle,
+            scale_axis_title = scale_axis_title,
+            scale_axis_text = scale_axis_text
+          )
+        }
+      }
+    }
+    ee_tag <- attr(plot, "crowding24_ee_families", exact = TRUE)
+    if (is.character(ee_tag) && length(ee_tag) > 0) {
+      attr(png_plot, "crowding24_ee_families") <- ee_tag
+    }
+    attr(png_plot, "crowding24_native_legend_patchwork") <- TRUE
+    return(png_plot)
   }
 
   png_plot <- unserialize(serialize(plot, NULL))

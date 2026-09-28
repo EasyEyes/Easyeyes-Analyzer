@@ -353,10 +353,10 @@ register_plots_tab_server <- function(output,
         plot = acuity_geomean_vs_sd_scatter(df_list(), colorFont()),
         fname = 'acuity-geomean-vs-sd-log-acuity-by-font'
       ),
-      list(
-        plot = acuity_vs_crowding_by_font_scatter(df_list(), colorFont()),
-        fname = 'acuity-vs-crowding-by-font'
-      ),
+      # list(
+      #   plot = acuity_vs_crowding_by_font_scatter(df_list(), colorFont()),
+      #   fname = 'acuity-vs-crowding-by-font'
+      # ),
       list(
         plot = crowding_vs_acuity_by_font_scatter(df_list(), colorFont()),
         fname = 'crowding-vs-acuity-by-font'
@@ -383,7 +383,21 @@ register_plots_tab_server <- function(output,
         ),
         fname = 'crowding-xheight-vs-acuity-xheight-colored-by-font-group'
       ),
-      # Font-file abbrev plot last: registering fonts/ is expensive; release after.
+      list(
+        plot = crowding_xheight_vs_acuity_xheight_by_font_scatter(
+          df_list(),
+          colorFont()
+        ),
+        fname = 'crowding-xheight-vs-acuity-xheight-by-font'
+      ),
+      list(
+        plot = crowding_xheight_vs_acuity_xheight_by_font_native_legend_scatter(
+          df_list(),
+          colorFont()
+        ),
+        fname = 'crowding-xheight-vs-acuity-xheight-by-font-native-legend'
+      ),
+      # Font-file abbrev / native-legend plots last: registering fonts/ is expensive.
       list(
         plot = crowding_xheight_vs_acuity_xheight_scatter(df_list(), colorFont()),
         fname = 'crowding-xheight-vs-acuity-xheight'
@@ -1194,10 +1208,16 @@ register_plots_tab_server <- function(output,
         req(length(scatterDiagrams()$plotList) >= ii)
         app_profile_time(app_profiler, paste0("Plots scatter image ", ii), {
           tryCatch({
-            plot_to_save <- if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) {
-              scatterDiagrams()$plotList[[ii]]
+            plot_obj <- scatterDiagrams()$plotList[[ii]]
+            plot_to_save <- if (is_placeholder_plot(plot_obj)) {
+              plot_obj
+            } else if (isTRUE(attr(plot_obj, "crowding24_native_legend_patchwork", exact = TRUE))) {
+              # Legend panel must stay theme_void; main panel is already themed.
+              plot_obj
+            } else if (inherits(plot_obj, "patchwork")) {
+              plot_obj & plt_theme_scatter
             } else {
-              scatterDiagrams()$plotList[[ii]] + plt_theme_scatter
+              plot_obj + plt_theme_scatter
             }
             result <- render_plots_display_png(plot_to_save, width_in = 7, height_in = 7, disp_w = 700, limitsize = FALSE)
             if (isolate(scatterRenderedCount()) < ii) scatterRenderedCount(ii)
@@ -1222,9 +1242,17 @@ register_plots_tab_server <- function(output,
           req(length(scatterDiagrams()$plotList) >= ii)
           if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) return(invisible(NULL))
 
+          plot_obj <- scatterDiagrams()$plotList[[ii]]
+          plot_to_save <- if (isTRUE(attr(plot_obj, "crowding24_native_legend_patchwork", exact = TRUE))) {
+            plot_obj
+          } else if (inherits(plot_obj, "patchwork")) {
+            plot_obj & plt_theme_scatter
+          } else {
+            plot_obj + plt_theme_scatter
+          }
           save_plots_display_download(
             file = file,
-            plot = scatterDiagrams()$plotList[[ii]] + plt_theme_scatter,
+            plot = plot_to_save,
             file_type = downloadFileType(),
             width_in = 7,
             height_in = 7,
