@@ -2555,15 +2555,28 @@ prepare_crowding_acuity_ratio_r_hist_data <- function(df_list) {
     )
 }
 
-# Log-x limits for ratio-r histograms; always long enough to include r = 1.
+RATIO_R_HIST_CATEGORY_LEVELS <- c(
+  "Text (sans serif)",
+  "Text (serif)",
+  "Display",
+  "Script",
+  "Sloan"
+)
+
+ratio_r_hist_category_colors <- function() {
+  c(CROWDING24_FONT_CATEGORY_COLORS, Sloan = "black")
+}
+
+# Log-x limits for ratio-r histograms; always long enough to include 1, 3, 10.
 ratio_r_hist_log10_limits <- function(r, pad_frac = 0.05) {
   r <- r[is.finite(r) & r > 0]
   if (length(r) == 0) {
-    return(c(0.5, 2))
+    return(c(0.5, 20))
   }
   lim <- range(r, finite = TRUE)
-  lim <- expand_log10_limits_to_include(lim, 1, pad_frac = pad_frac)
-  # Slight pad so edge bars/dots are not clipped.
+  for (v in c(1, 3, 10)) {
+    lim <- expand_log10_limits_to_include(lim, v, pad_frac = pad_frac)
+  }
   log_lim <- log10(lim)
   span <- max(diff(log_lim), 0.1)
   pad <- pad_frac * span
@@ -2576,6 +2589,71 @@ ratio_r_hist_log_breaks <- function(lims, n_bins = 12L) {
     return(numeric())
   }
   10^seq(log10(min(lims)), log10(max(lims)), length.out = n_bins + 1L)
+}
+
+# Labeled x ticks: always 1, 3, 10 (professor request).
+ratio_r_hist_x_breaks <- function(lims = NULL) {
+  c(1, 3, 10)
+}
+
+# Shared look for the paired size-ratio histograms (panel-matched pair).
+ratio_r_hist_pair_theme <- function() {
+  ggplot2::theme(
+    legend.position = "top",
+    legend.box = "horizontal",
+    legend.justification = "left",
+    legend.margin = margin(0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 2, 0),
+    legend.key.size = unit(0.9, "lines"),
+    # Override hist_theme tilt — keep 1, 3, 10 horizontal.
+    axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.length = unit(-4, "pt")
+  )
+}
+
+tag_ratio_r_hist_pair <- function(plot, legend_spacer = c("none", "top", "bottom")) {
+  legend_spacer <- match.arg(legend_spacer)
+  attr(plot, "ratio_r_hist_pair") <- TRUE
+  attr(plot, "ratio_r_hist_legend_spacer") <- legend_spacer
+  plot
+}
+
+# Invisible top legend with the same categories/rows as the dotted hist, so the
+# bar hist panel height matches (professor: same panel size; use shorter height).
+# White text looks invisible; sits between plot title and panel like the dotted hist.
+ratio_r_hist_legend_spacer_layer <- function(lims, cols) {
+  levels_use <- names(cols)
+  spacer <- tibble::tibble(
+    plot_category = factor(levels_use, levels = levels_use),
+    r = lims[[1]],
+    y = 0
+  )
+  list(
+    ggplot2::geom_point(
+      data = spacer,
+      ggplot2::aes(x = r, y = y, color = plot_category),
+      inherit.aes = FALSE,
+      alpha = 0,
+      size = 0,
+      show.legend = TRUE
+    ),
+    ggplot2::scale_color_manual(values = cols, name = NULL, drop = FALSE),
+    ggplot2::guides(color = ggplot2::guide_legend(
+      title = NULL,
+      nrow = 2,
+      byrow = TRUE,
+      override.aes = list(alpha = 0, size = 0, stroke = 0, color = "white")
+    )),
+    ggplot2::theme(
+      legend.position = "top",
+      legend.text = ggplot2::element_text(color = "white"),
+      legend.key = ggplot2::element_blank(),
+      legend.background = ggplot2::element_blank(),
+      legend.box.background = ggplot2::element_blank()
+    )
+  )
 }
 
 # Bar histogram of Crowding:Acuity size ratio r (one bar-bin count of fonts), log x.
@@ -2592,18 +2670,24 @@ crowding_acuity_size_ratio_r_histogram <- function(df_list, font_colors = NULL) 
     mid = 0.75,
     short = 0.75
   )
+  cols <- ratio_r_hist_category_colors()
+  cols <- cols[intersect(names(cols), RATIO_R_HIST_CATEGORY_LEVELS)]
 
-  ggplot(summary_data, aes(x = r)) +
+  p <- ggplot(summary_data, aes(x = r)) +
     geom_histogram(
       breaks = breaks,
       fill = "gray80",
       color = NA,
       closed = "left"
-    ) +
+    )
+  for (layer in ratio_r_hist_legend_spacer_layer(lims, cols)) {
+    p <- p + layer
+  }
+  p <- p +
     scale_x_log10(
       limits = lims,
-      breaks = log10_breaks_1_3(lims),
-      labels = scales::label_number(accuracy = NULL),
+      breaks = ratio_r_hist_x_breaks(lims),
+      labels = c("1", "3", "10"),
       expand = c(0, 0),
       guide = logtick_guide
     ) +
@@ -2620,23 +2704,25 @@ crowding_acuity_size_ratio_r_histogram <- function(df_list, font_colors = NULL) 
       guide = guide_axis(check.overlap = FALSE)
     ) +
     theme_bw() +
+    ratio_r_hist_pair_theme() +
+    # Keep white spacer legend between title and panel (matches dotted hist).
     theme(
-      legend.position = "none",
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      # Negative length → ticks inside the panel (like annotation_logticks).
-      axis.ticks.length = unit(-4, "pt")
+      legend.position = "top",
+      legend.text = element_text(color = "white"),
+      legend.key = element_blank(),
+      legend.background = element_blank(),
+      legend.box.background = element_blank()
     ) +
     labs(
       subtitle = "Histogram of Crowding:Acuity\nsize ratio r",
       x = "Crowding:Acuity size ratio r",
       y = "Number of fonts"
     )
+  tag_ratio_r_hist_pair(p, legend_spacer = "top")
 }
 
 # Same bins as the bar histogram, but each font is a stacked dot colored by
 # font group (Text sans / Text serif / Display / Script). Sloan is black.
-# Dots are sized to touch neighbors (wall of bowling balls), as on Distance.
 crowding_acuity_size_ratio_r_dot_histogram <- function(df_list, font_colors = NULL) {
   summary_data <- prepare_crowding_acuity_ratio_r_hist_data(df_list)
   if (nrow(summary_data) == 0) {
@@ -2650,10 +2736,6 @@ crowding_acuity_size_ratio_r_dot_histogram <- function(df_list, font_colors = NU
   }
 
   log_breaks <- log10(breaks)
-  n_bins <- length(log_breaks) - 1L
-  # Geometric centers of log bins → used only for x tick labels.
-  bin_centers_r <- 10^((log_breaks[seq_len(n_bins)] + log_breaks[seq_len(n_bins) + 1L]) / 2)
-
   summary_data <- summary_data %>%
     mutate(
       log_r = log10(r),
@@ -2667,25 +2749,17 @@ crowding_acuity_size_ratio_r_dot_histogram <- function(df_list, font_colors = NU
     ) %>%
     filter(!is.na(bin)) %>%
     group_by(bin) %>%
-    mutate(stack_y = dplyr::row_number(r)) %>%
+    mutate(
+      stack_y = dplyr::row_number(r),
+      r_bin = 10^((log_breaks[bin] + log_breaks[bin + 1L]) / 2)
+    ) %>%
     ungroup()
 
   if (nrow(summary_data) == 0) {
     return(NULL)
   }
 
-  category_levels <- c(
-    "Text (sans serif)",
-    "Text (serif)",
-    "Display",
-    "Script",
-    "Sloan"
-  )
-  cols <- c(
-    CROWDING24_FONT_CATEGORY_COLORS,
-    Sloan = "black"
-  )
-
+  cols <- ratio_r_hist_category_colors()
   summary_data <- summary_data %>%
     mutate(
       plot_category = factor(
@@ -2694,7 +2768,7 @@ crowding_acuity_size_ratio_r_dot_histogram <- function(df_list, font_colors = NU
           "Sloan",
           as.character(plot_category)
         ),
-        levels = category_levels
+        levels = RATIO_R_HIST_CATEGORY_LEVELS
       )
     ) %>%
     filter(!is.na(plot_category))
@@ -2705,60 +2779,33 @@ crowding_acuity_size_ratio_r_dot_histogram <- function(df_list, font_colors = NU
 
   cols <- cols[intersect(names(cols), levels(summary_data$plot_category))]
   max_y <- max(summary_data$stack_y, na.rm = TRUE)
-  bins_used <- sort(unique(summary_data$bin))
+  logtick_guide <- ggplot2::guide_axis_logticks(
+    long = 2.5,
+    mid = 0.75,
+    short = 0.75
+  )
 
-  # Integer bin index on x + unit stack on y + coord_fixed → round dots.
-  # Size (mm) ≈ one data unit on the Plots-tab 3.5" histogram panel so
-  # neighbors touch horizontally and vertically (distance-page bowling balls).
-  # Put limits in coord_fixed (not scales) so aspect ratio stays 1:1.
-  # Panel ≈ 2.6" wide × 1.9" tall after theme/legend/subtitle on a 3.5" square.
-  panel_w_in <- 2.6
-  panel_h_in <- 1.9
-  x_span <- n_bins
-  y_span <- max(max_y, 1L)
-  unit_in <- min(panel_w_in / x_span, panel_h_in / y_span)
-  # ggplot point size ≈ diameter in mm; slight oversize so balls kiss.
-  dot_size <- max(4, unit_in * 25.4 * 1.08)
+  # Large dots for stacked “bowling ball” look (distance-page style).
+  dot_size <- 6.5
 
-  # X ticks at bin centers, labeled with r (log-space geometric centers).
-  tick_bins <- bins_used
-  if (length(tick_bins) > 6L) {
-    tick_bins <- unique(round(seq(min(bins_used), max(bins_used), length.out = 5)))
-  }
-  tick_bins <- tick_bins[tick_bins >= 1L & tick_bins <= n_bins]
-  tick_labels <- scales::label_number(accuracy = NULL)(bin_centers_r[tick_bins])
-
-  ggplot(summary_data, aes(x = bin, y = stack_y, color = plot_category)) +
+  p <- ggplot(summary_data, aes(x = r_bin, y = stack_y, color = plot_category)) +
     geom_point(size = dot_size, alpha = 0.95) +
-    scale_x_continuous(
-      breaks = tick_bins,
-      labels = tick_labels,
-      expand = c(0, 0)
+    scale_x_log10(
+      limits = lims,
+      breaks = ratio_r_hist_x_breaks(lims),
+      labels = c("1", "3", "10"),
+      expand = c(0, 0),
+      guide = logtick_guide
     ) +
     scale_y_continuous(
       breaks = seq_len(max(1L, max_y)),
-      expand = c(0, 0),
+      expand = expansion(mult = c(0, 0.08)),
       guide = guide_axis(check.overlap = FALSE)
     ) +
     scale_color_manual(values = cols, name = NULL, drop = FALSE) +
-    coord_fixed(
-      ratio = 1,
-      xlim = c(0.5, n_bins + 0.5),
-      ylim = c(0.5, max_y + 0.5),
-      expand = FALSE,
-      clip = "on"
-    ) +
+    coord_cartesian(ylim = c(0.5, max_y + 0.5)) +
     theme_bw() +
-    theme(
-      legend.position = "top",
-      legend.box = "horizontal",
-      legend.margin = margin(0, 0, 0, 0),
-      legend.box.margin = margin(0, 0, 0, 0),
-      legend.key.size = unit(0.35, "lines"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      axis.ticks.length = unit(-3, "pt")
-    ) +
+    ratio_r_hist_pair_theme() +
     labs(
       subtitle = "Histogram of Crowding:Acuity\nsize ratio by font group",
       x = "Crowding:Acuity size ratio r",
@@ -2770,4 +2817,5 @@ crowding_acuity_size_ratio_r_dot_histogram <- function(df_list, font_colors = NU
       byrow = TRUE,
       override.aes = list(size = 3)
     ))
+  tag_ratio_r_hist_pair(p)
 }

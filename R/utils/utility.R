@@ -705,7 +705,11 @@ apply_direct_png_theme <- function(plot,
   x_vjust <- if (!is.null(existing_x) && !is.null(existing_x$vjust) && !is.na(existing_x$vjust)) existing_x$vjust else NULL
 
   axis_text_x <- if (profile == "histogram") {
-    ggplot2::element_text(size = sizes$axis_text, angle = -40, hjust = 0, vjust = 1)
+    if (isTRUE(attr(plot, "ratio_r_hist_pair", exact = TRUE))) {
+      ggplot2::element_text(size = sizes$axis_text, angle = 0, hjust = 0.5, vjust = 1)
+    } else {
+      ggplot2::element_text(size = sizes$axis_text, angle = -40, hjust = 0, vjust = 1)
+    }
   } else if (!is.null(x_angle)) {
     ggplot2::element_text(
       size = sizes$axis_text,

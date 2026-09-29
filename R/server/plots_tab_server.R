@@ -5,7 +5,40 @@ with_plots_histogram_theme <- function(plot) {
   if (is_placeholder_plot(plot)) {
     return(plot)
   }
-  plot + hist_theme
+  is_ratio_pair <- isTRUE(attr(plot, "ratio_r_hist_pair", exact = TRUE))
+  legend_spacer <- attr(plot, "ratio_r_hist_legend_spacer", exact = TRUE)
+  plot <- plot + hist_theme
+  # Paired Crowding:Acuity size-ratio hists: keep 1/3/10 labels horizontal
+  # (hist_theme tilts x text by default).
+  if (is_ratio_pair) {
+    plot <- plot +
+      ggplot2::theme(
+        axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5, vjust = 1)
+      )
+    # Bar hist keeps an invisible spacer legend between title and panel.
+    if (identical(legend_spacer, "top")) {
+      plot <- plot +
+        ggplot2::theme(
+          legend.position = "top",
+          legend.text = ggplot2::element_text(color = "white"),
+          legend.key = ggplot2::element_blank(),
+          legend.background = ggplot2::element_blank(),
+          legend.box.background = ggplot2::element_blank()
+        )
+    } else if (identical(legend_spacer, "bottom")) {
+      plot <- plot +
+        ggplot2::theme(
+          legend.position = "bottom",
+          legend.text = ggplot2::element_text(color = "white"),
+          legend.key = ggplot2::element_blank(),
+          legend.background = ggplot2::element_blank(),
+          legend.box.background = ggplot2::element_blank()
+        )
+    }
+    attr(plot, "ratio_r_hist_pair") <- TRUE
+    attr(plot, "ratio_r_hist_legend_spacer") <- legend_spacer
+  }
+  plot
 }
 
 save_plots_histogram <- function(file, plot, file_type) {
