@@ -791,7 +791,6 @@ register_crowding24_app_font <- function(excel_font, path) {
       identical(normalizePath(matched, mustWork = FALSE), path)) {
     return(family)
   }
-  # Never clear_registry() here — that is reserved for release after abbrev plots.
   tryCatch({
     systemfonts::register_font(name = family, plain = path)
   }, error = function(e) invisible(NULL))
@@ -837,21 +836,44 @@ ensure_crowding24_plot_fonts_registered <- function(abbrevs = CROWDING24_FONT_AB
     return(invisible(FALSE))
   }
 
+  # Registration is idempotent and ee_* names are private to these plots, so
+  # skip faces already registered with the same path (systemfonts::register_font
+  # costs ~12 ms/font; re-doing 24 faces on every display+download render adds up).
+  sysfonts_known <- if (requireNamespace("sysfonts", quietly = TRUE)) {
+    tryCatch(sysfonts::font_families(), error = function(e) character())
+  } else {
+    character()
+  }
+  systemfonts_known <- if (requireNamespace("systemfonts", quietly = TRUE)) {
+    tryCatch({
+      reg <- systemfonts::registry_fonts()
+      stats::setNames(
+        normalizePath(as.character(reg$path), winslash = "/", mustWork = FALSE),
+        as.character(reg$family)
+      )
+    }, error = function(e) character())
+  } else {
+    character()
+  }
+
   register_one <- function(family, path) {
     if (!is.character(family) || !nzchar(family)) return(invisible(NULL))
     if (!is.character(path) || length(path) != 1 || is.na(path) || !file.exists(path)) {
       return(invisible(NULL))
     }
-    .crowding24_registered_fonts[[family]] <- normalizePath(path, winslash = "/", mustWork = FALSE)
+    path_norm <- normalizePath(path, winslash = "/", mustWork = FALSE)
+    .crowding24_registered_fonts[[family]] <- path_norm
     # showtext (emojifont) looks up fonts via sysfonts, not systemfonts::register_font.
-    if (requireNamespace("sysfonts", quietly = TRUE)) {
+    if (requireNamespace("sysfonts", quietly = TRUE) && !(family %in% sysfonts_known)) {
       tryCatch(
         sysfonts::font_add(family, regular = path),
         error = function(e) invisible(NULL)
       )
     }
     # Also register with systemfonts for ragg when showtext is not intercepting.
-    if (requireNamespace("systemfonts", quietly = TRUE)) {
+    already <- family %in% names(systemfonts_known) &&
+      identical(unname(systemfonts_known[[family]]), path_norm)
+    if (requireNamespace("systemfonts", quietly = TRUE) && !already) {
       tryCatch(
         systemfonts::register_font(name = family, plain = path),
         error = function(e) invisible(NULL)
@@ -883,11 +905,10 @@ ensure_crowding24_plot_fonts_registered <- function(abbrevs = CROWDING24_FONT_AB
   invisible(TRUE)
 }
 
-# Clear systemfonts aliases after abbrev renders (sysfonts/showtext entries can stay).
+# Called after each ee_* render. Registrations are kept: ee_* aliases are
+# private to these plots, and clearing the registry forced a full
+# re-registration (~0.3 s) on every subsequent display/download render.
 release_crowding24_plot_fonts <- function() {
-  if (requireNamespace("systemfonts", quietly = TRUE)) {
-    tryCatch(systemfonts::clear_registry(), error = function(e) invisible(NULL))
-  }
   invisible(NULL)
 }
 
@@ -1199,8 +1220,26 @@ normalize_font_match_key <- function(fonts) {
   fonts
 }
 
+# Cache for parsed Table 1 (readxl costs ~0.1 s per call and this is read by
+# every Crowding24 plot); keyed on path + mtime + eccentricity.
+.crowding24_bouma_cache <- new.env(parent = emptyenv())
+
 load_crowding24_bouma_table <- function(path = CROWDING24_BOUMA_PATH,
                                         eccentricity_deg = CROWDING24_ECCENTRICITY_DEG) {
+  mtime <- if (file.exists(path)) as.numeric(file.info(path)$mtime) else NA_real_
+  cache_key <- paste(path, mtime, eccentricity_deg, sep = "|")
+  cached <- .crowding24_bouma_cache[[cache_key]]
+  if (!is.null(cached)) {
+    return(cached)
+  }
+  out <- load_crowding24_bouma_table_uncached(path, eccentricity_deg)
+  rm(list = ls(.crowding24_bouma_cache), envir = .crowding24_bouma_cache)
+  .crowding24_bouma_cache[[cache_key]] <- out
+  out
+}
+
+load_crowding24_bouma_table_uncached <- function(path = CROWDING24_BOUMA_PATH,
+                                                 eccentricity_deg = CROWDING24_ECCENTRICITY_DEG) {
   empty <- tibble::tibble(
     excel_font = character(),
     bouma = numeric(),
@@ -1592,14 +1631,59 @@ crowding_vs_acuity_by_font_scatter <- function(df_list, font_colors = NULL) {
     guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
 }
 
-# Build per-font Crowding:Acuity size ratio table (shared by ratio scatters).
+# Build per-font Crowding:acuity size ratio table (shared by ratio scatters).
 # r = (crowdingThresholdDeg / fontSpacingReNominal) /
 #     (acuityDeg / fontBoundingBoxWidthReNominal)
 # Crowding threshold: archive geometric mean when available, else Excel Bouma×5°.
 # Spacing / x-height for crowding size: archive CSV when available, else Excel F/G.
 # SE(log r): archive SD(log crowding)/sqrt(N) or Table-1 SD(log Bouma)/sqrt(N),
 # plus sample SD(log acuity)/sqrt(N_acuity).
+# Memoized: ~14 plots/limit helpers per Plots-tab build call this with the same
+# df_list. Single-entry cache keyed on a hash of only the columns used below
+# (keep CROWDING24_RATIO_DATA_ACUITY_COLS in sync when adding inputs).
+.crowding24_ratio_data_cache <- new.env(parent = emptyenv())
+CROWDING24_RATIO_DATA_ACUITY_COLS <- c(
+  "font", "questMeanAtEndOfTrialsLoop",
+  "fontBoundingBoxWidthReNominal", "fontBoundingBoxReNominalRect", "pxPerCm",
+  "fontBoundingBoxHeightReNominal", "fontCharacterSetHeightReNominal",
+  "fontXHeightReNominal", "fontSpacingReNominal"
+)
+CROWDING24_RATIO_DATA_CROWDING_COLS <- c("font", "log_crowding_distance_deg")
+
+crowding24_ratio_data_cache_key <- function(df_list) {
+  pick <- function(df, cols) {
+    if (is.null(df) || !is.data.frame(df)) return(NULL)
+    df[intersect(cols, names(df))]
+  }
+  bouma_path <- CROWDING24_BOUMA_PATH
+  bouma_mtime <- if (file.exists(bouma_path)) as.numeric(file.info(bouma_path)$mtime) else NA_real_
+  tryCatch(
+    rlang::hash(list(
+      acuity = pick(df_list$acuity, CROWDING24_RATIO_DATA_ACUITY_COLS),
+      crowding = pick(df_list$crowding, CROWDING24_RATIO_DATA_CROWDING_COLS),
+      bouma = c(bouma_path, bouma_mtime)
+    )),
+    error = function(e) NULL
+  )
+}
+
 prepare_crowding_acuity_size_ratio_data <- function(df_list) {
+  key <- crowding24_ratio_data_cache_key(df_list)
+  if (!is.null(key)) {
+    cached <- .crowding24_ratio_data_cache[[key]]
+    if (!is.null(cached)) {
+      return(cached)
+    }
+  }
+  out <- prepare_crowding_acuity_size_ratio_data_uncached(df_list)
+  if (!is.null(key)) {
+    rm(list = ls(.crowding24_ratio_data_cache), envir = .crowding24_ratio_data_cache)
+    .crowding24_ratio_data_cache[[key]] <- out
+  }
+  out
+}
+
+prepare_crowding_acuity_size_ratio_data_uncached <- function(df_list) {
   acuity <- df_list$acuity
   empty <- tibble::tibble()
   if (is.null(acuity) || nrow(acuity) == 0) {
@@ -1850,7 +1934,7 @@ font_scatter_legend_cols <- function(summary_data, font_colors = NULL) {
   list(data = summary_data, cols = cols)
 }
 
-# Hybrid: Crowding:Acuity size ratio r vs SD of log acuity (both log-spaced).
+# Hybrid: Crowding:acuity size ratio r vs SD of log acuity (both log-spaced).
 crowding_acuity_size_ratio_vs_sd_log_acuity_scatter <- function(df_list,
                                                                 font_colors = NULL) {
   summary_data <- prepare_crowding_acuity_size_ratio_data(df_list)
@@ -1888,9 +1972,9 @@ crowding_acuity_size_ratio_vs_sd_log_acuity_scatter <- function(df_list,
       panel.grid.minor = element_blank()
     ) +
     labs(
-      subtitle = "Crowding:Acuity size ratio vs SD of log acuity",
+      subtitle = "Crowding:acuity size ratio vs SD of log acuity",
       x = "SD of log acuity",
-      y = "Crowding:Acuity size ratio r"
+      y = "Crowding:acuity size ratio r"
     ) +
     guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
 }
@@ -1926,6 +2010,81 @@ shared_log10_limits <- function(x, y) {
   pad <- 0.05 * max(diff(r), 0.1)
   lim <- 10^c(r[1] - pad, r[2] + pad)
   list(x = lim, y = lim)
+}
+
+# Expand log limits so labeled ticks (default 0.3, 1, 3, 10) sit inside the
+# scale with room beyond the extremes (min < 0.3, max > 10).
+ensure_log10_limits_cover_labeled_ticks <- function(lim,
+                                                     ticks = c(0.3, 1, 3, 10),
+                                                     pad_frac = 0.05) {
+  ticks <- ticks[is.finite(ticks) & ticks > 0]
+  lim <- suppressWarnings(as.numeric(lim))
+  if (length(lim) < 2 || !all(is.finite(lim)) || any(lim <= 0)) {
+    if (length(ticks) == 0) {
+      return(c(0.1, 30))
+    }
+    lim <- range(ticks)
+  }
+  lim <- range(lim, finite = TRUE)
+  for (t in ticks) {
+    lim <- expand_log10_limits_to_include(lim, t, pad_frac = pad_frac)
+  }
+  if (length(ticks) == 0) {
+    return(lim)
+  }
+  log_lim <- log10(lim)
+  log_lo <- log10(min(ticks))
+  log_hi <- log10(max(ticks))
+  span <- max(diff(log_lim), log_hi - log_lo, 0.1)
+  pad <- pad_frac * span
+  if (log_lim[1] >= log_lo) {
+    log_lim[1] <- log_lo - pad
+  }
+  if (log_lim[2] <= log_hi) {
+    log_lim[2] <- log_hi + pad
+  }
+  10^log_lim
+}
+
+# Shared limits for the paired plots:
+#   - crowding x-height vs acuity x-height (square, identical x/y)
+#   - crowding:acuity ratio vs acuity x-height (same horizontal as the square)
+# Both axes are expanded so 0.3, 1, 3, 10 are numbered with room outside.
+paired_xheight_and_ratio_plot_limits <- function(df_list) {
+  empty_lim <- ensure_log10_limits_cover_labeled_ticks(c(0.1, 30))
+  empty <- list(
+    xheight = list(x = empty_lim, y = empty_lim),
+    ratio = list(x = empty_lim, y = empty_lim)
+  )
+  d <- prepare_crowding_acuity_size_ratio_data(df_list)
+  if (nrow(d) == 0) {
+    return(empty)
+  }
+  d <- d %>%
+    dplyr::filter(
+      is.finite(acuityXHeightDeg), acuityXHeightDeg > 0,
+      is.finite(crowdingXHeightDeg), crowdingXHeightDeg > 0,
+      is.finite(archive_xHeightReNominal), archive_xHeightReNominal > 0,
+      is.finite(r), r > 0
+    )
+  if (nrow(d) == 0) {
+    return(empty)
+  }
+
+  sq <- shared_log10_limits(d$acuityXHeightDeg, d$crowdingXHeightDeg)
+  sq_lim <- ensure_log10_limits_cover_labeled_ticks(sq$x)
+  xheight <- list(x = sq_lim, y = sq_lim)
+
+  r_vals <- c(d$r, d$r_lo, d$r_hi)
+  r_vals <- r_vals[is.finite(r_vals) & r_vals > 0]
+  y_r <- if (length(r_vals) > 0) range(r_vals) else c(0.5, 20)
+  y_r <- expand_log10_limits_to_include(y_r, 1)
+  y_r <- ensure_log10_limits_cover_labeled_ticks(y_r)
+
+  list(
+    xheight = xheight,
+    ratio = list(x = sq_lim, y = y_r)
+  )
 }
 
 # Expand a log10 [lo, hi] limit so value lies strictly inside (for reference lines).
@@ -1990,7 +2149,7 @@ apply_equal_log10_scatter_scales <- function(lims) {
   )
 }
 
-# Crowding:Acuity size ratio r vs acuity x-height (deg), with horizontal
+# Crowding:acuity size ratio r vs acuity x-height (deg), with horizontal
 # ±SE from Table-1 SD(log Bouma)/sqrt(N).
 crowding_acuity_size_ratio_vs_acuity_xheight_scatter <- function(df_list,
                                                                  font_colors = NULL) {
@@ -2013,12 +2172,7 @@ crowding_acuity_size_ratio_vs_acuity_xheight_scatter <- function(df_list,
   summary_data <- styled$data
   cols <- styled$cols
 
-  lims <- equal_log10_limits(
-    c(summary_data$acuityXHeightDeg, summary_data$acuityXHeight_lo, summary_data$acuityXHeight_hi),
-    c(summary_data$r, summary_data$r_lo, summary_data$r_hi)
-  )
-  # Keep horizontal r = 1 inside the panel (not clipped when all r > 1).
-  lims$y <- expand_log10_limits_to_include(lims$y, 1)
+  lims <- paired_xheight_and_ratio_plot_limits(df_list)$ratio
 
   ggplot(summary_data, aes(x = acuityXHeightDeg, y = r, color = font_label)) +
     geom_hline(
@@ -2052,9 +2206,9 @@ crowding_acuity_size_ratio_vs_acuity_xheight_scatter <- function(df_list,
       axis.ticks.length = unit(-4, "pt")
     ) +
     labs(
-      subtitle = "Crowding:Acuity size ratio vs acuity x-height",
+      subtitle = "Crowding:acuity size ratio vs acuity x-height",
       x = "Acuity x-height (deg)",
-      y = "Crowding:Acuity size ratio r"
+      y = "Crowding:acuity size ratio r"
     ) +
     guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
 }
@@ -2097,12 +2251,8 @@ crowding_acuity_size_ratio_vs_acuity_xheight_by_category_scatter <- function(df_
     return(NULL)
   }
 
-  lims <- equal_log10_limits(
-    c(summary_data$acuityXHeightDeg, summary_data$acuityXHeight_lo, summary_data$acuityXHeight_hi),
-    c(summary_data$r, summary_data$r_lo, summary_data$r_hi)
-  )
-  # Keep horizontal r = 1 inside the panel (not clipped when all r > 1).
-  lims$y <- expand_log10_limits_to_include(lims$y, 1)
+  paired_lims <- paired_xheight_and_ratio_plot_limits(df_list)
+  lims <- paired_lims$ratio
 
   cols <- CROWDING24_FONT_CATEGORY_COLORS[
     intersect(names(CROWDING24_FONT_CATEGORY_COLORS), levels(summary_data$font_category))
@@ -2141,11 +2291,11 @@ crowding_acuity_size_ratio_vs_acuity_xheight_by_category_scatter <- function(df_
     ) +
     labs(
       subtitle = paste0(
-        "Crowding:Acuity size ratio vs acuity x-height\n",
+        "Crowding:acuity size ratio vs acuity x-height\n",
         "colored by font group"
       ),
       x = "Acuity x-height (deg)",
-      y = "Crowding:Acuity size ratio r"
+      y = "Crowding:acuity size ratio r"
     ) +
     guides(color = guide_legend(title = "Font group", nrow = 1))
 }
@@ -2176,10 +2326,7 @@ crowding_xheight_vs_acuity_xheight_scatter <- function(df_list, font_colors = NU
       plot_family = resolve_crowding24_plot_font_families(excel_font)
     )
 
-  lims <- shared_log10_limits(
-    summary_data$acuityXHeightDeg,
-    summary_data$crowdingXHeightDeg
-  )
+  lims <- paired_xheight_and_ratio_plot_limits(df_list)$xheight
 
   p <- ggplot(summary_data, aes(x = acuityXHeightDeg, y = crowdingXHeightDeg)) +
     geom_abline(
@@ -2247,10 +2394,7 @@ crowding_xheight_vs_acuity_xheight_by_category_scatter <- function(df_list,
     return(NULL)
   }
 
-  lims <- shared_log10_limits(
-    summary_data$acuityXHeightDeg,
-    summary_data$crowdingXHeightDeg
-  )
+  lims <- paired_xheight_and_ratio_plot_limits(df_list)$xheight
 
   cols <- CROWDING24_FONT_CATEGORY_COLORS[
     intersect(names(CROWDING24_FONT_CATEGORY_COLORS), levels(summary_data$font_category))
@@ -2312,10 +2456,9 @@ prepare_crowding_xheight_vs_acuity_xheight_by_font_data <- function(df_list,
   summary_data <- summary_data %>%
     mutate(plot_family = resolve_crowding24_plot_font_families(excel_font))
 
-  lims <- shared_log10_limits(
-    summary_data$acuityXHeightDeg,
-    summary_data$crowdingXHeightDeg
-  )
+  # Same square limits as the paired ratio-vs-xheight plot (identical x/y;
+  # numbered through at least 0.3 … 10 with room outside).
+  lims <- paired_xheight_and_ratio_plot_limits(df_list)$xheight
 
   list(data = summary_data, cols = cols, lims = lims)
 }
@@ -2363,7 +2506,9 @@ crowding24_native_font_legend_plot <- function(labels,
                                                families,
                                                colors,
                                                ncol = 4,
-                                               text_size = 3.2) {
+                                               # 3.2 × 1.2 (+20% legend text).
+                                               text_size = 3.84,
+                                               point_size = 3.2 * 1.4) {
   labels <- as.character(labels)
   families <- as.character(families)
   n <- length(labels)
@@ -2399,10 +2544,11 @@ crowding24_native_font_legend_plot <- function(labels,
   )
 
   p <- ggplot(df, aes(x = col, y = row)) +
-    geom_point(aes(color = label), size = 3.2) +
+    geom_point(aes(color = label), size = point_size) +
     scale_color_manual(values = stats::setNames(df$color, df$label), guide = "none") +
     scale_x_continuous(limits = c(0.55, ncol + 0.95), expand = c(0, 0), breaks = NULL) +
-    scale_y_continuous(limits = c(0.45, nrow_leg + 0.55), expand = c(0, 0), breaks = NULL) +
+    # Tight vertical padding: rows sit close to the panel edges (less gap to title).
+    scale_y_continuous(limits = c(0.65, nrow_leg + 0.35), expand = c(0, 0), breaks = NULL) +
     coord_cartesian(clip = "off") +
     theme_void() +
     theme(
@@ -2411,7 +2557,7 @@ crowding24_native_font_legend_plot <- function(labels,
       axis.title = element_blank(),
       axis.line = element_blank(),
       panel.grid = element_blank(),
-      plot.margin = margin(t = 2, r = 4, b = 2, l = 4)
+      plot.margin = margin(t = 5, r = 4, b = 6, l = 4)
     )
 
   fams <- unique(df$family)
@@ -2420,7 +2566,8 @@ crowding24_native_font_legend_plot <- function(labels,
     p <- p +
       ggplot2::geom_text(
         data = layer_data,
-        ggplot2::aes(x = col + 0.12, y = row, label = label, size = text_size),
+        # Small offset so the name starts just after the dot.
+        ggplot2::aes(x = col + 0.09, y = row, label = label, size = text_size),
         family = fam,
         hjust = 0,
         vjust = 0.5,
@@ -2466,6 +2613,7 @@ crowding_xheight_vs_acuity_xheight_by_font_native_legend_scatter <- function(
       panel.grid.minor = element_blank(),
       panel.background = element_blank(),
       axis.ticks.length = unit(-4, "pt"),
+      # PNG theme sizes the base (main) panel; keep a readable fallback here.
       axis.title = element_text(size = 14),
       axis.text = element_text(size = 14),
       plot.margin = margin(t = 0.05, r = 0.1, b = 0.1, l = 0.1, "inch")
@@ -2474,6 +2622,7 @@ crowding_xheight_vs_acuity_xheight_by_font_native_legend_scatter <- function(
       x = "Acuity x-height (deg)",
       y = "Crowding x-height (deg)"
     )
+  attr(p_main, "crowding24_main_panel") <- TRUE
 
   # Title above legend (plot "subtitle" is the visible figure title).
   # Experiment name is added later via add_experiment_title() as plot.title.
@@ -2482,7 +2631,7 @@ crowding_xheight_vs_acuity_xheight_by_font_native_legend_scatter <- function(
     theme(
       plot.title = element_text(size = 9, hjust = 0, margin = margin(b = 0)),
       plot.title.position = "plot",
-      plot.subtitle = element_text(size = 18, hjust = 0, margin = margin(t = 2, b = 2)),
+      plot.subtitle = element_text(size = 18, hjust = 0, margin = margin(t = 2, b = 0)),
       plot.margin = margin(t = 0.05, r = 0.1, b = 0, l = 0.1, "inch")
     ) +
     labs(subtitle = "Crowding x-height vs acuity x-height")
@@ -2505,9 +2654,15 @@ crowding_xheight_vs_acuity_xheight_by_font_native_legend_scatter <- function(
 
   n_fonts <- length(legend_labels)
   n_leg_rows <- max(1L, ceiling(n_fonts / 4))
-  leg_height <- 0.10 + 0.055 * n_leg_rows
-  # Room for experiment name + measure title.
-  title_height <- 0.14
+  # Compact row pitch (panel fraction per legend row) — rows nearly touching.
+  leg_height <- 0.015 + 0.03 * n_leg_rows
+  # patchwork heights size *panel* areas; the title text sits above its panel,
+  # so any real height here is blank space between title and legend.
+  title_height <- 0.005
+  # Keep the scatter panel ~same absolute size as other 7×7 scatters; add
+  # height for the taller native-font legend so side-by-side panels match.
+  panel_height_in <- 7
+  display_height_in <- panel_height_in * (title_height + leg_height + 1)
 
   if (!requireNamespace("patchwork", quietly = TRUE)) {
     # Fallback: return main plot only if patchwork is unavailable.
@@ -2524,6 +2679,7 @@ crowding_xheight_vs_acuity_xheight_by_font_native_legend_scatter <- function(
   )
   combined <- tag_crowding24_ee_families(combined, legend_families)
   attr(combined, "crowding24_native_legend_patchwork") <- TRUE
+  attr(combined, "plots_display_height_in") <- display_height_in
   combined
 }
 
@@ -2533,7 +2689,7 @@ crowding_xheight_vs_acuity_xheight_font_abbrev_scatter <- function(df_list,
   crowding_xheight_vs_acuity_xheight_scatter(df_list, font_colors = font_colors)
 }
 
-# Shared prep for Crowding:Acuity ratio r histograms (one value per font).
+# Shared prep for Crowding:acuity ratio r histograms (one value per font).
 prepare_crowding_acuity_ratio_r_hist_data <- function(df_list) {
   summary_data <- prepare_crowding_acuity_size_ratio_data(df_list)
   if (nrow(summary_data) == 0) {
@@ -2656,7 +2812,7 @@ ratio_r_hist_legend_spacer_layer <- function(lims, cols) {
   )
 }
 
-# Bar histogram of Crowding:Acuity size ratio r (one bar-bin count of fonts), log x.
+# Bar histogram of Crowding:acuity size ratio r (one bar-bin count of fonts), log x.
 crowding_acuity_size_ratio_r_histogram <- function(df_list, font_colors = NULL) {
   summary_data <- prepare_crowding_acuity_ratio_r_hist_data(df_list)
   if (nrow(summary_data) == 0) {
@@ -2714,8 +2870,8 @@ crowding_acuity_size_ratio_r_histogram <- function(df_list, font_colors = NULL) 
       legend.box.background = element_blank()
     ) +
     labs(
-      subtitle = "Histogram of Crowding:Acuity\nsize ratio r",
-      x = "Crowding:Acuity size ratio r",
+      subtitle = "Histogram of Crowding:acuity\nsize ratio r",
+      x = "Crowding:acuity size ratio r",
       y = "Number of fonts"
     )
   tag_ratio_r_hist_pair(p, legend_spacer = "top")
@@ -2807,8 +2963,8 @@ crowding_acuity_size_ratio_r_dot_histogram <- function(df_list, font_colors = NU
     theme_bw() +
     ratio_r_hist_pair_theme() +
     labs(
-      subtitle = "Histogram of Crowding:Acuity\nsize ratio by font group",
-      x = "Crowding:Acuity size ratio r",
+      subtitle = "Histogram of Crowding:acuity\nsize ratio by font group",
+      x = "Crowding:acuity size ratio r",
       y = "Number of fonts"
     ) +
     guides(color = guide_legend(

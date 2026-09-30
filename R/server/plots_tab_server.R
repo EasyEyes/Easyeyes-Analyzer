@@ -8,7 +8,7 @@ with_plots_histogram_theme <- function(plot) {
   is_ratio_pair <- isTRUE(attr(plot, "ratio_r_hist_pair", exact = TRUE))
   legend_spacer <- attr(plot, "ratio_r_hist_legend_spacer", exact = TRUE)
   plot <- plot + hist_theme
-  # Paired Crowding:Acuity size-ratio hists: keep 1/3/10 labels horizontal
+  # Paired Crowding:acuity size-ratio hists: keep 1/3/10 labels horizontal
   # (hist_theme tilts x text by default).
   if (is_ratio_pair) {
     plot <- plot +
@@ -1252,7 +1252,20 @@ register_plots_tab_server <- function(output,
             } else {
               plot_obj + plt_theme_scatter
             }
-            result <- render_plots_display_png(plot_to_save, width_in = 7, height_in = 7, disp_w = 700, limitsize = FALSE)
+            scatter_h <- attr(plot_obj, "plots_display_height_in", exact = TRUE)
+            if (!is.numeric(scatter_h) || length(scatter_h) < 1 || !is.finite(scatter_h[1]) ||
+                scatter_h[1] <= 0) {
+              scatter_h <- 7
+            } else {
+              scatter_h <- as.numeric(scatter_h[1])
+            }
+            result <- render_plots_display_png(
+              plot_to_save,
+              width_in = 7,
+              height_in = scatter_h,
+              disp_w = 700,
+              limitsize = FALSE
+            )
             if (isolate(scatterRenderedCount()) < ii) scatterRenderedCount(ii)
             result
           }, error = function(e) {
@@ -1283,12 +1296,19 @@ register_plots_tab_server <- function(output,
           } else {
             plot_obj + plt_theme_scatter
           }
+          scatter_h <- attr(plot_obj, "plots_display_height_in", exact = TRUE)
+          if (!is.numeric(scatter_h) || length(scatter_h) < 1 || !is.finite(scatter_h[1]) ||
+              scatter_h[1] <= 0) {
+            scatter_h <- 7
+          } else {
+            scatter_h <- as.numeric(scatter_h[1])
+          }
           save_plots_display_download(
             file = file,
             plot = plot_to_save,
             file_type = downloadFileType(),
             width_in = 7,
-            height_in = 7,
+            height_in = scatter_h,
             disp_w = 700,
             limitsize = FALSE
           )

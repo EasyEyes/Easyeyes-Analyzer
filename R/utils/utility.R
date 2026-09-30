@@ -624,7 +624,8 @@ apply_direct_png_theme <- function(plot,
   # Native-font legend plots are patchwork (title / legend / main).
   # Recurse into children for sizing; never apply axis text globally via `&`
   # (that reintroduces row/column numbers on the void legend panel).
-  if (inherits(plot, "patchwork")) {
+  if (inherits(plot, "patchwork") &&
+      isTRUE(attr(plot, "crowding24_native_legend_patchwork", exact = TRUE))) {
     png_plot <- unserialize(serialize(plot, NULL))
     if (is.list(png_plot$patches$plots)) {
       for (i in seq_along(png_plot$patches$plots)) {
@@ -688,11 +689,47 @@ apply_direct_png_theme <- function(plot,
         }
       }
     }
+    # wrap_plots(title, legend, main): title+legend live in patches$plots;
+    # the main scatter is the patchwork's own ggplot base and was never themed
+    # above — without this, axis labels stay microscopic vs other Plots-tab PNGs.
+    axis_text_x <- ggplot2::element_text(
+      size = sizes$axis_text,
+      lineheight = lineheight_multiplier
+    )
+    png_plot <- png_plot +
+      ggplot2::theme(
+        axis.title = ggplot2::element_text(
+          size = sizes$axis_title,
+          lineheight = lineheight_multiplier
+        ),
+        axis.title.x = ggplot2::element_text(
+          size = sizes$axis_title,
+          lineheight = lineheight_multiplier
+        ),
+        axis.title.y = ggplot2::element_text(
+          size = sizes$axis_title,
+          lineheight = lineheight_multiplier
+        ),
+        axis.text = ggplot2::element_text(
+          size = sizes$axis_text,
+          lineheight = lineheight_multiplier
+        ),
+        axis.text.x = axis_text_x,
+        axis.text.y = ggplot2::element_text(
+          size = sizes$axis_text,
+          lineheight = lineheight_multiplier
+        )
+      )
     ee_tag <- attr(plot, "crowding24_ee_families", exact = TRUE)
     if (is.character(ee_tag) && length(ee_tag) > 0) {
       attr(png_plot, "crowding24_ee_families") <- ee_tag
     }
+    height_tag <- attr(plot, "plots_display_height_in", exact = TRUE)
+    if (is.numeric(height_tag) && length(height_tag) >= 1 && is.finite(height_tag[1])) {
+      attr(png_plot, "plots_display_height_in") <- as.numeric(height_tag[1])
+    }
     attr(png_plot, "crowding24_native_legend_patchwork") <- TRUE
+    attr(png_plot, "crowding24_main_panel") <- TRUE
     return(png_plot)
   }
 
