@@ -163,6 +163,17 @@ add_experiment_title <- function(plot, experiment_name) {
   if (isTRUE(attr(plot, "crowding24_native_legend_patchwork", exact = TRUE)) &&
       inherits(plot, "patchwork") &&
       is.list(plot$patches$plots)) {
+    # Three-column row figure: put experiment name above the whole row.
+    if (isTRUE(attr(plot, "crowding24_paired_row_patchwork", exact = TRUE))) {
+      return(
+        plot + patchwork::plot_annotation(
+          title = short_name,
+          theme = ggplot2::theme(
+            plot.title = ggplot2::element_text(size = 9, hjust = 0)
+          )
+        )
+      )
+    }
     for (i in seq_along(plot$patches$plots)) {
       child <- plot$patches$plots[[i]]
       if (!isTRUE(attr(child, "crowding24_title_panel", exact = TRUE))) {
@@ -199,6 +210,52 @@ add_experiment_title <- function(plot, experiment_name) {
   plot <- plot + labs(title = new_title)
   
   return(plot)
+}
+
+# Legend drawn inside the panel (ggplot2 3.5+). Used when plt_theme_scatter
+# would otherwise force legend.position = "top" above the panel.
+# Sizes match crowding24 native-font legend text after PNG theme (~22 pt).
+plots_legend_inside_theme <- function(x = 0.5, y = 0.10) {
+  ggplot2::theme(
+    legend.position = "inside",
+    legend.position.inside = c(x, y),
+    legend.justification = c(0.5, 0),
+    legend.direction = "horizontal",
+    legend.title.position = "top",
+    legend.background = ggplot2::element_rect(fill = scales::alpha("white", 0.92), color = NA),
+    legend.key = ggplot2::element_blank(),
+    legend.key.size = ggplot2::unit(5.5, "mm"),
+    legend.key.spacing.x = ggplot2::unit(4, "mm"),
+    legend.key.spacing.y = ggplot2::unit(1.5, "mm"),
+    legend.title = ggplot2::element_text(size = 16, hjust = 0),
+    legend.text = ggplot2::element_text(size = 15),
+    legend.margin = ggplot2::margin(3, 5, 3, 5)
+  )
+}
+
+tag_legend_inside_panel <- function(plot, x = 0.5, y = 0.10) {
+  attr(plot, "legend_inside_panel") <- list(x = x, y = y)
+  plot
+}
+
+# Apply scatter theme, then restore an inside-panel legend if the plot was tagged.
+apply_plt_theme_scatter <- function(plot) {
+  if (is.null(plot) || is_placeholder_plot(plot)) {
+    return(plot)
+  }
+  if (isTRUE(attr(plot, "crowding24_native_legend_patchwork", exact = TRUE))) {
+    return(plot)
+  }
+  themed <- if (inherits(plot, "patchwork")) {
+    plot & plt_theme_scatter
+  } else {
+    plot + plt_theme_scatter
+  }
+  inside <- attr(plot, "legend_inside_panel", exact = TRUE)
+  if (is.list(inside) && length(inside$x) == 1L && length(inside$y) == 1L) {
+    themed <- themed + plots_legend_inside_theme(inside$x, inside$y)
+  }
+  themed
 }
 
 # Consistent plot download: PNG matches Plots-tab on-screen render when
@@ -272,14 +329,30 @@ plot_list_download_specs <- function(plotList,
 
   lapply(seq_along(plotList), function(i) {
     spec_height <- if (!is.null(heights) && length(heights) >= i) heights[[i]] else height
+    plot_i <- plotList[[i]]
+    attr_h <- attr(plot_i, "plots_display_height_in", exact = TRUE)
+    if (is.numeric(attr_h) && length(attr_h) >= 1 && is.finite(attr_h[1]) && attr_h[1] > 0) {
+      spec_height <- as.numeric(attr_h[1])
+    }
+    spec_width <- width
+    attr_w <- attr(plot_i, "plots_display_width_in", exact = TRUE)
+    if (is.numeric(attr_w) && length(attr_w) >= 1 && is.finite(attr_w[1]) && attr_w[1] > 0) {
+      spec_width <- as.numeric(attr_w[1])
+    }
+    spec_disp_w <- disp_w
+    if (is.null(spec_disp_w) || !is.finite(spec_disp_w) || spec_disp_w <= 0) {
+      spec_disp_w <- max(280, round(700 * (as.numeric(spec_width)[1] / 8)))
+    } else if (is.numeric(attr_w) && length(attr_w) >= 1 && is.finite(attr_w[1]) && attr_w[1] > 0) {
+      spec_disp_w <- max(as.numeric(spec_disp_w), round(as.numeric(spec_disp_w) * (attr_w[1] / 7)))
+    }
     filename <- if (append_index) paste0(fileNames[[i]], i) else fileNames[[i]]
     plot_download_spec(
-      plot = plotList[[i]],
+      plot = plot_i,
       filename = filename,
       theme = theme,
-      width = width,
+      width = spec_width,
       height = spec_height,
-      disp_w = disp_w,
+      disp_w = spec_disp_w,
       use_png_theme = use_png_theme,
       png_theme_profile = png_theme_profile,
       text_scale = text_scale
@@ -302,7 +375,16 @@ save_download_specs_zip <- function(specs, zip_file, fileType, prefix = "", empt
         next
       }
       if (!is.null(spec$theme)) {
-        plot <- plot + spec$theme
+        if (identical(spec$theme, plt_theme_scatter)) {
+          plot <- apply_plt_theme_scatter(plot)
+        } else {
+          orig <- plot
+          plot <- plot + spec$theme
+          inside <- attr(orig, "legend_inside_panel", exact = TRUE)
+          if (is.list(inside) && length(inside$x) == 1L && length(inside$y) == 1L) {
+            plot <- plot + plots_legend_inside_theme(inside$x, inside$y)
+          }
+        }
       }
 
       filename <- paste0(prefix, spec$filename, ".", fileType)
@@ -767,8 +849,10 @@ apply_direct_png_theme <- function(plot,
           attr(child2, "crowding24_title_panel") <- TRUE
           png_plot$patches$plots[[i]] <- child2
         } else {
-          png_plot$patches$plots[[i]] <- apply_direct_png_theme(
-            child,
+          # Inherit parent PNG axis scale tags so both scatter columns stay matched.
+          child_for_theme <- copy_png_axis_scale_attrs(plot, child)
+          child2 <- apply_direct_png_theme(
+            child_for_theme,
             profile = profile,
             text_scale = text_scale,
             scale_title = scale_title,
@@ -776,6 +860,54 @@ apply_direct_png_theme <- function(plot,
             scale_axis_title = scale_axis_title,
             scale_axis_text = scale_axis_text
           )
+          if (isTRUE(attr(child, "crowding24_main_panel", exact = TRUE))) {
+            attr(child2, "crowding24_main_panel") <- TRUE
+          }
+          inside <- attr(child, "legend_inside_panel", exact = TRUE)
+          if (is.list(inside) && length(inside$x) == 1L && length(inside$y) == 1L) {
+            # Match col-1 native-font legend visual size (geom_text ~3.84 × 2 ≈ 22 pt).
+            child2 <- child2 +
+              plots_legend_inside_theme(inside$x, inside$y) +
+              ggplot2::theme(
+                legend.title.position = "top",
+                legend.title = ggplot2::element_text(size = 22, hjust = 0),
+                legend.text = ggplot2::element_text(size = 20),
+                legend.key.size = ggplot2::unit(6, "mm")
+              )
+            attr(child2, "legend_inside_panel") <- inside
+          }
+          # Paired-row scatters: lock identical axis text sizes on every main panel.
+          if (isTRUE(attr(plot, "crowding24_paired_row_patchwork", exact = TRUE)) &&
+              isTRUE(attr(child, "crowding24_main_panel", exact = TRUE))) {
+            child2 <- child2 +
+              ggplot2::theme(
+                axis.title = ggplot2::element_text(
+                  size = sizes$axis_title,
+                  lineheight = lineheight_multiplier
+                ),
+                axis.title.x = ggplot2::element_text(
+                  size = sizes$axis_title,
+                  lineheight = lineheight_multiplier
+                ),
+                axis.title.y = ggplot2::element_text(
+                  size = sizes$axis_title,
+                  lineheight = lineheight_multiplier
+                ),
+                axis.text = ggplot2::element_text(
+                  size = sizes$axis_text,
+                  lineheight = lineheight_multiplier
+                ),
+                axis.text.x = ggplot2::element_text(
+                  size = sizes$axis_text,
+                  lineheight = lineheight_multiplier
+                ),
+                axis.text.y = ggplot2::element_text(
+                  size = sizes$axis_text,
+                  lineheight = lineheight_multiplier
+                )
+              )
+          }
+          png_plot$patches$plots[[i]] <- child2
         }
       }
     }
@@ -786,6 +918,13 @@ apply_direct_png_theme <- function(plot,
       size = sizes$axis_text,
       lineheight = lineheight_multiplier
     )
+    legend_title_size <- sizes$legend_title
+    legend_text_size <- sizes$legend_text
+    if (isTRUE(attr(plot, "crowding24_paired_row_patchwork", exact = TRUE))) {
+      # Match col-1 native-font legend (~22 pt after PNG text-layer scale).
+      legend_title_size <- 22
+      legend_text_size <- 20
+    }
     png_plot <- png_plot +
       ggplot2::theme(
         axis.title = ggplot2::element_text(
@@ -808,6 +947,14 @@ apply_direct_png_theme <- function(plot,
         axis.text.y = ggplot2::element_text(
           size = sizes$axis_text,
           lineheight = lineheight_multiplier
+        ),
+        legend.title = ggplot2::element_text(
+          size = legend_title_size,
+          lineheight = lineheight_multiplier
+        ),
+        legend.text = ggplot2::element_text(
+          size = legend_text_size,
+          lineheight = lineheight_multiplier
         )
       )
     ee_tag <- attr(plot, "crowding24_ee_families", exact = TRUE)
@@ -818,7 +965,14 @@ apply_direct_png_theme <- function(plot,
     if (is.numeric(height_tag) && length(height_tag) >= 1 && is.finite(height_tag[1])) {
       attr(png_plot, "plots_display_height_in") <- as.numeric(height_tag[1])
     }
+    width_tag <- attr(plot, "plots_display_width_in", exact = TRUE)
+    if (is.numeric(width_tag) && length(width_tag) >= 1 && is.finite(width_tag[1])) {
+      attr(png_plot, "plots_display_width_in") <- as.numeric(width_tag[1])
+    }
     attr(png_plot, "crowding24_native_legend_patchwork") <- TRUE
+    if (isTRUE(attr(plot, "crowding24_paired_row_patchwork", exact = TRUE))) {
+      attr(png_plot, "crowding24_paired_row_patchwork") <- TRUE
+    }
     attr(png_plot, "crowding24_main_panel") <- TRUE
     return(png_plot)
   }

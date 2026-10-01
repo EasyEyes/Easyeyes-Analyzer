@@ -243,14 +243,14 @@
       "Checking whether browser compression will help (" +
         formatBytes(originalBytes) +
         ")...",
-      "Compressing before upload..."
+      "Compressing..."
     );
 
     var work = Promise.resolve(null);
 
     if (allLoose) {
       work = packLooseFiles(files, function (pct, detail) {
-        updateProgress(pct, detail, "Compressing before upload...");
+        updateProgress(pct, detail, "Compressing...");
       }).then(function (blob) {
         var base =
           files.length === 1
@@ -269,12 +269,12 @@
             "ZIP already compressed; uploading as-is (" +
               formatBytes(originalBytes) +
               ").",
-            "Uploading file(s)..."
+            "Uploading..."
           );
           return null;
         }
         return recompressExistingZip(files[0], function (pct, detail) {
-          updateProgress(pct, detail, "Compressing before upload...");
+          updateProgress(pct, detail, "Compressing...");
         }).then(function (blob) {
           return new File([blob], files[0].name, {
             type: "application/zip",
@@ -298,7 +298,7 @@
               updateProgress(
                 ((idx - 1) / files.length) * 100 + pct / files.length,
                 "File " + idx + "/" + files.length + " — " + detail,
-                "Compressing before upload..."
+                "Compressing..."
               );
             }).then(function (blob) {
               var compressed = new File([blob], file.name, {
@@ -333,7 +333,7 @@
             "Compression saved little; uploading original (" +
               formatBytes(originalBytes) +
               ").",
-            "Uploading file(s)..."
+            "Uploading..."
           );
           return false;
         }
@@ -345,7 +345,7 @@
             " → " +
             formatBytes(newBytes) +
             ". Starting upload...",
-          "Uploading file(s)..."
+          "Uploading..."
         );
         console.info(
           "[EasyEyes] Pre-upload compress:",
@@ -364,7 +364,7 @@
         updateProgress(
           0,
           "Compression failed; uploading original files...",
-          "Uploading file(s)..."
+          "Uploading..."
         );
         return false;
       });

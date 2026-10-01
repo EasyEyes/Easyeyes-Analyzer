@@ -122,8 +122,8 @@
     stopWatchingUpload();
     setModalProgress(
       100,
-      "Upload complete. Waiting for server to read files...",
-      "Upload complete"
+      "Waiting...",
+      "Reading..."
     );
   }
 
@@ -151,7 +151,7 @@
       setModalProgress(
         state.lastPct,
         buildUploadDetail(state.lastPct, info.fileName),
-        "Uploading file(s)..."
+        "Uploading..."
       );
       return;
     }
@@ -177,7 +177,7 @@
     setModalProgress(
       pct,
       buildUploadDetail(pct, info.fileName),
-      "Uploading file(s)..."
+      "Uploading..."
     );
   }
 
@@ -237,7 +237,7 @@
     setModalProgress(
       0,
       buildUploadDetail(0, files.length ? files[0].name : ""),
-      "Uploading file(s)..."
+      "Uploading..."
     );
     startWatchingUpload();
   }
@@ -248,13 +248,13 @@
       stopWatchingUpload();
       setModalProgress(
         pct,
-        detail || "Reading file(s)...",
-        "Reading file(s)..."
+        detail || "Reading...",
+        "Reading..."
       );
     },
     setUploading: function (pct, detail) {
       state.phase = "uploading";
-      setModalProgress(pct, detail, "Uploading file(s)...");
+      setModalProgress(pct, detail, "Uploading...");
     },
     markWaitingForServer: markWaitingForServer,
     reset: function () {
@@ -392,7 +392,7 @@
         markWaitingForServer();
         window.EasyEyesFileProgress.setReading(
           0,
-          "Upload complete. Reading file(s)..."
+          "Reading..."
         );
       });
     }

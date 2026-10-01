@@ -430,6 +430,23 @@ register_plots_tab_server <- function(output,
       }
     }
     
+    # Shared prep for by-font / native-legend / full-row scatters (once per list build).
+    # Remember fonts/ paths only for ee_* plots; systemfonts registration stays
+    # deferred until PNG render (ensure_* skips faces already loaded).
+    crowding24_paired_lims <- paired_xheight_and_ratio_plot_limits(df_list())
+    crowding24_by_font_prep <- prepare_crowding_xheight_vs_acuity_xheight_by_font_data(
+      df_list(),
+      colorFont(),
+      resolve_fonts = FALSE,
+      paired_lims = crowding24_paired_lims
+    )
+    crowding24_by_font_prep_fonts <- crowding24_by_font_prep
+    if (!is.null(crowding24_by_font_prep_fonts) &&
+        !"plot_family" %in% names(crowding24_by_font_prep_fonts$data)) {
+      crowding24_by_font_prep_fonts$data <- crowding24_by_font_prep_fonts$data %>%
+        dplyr::mutate(plot_family = resolve_crowding24_plot_font_families(excel_font))
+    }
+
     comfort_beauty_plots <- list(
       list(plot = comfort_vs_crowding_scatter(df_list(), colorFont()), fname = 'comfort-vs-crowding-scatter'),
       list(plot = beauty_vs_crowding_scatter(df_list(), colorFont()), fname = 'beauty-vs-crowding-scatter'),
@@ -472,18 +489,29 @@ register_plots_tab_server <- function(output,
       list(
         plot = crowding_xheight_vs_acuity_xheight_by_font_scatter(
           df_list(),
-          colorFont()
+          colorFont(),
+          prep = crowding24_by_font_prep
         ),
         fname = 'crowding-xheight-vs-acuity-xheight-by-font'
       ),
+      # Font-file native-legend / row / abbrev plots last: remembering+registering
+      # fonts/ is expensive — do once via shared prep, register only at PNG time.
       list(
         plot = crowding_xheight_vs_acuity_xheight_by_font_native_legend_scatter(
           df_list(),
-          colorFont()
+          colorFont(),
+          prep = crowding24_by_font_prep_fonts
         ),
         fname = 'crowding-xheight-vs-acuity-xheight-by-font-native-legend'
       ),
-      # Font-file abbrev / native-legend plots last: registering fonts/ is expensive.
+      list(
+        plot = crowding_xheight_and_ratio_font_row_scatter(
+          df_list(),
+          colorFont(),
+          prep = crowding24_by_font_prep_fonts
+        ),
+        fname = 'crowding-xheight-and-size-ratio-by-font-row'
+      ),
       list(
         plot = crowding_xheight_vs_acuity_xheight_scatter(df_list(), colorFont()),
         fname = 'crowding-xheight-vs-acuity-xheight'
@@ -703,8 +731,7 @@ register_plots_tab_server <- function(output,
 
   maybe_start_plots_progress_for_content <- function() {
     if (!isTRUE(isolate(plots_tab_active())) ||
-        is.null(isolate(files())) ||
-        is.null(isolate(df_list()))) {
+        is.null(isolate(files()))) {
       return(invisible(NULL))
     }
     content_gen <- isolate(plotsContentGen())
@@ -713,7 +740,13 @@ register_plots_tab_server <- function(output,
       return(invisible(NULL))
     }
     plotsProgressStartedForContentGen(content_gen)
-    start_plots_progress("Plotting correlation matrices …")
+    # Show immediately on Plots even while df_list()/threshold still cooking;
+    # otherwise the tab looks broken for a long silent wait.
+    if (is.null(isolate(df_list()))) {
+      start_plots_progress("Preparing plots …")
+    } else {
+      start_plots_progress("Plotting correlation matrices …")
+    }
   }
 
   # Data changes only — never reset on navbar / tab switches.
@@ -868,6 +901,21 @@ register_plots_tab_server <- function(output,
       return(invisible(NULL))
     }
 
+    # Still loading thresholds / df_list after upload — keep the panel alive.
+    if (is.null(df_list())) {
+      send_plots_progress(
+        session,
+        active = TRUE,
+        done = FALSE,
+        stage = "Preparing plots …",
+        detail = "Waiting for data …",
+        timerReset = FALSE,
+        elapsedSec = plots_progress_elapsed_sec(),
+        generation = gen
+      )
+      return(invisible(NULL))
+    }
+
     hist_done <- histRenderedCount()
     violin_done <- violinRenderedCount()
     font_done <- fontComparisonRenderedCount()
@@ -959,7 +1007,7 @@ register_plots_tab_server <- function(output,
     }
 
     push(
-      sprintf("Plots ready in %s", format_plots_progress_elapsed(elapsed)),
+      sprintf("Done. %s", format_plots_progress_elapsed(elapsed)),
       detail = "",
       done = TRUE
     )
@@ -1695,6 +1743,16 @@ register_plots_tab_server <- function(output,
       })
       outputOptions(output, paste0("hasScatter", ii), suspendWhenHidden = FALSE)
 
+      output[[paste0("scatterFullWidth", ii)]] <- reactive({
+        if (!isTRUE(plots_tab_active())) return(FALSE)
+        plots <- scatterDiagrams()
+        if (is.null(plots) || length(plots$plotList) < ii) {
+          return(FALSE)
+        }
+        isTRUE(attr(plots$plotList[[ii]], "plots_full_row", exact = TRUE))
+      })
+      outputOptions(output, paste0("scatterFullWidth", ii), suspendWhenHidden = FALSE)
+
       output[[paste0("scatterTitle", ii)]] <- renderText({
         req(fontComparisonImagesReady())
         req(length(scatterDiagrams()$fileNames) >= ii)
@@ -1717,13 +1775,8 @@ register_plots_tab_server <- function(output,
                 plot_obj <- scatterDiagrams()$plotList[[ii]]
                 plot_to_save <- if (is_placeholder_plot(plot_obj)) {
                   plot_obj
-                } else if (isTRUE(attr(plot_obj, "crowding24_native_legend_patchwork", exact = TRUE))) {
-                  # Legend panel must stay theme_void; main panel is already themed.
-                  plot_obj
-                } else if (inherits(plot_obj, "patchwork")) {
-                  plot_obj & plt_theme_scatter
                 } else {
-                  plot_obj + plt_theme_scatter
+                  apply_plt_theme_scatter(plot_obj)
                 }
                 plot_to_save <- copy_png_axis_scale_attrs(plot_obj, plot_to_save)
                 # All Plots-tab scatters: axis numbers +50%, axis titles +30%.
@@ -1739,11 +1792,18 @@ register_plots_tab_server <- function(output,
                 } else {
                   scatter_h <- as.numeric(scatter_h[1])
                 }
+                scatter_w <- attr(plot_obj, "plots_display_width_in", exact = TRUE)
+                if (!is.numeric(scatter_w) || length(scatter_w) < 1 || !is.finite(scatter_w[1]) ||
+                    scatter_w[1] <= 0) {
+                  scatter_w <- 7
+                } else {
+                  scatter_w <- as.numeric(scatter_w[1])
+                }
                 result <- render_plots_display_png(
                   plot_to_save,
-                  width_in = 7,
+                  width_in = scatter_w,
                   height_in = scatter_h,
-                  disp_w = 700,
+                  disp_w = max(700, round(700 * (scatter_w / 7))),
                   limitsize = FALSE
                 )
                 mark_stage_rendered(
@@ -1782,13 +1842,7 @@ register_plots_tab_server <- function(output,
           if (is_placeholder_plot(scatterDiagrams()$plotList[[ii]])) return(invisible(NULL))
 
           plot_obj <- scatterDiagrams()$plotList[[ii]]
-          plot_to_save <- if (isTRUE(attr(plot_obj, "crowding24_native_legend_patchwork", exact = TRUE))) {
-            plot_obj
-          } else if (inherits(plot_obj, "patchwork")) {
-            plot_obj & plt_theme_scatter
-          } else {
-            plot_obj + plt_theme_scatter
-          }
+          plot_to_save <- apply_plt_theme_scatter(plot_obj)
           plot_to_save <- copy_png_axis_scale_attrs(plot_obj, plot_to_save)
           # All Plots-tab scatters: axis numbers +50%, axis titles +30%.
           plot_to_save <- tag_png_axis_scales(
@@ -1803,13 +1857,20 @@ register_plots_tab_server <- function(output,
           } else {
             scatter_h <- as.numeric(scatter_h[1])
           }
+          scatter_w <- attr(plot_obj, "plots_display_width_in", exact = TRUE)
+          if (!is.numeric(scatter_w) || length(scatter_w) < 1 || !is.finite(scatter_w[1]) ||
+              scatter_w[1] <= 0) {
+            scatter_w <- 7
+          } else {
+            scatter_w <- as.numeric(scatter_w[1])
+          }
           save_plots_display_download(
             file = file,
             plot = plot_to_save,
             file_type = downloadFileType(),
-            width_in = 7,
+            width_in = scatter_w,
             height_in = scatter_h,
-            disp_w = 700,
+            disp_w = max(700, round(700 * (scatter_w / 7))),
             limitsize = FALSE
           )
         }

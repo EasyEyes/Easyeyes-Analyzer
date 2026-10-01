@@ -424,6 +424,7 @@ collect_summary_table_inputs <- function(data_list) {
         val
       }
     }
+    # One session row per file (avoid distinct+cbind recycle warning).
     t <- df %>%
       arrange(`Loudspeaker survey`) %>%
       mutate(
@@ -433,7 +434,7 @@ collect_summary_table_inputs <- function(data_list) {
         QRConnect = first_nonempty_string(QRConnect),
         ComputerInfoFrom51Degrees = first_nonempty_string(ComputerInfoFrom51Degrees)
       ) %>%
-      distinct(
+      select(
         ProlificParticipantID,
         participant,
         ProlificSessionID,
@@ -457,7 +458,8 @@ collect_summary_table_inputs <- function(data_list) {
         `Microphone survey`,
         QRConnect,
         snapshotsLink
-      )
+      ) %>%
+      slice(1L)
     info <- df %>%
       distinct(
         block,
@@ -480,7 +482,7 @@ collect_summary_table_inputs <- function(data_list) {
         thresholdParameter = NA_character_
       )
     }
-    t <- cbind(t, info)
+    t <- dplyr::bind_cols(t, info)
     t$experimentCompleteBool <- experimentCompleteBool
     session_chunks[[length(session_chunks) + 1]] <- t
 

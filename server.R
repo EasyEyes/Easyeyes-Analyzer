@@ -53,7 +53,7 @@ shinyServer(function(input, output, session) {
                {
                  app_profiler$reset("file upload dialog opened")
                  shinyalert(
-                   title = "Uploading file(s)...",
+                   title = "Uploading...",
                    text = paste0(
                      '<div style="margin-top: 20px; padding: 0 10px;">',
                      '  <div style="background-color: #e0e0e0; border-radius: 8px; overflow: hidden; height: 28px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);">',
@@ -86,7 +86,7 @@ shinyServer(function(input, output, session) {
     req(input$file)
     session$sendCustomMessage("updateFileProgress", list(
       value = 0,
-      detail = "Upload complete. Reading file(s)...",
+      detail = "Reading...",
       phase = "reading",
       close = FALSE
     ))
@@ -118,7 +118,7 @@ shinyServer(function(input, output, session) {
     if (is.null(check)) {
       session$sendCustomMessage("updateFileProgress", list(
         value = 0,
-        detail = "Upload complete. Reading file(s)...",
+        detail = "Reading...",
         phase = "reading",
         close = FALSE
       ))
@@ -233,6 +233,15 @@ shinyServer(function(input, output, session) {
   
   minNQuestTrials <-reactive({input$NQuestTrials}) %>% debounce(1000)
   maxQuestSD <- reactive({input$maxQuestSD}) %>% debounce(1000)
+  # TODO(perf): generate_threshold often runs twice after upload (~30s each).
+  # Root cause: observeEvent(files()) calls updateCheckboxGroupInput('conditionName',
+  # selected = df_list()$conditionNames), which changes input$conditionName even when
+  # the selection is effectively "all". That invalidates conditionNames() below
+  # (debounced 5s) → df_list() → generate_threshold again. Same pattern also re-runs
+  # stackedPlots / corrMatrix off the Plots tab via suspendWhenHidden=FALSE consumers.
+  # Fix ideas: skip the checkbox update when choices/selected are unchanged; or seed
+  # conditionName before the first df_list() and ignore the echo; or isolate the
+  # update so it does not depend on a full df_list() compute.
   conditionNames <- reactive(input$conditionName) %>% debounce(5000)
   calibrateTrackDistanceCheckLengthSDLogAllowed <- 
     reactive({
@@ -612,6 +621,9 @@ shinyServer(function(input, output, session) {
                      selected = unique(files()$stairs$thresholdParameter)[1],
                    )
                    
+                   # TODO(perf): this update re-triggers conditionNames() → df_list() /
+                   # generate_threshold a second time after upload (see note on
+                   # conditionNames above). Prefer updating only when choices change.
                    updateCheckboxGroupInput(
                      session,
                      inputId = 'conditionName',

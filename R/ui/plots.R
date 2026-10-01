@@ -46,6 +46,42 @@ plotsTabUI <- function(maxPlotsHistSlots = 36,
     rows
   }
 
+  # Flex grid: normal plots are half-width; slots flagged full-width (via
+  # output$<prefix>FullWidth<i>) span the entire row.
+  flexible_plot_rows <- function(prefix, download_prefix, max_slots, show_title = TRUE) {
+    cells <- lapply(seq_len(max_slots), function(i) {
+      availability_id <- paste0(
+        "has",
+        toupper(substr(prefix, 1, 1)),
+        substr(prefix, 2, nchar(prefix)),
+        i
+      )
+      full_width_id <- paste0(prefix, "FullWidth", i)
+      conditionalPanel(
+        condition = sprintf("output['%s']", availability_id),
+        tags$div(
+          class = "plots-flex-cell",
+          conditionalPanel(
+            condition = sprintf("output['%s']", full_width_id),
+            tags$span(class = "plots-flex-full-marker", style = "display:none;")
+          ),
+          if (isTRUE(show_title)) {
+            tags$div(
+              style = "font-weight: bold; font-size: 12px; color: #333; padding: 8px 4px 4px 4px; word-wrap: break-word; white-space: normal;",
+              textOutput(paste0(prefix, "Title", i), inline = TRUE)
+            )
+          },
+          shinycssloaders::withSpinner(
+            imageOutput(paste0(prefix, i), width = "100%", height = "100%"),
+            type = 4
+          ),
+          downloadButton(paste0(download_prefix, i), "Download")
+        )
+      )
+    })
+    tags$div(class = "plots-flex-grid", cells)
+  }
+
   six_column_plot_rows <- function(prefix, download_prefix, max_slots, show_title = FALSE) {
     rows <- list()
     n_per_row <- 6
@@ -178,7 +214,7 @@ plotsTabUI <- function(maxPlotsHistSlots = 36,
     h2("Font comparison plots"),
     tags$div(two_column_plot_rows("fontComparison", "downloadFontComparison", maxPlotsFontComparisonSlots)),
     h2("Scatter diagrams"),
-    tags$div(two_column_plot_rows("scatter", "downloadScatter", maxPlotsScatterSlots)),
+    flexible_plot_rows("scatter", "downloadScatter", maxPlotsScatterSlots),
     conditionalPanel(
       "output.isRsvp",
       splitLayout(

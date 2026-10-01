@@ -253,4 +253,21 @@ span.unmetNeeds-has-explanation {
   font-variant-numeric: tabular-nums;
 }
 
+/* Scatter (and similar) flex grid: half-width by default, full-row when marked. */
+.plots-flex-grid {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  overflow-x: hidden;
+}
+.plots-flex-cell {
+  width: 50%;
+  box-sizing: border-box;
+  padding: 0 4px 12px 4px;
+  vertical-align: top;
+}
+.plots-flex-cell:has(.plots-flex-full-marker) {
+  width: 100%;
+}
+
 

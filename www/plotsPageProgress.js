@@ -190,10 +190,11 @@
 
     var title = document.getElementById("plots-page-progress-title");
     if (title) {
+      var stageText = msg.stage ? String(msg.stage) : "";
       title.textContent =
-        msg.stage && String(msg.stage).indexOf("Plots ready") === 0
-          ? msg.stage
-          : "Plots ready in " + formatElapsed(elapsed);
+        stageText.indexOf("Done.") === 0
+          ? stageText
+          : "Done. " + formatElapsed(elapsed);
     }
   }
 
