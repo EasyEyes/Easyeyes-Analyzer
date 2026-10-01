@@ -577,6 +577,82 @@ get_N_text <- function(data) {
   return(paste0(unique(t$text), collapse='\n'))
 }
 
+# Light clone for PNG theming.
+# unserialize(serialize(plot)) deep-copies fat plot_env / ggproto closures
+# (10–20s). Swapping layer$super also breaks aesthetic computation on many
+# plots. Instead: shallow-copy the ggplot list and duplicate each layer env
+# so in-place aes_params/geom_params/data edits do not touch the original.
+clone_ggplot_layer_for_png_theme <- function(layer) {
+  if (!is.environment(layer)) {
+    return(layer)
+  }
+  new_layer <- new.env(parent = emptyenv())
+  for (nm in ls(layer, all.names = TRUE)) {
+    assign(nm, get(nm, envir = layer, inherits = FALSE), envir = new_layer)
+  }
+  class(new_layer) <- class(layer)
+  if (is.list(new_layer$aes_params)) {
+    new_layer$aes_params <- as.list(new_layer$aes_params)
+  }
+  if (is.list(new_layer$geom_params)) {
+    new_layer$geom_params <- as.list(new_layer$geom_params)
+  }
+  if (is.data.frame(new_layer$data)) {
+    new_layer$data <- new_layer$data[seq_len(nrow(new_layer$data)), , drop = FALSE]
+  }
+  new_layer
+}
+
+clone_ggplot_for_png_theme <- function(plot) {
+  if (is.null(plot) || !inherits(plot, "ggplot")) {
+    return(plot)
+  }
+  cls <- class(plot)
+  kept_attrs <- attributes(plot)
+  out <- as.list(unclass(plot))
+
+  if (inherits(plot, "patchwork") && is.list(out$patches)) {
+    patches <- out$patches
+    if (is.list(patches$plots)) {
+      patches$plots <- lapply(patches$plots, clone_ggplot_for_png_theme)
+    }
+    out$patches <- patches
+  }
+
+  if (is.list(out$layers)) {
+    out$layers <- lapply(out$layers, clone_ggplot_layer_for_png_theme)
+  }
+
+  class(out) <- cls
+  for (nm in setdiff(names(kept_attrs), c("class", "names"))) {
+    attr(out, nm) <- kept_attrs[[nm]]
+  }
+  out
+}
+
+# Optional per-plot PNG axis scale factors (see apply_direct_png_theme).
+tag_png_axis_scales <- function(plot, axis_text = 1, axis_title = 1) {
+  if (is.null(plot)) {
+    return(plot)
+  }
+  attr(plot, "png_axis_text_scale") <- as.numeric(axis_text)[1]
+  attr(plot, "png_axis_title_scale") <- as.numeric(axis_title)[1]
+  plot
+}
+
+copy_png_axis_scale_attrs <- function(from, to) {
+  if (is.null(to)) {
+    return(to)
+  }
+  for (nm in c("png_axis_text_scale", "png_axis_title_scale")) {
+    v <- attr(from, nm, exact = TRUE)
+    if (!is.null(v)) {
+      attr(to, nm) <- v
+    }
+  }
+  to
+}
+
 # Scale ggplot text/layers for on-screen PNG rendering (ragg path).
 apply_direct_png_theme <- function(plot,
                                    profile = c("default", "plots", "histogram"),
@@ -587,7 +663,15 @@ apply_direct_png_theme <- function(plot,
                                    scale_axis_text = TRUE) {
   profile <- match.arg(profile)
   text_scale <- as.numeric(text_scale)[1]
-  if (is.na(text_scale) || text_scale <= 0) text_scale <- 1
+  if (length(text_scale) != 1L || is.na(text_scale) || text_scale <= 0) text_scale <- 1
+  read_axis_scale_attr <- function(plot, name) {
+    raw <- attr(plot, name, exact = TRUE)
+    if (is.null(raw)) return(1)
+    val <- suppressWarnings(as.numeric(raw)[1])
+    if (length(val) != 1L || is.na(val) || !is.finite(val) || val <= 0) 1 else val
+  }
+  axis_text_scale <- read_axis_scale_attr(plot, "png_axis_text_scale")
+  axis_title_scale <- read_axis_scale_attr(plot, "png_axis_title_scale")
   default_text_layer_size <- 3
   stats_text_layer_size <- 4
   text_layer_multiplier <- 2
@@ -612,21 +696,27 @@ apply_direct_png_theme <- function(plot,
   # Scale body text; keep filename (title) / measure subtitle unless requested
   if (isTRUE(scale_title)) sizes$title <- sizes$title * text_scale
   if (isTRUE(scale_subtitle)) sizes$subtitle <- sizes$subtitle * text_scale
-  if (isTRUE(scale_axis_title)) sizes$axis_title <- sizes$axis_title * text_scale
+  if (isTRUE(scale_axis_title)) {
+    sizes$axis_title <- sizes$axis_title * text_scale * axis_title_scale
+  }
   if (isTRUE(scale_axis_text)) {
-    sizes$axis_text <- sizes$axis_text * text_scale
+    sizes$axis_text <- sizes$axis_text * text_scale * axis_text_scale
     sizes$legend_title <- sizes$legend_title * text_scale
     sizes$legend_text <- sizes$legend_text * text_scale
     sizes$strip <- sizes$strip * text_scale
     sizes$caption <- sizes$caption * text_scale
   }
 
+  # Light-clone so layer mutations below do not touch the original plot
+  # and we avoid fat unserialize(serialize(plot)).
+  plot <- clone_ggplot_for_png_theme(plot)
+
   # Native-font legend plots are patchwork (title / legend / main).
   # Recurse into children for sizing; never apply axis text globally via `&`
   # (that reintroduces row/column numbers on the void legend panel).
   if (inherits(plot, "patchwork") &&
       isTRUE(attr(plot, "crowding24_native_legend_patchwork", exact = TRUE))) {
-    png_plot <- unserialize(serialize(plot, NULL))
+    png_plot <- plot
     if (is.list(png_plot$patches$plots)) {
       for (i in seq_along(png_plot$patches$plots)) {
         child <- png_plot$patches$plots[[i]]
@@ -634,7 +724,7 @@ apply_direct_png_theme <- function(plot,
           next
         }
         if (isTRUE(attr(child, "crowding24_legend_panel", exact = TRUE))) {
-          child2 <- unserialize(serialize(child, NULL))
+          child2 <- clone_ggplot_for_png_theme(child)
           for (layer_idx in seq_along(child2$layers)) {
             geom <- child2$layers[[layer_idx]]$geom
             if (inherits(geom, "GeomText") || inherits(geom, "GeomLabel")) {
@@ -733,7 +823,7 @@ apply_direct_png_theme <- function(plot,
     return(png_plot)
   }
 
-  png_plot <- unserialize(serialize(plot, NULL))
+  png_plot <- plot
 
   # Preserve angled x tick labels from the plot theme when present (e.g. font bars)
   existing_x <- png_plot$theme$axis.text.x
@@ -1274,4 +1364,23 @@ bind_rows_or_empty <- function(chunks) {
     return(tibble::tibble())
   }
   dplyr::bind_rows(harmonize_chunks_for_bind_rows(chunks))
+}
+
+# Progressive plot unlock for renderImage/renderPlot.
+#
+# Do NOT use `req(ii <= unlocked_rv())` in image renderers: each counter
+# increment invalidates every earlier slot (O(n^2) re-renders / looks like an
+# infinite loop). Poll with isolate + invalidateLater instead. Optional
+# `generation` (reactive or zero-arg function) re-triggers after a gate reset.
+req_progressive_slot_unlocked <- function(ii, unlocked_rv, session, generation = NULL) {
+  if (!is.null(generation)) {
+    if (is.function(generation)) {
+      invisible(generation())
+    }
+  }
+  if (isolate(unlocked_rv()) < ii) {
+    shiny::invalidateLater(50, session)
+    shiny::req(FALSE)
+  }
+  invisible(NULL)
 }

@@ -2012,6 +2012,23 @@ shared_log10_limits <- function(x, y) {
   list(x = lim, y = lim)
 }
 
+# Clip an acuity-x-height X limit so the axis ends at 3 deg (no 10+).
+# Keeps 0.3, 1, 3 as labeled ticks with the usual small pad past 3.
+clip_acuity_xheight_xlim_at_3 <- function(x_lim, xmax = 3) {
+  x_lim <- suppressWarnings(as.numeric(x_lim))
+  if (length(x_lim) < 2L || !all(is.finite(x_lim)) || any(x_lim <= 0)) {
+    x_lim <- c(xmax / 100, xmax)
+  }
+  lo <- min(x_lim[1], xmax)
+  if (!(is.finite(lo) && lo > 0 && lo < xmax)) {
+    lo <- xmax / 100
+  }
+  ensure_log10_limits_cover_labeled_ticks(
+    c(lo, xmax),
+    ticks = c(0.3, 1, xmax)
+  )
+}
+
 # Expand log limits so labeled ticks (default 0.3, 1, 3, 10) sit inside the
 # scale with room beyond the extremes (min < 0.3, max > 10).
 ensure_log10_limits_cover_labeled_ticks <- function(lim,
@@ -2047,14 +2064,14 @@ ensure_log10_limits_cover_labeled_ticks <- function(lim,
 }
 
 # Shared limits for the paired plots:
-#   - crowding x-height vs acuity x-height (square, identical x/y)
-#   - crowding:acuity ratio vs acuity x-height (same horizontal as the square)
-# Both axes are expanded so 0.3, 1, 3, 10 are numbered with room outside.
+#   - crowding x-height vs acuity x-height (Y from data; X = acuity x-height clipped at 3 deg)
+#   - crowding:acuity ratio vs acuity x-height (same clipped X)
 paired_xheight_and_ratio_plot_limits <- function(df_list) {
-  empty_lim <- ensure_log10_limits_cover_labeled_ticks(c(0.1, 30))
+  empty_x <- clip_acuity_xheight_xlim_at_3(c(0.1, 3))
+  empty_y <- ensure_log10_limits_cover_labeled_ticks(c(0.1, 30))
   empty <- list(
-    xheight = list(x = empty_lim, y = empty_lim),
-    ratio = list(x = empty_lim, y = empty_lim)
+    xheight = list(x = empty_x, y = empty_y),
+    ratio = list(x = empty_x, y = empty_y)
   )
   d <- prepare_crowding_acuity_size_ratio_data(df_list)
   if (nrow(d) == 0) {
@@ -2073,7 +2090,8 @@ paired_xheight_and_ratio_plot_limits <- function(df_list) {
 
   sq <- shared_log10_limits(d$acuityXHeightDeg, d$crowdingXHeightDeg)
   sq_lim <- ensure_log10_limits_cover_labeled_ticks(sq$x)
-  xheight <- list(x = sq_lim, y = sq_lim)
+  x_lim <- clip_acuity_xheight_xlim_at_3(sq_lim)
+  xheight <- list(x = x_lim, y = sq_lim)
 
   r_vals <- c(d$r, d$r_lo, d$r_hi)
   r_vals <- r_vals[is.finite(r_vals) & r_vals > 0]
@@ -2083,7 +2101,7 @@ paired_xheight_and_ratio_plot_limits <- function(df_list) {
 
   list(
     xheight = xheight,
-    ratio = list(x = sq_lim, y = y_r)
+    ratio = list(x = x_lim, y = y_r)
   )
 }
 
@@ -2174,7 +2192,7 @@ crowding_acuity_size_ratio_vs_acuity_xheight_scatter <- function(df_list,
 
   lims <- paired_xheight_and_ratio_plot_limits(df_list)$ratio
 
-  ggplot(summary_data, aes(x = acuityXHeightDeg, y = r, color = font_label)) +
+  p <- ggplot(summary_data, aes(x = acuityXHeightDeg, y = r, color = font_label)) +
     geom_hline(
       yintercept = 1,
       linetype = "longdash",
@@ -2211,6 +2229,7 @@ crowding_acuity_size_ratio_vs_acuity_xheight_scatter <- function(df_list,
       y = "Crowding:acuity size ratio r"
     ) +
     guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
+  p
 }
 
 # Colors for Text (sans) / Text (serif) / Display / Script.
@@ -2279,11 +2298,15 @@ crowding_acuity_size_ratio_vs_acuity_xheight_by_category_scatter <- function(df_
     ) +
     geom_point(size = 3.5) +
     apply_equal_log10_scatter_scales(lims) +
-    scale_color_manual(values = cols, name = "Font group", drop = FALSE) +
+    scale_color_manual(values = cols, name = "Font category", drop = FALSE) +
     theme_bw() +
     theme(
-      legend.position = "bottom",
-      legend.box = "horizontal",
+      # Inside panel, well below the r = 1 dashed line.
+      legend.position = c(0.5, 0.08),
+      legend.justification = c(0.5, 0),
+      legend.direction = "horizontal",
+      legend.background = element_rect(fill = "white", color = NA),
+      legend.key = element_blank(),
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
       # Negative length → ticks inside the panel (like annotation_logticks).
@@ -2292,12 +2315,12 @@ crowding_acuity_size_ratio_vs_acuity_xheight_by_category_scatter <- function(df_
     labs(
       subtitle = paste0(
         "Crowding:acuity size ratio vs acuity x-height\n",
-        "colored by font group"
+        "colored by font category"
       ),
       x = "Acuity x-height (deg)",
       y = "Crowding:acuity size ratio r"
     ) +
-    guides(color = guide_legend(title = "Font group", nrow = 1))
+    guides(color = guide_legend(title = "Font category", nrow = 1))
 }
 
 # Crowding x-height vs acuity x-height (both deg, log-spaced).
@@ -2456,8 +2479,7 @@ prepare_crowding_xheight_vs_acuity_xheight_by_font_data <- function(df_list,
   summary_data <- summary_data %>%
     mutate(plot_family = resolve_crowding24_plot_font_families(excel_font))
 
-  # Same square limits as the paired ratio-vs-xheight plot (identical x/y;
-  # numbered through at least 0.3 … 10 with room outside).
+  # Same paired limits as ratio-vs-xheight (acuity X clipped at 3 deg).
   lims <- paired_xheight_and_ratio_plot_limits(df_list)$xheight
 
   list(data = summary_data, cols = cols, lims = lims)
@@ -2813,12 +2835,17 @@ ratio_r_hist_legend_spacer_layer <- function(lims, cols) {
 }
 
 # Bar histogram of Crowding:acuity size ratio r (one bar-bin count of fonts), log x.
+# ggplot is built in a child frame so plot_env does not retain df_list (PNG
+# theming serialize(plot) would otherwise copy the whole archive bundle).
 crowding_acuity_size_ratio_r_histogram <- function(df_list, font_colors = NULL) {
   summary_data <- prepare_crowding_acuity_ratio_r_hist_data(df_list)
   if (nrow(summary_data) == 0) {
     return(NULL)
   }
+  build_crowding_acuity_size_ratio_r_histogram(summary_data)
+}
 
+build_crowding_acuity_size_ratio_r_histogram <- function(summary_data) {
   lims <- ratio_r_hist_log10_limits(summary_data$r)
   breaks <- ratio_r_hist_log_breaks(lims)
   logtick_guide <- ggplot2::guide_axis_logticks(
@@ -2934,6 +2961,10 @@ crowding_acuity_size_ratio_r_dot_histogram <- function(df_list, font_colors = NU
   }
 
   cols <- cols[intersect(names(cols), levels(summary_data$plot_category))]
+  build_crowding_acuity_size_ratio_r_dot_histogram(summary_data, lims, cols)
+}
+
+build_crowding_acuity_size_ratio_r_dot_histogram <- function(summary_data, lims, cols) {
   max_y <- max(summary_data$stack_y, na.rm = TRUE)
   logtick_guide <- ggplot2::guide_axis_logticks(
     long = 2.5,

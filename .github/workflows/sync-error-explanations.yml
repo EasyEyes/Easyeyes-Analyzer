@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # needed to dispatch the shinyapps deploy workflow
 
 concurrency:
   group: sync-error-explanations
@@ -70,13 +71,27 @@ jobs:
           PY
 
       - name: Commit and push if changed
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/error_explanations.csv data/unmet_needs_explanations.csv
           if git diff --staged --quiet; then
             echo "No changes to explanation CSVs"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "Sync error and unmetNeeds explanations from Google Sheet"
             git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # Commits made with GITHUB_TOKEN do not trigger other push workflows
+      # (GitHub blocks that to avoid infinite loops). After we push sheet
+      # updates, explicitly dispatch the shinyapps deploy workflow instead.
+      - name: Trigger shinyapps.io deploy
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run "Deploy to shinyapps.io" --ref "${{ github.ref_name }}"
+          echo "Dispatched Deploy to shinyapps.io on ${{ github.ref_name }}"

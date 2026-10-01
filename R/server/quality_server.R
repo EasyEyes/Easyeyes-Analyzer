@@ -193,7 +193,8 @@ qualityTabServer <- function(id,
       local({
         ii <- j
         output[[paste0("qualityHist", ii)]] <- renderImage({
-          req(ii <= qualityHistRenderCount())
+          # Do not req(ii <= qualityHistRenderCount()) — see req_progressive_slot_unlocked().
+          req_progressive_slot_unlocked(ii, qualityHistRenderCount, session)
           tryCatch({
             tmp_svg <- tempfile(fileext = '.svg')
             # Don't add hist_theme to placeholder plots
@@ -211,9 +212,9 @@ qualityTabServer <- function(id,
               unit = 'in',
               limitsize = FALSE
             )
-            # Fit image to the container width to avoid horizontal scrollbars
-            disp_w <- session$clientData[[paste0("output_", ns(paste0("qualityHist", ii)), "_width")]]
-            if (is.null(disp_w) || is.na(disp_w) || disp_w <= 0) disp_w <- 560
+            # Fixed width: clientData widths reflow as each hist appears and
+            # would re-invalidate earlier slots (same class of loop as unlock).
+            disp_w <- 560
             scale <- 2
             png_w <- round(disp_w * scale)
             png_h <- round((3.5 / 4) * png_w)

@@ -444,7 +444,9 @@ collect_summary_table_inputs <- function(data_list) {
         deviceSystemFamily,
         browser,
         resolution,
+        screenWidthPx,
         screenWidthCm,
+        devicePixelRatio,
         cameraIsTopCenter,
         rows,
         cols,
@@ -831,7 +833,9 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
       system,
       browser,
       resolution,
+      screenWidthPx,
       screenWidthCm,
+      devicePixelRatio,
       cameraIsTopCenter,
       QRConnect,
       date,
@@ -932,12 +936,14 @@ render_summary_datatable <- function(dt, prolific_id) {
   # compute one‐based indices for DataTables
   res_col   <- which(names(dt) == "resolution")
   width_col <- which(names(dt) == "resolution_width")
+  # Kept for Plots device histograms; not shown in Sessions table.
+  hide_hist_cols <- which(names(dt) %in% c("screenWidthPx", "devicePixelRatio"))
   # DT with default rownames: JS col 0 = rownames, data col j -> JS index j
   prolific_col <- which(names(dt) == "Prolific participant ID")
   unmet_col <- which(names(dt) == "unmetNeeds")
   
   column_defs <- list(
-        list(visible = FALSE, targets = c(0, width_col)),  # Hide first column and resolution_width column
+        list(visible = FALSE, targets = c(0, width_col, hide_hist_cols)),
         list(
           targets   = res_col,
           orderData = width_col

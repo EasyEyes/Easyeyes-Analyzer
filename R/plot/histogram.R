@@ -9,13 +9,16 @@ histogram_stats_label <- function(mean, sd, N) {
 }
 
 # Shared top-right mean/sd/N label for plot histograms.
+# Must use a 1-row data frame: if geom_text_npc inherits the plot data, ggpp
+# draws the label once per row (warning + ~10–20s PNG renders on large N).
 histogram_stats_text_npc <- function(mean, sd, N, size = hist_stats_label_size) {
   ggpp::geom_text_npc(
-    aes(npcx = "right", npcy = "top"),
-    label = histogram_stats_label(mean, sd, N),
+    data = tibble::tibble(label = histogram_stats_label(mean, sd, N)),
+    mapping = aes(npcx = "right", npcy = "top", label = label),
     size = size,
     hjust = 1,
-    vjust = 1
+    vjust = 1,
+    inherit.aes = FALSE
   )
 }
 
@@ -610,116 +613,179 @@ get_prop_correct_hist_list <- function(quest, max_chars_per_line = 25) {
 }
 
 
-append_hist_list <- function(data_list, plot_list, fileNames, experimentNames){
-  
-  params <- foreach(i=1:length(data_list), .combine='rbind') %do% {
-    t <- data_list[[i]] %>% 
-      filter(!is.na(staircaseName)) %>%
-      distinct(participant,
-               cores,
-               deviceMemoryGB,
-               devicePixelRatio,
-               screenWidthPx,
-               pxPerCm,
-               screenWidthCm,
-               conditionName,
-               thresholdParameter, 
-               targetEccentricityXDeg, 
-               targetEccentricityYDeg, 
-               spacingOverSizeRatio, 
-               viewingDistanceCm, 
-               fontNominalSizePt, 
-               level,
-               font)
+# Participant-level device fields for Plots histograms, from the Sessions
+# summary (already built while reading archives — no second data_list walk).
+# One row per participant (first finite value per field) — summary has many
+# condition rows and distinct()-across-all-cols leaks duplicates.
+participant_device_for_hists <- function(summary_df) {
+  empty <- tibble::tibble(
+    participant = character(),
+    screenWidthPx = numeric(),
+    screenWidthCm = numeric(),
+    deviceMemoryGB = numeric(),
+    devicePixelRatio = numeric(),
+    cores = numeric()
+  )
+  if (is.null(summary_df) || !is.data.frame(summary_df) || nrow(summary_df) == 0) {
+    return(empty)
   }
-  
- 
-  
 
-  minDeg <- params %>% 
-    filter(!grepl("practice",conditionName, ignore.case = T)) %>% 
-    mutate(spacingOverSizeRatio = as.numeric(spacingOverSizeRatio),
-           viewingDistanceCm = as.numeric(viewingDistanceCm),
-           fontNominalSizePt = as.numeric(fontNominalSizePt),
-           level = as.numeric(level),
-           fontNominalSizeDeg = (180/pi) * atan2(fontNominalSizePt*2.54/72, viewingDistanceCm)) %>% 
-    group_by(participant, conditionName, 
-             thresholdParameter, font) %>%
-    # minDeg = spacingMinDeg when thresholdParameter = spacingDeg, minDeg = sizeMinDeg when tresholdParameter = targetSizeDeg
-    summarize(minDeg = case_when(!is.na(level) ~ 10^min(level),
-                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'targetSizeDeg' & font == 'Sloan.woff2' ~ min(fontNominalSizeDeg),
-                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'spacingDeg' & font == 'Sloan.woff2'  ~ min(fontNominalSizeDeg) * spacingOverSizeRatio,
-                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'targetSizeDeg' & font == 'Pelli.woff2' ~ min(fontNominalSizeDeg) / 5,
-                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'spacingDeg' & font == 'Pelli.woff2'  ~ min(fontNominalSizeDeg) * spacingOverSizeRatio / 5
-    ),
-    .groups="drop") %>% 
-    filter(thresholdParameter == 'targetSizeDeg' | thresholdParameter == 'spacingDeg') %>% 
-    distinct() %>% 
-    filter(!is.na(minDeg)) %>% 
-    ungroup()
+  participant_col <- if ("Pavlovia session ID" %in% names(summary_df)) {
+    "Pavlovia session ID"
+  } else if ("participant" %in% names(summary_df)) {
+    "participant"
+  } else {
+    return(empty)
+  }
+  mem_col <- if ("deviceMemoryGB" %in% names(summary_df)) {
+    "deviceMemoryGB"
+  } else if ("GB" %in% names(summary_df)) {
+    "GB"
+  } else {
+    NA_character_
+  }
 
-  vars <- c("screenWidthPx", "screenWidthCm", "deviceMemoryGB", 
-            "devicePixelRatio","cores")
-  
-  
-  j = length(plot_list) + 1
-  # Loop through summary dataset and generate histograms
-  for (var in vars) {
-    if (n_distinct(params[var]) > 1) {
-      data <- params %>% select("participant", all_of(var)) %>% distinct()
-      avg <- round(mean(as.numeric(data[[var]]), na.rm =T),2)
-      sd <- round(sd(as.numeric(data[[var]]), na.rm =T),2)
-      n = nrow(data)
-      p <- ggplot(data, aes(x = .data[[var]])) +
-        geom_histogram(color=NA, fill="gray80") + 
-        histogram_stats_text_npc(avg, sd, n) +
-        labs(subtitle = paste("Histogram of\n", var))
-      
-      if (var == "deviceMemoryGB") {
-        p <- p + scale_x_continuous(limits = c(1,9),  
-                                    breaks = seq(2, 8, by = 2), 
-                                    expand = expansion(add = 0)) 
-        
-      }
-      p <-  add_experiment_title(p, experimentNames)
-      plot_list[[j]] <- p
-      fileNames[[j]] <- paste0(var,'-histogram')
-      j = j + 1
+  screen_px <- if ("screenWidthPx" %in% names(summary_df)) {
+    suppressWarnings(as.numeric(summary_df$screenWidthPx))
+  } else if ("resolution" %in% names(summary_df)) {
+    suppressWarnings(as.numeric(sub("^\\s*([0-9]+).*", "\\1", as.character(summary_df$resolution))))
+  } else {
+    rep(NA_real_, nrow(summary_df))
+  }
+
+  first_finite <- function(x) {
+    x <- suppressWarnings(as.numeric(x))
+    x <- x[is.finite(x)]
+    if (length(x) == 0) NA_real_ else x[[1]]
+  }
+
+  tibble::tibble(
+    participant = as.character(summary_df[[participant_col]]),
+    screenWidthPx = screen_px,
+    screenWidthCm = if ("screenWidthCm" %in% names(summary_df)) {
+      suppressWarnings(as.numeric(summary_df$screenWidthCm))
+    } else {
+      NA_real_
+    },
+    deviceMemoryGB = if (!is.na(mem_col)) {
+      suppressWarnings(as.numeric(summary_df[[mem_col]]))
+    } else {
+      NA_real_
+    },
+    devicePixelRatio = if ("devicePixelRatio" %in% names(summary_df)) {
+      suppressWarnings(as.numeric(summary_df$devicePixelRatio))
+    } else {
+      NA_real_
+    },
+    cores = if ("cores" %in% names(summary_df)) {
+      suppressWarnings(as.numeric(summary_df$cores))
+    } else {
+      NA_real_
     }
+  ) %>%
+    filter(!is.na(participant), participant != "") %>%
+    group_by(participant) %>%
+    summarize(
+      screenWidthPx = first_finite(screenWidthPx),
+      screenWidthCm = first_finite(screenWidthCm),
+      deviceMemoryGB = first_finite(deviceMemoryGB),
+      devicePixelRatio = first_finite(devicePixelRatio),
+      cores = first_finite(cores),
+      .groups = "drop"
+    )
+}
+
+# Build device/spacing hists in a CHILD function so ggplot plot_env does not
+# capture the Shiny histograms() reactive frame (files/data_list). PNG theming
+# does unserialize(serialize(plot)); a fat plot_env makes that take 10–20s.
+make_device_var_histogram <- function(data, var, avg, sd, n) {
+  p <- ggplot2::ggplot(data, ggplot2::aes(x = .data[[var]])) +
+    ggplot2::geom_histogram(color = NA, fill = "gray80") +
+    histogram_stats_text_npc(avg, sd, n) +
+    ggplot2::labs(subtitle = paste("Histogram of\n", var))
+  if (identical(var, "deviceMemoryGB")) {
+    p <- p + ggplot2::scale_x_continuous(
+      limits = c(1, 9),
+      breaks = seq(2, 8, by = 2),
+      expand = ggplot2::expansion(add = 0)
+    )
   }
-  if (nrow(minDeg) > 0) {
-    # histogram of spacingMinDeg (log-x, no ticks)
-    stats <- minDeg %>%
-      filter(thresholdParameter == 'spacingDeg',
-             !is.na(minDeg)) %>%
-      summarize(mean = round(mean(minDeg),2),
-                sd = round(sd(minDeg),2),
-                N = n(),
-                .groups="drop")
-    p <- ggplot(minDeg %>% filter(thresholdParameter == 'spacingDeg')) + 
-      geom_histogram(aes(x = minDeg),
-                     color = NA, fill = "gray80") +
-      histogram_stats_text_npc(stats$mean, stats$sd, stats$N) +
-      scale_x_log10(expand = c(0, 0)) +
-      scale_y_continuous(expand = c(0, 0)) +
-      labs(
-        x     = 'spacingMinDeg',
-        y     = 'Count',
-        subtitle = 'Histogram of\nspacingMinDeg'
+  p
+}
+
+make_spacing_mindeg_histogram <- function(spacing, stats) {
+  ggplot2::ggplot(spacing) +
+    ggplot2::geom_histogram(ggplot2::aes(x = minDeg), color = NA, fill = "gray80") +
+    histogram_stats_text_npc(stats$mean, stats$sd, stats$N) +
+    ggplot2::scale_x_log10(expand = c(0, 0)) +
+    ggplot2::scale_y_continuous(expand = c(0, 0)) +
+    ggplot2::labs(
+      x = "spacingMinDeg",
+      y = "Count",
+      subtitle = "Histogram of\nspacingMinDeg"
+    )
+}
+
+# Device + spacingMinDeg histograms using already-extracted tables (no data_list walk).
+append_hist_list <- function(participant_device,
+                             minDeg,
+                             plot_list,
+                             fileNames,
+                             experimentNames) {
+  if (is.null(participant_device) || !is.data.frame(participant_device)) {
+    participant_device <- participant_device_for_hists(NULL)
+  }
+  if (is.null(minDeg) || !is.data.frame(minDeg)) {
+    minDeg <- tibble::tibble(
+      participant = character(),
+      conditionName = character(),
+      thresholdParameter = character(),
+      font = character(),
+      minDeg = numeric()
+    )
+  }
+
+  vars <- c("screenWidthPx", "screenWidthCm", "deviceMemoryGB",
+            "devicePixelRatio", "cores")
+
+  j <- length(plot_list) + 1L
+  for (var in vars) {
+    if (!var %in% names(participant_device)) next
+    data <- participant_device %>%
+      select("participant", all_of(var)) %>%
+      distinct() %>%
+      filter(is.finite(suppressWarnings(as.numeric(.data[[var]]))))
+    if (n_distinct(data[[var]]) <= 1) next
+
+    avg <- round(mean(as.numeric(data[[var]]), na.rm = TRUE), 2)
+    sd <- round(sd(as.numeric(data[[var]]), na.rm = TRUE), 2)
+    n <- nrow(data)
+    p <- make_device_var_histogram(data, var, avg, sd, n)
+    p <- add_experiment_title(p, experimentNames)
+    plot_list[[j]] <- p
+    fileNames[[j]] <- paste0(var, "-histogram")
+    j <- j + 1L
+  }
+
+  if (nrow(minDeg) > 0 && "thresholdParameter" %in% names(minDeg) && "minDeg" %in% names(minDeg)) {
+    spacing <- minDeg %>%
+      filter(thresholdParameter == "spacingDeg", is.finite(minDeg), minDeg > 0)
+    stats <- spacing %>%
+      summarize(
+        mean = round(mean(minDeg), 2),
+        sd = round(sd(minDeg), 2),
+        N = n(),
+        .groups = "drop"
       )
-    
-    p <-  add_experiment_title(p, experimentNames)
-    
-    if (stats$N > 0) {
+    if (isTRUE(stats$N > 0)) {
+      p <- make_spacing_mindeg_histogram(spacing, stats)
+      p <- add_experiment_title(p, experimentNames)
       plot_list[[j]] <- p
       fileNames[[j]] <- "spacingMinDeg-histogram"
-      j = j + 1
     }
   }
- 
-  
-  return(list(plotList = plot_list,
-              fileNames = fileNames))
+
+  list(plotList = plot_list, fileNames = fileNames)
 }
 
 

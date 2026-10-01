@@ -12,6 +12,7 @@ www_asset_version <- function(filename) {
 }
 summary_table_js_v <- www_asset_version("summaryTable.js")
 ui_css_v <- www_asset_version("ui.css")
+plots_page_progress_js_v <- www_asset_version("plotsPageProgress.js")
 # packages
 library(shiny)
 library(shinytitle)
@@ -36,6 +37,7 @@ shinyUI(
         tags$script(src = "controlPanel.js?v=languages"),
         tags$script(src = "compressBeforeUpload.js"),
         tags$script(src = "fileUploadProgress.js"),
+        tags$script(src = paste0("plotsPageProgress.js?v=", plots_page_progress_js_v)),
         tags$script(src = paste0("summaryTable.js?v=", summary_table_js_v)),
         tags$script(HTML(paste0(
           "window.errorExplanations = ",

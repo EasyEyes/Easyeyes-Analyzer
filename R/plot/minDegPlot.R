@@ -1,54 +1,59 @@
 
+# Participant × condition minDeg table (spacingMinDeg / sizeMinDeg). Shared by
+# Plots device/spacing histograms and Quality minDeg plots so data_list is walked once.
+compute_minDeg <- function(data_list) {
+  if (is.null(data_list) || length(data_list) == 0) {
+    return(tibble::tibble(
+      participant = character(),
+      conditionName = character(),
+      thresholdParameter = character(),
+      font = character(),
+      minDeg = numeric()
+    ))
+  }
 
-get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
-
-  levels <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
-    data_list[[i]] %>% select(participant, conditionName,thresholdParameter, 
-                              targetEccentricityXDeg, targetEccentricityYDeg, spacingOverSizeRatio, 
-                              viewingDistanceCm, fontNominalSizePt, level, font)
-  } %>% 
-    filter(targetEccentricityXDeg == 0 & targetEccentricityYDeg == 0) %>% 
-    filter(!grepl("practice",conditionName, ignore.case = T)) %>% 
-    mutate(spacingOverSizeRatio = as.numeric(spacingOverSizeRatio),
-           viewingDistanceCm = as.numeric(viewingDistanceCm),
-           fontNominalSizePt = as.numeric(fontNominalSizePt),
-           level = as.numeric(level))
-  
-  # the conversion formula from fontNominalSizePt to level only true when font is Sloan.woff2
-  minDeg <- levels %>% 
-    mutate(fontNominalSizeDeg = (180/pi) * atan2(fontNominalSizePt*2.54/72, viewingDistanceCm)) %>% 
-    group_by(participant, conditionName, 
-                 thresholdParameter, font) %>%
-    # minDeg = spacingMinDeg when thresholdParameter = spacingDeg, minDeg = sizeMinDeg when tresholdParameter = targetSizeDeg
-    summarize(minDeg = case_when(!is.na(level) ~ 10^min(level),
-                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'targetSizeDeg' & font == 'Sloan.woff2' ~ min(fontNominalSizeDeg),
-                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'spacingDeg' & font == 'Sloan.woff2'  ~ min(fontNominalSizeDeg) * spacingOverSizeRatio,
-                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'targetSizeDeg' & font == 'Pelli.woff2' ~ min(fontNominalSizeDeg) / 5,
-                                 !is.na(fontNominalSizeDeg) & thresholdParameter == 'spacingDeg' & font == 'Pelli.woff2'  ~ min(fontNominalSizeDeg) * spacingOverSizeRatio / 5
-                                 ),
-              .groups="drop") %>% 
-  filter(thresholdParameter == 'targetSizeDeg' | thresholdParameter == 'spacingDeg') %>% 
-  distinct() %>% 
-    filter(!is.na(minDeg)) %>% 
-    ungroup()
-
-
-  params <- foreach(i = 1 : length(data_list), .combine = "rbind") %do% {
+  levels <- foreach(i = 1:length(data_list), .combine = "rbind") %do% {
     data_list[[i]] %>%
-      distinct(participant, 
-               conditionName,
-               targetMinimumPix,
-               targetMinPhysicalPx,
-               pxPerCm,
-               viewingDistanceCm,
-               spacingOverSizeRatio)
-  } %>% filter(!is.na(targetMinPhysicalPx)) %>% 
-    mutate(targetMinimumPix = as.numeric(targetMinimumPix), 
-           targetMinPhysicalPx = as.numeric(targetMinPhysicalPx),
-           pxPerCm = as.numeric(pxPerCm),
-           viewingDistanceCm = as.numeric(viewingDistanceCm),
-           spacingOverSizeRatio = as.numeric(spacingOverSizeRatio))
-  
+      select(
+        participant, conditionName, thresholdParameter,
+        targetEccentricityXDeg, targetEccentricityYDeg, spacingOverSizeRatio,
+        viewingDistanceCm, fontNominalSizePt, level, font
+      )
+  } %>%
+    filter(targetEccentricityXDeg == 0 & targetEccentricityYDeg == 0) %>%
+    filter(!grepl("practice", conditionName, ignore.case = TRUE)) %>%
+    mutate(
+      spacingOverSizeRatio = as.numeric(spacingOverSizeRatio),
+      viewingDistanceCm = as.numeric(viewingDistanceCm),
+      fontNominalSizePt = as.numeric(fontNominalSizePt),
+      level = as.numeric(level)
+    )
+
+  # fontNominalSizePt → deg conversion only valid for Sloan.woff2 / Pelli.woff2
+  levels %>%
+    mutate(fontNominalSizeDeg = (180 / pi) * atan2(fontNominalSizePt * 2.54 / 72, viewingDistanceCm)) %>%
+    group_by(participant, conditionName, thresholdParameter, font) %>%
+    summarize(
+      minDeg = case_when(
+        !is.na(level) ~ 10^min(level),
+        !is.na(fontNominalSizeDeg) & thresholdParameter == "targetSizeDeg" & font == "Sloan.woff2" ~ min(fontNominalSizeDeg),
+        !is.na(fontNominalSizeDeg) & thresholdParameter == "spacingDeg" & font == "Sloan.woff2" ~ min(fontNominalSizeDeg) * spacingOverSizeRatio,
+        !is.na(fontNominalSizeDeg) & thresholdParameter == "targetSizeDeg" & font == "Pelli.woff2" ~ min(fontNominalSizeDeg) / 5,
+        !is.na(fontNominalSizeDeg) & thresholdParameter == "spacingDeg" & font == "Pelli.woff2" ~ min(fontNominalSizeDeg) * spacingOverSizeRatio / 5
+      ),
+      .groups = "drop"
+    ) %>%
+    filter(thresholdParameter == "targetSizeDeg" | thresholdParameter == "spacingDeg") %>%
+    distinct() %>%
+    filter(!is.na(minDeg)) %>%
+    ungroup()
+}
+
+get_minDeg_plots <- function(data_list, acuity, crowding, quest, minDeg = NULL) {
+  if (is.null(minDeg)) {
+    minDeg <- compute_minDeg(data_list)
+  }
+
   # histogram of sizeMinDeg (log-x, no ticks)
   stats <- minDeg %>%
     filter(thresholdParameter == 'targetSizeDeg',
@@ -273,7 +278,7 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
   
   return(
     list(
-      scatter = 95,
+      scatter = p5,
       scatter_quality = list(
         plotList = list(p4, p6, p7, p8, p9),
         fileNames = list(
@@ -287,7 +292,9 @@ get_minDeg_plots <- function(data_list, acuity, crowding, quest) {
       hist_quality = list (
         plotList = list(p2),
         fileNames = list('sizeMinDeg-hist')
-      )
+      ),
+      # Shared with Plots-tab spacingMinDeg histogram (avoid re-walking data_list).
+      minDeg = minDeg
     )
   )
 }

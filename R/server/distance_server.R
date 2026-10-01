@@ -497,7 +497,8 @@ distanceTabServer <- function(id,
       })
 
       output[[paste0("dot", ii)]] <- renderImage({
-        req(ii <= dotRenderCount())
+        # Do not req(ii <= dotRenderCount()) — see req_progressive_slot_unlocked().
+        req_progressive_slot_unlocked(ii, dotRenderCount, session)
         req(length(dotPlots()$plotList) >= ii)
         app_profile_time(app_profiler, paste0("Distance dot image ", ii), {
         tryCatch({
@@ -640,7 +641,8 @@ distanceTabServer <- function(id,
 
       output[[paste0("distanceScatter", ii)]] <- renderImage({
         req(dotImagesReady())
-        req(ii <= distanceScatterRenderCount())
+        # Do not req(ii <= distanceScatterRenderCount()) — see req_progressive_slot_unlocked().
+        req_progressive_slot_unlocked(ii, distanceScatterRenderCount, session)
         req(length(scatterDistance()$plotList) >= ii)
         app_profile_time(app_profiler, paste0("Distance scatter image ", ii), {
         tryCatch({

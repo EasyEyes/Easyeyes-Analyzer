@@ -317,15 +317,29 @@ shinyServer(function(input, output, session) {
     })
   })
 
+  # Lightweight minDeg table (one data_list walk). Shared by hist spacingMinDeg
+  # and Quality/Plots minDeg plots so append_hist_list does not re-walk archives.
+  minDeg_table <- reactive({
+    if (is.null(files())) {
+      return(NULL)
+    }
+    app_profile_time(app_profiler, "Plots minDeg table", {
+      compute_minDeg(files()$data_list)
+    })
+  })
+
   minDegPlots <- reactive({
     if (is.null(files()) || is.null(df_list())) {
       return(NULL)
     }
     app_profile_time(app_profiler, "Plots minDeg plots", {
-      get_minDeg_plots(files()$data_list,
-                       df_list()$acuity,
-                       df_list()$crowding,
-                       df_list()$quest)
+      get_minDeg_plots(
+        files()$data_list,
+        df_list()$acuity,
+        df_list()$crowding,
+        df_list()$quest,
+        minDeg = minDeg_table()
+      )
     })
   })
   
@@ -514,6 +528,8 @@ shinyServer(function(input, output, session) {
     fontAggregatedReadingRsvpCrowding = fontAggregatedReadingRsvpCrowding,
     fontAggregatedOrdinaryReadingCrowding = fontAggregatedOrdinaryReadingCrowding,
     fontAggregatedRsvpCrowding = fontAggregatedRsvpCrowding,
+    summary_table = summary_table,
+    minDeg_table = minDeg_table,
     app_profiler = app_profiler
   )
 

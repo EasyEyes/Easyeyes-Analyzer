@@ -1,5 +1,48 @@
 #### Plots tab server (no moduleServer) ####
 # Registers Plots-tab reactives and render* outputs on the main output/session.
+#
+# DESIGN: Plot image outputs (hist / violin / fontComparison / scatter / age)
+# MUST use suspendWhenHidden = TRUE. Do not flip to FALSE to “fix” progress
+# or speed first paint on Plots. While the user is on Sessions, Distance, etc.,
+# Shiny must not spend CPU/memory rendering Plots PNGs — that delays the
+# active tab (e.g. Sessions summary). Progress / unlockers are gated on
+# navbar == "Plots" for the same reason. Availability outputs (hasHist, …)
+# may use suspendWhenHidden = FALSE but must short-circuit when Plots is
+# inactive so they do not build plot lists off-tab.
+#
+# DESIGN: Switching away from Plots and back must NOT rebuild the same PNGs.
+# suspendWhenHidden re-runs renderImage when the tab is shown again; we keep
+# a per-content-gen file cache and only reset gates / bump progress when
+# files() or df_list() change — never on navbar alone.
+
+send_plots_progress <- function(session, ...) {
+  session$sendCustomMessage("plotsPageProgress", list(...))
+}
+
+format_plots_progress_elapsed <- function(elapsed_sec) {
+  elapsed_sec <- suppressWarnings(as.numeric(elapsed_sec)[1])
+  if (!is.finite(elapsed_sec) || elapsed_sec < 0) {
+    elapsed_sec <- 0
+  }
+  total <- as.integer(round(elapsed_sec))
+  mins <- total %/% 60L
+  secs <- total %% 60L
+  sprintf("%d:%02d", mins, secs)
+}
+
+# Profiler label like "Plots histogram image 3: foveal-acuity-histogram".
+plots_profile_image_label <- function(kind, index, file_names) {
+  title <- ""
+  if (is.list(file_names) || is.character(file_names)) {
+    if (length(file_names) >= index && !is.null(file_names[[index]])) {
+      title <- as.character(file_names[[index]])[1]
+    }
+  }
+  if (!nzchar(title) || is.na(title)) {
+    return(paste0("Plots ", kind, " image ", index))
+  }
+  paste0("Plots ", kind, " image ", index, ": ", title)
+}
 
 with_plots_histogram_theme <- function(plot) {
   if (is_placeholder_plot(plot)) {
@@ -71,6 +114,8 @@ register_plots_tab_server <- function(output,
                                       fontAggregatedReadingRsvpCrowding,
                                       fontAggregatedOrdinaryReadingCrowding,
                                       fontAggregatedRsvpCrowding,
+                                      summary_table = NULL,
+                                      minDeg_table = NULL,
                                       app_profiler = NULL,
                                       maxPlotsHistSlots = 36,
                                       maxPlotsAgeSlots = 12,
@@ -212,7 +257,15 @@ register_plots_tab_server <- function(output,
     fileNames <- res$fileNames
   }
 
-  lists <- append_hist_list(files()$data_list, l, fileNames, experiment_names())
+  lists <- append_hist_list(
+    participant_device = participant_device_for_hists(
+      if (is.null(summary_table)) NULL else summary_table()
+    ),
+    minDeg = if (is.null(minDeg_table)) NULL else minDeg_table(),
+    plot_list = l,
+    fileNames = fileNames,
+    experimentNames = experiment_names()
+  )
 
   list(
     plotList  = lists$plotList,
@@ -463,6 +516,76 @@ register_plots_tab_server <- function(output,
   fontComparisonRenderedCount <- reactiveVal(0)
   scatterRenderCount <- reactiveVal(0)
   scatterRenderedCount <- reactiveVal(0)
+  ageRenderedCount <- reactiveVal(0)
+  # Correlation / N matrix PNGs sit above histograms on the Plots page.
+  corrMatrixRendered <- reactiveVal(FALSE)
+  nMatrixRendered <- reactiveVal(FALSE)
+
+  # Non-blocking Plots progress popup (www/plotsPageProgress.js).
+  plotsProgressGen <- reactiveVal(0L)
+  plotsProgressStartedAt <- reactiveVal(NULL)
+  # Bumps only on files()/df_list() — identifies cached PNGs for this dataset.
+  plotsContentGen <- reactiveVal(0L)
+  plotsProgressStartedForContentGen <- reactiveVal(-1L)
+  plotsPngCache <- new.env(parent = emptyenv())
+
+  clear_plots_png_cache <- function() {
+    keys <- ls(plotsPngCache, all.names = TRUE)
+    for (key in keys) {
+      item <- plotsPngCache[[key]]
+      if (is.list(item) && is.character(item$src) && length(item$src) >= 1) {
+        unlink(item$src[[1]], force = TRUE)
+      }
+      rm(list = key, envir = plotsPngCache)
+    }
+  }
+
+  get_cached_plots_png <- function(key) {
+    item <- plotsPngCache[[key]]
+    if (!is.list(item) || !is.character(item$src) || length(item$src) < 1) {
+      return(NULL)
+    }
+    if (!file.exists(item$src[[1]])) {
+      return(NULL)
+    }
+    item
+  }
+
+  cache_plots_png <- function(key, result) {
+    if (!is.list(result) || !is.character(result$src) || length(result$src) < 1) {
+      return(result)
+    }
+    if (!file.exists(result$src[[1]])) {
+      return(result)
+    }
+    stable <- tempfile(fileext = ".png")
+    ok <- file.copy(result$src[[1]], stable, overwrite = TRUE)
+    if (!isTRUE(ok)) {
+      return(result)
+    }
+    old <- plotsPngCache[[key]]
+    if (is.list(old) && is.character(old$src) && length(old$src) >= 1) {
+      unlink(old$src[[1]], force = TRUE)
+    }
+    cached <- result
+    cached$src <- stable
+    plotsPngCache[[key]] <- cached
+    cached
+  }
+
+  # Prefer cache on tab re-entry; otherwise render and store. deleteFile must
+  # be FALSE on the renderImage so Shiny does not delete cached paths.
+  with_plots_png_cache <- function(key, render_fn, on_hit = NULL) {
+    cached <- get_cached_plots_png(key)
+    if (!is.null(cached)) {
+      if (is.function(on_hit)) {
+        on_hit()
+      }
+      return(cached)
+    }
+    result <- render_fn()
+    cache_plots_png(key, result)
+  }
 
   reset_downstream_render_counts <- function() {
     violinRenderCount(0)
@@ -472,28 +595,182 @@ register_plots_tab_server <- function(output,
     scatterRenderCount(0)
     scatterRenderedCount(0)
     plotsRenderCount(0)
+    ageRenderedCount(0)
   }
 
-  # Reset progressive gates only on new uploads (Distance-tab pattern).
-  # Do NOT reset on histograms()/df_list() invalidation — filter debounce and
-  # plot-list rebuilds would restart hist rendering forever mid-flight.
-  observeEvent(files(), {
+  start_plots_progress <- function(stage = "Preparing plots …") {
+    gen <- as.integer(plotsProgressGen()) + 1L
+    plotsProgressGen(gen)
+    plotsProgressStartedAt(Sys.time())
+    send_plots_progress(
+      session,
+      active = TRUE,
+      done = FALSE,
+      stage = stage,
+      detail = "",
+      timerReset = TRUE,
+      elapsedSec = 0,
+      generation = gen
+    )
+  }
+
+  plots_progress_elapsed_sec <- function() {
+    t0 <- plotsProgressStartedAt()
+    if (is.null(t0)) {
+      return(0)
+    }
+    as.numeric(difftime(Sys.time(), t0, units = "secs"))
+  }
+
+  # Push immediately from R render completions (not DOM visibility).
+  push_plots_progress_now <- function(stage, detail = "", done = FALSE) {
+    gen <- isolate(plotsProgressGen())
+    if (gen <= 0L) {
+      return(invisible(NULL))
+    }
+    send_plots_progress(
+      session,
+      active = !done,
+      done = done,
+      stage = stage,
+      detail = detail,
+      timerReset = FALSE,
+      elapsedSec = plots_progress_elapsed_sec(),
+      generation = gen
+    )
+  }
+
+  # Unlock next slot only after previous R PNG finished (serial R progress).
+  advance_render_gate <- function(unlocked_rv, done_rv, total) {
+    if (is.null(total) || !is.finite(total) || total <= 0) {
+      return(invisible(NULL))
+    }
+    current <- unlocked_rv()
+    done <- done_rv()
+    if (current >= total) {
+      return(invisible(NULL))
+    }
+    if (done >= current) {
+      invalidateLater(10, session)
+      unlocked_rv(current + 1L)
+    } else {
+      invalidateLater(100, session)
+    }
+  }
+
+  # Wait until progressive unlock reaches this slot WITHOUT taking a reactive
+  # dependency on the unlock counter. req(ii <= renderCount()) would re-run
+  # every earlier slot on each increment (O(n^2) PNG renders / "infinite loop").
+  # Poll with invalidateLater; plotsProgressGen() still invalidates on reset.
+  req_plots_slot_unlocked <- function(ii, unlocked_rv) {
+    req_progressive_slot_unlocked(
+      ii,
+      unlocked_rv,
+      session,
+      generation = plotsProgressGen
+    )
+  }
+
+  mark_stage_rendered <- function(done_rv, ii, stage, total) {
+    if (isolate(done_rv()) < ii) {
+      done_rv(ii)
+    }
+    detail <- if (is.finite(total) && total > 0) {
+      sprintf("%d / %d", min(ii, total), total)
+    } else {
+      ""
+    }
+    push_plots_progress_now(stage, detail)
+  }
+
+  reset_plots_progressive_gates <- function() {
     histRenderCount(0)
     histRenderedCount(0)
+    corrMatrixRendered(FALSE)
+    nMatrixRendered(FALSE)
     reset_downstream_render_counts()
+  }
+
+  plots_tab_active <- reactive({
+    isTRUE(input$navbar == "Plots")
+  })
+
+  bump_plots_content_gen <- function() {
+    reset_plots_progressive_gates()
+    clear_plots_png_cache()
+    plotsContentGen(as.integer(plotsContentGen()) + 1L)
+  }
+
+  maybe_start_plots_progress_for_content <- function() {
+    if (!isTRUE(isolate(plots_tab_active())) ||
+        is.null(isolate(files())) ||
+        is.null(isolate(df_list()))) {
+      return(invisible(NULL))
+    }
+    content_gen <- isolate(plotsContentGen())
+    # Same dataset as last progress run — tab return must not restart.
+    if (isolate(plotsProgressStartedForContentGen()) == content_gen) {
+      return(invisible(NULL))
+    }
+    plotsProgressStartedForContentGen(content_gen)
+    start_plots_progress("Plotting correlation matrices …")
+  }
+
+  # Data changes only — never reset on navbar / tab switches.
+  observeEvent(files(), {
+    bump_plots_content_gen()
+    maybe_start_plots_progress_for_content()
   }, ignoreInit = TRUE)
 
+  observeEvent(df_list(), {
+    bump_plots_content_gen()
+    maybe_start_plots_progress_for_content()
+  }, ignoreInit = TRUE)
+
+  # Entering Plots: start progress only if this content gen was never started
+  # (e.g. data settled while user was on Sessions).
+  observeEvent(plots_tab_active(), {
+    maybe_start_plots_progress_for_content()
+  }, ignoreInit = TRUE)
+
+  # Skip matrix stage when there is no correlation matrix to draw.
   observe({
-    total <- min(length(histograms()$plotList), maxPlotsHistSlots)
-    current <- histRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      histRenderCount(current + 1)
+    req(plots_tab_active())
+    invisible(plotsContentGen())
+    if (is.null(corrMatrix())) {
+      corrMatrixRendered(TRUE)
+      nMatrixRendered(TRUE)
     }
   })
 
+  matrixImagesReady <- reactive({
+    invisible(plotsContentGen())
+    isTRUE(corrMatrixRendered()) && isTRUE(nMatrixRendered())
+  })
+
+  mark_matrix_rendered <- function(which = c("corr", "n")) {
+    which <- match.arg(which)
+    if (which == "corr") {
+      corrMatrixRendered(TRUE)
+    } else {
+      nMatrixRendered(TRUE)
+    }
+    done <- sum(c(isTRUE(isolate(corrMatrixRendered())), isTRUE(isolate(nMatrixRendered()))))
+    push_plots_progress_now(
+      "Plotting correlation matrices …",
+      sprintf("%d / 2", done)
+    )
+  }
+
+  observe({
+    req(plots_tab_active())
+    req(matrixImagesReady())
+    total <- min(length(histograms()$plotList), maxPlotsHistSlots)
+    advance_render_gate(histRenderCount, histRenderedCount, total)
+  })
+
   histImagesReady <- reactive({
+    if (!isTRUE(matrixImagesReady())) return(FALSE)
     total <- min(length(histograms()$plotList), maxPlotsHistSlots)
     is.null(total) || total <= 0 || histRenderedCount() >= total
   })
@@ -505,14 +782,10 @@ register_plots_tab_server <- function(output,
   }, ignoreInit = TRUE)
 
   observe({
+    req(plots_tab_active())
     req(histImagesReady())
     total <- min(length(violinPlots()$plotList), maxPlotsViolinSlots)
-    current <- violinRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      violinRenderCount(current + 1)
-    }
+    advance_render_gate(violinRenderCount, violinRenderedCount, total)
   })
 
   violinImagesReady <- reactive({
@@ -528,14 +801,10 @@ register_plots_tab_server <- function(output,
   }, ignoreInit = TRUE)
 
   observe({
+    req(plots_tab_active())
     req(violinImagesReady())
     total <- min(length(fontComparisonPlots()$plotList), maxPlotsFontComparisonSlots)
-    current <- fontComparisonRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      fontComparisonRenderCount(current + 1)
-    }
+    advance_render_gate(fontComparisonRenderCount, fontComparisonRenderedCount, total)
   })
 
   fontComparisonImagesReady <- reactive({
@@ -551,14 +820,10 @@ register_plots_tab_server <- function(output,
   }, ignoreInit = TRUE)
 
   observe({
+    req(plots_tab_active())
     req(fontComparisonImagesReady())
     total <- min(length(scatterDiagrams()$plotList), maxPlotsScatterSlots)
-    current <- scatterRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      scatterRenderCount(current + 1)
-    }
+    advance_render_gate(scatterRenderCount, scatterRenderedCount, total)
   })
 
   scatterImagesReady <- reactive({
@@ -575,18 +840,131 @@ register_plots_tab_server <- function(output,
   observeEvent(scatterImagesReady(), {
     if (!isTRUE(scatterImagesReady())) return(invisible(NULL))
     plotsRenderCount(0)
+    ageRenderedCount(0)
   }, ignoreInit = TRUE)
 
+  # Age slots: unlock after prior R PNG finishes (ageRenderedCount tracks done).
   observe({
+    req(plots_tab_active())
     req(scatterImagesReady())
     total <- min(length(agePlots()$plotList), maxPlotsAgeSlots)
-    current <- plotsRenderCount()
-    if (is.null(total) || total <= 0) return()
-    if (current < total) {
-      invalidateLater(200, session)
-      plotsRenderCount(current + 1)
-    }
+    advance_render_gate(plotsRenderCount, ageRenderedCount, total)
   })
+
+  ageImagesReady <- reactive({
+    if (!isTRUE(scatterImagesReady())) return(FALSE)
+    total <- min(length(agePlots()$plotList), maxPlotsAgeSlots)
+    is.null(total) || total <= 0 || ageRenderedCount() >= total
+  })
+
+  # Drive the floating Plots progress window from R-side PNG completion counts,
+  # only while the Plots tab is active (other tabs must not pay this cost).
+  # Always read every counter so updates are not swallowed when a stage-ready
+  # reactive stays FALSE across intermediate N/total bumps.
+  observe({
+    req(plots_tab_active())
+    gen <- plotsProgressGen()
+    if (gen <= 0L || is.null(files())) {
+      return(invisible(NULL))
+    }
+
+    hist_done <- histRenderedCount()
+    violin_done <- violinRenderedCount()
+    font_done <- fontComparisonRenderedCount()
+    scatter_done <- scatterRenderedCount()
+    age_done <- ageRenderedCount()
+    scatter_unlocked <- scatterRenderCount()
+    corr_done <- corrMatrixRendered()
+    n_done <- nMatrixRendered()
+
+    elapsed <- plots_progress_elapsed_sec()
+    push <- function(stage, detail = "", done = FALSE) {
+      send_plots_progress(
+        session,
+        active = !done,
+        done = done,
+        stage = stage,
+        detail = detail,
+        timerReset = FALSE,
+        elapsedSec = elapsed,
+        generation = gen
+      )
+    }
+
+    if (!isTRUE(corr_done && n_done)) {
+      done_n <- sum(c(isTRUE(corr_done), isTRUE(n_done)))
+      push("Plotting correlation matrices …", sprintf("%d / 2", done_n))
+      return(invisible(NULL))
+    }
+
+    hist_total <- min(length(histograms()$plotList), maxPlotsHistSlots)
+    if (!(is.null(hist_total) || hist_total <= 0 || hist_done >= hist_total)) {
+      detail <- if (is.finite(hist_total) && hist_total > 0) {
+        sprintf("%d / %d", min(hist_done, hist_total), hist_total)
+      } else {
+        "Building histogram list …"
+      }
+      push("Plotting histograms …", detail)
+      return(invisible(NULL))
+    }
+
+    violin_total <- min(length(violinPlots()$plotList), maxPlotsViolinSlots)
+    if (!(is.null(violin_total) || violin_total <= 0 || violin_done >= violin_total)) {
+      detail <- if (is.finite(violin_total) && violin_total > 0) {
+        sprintf("%d / %d", min(violin_done, violin_total), violin_total)
+      } else {
+        ""
+      }
+      push("Plotting violins …", detail)
+      return(invisible(NULL))
+    }
+
+    font_total <- min(length(fontComparisonPlots()$plotList), maxPlotsFontComparisonSlots)
+    if (!(is.null(font_total) || font_total <= 0 || font_done >= font_total)) {
+      detail <- if (is.finite(font_total) && font_total > 0) {
+        sprintf("%d / %d", min(font_done, font_total), font_total)
+      } else {
+        ""
+      }
+      push("Plotting font comparisons …", detail)
+      return(invisible(NULL))
+    }
+
+    scatter_total <- min(length(scatterDiagrams()$plotList), maxPlotsScatterSlots)
+    if (!(is.null(scatter_total) || scatter_total <= 0 || scatter_done >= scatter_total)) {
+      fname <- ""
+      if (scatter_unlocked >= 1L && length(scatterDiagrams()$fileNames) >= scatter_unlocked) {
+        fname <- as.character(scatterDiagrams()$fileNames[[scatter_unlocked]])
+      }
+      if (grepl("crowding-xheight|native-legend", fname, ignore.case = TRUE)) {
+        detail <- "Registering font files for crowding vs acuity legends …"
+      } else if (is.finite(scatter_total) && scatter_total > 0) {
+        detail <- sprintf("%d / %d", min(scatter_done, scatter_total), scatter_total)
+      } else {
+        detail <- "Building scatter list …"
+      }
+      push("Plotting scatter diagrams …", detail)
+      return(invisible(NULL))
+    }
+
+    age_total <- min(length(agePlots()$plotList), maxPlotsAgeSlots)
+    if (!(is.null(age_total) || age_total <= 0 || age_done >= age_total)) {
+      detail <- if (is.finite(age_total) && age_total > 0) {
+        sprintf("%d / %d", min(age_done, age_total), age_total)
+      } else {
+        ""
+      }
+      push("Plotting age diagrams …", detail)
+      return(invisible(NULL))
+    }
+
+    push(
+      sprintf("Plots ready in %s", format_plots_progress_elapsed(elapsed)),
+      detail = "",
+      done = TRUE
+    )
+  })
+
   gradePlots <- reactive({
     if (is.null(files()) | is.null(df_list())) {
       return(histograms <NULL)
@@ -735,101 +1113,146 @@ register_plots_tab_server <- function(output,
   #### plots ####
 
   output$corrMatrixPlot <- renderImage({
+    # Re-run when dataset content gen changes (not on mere tab switches).
+    content_gen <- plotsContentGen()
     if (is.null(corrMatrix())) {
+      corrMatrixRendered(TRUE)
       return(NULL)
     }
 
-    app_profile_time(app_profiler, "Plots correlation matrix image", {
-    tryCatch({
-      p <- add_experiment_title(corrMatrix()$plot, experiment_names())
-      render_plots_display_png(
-        p,
-        width_in = corrMatrix()$width,
-        height_in = corrMatrix()$height,
-        disp_w = 700
-      )
-    }, error = function(e) {
-      handle_plot_error(e, "corrMatrixPlot", experiment_names(), "Correlation Matrix Plot")
-    })
-    })
-  }, deleteFile = TRUE)
+    with_plots_png_cache(
+      paste0("corr:", content_gen),
+      on_hit = function() corrMatrixRendered(TRUE),
+      render_fn = function() {
+        app_profile_time(app_profiler, "Plots correlation matrix image", {
+          tryCatch({
+            p <- add_experiment_title(corrMatrix()$plot, experiment_names())
+            result <- render_plots_display_png(
+              p,
+              width_in = corrMatrix()$width,
+              height_in = corrMatrix()$height,
+              disp_w = 700
+            )
+            mark_matrix_rendered("corr")
+            result
+          }, error = function(e) {
+            mark_matrix_rendered("corr")
+            handle_plot_error(e, "corrMatrixPlot", experiment_names(), "Correlation Matrix Plot")
+          })
+        })
+      }
+    )
+  }, deleteFile = FALSE)
+  # DESIGN: keep TRUE — see file header (do not render Plots off-tab).
+  outputOptions(output, "corrMatrixPlot", suspendWhenHidden = TRUE)
   
   output$nMatrixPlot <- renderImage({
+    content_gen <- plotsContentGen()
     if (is.null(corrMatrix())) {
+      nMatrixRendered(TRUE)
       return(NULL)
     }
 
-    app_profile_time(app_profiler, "Plots N matrix image", {
-    tryCatch({
-      p <- add_experiment_title(corrMatrix()$n_plot, experiment_names())
-      render_plots_display_png(
-        p,
-        width_in = corrMatrix()$width,
-        height_in = corrMatrix()$height,
-        disp_w = 700
-      )
-    }, error = function(e) {
-      handle_plot_error(e, "nMatrixPlot", experiment_names(), "N Matrix Plot")
-    })
-    })
-  }, deleteFile = TRUE)
+    with_plots_png_cache(
+      paste0("nmatrix:", content_gen),
+      on_hit = function() nMatrixRendered(TRUE),
+      render_fn = function() {
+        app_profile_time(app_profiler, "Plots N matrix image", {
+          tryCatch({
+            p <- add_experiment_title(corrMatrix()$n_plot, experiment_names())
+            result <- render_plots_display_png(
+              p,
+              width_in = corrMatrix()$width,
+              height_in = corrMatrix()$height,
+              disp_w = 700
+            )
+            mark_matrix_rendered("n")
+            result
+          }, error = function(e) {
+            mark_matrix_rendered("n")
+            handle_plot_error(e, "nMatrixPlot", experiment_names(), "N Matrix Plot")
+          })
+        })
+      }
+    )
+  }, deleteFile = FALSE)
+  # DESIGN: keep TRUE — see file header (do not render Plots off-tab).
+  outputOptions(output, "nMatrixPlot", suspendWhenHidden = TRUE)
   
   output$fontAggregatedReadingRsvpCrowdingPlot <- renderImage({
     req(laterSectionsReady())
-    app_profile_time(app_profiler, "Plots font-aggregated reading RSVP crowding image", {
-    tryCatch({
-      plot <- fontAggregatedReadingRsvpCrowding()
-      if (is.null(plot)) {
-        plot <- ggplot() +
-          annotate("text", x = 0.5, y = 0.5, label = "No data", hjust = 0.5, vjust = 0.5) +
-          theme_void()
-      } else {
-        plot <- add_experiment_title(plot, experiment_names()) + plt_theme
+    content_gen <- isolate(plotsContentGen())
+    with_plots_png_cache(
+      paste0("fontAggReadingRsvp:", content_gen),
+      render_fn = function() {
+        app_profile_time(app_profiler, "Plots font-aggregated reading RSVP crowding image", {
+          tryCatch({
+            plot <- fontAggregatedReadingRsvpCrowding()
+            if (is.null(plot)) {
+              plot <- ggplot() +
+                annotate("text", x = 0.5, y = 0.5, label = "No data", hjust = 0.5, vjust = 0.5) +
+                theme_void()
+            } else {
+              plot <- add_experiment_title(plot, experiment_names()) + plt_theme
+            }
+            render_plots_display_png(plot, width_in = 8, height_in = 6, disp_w = 700, limitsize = FALSE)
+          }, error = function(e) {
+            handle_plot_error(e, "fontAggregatedReadingRsvpCrowdingPlot", experiment_names(), "Font-aggregated reading vs peripheral crowding")
+          })
+        })
       }
-      render_plots_display_png(plot, width_in = 8, height_in = 6, disp_w = 700, limitsize = FALSE)
-    }, error = function(e) {
-      handle_plot_error(e, "fontAggregatedReadingRsvpCrowdingPlot", experiment_names(), "Font-aggregated reading vs peripheral crowding")
-    })
-    })
-  }, deleteFile = TRUE)
+    )
+  }, deleteFile = FALSE)
   
   output$fontAggregatedOrdinaryReadingCrowdingPlot <- renderImage({
     req(laterSectionsReady())
-    app_profile_time(app_profiler, "Plots font-aggregated ordinary reading crowding image", {
-    tryCatch({
-      plot <- fontAggregatedOrdinaryReadingCrowding()
-      if (is.null(plot)) {
-        plot <- ggplot() +
-          annotate("text", x = 0.5, y = 0.5, label = "No data", hjust = 0.5, vjust = 0.5) +
-          theme_void()
-      } else {
-        plot <- add_experiment_title(plot, experiment_names()) + plt_theme
+    content_gen <- isolate(plotsContentGen())
+    with_plots_png_cache(
+      paste0("fontAggOrdinary:", content_gen),
+      render_fn = function() {
+        app_profile_time(app_profiler, "Plots font-aggregated ordinary reading crowding image", {
+          tryCatch({
+            plot <- fontAggregatedOrdinaryReadingCrowding()
+            if (is.null(plot)) {
+              plot <- ggplot() +
+                annotate("text", x = 0.5, y = 0.5, label = "No data", hjust = 0.5, vjust = 0.5) +
+                theme_void()
+            } else {
+              plot <- add_experiment_title(plot, experiment_names()) + plt_theme
+            }
+            render_plots_display_png(plot, width_in = 8, height_in = 6, disp_w = 700, limitsize = FALSE)
+          }, error = function(e) {
+            handle_plot_error(e, "fontAggregatedOrdinaryReadingCrowdingPlot", experiment_names(), "Font-aggregated ordinary reading vs peripheral crowding")
+          })
+        })
       }
-      render_plots_display_png(plot, width_in = 8, height_in = 6, disp_w = 700, limitsize = FALSE)
-    }, error = function(e) {
-      handle_plot_error(e, "fontAggregatedOrdinaryReadingCrowdingPlot", experiment_names(), "Font-aggregated ordinary reading vs peripheral crowding")
-    })
-    })
-  }, deleteFile = TRUE)
+    )
+  }, deleteFile = FALSE)
   
   output$fontAggregatedRsvpCrowdingPlot <- renderImage({
     req(laterSectionsReady())
-    app_profile_time(app_profiler, "Plots font-aggregated RSVP crowding image", {
-    tryCatch({
-      plot <- fontAggregatedRsvpCrowding()
-      if (is.null(plot)) {
-        plot <- ggplot() +
-          annotate("text", x = 0.5, y = 0.5, label = "No data", hjust = 0.5, vjust = 0.5) +
-          theme_void()
-      } else {
-        plot <- add_experiment_title(plot, experiment_names()) + plt_theme
+    content_gen <- isolate(plotsContentGen())
+    with_plots_png_cache(
+      paste0("fontAggRsvp:", content_gen),
+      render_fn = function() {
+        app_profile_time(app_profiler, "Plots font-aggregated RSVP crowding image", {
+          tryCatch({
+            plot <- fontAggregatedRsvpCrowding()
+            if (is.null(plot)) {
+              plot <- ggplot() +
+                annotate("text", x = 0.5, y = 0.5, label = "No data", hjust = 0.5, vjust = 0.5) +
+                theme_void()
+            } else {
+              plot <- add_experiment_title(plot, experiment_names()) + plt_theme
+            }
+            render_plots_display_png(plot, width_in = 8, height_in = 6, disp_w = 700, limitsize = FALSE)
+          }, error = function(e) {
+            handle_plot_error(e, "fontAggregatedRsvpCrowdingPlot", experiment_names(), "Font-aggregated RSVP vs peripheral crowding")
+          })
+        })
       }
-      render_plots_display_png(plot, width_in = 8, height_in = 6, disp_w = 700, limitsize = FALSE)
-    }, error = function(e) {
-      handle_plot_error(e, "fontAggregatedRsvpCrowdingPlot", experiment_names(), "Font-aggregated RSVP vs peripheral crowding")
-    })
-    })
-  }, deleteFile = TRUE)
+    )
+  }, deleteFile = FALSE)
   
   #### fixed histogram slots ####
   for (i in seq_len(maxPlotsHistSlots)) {
@@ -838,6 +1261,8 @@ register_plots_tab_server <- function(output,
 
       output[[paste0("hasHist", ii)]] <- reactive({
         # Keep placeholder "x name" plots visible (previous renderUI behavior).
+        # Do not build the histogram list while another tab is active.
+        if (!isTRUE(plots_tab_active())) return(FALSE)
         length(histograms()$plotList) >= ii
       })
       outputOptions(output, paste0("hasHist", ii), suspendWhenHidden = FALSE)
@@ -848,52 +1273,74 @@ register_plots_tab_server <- function(output,
       })
 
       output[[paste0("hist", ii)]] <- renderImage({
-        req(ii <= histRenderCount())
+        req_plots_slot_unlocked(ii, histRenderCount)
         req(length(histograms()$plotList) >= ii)
-        app_profile_time(app_profiler, paste0("Plots histogram image ", ii), {
-          # Fixed display width: clientData widths reflow in the 6-column grid
-          # as each hist appears, re-invalidating every prior hist renderImage
-          # and looking like an infinite generation loop.
-          disp_w <- 280
-          tryCatch({
-            plot_to_save <- with_plots_histogram_theme(histograms()$plotList[[ii]])
-            result <- render_plots_display_png(
-              plot_to_save,
-              width_in = 3.5,
-              height_in = 3.5,
-              disp_w = disp_w,
-              disp_h = disp_w,
-              png_theme_profile = "histogram",
-              limitsize = FALSE
-            )
-            if (isolate(histRenderedCount()) < ii) histRenderedCount(ii)
-            result
-          }, error = function(e) {
-            if (isolate(histRenderedCount()) < ii) histRenderedCount(ii)
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 4,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void()
-            render_plots_display_png(
-              error_plot,
-              width_in = 3.5,
-              height_in = 3.5,
-              disp_w = disp_w,
-              disp_h = disp_w,
-              use_png_theme = FALSE,
-              limitsize = FALSE
-            )
-          })
-        })
-      }, deleteFile = TRUE)
+        content_gen <- isolate(plotsContentGen())
+        with_plots_png_cache(
+          paste("hist", content_gen, ii, sep = ":"),
+          on_hit = function() {
+            if (isolate(histRenderedCount()) < ii) {
+              histRenderedCount(ii)
+            }
+          },
+          render_fn = function() {
+            app_profile_time(app_profiler, plots_profile_image_label("histogram", ii, histograms()$fileNames), {
+              # Fixed display width: clientData widths reflow in the 6-column grid
+              # as each hist appears, re-invalidating every prior hist renderImage
+              # and looking like an infinite generation loop.
+              disp_w <- 280
+              tryCatch({
+                plot_to_save <- with_plots_histogram_theme(histograms()$plotList[[ii]])
+                result <- render_plots_display_png(
+                  plot_to_save,
+                  width_in = 3.5,
+                  height_in = 3.5,
+                  disp_w = disp_w,
+                  disp_h = disp_w,
+                  png_theme_profile = "histogram",
+                  limitsize = FALSE
+                )
+                mark_stage_rendered(
+                  histRenderedCount,
+                  ii,
+                  "Plotting histograms …",
+                  min(length(histograms()$plotList), maxPlotsHistSlots)
+                )
+                result
+              }, error = function(e) {
+                mark_stage_rendered(
+                  histRenderedCount,
+                  ii,
+                  "Plotting histograms …",
+                  min(length(histograms()$plotList), maxPlotsHistSlots)
+                )
+                error_plot <- ggplot() +
+                  annotate(
+                    "text",
+                    x = 0.5,
+                    y = 0.5,
+                    label = paste("Error:", e$message),
+                    color = "red",
+                    size = 4,
+                    hjust = 0.5,
+                    vjust = 0.5
+                  ) +
+                  theme_void()
+                render_plots_display_png(
+                  error_plot,
+                  width_in = 3.5,
+                  height_in = 3.5,
+                  disp_w = disp_w,
+                  disp_h = disp_w,
+                  use_png_theme = FALSE,
+                  limitsize = FALSE
+                )
+              })
+            })
+          }
+        )
+      }, deleteFile = FALSE)
+      # DESIGN: keep TRUE — see file header (do not render Plots off-tab).
       outputOptions(output, paste0("hist", ii), suspendWhenHidden = TRUE)
 
       output[[paste0("downloadHist", ii)]] <- downloadHandler(
@@ -921,6 +1368,7 @@ register_plots_tab_server <- function(output,
       ii <- i
 
       output[[paste0("hasAge", ii)]] <- reactive({
+        if (!isTRUE(plots_tab_active())) return(FALSE)
         req(scatterImagesReady())
         length(agePlots()$plotList) >= ii
       })
@@ -934,34 +1382,51 @@ register_plots_tab_server <- function(output,
 
       output[[paste0("age", ii)]] <- renderImage({
         req(scatterImagesReady())
-        req(ii <= plotsRenderCount())
+        req_plots_slot_unlocked(ii, plotsRenderCount)
         req(length(agePlots()$plotList) >= ii)
-        app_profile_time(app_profiler, paste0("Plots age image ", ii), {
-          tryCatch({
-            plot_to_save <- if (is_placeholder_plot(agePlots()$plotList[[ii]])) {
-              agePlots()$plotList[[ii]]
-            } else {
-              agePlots()$plotList[[ii]] + plt_theme
-            }
-            render_plots_display_png(plot_to_save, width_in = 6, height_in = 6, disp_w = 700, limitsize = FALSE)
-          }, error = function(e) {
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 5,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void() +
-              labs(subtitle = agePlots()$fileNames[[ii]])
-            render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
-          })
-        })
-      }, deleteFile = TRUE)
+        content_gen <- isolate(plotsContentGen())
+        with_plots_png_cache(
+          paste("age", content_gen, ii, sep = ":"),
+          on_hit = function() {
+            if (isolate(ageRenderedCount()) < ii) ageRenderedCount(ii)
+          },
+          render_fn = function() {
+            app_profile_time(app_profiler, plots_profile_image_label("age", ii, agePlots()$fileNames), {
+              result <- tryCatch({
+                plot_to_save <- if (is_placeholder_plot(agePlots()$plotList[[ii]])) {
+                  agePlots()$plotList[[ii]]
+                } else {
+                  agePlots()$plotList[[ii]] + plt_theme
+                }
+                render_plots_display_png(plot_to_save, width_in = 6, height_in = 6, disp_w = 700, limitsize = FALSE)
+              }, error = function(e) {
+                error_plot <- ggplot() +
+                  annotate(
+                    "text",
+                    x = 0.5,
+                    y = 0.5,
+                    label = paste("Error:", e$message),
+                    color = "red",
+                    size = 5,
+                    hjust = 0.5,
+                    vjust = 0.5
+                  ) +
+                  theme_void() +
+                  labs(subtitle = agePlots()$fileNames[[ii]])
+                render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
+              })
+              mark_stage_rendered(
+                ageRenderedCount,
+                ii,
+                "Plotting age diagrams …",
+                min(length(agePlots()$plotList), maxPlotsAgeSlots)
+              )
+              result
+            })
+          }
+        )
+      }, deleteFile = FALSE)
+      # DESIGN: keep TRUE — see file header (do not render Plots off-tab).
       outputOptions(output, paste0("age", ii), suspendWhenHidden = TRUE)
 
       output[[paste0("downloadAge", ii)]] <- downloadHandler(
@@ -1224,6 +1689,7 @@ register_plots_tab_server <- function(output,
       ii <- i
 
       output[[paste0("hasScatter", ii)]] <- reactive({
+        if (!isTRUE(plots_tab_active())) return(FALSE)
         req(fontComparisonImagesReady())
         length(scatterDiagrams()$plotList) >= ii
       })
@@ -1237,43 +1703,70 @@ register_plots_tab_server <- function(output,
 
       output[[paste0("scatter", ii)]] <- renderImage({
         req(fontComparisonImagesReady())
-        req(ii <= scatterRenderCount())
+        req_plots_slot_unlocked(ii, scatterRenderCount)
         req(length(scatterDiagrams()$plotList) >= ii)
-        app_profile_time(app_profiler, paste0("Plots scatter image ", ii), {
-          tryCatch({
-            plot_obj <- scatterDiagrams()$plotList[[ii]]
-            plot_to_save <- if (is_placeholder_plot(plot_obj)) {
-              plot_obj
-            } else if (isTRUE(attr(plot_obj, "crowding24_native_legend_patchwork", exact = TRUE))) {
-              # Legend panel must stay theme_void; main panel is already themed.
-              plot_obj
-            } else if (inherits(plot_obj, "patchwork")) {
-              plot_obj & plt_theme_scatter
-            } else {
-              plot_obj + plt_theme_scatter
-            }
-            scatter_h <- attr(plot_obj, "plots_display_height_in", exact = TRUE)
-            if (!is.numeric(scatter_h) || length(scatter_h) < 1 || !is.finite(scatter_h[1]) ||
-                scatter_h[1] <= 0) {
-              scatter_h <- 7
-            } else {
-              scatter_h <- as.numeric(scatter_h[1])
-            }
-            result <- render_plots_display_png(
-              plot_to_save,
-              width_in = 7,
-              height_in = scatter_h,
-              disp_w = 700,
-              limitsize = FALSE
-            )
+        content_gen <- isolate(plotsContentGen())
+        with_plots_png_cache(
+          paste("scatter", content_gen, ii, sep = ":"),
+          on_hit = function() {
             if (isolate(scatterRenderedCount()) < ii) scatterRenderedCount(ii)
-            result
-          }, error = function(e) {
-            if (isolate(scatterRenderedCount()) < ii) scatterRenderedCount(ii)
-            handle_plot_error(e, paste0("scatter", ii), experiment_names(), scatterDiagrams()$fileNames[[ii]])
-          })
-        })
-      }, deleteFile = TRUE)
+          },
+          render_fn = function() {
+            app_profile_time(app_profiler, plots_profile_image_label("scatter", ii, scatterDiagrams()$fileNames), {
+              tryCatch({
+                plot_obj <- scatterDiagrams()$plotList[[ii]]
+                plot_to_save <- if (is_placeholder_plot(plot_obj)) {
+                  plot_obj
+                } else if (isTRUE(attr(plot_obj, "crowding24_native_legend_patchwork", exact = TRUE))) {
+                  # Legend panel must stay theme_void; main panel is already themed.
+                  plot_obj
+                } else if (inherits(plot_obj, "patchwork")) {
+                  plot_obj & plt_theme_scatter
+                } else {
+                  plot_obj + plt_theme_scatter
+                }
+                plot_to_save <- copy_png_axis_scale_attrs(plot_obj, plot_to_save)
+                # All Plots-tab scatters: axis numbers +50%, axis titles +30%.
+                plot_to_save <- tag_png_axis_scales(
+                  plot_to_save,
+                  axis_text = 1.5,
+                  axis_title = 1.3
+                )
+                scatter_h <- attr(plot_obj, "plots_display_height_in", exact = TRUE)
+                if (!is.numeric(scatter_h) || length(scatter_h) < 1 || !is.finite(scatter_h[1]) ||
+                    scatter_h[1] <= 0) {
+                  scatter_h <- 7
+                } else {
+                  scatter_h <- as.numeric(scatter_h[1])
+                }
+                result <- render_plots_display_png(
+                  plot_to_save,
+                  width_in = 7,
+                  height_in = scatter_h,
+                  disp_w = 700,
+                  limitsize = FALSE
+                )
+                mark_stage_rendered(
+                  scatterRenderedCount,
+                  ii,
+                  "Plotting scatter diagrams …",
+                  min(length(scatterDiagrams()$plotList), maxPlotsScatterSlots)
+                )
+                result
+              }, error = function(e) {
+                mark_stage_rendered(
+                  scatterRenderedCount,
+                  ii,
+                  "Plotting scatter diagrams …",
+                  min(length(scatterDiagrams()$plotList), maxPlotsScatterSlots)
+                )
+                handle_plot_error(e, paste0("scatter", ii), experiment_names(), scatterDiagrams()$fileNames[[ii]])
+              })
+            })
+          }
+        )
+      }, deleteFile = FALSE)
+      # DESIGN: keep TRUE — see file header (do not render Plots off-tab).
       outputOptions(output, paste0("scatter", ii), suspendWhenHidden = TRUE)
 
       output[[paste0("downloadScatter", ii)]] <- downloadHandler(
@@ -1296,6 +1789,13 @@ register_plots_tab_server <- function(output,
           } else {
             plot_obj + plt_theme_scatter
           }
+          plot_to_save <- copy_png_axis_scale_attrs(plot_obj, plot_to_save)
+          # All Plots-tab scatters: axis numbers +50%, axis titles +30%.
+          plot_to_save <- tag_png_axis_scales(
+            plot_to_save,
+            axis_text = 1.5,
+            axis_title = 1.3
+          )
           scatter_h <- attr(plot_obj, "plots_display_height_in", exact = TRUE)
           if (!is.numeric(scatter_h) || length(scatter_h) < 1 || !is.finite(scatter_h[1]) ||
               scatter_h[1] <= 0) {
@@ -1323,6 +1823,7 @@ register_plots_tab_server <- function(output,
       ii <- i
 
       output[[paste0("hasViolin", ii)]] <- reactive({
+        if (!isTRUE(plots_tab_active())) return(FALSE)
         req(histImagesReady())
         length(violinPlots()$plotList) >= ii
       })
@@ -1336,45 +1837,65 @@ register_plots_tab_server <- function(output,
 
       output[[paste0("violin", ii)]] <- renderImage({
         req(histImagesReady())
-        req(ii <= violinRenderCount())
+        req_plots_slot_unlocked(ii, violinRenderCount)
         req(length(violinPlots()$plotList) >= ii)
-        app_profile_time(app_profiler, paste0("Plots violin image ", ii), {
-          tryCatch({
-            result <- render_plots_display_png(
-              if (is_placeholder_plot(violinPlots()$plotList[[ii]])) {
-                violinPlots()$plotList[[ii]]
-              } else {
-                violinPlots()$plotList[[ii]] + plt_theme
-              },
-              width_in = 8,
-              height_in = 6,
-              disp_w = 700,
-              text_scale = 1.4,
-              scale_axis_text = FALSE,
-              limitsize = FALSE
-            )
+        content_gen <- isolate(plotsContentGen())
+        with_plots_png_cache(
+          paste("violin", content_gen, ii, sep = ":"),
+          on_hit = function() {
             if (isolate(violinRenderedCount()) < ii) violinRenderedCount(ii)
-            result
-          }, error = function(e) {
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 5,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void() +
-              labs(subtitle = violinPlots()$fileNames[[ii]])
-            result <- render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
-            if (isolate(violinRenderedCount()) < ii) violinRenderedCount(ii)
-            result
-          })
-        })
-      }, deleteFile = TRUE)
+          },
+          render_fn = function() {
+            app_profile_time(app_profiler, plots_profile_image_label("violin", ii, violinPlots()$fileNames), {
+              tryCatch({
+                result <- render_plots_display_png(
+                  if (is_placeholder_plot(violinPlots()$plotList[[ii]])) {
+                    violinPlots()$plotList[[ii]]
+                  } else {
+                    violinPlots()$plotList[[ii]] + plt_theme
+                  },
+                  width_in = 8,
+                  height_in = 6,
+                  disp_w = 700,
+                  text_scale = 1.4,
+                  scale_axis_text = FALSE,
+                  limitsize = FALSE
+                )
+                mark_stage_rendered(
+                  violinRenderedCount,
+                  ii,
+                  "Plotting violins …",
+                  min(length(violinPlots()$plotList), maxPlotsViolinSlots)
+                )
+                result
+              }, error = function(e) {
+                error_plot <- ggplot() +
+                  annotate(
+                    "text",
+                    x = 0.5,
+                    y = 0.5,
+                    label = paste("Error:", e$message),
+                    color = "red",
+                    size = 5,
+                    hjust = 0.5,
+                    vjust = 0.5
+                  ) +
+                  theme_void() +
+                  labs(subtitle = violinPlots()$fileNames[[ii]])
+                result <- render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
+                mark_stage_rendered(
+                  violinRenderedCount,
+                  ii,
+                  "Plotting violins …",
+                  min(length(violinPlots()$plotList), maxPlotsViolinSlots)
+                )
+                result
+              })
+            })
+          }
+        )
+      }, deleteFile = FALSE)
+      # DESIGN: keep TRUE — see file header (do not render Plots off-tab).
       outputOptions(output, paste0("violin", ii), suspendWhenHidden = TRUE)
 
       output[[paste0("downloadViolin", ii)]] <- downloadHandler(
@@ -1411,6 +1932,7 @@ register_plots_tab_server <- function(output,
       ii <- i
 
       output[[paste0("hasFontComparison", ii)]] <- reactive({
+        if (!isTRUE(plots_tab_active())) return(FALSE)
         req(violinImagesReady())
         length(fontComparisonPlots()$plotList) >= ii
       })
@@ -1424,44 +1946,66 @@ register_plots_tab_server <- function(output,
 
       output[[paste0("fontComparison", ii)]] <- renderImage({
         req(violinImagesReady())
-        req(ii <= fontComparisonRenderCount())
+        req_plots_slot_unlocked(ii, fontComparisonRenderCount)
         req(length(fontComparisonPlots()$plotList) >= ii)
-        app_profile_time(app_profiler, paste0("Plots font comparison image ", ii), {
-          tryCatch({
-            result <- render_plots_display_png(
-              if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) {
-                fontComparisonPlots()$plotList[[ii]]
-              } else {
-                fontComparisonPlots()$plotList[[ii]] + plt_theme
-              },
-              width_in = 8,
-              height_in = 6,
-              disp_w = 700,
-              text_scale = 1.4,
-              limitsize = FALSE
-            )
-            if (isolate(fontComparisonRenderedCount()) < ii) fontComparisonRenderedCount(ii)
-            result
-          }, error = function(e) {
-            error_plot <- ggplot() +
-              annotate(
-                "text",
-                x = 0.5,
-                y = 0.5,
-                label = paste("Error:", e$message),
-                color = "red",
-                size = 5,
-                hjust = 0.5,
-                vjust = 0.5
-              ) +
-              theme_void() +
-              labs(subtitle = fontComparisonPlots()$fileNames[[ii]])
-            result <- render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
-            if (isolate(fontComparisonRenderedCount()) < ii) fontComparisonRenderedCount(ii)
-            result
-          })
-        })
-      }, deleteFile = TRUE)
+        content_gen <- isolate(plotsContentGen())
+        with_plots_png_cache(
+          paste("fontComparison", content_gen, ii, sep = ":"),
+          on_hit = function() {
+            if (isolate(fontComparisonRenderedCount()) < ii) {
+              fontComparisonRenderedCount(ii)
+            }
+          },
+          render_fn = function() {
+            app_profile_time(app_profiler, plots_profile_image_label("font comparison", ii, fontComparisonPlots()$fileNames), {
+              tryCatch({
+                result <- render_plots_display_png(
+                  if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) {
+                    fontComparisonPlots()$plotList[[ii]]
+                  } else {
+                    fontComparisonPlots()$plotList[[ii]] + plt_theme
+                  },
+                  width_in = 8,
+                  height_in = 6,
+                  disp_w = 700,
+                  text_scale = 1.4,
+                  limitsize = FALSE
+                )
+                mark_stage_rendered(
+                  fontComparisonRenderedCount,
+                  ii,
+                  "Plotting font comparisons …",
+                  min(length(fontComparisonPlots()$plotList), maxPlotsFontComparisonSlots)
+                )
+                result
+              }, error = function(e) {
+                error_plot <- ggplot() +
+                  annotate(
+                    "text",
+                    x = 0.5,
+                    y = 0.5,
+                    label = paste("Error:", e$message),
+                    color = "red",
+                    size = 5,
+                    hjust = 0.5,
+                    vjust = 0.5
+                  ) +
+                  theme_void() +
+                  labs(subtitle = fontComparisonPlots()$fileNames[[ii]])
+                result <- render_plots_display_png(error_plot, width_in = 6, height_in = 4, disp_w = 700, use_png_theme = FALSE)
+                mark_stage_rendered(
+                  fontComparisonRenderedCount,
+                  ii,
+                  "Plotting font comparisons …",
+                  min(length(fontComparisonPlots()$plotList), maxPlotsFontComparisonSlots)
+                )
+                result
+              })
+            })
+          }
+        )
+      }, deleteFile = FALSE)
+      # DESIGN: keep TRUE — see file header (do not render Plots off-tab).
       outputOptions(output, paste0("fontComparison", ii), suspendWhenHidden = TRUE)
 
       output[[paste0("downloadFontComparison", ii)]] <- downloadHandler(
