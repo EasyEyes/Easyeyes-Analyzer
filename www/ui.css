@@ -228,9 +228,23 @@ span.unmetNeeds-has-explanation {
   padding: 10px 12px 12px;
 }
 
+.plots-page-progress-source {
+  margin-bottom: 6px;
+}
+
+.plots-page-progress-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #889;
+  margin-bottom: 2px;
+}
+
 .plots-page-progress-stage {
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .plots-page-progress-detail {

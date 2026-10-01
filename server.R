@@ -233,16 +233,30 @@ shinyServer(function(input, output, session) {
   
   minNQuestTrials <-reactive({input$NQuestTrials}) %>% debounce(1000)
   maxQuestSD <- reactive({input$maxQuestSD}) %>% debounce(1000)
-  # TODO(perf): generate_threshold often runs twice after upload (~30s each).
-  # Root cause: observeEvent(files()) calls updateCheckboxGroupInput('conditionName',
-  # selected = df_list()$conditionNames), which changes input$conditionName even when
-  # the selection is effectively "all". That invalidates conditionNames() below
-  # (debounced 5s) → df_list() → generate_threshold again. Same pattern also re-runs
-  # stackedPlots / corrMatrix off the Plots tab via suspendWhenHidden=FALSE consumers.
-  # Fix ideas: skip the checkbox update when choices/selected are unchanged; or seed
-  # conditionName before the first df_list() and ignore the echo; or isolate the
-  # update so it does not depend on a full df_list() compute.
-  conditionNames <- reactive(input$conditionName) %>% debounce(5000)
+  # NULL means "all conditions" to generate_threshold and the plot helpers.
+  # Selecting every available condition (including the checkbox echo after
+  # upload, which checks them all) is normalized to NULL. Stored in a
+  # reactiveVal so an unchanged value does not invalidate df_list() and
+  # re-run generate_threshold (~30s).
+  conditionNameInput <- reactive(input$conditionName) %>% debounce(5000)
+  allConditionNames <- reactiveVal(NULL)
+  conditionNames <- reactiveVal(NULL)
+  observe({
+    selected <- conditionNameInput()
+    available <- isolate(allConditionNames())
+    effective <- if (length(selected) == 0 ||
+                     (length(available) > 0 && setequal(selected, available))) {
+      NULL
+    } else {
+      sort(unique(selected))
+    }
+    conditionNames(effective)
+  })
+  # A new upload starts unfiltered; runs before df_list() consumers pull it.
+  observeEvent(files(), {
+    allConditionNames(NULL)
+    conditionNames(NULL)
+  }, priority = 100)
   calibrateTrackDistanceCheckLengthSDLogAllowed <- 
     reactive({
       input$calibrateTrackDistanceCheckLengthSDLogAllowed
@@ -621,9 +635,7 @@ shinyServer(function(input, output, session) {
                      selected = unique(files()$stairs$thresholdParameter)[1],
                    )
                    
-                   # TODO(perf): this update re-triggers conditionNames() → df_list() /
-                   # generate_threshold a second time after upload (see note on
-                   # conditionNames above). Prefer updating only when choices change.
+                   allConditionNames(df_list()$conditionNames)
                    updateCheckboxGroupInput(
                      session,
                      inputId = 'conditionName',
