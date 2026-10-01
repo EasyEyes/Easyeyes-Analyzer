@@ -80,17 +80,18 @@ jobs:
               TRUE
             }, error = function(e) {
               msg <- conditionMessage(e)
-              busy <- grepl(
-                "409|already in progress|tasks already in progress",
+              # Retry transient shinyapps.io API failures (busy slot or gateway blips).
+              retryable <- grepl(
+                "409|already in progress|tasks already in progress|502|503|504|Bad Gateway|Gateway Time-out|Service Unavailable|temporar|timeout|timed out",
                 msg,
                 ignore.case = TRUE
               )
-              if (!busy) {
+              if (!retryable) {
                 stop(e)
               }
               message(sprintf(
-                "shinyapps.io busy (attempt %d/%d). Waiting %ds before retry...",
-                attempt, max_attempts, wait_secs
+                "shinyapps.io transient error (attempt %d/%d): %s\nWaiting %ds before retry...",
+                attempt, max_attempts, msg, wait_secs
               ))
               Sys.sleep(wait_secs)
               FALSE
@@ -99,7 +100,7 @@ jobs:
               quit(save = "no", status = 0)
             }
           }
-          stop("Timed out waiting for shinyapps.io deploy slot after ", max_attempts, " attempts")
+          stop("Timed out waiting for shinyapps.io deploy after ", max_attempts, " attempts")
         shell: Rscript {0}
 
       # Step 3: Notify Slack on Success
