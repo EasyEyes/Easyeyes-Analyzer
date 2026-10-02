@@ -2119,10 +2119,10 @@ ensure_log10_limits_cover_labeled_ticks <- function(lim,
 }
 
 # Shared limits for the paired plots:
-#   - crowding x-height vs acuity x-height (Y from data; X = acuity x-height clipped at 3 deg)
+#   - crowding x-height vs acuity x-height (X = acuity x-height clipped at 3 deg)
 #   - crowding:acuity ratio vs acuity x-height (same clipped X)
-# Same X and matched Y log-spans → same coord_fixed panel aspect, so equal
-# panel sizes after download keep the same physical scale per decade.
+# Both get the identical X and identical Y range (union of both datasets), so
+# the two panels have the same size and the same position for every Y value.
 paired_xheight_and_ratio_plot_limits <- function(df_list) {
   empty_x <- clip_acuity_xheight_xlim_at_3(c(0.1, 3))
   empty_y <- ensure_log10_limits_cover_labeled_ticks(c(0.1, 30))
@@ -2160,19 +2160,16 @@ paired_xheight_and_ratio_plot_limits <- function(df_list) {
   y_r <- expand_log10_limits_to_include(y_r, 1)
   y_r <- ensure_log10_limits_cover_labeled_ticks(y_r)
 
-  # Match Y log-spans so both paired plots share the same coord_fixed aspect.
-  span_x <- diff(log10(x_lim))
-  span_y <- max(diff(log10(y_xh)), diff(log10(y_r)), span_x)
-  y_xh <- expand_log10_limits_to_span(y_xh, span_y, keep = c(y_xh, 0.3, 1, 3, 10))
-  y_r <- expand_log10_limits_to_span(y_r, span_y, keep = c(y_r, 0.3, 1, 3, 10))
-  # keep= may widen one axis past span_y; re-sync so aspects stay identical.
-  span_y <- max(diff(log10(y_xh)), diff(log10(y_r)), span_x)
-  y_xh <- expand_log10_limits_to_span(y_xh, span_y, keep = y_xh)
-  y_r <- expand_log10_limits_to_span(y_r, span_y, keep = y_r)
+  y_shared <- range(c(y_xh, y_r))
+  y_shared <- expand_log10_limits_to_span(
+    y_shared,
+    diff(log10(x_lim)),
+    keep = c(y_shared, 0.3, 1, 3, 10)
+  )
 
   list(
-    xheight = list(x = x_lim, y = y_xh),
-    ratio = list(x = x_lim, y = y_r)
+    xheight = list(x = x_lim, y = y_shared),
+    ratio = list(x = x_lim, y = y_shared)
   )
 }
 
@@ -2379,7 +2376,7 @@ crowding_acuity_size_ratio_vs_acuity_xheight_by_category_scatter <- function(df_
     apply_equal_log10_scatter_scales(lims) +
     scale_color_manual(values = cols, name = "Font category", drop = FALSE) +
     theme_bw() +
-    plots_legend_inside_theme(x = 0.5, y = 0.10) +
+    plots_legend_inside_theme(x = 0, y = 0, just = c(0, 0)) +
     paired_acuity_xheight_scatter_theme() +
     labs(
       subtitle = paste0(
@@ -2396,7 +2393,7 @@ crowding_acuity_size_ratio_vs_acuity_xheight_by_category_scatter <- function(df_
       title.position = "top"
     ))
   # Survive plot + plt_theme_scatter (which sets legend.position = "top").
-  tag_legend_inside_panel(p, x = 0.5, y = 0.10)
+  tag_legend_inside_panel(p, x = 0, y = 0, just = c(0, 0))
 }
 
 # Crowding x-height vs acuity x-height (both deg, log-spaced).
@@ -2827,6 +2824,196 @@ crowding_xheight_vs_acuity_xheight_font_abbrev_scatter <- function(df_list,
   crowding_xheight_vs_acuity_xheight_scatter(df_list, font_colors = font_colors)
 }
 
+# Native-font legend as a grid grob laid out in points from the bottom-left
+# corner: columns fill top-to-bottom, each name typeset in its own face.
+# Column widths are measured at draw time, when the ee_* faces are registered.
+crowding24_native_font_legend_grob <- function(labels,
+                                               families,
+                                               colors,
+                                               ncol = 2,
+                                               fontsize = 24,
+                                               line_pitch = 0.76) {
+  labels <- as.character(labels)
+  families <- as.character(families)
+  n <- length(labels)
+  if (length(families) == 1L) families <- rep(families, n)
+  col_vals <- if (!is.null(names(colors))) {
+    unname(colors[labels])
+  } else {
+    as.character(colors)[seq_len(n)]
+  }
+  col_vals[is.na(col_vals) | !nzchar(col_vals)] <- "gray40"
+  size_factors <- crowding24_equalize_xheight_sizes(families, base_size = 1)
+  size_factors[!is.finite(size_factors) | size_factors <= 0] <- 1
+  grid::gTree(
+    labels = labels,
+    families = families,
+    colors = col_vals,
+    size_factors = size_factors,
+    ncol = max(1L, as.integer(ncol)),
+    fontsize = fontsize,
+    line_pitch = line_pitch,
+    cl = "ee_font_legend"
+  )
+}
+
+ee_font_legend_metrics <- function(x) {
+  n <- length(x$labels)
+  nrow_leg <- max(1L, ceiling(n / x$ncol))
+  idx <- seq_len(n) - 1L
+  col_i <- idx %/% nrow_leg + 1L
+  row_i <- idx %% nrow_leg + 1L
+  sizes <- x$fontsize * x$size_factors
+  text_w <- vapply(seq_len(n), function(i) {
+    g <- grid::textGrob(
+      x$labels[[i]],
+      gp = grid::gpar(fontfamily = x$families[[i]], fontsize = sizes[[i]])
+    )
+    grid::convertWidth(grid::grobWidth(g), "pt", valueOnly = TRUE)
+  }, numeric(1))
+  dot <- 0.45 * x$fontsize
+  gap <- 0.3 * x$fontsize
+  col_gap <- 0.8 * x$fontsize
+  ncol_used <- max(col_i, 1L)
+  col_w <- vapply(seq_len(ncol_used), function(k) {
+    max(c(0, text_w[col_i == k]))
+  }, numeric(1))
+  block_w <- dot + gap + col_w
+  col_x <- cumsum(c(0, utils::head(block_w + col_gap, -1)))
+  list(
+    nrow = nrow_leg,
+    col_i = col_i,
+    row_i = row_i,
+    sizes = sizes,
+    dot = dot,
+    gap = gap,
+    col_x = col_x,
+    width = sum(block_w) + (ncol_used - 1L) * col_gap,
+    height = nrow_leg * x$line_pitch * x$fontsize
+  )
+}
+
+makeContent.ee_font_legend <- function(x) {
+  m <- ee_font_legend_metrics(x)
+  pitch <- x$line_pitch * x$fontsize
+  # Baseline sits so the bottom row's descenders reach y = 0.
+  baseline <- (m$nrow - m$row_i) * pitch + 0.24 * x$fontsize
+  dot_y <- baseline + 0.25 * x$fontsize
+  dots <- grid::circleGrob(
+    x = grid::unit(m$col_x[m$col_i] + m$dot / 2, "pt"),
+    y = grid::unit(dot_y, "pt"),
+    r = grid::unit(m$dot / 2, "pt"),
+    gp = grid::gpar(fill = x$colors, col = NA)
+  )
+  texts <- lapply(seq_along(x$labels), function(i) {
+    grid::textGrob(
+      x$labels[[i]],
+      x = grid::unit(m$col_x[m$col_i[[i]]] + m$dot + m$gap, "pt"),
+      y = grid::unit(baseline[[i]], "pt"),
+      hjust = 0,
+      vjust = 0,
+      gp = grid::gpar(
+        fontfamily = x$families[[i]],
+        fontsize = m$sizes[[i]],
+        col = "black"
+      )
+    )
+  })
+  grid::setChildren(x, do.call(grid::gList, c(list(dots), texts)))
+}
+
+widthDetails.ee_font_legend <- function(x) {
+  grid::unit(ee_font_legend_metrics(x)$width, "pt")
+}
+
+heightDetails.ee_font_legend <- function(x) {
+  grid::unit(ee_font_legend_metrics(x)$height, "pt")
+}
+
+registerS3method("makeContent", "ee_font_legend", makeContent.ee_font_legend,
+                 envir = asNamespace("grid"))
+registerS3method("widthDetails", "ee_font_legend", widthDetails.ee_font_legend,
+                 envir = asNamespace("grid"))
+registerS3method("heightDetails", "ee_font_legend", heightDetails.ee_font_legend,
+                 envir = asNamespace("grid"))
+
+# plots_fit_to_content hook for the one-row figure. Runs after the PNG theme,
+# with fonts registered: sizes the font legend to span from the top of the
+# scatter panels to the bottom of the x-axis title, then measures the whole
+# layout so the saved figure has no slack (slack becomes white space).
+crowding24_fit_font_row <- function(plot, dpi = 200) {
+  info <- attr(plot, "crowding24_row_layout", exact = TRUE)
+  if (!is.list(info)) {
+    return(NULL)
+  }
+  dev_file <- tempfile(fileext = ".png")
+  ragg::agg_png(dev_file, width = 40, height = 20, units = "in", res = dpi)
+  dev_id <- grDevices::dev.cur()
+  on.exit({
+    grDevices::dev.off(dev_id)
+    unlink(dev_file)
+  }, add = TRUE)
+  # showtext attaches to a device on its first page; measuring text before
+  # that crashes (segfault) with showtext-only ee_* families.
+  grid::grid.newpage()
+
+  ph_in <- info$panel_h_in
+  pw_in <- info$panel_w_in
+  # Height from the panel's bottom edge to the bottom of the x-axis title.
+  main <- plot$patches$plots[[info$main_index]]
+  gt <- ggplot2::ggplotGrob(main)
+  panel_row <- unique(gt$layout$t[grepl("^panel", gt$layout$name)])[1]
+  xlab_row <- unique(gt$layout$b[gt$layout$name == "xlab-b"])[1]
+  below_in <- if (is.finite(panel_row) && is.finite(xlab_row) && xlab_row > panel_row) {
+    grid::convertHeight(sum(gt$heights[(panel_row + 1):xlab_row]), "in", valueOnly = TRUE)
+  } else {
+    0.8
+  }
+
+  leg <- info$legend
+  span_pt <- (ph_in + below_in) * 72.27
+  nrow_leg <- max(1L, ceiling(length(leg$labels) / leg$ncol))
+  # Font size: rows at 1.08 em would fill the span. Rows are then packed so
+  # the bottom-aligned legend occupies only the lower half of the column.
+  leg$fontsize <- span_pt / (nrow_leg * 1.08)
+  leg$line_pitch <- 0.5 * span_pt / (nrow_leg * leg$fontsize)
+  leg_w_in <- grid::convertWidth(grid::widthDetails(leg), "in", valueOnly = TRUE)
+
+  # The wrapped cell spans the full plot area; lift the legend by whatever
+  # sits below the x-axis title (caption row, bottom plot margin).
+  n_h <- length(gt$heights)
+  margin_b <- if (is.finite(xlab_row) && xlab_row < n_h) {
+    grid::convertHeight(sum(gt$heights[(xlab_row + 1):n_h]), "pt", valueOnly = TRUE)
+  } else {
+    0
+  }
+  holder <- grid::gTree(
+    children = grid::gList(leg),
+    vp = grid::viewport(
+      x = 0, y = grid::unit(margin_b, "pt"),
+      just = c(0, 0),
+      width = grid::unit(1, "npc"),
+      height = grid::unit(1, "npc") - grid::unit(margin_b, "pt")
+    )
+  )
+  plot$patches$plots[[info$legend_index]] <- patchwork::wrap_elements(full = holder, clip = FALSE)
+  plot$patches$layout$widths <- grid::unit(c(leg_w_in, pw_in, pw_in), "in")
+  plot$patches$layout$heights <- grid::unit(ph_in, "in")
+
+  pg <- patchwork::patchworkGrob(plot)
+  abs_in <- function(u, conv) {
+    sum(vapply(seq_along(u), function(i) {
+      if (grid::unitType(u[i]) == "null") return(0)
+      conv(u[i], "in", valueOnly = TRUE)
+    }, numeric(1)))
+  }
+  list(
+    plot = plot,
+    width_in = abs_in(pg$widths, grid::convertWidth),
+    height_in = abs_in(pg$heights, grid::convertHeight)
+  )
+}
+
 # One-row figure: [native font legend | x-height by font | size-ratio by category].
 # Columns 2–3 share point size, axis text size, and paired axis limits (no titles).
 # Pass shared prep (resolve_fonts=TRUE) from the Plots list builder so fonts/
@@ -2868,7 +3055,8 @@ crowding_xheight_and_ratio_font_row_scatter <- function(df_list,
     axis.title = ggplot2::element_text(size = axis_title_size),
     plot.title = ggplot2::element_blank(),
     plot.subtitle = ggplot2::element_blank(),
-    plot.margin = ggplot2::margin(t = 4, r = 6, b = 4, l = 6, unit = "pt")
+    # Journals want little white space between figure elements.
+    plot.margin = ggplot2::margin(t = 2, r = 4, b = 2, l = 2, unit = "pt")
   )
 
   p_xheight <- ggplot2::ggplot(
@@ -2947,7 +3135,7 @@ crowding_xheight_and_ratio_font_row_scatter <- function(df_list,
     ) +
     ggplot2::theme_bw() +
     panel_theme +
-    plots_legend_inside_theme(x = 0.5, y = 0.10) +
+    plots_legend_inside_theme(x = 0, y = 0, just = c(0, 0)) +
     ggplot2::labs(
       x = "Acuity x-height (deg)",
       y = "Crowding:acuity size ratio r"
@@ -2955,45 +3143,58 @@ crowding_xheight_and_ratio_font_row_scatter <- function(df_list,
     ggplot2::guides(
       color = ggplot2::guide_legend(
         title = "Font category",
-        ncol = 2,
-        byrow = TRUE,
+        ncol = 1,
         title.position = "top"
       )
     )
   attr(p_ratio, "crowding24_main_panel") <- TRUE
-  p_ratio <- tag_legend_inside_panel(p_ratio, x = 0.5, y = 0.10)
+  p_ratio <- tag_legend_inside_panel(p_ratio, x = 0, y = 0, just = c(0, 0))
 
   legend_rows <- prep$data %>%
     dplyr::distinct(font_label, plot_family, .keep_all = FALSE) %>%
     dplyr::arrange(font_label)
-  p_leg <- crowding24_native_font_legend_plot(
+  legend_grob <- crowding24_native_font_legend_grob(
     labels = as.character(legend_rows$font_label),
     families = as.character(legend_rows$plot_family),
     colors = prep$cols,
-    ncol = 4,
-    pack_top = TRUE
+    ncol = 2
   )
-  attr(p_leg, "crowding24_legend_panel") <- TRUE
 
   if (!requireNamespace("patchwork", quietly = TRUE)) {
     return(tag_crowding24_ee_families(p_xheight, legend_rows$plot_family))
   }
 
-  # Wider first column so 4-col native font names do not overlap.
+  # Absolute panel sizes: both scatters share limits, so equal panels give the
+  # same inches per decade on both axes. Final width/height and the legend
+  # font size are set by crowding24_fit_font_row() at render time.
+  panel_h_in <- 5
+  span_x <- diff(log10(paired_lims$xheight$x))
+  span_y <- diff(log10(paired_lims$xheight$y))
+  panel_w_in <- panel_h_in * span_x / span_y
   combined <- patchwork::wrap_plots(
-    p_leg,
+    patchwork::wrap_elements(full = legend_grob, clip = FALSE),
     p_xheight,
     p_ratio,
     ncol = 3,
-    widths = c(3.0, 2.0, 2.0)
+    widths = grid::unit(c(4, panel_w_in, panel_w_in), "in"),
+    heights = grid::unit(panel_h_in, "in")
   )
   combined <- tag_crowding24_ee_families(combined, legend_rows$plot_family)
   # Reuse native-legend PNG / theme skip path; paired-row for experiment title.
   attr(combined, "crowding24_native_legend_patchwork") <- TRUE
   attr(combined, "crowding24_paired_row_patchwork") <- TRUE
+  attr(combined, "crowding24_row_layout") <- list(
+    legend = legend_grob,
+    legend_index = 1L,
+    main_index = 2L,
+    panel_w_in = panel_w_in,
+    panel_h_in = panel_h_in
+  )
+  attr(combined, "plots_fit_to_content") <- crowding24_fit_font_row
   attr(combined, "plots_full_row") <- TRUE
-  attr(combined, "plots_display_width_in") <- 17
-  attr(combined, "plots_display_height_in") <- 6.5
+  # Initial canvas only; the fit hook replaces it with the measured size.
+  attr(combined, "plots_display_width_in") <- 4 + 2 * panel_w_in + 3
+  attr(combined, "plots_display_height_in") <- panel_h_in + 1.5
   combined
 }
 

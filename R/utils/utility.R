@@ -215,27 +215,45 @@ add_experiment_title <- function(plot, experiment_name) {
 # Legend drawn inside the panel (ggplot2 3.5+). Used when plt_theme_scatter
 # would otherwise force legend.position = "top" above the panel.
 # Sizes match crowding24 native-font legend text after PNG theme (~22 pt).
-plots_legend_inside_theme <- function(x = 0.5, y = 0.10) {
+plots_legend_inside_theme <- function(x = 0.5, y = 0.10, just = c(0.5, 0)) {
+  in_lower_left <- isTRUE(all(c(x, y) == 0))
   ggplot2::theme(
     legend.position = "inside",
     legend.position.inside = c(x, y),
-    legend.justification = c(0.5, 0),
+    legend.justification = just,
     legend.direction = "horizontal",
     legend.title.position = "top",
-    legend.background = ggplot2::element_rect(fill = scales::alpha("white", 0.92), color = NA),
+    legend.background = if (in_lower_left) {
+      ggplot2::element_blank()
+    } else {
+      ggplot2::element_rect(fill = scales::alpha("white", 0.92), color = NA)
+    },
     legend.key = ggplot2::element_blank(),
     legend.key.size = ggplot2::unit(5.5, "mm"),
     legend.key.spacing.x = ggplot2::unit(4, "mm"),
     legend.key.spacing.y = ggplot2::unit(1.5, "mm"),
     legend.title = ggplot2::element_text(size = 16, hjust = 0),
     legend.text = ggplot2::element_text(size = 15),
-    legend.margin = ggplot2::margin(3, 5, 3, 5)
+    # In the corner, keep clear of the inward axis ticks.
+    legend.margin = if (in_lower_left) {
+      ggplot2::margin(t = 2, r = 4, b = 8, l = 10)
+    } else {
+      ggplot2::margin(3, 5, 3, 5)
+    }
   )
 }
 
-tag_legend_inside_panel <- function(plot, x = 0.5, y = 0.10) {
-  attr(plot, "legend_inside_panel") <- list(x = x, y = y)
+tag_legend_inside_panel <- function(plot, x = 0.5, y = 0.10, just = c(0.5, 0)) {
+  attr(plot, "legend_inside_panel") <- list(x = x, y = y, just = just)
   plot
+}
+
+reapply_legend_inside_panel <- function(plot, inside) {
+  if (!is.list(inside) || length(inside$x) != 1L || length(inside$y) != 1L) {
+    return(plot)
+  }
+  just <- if (length(inside$just) == 2L) inside$just else c(0.5, 0)
+  plot + plots_legend_inside_theme(inside$x, inside$y, just = just)
 }
 
 # Apply scatter theme, then restore an inside-panel legend if the plot was tagged.
@@ -251,11 +269,7 @@ apply_plt_theme_scatter <- function(plot) {
   } else {
     plot + plt_theme_scatter
   }
-  inside <- attr(plot, "legend_inside_panel", exact = TRUE)
-  if (is.list(inside) && length(inside$x) == 1L && length(inside$y) == 1L) {
-    themed <- themed + plots_legend_inside_theme(inside$x, inside$y)
-  }
-  themed
+  reapply_legend_inside_panel(themed, attr(plot, "legend_inside_panel", exact = TRUE))
 }
 
 # Consistent plot download: PNG matches Plots-tab on-screen render when
@@ -379,11 +393,10 @@ save_download_specs_zip <- function(specs, zip_file, fileType, prefix = "", empt
           plot <- apply_plt_theme_scatter(plot)
         } else {
           orig <- plot
-          plot <- plot + spec$theme
-          inside <- attr(orig, "legend_inside_panel", exact = TRUE)
-          if (is.list(inside) && length(inside$x) == 1L && length(inside$y) == 1L) {
-            plot <- plot + plots_legend_inside_theme(inside$x, inside$y)
-          }
+          plot <- reapply_legend_inside_panel(
+            plot + spec$theme,
+            attr(orig, "legend_inside_panel", exact = TRUE)
+          )
         }
       }
 
@@ -802,7 +815,9 @@ apply_direct_png_theme <- function(plot,
     if (is.list(png_plot$patches$plots)) {
       for (i in seq_along(png_plot$patches$plots)) {
         child <- png_plot$patches$plots[[i]]
-        if (!(inherits(child, "ggplot") && !inherits(child, "patchwork"))) {
+        # wrap_elements() cells (e.g. grob legends) are sized by their builder.
+        if (!(inherits(child, "ggplot") && !inherits(child, "patchwork")) ||
+            inherits(child, "wrapped_patch")) {
           next
         }
         if (isTRUE(attr(child, "crowding24_legend_panel", exact = TRUE))) {
@@ -866,8 +881,7 @@ apply_direct_png_theme <- function(plot,
           inside <- attr(child, "legend_inside_panel", exact = TRUE)
           if (is.list(inside) && length(inside$x) == 1L && length(inside$y) == 1L) {
             # Match col-1 native-font legend visual size (geom_text ~3.84 × 2 ≈ 22 pt).
-            child2 <- child2 +
-              plots_legend_inside_theme(inside$x, inside$y) +
+            child2 <- reapply_legend_inside_panel(child2, inside) +
               ggplot2::theme(
                 legend.title.position = "top",
                 legend.title = ggplot2::element_text(size = 22, hjust = 0),
@@ -920,12 +934,19 @@ apply_direct_png_theme <- function(plot,
     )
     legend_title_size <- sizes$legend_title
     legend_text_size <- sizes$legend_text
+    legend_key_theme <- ggplot2::theme()
     if (isTRUE(attr(plot, "crowding24_paired_row_patchwork", exact = TRUE))) {
-      # Match col-1 native-font legend (~22 pt after PNG text-layer scale).
-      legend_title_size <- 22
-      legend_text_size <- 20
+      # Journal figure: legend text as large as the axis numbers.
+      legend_title_size <- sizes$axis_text
+      legend_text_size <- sizes$axis_text
+      # Tight rows so the legend fits below the dashed r = 1 line.
+      legend_key_theme <- ggplot2::theme(
+        legend.key.size = ggplot2::unit(0.6 * sizes$axis_text, "pt"),
+        legend.key.spacing.y = ggplot2::unit(0, "pt"),
+        legend.key.spacing.x = ggplot2::unit(0.15 * sizes$axis_text, "pt")
+      )
     }
-    png_plot <- png_plot +
+    png_plot <- png_plot + legend_key_theme +
       ggplot2::theme(
         axis.title = ggplot2::element_text(
           size = sizes$axis_title,
@@ -950,7 +971,8 @@ apply_direct_png_theme <- function(plot,
         ),
         legend.title = ggplot2::element_text(
           size = legend_title_size,
-          lineheight = lineheight_multiplier
+          lineheight = lineheight_multiplier,
+          margin = ggplot2::margin(b = 2)
         ),
         legend.text = ggplot2::element_text(
           size = legend_text_size,
@@ -973,6 +995,8 @@ apply_direct_png_theme <- function(plot,
     if (isTRUE(attr(plot, "crowding24_paired_row_patchwork", exact = TRUE))) {
       attr(png_plot, "crowding24_paired_row_patchwork") <- TRUE
     }
+    attr(png_plot, "plots_fit_to_content") <- attr(plot, "plots_fit_to_content", exact = TRUE)
+    attr(png_plot, "crowding24_row_layout") <- attr(plot, "crowding24_row_layout", exact = TRUE)
     attr(png_plot, "crowding24_main_panel") <- TRUE
     return(png_plot)
   }
@@ -1097,6 +1121,21 @@ prepare_plots_display_plot <- function(plot,
   plot
 }
 
+# Plots whose layout is in absolute units carry attr "plots_fit_to_content":
+# function(plot, dpi) -> list(plot, width_in, height_in). Called after the PNG
+# theme (final text sizes) and font registration, so measurements match the
+# drawn figure. Returns NULL for ordinary plots.
+fit_plot_to_content <- function(plot, dpi = 200) {
+  fit <- attr(plot, "plots_fit_to_content", exact = TRUE)
+  if (!is.function(fit)) {
+    return(NULL)
+  }
+  tryCatch(fit(plot, dpi = dpi), error = function(e) {
+    log_error("plots_fit_to_content failed: ", conditionMessage(e))
+    NULL
+  })
+}
+
 # Pixel geometry used by on-screen plot PNGs (and matching downloads).
 plots_display_png_geometry <- function(width_in, height_in, disp_w = 700) {
   width_in <- as.numeric(width_in)[1]
@@ -1170,6 +1209,17 @@ ggsave_plots_display_png <- function(file,
       release_crowding24_plot_fonts()
     }
   }, add = TRUE)
+
+  fitted <- fit_plot_to_content(plot, dpi = geom$dpi)
+  if (!is.null(fitted)) {
+    plot <- fitted$plot
+    # Same dpi, so on-screen pixels per inch stay as for other Plots PNGs.
+    geom <- plots_display_png_geometry(
+      fitted$width_in,
+      fitted$height_in,
+      disp_w = geom$disp_w * fitted$width_in / geom$width_in
+    )
+  }
 
   tryCatch({
     ggplot2::ggsave(
@@ -1250,6 +1300,15 @@ save_plots_display_download <- function(file,
     scale_axis_title = scale_axis_title,
     scale_axis_text = scale_axis_text
   )
+  fitted <- fit_plot_to_content(plot)
+  if (!is.null(fitted)) {
+    # Content is laid out in absolute inches; an enlarged canvas would only
+    # add white space around it.
+    plot <- fitted$plot
+    width_in <- fitted$width_in
+    height_in <- fitted$height_in
+    vector_size_scale <- 1
+  }
   ggplot2::ggsave(
     file = file,
     plot = plot,
