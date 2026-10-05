@@ -519,37 +519,7 @@ The study spreadsheet can use the symbolic phrases created by the scientist plus
 _languageSelectionByParticipantBool,"_languageSelectionByParticipantBool (default FALSE), when TRUE, tell the Device Compatibility page to offer the participant a pull-down menu to select the language for the rest of the study. The study always begins with the language specified by _language, and the participant's option to change language appears only on the Device Compatibility page and if  _languageSelectionByParticipantBool=TRUE. The participant selects among the native names of the languages, e.g. English, Deutsch, عربي. EasyEyes currently offers 77 languages, and it would be easy to add more. If there's demand, we could add another parameter to allow you to specify the list of languages to offer to the participant. (The compiler would issue an error if any listed language is missing.)
 
 IMPORTANT LIMITATION: _languagePhrasesSpreadsheet works with _language, but ignores _languageSelectionByParticipantBool. (Our compile-time implementation of _languagePhrasesSpreadsheet supports _language. Extending it to support _languageSelectionByParticipantBool would require a runtime implementation. That would be a big effort for what we estimate to be a rare and optional use case.) The compiler allows you to enable both _languagePhrasesSpreadsheet and _languageSelectionByParticipantBool because the combination, though limited, might still be useful."
-_logFontBool,"⚠️️ _logFontBool (default FALSE), when TRUE, records several parameters (block, conditionName, and trial, plus font rendering details) in the FormSpree server for each font-rendering for stimulus generation, which, for the crowding task, occurs at least once per trial. Initially this will apply to just the crowding task. This is meant to identify font-rendering crashes. More generally, after any kind of crash, we don't get a CSV results file, but the FormSpree record will identify which trial, conditionName, and block crashed. Before each text rendering, EasyEyes will save the parameters relevant to the rendering request on FormSpree. If there is a crash, then the last saved value may represent the request that crashed.
-
-To examine the data saved in FormSpree, go to the EasyEyes ""FormSpree"" menu:
-http://easyeyes.app
-Analyze >> FormSpree
-
-More conveniently, the Shiny's Sessions page displays one session per row, integrating data from: any Pavlovia CSV results files (one per session), and any Prolific demographic file, and the FormSpree data, all linked by the Pavlovia session ID.
-Analyze >> Sessions
-Several columns are devoted to values from FormSpree.
-
-There are nine parameters. Eight describe the request:
-font the parameter
-fontPadding the parameter
-fontPt the font size in pt
-fontMaxPx the parameter
-fontString the string that will be drawn
-block the parameter
-conditionName the parameter
-trial the parameter
-The ninth parameter,
-fontLatencySec will be initialized as NAN.
-The nine parameters are saved to FormSpree BEFORE rendering.
-
-AFTER rendering, the value of fontLatencySec is updated with the measured rendering time (sec). The NAN is replaced by the measured value. After a crash, seeing fontLatencySec===NAN indicates that the rendering did not finish. It's a smoking gun.
-
-Each EasyEyes study session will provide the nine parameters to FormSpree hundreds of times. We are primarily interested in the last set of six parameters saved, which Shiny will display in its one-session-per-row console. Shiny will also use the complete data set to produce graphs of latency vs size.FormSpree will save the nine parameters in nine arrays, and add a new element to each array each time EasyEyes sends the 9 parameters by bumping the index of all the arrays. Sending fontLatencySec will NOT bump the index, because it's an update that will be poked into the last set saved.
-
-⚠️️ We suspect that _logFontBool and/or _logParticipantBool may add 0.2 s to 1 s to the target duration, which would be bad for most studys. Check pilot data before enabling this during serious data collection.
-⚠️️ Our contract with FormSpree allows us only 20,000 log entries per month, including all EasyEyes users. This limit is easily exceeded, so please only use _logFontBool when you need it for debugging.
-
-Also see _logParticipantsBool."
+_logFontBool,"🕑 fontLatencyPt (default empty) accepts a comma-separated list of point sizes, and, at the beginning of the block, for each size, measures how long it takes to draw the fontLatencyString using this condition's font, fontMaxPx, and fontRenderMaxPx. At the beginning of the block, before the first trial, measure how long it takes (sec) to draw each size on the screen. It's ok for this to temporarily take over the screen. A block can have several conditions, and each can set fontLatencyPt. Before running the block's first trial, measure timing for all the conditions in the block that requested fontLatencyPt. Save the results in the CSV file. We will plot latency (s) vs. size (pt), so the results.csv file should provide the two vectors."
 _logParticipantsBool,"⚠️️ _logParticipantsBool (default FALSE), when TRUE, record each participant in the FormSpree server. The data saved there survive a crash of the session. We use this to investigate discrepancies between the number of studies reported by Prolific and Pavlovia.  The results are automatically included by Shiny, so it effortlessly makes the Shiny display more complete. 
 ⚠️️ Our contract with FormSpree entitles us to only 20,000 log entries per month, including all EasyEyes users. This limit is easily exceeded, so please only use _logParticipantsBool when you need it.
 ⚠️️ We suspect that _logFontBool and/or _logParticipantBool may add 0.2 s to 1 s to the target duration. Check pilot data before enabling this during serious data collection.
@@ -1392,7 +1362,7 @@ Turkish:               tr
 Ukrainian:             uk
 Urdu:                  ur
 Vietnamese:            vi"
-fontLatencyPt,"🕑 fontLatencyPt (default empty) accepts a comma-separated list of point sizes, and, at the beginning of the block, for each size, measures how long it takes to draw the fontLatencyString using this condition's font, fontMaxPx, and fontRenderMaxPx. At the beginning of the block, before the first trial, measure how long it takes (sec) to draw each size on the screen. It's ok for this to temporarily take over the screen. A block can have several conditions, and each can set fontLatencyPt. Before running the block's first trial, measure timing for all the conditions in the block that requested fontLatencyPt. Save the results in the CSV file. We will plot latency (s) vs. size (pt), so the results.csv file should provide the two vectors."
+fontLatencyPt,"🕑 fontLatencyPt (default empty) accepts a comma-separated list of point sizes, and, at the beginning of the block, for each size, measures how long it takes to draw the fontLatencyString using this condition's font, fontMaxPhysicalPx, and fontRenderMaxPx. At the beginning of the block, before the first trial, measure how long it takes (sec) to draw each size on the screen. It's ok for this to temporarily take over the screen. A block can have several conditions, and each can set fontLatencyPt. Before running the block's first trial, measure timing for all the conditions in the block that requested fontLatencyPt. Save the results in the CSV file. We will plot latency (s) vs. size (pt), so the results.csv file should provide the two vectors."
 fontLatencyString,fontLatencyString (default 'abc') accepts a string to be drawn by fontLatencyPt.
 fontLeftToRightBool,❌ Use fontDirection instead.
 fontLimitTripletExtentBool,"fontLimitTripletExtentBool (default TRUE) when TRUE tells EasyEyes, in the crowding task, to directly limit triplet size to stay on screen. When FALSE, EasyEyes is indirect. It uses another string, possibly the alphabet, to compute a maximum font size. This indirect scheme risks that a particularly long triplet will extend off screen, but has the virtue that font size per se offers the participant no clue to the target identify. We recommend 
@@ -1400,7 +1370,7 @@ fontLimitTripletExtentBool = FALSE for Roman fonts, and
 fontLimitTripletExtentBool = TRUE for Arabic-like fonts. 
 
 In years of testing Roman fonts we never saw a problem with fontLimitTripletExtentBool = FALSE. However, in limited testing of IranNastaliq, a Persian font, with fontLimitTripletExtentBool = FALSE, Sajjad Mazaheri discovered triplets extending off screen. We anticipate that setting fontLimitTripletExtentBool = TRUE will eliminate this problem. We have not assessed whether font size now helps the participate identify the target, but we suppose that the help is negligibly small."
-fontMaxPhysicalPx,"🕑 fontMaxPhysicalPx (default 2000) places an upper limit on font size. Expressed in CSS pixels, the limit is
+fontMaxPhysicalPx,"fontMaxPhysicalPx (default 2000) places an upper limit on font size. Expressed in CSS pixels, the limit is
 fontNominalSizePx ≤ (fontMaxPhysicalPx/devicePixelRatio)/(1+fontPadding)
 Depending on the font, rendering at huge size may result in crashing, blackout, lateness, or excess duration. You can avoid these problems by using fontMaxPhysicalPx to limit the maximum size. The maximum safe size depends on the font and computer, especially the amount of available heap memory provided by the browser. Some crashes might be in PIXI.js or PsychoJS; we're not sure. ""Blackout"" refers to display of a solid black screen instead of the desired text for the correct text duration. Lacy fonts (e.g. Ballet and Zapfino) take a long time to draw at huge size and might cause the trial to be discarded for excess duration or lateness. See thresholdAllowedLatenessSec. 
 
@@ -1417,41 +1387,11 @@ pxPerCm of the display is reported in the results.csv file.
 To convert size in physical px to pt,
 sizePt=72*sizePhysicalPx/devicePixelRatio/pxPerCm/2.54
 
-Also see targetMinPhysicalPx, fontMaxPhysicalPx, fontMaxPxShrinkage, fontDetectBlackoutBool, 
+Also see targetMinPhysicalPx, fontMaxPhysicalPx, fontMaxShrinkage, fontDetectBlackoutBool, 
 thresholdAllowedLatenessSec, thresholdAllowedDurationRatio, thresholdAllowedReplacementReRequestedTrials, and conditionTrials."
-fontMaxPx,"fontMaxPx (default 1000) places an upper limit on font size. Expressed in pixels, the limit is
-fontNominalSizePx ≤ fontMaxPx/(1+fontPadding)
-Depending on the font, rendering at huge size may result in crashing, blackout, or lateness. You can avoid the problems by using fontMaxPx to limit the maximum size. The maximum safe size depends on the font and computer, especially the amount of available heap memory provided by the browser. 
-The crash may declare ""out of memory"" or not. It might be in PIXI.js or PsychoJS; we're unsure. ""Blackout"" refers to display of a solid black screen instead of the desired text. Lacy fonts (Ballet and Zapfino) take a long time to draw at huge size and might cause the trial to be discarded for excess lateness. See thresholdAllowedLatenessSec. 
-
-It's common to set a high thresholdGuess, which causes the QUEST-controlled block to begin at the largest possible size, and quickly descend to smaller sizes.
-
-The default of 1000 is a rough estimate of the threshold for trouble, but it depends on the font. For a particular font, you may be able to set fontMaxPx higher without encountering problems. If you enable FormSpree logging (by setting _logFontBool=TRUE), then, after an online crash, the Sessions page in Analyze will report the font and size immediately before the crash. Beware that our FormSpree license sets a ceiling on usage that is easily exceeded, so use _logFontBool sparingly.
-
-In word processing, font size is specified in points (pt). 
-pt is 1/72 inch, a typographers point. 
-px is a CSS pixel.
-physicalPx is a hardware pixel, the resolution at which fonts are rendered.
-devicePixelRatio is the linear number of physicalPx per px.
-pxPerCm of the display is reported in the results.csv file. 
-To convert size in physical px to pt,
-sizePt=72*sizePhysicalPx/devicePixelRatio/pxPerCm/2.54
-
-Since 2010, when HiDPI displays, like Apple's Retina, first appeared, screen coordinates are expressed in ""CSS"" pixels, which each may contain more than one ""physical"" pixel, but fonts are rendered more finely, at the resolution of (small) physical pixels. In the world, and in this Glossary, unqualified references to ""pixels"" or ""px"" mean the (big) CSS pixels. A length of devicePixelRatio physical px is one CSS px. EasyEyes saves devicePixelRatio in the results CSV file.  Among displays available in 2024, devicePixelRatio may be 1, 1.5, 2, 3, or 4. 
-
-I think that fontMaxPhysicalPx is probably a more reliable predictor of needed memory and computational effort, so it would be good to replace fontMaxPx by fontMaxPhysicalPx.
-
-Also see targetMinPhysicalPx, fontMaxPx, fontMaxPxShrinkage, fontDetectBlackoutBool, 
-thresholdAllowedLatenessSec, thresholdAllowedDurationRatio, thresholdAllowedReplacementReRequestedTrials, and conditionTrials."
-fontMaxPxShrinkage,"fontMaxPxShrinkage (default: 0.8) reduces a condition’s fontMaxPx after detecting a bad text rendering  (i.e., a blackout, or disallowed duration or lateness). Over several trials, successive reductions will eventually find a safe text size. Bad text rendering occurs when rendering very large letters and is resolved by reducing fontMaxPx. The largest safe size depends on the font, the character string, the computer’s rendering speed, and the amount of heap space provided by the browser to the EasyEyes web app. fontMaxPxShrinkage must be a positive fraction between zero and 1. A value of 1 risks redoing the same bad trial again and again until all allocated trials are wasted. The number of allocated trials is conditionTrials + conditionTrials*thresholdRepeatedReRequestedTrials.
-
-The default fontMaxPx value is chosen to be safe for most fonts and computers. When EasyEyes detects a bad text stimulus, it sets fontMaxPx to the product of fontMaxPxShrinkage and the nominal font size (in px) of the failed stimulus. Since the current font size is always less than or equal to fontMaxPx, reductions are cumulative, progressively shrinking fontMaxPx as needed. 
-
-When the text stimulus was bad, EasyEyes does not pass the trial to Quest. However, without input, Quest would suggest the same stimulus strength on the next trial, which would likely fail again. This could waste the remaining trials in the block by repeatedly presenting oversized stimuli. By successively reducing fontMaxPx after each failure, fontMaxPxShrinkage ensures that, over several trials, the condition converges on a safe size.
-
-Also see fontMaxPx, fontMaxPxShrinkage, fontDetectBlackoutBool, 
-thresholdAllowedLatenessSec, thresholdAllowedDurationRatio, thresholdAllowedReplacementReRequestedTrials, and conditionTrials."
-fontMaxShrinkage,"🕑 fontMaxShrinkage (default: 0.8) reduces a condition’s fontMaxPhysicalPx after detecting a bad text rendering  (i.e., a blackout, or disallowed duration or lateness). Over several trials, successive reductions will eventually find a safe text size. Bad text rendering occurs when rendering very large letters and is resolved by reducing fontMaxPhysicalPx. The largest safe size depends on the font, the character string, the computer’s rendering speed, and the amount of heap space provided by the browser to the EasyEyes web app. fontMaxShrinkage must be a positive fraction between zero and 1. A value of 1 risks redoing the same bad trial again and again until all allocated trials are wasted. The number of allocated trials is 
+fontMaxPx,❌ Use fontMaxPhysicalPx instead.
+fontMaxPxShrinkage,❌ Use fontMaxShrinkage instead.
+fontMaxShrinkage,"fontMaxShrinkage (default: 0.8) reduces a condition’s fontMaxPhysicalPx after detecting a bad text rendering  (i.e., a blackout, or disallowed duration or lateness). Over several trials, successive reductions will eventually find a safe text size. Bad text rendering occurs when rendering very large letters and is resolved by reducing fontMaxPhysicalPx. The largest safe size depends on the font engine (depends on browser), the font, the character string, the computer’s rendering speed, and the amount of heap space provided by the browser to the EasyEyes web app. fontMaxShrinkage must be a positive fraction between zero and 1. A value of 1 would risk redoing the same bad trial again and again until all allocated trials are wasted. The number of allocated trials is 
 conditionTrials + conditionTrials*thresholdRepeatedReRequestedTrials.
 
 The default fontMaxPhysicalPx value is chosen to be safe for most fonts and computers. When EasyEyes detects a bad text stimulus, it sets fontMaxPhysicalPx to the product of fontMaxShrinkage, devicePixelRatio, and the nominal font size (in px) of the failed stimulus. Since the current font size is always less than or equal to fontMaxPhysicalPx, reductions are cumulative, progressively shrinking fontMaxPhysicalPx as needed. 
@@ -1548,7 +1488,7 @@ The fontPunctuationRTL value can be:
 
 The only difference between ALM and RLM is the invisible mark appended after each final period and ellipsis. Commas and semicolons are handled identically in both modes."
 fontRenderMaxPx,"⚠️ NOT RECOMMENDED. fontRenderMaxPx (default 1e10) uses faster coarser rendering when nominal font size (in px) exceeds fontRenderMaxPx. Normally, EasyEyes uses PIXI.text, but when the size exceeds fontRenderMaxPx, then EasyEyes instead uses PIXI.bitmapfont, which we thought would be faster and coarser. In fact, we found no advantage to using PIXI.bitmapfont (and compromised rendering), so we don't recommend using it. We keep this here solely for future testing of text rendering. 
-     fontRenderMaxPx somewhat affects the displayed size (only discrete values, not continuous), and mostly affects speed and resolution. The complementary fontMaxPx (default 950) imposes an upper limit on the font size. When QUEST requests a size bigger than fontMaxPx, EasyEyes uses size fontMaxPx."
+     fontRenderMaxPx somewhat affects the displayed size (only discrete values, not continuous), and mostly affects speed and resolution. The complementary fontMaxPhysicalPx (default 950) imposes an upper limit on the font size. When QUEST requests a size bigger than fontMaxPhysicalPx, EasyEyes uses size fontMaxPhysicalPx."
 fontSizeReferencePx,"fontSizeReferencePx (default 300) is the (moderate) font size used to compute a normalized bounding rect around the stimulus, which is later scaled and shifted. Smaller is quicker, but worsens the effect of pixel-quantization. Pixel quantization has two effects: 
 1. a fractional error of up to ±0.5/fontSizeReferencePx in each side of the bounding rect. We should avoid underestimating the bounding box by ""growing"" it by half a pixel outward on every side. 
 2. a loss of thin less-than-one-pixel-thick tips.
@@ -2662,11 +2602,11 @@ RESPONSE. After playing the phrase, EasyEyes displays two columns, one for each 
 targetLengthDeg,targetLengthDeg (default 1) is the length of each line in the Vernier target.
 targetMinPhysicalPx,"targetMinPhysicalPx (default 8) specifies the minimum target size, measured in (small) physical pixels, in the direction specified by targetSizeIsHeightBool. Set this big enough to guarantee enough resolution for decent rendering of this condition’s target. The Sloan font is more or less drawn on a 5✕5 grid, and remains legible when rendered as small as targetMinPhysicalPx=5.
 
-Note that targetMinPhysicalPx is measured in (small) physical px, whereas fontMaxPx is measured in (big) CSS px. 
+Note that targetMinPhysicalPx is measured in (small) physical px, whereas fontMaxPhysicalPx is measured in (big) CSS px. 
 
 Since 2010, when HiDPI displays, like Apple's Retina, first appeared, screen coordinates are expressed in ""CSS"" pixels, which each may contain more than one ""physical"" pixel, but fonts are rendered more finely, at the resolution of (small) physical pixels. In the world, and in this Glossary, unqualified references to ""pixels"" or ""px"" mean the (big) CSS pixels.  A length of window.devicePixelRatio physical px is one CSS px. Among displays available in 2024, window.devicePixelRatio may be 1, 1.5, 2, 3, or 4.  
 
-Also see fontMaxPx, which is measured in (big) CSS pixels."
+Also see fontMaxPhysicalPx, which is measured in (big) CSS pixels."
 targetN,"🕑 targetN (default 5). The string length when testing for visual span. Any border characters are extra, beyond targetN. Typically controlled by Quest, by setting thresholdParameter=""targetN"". Also see targetNBorderCharacter, targetNMax, targetNPlaceholderCharacter."
 targetNBorderCharacter,"🕑 targetNBorderCharacter (default empty). Concatenated at each end of the targetN string. Typically “X” or empty. Used for span studys. Avoid the SPACE character "" "", as it may create problems in measuring string length to control center-to-letter letter spacing. 
 Also see targetN, targetNMax, targetNPlaceholderCharacter."
@@ -2710,23 +2650,23 @@ thresholdAllowedBlackoutBool,"thresholdAllowedBlackoutBool (default FALSE). Does
 
 If blackout is detected, the trial is ""bad"", and not sent to QUEST. QUEST receives the participant's response only on ""good"" trials. 
 
-Also see conditionTrials, fontMaxPx, fontMaxPxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
-thresholdAllowedDurationRatio,"thresholdAllowedDurationRatio (default 1.5). QUEST receives the participant's response only on ""good"" trials. A trial is ""bad"" if measured duration is outside the range [targetDurationSec/r, targetDurationSec*r], where r=max(thresholdAllowedDurationRatio, 1/thresholdAllowedDurationRatio). Bad durations (and excess lateness) occur mostly when drawing big letters on slow computers, and are more common for lacy fonts like Ballet (from Google fonts), Edwardian, and Zapfino. Typically QUEST begins each block at the largest possible size (i.e. fontMaxPx) and quickly descends to smaller size, and only the largest size is at risk for bad duration and lateness.  
+Also see conditionTrials, fontMaxPhysicalPx, fontMaxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
+thresholdAllowedDurationRatio,"thresholdAllowedDurationRatio (default 1.5). QUEST receives the participant's response only on ""good"" trials. A trial is ""bad"" if measured duration is outside the range [targetDurationSec/r, targetDurationSec*r], where r=max(thresholdAllowedDurationRatio, 1/thresholdAllowedDurationRatio). Bad durations (and excess lateness) occur mostly when drawing big letters on slow computers, and are more common for lacy fonts like Ballet (from Google fonts), Edwardian, and Zapfino. Typically QUEST begins each block at the largest possible size (i.e. fontMaxPhysicalPx) and quickly descends to smaller size, and only the largest size is at risk for bad duration and lateness.  
 
-We recommend plotting a histogram of targetMeasuredDurationSec from the report CSV file, and a scatter diagram of targetMeasuredDurationSec vs. fontNominalSizePx. Using _compatibleProcessorCoresMinimum=6 (or more) and fontMaxPx=900 (or less) greatly reduces the frequency of bad durations.
+We recommend plotting a histogram of targetMeasuredDurationSec from the report CSV file, and a scatter diagram of targetMeasuredDurationSec vs. fontNominalSizePx. Using _compatibleProcessorCoresMinimum=6 (or more) and fontMaxPhysicalPx=900 (or less) greatly reduces the frequency of bad durations.
 
-Also see _compatibleProcessorCoresMinimum, conditionTrials, fontMaxPx, fontMaxPxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
+Also see _compatibleProcessorCoresMinimum, conditionTrials, fontMaxPhysicalPx, fontMaxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
 thresholdAllowedGazeRErrorDeg,"thresholdAllowedGazeRErrorDeg (default 1e10). QUEST receives the response only on ""good"" trials. A trial is ""bad"" if the measured gaze position during target presentation has a radial eccentricity in deg less than or equal to thresholdAllowedGazeRErrorDeg. 
-Also see conditionTrials, fontMaxPx, fontMaxPxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
+Also see conditionTrials, fontMaxPhysicalPx, fontMaxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
 thresholdAllowedGazeXErrorDeg,"thresholdAllowedGazeXErrorDeg (default 1e10). QUEST receives the response only on ""good"" trials. A trial is ""bad"" if the measured gaze position during target presentation has an xDeg eccentricity whose absolute value is less than or equal to thresholdAllowedGazeXErrorDeg. (Also see conditionTrials.)
 
-Also see conditionTrials, fontMaxPx, fontMaxPxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
+Also see conditionTrials, fontMaxPhysicalPx, fontMaxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
 thresholdAllowedGazeYErrorDeg,"thresholdAllowedGazeYErrorDeg (default 1e10). QUEST receives the response only on ""good"" trials. A trial is ""bad"" if the measured gaze position during target presentation has a Y eccentricity whose absolute value is less than or equal to  thresholdAllowedGazeYErrorDeg.
 
-Also see conditionTrials, fontMaxPx, fontMaxPxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
-thresholdAllowedLatenessSec,"thresholdAllowedLatenessSec (default 0.1). QUEST receives the participant's response only on ""good"" trials. A trial is ""bad"" if measured target lateness (beyond the requested latency) is less than or equal to thresholdAllowedLatenessSec. Excess lateness (and bad duration) occur mostly when drawing big letters on slow computers, and are more common for lacy fonts like Ballet (from Google fonts), Edwardian, and Zapfino. We recommend plotting a histogram of targetMeasuredLatenessSec from the report CSV file, and a scatter diagram of targetMeasuredLatenessSec vs. fontNominalSizePx. Typically QUEST begins each block at the largest possible size (i.e. fontMaxPx) and quickly descends to smaller size, and only the largest size is at risk for lateness and bad duration.  
+Also see conditionTrials, fontMaxPhysicalPx, fontMaxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
+thresholdAllowedLatenessSec,"thresholdAllowedLatenessSec (default 0.1). QUEST receives the participant's response only on ""good"" trials. A trial is ""bad"" if measured target lateness (beyond the requested latency) is less than or equal to thresholdAllowedLatenessSec. Excess lateness (and bad duration) occur mostly when drawing big letters on slow computers, and are more common for lacy fonts like Ballet (from Google fonts), Edwardian, and Zapfino. We recommend plotting a histogram of targetMeasuredLatenessSec from the report CSV file, and a scatter diagram of targetMeasuredLatenessSec vs. fontNominalSizePx. Typically QUEST begins each block at the largest possible size (i.e. fontMaxPhysicalPx) and quickly descends to smaller size, and only the largest size is at risk for lateness and bad duration.  
 
-Also see conditionTrials, fontMaxPx, fontMaxPxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
+Also see conditionTrials, fontMaxPhysicalPx, fontMaxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
 thresholdAllowedTrialRatio,"thresholdAllowedTrialRatio (default 1.5) places an upper bound on the total number of trials (including both “good” and “bad”) to run to achieve the requested conditionTrials ""good"" trials, as a multiple of conditionTrials. Thus
 maxTrials =  round(thresholdAllowedTrialRatio ✕ conditionTrials)
 A trial is ""bad"" if it has disallowed blackout, duration, lateness, gaze, or response delay. Otherwise it's good. Only good trials are passed to QUEST. During the block, EasyEyes keeps running trials of this condition (interleaved, as always, with the other conditions in this block), passing only good trials to QUEST, until either 
@@ -2736,7 +2676,7 @@ thresholdAllowedTrialRatio must be greater than or equal to 1.
 
 Suppose you want to send 35 trials to Quest, and you're willing to run up to 70 trials to accomplish that. Then set conditionTrials=35 and thresholdAllowedTrialRatio=2. 
 
-Also see conditionTrials, fontMaxPx, fontMaxPxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
+Also see conditionTrials, fontMaxPhysicalPx, fontMaxShrinkage, screenColorRGBA, showTimingBarsBool, thresholdAllowedBlackoutBool, thresholdAllowedDurationRatio, thresholdAllowedLatenessSec, thresholdAllowedTrialRatio."
 thresholdBeta,"thresholdBeta (default 2.3) is the desired ""steepness"" of the Weibull psychometric function used by Quest."
 thresholdDelta,thresholdDelta (default 0.01) is the probability of a wrong answer when way above threshold. QUEST sets the asymptote of the Weibull psychometric function to 1-thresholdDelta.
 thresholdGamma,"thresholdGamma (default is empty which is filled in at runtime as explained below) is a parameter of the psychometric function used by QUEST. thresholdGamma is the probability of correct or yes response when the target is at zero strength. In an identification task with n equally-probable possibilities, one should set gamma to 1/n. Currently thresholdGamma defaults to 0.5 (which is appropriate for two-alternative forced choice), unless targetKind=letter.  In that case, if all the letters are unique, then n=length(fontCharacterSet), and the default value for thresholdGamma is 1/n. The various targetTasks and targetKinds should each have different default values of gamma, but currently thresholdGamma always default to 0.5 unless targetKind=letter. If you leave thresholdGamma empty then you'll get the default. If you set thresholdGamma to a numerical probability then that number will overrule the default. NOTE: You are allowed to have repeated letters in fontCharacterSet to give the letters unequal frequency. In that case, the default value of thresholdGamma is set to the probability of the most common letter being the right letter. For example, if fontCharacterSet='AAB', then the default value of thresholdGamma is 2/3."
