@@ -197,6 +197,91 @@ crowding_scatter_plot <- function(crowding_L_R){
 
 
 
+bouma_right_left_ratio_by_participant <- function(quest_all_thresholds) {
+  if (is.null(quest_all_thresholds) || nrow(quest_all_thresholds) == 0) return(NULL)
+
+  reps <- quest_all_thresholds %>%
+    filter(questType == "Peripheral crowding",
+           !is.na(targetEccentricityXDeg), targetEccentricityXDeg != 0,
+           is.finite(questMeanAtEndOfTrialsLoop)) %>%
+    mutate(
+      targetEccentricityYDeg = ifelse(is.na(targetEccentricityYDeg), 0, targetEccentricityYDeg),
+      side = ifelse(targetEccentricityXDeg < 0, "Left", "Right"),
+      XDeg = round(abs(targetEccentricityXDeg), 1),
+      logB = questMeanAtEndOfTrialsLoop -
+        log10(sqrt(targetEccentricityXDeg^2 + targetEccentricityYDeg^2))
+    )
+  if (nrow(reps) == 0) return(NULL)
+
+  by_side <- reps %>%
+    group_by(participant, font, XDeg, side) %>%
+    summarize(meanLogB = mean(logB), sdLogB = sd(logB), n = n(), .groups = "drop")
+
+  ratios <- by_side %>%
+    tidyr::pivot_wider(names_from = side, values_from = c(meanLogB, sdLogB, n))
+  if (!all(c("meanLogB_Left", "meanLogB_Right") %in% names(ratios))) return(NULL)
+
+  # Unequal rep counts per side: SE of a difference of means is sqrt(sL^2/nL + sR^2/nR),
+  # which equals sqrt(sL^2 + sR^2)/sqrt(n) when nL == nR == n.
+  ratios <- ratios %>%
+    filter(n_Left >= 2, n_Right >= 2) %>%
+    mutate(
+      MeanLogBRatio = meanLogB_Right - meanLogB_Left,
+      SDLogBRatio = sqrt(sdLogB_Left^2 + sdLogB_Right^2),
+      SELogBRatio = sqrt(sdLogB_Left^2 / n_Left + sdLogB_Right^2 / n_Right),
+      significant = abs(MeanLogBRatio) > 2 * SELogBRatio,
+      group = paste0(sub("\\.(woff2?|otf|ttf)$", "", font), ", ±", XDeg, " deg")
+    ) %>%
+    arrange(group, MeanLogBRatio) %>%
+    mutate(participant_key = factor(paste(group, participant, sep = "\r"),
+                                    levels = unique(paste(group, participant, sep = "\r"))))
+  if (nrow(ratios) == 0) return(NULL)
+
+  y_lo <- min(ratios$MeanLogBRatio - ratios$SELogBRatio)
+  y_hi <- max(ratios$MeanLogBRatio + ratios$SELogBRatio)
+  pad <- 0.05 * max(y_hi - y_lo, 0.1)
+  y_lims <- 10^c(min(y_lo, 0) - pad, max(y_hi, 0) + pad)
+  candidate_breaks <- c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1,
+                        1.25, 1.5, 2, 2.5, 3, 4, 5, 10)
+  y_breaks <- candidate_breaks[candidate_breaks >= y_lims[1] & candidate_breaks <= y_lims[2]]
+
+  n_reps <- sort(unique(c(ratios$n_Left, ratios$n_Right)))
+  n_sig_right <- sum(ratios$significant & ratios$MeanLogBRatio > 0)
+  n_sig_left <- sum(ratios$significant & ratios$MeanLogBRatio < 0)
+  caption <- paste0(
+    "b = sDeg / radial eccentricity.\n",
+    "Point = 10^(mean log bRight - mean log bLeft).\n",
+    "Error bar = 10^(MeanLogBRatio ± SELogBRatio),\n",
+    "SELogBRatio = sqrt(SDLogBLeft^2/nLeft + SDLogBRight^2/nRight).\n",
+    "N = ", nrow(ratios), " participants, reps per side = ", paste(n_reps, collapse = ", "), ".\n",
+    "|MeanLogBRatio| > 2 SE: ", n_sig_right, " right > left, ", n_sig_left, " left > right."
+  )
+
+  p <- ggplot(ratios, aes(x = participant_key, y = 10^MeanLogBRatio)) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "gray40") +
+    geom_errorbar(aes(ymin = 10^(MeanLogBRatio - SELogBRatio),
+                      ymax = 10^(MeanLogBRatio + SELogBRatio)),
+                  width = 0.3) +
+    geom_point(size = 2.5) +
+    scale_x_discrete(name = "Participant", labels = function(x) sub(".*\r", "", x)) +
+    scale_y_log10(name = "Bouma ratio, right:left",
+                  limits = y_lims, breaks = y_breaks,
+                  labels = function(x) format(x, drop0trailing = TRUE, trim = TRUE),
+                  expand = c(0, 0)) +
+    annotation_logticks(sides = "l") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+          plot.caption = element_text(hjust = 0)) +
+    labs(subtitle = "Right:left Bouma ratio by participant", caption = caption)
+
+  if (n_distinct(ratios$group) > 1) {
+    p <- p + facet_wrap(~group, scales = "free_x")
+  } else {
+    p <- p + labs(subtitle = paste0("Right:left Bouma ratio by participant (", ratios$group[1], ")"))
+  }
+  p
+}
+
 crowding_mean_scatter_plot <- function(crowding_L_R){
   if (n_distinct(crowding_L_R$font) < 1) {
     return(ggplot() + 

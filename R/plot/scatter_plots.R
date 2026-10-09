@@ -559,6 +559,14 @@ CROWDING24_FONT_ABBREVS <- tibble::tibble(
     "Le", "Le", "Li", "Mu", "Om", "Op", "Pr", "Ro", "Sa", "Sc",
     "Th", "Ti", "Ti", "Za"
   ),
+  # Names as printed in the paper's font-set legend (Fig. 1).
+  legend_name = c(
+    "Caslon", "Agoesa", "Arial", "Baskerville", "Courier", "Edwardian",
+    "Extenda", "Frutiger", "Georgia", "Haut Relief", "Le Monde", "Letraflex",
+    "LiebeLotte", "Museo", "Omfug", "Optimistic", "Proxima Nova",
+    "Rollerscript", "Sabon", "Scarlet Wood", "TheSans", "Times New Roman",
+    "Tiny", "Zapfino"
+  ),
   # Search order in fonts/; first existing file wins (.otf/.ttf preferred).
   app_font_files = I(list(
     c("Caslon.otf", "Caslon.ttf"),
@@ -592,6 +600,8 @@ CROWDING24_FONT_ABBREVS <- tibble::tibble(
     tibble::tibble(
       excel_font = "Sloan",
       abbr = "S",
+      # Sloan has capital letters only.
+      legend_name = "SLOAN",
       app_font_files = I(list(c("Sloan.otf", "Sloan.ttf")))
     )
   )
@@ -2522,6 +2532,403 @@ crowding_xheight_vs_acuity_xheight_by_category_scatter <- function(df_list,
       y = "Crowding x-height (deg)"
     ) +
     guides(color = guide_legend(title = "Font group", nrow = 1))
+}
+
+# Font-set legend (paper Fig. 1 style): category headings, then one row per
+# font with a category-colored disk holding the abbreviation and the font name
+# typeset in its own face. `columns` lists the groups stacked in each column;
+# a group named "Sloan" is drawn without a heading. Sizes are in points and
+# scale with fontsize (set by the fit hook at render time).
+crowding24_category_font_legend_grob <- function(items,
+                                                 columns,
+                                                 disk_colors,
+                                                 label_colors,
+                                                 fontsize = 16,
+                                                 line_pitch = 1.3) {
+  items <- as.data.frame(items)
+  if (!"note" %in% names(items)) items$note <- NA_character_
+  size_factors <- crowding24_equalize_xheight_sizes(items$family, base_size = 1)
+  size_factors[!is.finite(size_factors) | size_factors <= 0] <- 1
+  items$size_factor <- size_factors
+  rows <- list()
+  for (k in seq_along(columns)) {
+    y <- 0
+    groups <- columns[[k]][columns[[k]] %in% items$category]
+    for (g in seq_along(groups)) {
+      grp <- groups[[g]]
+      if (g > 1) y <- y + 0.5
+      if (grp != "Sloan") {
+        rows[[length(rows) + 1L]] <- data.frame(
+          col = k, slot = y, kind = "heading", text = grp, abbr = NA_character_,
+          family = "sans", size_factor = 1, fill = NA_character_, label_col = NA_character_,
+          note = NA_character_
+        )
+        y <- y + 1
+      }
+      grp_items <- items[items$category == grp, , drop = FALSE]
+      grp_items <- grp_items[order(grp_items$name), , drop = FALSE]
+      for (i in seq_len(nrow(grp_items))) {
+        rows[[length(rows) + 1L]] <- data.frame(
+          col = k, slot = y, kind = "item", text = grp_items$name[[i]],
+          abbr = grp_items$abbr[[i]], family = grp_items$family[[i]],
+          size_factor = grp_items$size_factor[[i]],
+          fill = unname(disk_colors[[grp]]), label_col = unname(label_colors[[grp]]),
+          note = grp_items$note[[i]]
+        )
+        y <- y + 1
+      }
+    }
+  }
+  grid::gTree(
+    rows = do.call(rbind, rows),
+    fontsize = fontsize,
+    line_pitch = line_pitch,
+    text_mult = 1,
+    cl = "ee_category_font_legend"
+  )
+}
+
+ee_category_text_width_pt <- function(text, family, fontsize) {
+  g <- grid::textGrob(text, gp = grid::gpar(fontfamily = family, fontsize = fontsize))
+  grid::convertWidth(grid::grobWidth(g), "pt", valueOnly = TRUE)
+}
+
+ee_category_font_legend_metrics <- function(x) {
+  r <- x$rows
+  fs <- x$fontsize
+  tm <- x$text_mult
+  disk <- 1.1 * fs
+  gap <- 0.35 * fs
+  col_gap <- 1.2 * fs
+  name_w <- vapply(seq_len(nrow(r)), function(i) {
+    ee_category_text_width_pt(r$text[[i]], r$family[[i]], fs * tm * r$size_factor[[i]])
+  }, numeric(1))
+  note_w <- vapply(seq_len(nrow(r)), function(i) {
+    if (is.na(r$note[[i]])) 0 else ee_category_text_width_pt(r$note[[i]], "sans", fs * tm)
+  }, numeric(1))
+  text_w <- name_w + note_w + ifelse(r$kind == "item", disk + gap, 0)
+  ncol_used <- max(r$col)
+  col_w <- vapply(seq_len(ncol_used), function(k) max(c(0, text_w[r$col == k])), numeric(1))
+  col_x <- cumsum(c(0, utils::head(col_w + col_gap, -1)))
+  n_slots <- max(vapply(seq_len(ncol_used), function(k) max(r$slot[r$col == k]) + 1, numeric(1)))
+  list(
+    disk = disk,
+    gap = gap,
+    col_x = col_x,
+    name_w = name_w,
+    n_slots = n_slots,
+    width = sum(col_w) + (ncol_used - 1L) * col_gap,
+    height = n_slots * x$line_pitch * fs
+  )
+}
+
+makeContent.ee_category_font_legend <- function(x) {
+  m <- ee_category_font_legend_metrics(x)
+  r <- x$rows
+  fs <- x$fontsize
+  pitch <- x$line_pitch * fs
+  center_y <- m$height - (r$slot + 0.5) * pitch
+  left <- m$col_x[r$col]
+  # Names share an x-height of ~0.5 em, so a baseline 0.25 em below the row
+  # center centers their lowercase letters on the disk.
+  baseline <- center_y - 0.25 * fs
+  is_item <- r$kind == "item"
+  children <- list()
+  if (any(is_item)) {
+    children[[1]] <- grid::circleGrob(
+      x = grid::unit(left[is_item] + m$disk / 2, "pt"),
+      y = grid::unit(center_y[is_item], "pt"),
+      r = grid::unit(m$disk / 2, "pt"),
+      gp = grid::gpar(fill = r$fill[is_item], col = NA)
+    )
+    children[[2]] <- grid::textGrob(
+      r$abbr[is_item],
+      x = grid::unit(left[is_item] + m$disk / 2, "pt"),
+      y = grid::unit(center_y[is_item], "pt"),
+      gp = grid::gpar(
+        fontsize = 0.5 * fs * x$text_mult,
+        fontface = "bold",
+        col = r$label_col[is_item]
+      )
+    )
+  }
+  text_x <- left + ifelse(is_item, m$disk + m$gap, 0)
+  texts <- lapply(seq_len(nrow(r)), function(i) {
+    grid::textGrob(
+      r$text[[i]],
+      x = grid::unit(text_x[[i]], "pt"),
+      y = grid::unit(baseline[[i]], "pt"),
+      hjust = 0,
+      vjust = 0,
+      gp = grid::gpar(
+        fontfamily = r$family[[i]],
+        fontsize = fs * x$text_mult * r$size_factor[[i]],
+        col = "black"
+      )
+    )
+  })
+  has_note <- which(!is.na(r$note))
+  notes <- lapply(has_note, function(i) {
+    grid::textGrob(
+      r$note[[i]],
+      x = grid::unit(text_x[[i]] + m$name_w[[i]], "pt"),
+      y = grid::unit(baseline[[i]], "pt"),
+      hjust = 0,
+      vjust = 0,
+      gp = grid::gpar(fontsize = fs * x$text_mult, col = "black")
+    )
+  })
+  grid::setChildren(x, do.call(grid::gList, c(children, texts, notes)))
+}
+
+widthDetails.ee_category_font_legend <- function(x) {
+  grid::unit(ee_category_font_legend_metrics(x)$width, "pt")
+}
+
+heightDetails.ee_category_font_legend <- function(x) {
+  grid::unit(ee_category_font_legend_metrics(x)$height, "pt")
+}
+
+registerS3method("makeContent", "ee_category_font_legend", makeContent.ee_category_font_legend,
+                 envir = asNamespace("grid"))
+registerS3method("widthDetails", "ee_category_font_legend", widthDetails.ee_category_font_legend,
+                 envir = asNamespace("grid"))
+registerS3method("heightDetails", "ee_category_font_legend", heightDetails.ee_category_font_legend,
+                 envir = asNamespace("grid"))
+
+# plots_fit_to_content hook for [scatter | font-set legend]: the legend spans
+# from the top of the panel to the bottom of the x-axis title.
+crowding24_fit_disk_legend <- function(plot, dpi = 200) {
+  info <- attr(plot, "crowding24_disk_layout", exact = TRUE)
+  if (!is.list(info)) {
+    return(NULL)
+  }
+  dev_file <- tempfile(fileext = ".png")
+  ragg::agg_png(dev_file, width = 40, height = 20, units = "in", res = dpi)
+  dev_id <- grDevices::dev.cur()
+  on.exit({
+    grDevices::dev.off(dev_id)
+    unlink(dev_file)
+  }, add = TRUE)
+  # showtext needs a page before measuring ee_* text (segfaults otherwise).
+  grid::grid.newpage()
+
+  main <- plot$patches$plots[[info$main_index]]
+  gt <- ggplot2::ggplotGrob(main)
+  panel_row <- unique(gt$layout$t[grepl("^panel", gt$layout$name)])[1]
+  xlab_row <- unique(gt$layout$b[gt$layout$name == "xlab-b"])[1]
+  below_in <- if (is.finite(panel_row) && is.finite(xlab_row) && xlab_row > panel_row) {
+    grid::convertHeight(sum(gt$heights[(panel_row + 1):xlab_row]), "in", valueOnly = TRUE)
+  } else {
+    0.8
+  }
+  n_h <- length(gt$heights)
+  margin_b <- if (is.finite(xlab_row) && xlab_row < n_h) {
+    grid::convertHeight(sum(gt$heights[(xlab_row + 1):n_h]), "pt", valueOnly = TRUE)
+  } else {
+    0
+  }
+
+  leg <- info$legend
+  # showtext (96 dpi) draws grob text at 96/dpi of nominal; disks are unaffected.
+  leg$text_mult <- dpi / 96
+  span_pt <- (info$panel_h_in + below_in) * 72.27
+  leg$fontsize <- 1
+  leg$fontsize <- span_pt / (ee_category_font_legend_metrics(leg)$n_slots * leg$line_pitch)
+  leg_w_in <- grid::convertWidth(grid::widthDetails(leg), "in", valueOnly = TRUE)
+
+  holder <- grid::gTree(
+    children = grid::gList(leg),
+    vp = grid::viewport(
+      x = grid::unit(0.15, "in"), y = grid::unit(margin_b, "pt"),
+      just = c(0, 0),
+      width = grid::unit(1, "npc") - grid::unit(0.15, "in"),
+      height = grid::unit(1, "npc") - grid::unit(margin_b, "pt")
+    )
+  )
+  plot$patches$plots[[info$legend_index]] <- patchwork::wrap_elements(full = holder, clip = FALSE)
+  plot$patches$layout$widths <- grid::unit(c(info$panel_w_in, leg_w_in + 0.15, 0), "in")
+  plot$patches$layout$heights <- grid::unit(info$panel_h_in, "in")
+
+  pg <- patchwork::patchworkGrob(plot)
+  abs_in <- function(u, conv) {
+    sum(vapply(seq_along(u), function(i) {
+      if (grid::unitType(u[i]) == "null") return(0)
+      conv(u[i], "in", valueOnly = TRUE)
+    }, numeric(1)))
+  }
+  list(
+    plot = plot,
+    width_in = abs_in(pg$widths, grid::convertWidth),
+    height_in = abs_in(pg$heights, grid::convertHeight)
+  )
+}
+
+# Crowding x-height vs acuity x-height: one disk per font, filled by font
+# category, with the two-letter font abbreviation inside (paper Fig. 1D style).
+# Error bars are ±1 SE of log acuity (x) and log crowding (y).
+crowding_xheight_vs_acuity_xheight_category_disk_scatter <- function(df_list,
+                                                                     font_colors = NULL) {
+  summary_data <- prepare_crowding_acuity_size_ratio_data(df_list)
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  category_levels <- c("Text (sans serif)", "Text (serif)", "Display", "Script")
+  disk_colors <- c(CROWDING24_FONT_CATEGORY_COLORS[category_levels], Sloan = "black")
+  label_colors <- c(
+    `Text (sans serif)` = "white",
+    `Text (serif)` = "white",
+    Display = "white",
+    Script = "black",
+    Sloan = "white"
+  )
+
+  summary_data <- summary_data %>%
+    mutate(
+      abbr = crowding24_font_abbreviation(excel_font),
+      font_category = dplyr::case_when(
+        abbr == "S" & (is.na(font_category) | font_category == "") ~ "Sloan",
+        TRUE ~ as.character(font_category)
+      )
+    ) %>%
+    filter(
+      is.finite(acuityXHeightDeg), acuityXHeightDeg > 0,
+      is.finite(crowdingXHeightDeg), crowdingXHeightDeg > 0,
+      font_category %in% names(disk_colors)
+    ) %>%
+    mutate(
+      font_category = factor(font_category, levels = names(disk_colors)),
+      acuity_lo = 10^(log10(acuityXHeightDeg) - se_log_acuity),
+      acuity_hi = 10^(log10(acuityXHeightDeg) + se_log_acuity),
+      crowding_lo = 10^(log10(crowdingXHeightDeg) - se_log_crowding),
+      crowding_hi = 10^(log10(crowdingXHeightDeg) + se_log_crowding)
+    )
+
+  if (nrow(summary_data) == 0) {
+    return(NULL)
+  }
+
+  present <- levels(droplevels(summary_data$font_category))
+  lims <- paired_xheight_and_ratio_plot_limits(df_list)$xheight
+
+  p <- ggplot(summary_data, aes(x = acuityXHeightDeg, y = crowdingXHeightDeg)) +
+    geom_abline(
+      intercept = 0,
+      slope = 1,
+      linetype = "longdash",
+      linewidth = 0.6,
+      color = "gray40"
+    ) +
+    geom_point(
+      aes(fill = font_category),
+      shape = 21,
+      size = 11,
+      stroke = 0.6,
+      color = "white",
+      alpha = 0.6
+    ) +
+    # Most SEs are smaller than the disk radius, so bars go on top of the disks.
+    geom_errorbar(
+      aes(ymin = crowding_lo, ymax = crowding_hi),
+      width = 0.015,
+      linewidth = 0.5,
+      color = "black",
+      na.rm = TRUE
+    ) +
+    geom_errorbarh(
+      aes(xmin = acuity_lo, xmax = acuity_hi),
+      height = 0.015,
+      linewidth = 0.5,
+      color = "black",
+      na.rm = TRUE
+    ) +
+    geom_text(
+      aes(label = abbr, color = paste0(font_category, "_label")),
+      size = 4.6,
+      fontface = "bold",
+      show.legend = FALSE
+    ) +
+    apply_equal_log10_scatter_scales(lims) +
+    scale_fill_manual(
+      values = disk_colors[present],
+      breaks = present,
+      name = "Font category"
+    ) +
+    scale_color_manual(
+      values = stats::setNames(label_colors[present], paste0(present, "_label")),
+      guide = "none"
+    ) +
+    theme_bw() +
+    paired_acuity_xheight_scatter_theme() +
+    theme(legend.position = "none") +
+    labs(
+      x = "Acuity x-height (deg)",
+      y = "Crowding x-height (deg)"
+    )
+  attr(p, "crowding24_main_panel") <- TRUE
+
+  abbrev_idx <- vapply(
+    as.character(summary_data$excel_font),
+    function(f) match_crowding24_font_abbrev_index(f),
+    integer(1)
+  )
+  summary_data$legend_name <- dplyr::coalesce(
+    CROWDING24_FONT_ABBREVS$legend_name[abbrev_idx],
+    as.character(font_comparison_axis_label(summary_data$font))
+  )
+  legend_items <- summary_data %>%
+    dplyr::distinct(excel_font, .keep_all = TRUE) %>%
+    dplyr::transmute(
+      category = as.character(font_category),
+      abbr,
+      name = legend_name,
+      family = resolve_crowding24_plot_font_families(excel_font),
+      # Extenda's glyphs are too condensed to read; repeat the name in sans.
+      note = dplyr::if_else(legend_name == "Extenda", " (Extenda)", NA_character_)
+    )
+  legend_grob <- crowding24_category_font_legend_grob(
+    legend_items,
+    columns = list(c("Display", "Sloan", "Text (sans serif)"), c("Script", "Text (serif)")),
+    disk_colors = disk_colors,
+    label_colors = label_colors
+  )
+
+  if (!requireNamespace("patchwork", quietly = TRUE)) {
+    return(p)
+  }
+
+  panel_h_in <- 5
+  panel_w_in <- panel_h_in * diff(log10(lims$x)) / diff(log10(lims$y))
+  # Zero-width spacer is the patchwork base, so the scatter and legend both
+  # sit in patches$plots where the PNG theme and fit hook can reach them.
+  combined <- patchwork::wrap_plots(
+    p,
+    patchwork::wrap_elements(full = legend_grob, clip = FALSE),
+    patchwork::plot_spacer(),
+    ncol = 3,
+    widths = grid::unit(c(panel_w_in, 5, 0), "in"),
+    heights = grid::unit(panel_h_in, "in")
+  ) +
+    patchwork::plot_annotation(
+      subtitle = "Crowding x-height vs acuity x-height",
+      theme = ggplot2::theme(plot.subtitle = ggplot2::element_text(size = 18, hjust = 0))
+    )
+  combined <- tag_crowding24_ee_families(combined, legend_items$family)
+  attr(combined, "crowding24_native_legend_patchwork") <- TRUE
+  attr(combined, "crowding24_paired_row_patchwork") <- TRUE
+  attr(combined, "crowding24_disk_layout") <- list(
+    legend = legend_grob,
+    legend_index = 2L,
+    main_index = 1L,
+    panel_w_in = panel_w_in,
+    panel_h_in = panel_h_in
+  )
+  attr(combined, "plots_fit_to_content") <- crowding24_fit_disk_legend
+  attr(combined, "plots_full_row") <- TRUE
+  attr(combined, "plots_display_width_in") <- panel_w_in + 6
+  attr(combined, "plots_display_height_in") <- panel_h_in + 1.5
+  combined
 }
 
 # Shared prep for crowding×acuity x-height scatters colored by individual font.

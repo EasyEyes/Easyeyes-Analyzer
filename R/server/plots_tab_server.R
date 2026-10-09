@@ -407,6 +407,8 @@ register_plots_tab_server <- function(output,
       list(plot = peripheral_plots$grade, fname = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'),
       list(plot = peripheral_plots$font, fname = 'peripheral-acuity-vs-peripheral-crowding-font-diagram'),
       list(plot = crowdingPlot(), fname = 'peripheral_crowding_left_vs_right'),
+      list(plot = bouma_right_left_ratio_by_participant(df_list()$quest_all_thresholds),
+           fname = 'bouma-right-left-ratio-by-participant'),
       list(plot = regression_plots$foveal, fname = 'reading-rsvp-reading-vs-foveal-crowding'),
       list(plot = regression_plots$peripheral, fname = 'reading-rsvp-reading-vs-peripheral-crowding'),
       list(plot = regression_acuity_plot(df_list()), fname = 'ordinary-reading-rsvp-reading-vs-acuity'),
@@ -485,6 +487,10 @@ register_plots_tab_server <- function(output,
           colorFont()
         ),
         fname = 'crowding-xheight-vs-acuity-xheight-colored-by-font-group'
+      ),
+      list(
+        plot = crowding_xheight_vs_acuity_xheight_category_disk_scatter(df_list(), colorFont()),
+        fname = 'crowding-xheight-vs-acuity-xheight-font-category-disks'
       ),
       list(
         plot = crowding_xheight_vs_acuity_xheight_by_font_scatter(

@@ -217,13 +217,15 @@ add_experiment_title <- function(plot, experiment_name) {
 # Sizes match crowding24 native-font legend text after PNG theme (~22 pt).
 plots_legend_inside_theme <- function(x = 0.5, y = 0.10, just = c(0.5, 0)) {
   in_lower_left <- isTRUE(all(c(x, y) == 0))
+  in_lower_right <- isTRUE(x == 1 && y == 0)
+  in_corner <- in_lower_left || in_lower_right
   ggplot2::theme(
     legend.position = "inside",
     legend.position.inside = c(x, y),
     legend.justification = just,
     legend.direction = "horizontal",
     legend.title.position = "top",
-    legend.background = if (in_lower_left) {
+    legend.background = if (in_corner) {
       ggplot2::element_blank()
     } else {
       ggplot2::element_rect(fill = scales::alpha("white", 0.92), color = NA)
@@ -237,6 +239,8 @@ plots_legend_inside_theme <- function(x = 0.5, y = 0.10, just = c(0.5, 0)) {
     # In the corner, keep clear of the inward axis ticks.
     legend.margin = if (in_lower_left) {
       ggplot2::margin(t = 2, r = 4, b = 8, l = 10)
+    } else if (in_lower_right) {
+      ggplot2::margin(t = 2, r = 10, b = 8, l = 4)
     } else {
       ggplot2::margin(3, 5, 3, 5)
     }
@@ -936,6 +940,14 @@ apply_direct_png_theme <- function(plot,
     legend_text_size <- sizes$legend_text
     legend_key_theme <- ggplot2::theme()
     if (isTRUE(attr(plot, "crowding24_paired_row_patchwork", exact = TRUE))) {
+      annotation_theme <- png_plot$patches$annotation$theme
+      if (!inherits(annotation_theme, "theme")) annotation_theme <- ggplot2::theme()
+      png_plot$patches$annotation$theme <- annotation_theme +
+        ggplot2::theme(plot.subtitle = ggplot2::element_text(
+          size = sizes$axis_title,
+          hjust = 0,
+          lineheight = lineheight_multiplier
+        ))
       # Journal figure: legend text as large as the axis numbers.
       legend_title_size <- sizes$axis_text
       legend_text_size <- sizes$axis_text
@@ -997,6 +1009,7 @@ apply_direct_png_theme <- function(plot,
     }
     attr(png_plot, "plots_fit_to_content") <- attr(plot, "plots_fit_to_content", exact = TRUE)
     attr(png_plot, "crowding24_row_layout") <- attr(plot, "crowding24_row_layout", exact = TRUE)
+    attr(png_plot, "crowding24_disk_layout") <- attr(plot, "crowding24_disk_layout", exact = TRUE)
     attr(png_plot, "crowding24_main_panel") <- TRUE
     return(png_plot)
   }
