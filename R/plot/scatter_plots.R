@@ -1601,6 +1601,122 @@ acuity_vs_crowding_by_font_scatter <- function(df_list, font_colors = NULL) {
     guides(color = guide_legend(title = "Font", ncol = 4, byrow = TRUE))
 }
 
+# One point per participant: geometric mean crowding vs geometric mean acuity
+# across all of that participant's thresholds. Log axes, OLS regression on
+# log10 values, and Pearson R on the same log values.
+crowding_vs_acuity_by_participant_scatter <- function(df_list) {
+  crowding <- df_list$crowding
+  acuity <- df_list$acuity
+  if (is.null(crowding) || nrow(crowding) == 0 ||
+      is.null(acuity) || nrow(acuity) == 0) {
+    return(NULL)
+  }
+
+  crowd_part <- crowding %>%
+    mutate(log_c = suppressWarnings(as.numeric(log_crowding_distance_deg))) %>%
+    filter(is.finite(log_c)) %>%
+    group_by(participant) %>%
+    summarise(
+      crowding_deg = 10^mean(log_c, na.rm = TRUE),
+      n_crowding = n(),
+      .groups = "drop"
+    ) %>%
+    filter(is.finite(crowding_deg), crowding_deg > 0)
+
+  acuity_part <- acuity %>%
+    mutate(log_a = suppressWarnings(as.numeric(questMeanAtEndOfTrialsLoop))) %>%
+    filter(is.finite(log_a)) %>%
+    group_by(participant) %>%
+    summarise(
+      acuity_deg = 10^mean(log_a, na.rm = TRUE),
+      n_acuity = n(),
+      .groups = "drop"
+    ) %>%
+    filter(is.finite(acuity_deg), acuity_deg > 0)
+
+  summary_data <- crowd_part %>%
+    inner_join(acuity_part, by = "participant")
+
+  if (nrow(summary_data) < 2) {
+    return(NULL)
+  }
+
+  summary_data <- summary_data %>%
+    mutate(
+      log10_acuity = log10(acuity_deg),
+      log10_crowding = log10(crowding_deg)
+    )
+
+  r_value <- cor(
+    summary_data$log10_acuity,
+    summary_data$log10_crowding,
+    use = "complete.obs"
+  )
+  lm_fit <- lm(log10_crowding ~ log10_acuity, data = summary_data)
+  slope <- unname(coef(lm_fit)[["log10_acuity"]])
+  intercept <- unname(coef(lm_fit)[["(Intercept)"]])
+
+  lims <- shared_log10_limits(summary_data$acuity_deg, summary_data$crowding_deg)
+  # Regression line in linear units on the log-log axes: y = 10^(a + b log10 x).
+  # Keep only segments inside the panel so geom_line does not warn/clip.
+  x_line <- 10^seq(log10(lims$x[1]), log10(lims$x[2]), length.out = 100)
+  line_df <- data.frame(
+    acuity_deg = x_line,
+    crowding_deg = 10^(intercept + slope * log10(x_line))
+  )
+  line_df <- line_df[
+    is.finite(line_df$crowding_deg) &
+      line_df$crowding_deg >= lims$y[1] &
+      line_df$crowding_deg <= lims$y[2],
+    ,
+    drop = FALSE
+  ]
+
+  ggplot(summary_data, aes(x = acuity_deg, y = crowding_deg)) +
+    geom_abline(
+      intercept = 0,
+      slope = 1,
+      linetype = "longdash",
+      linewidth = 0.6,
+      color = "gray40"
+    ) +
+    geom_line(
+      data = line_df,
+      aes(x = acuity_deg, y = crowding_deg),
+      color = "black",
+      linewidth = 0.7,
+      inherit.aes = FALSE
+    ) +
+    geom_point(size = 3) +
+    apply_equal_log10_scatter_scales(lims) +
+    annotate(
+      "text",
+      # Bottom-right, inset from the axes so the label does not touch them.
+      x = 10^(log10(lims$x[1]) + 0.86 * diff(log10(lims$x))),
+      y = 10^(log10(lims$y[1]) + 0.20 * diff(log10(lims$y))),
+      label = paste0(
+        "N = ", nrow(summary_data),
+        "\nR = ", sprintf("%.2f", r_value),
+        "\nslope = ", sprintf("%.2f", slope)
+      ),
+      hjust = 1,
+      vjust = 0,
+      size = 4
+    ) +
+    theme_bw() +
+    theme(
+      legend.position = "none",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.ticks.length = unit(-4, "pt")
+    ) +
+    labs(
+      subtitle = "Crowding vs Acuity by participant\n(geometric means)",
+      x = "Acuity (deg)",
+      y = "Crowding (deg)"
+    )
+}
+
 # Same data as acuity_vs_crowding_by_font_scatter with axes swapped:
 # crowding (y) vs acuity (x), dashed y = x.
 crowding_vs_acuity_by_font_scatter <- function(df_list, font_colors = NULL) {

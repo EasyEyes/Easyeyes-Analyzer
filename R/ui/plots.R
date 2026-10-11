@@ -61,9 +61,12 @@ plotsTabUI <- function(maxPlotsHistSlots = 36,
         condition = sprintf("output['%s']", availability_id),
         tags$div(
           class = "plots-flex-cell",
+          # Class on the conditionalPanel wrapper itself; CSS only treats the
+          # cell as full-row while this panel is displayed (see ui.css).
           conditionalPanel(
             condition = sprintf("output['%s']", full_width_id),
-            tags$span(class = "plots-flex-full-marker", style = "display:none;")
+            class = "plots-flex-full-active",
+            tags$span(style = "display:none;")
           ),
           if (isTRUE(show_title)) {
             tags$div(
@@ -210,7 +213,8 @@ plotsTabUI <- function(maxPlotsHistSlots = 36,
       )
     ),
     h2("Violin plots"),
-    tags$div(two_column_plot_rows("violin", "downloadViolin", maxPlotsViolinSlots)),
+    # Participant violins can be very wide (plots_full_row); use flex layout.
+    flexible_plot_rows("violin", "downloadViolin", maxPlotsViolinSlots),
     h2("Font comparison plots"),
     tags$div(two_column_plot_rows("fontComparison", "downloadFontComparison", maxPlotsFontComparisonSlots)),
     h2("Scatter diagrams"),

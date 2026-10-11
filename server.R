@@ -132,10 +132,13 @@ shinyServer(function(input, output, session) {
         ))
       })
       })
+      # Reading is done; keep the modal open as animated "Processing…" while
+      # generate_summary_table (and related work) runs. Closed when the
+      # Sessions table is ready (see observeEvent(summary_table())).
       session$sendCustomMessage('updateFileProgress', list(
         value = 100,
-        detail = "Processing results...",
-        phase = "reading",
+        detail = "Processing...",
+        phase = "processing",
         close = FALSE
       ))
       log_info("File reading complete")
@@ -235,12 +238,23 @@ shinyServer(function(input, output, session) {
   maxQuestSD <- reactive({input$maxQuestSD}) %>% debounce(1000)
   # NULL means "all conditions" to generate_threshold and the plot helpers.
   # Selecting every available condition (including the checkbox echo after
-  # upload, which checks them all) is normalized to NULL. Stored in a
-  # reactiveVal so an unchanged value does not invalidate df_list() and
-  # re-run generate_threshold (~30s).
+  # upload, which checks them all) is normalized to NULL.
+  # reactiveVal always invalidates on write — even when the value is unchanged —
+  # so only assign when effective actually changes, or the post-upload
+  # updateCheckboxGroupInput echo re-runs generate_threshold (~30s).
   conditionNameInput <- reactive(input$conditionName) %>% debounce(5000)
   allConditionNames <- reactiveVal(NULL)
   conditionNames <- reactiveVal(NULL)
+  setConditionNames <- function(value) {
+    if (!identical(conditionNames(), value)) {
+      conditionNames(value)
+    }
+  }
+  setAllConditionNames <- function(value) {
+    if (!identical(allConditionNames(), value)) {
+      allConditionNames(value)
+    }
+  }
   observe({
     selected <- conditionNameInput()
     available <- isolate(allConditionNames())
@@ -250,12 +264,12 @@ shinyServer(function(input, output, session) {
     } else {
       sort(unique(selected))
     }
-    conditionNames(effective)
+    setConditionNames(effective)
   })
   # A new upload starts unfiltered; runs before df_list() consumers pull it.
   observeEvent(files(), {
-    allConditionNames(NULL)
-    conditionNames(NULL)
+    setAllConditionNames(NULL)
+    setConditionNames(NULL)
   }, priority = 100)
   calibrateTrackDistanceCheckLengthSDLogAllowed <- 
     reactive({
@@ -572,27 +586,40 @@ shinyServer(function(input, output, session) {
 
   #### Event Handler ####
   
+  # Close the upload/Processing modal once the Sessions table is ready
+  # (not as soon as read_files returns — that left a long frozen "Reading 100%").
+  # Use shinyalert::closeAlert() — client swal.close() does not dismiss these modals.
+  observeEvent(summary_table(), {
+    req(files())
+    session$sendCustomMessage("updateFileProgress", list(
+      value = 100,
+      detail = "Done",
+      phase = "processing",
+      close = TRUE
+    ))
+    closeAlert()
+    empty_zips <- emptyArchives()
+    if (length(empty_zips) > 0) {
+      shinyalert(
+        title = empty_archive_warning_html(empty_zips),
+        closeOnEsc = TRUE,
+        closeOnClickOutside = TRUE,
+        size = "m",
+        html = TRUE,
+        type = "",
+        showConfirmButton = TRUE,
+        confirmButtonText = "OK",
+        confirmButtonCol = "#004192",
+        showCancelButton = FALSE,
+        animation = TRUE,
+        imageUrl = ""
+      )
+    }
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+
   observeEvent(files(),
                {
                  if (!is.null(files())) {
-                   closeAlert()
-                   empty_zips <- emptyArchives()
-                   if (length(empty_zips) > 0) {
-                     shinyalert(
-                       title = empty_archive_warning_html(empty_zips),
-                       closeOnEsc = TRUE,
-                       closeOnClickOutside = TRUE,
-                       size = "m",
-                       html = TRUE,
-                       type = "",
-                       showConfirmButton = TRUE,
-                       confirmButtonText = "OK",
-                       confirmButtonCol = "#004192",
-                       showCancelButton = FALSE,
-                       animation = TRUE,
-                       imageUrl = ""
-                     )
-                   }
                    # Extract file names from the uploaded files
                    names <- input$file$name
                    
@@ -635,7 +662,7 @@ shinyServer(function(input, output, session) {
                      selected = unique(files()$stairs$thresholdParameter)[1],
                    )
                    
-                   allConditionNames(df_list()$conditionNames)
+                   setAllConditionNames(df_list()$conditionNames)
                    updateCheckboxGroupInput(
                      session,
                      inputId = 'conditionName',

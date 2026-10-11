@@ -13,6 +13,7 @@ www_asset_version <- function(filename) {
 summary_table_js_v <- www_asset_version("summaryTable.js")
 ui_css_v <- www_asset_version("ui.css")
 plots_page_progress_js_v <- www_asset_version("plotsPageProgress.js")
+file_upload_progress_js_v <- www_asset_version("fileUploadProgress.js")
 # packages
 library(shiny)
 library(shinytitle)
@@ -33,10 +34,10 @@ shinyUI(
                     src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"),
         # JSZip used to DEFLATE STORE zips / pack CSVs before Shiny upload
         tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"),
-        tags$script(src = "ui.js"),
+            tags$script(src = paste0("ui.js?v=", www_asset_version("ui.js"))),
         tags$script(src = "controlPanel.js?v=languages"),
         tags$script(src = "compressBeforeUpload.js"),
-        tags$script(src = "fileUploadProgress.js"),
+        tags$script(src = paste0("fileUploadProgress.js?v=", file_upload_progress_js_v)),
         tags$script(src = paste0("plotsPageProgress.js?v=", plots_page_progress_js_v)),
         tags$script(src = paste0("summaryTable.js?v=", summary_table_js_v)),
         tags$script(HTML(paste0(
@@ -53,12 +54,23 @@ shinyUI(
         ),
         tags$script(HTML("
           Shiny.addCustomMessageHandler('updateFileProgress', function(data) {
+            if (data.close) {
+              if (window.EasyEyesFileProgress &&
+                  window.EasyEyesFileProgress.finish) {
+                window.EasyEyesFileProgress.finish();
+              } else if (window.EasyEyesFileProgress) {
+                window.EasyEyesFileProgress.reset();
+              }
+              return;
+            }
             var phase = data.phase || 'reading';
             if (window.EasyEyesFileProgress) {
               if (phase === 'uploading') {
                 window.EasyEyesFileProgress.setUploading(
                   data.value, data.detail
                 );
+              } else if (phase === 'processing') {
+                window.EasyEyesFileProgress.setProcessing(data.detail);
               } else {
                 window.EasyEyesFileProgress.setReading(
                   data.value, data.detail
@@ -71,14 +83,6 @@ shinyUI(
               if (bar) bar.style.width = data.value + '%';
               if (pct) pct.innerText = Math.round(data.value) + '%';
               if (detail) detail.innerText = data.detail || '';
-            }
-            if (data.close) {
-              if (window.EasyEyesFileProgress) {
-                window.EasyEyesFileProgress.reset();
-              }
-              setTimeout(function() {
-                try { swal.close(); } catch(e) {}
-              }, 600);
             }
           });
         "))

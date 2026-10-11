@@ -153,13 +153,23 @@ span.unmetNeeds-has-explanation {
   100% { transform: rotate(360deg); }
 }
 
+/* Upload modal: indeterminate bar while R builds the Sessions table. */
+#file-progress-bar.is-indeterminate {
+  width: 40% !important;
+  animation: file-progress-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes file-progress-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(280%); }
+}
+
 /* Non-blocking Plots-tab progress window (draggable; no page overlay). */
 .plots-page-progress {
   position: fixed;
   top: 72px;
   right: 16px;
   z-index: 10050;
-  width: 280px;
+  width: 220px;
   max-width: calc(100vw - 24px);
   background: #ffffff;
   color: #222;
@@ -174,7 +184,7 @@ span.unmetNeeds-has-explanation {
 
 .plots-page-progress.is-done {
   width: auto;
-  min-width: 160px;
+  min-width: 140px;
 }
 
 .plots-page-progress.is-dragging {
@@ -201,9 +211,10 @@ span.unmetNeeds-has-explanation {
 }
 
 .plots-page-progress-title {
-  font-weight: 600;
-  font-size: 12px;
-  color: #334;
+  font-weight: 700;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: #223;
 }
 
 .plots-page-progress-close {
@@ -228,20 +239,6 @@ span.unmetNeeds-has-explanation {
   padding: 10px 12px 12px;
 }
 
-.plots-page-progress-source {
-  margin-bottom: 6px;
-}
-
-.plots-page-progress-label {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #889;
-  margin-bottom: 2px;
-}
-
 .plots-page-progress-stage {
   font-weight: 600;
   margin-bottom: 2px;
@@ -250,21 +247,7 @@ span.unmetNeeds-has-explanation {
 .plots-page-progress-detail {
   color: #556;
   font-size: 12px;
-  margin-bottom: 8px;
   min-height: 1em;
-}
-
-.plots-page-progress-timer {
-  font-variant-numeric: tabular-nums;
-  font-size: 20px;
-  font-weight: 700;
-  color: #0b5fff;
-}
-
-.plots-page-progress-done {
-  padding: 0 10px 10px 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
 
 /* Scatter (and similar) flex grid: half-width by default, full-row when marked. */
@@ -272,16 +255,49 @@ span.unmetNeeds-has-explanation {
   display: flex;
   flex-wrap: wrap;
   width: 100%;
-  overflow-x: hidden;
+  max-width: 100%;
+  /* Do not clip full-row cells; those scroll inside themselves. */
+  overflow-x: visible;
 }
 .plots-flex-cell {
   width: 50%;
   box-sizing: border-box;
   padding: 0 4px 12px 4px;
   vertical-align: top;
+  min-width: 0;
 }
-.plots-flex-cell:has(.plots-flex-full-marker) {
+/* Full-row only when ui.js adds this class (participant violins, etc.).
+   Do not use :has(.marker) — Shiny keeps hidden conditionalPanel nodes in
+   the DOM, which made every flex plot full-width. */
+.plots-flex-cell.plots-flex-cell-full {
+  flex: 1 1 100%;
   width: 100%;
+  max-width: 100%;
+  /* min-width:0 keeps the cell at the page width so the wide image
+     overflows inside and can be scrolled — otherwise the cell grows with
+     the PNG and overflow-x never activates. */
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+/* Wide image may exceed the cell; scroll the cell, not the page.
+   Do NOT set width:auto on the img — Plots PNGs are 2× retina, and
+   width:auto uses intrinsic pixels so fonts/points appear ~2× larger. */
+.plots-flex-cell.plots-flex-cell-full .shiny-spinner-output-container {
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+}
+.plots-flex-cell.plots-flex-cell-full .shiny-image-output {
+  width: max-content !important;
+  max-width: none !important;
+  height: auto !important;
+}
+.plots-flex-cell.plots-flex-cell-full .shiny-image-output img,
+.plots-flex-cell.plots-flex-cell-full img {
+  max-width: none !important;
+  display: block;
 }
 
 

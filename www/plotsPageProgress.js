@@ -3,10 +3,14 @@
  *
  * Two sources feed the panel:
  *   - Browser: opens the panel the moment the user switches to Plots (R may
- *     still be busy with an earlier step and cannot react yet), and reports
- *     what the browser itself is doing (waiting for R, loading images).
+ *     still be busy with an earlier step and cannot react yet).
  *   - R server: session$sendCustomMessage("plotsPageProgress", {...}) with
  *     active, done, stage, detail, timerReset, elapsedSec, generation.
+ *
+ * Display (while running):
+ *   Plots 0:38
+ *   Plotting histograms …
+ *   22/30
  *
  * The timer runs in the browser from the tab click, so the final
  * "Done. m:ss" is the wait the user actually saw (R + network + browser).
@@ -22,12 +26,9 @@
   var AWAIT_IDLE_GIVE_UP_MS = 8000;
 
   var state = {
-    // Latest R generation seen (R increments it per dataset/run).
     generation: 0,
-    // Local run id; bumps on every new run (browser- or R-started).
     run: 0,
     dismissedRun: -1,
-    // Browser started a run and is waiting for R's first message.
     awaitingServer: false,
     idleSince: null,
     running: false,
@@ -35,7 +36,6 @@
     serverDoneAt: null,
     serverStage: "",
     serverDetail: "",
-    // Uploads seen by the browser; Plots popup only makes sense after one.
     uploadSeq: 0,
     doneUploadSeq: -1,
     timerStartedAt: null,
@@ -73,7 +73,6 @@
     return !!(el && el.offsetParent !== null);
   }
 
-  // What the browser can observe about Plots-tab outputs right now.
   function browserCounts() {
     var pane = plotsPane();
     var out = { waitingOutputs: 0, loadingImages: 0 };
@@ -111,21 +110,13 @@
     el.setAttribute("aria-live", "polite");
     el.innerHTML =
       '<div class="plots-page-progress-header" id="plots-page-progress-header">' +
-      '  <span class="plots-page-progress-title" id="plots-page-progress-title">Plots</span>' +
+      '  <span class="plots-page-progress-title" id="plots-page-progress-title">Plots 0:00</span>' +
       '  <button type="button" class="plots-page-progress-close" id="plots-page-progress-close" ' +
       '          aria-label="Close plots progress" title="Close">&times;</button>' +
       "</div>" +
       '<div class="plots-page-progress-body" id="plots-page-progress-body">' +
-      '  <div class="plots-page-progress-source">' +
-      '    <span class="plots-page-progress-label">R server</span>' +
-      '    <div class="plots-page-progress-stage" id="plots-page-progress-stage"></div>' +
-      '    <div class="plots-page-progress-detail" id="plots-page-progress-detail"></div>' +
-      "  </div>" +
-      '  <div class="plots-page-progress-source">' +
-      '    <span class="plots-page-progress-label">Browser</span>' +
-      '    <div class="plots-page-progress-detail" id="plots-page-progress-browser"></div>' +
-      "  </div>" +
-      '  <div class="plots-page-progress-timer" id="plots-page-progress-timer">0:00</div>' +
+      '  <div class="plots-page-progress-stage" id="plots-page-progress-stage"></div>' +
+      '  <div class="plots-page-progress-detail" id="plots-page-progress-detail"></div>' +
       "</div>";
 
     document.body.appendChild(el);
@@ -186,13 +177,22 @@
     }
   }
 
+  function elapsedLabel() {
+    if (!state.timerStartedAt) return "0:00";
+    return formatElapsed((Date.now() - state.timerStartedAt) / 1000);
+  }
+
+  function setTitleRunning() {
+    var title = document.getElementById("plots-page-progress-title");
+    if (title) title.textContent = "Plots " + elapsedLabel();
+  }
+
   function tickTimer() {
-    var timerEl = document.getElementById("plots-page-progress-timer");
-    if (!timerEl || !state.running || !state.timerStartedAt) {
+    if (!state.running || !state.timerStartedAt) {
       state.timerRaf = null;
       return;
     }
-    timerEl.textContent = formatElapsed((Date.now() - state.timerStartedAt) / 1000);
+    setTitleRunning();
     state.timerRaf = requestAnimationFrame(tickTimer);
   }
 
@@ -237,41 +237,53 @@
     startTimer(resetTimer !== false, elapsedSec);
   }
 
-  // R line: last R stage, or why R has not answered yet.
-  function serverLine() {
+  // Prefer R's stage/detail; fall back to a short browser-side status.
+  function displayLines(counts) {
     if (state.awaitingServer) {
       return {
-        stage: "Waiting for R server …",
-        detail: serverBusy()
-          ? "R is still finishing an earlier step (e.g. thresholds); plotting starts after it."
-          : "Sending request to R …"
+        stage: serverBusy()
+          ? "Waiting for R …"
+          : "Starting plots …",
+        detail: ""
       };
     }
     if (state.serverDone) {
-      return { stage: "R finished all plots.", detail: "" };
+      if (counts.loadingImages > 0) {
+        return {
+          stage: "Loading images …",
+          detail: String(counts.loadingImages)
+        };
+      }
+      if (counts.waitingOutputs > 0) {
+        return {
+          stage: "Finishing plots …",
+          detail: String(counts.waitingOutputs)
+        };
+      }
+      return { stage: "Finishing …", detail: "" };
     }
     if (!onPlotsTab()) {
       return {
         stage: state.serverStage || "Paused",
-        detail: "Paused until you return to the Plots tab."
+        detail: state.serverDetail || ""
       };
     }
-    return { stage: state.serverStage || "Plotting …", detail: state.serverDetail };
-  }
-
-  // Browser line: what the page is doing with what R sent.
-  function browserLine(counts) {
-    if (!onPlotsTab()) return "Paused (Plots tab not shown).";
+    if (state.serverStage) {
+      return { stage: state.serverStage, detail: state.serverDetail };
+    }
     if (counts.loadingImages > 0) {
-      return "Loading " + plural(counts.loadingImages, "plot image") + " …";
+      return {
+        stage: "Loading images …",
+        detail: plural(counts.loadingImages, "image")
+      };
     }
     if (counts.waitingOutputs > 0) {
-      return "Waiting for R to send " + plural(counts.waitingOutputs, "plot") + " …";
+      return {
+        stage: "Waiting for plots …",
+        detail: plural(counts.waitingOutputs, "plot")
+      };
     }
-    if (state.awaitingServer || serverBusy()) {
-      return "Waiting for R …";
-    }
-    return state.serverDone ? "All received plots are shown." : "Idle.";
+    return { stage: "Plotting …", detail: "" };
   }
 
   function showDone() {
@@ -286,16 +298,14 @@
     el.classList.add("is-done");
     var body = document.getElementById("plots-page-progress-body");
     if (body) body.hidden = true;
-    var elapsed = state.timerStartedAt ? (Date.now() - state.timerStartedAt) / 1000 : 0;
     var title = document.getElementById("plots-page-progress-title");
-    if (title) title.textContent = "Done. " + formatElapsed(elapsed);
+    if (title) title.textContent = "Done. " + elapsedLabel();
   }
 
   function refresh() {
     if (!state.running) return;
     var counts = browserCounts();
 
-    // R stayed idle without ever starting plots (e.g. upload failed).
     if (state.awaitingServer) {
       if (serverBusy()) {
         state.idleSince = null;
@@ -309,7 +319,6 @@
       }
     }
 
-    // Done only once R is done AND the browser has shown what it received.
     if (state.serverDone) {
       var drained = counts.loadingImages === 0 && counts.waitingOutputs === 0;
       var waitedTooLong = state.serverDoneAt &&
@@ -327,18 +336,14 @@
     el.classList.add("is-running");
     var body = document.getElementById("plots-page-progress-body");
     if (body) body.hidden = false;
-    var title = document.getElementById("plots-page-progress-title");
-    if (title) title.textContent = "Plots progress";
+    setTitleRunning();
 
-    var r = serverLine();
-    setText("plots-page-progress-stage", r.stage);
-    setText("plots-page-progress-detail", r.detail);
-    setText("plots-page-progress-browser", browserLine(counts));
+    var lines = displayLines(counts);
+    setText("plots-page-progress-stage", lines.stage);
+    setText("plots-page-progress-detail", lines.detail);
     if (!state.timerRaf) startTimer(false);
   }
 
-  // Browser-side start: user switched to Plots after an upload whose plots
-  // have not finished yet. R may not hear about the tab switch for a while.
   function maybeStartFromBrowser() {
     if (state.uploadSeq <= 0) return;
     if (state.doneUploadSeq === state.uploadSeq) return;
@@ -360,14 +365,12 @@
     if (gen > state.generation) {
       state.generation = gen;
       if (state.awaitingServer || (state.running && !state.serverDone)) {
-        // Same wait from the user's view (browser-started run, or R restarting
-        // after df_list() lands): keep its timer and dismissal.
         state.awaitingServer = false;
       } else {
         beginRun(!!msg.timerReset, msg.elapsedSec);
       }
     } else if (gen < state.generation || state.awaitingServer) {
-      return; // stale, or an old run while we wait for the new one
+      return;
     }
 
     if (msg.done) {
@@ -412,20 +415,17 @@
   }
 
   if (window.jQuery) {
-    // Fires in the browser as soon as the input changes, before R sees it.
     $(document).on("shiny:inputchanged", function (event) {
       if (event.name === "file" && event.value) {
         onNewUpload();
       } else if (event.name === "navbar") {
         if (event.value === "Plots") {
-          // Let Bootstrap finish showing the tab so visibility checks work.
           window.setTimeout(maybeStartFromBrowser, 0);
         } else if (state.running) {
           refresh();
         }
       }
     });
-    // Image arrived or finished loading: refresh right away instead of next poll.
     $(document).on("shiny:value", function () {
       if (state.running) window.setTimeout(refresh, 0);
     });

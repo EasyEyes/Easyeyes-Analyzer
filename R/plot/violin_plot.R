@@ -37,7 +37,9 @@ plot_violins <- function(df_list) {
                           abbreviate_fonts = FALSE,
                           use_log_scale = FALSE,
                           axis_label_scale = 1,
-                          color_by_phrase_group = FALSE) {
+                          color_by_phrase_group = FALSE,
+                          group_by = c("font", "participant")) {
+    group_by <- match.arg(group_by)
     p <- NULL
     
     if (nrow(data) > 0) {
@@ -51,30 +53,55 @@ plot_violins <- function(df_list) {
         "SaudiTextv2-Regular.otf",
         "SaudiTextv3-Regular.otf"
       )
-      
-      # Calculate participant count by font
-      participant_counts <- data %>%
-        group_by(font) %>%
-        summarise(n_participants = n_distinct(participant), .groups = "drop")
-      
-      # Create labels with N counts for each font and apply ordering
-      font_labels <- participant_counts %>%
-        mutate(
-          font_display = if (abbreviate_fonts) {
-            font_comparison_axis_label(font)
-          } else {
-            font
-          },
-          label = paste0(font_display, " (N=", n_participants, ")"),
-          font_factor = factor(font, levels = font_order)
-        ) %>%
-        arrange(font_factor)
-      
-      # Update data with new labels and filter out infinite values
-      plot_data <- data %>%
-        left_join(font_labels, by = "font") %>%
-        mutate(font_label = factor(label, levels = font_labels$label)) %>%
-        filter(is.finite(y))  # Remove -Inf, Inf, NA values for plotting
+
+      if (group_by == "participant") {
+        # One violin per participant; N = number of thresholds for that person.
+        # Order left→right by ascending mean so the series rises across the plot.
+        group_labels <- data %>%
+          filter(is.finite(y)) %>%
+          group_by(participant) %>%
+          summarise(
+            n_points = n(),
+            mean_y = mean(y, na.rm = TRUE),
+            .groups = "drop"
+          ) %>%
+          arrange(mean_y, participant) %>%
+          mutate(label = paste0(participant, " (N=", n_points, ")"))
+
+        plot_data <- data %>%
+          left_join(group_labels, by = "participant") %>%
+          mutate(group_label = factor(label, levels = group_labels$label)) %>%
+          filter(is.finite(y))
+        x_lab <- "Participant"
+        x_angle <- 90
+        n_groups <- nrow(group_labels)
+      } else {
+        # Calculate participant count by font
+        participant_counts <- data %>%
+          group_by(font) %>%
+          summarise(n_participants = n_distinct(participant), .groups = "drop")
+
+        # Create labels with N counts for each font and apply ordering
+        group_labels <- participant_counts %>%
+          mutate(
+            font_display = if (abbreviate_fonts) {
+              font_comparison_axis_label(font)
+            } else {
+              font
+            },
+            label = paste0(font_display, " (N=", n_participants, ")"),
+            font_factor = factor(font, levels = font_order)
+          ) %>%
+          arrange(font_factor)
+
+        plot_data <- data %>%
+          left_join(group_labels, by = "font") %>%
+          mutate(group_label = factor(label, levels = group_labels$label)) %>%
+          filter(is.finite(y))  # Remove -Inf, Inf, NA values for plotting
+        x_lab <- "Font"
+        x_angle <- 45
+        n_groups <- nrow(group_labels)
+      }
 
       if (use_log_scale) {
         plot_data <- plot_data %>% filter(y > 0)
@@ -90,9 +117,9 @@ plot_violins <- function(df_list) {
         return(NULL)
       }
       
-      # Calculate means by font for mean lines (already filtered for finite values and limits)
+      # Mean line per group (font or participant)
       mean_data <- plot_data %>%
-        group_by(font_label) %>%
+        group_by(group_label) %>%
         summarise(mean_y = mean(y, na.rm = TRUE), .groups = "drop")
 
       axis_title_size <- 14 * axis_label_scale
@@ -118,7 +145,7 @@ plot_violins <- function(df_list) {
         )
         plot_data$phrase_group <- factor(plot_data$phrase_group, levels = group_levels)
 
-        p <- ggplot(plot_data, aes(x = font_label, y = y)) +
+        p <- ggplot(plot_data, aes(x = group_label, y = y)) +
           geom_violin(trim = FALSE, alpha = 0.35, fill = "grey80", color = "grey40") +
           geom_jitter(
             aes(color = phrase_group),
@@ -129,8 +156,8 @@ plot_violins <- function(df_list) {
           geom_segment(
             data = mean_data,
             aes(
-              x = as.numeric(font_label) - 0.4,
-              xend = as.numeric(font_label) + 0.4,
+              x = as.numeric(group_label) - 0.4,
+              xend = as.numeric(group_label) + 0.4,
               y = mean_y,
               yend = mean_y
             ),
@@ -152,22 +179,22 @@ plot_violins <- function(df_list) {
             panel.background = element_rect(fill = "white", color = NA),
             axis.title.x = element_text(size = axis_title_size),
             axis.title.y = element_text(size = axis_title_size),
-            axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+            axis.text.x = element_text(angle = x_angle, hjust = 1, vjust = 1),
             legend.position = "right",
             plot.margin = margin(t = 5.5, r = 5.5, b = 18, l = 5.5)
           ) +
           labs(
             subtitle = title,
-            x = "Font",
+            x = x_lab,
             y = ylabel
           )
       } else {
-        p <- ggplot(plot_data, aes(x = font_label, y = y)) +
+        p <- ggplot(plot_data, aes(x = group_label, y = y)) +
           geom_violin(trim = FALSE, alpha = 0.5) +
           geom_jitter(width = 0.15, alpha = 0.7) +
           geom_segment(data = mean_data, 
-                       aes(x = as.numeric(font_label) - 0.4, 
-                           xend = as.numeric(font_label) + 0.4,
+                       aes(x = as.numeric(group_label) - 0.4, 
+                           xend = as.numeric(group_label) + 0.4,
                            y = mean_y, 
                            yend = mean_y),
                        color = "red", linewidth = 1, alpha = 0.8) +
@@ -177,14 +204,44 @@ plot_violins <- function(df_list) {
             panel.background = element_rect(fill = "white", color = NA),
             axis.title.x = element_text(size = axis_title_size),
             axis.title.y = element_text(size = axis_title_size),
-            axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+            axis.text.x = element_text(angle = x_angle, hjust = 1, vjust = 1),
             plot.margin = margin(t = 5.5, r = 5.5, b = 18, l = 5.5)
           ) +
           labs(
             subtitle = title,
-            x = "Font",
+            x = x_lab,
             y = ylabel
           )
+      }
+
+      # Participant plots: keep subtitle over the panel (not the y-axis title)
+      # so "Crowding Distance (deg)" does not collide with the plot title, and
+      # lengthen only the x-axis with N (same point/font scale as other violins).
+      if (identical(group_by, "participant")) {
+        # ~0.18 in per participant — enough for vertical IDs without fat violins.
+        width_in <- max(7, min(0.18 * n_groups + 2.0, 48))
+        x_text_size <- if (n_groups > 40) 8 else if (n_groups > 25) 9 else 10
+        p <- p + theme(
+          plot.title.position = "panel",
+          plot.subtitle = element_text(margin = margin(b = 8)),
+          axis.title.y = element_text(
+            size = axis_title_size,
+            margin = margin(r = 6)
+          ),
+          axis.text.x = element_text(
+            angle = x_angle,
+            hjust = 1,
+            vjust = 0.5,
+            size = x_text_size
+          ),
+          # Room for long rotated participant IDs.
+          plot.margin = margin(t = 10, r = 8, b = 28, l = 8)
+        )
+        attr(p, "plots_display_width_in") <- width_in
+        # Same height as other violins so vertical scale matches.
+        attr(p, "plots_display_height_in") <- 6
+        # Full Plots-tab row + horizontal scroll (see flexible_plot_rows).
+        attr(p, "plots_full_row") <- TRUE
       }
       
       # Log scale: linear tick labels with log spacing (matches font-comparison bars)
@@ -223,10 +280,24 @@ plot_violins <- function(df_list) {
     reading = create_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font"),
     rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font"),
     crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
+    crowding_by_participant = create_plot(
+      crowding,
+      "Crowding Distance (deg)",
+      "Crowding Threshold by Participant",
+      group_by = "participant"
+    ),
     acuity = create_plot(acuity, "Acuity (deg)", "Acuity vs. font",
                          abbreviate_fonts = TRUE,
                          use_log_scale = TRUE,
                          axis_label_scale = 1.4),
+    acuity_by_participant = create_plot(
+      acuity,
+      "Acuity (deg)",
+      "Acuity by Participant",
+      use_log_scale = TRUE,
+      axis_label_scale = 1.4,
+      group_by = "participant"
+    ),
     acuity_by_phrase_group = create_plot(
       acuity,
       "Acuity (deg)",

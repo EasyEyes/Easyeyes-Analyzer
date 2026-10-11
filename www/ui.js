@@ -63,3 +63,84 @@ function updateTimer() {
 document.addEventListener("DOMContentLoaded", (event) => {
   updateTimer();
 });
+
+// Plots flex grid: only participant-violin (etc.) slots that actually show a
+// full-width conditionalPanel get .plots-flex-cell-full. Shiny leaves hidden
+// conditionalPanel nodes in the DOM, so CSS :has(.marker) cannot be used.
+(function () {
+  function panelIsShown(el) {
+    if (!el) return false;
+    // Shiny conditionalPanel toggles inline display.
+    if (el.style && el.style.display === "none") return false;
+    var style = window.getComputedStyle(el);
+    return style.display !== "none" && style.visibility !== "hidden";
+  }
+
+  function syncPlotsFlexFullWidth(root) {
+    var scope = root && root.querySelectorAll ? root : document;
+    var cells = scope.querySelectorAll
+      ? scope.querySelectorAll(".plots-flex-cell")
+      : [];
+    if (!cells.length && root && root.classList && root.classList.contains("plots-flex-cell")) {
+      cells = [root];
+    }
+    for (var i = 0; i < cells.length; i++) {
+      var cell = cells[i];
+      var marker = cell.querySelector(".plots-flex-full-active");
+      var full = panelIsShown(marker);
+      cell.classList.toggle("plots-flex-cell-full", full);
+    }
+  }
+
+  function ready(fn) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", fn);
+    } else {
+      fn();
+    }
+  }
+
+  ready(function () {
+    syncPlotsFlexFullWidth(document);
+    if (typeof MutationObserver !== "undefined") {
+      var obs = new MutationObserver(function (mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+          var m = mutations[i];
+          var target = m.target;
+          if (
+            target &&
+            target.classList &&
+            (target.classList.contains("plots-flex-full-active") ||
+              target.classList.contains("plots-flex-cell") ||
+              target.classList.contains("plots-flex-grid"))
+          ) {
+            syncPlotsFlexFullWidth(
+              target.classList.contains("plots-flex-cell")
+                ? target
+                : target.closest
+                  ? target.closest(".plots-flex-grid") || document
+                  : document
+            );
+            continue;
+          }
+          if (m.type === "childList") {
+            syncPlotsFlexFullWidth(document);
+          }
+        }
+      });
+      obs.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["style", "class", "hidden"]
+      });
+    }
+    if (window.jQuery) {
+      $(document).on("shiny:value shiny:visualchange shown.bs.tab", function () {
+        window.setTimeout(function () {
+          syncPlotsFlexFullWidth(document);
+        }, 0);
+      });
+    }
+  });
+})();

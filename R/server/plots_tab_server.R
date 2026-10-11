@@ -310,7 +310,9 @@ register_plots_tab_server <- function(output,
       list(plot = violins$reading, fname = 'reading-violin-by-font-plot', keep_colors = FALSE),
       list(plot = violins$rsvp, fname = 'rsvp-violin-by-font-plot', keep_colors = FALSE),
       list(plot = violins$crowding, fname = 'crowding-violin-by-font-plot', keep_colors = FALSE),
+      list(plot = violins$crowding_by_participant, fname = 'crowding-violin-by-participant-plot', keep_colors = FALSE),
       list(plot = violins$acuity, fname = 'acuity-violin-by-font-plot', keep_colors = FALSE),
+      list(plot = violins$acuity_by_participant, fname = 'acuity-violin-by-participant-plot', keep_colors = FALSE),
       list(
         plot = violins$acuity_by_phrase_group,
         fname = 'acuity-violin-by-font-phrase-group-plot',
@@ -465,6 +467,10 @@ register_plots_tab_server <- function(output,
       list(
         plot = crowding_vs_acuity_by_font_scatter(df_list(), colorFont()),
         fname = 'crowding-vs-acuity-by-font'
+      ),
+      list(
+        plot = crowding_vs_acuity_by_participant_scatter(df_list()),
+        fname = 'crowding-vs-acuity-by-participant'
       ),
       # list(
       #   plot = crowding_acuity_size_ratio_vs_sd_log_acuity_scatter(df_list(), colorFont()),
@@ -1896,6 +1902,16 @@ register_plots_tab_server <- function(output,
       })
       outputOptions(output, paste0("hasViolin", ii), suspendWhenHidden = FALSE)
 
+      output[[paste0("violinFullWidth", ii)]] <- reactive({
+        if (!isTRUE(plots_tab_active())) return(FALSE)
+        plots <- violinPlots()
+        if (is.null(plots) || length(plots$plotList) < ii) {
+          return(FALSE)
+        }
+        isTRUE(attr(plots$plotList[[ii]], "plots_full_row", exact = TRUE))
+      })
+      outputOptions(output, paste0("violinFullWidth", ii), suspendWhenHidden = FALSE)
+
       output[[paste0("violinTitle", ii)]] <- renderText({
         req(histImagesReady())
         req(length(violinPlots()$fileNames) >= ii)
@@ -1915,15 +1931,40 @@ register_plots_tab_server <- function(output,
           render_fn = function() {
             app_profile_time(app_profiler, plots_profile_image_label("violin", ii, violinPlots()$fileNames), {
               tryCatch({
+                plot_obj <- violinPlots()$plotList[[ii]]
+                violin_w <- attr(plot_obj, "plots_display_width_in", exact = TRUE)
+                if (!is.numeric(violin_w) || length(violin_w) < 1 || !is.finite(violin_w[1]) ||
+                    violin_w[1] <= 0) {
+                  violin_w <- 8
+                } else {
+                  violin_w <- as.numeric(violin_w[1])
+                }
+                violin_h <- attr(plot_obj, "plots_display_height_in", exact = TRUE)
+                if (!is.numeric(violin_h) || length(violin_h) < 1 || !is.finite(violin_h[1]) ||
+                    violin_h[1] <= 0) {
+                  violin_h <- 6
+                } else {
+                  violin_h <- as.numeric(violin_h[1])
+                }
+                plot_to_save <- if (is_placeholder_plot(plot_obj)) {
+                  plot_obj
+                } else {
+                  # Keep participant-violin panel title position (avoids y-label clash).
+                  themed <- plot_obj + plt_theme
+                  if (!is.null(attr(plot_obj, "plots_display_width_in", exact = TRUE))) {
+                    themed <- themed + ggplot2::theme(plot.title.position = "panel")
+                  }
+                  themed
+                }
+                plot_to_save <- copy_png_axis_scale_attrs(plot_obj, plot_to_save)
+                # Grow canvas width with N, but keep the same px/in as a normal
+                # 8in / 700px violin so points and fonts do not zoom up.
+                violin_disp_w <- round(700 * (violin_w / 8))
                 result <- render_plots_display_png(
-                  if (is_placeholder_plot(violinPlots()$plotList[[ii]])) {
-                    violinPlots()$plotList[[ii]]
-                  } else {
-                    violinPlots()$plotList[[ii]] + plt_theme
-                  },
-                  width_in = 8,
-                  height_in = 6,
-                  disp_w = 700,
+                  plot_to_save,
+                  width_in = violin_w,
+                  height_in = violin_h,
+                  disp_w = violin_disp_w,
                   text_scale = 1.4,
                   scale_axis_text = FALSE,
                   limitsize = FALSE
@@ -1977,13 +2018,33 @@ register_plots_tab_server <- function(output,
           req(length(violinPlots()$plotList) >= ii)
           if (is_placeholder_plot(violinPlots()$plotList[[ii]])) return(invisible(NULL))
 
+          plot_obj <- violinPlots()$plotList[[ii]]
+          violin_w <- attr(plot_obj, "plots_display_width_in", exact = TRUE)
+          if (!is.numeric(violin_w) || length(violin_w) < 1 || !is.finite(violin_w[1]) ||
+              violin_w[1] <= 0) {
+            violin_w <- 8
+          } else {
+            violin_w <- as.numeric(violin_w[1])
+          }
+          violin_h <- attr(plot_obj, "plots_display_height_in", exact = TRUE)
+          if (!is.numeric(violin_h) || length(violin_h) < 1 || !is.finite(violin_h[1]) ||
+              violin_h[1] <= 0) {
+            violin_h <- 6
+          } else {
+            violin_h <- as.numeric(violin_h[1])
+          }
+          plot_to_save <- plot_obj + plt_theme
+          if (!is.null(attr(plot_obj, "plots_display_width_in", exact = TRUE))) {
+            plot_to_save <- plot_to_save + ggplot2::theme(plot.title.position = "panel")
+          }
+          violin_disp_w <- round(700 * (violin_w / 8))
           save_plots_display_download(
             file = file,
-            plot = violinPlots()$plotList[[ii]] + plt_theme,
+            plot = plot_to_save,
             file_type = downloadFileType(),
-            width_in = 8,
-            height_in = 6,
-            disp_w = 700,
+            width_in = violin_w,
+            height_in = violin_h,
+            disp_w = violin_disp_w,
             text_scale = 1.4,
             scale_axis_text = FALSE,
             limitsize = FALSE
