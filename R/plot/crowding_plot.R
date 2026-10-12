@@ -197,10 +197,10 @@ crowding_scatter_plot <- function(crowding_L_R){
 
 
 
-bouma_right_left_ratio_by_participant <- function(quest_all_thresholds) {
-  if (is.null(quest_all_thresholds) || nrow(quest_all_thresholds) == 0) return(NULL)
+bouma_right_left_ratio_by_participant <- function(quest_unsummarized) {
+  if (is.null(quest_unsummarized) || nrow(quest_unsummarized) == 0) return(NULL)
 
-  reps <- quest_all_thresholds %>%
+  reps <- quest_unsummarized %>%
     filter(questType == "Peripheral crowding",
            !is.na(targetEccentricityXDeg), targetEccentricityXDeg != 0,
            is.finite(questMeanAtEndOfTrialsLoop)) %>%

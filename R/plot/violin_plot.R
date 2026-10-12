@@ -13,6 +13,27 @@ add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
 
 plot_violins <- function(df_list) {
   crowding = df_list$crowding %>% mutate(y = 10^log_crowding_distance_deg)
+  # Participant crowding violins: L/R geomean pairs from unsummarized QUEST
+  # (quest is conditionName-averaged; quest_unsummarized keeps each staircase).
+  quest_u <- df_list$quest_unsummarized
+  if (is.null(quest_u) || !is.data.frame(quest_u) || nrow(quest_u) == 0) {
+    crowding_by_participant_data <- crowding
+  } else if (exists("crowding_lr_geomean_pairs", mode = "function")) {
+    crowding_raw <- quest_u %>%
+      filter(
+        questType == "Foveal crowding" |
+          questType == "Peripheral crowding"
+      )
+    crowding_pairs <- crowding_lr_geomean_pairs(crowding_raw)
+    if (is.null(crowding_pairs) || nrow(crowding_pairs) == 0) {
+      crowding_by_participant_data <- crowding
+    } else {
+      crowding_by_participant_data <- crowding_pairs %>%
+        mutate(y = 10^log_crowding_distance_deg)
+    }
+  } else {
+    crowding_by_participant_data <- crowding
+  }
   rsvp = df_list$rsvp %>% mutate(y = 10^block_avg_log_WPM)
   reading = df_list$reading %>%
     mutate(log_WPM = suppressWarnings(as.numeric(log_WPM))) %>%
@@ -281,7 +302,7 @@ plot_violins <- function(df_list) {
     rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font"),
     crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
     crowding_by_participant = create_plot(
-      crowding,
+      crowding_by_participant_data,
       "Crowding Distance (deg)",
       "Crowding Threshold by Participant",
       group_by = "participant"

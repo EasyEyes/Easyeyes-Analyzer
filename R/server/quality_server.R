@@ -74,7 +74,7 @@ qualityTabServer <- function(id,
       # OPTIMIZATION: Compute expensive functions once, use results multiple times
       crowdingPlots <- plotCrowdingStaircasesVsQuestTrials(df_list(), files()$stairs)
       quest_diag <- get_quest_diag(df_list()$quest)
-      quest_sd_trials <- get_quest_sd_vs_trials(df_list()$quest_all_thresholds)
+      quest_sd_trials <- get_quest_sd_vs_trials(df_list()$quest_unsummarized)
       
       plot_calls <- list(
         list(plot = crowdingPlots$fovealPlot, fname = 'foveal-crowding-staircases-threshold-vs-questTrials'),

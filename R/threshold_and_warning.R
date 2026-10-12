@@ -102,6 +102,137 @@ filter_out_short_ruler <- function(df, short_ruler_ids) {
   df %>% filter(!participant %in% short_ruler_ids)
 }
 
+empty_crowding_lr_pairs <- function() {
+  tibble(
+    experiment = character(),
+    participant = character(),
+    font = character(),
+    questType = character(),
+    age = numeric(),
+    Grade = numeric(),
+    `Skilled reader?` = character(),
+    ParticipantCode = character(),
+    eccAbs = numeric(),
+    pair_i = integer(),
+    block_condition_left = character(),
+    block_condition_right = character(),
+    conditionName_left = character(),
+    conditionName_right = character(),
+    targetEccentricityXDeg = numeric(),
+    targetEccentricityYDeg = numeric(),
+    log_crowding_distance_deg = numeric()
+  )
+}
+
+# Pair Left (eccX<0) with Right (eccX>0) within participant × font × |ecc|,
+# ordered by block_condition, then geometric-mean the pair (mean of logs).
+# Used by crowding-by-participant violins so 7 L/R repeats → 7 points, not 2.
+# Accepts unsummarized quest/crowding rows; log column may be
+# log_crowding_distance_deg or questMeanAtEndOfTrialsLoop.
+crowding_lr_geomean_pairs <- function(crowding_raw) {
+  if (!is.data.frame(crowding_raw) || nrow(crowding_raw) == 0) {
+    return(empty_crowding_lr_pairs())
+  }
+
+  needed <- c("participant", "block_condition", "targetEccentricityXDeg")
+  if (!all(needed %in% names(crowding_raw))) {
+    return(empty_crowding_lr_pairs())
+  }
+  log_col <- if ("log_crowding_distance_deg" %in% names(crowding_raw)) {
+    "log_crowding_distance_deg"
+  } else if ("questMeanAtEndOfTrialsLoop" %in% names(crowding_raw)) {
+    "questMeanAtEndOfTrialsLoop"
+  } else {
+    return(empty_crowding_lr_pairs())
+  }
+
+  log_vals <- crowding_raw[[log_col]]
+  df <- crowding_raw %>%
+    mutate(
+      eccX = suppressWarnings(as.numeric(targetEccentricityXDeg)),
+      eccY = suppressWarnings(as.numeric(targetEccentricityYDeg)),
+      log_c = suppressWarnings(as.numeric(log_vals)),
+      block_condition = as.character(block_condition),
+      experiment = if ("experiment" %in% names(.)) as.character(experiment) else "",
+      font = if ("font" %in% names(.)) as.character(font) else "",
+      questType = if ("questType" %in% names(.)) as.character(questType) else "",
+      age = if ("age" %in% names(.)) age else NA_real_,
+      Grade = if ("Grade" %in% names(.)) Grade else NA_real_,
+      `Skilled reader?` = if ("Skilled reader?" %in% names(.)) `Skilled reader?` else NA_character_,
+      ParticipantCode = if ("ParticipantCode" %in% names(.)) ParticipantCode else participant,
+      conditionName = if ("conditionName" %in% names(.)) as.character(conditionName) else ""
+    ) %>%
+    filter(is.finite(eccX), is.finite(log_c), eccX != 0) %>%
+    mutate(eccAbs = abs(eccX))
+
+  if (nrow(df) == 0) {
+    return(empty_crowding_lr_pairs())
+  }
+
+  # Natural-ish order for block_condition like "4_1", "4_2", "10_1".
+  block_condition_order_key <- function(bc) {
+    parts <- strsplit(as.character(bc), "_", fixed = TRUE)
+    vapply(parts, function(p) {
+      a <- suppressWarnings(as.numeric(p[1]))
+      b <- suppressWarnings(as.numeric(if (length(p) >= 2) p[2] else NA))
+      if (!is.finite(a)) a <- 0
+      if (!is.finite(b)) b <- 0
+      a * 1e6 + b
+    }, numeric(1))
+  }
+
+  left <- df %>%
+    filter(eccX < 0) %>%
+    mutate(.ord = block_condition_order_key(block_condition)) %>%
+    group_by(experiment, participant, font, questType, eccAbs) %>%
+    arrange(.ord, .by_group = TRUE) %>%
+    mutate(pair_i = dplyr::row_number()) %>%
+    ungroup() %>%
+    transmute(
+      experiment, participant, font, questType, age, Grade, `Skilled reader?`,
+      ParticipantCode, eccAbs, pair_i,
+      block_condition_left = block_condition,
+      conditionName_left = conditionName,
+      log_left = log_c,
+      eccY_left = eccY
+    )
+
+  right <- df %>%
+    filter(eccX > 0) %>%
+    mutate(.ord = block_condition_order_key(block_condition)) %>%
+    group_by(experiment, participant, font, questType, eccAbs) %>%
+    arrange(.ord, .by_group = TRUE) %>%
+    mutate(pair_i = dplyr::row_number()) %>%
+    ungroup() %>%
+    transmute(
+      experiment, participant, font, questType, eccAbs, pair_i,
+      block_condition_right = block_condition,
+      conditionName_right = conditionName,
+      log_right = log_c,
+      eccY_right = eccY
+    )
+
+  left %>%
+    inner_join(
+      right,
+      by = c("experiment", "participant", "font", "questType", "eccAbs", "pair_i")
+    ) %>%
+    mutate(
+      # Geometric mean of linear thresholds = arithmetic mean of logs.
+      log_crowding_distance_deg = (log_left + log_right) / 2,
+      targetEccentricityXDeg = eccAbs,
+      targetEccentricityYDeg = dplyr::coalesce(eccY_left, eccY_right, 0)
+    ) %>%
+    select(
+      experiment, participant, font, questType, age, Grade, `Skilled reader?`,
+      ParticipantCode, eccAbs, pair_i,
+      block_condition_left, block_condition_right,
+      conditionName_left, conditionName_right,
+      targetEccentricityXDeg, targetEccentricityYDeg,
+      log_crowding_distance_deg
+    )
+}
+
 # Expand both the original Q&A fields and numbered question groups (01, 02, ...).
 # The Compare3Languages studies save beauty/familiarity in these numbered groups.
 session_question_answers <- function(df) {
@@ -1027,8 +1158,11 @@ generate_threshold <-
       left_join(targetDurationSecs, by = c('participant', 'conditionName'), relationship = 'many-to-many') %>%
       mutate(targetDurationSec = suppressWarnings(as.numeric(targetDurationSec)))
     
-    quest_all_thresholds <- quest
-    valid_ids <- unique(quest_all_thresholds$participant)
+    # Unsummarized QUEST (one row per staircase / block_condition).
+    # `quest` below is averaged by conditionName; keep this for plots that
+    # need repeats (crowding/acuity-by-participant, Bouma ratio, etc.).
+    quest_unsummarized <- quest
+    valid_ids <- unique(quest_unsummarized$participant)
     age <- age %>% filter(participant %in% valid_ids)
     
     quest <- quest %>% 
@@ -1299,7 +1433,7 @@ generate_threshold <-
     acuity <- filter_out_short_ruler(acuity, short_ruler_ids)
     repeatedLetters <- filter_out_short_ruler(repeatedLetters, short_ruler_ids)
     quest <- filter_out_short_ruler(quest, short_ruler_ids)
-    quest_all_thresholds <- filter_out_short_ruler(quest_all_thresholds, short_ruler_ids)
+    quest_unsummarized <- filter_out_short_ruler(quest_unsummarized, short_ruler_ids)
     age <- filter_out_short_ruler(age, short_ruler_ids)
     # threshold <- filter_out_short_ruler(threshold, short_ruler_ids)
     # threshold_each <- filter_out_short_ruler(threshold_each, short_ruler_ids)
@@ -1554,7 +1688,7 @@ generate_threshold <-
                 acuity = acuity,
                 repeatedLetters = repeatedLetters,
                 quest = quest, # threshold averaged by participant, conditionName
-                quest_all_thresholds = quest_all_thresholds, # include all threshold estimate
+                quest_unsummarized = quest_unsummarized, # one row per staircase
                 age = age,
                 conditionNames = conditionNames,
                 threshold = threshold, 

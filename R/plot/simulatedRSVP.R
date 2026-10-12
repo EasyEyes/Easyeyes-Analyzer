@@ -176,7 +176,7 @@ plotCrowdingStaircasesVsQuestTrials <- function(df_list, stairs) {
     summarize(questTrials = sum(trialGivenToQuest, na.rm = TRUE),
               .groups="drop")
 
-  crowding <- df_list$quest_all_thresholds %>%
+  crowding <- df_list$quest_unsummarized %>%
     filter(grepl('crowding', questType)) %>% 
     select(-questTrials) %>% 
     left_join(stairdf, by = c("participant", "block_condition" = "staircaseName")) %>%

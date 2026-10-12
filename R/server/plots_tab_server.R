@@ -192,7 +192,7 @@ register_plots_tab_server <- function(output,
   # OPTIMIZATION: Compute expensive functions once, use results multiple times
   acuity_hists <- get_acuity_hist(df_list()$acuity)      # Single function call
   crowding_hists <- get_crowding_hist(df_list()$crowding) # Single function call
-  aud_plots <- plot_auditory_crowding(df_list()$quest_all_thresholds, df_list()$crowding)
+  aud_plots <- plot_auditory_crowding(df_list()$quest_unsummarized, df_list()$crowding)
 
   static_calls <- list(
     list(plot = aud_plots$hist,                                   fname = 'auditory-crowding-melody-db-histogram'),
@@ -235,7 +235,7 @@ register_plots_tab_server <- function(output,
     ))
   }
   
-  prop_hists <- get_prop_correct_hist_list(df_list()$quest_all_thresholds)
+  prop_hists <- get_prop_correct_hist_list(df_list()$quest_unsummarized)
   
   prop_calls <- lapply(names(prop_hists), function(cond) {
     list(
@@ -392,7 +392,7 @@ register_plots_tab_server <- function(output,
     #crowding_vs_acuity_plots <- crowding_vs_acuity_plot(df_list())
     regression_plots <- regression_reading_plot(df_list(), colorFont())
     test_retest_plots <- get_test_retest(df_list())
-  aud_plots <- plot_auditory_crowding(df_list()$quest_all_thresholds, df_list()$crowding)
+  aud_plots <- plot_auditory_crowding(df_list()$quest_unsummarized, df_list()$crowding)
     crowding_duration_plots <- plot_crowding_vs_duration_plots(df_list()$crowding)
     
     plot_calls <- list(
@@ -409,7 +409,7 @@ register_plots_tab_server <- function(output,
       list(plot = peripheral_plots$grade, fname = 'peripheral-acuity-vs-peripheral-crowding-grade-diagram'),
       list(plot = peripheral_plots$font, fname = 'peripheral-acuity-vs-peripheral-crowding-font-diagram'),
       list(plot = crowdingPlot(), fname = 'peripheral_crowding_left_vs_right'),
-      list(plot = bouma_right_left_ratio_by_participant(df_list()$quest_all_thresholds),
+      list(plot = bouma_right_left_ratio_by_participant(df_list()$quest_unsummarized),
            fname = 'bouma-right-left-ratio-by-participant'),
       list(plot = regression_plots$foveal, fname = 'reading-rsvp-reading-vs-foveal-crowding'),
       list(plot = regression_plots$peripheral, fname = 'reading-rsvp-reading-vs-peripheral-crowding'),
