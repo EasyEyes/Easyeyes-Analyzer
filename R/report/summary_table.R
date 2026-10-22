@@ -171,6 +171,146 @@ ensure_params_schema <- function(df) {
   empty_params()
 }
 
+empty_long_task_sec <- function() {
+  tibble(
+    participant = character(),
+    date = character(),
+    longTaskSec = character()
+  )
+}
+
+# New CSV field longTaskSecs: all long-task durations (sec) during a trial.
+# Accept JSON array, comma/space list, or a single number.
+parse_long_task_secs_cell <- function(x) {
+  if (is.null(x) || length(x) == 0) {
+    return(numeric(0))
+  }
+  if (is.list(x) && !is.data.frame(x)) {
+    return(parse_long_task_secs_cell(unlist(x, use.names = FALSE)))
+  }
+  if (is.numeric(x)) {
+    return(as.numeric(x[is.finite(as.numeric(x))]))
+  }
+  if (length(x) > 1) {
+    return(unlist(lapply(x, parse_long_task_secs_cell), use.names = FALSE))
+  }
+  if (is.na(x)) {
+    return(numeric(0))
+  }
+  s <- trimws(as.character(x)[[1]])
+  if (!nzchar(s) || tolower(s) %in% c("na", "nan", "null", "none", "[]")) {
+    return(numeric(0))
+  }
+  if (startsWith(s, "[") || startsWith(s, "{")) {
+    parsed <- tryCatch(jsonlite::fromJSON(s), error = function(e) NULL)
+    if (is.null(parsed)) {
+      return(numeric(0))
+    }
+    nums <- suppressWarnings(as.numeric(unlist(parsed, use.names = FALSE)))
+    return(nums[is.finite(nums)])
+  }
+  parts <- unlist(strsplit(s, "[,;\\s]+"), use.names = FALSE)
+  nums <- suppressWarnings(as.numeric(parts))
+  nums[is.finite(nums)]
+}
+
+# Old CSV field longTask: one PerformanceEntry JSON (duration in ms) or one number.
+parse_long_task_json_sec <- function(x) {
+  if (is.null(x) || length(x) == 0 || (length(x) == 1 && is.na(x))) {
+    return(numeric(0))
+  }
+  if (is.numeric(x)) {
+    v <- as.numeric(x)[[1]]
+    if (!is.finite(v)) {
+      return(numeric(0))
+    }
+    # PerformanceEntry durations are ms; small values are already seconds.
+    return(if (v > 10) v / 1000 else v)
+  }
+  s <- trimws(as.character(x)[[1]])
+  if (!nzchar(s) || tolower(s) %in% c("na", "nan", "null", "none")) {
+    return(numeric(0))
+  }
+  if (grepl("^[0-9.eE+-]+$", s)) {
+    return(parse_long_task_json_sec(suppressWarnings(as.numeric(s))))
+  }
+  parsed <- tryCatch(jsonlite::fromJSON(s), error = function(e) NULL)
+  if (is.null(parsed)) {
+    return(numeric(0))
+  }
+  dur <- parsed$duration
+  if (is.null(dur)) {
+    return(numeric(0))
+  }
+  dur <- suppressWarnings(as.numeric(dur)[[1]])
+  if (!is.finite(dur)) {
+    return(numeric(0))
+  }
+  dur / 1000
+}
+
+format_long_task_sec <- function(vals) {
+  vals <- suppressWarnings(as.numeric(vals))
+  vals <- vals[is.finite(vals)]
+  if (length(vals) == 0) {
+    return("")
+  }
+  paste(sprintf("%.3f", vals), collapse = ", ")
+}
+
+# Prefer longTaskSecs (new); else longTaskDurationSec / longTask (old, one value).
+collect_long_task_sec_values <- function(df) {
+  if (is.null(df) || nrow(df) == 0) {
+    return(numeric(0))
+  }
+  has_secs <- "longTaskSecs" %in% names(df)
+  has_dur <- "longTaskDurationSec" %in% names(df)
+  has_task <- "longTask" %in% names(df)
+  out <- numeric(0)
+  for (i in seq_len(nrow(df))) {
+    if (has_secs) {
+      parsed <- parse_long_task_secs_cell(df$longTaskSecs[[i]])
+      if (length(parsed) > 0) {
+        out <- c(out, parsed)
+        next
+      }
+    }
+    if (has_dur) {
+      d <- suppressWarnings(as.numeric(df$longTaskDurationSec[[i]]))
+      if (length(d) >= 1 && is.finite(d[[1]])) {
+        out <- c(out, d[[1]])
+        next
+      }
+    }
+    if (has_task) {
+      d <- parse_long_task_json_sec(df$longTask[[i]])
+      if (length(d) > 0) {
+        out <- c(out, d)
+      }
+    }
+  }
+  out
+}
+
+session_long_task_sec <- function(df) {
+  if (is.null(df) || nrow(df) == 0 || !"participant" %in% names(df)) {
+    return(empty_long_task_sec())
+  }
+  participant <- as.character(df$participant[[1]])
+  date <- if ("date" %in% names(df)) {
+    dates <- as.character(df$date)
+    dates <- dates[!is.na(dates) & dates != ""]
+    if (length(dates) > 0) dates[[1]] else NA_character_
+  } else {
+    NA_character_
+  }
+  tibble(
+    participant = participant,
+    date = date,
+    longTaskSec = format_long_task_sec(collect_long_task_sec_values(df))
+  )
+}
+
 empty_log_font <- function() {
   tibble(
     `Pavlovia session ID` = character(),
@@ -285,6 +425,7 @@ finalize_webgl_chunks <- function(webgl_chunks) {
 collect_summary_table_inputs <- function(data_list) {
   font_chunks <- list()
   params_chunks <- list()
+  long_task_chunks <- list()
   comment_chunks <- list()
   all_files_chunks <- list()
   logfont_chunks <- list()
@@ -299,6 +440,7 @@ collect_summary_table_inputs <- function(data_list) {
     return(list(
       font = font_chunks,
       params = params_chunks,
+      longTaskSec = long_task_chunks,
       comments = comment_chunks,
       all_files = all_files_chunks,
       logFont = logfont_chunks,
@@ -352,6 +494,9 @@ collect_summary_table_inputs <- function(data_list) {
         deviceMemoryGB,
         mustTrackSec
       )
+
+    # --- longTaskSec (Sessions): longTaskSecs (new) or longTask (old) ---
+    long_task_chunks[[length(long_task_chunks) + 1]] <- session_long_task_sec(df)
 
     # --- COMMENT (Sessions) + OBJCT (Distance) ---
     if ("questionAndAnswerNickname" %in% names(df)) {
@@ -572,6 +717,7 @@ collect_summary_table_inputs <- function(data_list) {
   list(
     font = font_chunks,
     params = params_chunks,
+    longTaskSec = long_task_chunks,
     comments = comment_chunks,
     all_files = all_files_chunks,
     logFont = logfont_chunks,
@@ -737,6 +883,27 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     left_join(NQuestTrials, by = c("participant", "date"), relationship = "many-to-many") %>%
     rename("Pavlovia session ID" = "participant")
 
+  longTaskSec <- bind_rows_or_empty(chunks$longTaskSec)
+  if (is.null(longTaskSec) || nrow(longTaskSec) == 0 ||
+        !all(c("participant", "date", "longTaskSec") %in% names(longTaskSec))) {
+    longTaskSec <- empty_long_task_sec()
+  }
+  longTaskSec <- longTaskSec %>%
+    mutate(
+      participant = as.character(participant),
+      date = as.character(date),
+      longTaskSec = as.character(longTaskSec)
+    ) %>%
+    group_by(participant, date) %>%
+    summarize(
+      longTaskSec = {
+        parts <- longTaskSec[!is.na(longTaskSec) & longTaskSec != ""]
+        if (length(parts) == 0) "" else paste(parts, collapse = ", ")
+      },
+      .groups = "drop"
+    ) %>%
+    rename("Pavlovia session ID" = "participant")
+
   webGL <- finalize_webgl_chunks(chunks$webGL) %>%
     rename("Pavlovia session ID" = "participant")
 
@@ -891,7 +1058,11 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     left_join(webGL, by = c("Pavlovia session ID", "date"), relationship = "many-to-many") %>%
     mutate(deviceMemoryGB_preserved = deviceMemoryGB) %>%
     left_join(params, by = c("Pavlovia session ID", "date")) %>%
-    mutate(deviceMemoryGB = deviceMemoryGB_preserved) %>%
+    left_join(longTaskSec, by = c("Pavlovia session ID", "date")) %>%
+    mutate(
+      deviceMemoryGB = deviceMemoryGB_preserved,
+      longTaskSec = ifelse(is.na(longTaskSec), "", longTaskSec)
+    ) %>%
     select(-deviceMemoryGB_preserved) %>%
     rename("GB" = "deviceMemoryGB") %>%
     mutate(date = parse_pavlovia_date(date)) %>%
@@ -903,6 +1074,10 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
       paste0('<a href="', snapshotsLink, '" target="_blank">snapshots</a>'),
       ""
     ))
+
+  if (!"longTaskSec" %in% names(summary_df)) {
+    summary_df$longTaskSec <- ""
+  }
 
   final_summary_table <- combineProlific(prolific, summary_df, pretest)
   distance_cols <- assemble_distance_cols_from_chunks(chunks)
@@ -943,6 +1118,7 @@ render_summary_datatable <- function(dt, prolific_id) {
   # DT with default rownames: JS col 0 = rownames, data col j -> JS index j
   prolific_col <- which(names(dt) == "Prolific participant ID")
   unmet_col <- which(names(dt) == "unmetNeeds")
+  long_task_col <- which(names(dt) == "longTaskSec")
   
   column_defs <- list(
         list(visible = FALSE, targets = c(0, width_col, hide_hist_cols)),
@@ -986,6 +1162,24 @@ render_summary_datatable <- function(dt, prolific_id) {
           "function(data, type, row, meta) {",
           "  if (type !== 'display') return data;",
           "  if (window.formatUnmetNeedsCellDisplay) return window.formatUnmetNeedsCellDisplay(data);",
+          "  return data && data.length > 30 ? data.substr(0, 30) + '...' : data;",
+          "}"
+        )
+      ))
+    )
+  }
+
+  if (length(long_task_col) == 1) {
+    column_defs <- c(
+      column_defs,
+      list(list(
+        targets = long_task_col,
+        width = '100px',
+        className = 'longTaskSec-control',
+        render = JS(
+          "function(data, type, row, meta) {",
+          "  if (type !== 'display') return data;",
+          "  if (window.formatLongTaskSecCellDisplay) return window.formatLongTaskSecCellDisplay(data);",
           "  return data && data.length > 30 ? data.substr(0, 30) + '...' : data;",
           "}"
         )

@@ -250,6 +250,53 @@
     );
   };
 
+  function longTaskSecValues(raw) {
+    var plain = cellTextToPlain(raw).replace(/\s+/g, " ").trim();
+    if (!plain) return [];
+    return plain
+      .split(/,\s*/)
+      .map(function (s) {
+        return s.trim();
+      })
+      .filter(function (s) {
+        return s.length > 0;
+      });
+  }
+
+  window.formatLongTaskSecCellDisplay = function (data) {
+    var values = longTaskSecValues(data);
+    if (!values.length) return "";
+    var preview = values.slice(0, 3).join(", ");
+    if (values.length > 3) {
+      preview += ", … (" + values.length + ")";
+    }
+    return (
+      '<span class="longTaskSec-has-detail" style="text-decoration:underline;text-underline-offset:2px">' +
+      escapeHtml(preview) +
+      "</span>"
+    );
+  };
+
+  function formatLongTaskSecPopupContent(raw) {
+    var values = longTaskSecValues(raw);
+    if (!values.length) return "<em>No long tasks</em>";
+    var lines = values
+      .map(function (v) {
+        return escapeHtml(v);
+      })
+      .join("<br>");
+    return (
+      "<p><strong>" +
+      values.length +
+      "</strong> long task" +
+      (values.length === 1 ? "" : "s") +
+      " (sec)</p>" +
+      "<div style='max-height:50vh;overflow:auto;white-space:nowrap'>" +
+      lines +
+      "</div>"
+    );
+  }
+
   function formatErrorPopupContent(rawHtml) {
     return formatExplanationPopupContent(rawHtml, window.errorExplanations, {
       ignoreNames: ERROR_EXPLAIN_IGNORE,
@@ -295,27 +342,43 @@
       showSummaryDetailModal("Error", formatErrorPopupContent(raw));
     });
 
-    // unmetNeeds column: popup using Parameter Glossary (_s → EXPLANATION)
+    // unmetNeeds / longTaskSec: look up by header (indexes shift when columns change)
     var unmetIdx = -1;
+    var longTaskIdx = -1;
     table.columns().every(function () {
       var header = $(this.header()).text().trim();
       if (header === "unmetNeeds") unmetIdx = this.index();
+      if (header === "longTaskSec") longTaskIdx = this.index();
     });
     if (unmetIdx >= 0) {
       table.column(unmetIdx).nodes().to$().css({ cursor: "pointer" });
     }
-    if (unmetIdx >= 0) {
+    if (longTaskIdx >= 0) {
+      table.column(longTaskIdx).nodes().to$().css({ cursor: "pointer" });
+    }
+    if (unmetIdx >= 0 || longTaskIdx >= 0) {
       table.on("click", "tbody td", function () {
         var cell = table.cell(this);
         if (!cell || !cell.index) return;
         var info = cell.index();
-        if (!info || info.column !== unmetIdx) return;
+        if (!info) return;
         var rowData = table.row($(this).closest("tr")).data();
         if (!rowData) return;
-        showSummaryDetailModal(
-          "unmetNeeds",
-          formatUnmetNeedsPopupContent(rowData[unmetIdx])
-        );
+        if (info.column === unmetIdx) {
+          showSummaryDetailModal(
+            "unmetNeeds",
+            formatUnmetNeedsPopupContent(rowData[unmetIdx])
+          );
+          return;
+        }
+        if (info.column === longTaskIdx) {
+          var raw = rowData[longTaskIdx];
+          if (!longTaskSecValues(raw).length) return;
+          showSummaryDetailModal(
+            "longTaskSec",
+            formatLongTaskSecPopupContent(raw)
+          );
+        }
       });
     }
 
