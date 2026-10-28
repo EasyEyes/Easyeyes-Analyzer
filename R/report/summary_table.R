@@ -1144,8 +1144,9 @@ render_summary_datatable <- function(dt, prolific_id) {
           className = 'warnC-control',
           render = JS(
             "function(data, type, row, meta) {",
-            "  return type === 'display' && data && data.length > 30 ?",
-            "    data.substr(0, 30) + '...' : data;",
+            "  if (type !== 'display') return data;",
+            "  if (window.formatWarningCellDisplay) return window.formatWarningCellDisplay(data);",
+            "  return data && data.length > 30 ? data.substr(0, 30) + '...' : data;",
             "}"
           )
         )

@@ -1,6 +1,7 @@
 # Tab modules
 source("R/load_ui.R")
 source("R/report/error_explanations.R")
+source("R/report/warning_explanations.R")
 source("R/report/unmet_needs_explanations.R")
 # Cache-bust www/ assets so browser picks up JS/CSS edits on refresh.
 www_asset_version <- function(filename) {
@@ -45,6 +46,8 @@ shinyUI(
           error_explanations_json(),
           ";\nwindow.unmetNeedsExplanations = ",
           unmet_needs_explanations_json(),
+          ";\nwindow.warningExplanations = ",
+          warning_explanations_json(),
           ";"
         ))),
         tags$link(

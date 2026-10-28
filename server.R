@@ -42,6 +42,7 @@ shinyServer(function(input, output, session) {
   send_summary_explanations <- function() {
     session$sendCustomMessage("setErrorExplanations", load_error_explanations())
     session$sendCustomMessage("setUnmetNeedsExplanations", load_unmet_needs_explanations())
+    session$sendCustomMessage("setWarningExplanations", load_warning_explanations())
   }
   send_summary_explanations()
   # Re-send after the client registers handlers (avoids a startup race).

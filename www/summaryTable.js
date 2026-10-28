@@ -9,6 +9,7 @@
 
   window.errorExplanations = window.errorExplanations || {};
   window.unmetNeedsExplanations = window.unmetNeedsExplanations || {};
+  window.warningExplanations = window.warningExplanations || {};
 
   function redrawSummaryTables() {
     if (window.jQuery && jQuery.fn.dataTable) {
@@ -30,12 +31,18 @@
     redrawSummaryTables();
   }
 
+  function setWarningExplanations(map) {
+    window.warningExplanations = map && typeof map === "object" ? map : {};
+    redrawSummaryTables();
+  }
+
   var explanationHandlersRegistered = false;
   function registerExplanationHandlers() {
     if (!(window.Shiny && Shiny.addCustomMessageHandler)) return;
     if (!explanationHandlersRegistered) {
       Shiny.addCustomMessageHandler("setErrorExplanations", setErrorExplanations);
       Shiny.addCustomMessageHandler("setUnmetNeedsExplanations", setUnmetNeedsExplanations);
+      Shiny.addCustomMessageHandler("setWarningExplanations", setWarningExplanations);
       explanationHandlersRegistered = true;
     }
     if (Shiny.setInputValue) {
@@ -188,6 +195,7 @@
     }
 
     var matches = findAllNameMatches(rawHtml, map, options);
+    options = options || {};
     if (!matches.length) {
       return "<p>" + rawHtml + "</p>";
     }
@@ -206,7 +214,16 @@
           "</p>"
       );
     }
-    return out.join("<hr style=\"margin:8px 0;border:0;border-top:1px solid #ddd;\">");
+    var content = out.join("<hr style=\"margin:8px 0;border:0;border-top:1px solid #ddd;\">");
+    if (options.includeRaw) {
+      return (
+        "<p>" +
+        rawHtml +
+        "</p><hr style=\"margin:8px 0;border:0;border-top:1px solid #ddd;\">" +
+        content
+      );
+    }
+    return content;
   }
 
   function formatExplainedCellDisplay(data, map, cssClass, options) {
@@ -247,6 +264,15 @@
       window.unmetNeedsExplanations,
       "unmetNeeds-has-explanation",
       { prefixUnderscore: true }
+    );
+  };
+
+  window.formatWarningCellDisplay = function (data) {
+    return formatExplainedCellDisplay(
+      data,
+      window.warningExplanations,
+      "warning-has-explanation",
+      {}
     );
   };
 
@@ -309,6 +335,12 @@
     });
   }
 
+  function formatWarningPopupContent(rawHtml) {
+    return formatExplanationPopupContent(rawHtml, window.warningExplanations, {
+      includeRaw: true,
+    });
+  }
+
   function toggleChildRow(table, td, html) {
     var row = table.row($(td).closest("tr"));
     if (row.child.isShown()) {
@@ -327,7 +359,6 @@
 
     // error column: popup with explanation when name matches the sheet
     // (compatibilityNotMet is excluded — details are in unmetNeeds)
-    table.column(18).nodes().to$().css({ cursor: "pointer" });
     table.on("click", "td.errorC-control", function () {
       var data = table.row($(this).closest("tr")).data();
       if (!data) return;
@@ -382,11 +413,15 @@
       });
     }
 
-    // warning column: expand under row
-    table.column(19).nodes().to$().css({ cursor: "pointer" });
+    // warning column: same modal interaction as error — raw details plus
+    // Sheet explanations when available, raw details alone otherwise.
     table.on("click", "td.warnC-control", function () {
       var data = table.row($(this).closest("tr")).data();
-      toggleChildRow(table, this, "<p>" + data[19] + "</p>");
+      if (!data) return;
+      var raw = data[19];
+      var plain = cellTextToPlain(raw).replace(/\s+/g, " ").trim();
+      if (!plain) return;
+      showSummaryDetailModal("Warning", formatWarningPopupContent(raw));
     });
 
     // computer51Deg
