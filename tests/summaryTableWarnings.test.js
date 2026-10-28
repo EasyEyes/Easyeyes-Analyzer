@@ -19,16 +19,31 @@ function loadSummaryTable(jQuery) {
   return window;
 }
 
-function warningClickHarness(raw) {
+function warningClickHarness(raw, headers = {}) {
   const handlers = {};
+  const drawHandlers = {};
   const modal = { title: "", body: "", shown: false };
   const child = { html: "", shown: false };
+  const cells = Array.from({ length: 41 }, (_, column) => ({
+    __column: column,
+    classes: new Set(),
+  }));
   let modalExists = false;
   const rowData = [];
   rowData[18] = raw;
   rowData[19] = raw;
 
   function $(arg) {
+    if (arg && arg.__column !== undefined) {
+      return {
+        closest: () => ({}),
+        toggleClass: (name, state) => {
+          if (state) arg.classes.add(name);
+          else arg.classes.delete(name);
+        },
+      };
+    }
+    if (arg && arg.__header) return { text: () => arg.text };
     if (arg === "body") return { append: () => { modalExists = true; } };
     if (arg === "#summaryDetailModal") {
       return {
@@ -55,14 +70,35 @@ function warningClickHarness(raw) {
   });
   childApi.isShown = () => child.shown;
   const table = {
-    column: () => ({ nodes: () => ({ to$: () => ({ css: () => {} }) }) }),
-    columns: () => ({ every: () => {} }),
-    on: (_event, selector, fn) => { handlers[selector] = fn; },
+    column: (index) => ({
+      nodes: () => ({
+        to$: () => ({
+          css: () => {},
+          each: (fn) => { fn.call(cells[index], 0, cells[index]); },
+        }),
+      }),
+    }),
+    columns: () => ({
+      every: (fn) => {
+        for (const [index, text] of Object.entries(headers)) {
+          fn.call({
+            index: () => Number(index),
+            header: () => ({ __header: true, text }),
+          });
+        }
+      },
+    }),
+    on: (event, selector, fn) => {
+      if (typeof selector === "function") {
+        (drawHandlers[event] ||= []).push(selector);
+      } else handlers[selector] = fn;
+    },
     row: () => ({ data: () => rowData, child: childApi }),
+    cell: (td) => ({ index: () => ({ column: td.__column }) }),
   };
   const window = loadSummaryTable($);
   window.initSummaryTableCallbacks(table);
-  return { handlers, modal, child, window };
+  return { handlers, drawHandlers, modal, child, cells, rowData, window };
 }
 
 test("warning cells are underlined only when a Sheet explanation matches", () => {
@@ -181,15 +217,85 @@ test("R, DataTable, and CSS warning-explanation paths are wired", () => {
   assert.match(read("R/report/warning_explanations.R"), /load_warning_explanations/);
 });
 
-test("only nonempty Error and Warning cells use the pointer cursor", () => {
+test("detail cursor uses one shared class, never unconditional inline pointers", () => {
   const css = read("www/ui.css");
-  assert.match(css, /td\.errorC-control:not\(:empty\)/);
-  assert.match(css, /td\.warnC-control:not\(:empty\)/);
-  assert.match(css, /td\.errorC-control:empty,[\s\S]*?cursor:\s*default;/);
-  assert.match(css, /td\.warnC-control:empty[\s\S]*?cursor:\s*default;/);
+  assert.match(css, /\.summary-clickable[\s\S]*?cursor:\s*pointer;/);
   const js = read("www/summaryTable.js");
-  assert.doesNotMatch(js, /table\.column\(18\)\.nodes\(\)\.to\$\(\)\.css/);
-  assert.doesNotMatch(js, /table\.column\(19\)\.nodes\(\)\.to\$\(\)\.css/);
+  assert.doesNotMatch(js, /\.css\(\{ cursor: "pointer" \}\)/);
+});
+
+test("Warning cursor tracks actual detail across redraws, including whitespace", () => {
+  const h = warningClickHarness("tabHiddenAt:titlePage");
+  assert.equal(h.cells[19].classes.has("summary-clickable"), true);
+  h.rowData[19] = "   ";
+  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  assert.equal(h.cells[19].classes.has("summary-clickable"), false);
+  h.handlers["td.warnC-control"].call(h.cells[19]);
+  assert.equal(h.modal.shown, false);
+});
+
+for (const [index, selector, name] of [
+  [34, "td.computer51Deg", "computer51Deg"],
+  [35, "td.loudspeakerSurvey", "loudspeakerSurvey"],
+  [36, "td.microphoneSurvey", "microphoneSurvey"],
+  [40, "td.comment", "comment"],
+]) {
+  test(`${name} uses the shared detail guard for cursor and expansion`, () => {
+    const h = warningClickHarness("");
+    h.rowData[index] = "details";
+    for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+    assert.equal(h.cells[index].classes.has("summary-clickable"), true);
+    h.handlers[selector].call(h.cells[index]);
+    assert.equal(h.child.shown, true);
+    h.child.shown = false;
+    h.child.html = "";
+    h.rowData[index] = "  ";
+    for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+    assert.equal(h.cells[index].classes.has("summary-clickable"), false);
+    h.handlers[selector].call(h.cells[index]);
+    assert.equal(h.child.shown, false);
+  });
+}
+
+test("unmetNeeds and longTaskSec use content-aware cursor and click guards", () => {
+  const h = warningClickHarness("", { 17: "unmetNeeds", 20: "longTaskSec" });
+  h.rowData[17] = "_needMemoryGB";
+  h.rowData[20] = "1.2, 3.4";
+  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  assert.equal(h.cells[17].classes.has("summary-clickable"), true);
+  assert.equal(h.cells[20].classes.has("summary-clickable"), true);
+  h.handlers["tbody td"].call(h.cells[17]);
+  assert.equal(h.modal.title, "unmetNeeds");
+  h.modal.shown = false;
+  h.rowData[17] = "  ";
+  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  assert.equal(h.cells[17].classes.has("summary-clickable"), false);
+  h.handlers["tbody td"].call(h.cells[17]);
+  assert.equal(h.modal.shown, false);
+  h.handlers["tbody td"].call(h.cells[20]);
+  assert.equal(h.modal.title, "longTaskSec");
+});
+
+test("info columns point when any included field has detail, never when all are empty", () => {
+  const h = warningClickHarness("");
+  h.rowData[3] = "Prolific ID";
+  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  for (const index of [2, 3, 4])
+    assert.equal(h.cells[index].classes.has("summary-clickable"), true);
+  for (const index of [2, 3, 4]) h.rowData[index] = " ";
+  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  for (const index of [2, 3, 4])
+    assert.equal(h.cells[index].classes.has("summary-clickable"), false);
+  h.handlers["td.information-control1"].call(h.cells[2]);
+  assert.equal(h.child.shown, false);
+});
+
+test("compatibilityNotMet remains nonclickable in the Error column", () => {
+  const h = warningClickHarness("compatibilityNotMet");
+  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  assert.equal(h.cells[18].classes.has("summary-clickable"), false);
+  h.handlers["td.errorC-control"].call(h.cells[18]);
+  assert.equal(h.modal.shown, false);
 });
 
 test("checked-in Warning explanations bootstrap the app before Sheet creation", () => {

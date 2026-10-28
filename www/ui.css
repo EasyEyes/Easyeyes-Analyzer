@@ -128,16 +128,9 @@ div.datatable-wide {
 }
 
 /* Sessions summary: clickable cells and sheet explanations */
-td.errorC-control:not(:empty),
-td.warnC-control:not(:empty),
-td.errorC-control:not(:empty) span,
-td.warnC-control:not(:empty) span {
+.summary-clickable,
+.summary-clickable span {
   cursor: pointer;
-}
-
-td.errorC-control:empty,
-td.warnC-control:empty {
-  cursor: default;
 }
 
 td.errorC-control .error-has-explanation,

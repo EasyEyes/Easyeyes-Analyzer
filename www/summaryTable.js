@@ -118,6 +118,47 @@
       .replace(/<[^>]+>/g, " ");
   }
 
+  function summaryDetailText(raw) {
+    return cellTextToPlain(raw).replace(/\s+/g, " ").trim();
+  }
+
+  function hasSummaryDetail(raw) {
+    var plain = summaryDetailText(raw);
+    return plain !== "" && plain !== "null" && plain !== "undefined";
+  }
+
+  function hasErrorDetail(raw) {
+    var plain = summaryDetailText(raw);
+    return plain !== "" && plain !== "compatibilityNotMet";
+  }
+
+  function hasProlificInfoDetail(_raw, data) {
+    return [2, 3, 4].some(function (index) {
+      return hasSummaryDetail(data[index]);
+    });
+  }
+
+  // One content-aware cursor rule for every detail column. Recompute after
+  // each draw so new DataTables nodes and whitespace-only cells stay correct.
+  function watchSummaryDetailCursors(table, definitions) {
+    var update = function () {
+      for (var i = 0; i < definitions.length; i++) {
+        var definition = definitions[i];
+        if (definition.index < 0) continue;
+        table.column(definition.index).nodes().to$().each(function () {
+          var data = table.row($(this).closest("tr")).data() || [];
+          var raw = data[definition.index];
+          $(this).toggleClass(
+            "summary-clickable",
+            definition.predicate(raw, data)
+          );
+        });
+      }
+    };
+    update();
+    table.on("draw.dt", update);
+  }
+
   // Parameter Glossary `_s` keys lead with `_`. Ensure unmetNeeds tokens do too
   // before matching (e.g. needMemoryGB → _needMemoryGB).
   function withLeadingUnderscores(plain) {
@@ -363,13 +404,7 @@
       var data = table.row($(this).closest("tr")).data();
       if (!data) return;
       var raw = data[18];
-      var matches = findAllNameMatches(raw, window.errorExplanations, {
-        ignoreNames: ERROR_EXPLAIN_IGNORE,
-      });
-      if (!matches.length) {
-        var plain = cellTextToPlain(raw).replace(/\s+/g, " ").trim();
-        if (!plain || plain === "compatibilityNotMet") return;
-      }
+      if (!hasErrorDetail(raw)) return;
       showSummaryDetailModal("Error", formatErrorPopupContent(raw));
     });
 
@@ -381,12 +416,25 @@
       if (header === "unmetNeeds") unmetIdx = this.index();
       if (header === "longTaskSec") longTaskIdx = this.index();
     });
-    if (unmetIdx >= 0) {
-      table.column(unmetIdx).nodes().to$().css({ cursor: "pointer" });
-    }
-    if (longTaskIdx >= 0) {
-      table.column(longTaskIdx).nodes().to$().css({ cursor: "pointer" });
-    }
+    watchSummaryDetailCursors(table, [
+      { index: 18, predicate: hasErrorDetail },
+      { index: 19, predicate: hasSummaryDetail },
+      { index: unmetIdx, predicate: hasSummaryDetail },
+      {
+        index: longTaskIdx,
+        predicate: function (raw) {
+          return longTaskSecValues(raw).length > 0;
+        },
+      },
+      { index: 34, predicate: hasSummaryDetail },
+      { index: 35, predicate: hasSummaryDetail },
+      { index: 36, predicate: hasSummaryDetail },
+      { index: 40, predicate: hasSummaryDetail },
+      { index: 2, predicate: hasProlificInfoDetail },
+      { index: 3, predicate: hasProlificInfoDetail },
+      { index: 4, predicate: hasProlificInfoDetail },
+    ]);
+
     if (unmetIdx >= 0 || longTaskIdx >= 0) {
       table.on("click", "tbody td", function () {
         var cell = table.cell(this);
@@ -396,6 +444,7 @@
         var rowData = table.row($(this).closest("tr")).data();
         if (!rowData) return;
         if (info.column === unmetIdx) {
+          if (!hasSummaryDetail(rowData[unmetIdx])) return;
           showSummaryDetailModal(
             "unmetNeeds",
             formatUnmetNeedsPopupContent(rowData[unmetIdx])
@@ -419,56 +468,57 @@
       var data = table.row($(this).closest("tr")).data();
       if (!data) return;
       var raw = data[19];
-      var plain = cellTextToPlain(raw).replace(/\s+/g, " ").trim();
-      if (!plain) return;
+      if (!hasSummaryDetail(raw)) return;
       showSummaryDetailModal("Warning", formatWarningPopupContent(raw));
     });
 
     // computer51Deg
-    table.column(34).nodes().to$().css({ cursor: "pointer" });
     table.on("click", "td.computer51Deg", function () {
       var data = table.row($(this).closest("tr")).data();
+      if (!data || !hasSummaryDetail(data[34])) return;
       toggleChildRow(table, this, "<p>" + data[34] + "</p>");
     });
 
     // loudspeakerSurvey
-    table.column(35).nodes().to$().css({ cursor: "pointer" });
     table.on("click", "td.loudspeakerSurvey", function () {
       var data = table.row($(this).closest("tr")).data();
+      if (!data || !hasSummaryDetail(data[35])) return;
       toggleChildRow(table, this, "<p>" + data[35] + "</p>");
     });
 
     // microphoneSurvey
-    table.column(36).nodes().to$().css({ cursor: "pointer" });
     table.on("click", "td.microphoneSurvey", function () {
       var data = table.row($(this).closest("tr")).data();
+      if (!data || !hasSummaryDetail(data[36])) return;
       toggleChildRow(table, this, "<p>" + data[36] + "</p>");
     });
 
     // comment
-    table.column(40).nodes().to$().css({ cursor: "pointer" });
     table.on("click", "td.comment", function () {
       var data = table.row($(this).closest("tr")).data();
+      if (!data || !hasSummaryDetail(data[40])) return;
       toggleChildRow(table, this, "<p>" + data[40] + "</p>");
     });
 
-    // prolific / info columns
-    table.column(2).nodes().to$().css({ cursor: "pointer" });
-    table.column(3).nodes().to$().css({ cursor: "pointer" });
-    table.column(4).nodes().to$().css({ cursor: "pointer" });
-
+    // prolific / info columns: all three open the combined details, so each
+    // is clickable when any of those fields has content.
     var formatInfo = function (d) {
       return "<p>" + d[2] + "</p> <p>" + d[3] + "</p> <p>" + d[4] + "</p>";
     };
+    var showInfo = function (td) {
+      var data = table.row($(td).closest("tr")).data();
+      if (!data || !hasProlificInfoDetail(null, data)) return;
+      toggleChildRow(table, td, formatInfo(data));
+    };
 
     table.on("click", "td.information-control1", function () {
-      toggleChildRow(table, this, formatInfo(table.row($(this).closest("tr")).data()));
+      showInfo(this);
     });
     table.on("click", "td.information-control2", function () {
-      toggleChildRow(table, this, formatInfo(table.row($(this).closest("tr")).data()));
+      showInfo(this);
     });
     table.on("click", "td.information-control3", function () {
-      toggleChildRow(table, this, formatInfo(table.row($(this).closest("tr")).data()));
+      showInfo(this);
     });
 
     $('div.has-feedback input[type="search"]').attr("placeholder", "");
