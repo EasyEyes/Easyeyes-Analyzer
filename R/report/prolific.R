@@ -247,7 +247,7 @@ combineProlific <- function(prolificData, summary_table, pretest){
            'Phone QR connect'='QRConnect',
            'Prolific min' = 'prolificMin',
            'Prolific status' = 'ProlificStatus',
-           'heapLimitAfterDrawing' = 'heapLimitAfterDrawing (MB)',
+           'heapLimitMB' = 'heapLimitAfterDrawing (MB)',
            'Lateness ms' = 'tardyMs',
            'Duration ms' = 'excessMs')
   
@@ -276,7 +276,7 @@ combineProlific <- function(prolificData, summary_table, pretest){
              `Lateness ms`, `Duration ms`, KB, rows, cols, block,condition, trial, `condition name`,
              `target task`, `threshold parameter`, `target kind`, `Computer 51 deg`,
              Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
-             fontMaxPx, viewingDistanceCm, fontRenderMaxPx, heapLimitAfterDrawing, heapTotalAvgMB,
+             fontMaxPx, viewingDistanceCm, fontRenderMaxPx, heapLimitMB, heapTotalAvgMB,
              mustTrackSec, longTaskSec, goodTrials, badTrials, WebGLVersion,
              maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, snapshotsLink)
   return(t)

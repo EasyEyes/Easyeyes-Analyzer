@@ -76,6 +76,71 @@ normalize_unmet_needs_column <- function(df) {
   return(df)
 }
 
+# Newer Pavlovia CSVs rename heap columns (drop spaces / "(MB)", and collapse
+# pairs that are now a single value). Keep the old names as canonical for
+# Sessions, plots, and older archives.
+#
+#   heapLimitMB                  <- heapLimitBefore/AfterDrawing (MB)
+#   heapTotalAfterDrawingMB      <- heapTotalAfterDrawing (MB)
+#   heapTotalBeforeDrawingMB     <- heapTotalBeforeDrawing (MB)
+#   heapTotalDrawnConfirmedMB    <- heapTotalPre/PostLateness (MB)
+#   heapUsedBeforeDrawingMB      <- heapUsedBeforeDrawing (MB)
+#   heapUsedAfterDrawingMB       <- heapUsedAfterDrawing (MB)
+normalize_heap_column_names <- function(df) {
+  if (is.null(df) || !is.data.frame(df) || ncol(df) == 0) return(df)
+
+  aliases <- list(
+    heapLimitMB = c(
+      "heapLimitAfterDrawing (MB)",
+      "heapLimitBeforeDrawing (MB)"
+    ),
+    heapTotalAfterDrawingMB = c("heapTotalAfterDrawing (MB)"),
+    heapTotalBeforeDrawingMB = c("heapTotalBeforeDrawing (MB)"),
+    heapTotalDrawnConfirmedMB = c(
+      "heapTotalPostLateness (MB)",
+      "heapTotalPreLateness (MB)"
+    ),
+    heapUsedBeforeDrawingMB = c("heapUsedBeforeDrawing (MB)"),
+    heapUsedAfterDrawingMB = c("heapUsedAfterDrawing (MB)")
+  )
+
+  as_heap_numeric <- function(x) {
+    if (is.null(x)) return(rep(NA_real_, nrow(df)))
+    if (is.list(x) && !is.data.frame(x)) {
+      x <- unlist(x, use.names = FALSE)
+    }
+    out <- suppressWarnings(as.numeric(x))
+    if (length(out) == 1L && nrow(df) > 1L) {
+      out <- rep(out, nrow(df))
+    }
+    if (length(out) < nrow(df)) {
+      out <- c(out, rep(NA_real_, nrow(df) - length(out)))
+    }
+    if (length(out) > nrow(df)) {
+      out <- out[seq_len(nrow(df))]
+    }
+    out
+  }
+
+  for (new_name in names(aliases)) {
+    if (!new_name %in% names(df)) next
+    new_num <- as_heap_numeric(df[[new_name]])
+    for (old_name in aliases[[new_name]]) {
+      if (!old_name %in% names(df)) {
+        df[[old_name]] <- new_num
+      } else {
+        old_num <- as_heap_numeric(df[[old_name]])
+        empty_old <- is.na(old_num) | !is.finite(old_num)
+        fill <- !is.na(new_num) & is.finite(new_num)
+        old_num[empty_old & fill] <- new_num[empty_old & fill]
+        df[[old_name]] <- old_num
+      }
+    }
+  }
+
+  df
+}
+
 impute_column <- function(df, colname, preceding_value) {
   col <- df[[colname]]
   
@@ -572,6 +637,7 @@ ensure_columns <- function(t, file_name = NULL) {
   # Normalize Distance column names to TrackDistance for compatibility
   t <- normalize_distance_column_names(t)
   t <- normalize_unmet_needs_column(t)
+  t <- normalize_heap_column_names(t)
 
   name_parts <- if (!is.null(file_name)) {
     str_split(file_name, "[_]")[[1]]
