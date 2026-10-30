@@ -98,6 +98,9 @@ collect_camera_attempt <- function(df) {
 }
 
 summarize_camera_attempts <- function(chunks) {
+  if (is.null(chunks)) {
+    chunks <- list()
+  }
   attempts <- bind_rows_or_empty(chunks)
   if (nrow(attempts) == 0) {
     attempts <- tibble(
@@ -767,6 +770,7 @@ collect_summary_table_inputs <- function(data_list) {
     font = font_chunks,
     params = params_chunks,
     longTaskSec = long_task_chunks,
+    cameraAttempt = camera_attempt_chunks,
     comments = comment_chunks,
     all_files = all_files_chunks,
     logFont = logfont_chunks,
@@ -1085,8 +1089,7 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
       Loudspeaker,
       Microphone,
       comment,
-      snapshotsLink,
-      cameraAttempt
+      snapshotsLink
     )
 
   #### order block_condition by splitting and order block and condition order ####
@@ -1132,6 +1135,9 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
 
   if (!"longTaskSec" %in% names(summary_df)) {
     summary_df$longTaskSec <- ""
+  }
+  if (!"cameraAttempt" %in% names(summary_df)) {
+    summary_df$cameraAttempt <- ""
   }
 
   final_summary_table <- combineProlific(prolific, summary_df, pretest)

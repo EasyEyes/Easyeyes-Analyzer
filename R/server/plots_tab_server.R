@@ -433,6 +433,21 @@ register_plots_tab_server <- function(output,
         fileNames <- res$fileNames
       }
     }
+
+    # Persian RSVP training sessions 1–6 (participant colors; do not force colorPalette).
+    rsvp_training_plot <- plot_rsvp_training_sessions(
+      files()$data_list,
+      files()$summary_list,
+      pretest = files()$pretest
+    )
+    if (!is.null(rsvp_training_plot)) {
+      rsvp_training_plot <- add_experiment_title(rsvp_training_plot, experiment_names())
+      res <- append_plot_list(
+        l, fileNames, rsvp_training_plot, "rsvp-training-sessions"
+      )
+      l <- res$plotList
+      fileNames <- res$fileNames
+    }
     
     # Shared prep for by-font / native-legend / full-row scatters (once per list build).
     # Remember fonts/ paths only for ee_* plots; systemfonts registration stays

@@ -30,6 +30,7 @@ source("R/plot/distancePlot.R")
 source("R/plot/minDegPlot.R")
 source("R/plot/violin_plot.R")
 source("R/plot/font_comparision_plots.R")
+source("R/plot/persian_training_plots.R")
 source("R/plot/auditory_crowding.R")
 source("R/plot/language_plots.R")
 

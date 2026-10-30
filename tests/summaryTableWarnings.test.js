@@ -430,6 +430,8 @@ test("R camera aggregation takes the latest snapshot and appends one column", ()
   assert.match(src, /camera_attempt_chunks/);
   assert.match(src, /last_nonempty_string\(cameraAttemptJSON\)/);
   assert.match(src, /left_join\(cameraAttempt/);
-  assert.match(src, /snapshotsLink,\s*cameraAttempt/);
+  // Joined after the early Sessions distinct() — must not be required there
+  // (older CSVs have no cameraAttempt column yet).
+  assert.match(src, /cameraAttempt = ifelse\(is\.na\(cameraAttempt\)/);
   assert.match(read("R/report/prolific.R"), /snapshotsLink,\s*cameraAttempt/);
 });
