@@ -278,7 +278,7 @@ combineProlific <- function(prolificData, summary_table, pretest){
              Loudspeaker, Microphone, Age, Sex, Nationality, comment, fontSizePx, fixationXYPx,
              fontMaxPx, viewingDistanceCm, fontRenderMaxPx, heapLimitMB, heapTotalAvgMB,
              mustTrackSec, longTaskSec, goodTrials, badTrials, WebGLVersion,
-             maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, snapshotsLink)
+             maxTextureSize, maxViewportSize, WebGLUnmaskedRenderer, snapshotsLink, cameraAttempt)
   return(t)
 }
 

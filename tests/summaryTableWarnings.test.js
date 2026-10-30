@@ -24,7 +24,7 @@ function warningClickHarness(raw, headers = {}) {
   const drawHandlers = {};
   const modal = { title: "", body: "", shown: false };
   const child = { html: "", shown: false };
-  const cells = Array.from({ length: 41 }, (_, column) => ({
+  const cells = Array.from({ length: 42 }, (_, column) => ({
     __column: column,
     classes: new Set(),
   }));
@@ -44,18 +44,33 @@ function warningClickHarness(raw, headers = {}) {
       };
     }
     if (arg && arg.__header) return { text: () => arg.text };
-    if (arg === "body") return { append: () => { modalExists = true; } };
+    if (arg === "body")
+      return {
+        append: () => {
+          modalExists = true;
+        },
+      };
     if (arg === "#summaryDetailModal") {
       return {
         length: modalExists ? 1 : 0,
-        modal: () => { modal.shown = true; },
+        modal: () => {
+          modal.shown = true;
+        },
       };
     }
     if (arg === "#summaryDetailModalTitle") {
-      return { text: (value) => { modal.title = value; } };
+      return {
+        text: (value) => {
+          modal.title = value;
+        },
+      };
     }
     if (arg === "#summaryDetailModalBody") {
-      return { html: (value) => { modal.body = value; } };
+      return {
+        html: (value) => {
+          modal.body = value;
+        },
+      };
     }
     return {
       on: () => {},
@@ -65,8 +80,13 @@ function warningClickHarness(raw, headers = {}) {
     };
   }
   const childApi = (html) => ({
-    show: () => { child.html = html; child.shown = true; },
-    hide: () => { child.shown = false; },
+    show: () => {
+      child.html = html;
+      child.shown = true;
+    },
+    hide: () => {
+      child.shown = false;
+    },
   });
   childApi.isShown = () => child.shown;
   const table = {
@@ -74,7 +94,9 @@ function warningClickHarness(raw, headers = {}) {
       nodes: () => ({
         to$: () => ({
           css: () => {},
-          each: (fn) => { fn.call(cells[index], 0, cells[index]); },
+          each: (fn) => {
+            fn.call(cells[index], 0, cells[index]);
+          },
         }),
       }),
     }),
@@ -157,8 +179,10 @@ test("recalibration explanation does not claim unrelated Block warnings", () => 
     let value = "";
     for (let i = 1; i < line.length; i++) {
       if (line[i] !== '"') value += line[i];
-      else if (line[i + 1] === '"') { value += '"'; i++; }
-      else break;
+      else if (line[i + 1] === '"') {
+        value += '"';
+        i++;
+      } else break;
     }
     return value;
   };
@@ -172,7 +196,9 @@ test("recalibration explanation does not claim unrelated Block warnings", () => 
     names.map((name) => [name, "explanation"]),
   );
   assert.doesNotMatch(
-    window.formatWarningCellDisplay("Block 2 was skipped for an unrelated reason"),
+    window.formatWarningCellDisplay(
+      "Block 2 was skipped for an unrelated reason",
+    ),
     /warning-has-explanation/,
   );
   assert.match(
@@ -206,7 +232,10 @@ test("Warning popup delegates raw-plus-explanation formatting in one scan", () =
 
 test("Shiny can refresh the Warning explanation map", () => {
   const src = read("www/summaryTable.js");
-  assert.match(src, /Shiny\.addCustomMessageHandler\("setWarningExplanations"/);
+  assert.match(
+    src,
+    /Shiny\.addCustomMessageHandler\(\s*"setWarningExplanations"/,
+  );
 });
 
 test("R, DataTable, and CSS warning-explanation paths are wired", () => {
@@ -214,7 +243,10 @@ test("R, DataTable, and CSS warning-explanation paths are wired", () => {
   assert.match(read("ui.R"), /warning_explanations_json\(\)/);
   assert.match(read("R/report/summary_table.R"), /formatWarningCellDisplay/);
   assert.match(read("www/ui.css"), /warning-has-explanation/);
-  assert.match(read("R/report/warning_explanations.R"), /load_warning_explanations/);
+  assert.match(
+    read("R/report/warning_explanations.R"),
+    /load_warning_explanations/,
+  );
 });
 
 test("detail cursor uses one shared class, never unconditional inline pointers", () => {
@@ -303,4 +335,101 @@ test("checked-in Warning explanations bootstrap the app before Sheet creation", 
   assert.match(csv, /^name,explanation\r?\n/);
   assert.match(csv, /tabHiddenAt:/);
   assert.match(csv, /quitPsychoJS re-entry after termination ignored;/);
+});
+
+test("Camera cell summarizes pending, policy exclusion, and successful selection", () => {
+  const window = loadSummaryTable();
+  const pending = window.formatCameraAttemptCellDisplay(
+    JSON.stringify({ phase: "permission", outcome: null }),
+  );
+  assert.match(pending, /pending: permission/);
+  assert.match(pending, /cameraAttempt-has-detail/);
+
+  const external = window.formatCameraAttemptCellDisplay(
+    JSON.stringify({
+      phase: "completed",
+      outcome: { type: "unavailable", reason: "external-only" },
+    }),
+  );
+  assert.match(external, /external-only/);
+
+  const selected = window.formatCameraAttemptCellDisplay(
+    JSON.stringify({
+      phase: "completed",
+      selectedCamera: { name: "HP True Vision", class: "built-in" },
+      outcome: { type: "selected", reason: null },
+    }),
+  );
+  assert.match(selected, /selected: HP True Vision/);
+  assert.equal(window.formatCameraAttemptCellDisplay(""), "");
+  assert.doesNotThrow(() =>
+    window.formatCameraAttemptCellDisplay("not valid JSON"),
+  );
+  assert.doesNotMatch(
+    window.formatCameraAttemptCellDisplay('<img src=x onerror="alert(1)">'),
+    /<img/,
+  );
+});
+
+test("Camera modal shows readable details, retry history, and escaped labels", () => {
+  const h = warningClickHarness("", { 41: "cameraAttempt" });
+  h.rowData[41] = JSON.stringify({
+    phase: "completed",
+    permission: "granted",
+    cameras: [
+      {
+        name: "Logitech <img src=x onerror=alert(1)>",
+        class: "external",
+      },
+    ],
+    eligibleCameras: [],
+    selectedCamera: null,
+    unavailableReason: "external-only",
+    outcome: { type: "unavailable", reason: "external-only" },
+    previousOutcomes: [{ type: "failed", reason: "permission-denied" }],
+    timings: { cameraFindSec: 4.2 },
+    events: [{ at: "2026-10-08T00:00:00Z", type: "camera-unavailable" }],
+  });
+  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  assert.equal(h.cells[41].classes.has("summary-clickable"), true);
+  h.handlers["tbody td"].call(h.cells[41]);
+  assert.equal(h.modal.title, "Camera attempt");
+  assert.equal(h.modal.shown, true);
+  assert.match(h.modal.body, /external-only/);
+  assert.match(h.modal.body, /permission-denied/);
+  assert.match(h.modal.body, /cameraFindSec/);
+  assert.match(h.modal.body, /Raw JSON/);
+  assert.doesNotMatch(h.modal.body, /<img src=x/);
+  assert.match(h.modal.body, /Logitech &lt;img/);
+});
+
+test("Camera cell is inert for old archives and missing details", () => {
+  const h = warningClickHarness("", { 41: "cameraAttempt" });
+  h.rowData[41] = "  ";
+  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  assert.equal(h.cells[41].classes.has("summary-clickable"), false);
+  h.handlers["tbody td"].call(h.cells[41]);
+  assert.equal(h.modal.shown, false);
+});
+
+test("versioned RC fixture renders as a pending Camera attempt", () => {
+  const window = loadSummaryTable();
+  const csv = read("../remote-calibrator/test/fixtures/camera-attempt-v1.csv");
+  const json = csv.match(/"(\{.*\})"\s*$/)?.[1].replaceAll('""', '"');
+  const attempt = JSON.parse(json);
+  const display = window.formatCameraAttemptCellDisplay(
+    JSON.stringify(attempt),
+  );
+  assert.match(display, /pending: permission/);
+  assert.equal(attempt.version, 1);
+  assert.equal(attempt.cameras[0].name, "HP True Vision FHD Camera");
+});
+
+test("R camera aggregation takes the latest snapshot and appends one column", () => {
+  const src = read("R/report/summary_table.R");
+  assert.match(src, /camera_attempt_chunks/);
+  assert.match(src, /last_nonempty_string\(cameraAttemptJSON\)/);
+  assert.match(src, /left_join\(cameraAttempt/);
+  assert.match(src, /snapshotsLink,\s*cameraAttempt/);
+  assert.match(read("R/report/prolific.R"), /snapshotsLink,\s*cameraAttempt/);
 });

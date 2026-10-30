@@ -75,6 +75,47 @@ first_nonempty_string <- function(values) {
   ""
 }
 
+last_nonempty_string <- function(values) {
+  values <- values[!is.na(values) & values != ""]
+  if (length(values) > 0) {
+    return(values[[length(values)]])
+  }
+  ""
+}
+
+collect_camera_attempt <- function(df) {
+  if (!"cameraAttemptJSON" %in% names(df)) {
+    return(NULL)
+  }
+  attempt <- df %>%
+    select(participant, date, cameraAttemptJSON) %>%
+    filter(!is.na(cameraAttemptJSON) & cameraAttemptJSON != "") %>%
+    tail(1)
+  if (nrow(attempt) == 0) {
+    return(NULL)
+  }
+  attempt
+}
+
+summarize_camera_attempts <- function(chunks) {
+  attempts <- bind_rows_or_empty(chunks)
+  if (nrow(attempts) == 0) {
+    attempts <- tibble(
+      participant = character(),
+      date = character(),
+      cameraAttemptJSON = character()
+    )
+  } else {
+    attempts <- attempts %>%
+      group_by(participant, date) %>%
+      summarize(
+        cameraAttemptJSON = last_nonempty_string(cameraAttemptJSON),
+        .groups = "drop"
+      )
+  }
+  attempts %>% rename(cameraAttempt = cameraAttemptJSON)
+}
+
 normalize_block_condition_col <- function(df) {
   if (!"block_condition" %in% names(df)) {
     df$block_condition <- ""
@@ -426,6 +467,7 @@ collect_summary_table_inputs <- function(data_list) {
   font_chunks <- list()
   params_chunks <- list()
   long_task_chunks <- list()
+  camera_attempt_chunks <- list()
   comment_chunks <- list()
   all_files_chunks <- list()
   logfont_chunks <- list()
@@ -441,6 +483,7 @@ collect_summary_table_inputs <- function(data_list) {
       font = font_chunks,
       params = params_chunks,
       longTaskSec = long_task_chunks,
+      cameraAttempt = camera_attempt_chunks,
       comments = comment_chunks,
       all_files = all_files_chunks,
       logFont = logfont_chunks,
@@ -497,6 +540,12 @@ collect_summary_table_inputs <- function(data_list) {
 
     # --- longTaskSec (Sessions): longTaskSecs (new) or longTask (old) ---
     long_task_chunks[[length(long_task_chunks) + 1]] <- session_long_task_sec(df)
+
+    # --- cameraAttempt (latest snapshot only; older CSVs have no column) ---
+    camera_attempt <- collect_camera_attempt(df)
+    if (!is.null(camera_attempt)) {
+      camera_attempt_chunks[[length(camera_attempt_chunks) + 1]] <- camera_attempt
+    }
 
     # --- COMMENT (Sessions) + OBJCT (Distance) ---
     if ("questionAndAnswerNickname" %in% names(df)) {
@@ -904,6 +953,9 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     ) %>%
     rename("Pavlovia session ID" = "participant")
 
+  cameraAttempt <- summarize_camera_attempts(chunks$cameraAttempt) %>%
+    rename("Pavlovia session ID" = "participant")
+
   webGL <- finalize_webgl_chunks(chunks$webGL) %>%
     rename("Pavlovia session ID" = "participant")
 
@@ -1033,7 +1085,8 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
       Loudspeaker,
       Microphone,
       comment,
-      snapshotsLink
+      snapshotsLink,
+      cameraAttempt
     )
 
   #### order block_condition by splitting and order block and condition order ####
@@ -1059,9 +1112,11 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
     mutate(deviceMemoryGB_preserved = deviceMemoryGB) %>%
     left_join(params, by = c("Pavlovia session ID", "date")) %>%
     left_join(longTaskSec, by = c("Pavlovia session ID", "date")) %>%
+    left_join(cameraAttempt, by = c("Pavlovia session ID", "date")) %>%
     mutate(
       deviceMemoryGB = deviceMemoryGB_preserved,
-      longTaskSec = ifelse(is.na(longTaskSec), "", longTaskSec)
+      longTaskSec = ifelse(is.na(longTaskSec), "", longTaskSec),
+      cameraAttempt = ifelse(is.na(cameraAttempt), "", cameraAttempt)
     ) %>%
     select(-deviceMemoryGB_preserved) %>%
     rename("GB" = "deviceMemoryGB") %>%
@@ -1119,6 +1174,7 @@ render_summary_datatable <- function(dt, prolific_id) {
   prolific_col <- which(names(dt) == "Prolific participant ID")
   unmet_col <- which(names(dt) == "unmetNeeds")
   long_task_col <- which(names(dt) == "longTaskSec")
+  camera_attempt_col <- which(names(dt) == "cameraAttempt")
   
   column_defs <- list(
         list(visible = FALSE, targets = c(0, width_col, hide_hist_cols)),
@@ -1181,6 +1237,24 @@ render_summary_datatable <- function(dt, prolific_id) {
           "function(data, type, row, meta) {",
           "  if (type !== 'display') return data;",
           "  if (window.formatLongTaskSecCellDisplay) return window.formatLongTaskSecCellDisplay(data);",
+          "  return data && data.length > 30 ? data.substr(0, 30) + '...' : data;",
+          "}"
+        )
+      ))
+    )
+  }
+
+  if (length(camera_attempt_col) == 1) {
+    column_defs <- c(
+      column_defs,
+      list(list(
+        targets = camera_attempt_col,
+        width = '100px',
+        className = 'cameraAttempt-control',
+        render = JS(
+          "function(data, type, row, meta) {",
+          "  if (type !== 'display') return data;",
+          "  if (window.formatCameraAttemptCellDisplay) return window.formatCameraAttemptCellDisplay(data);",
           "  return data && data.length > 30 ? data.substr(0, 30) + '...' : data;",
           "}"
         )

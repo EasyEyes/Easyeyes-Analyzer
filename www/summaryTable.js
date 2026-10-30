@@ -40,9 +40,18 @@
   function registerExplanationHandlers() {
     if (!(window.Shiny && Shiny.addCustomMessageHandler)) return;
     if (!explanationHandlersRegistered) {
-      Shiny.addCustomMessageHandler("setErrorExplanations", setErrorExplanations);
-      Shiny.addCustomMessageHandler("setUnmetNeedsExplanations", setUnmetNeedsExplanations);
-      Shiny.addCustomMessageHandler("setWarningExplanations", setWarningExplanations);
+      Shiny.addCustomMessageHandler(
+        "setErrorExplanations",
+        setErrorExplanations,
+      );
+      Shiny.addCustomMessageHandler(
+        "setUnmetNeedsExplanations",
+        setUnmetNeedsExplanations,
+      );
+      Shiny.addCustomMessageHandler(
+        "setWarningExplanations",
+        setWarningExplanations,
+      );
       explanationHandlersRegistered = true;
     }
     if (Shiny.setInputValue) {
@@ -90,7 +99,7 @@
           "</div>" +
           "</div>" +
           "</div>" +
-          "</div>"
+          "</div>",
       );
       $modal = $("#summaryDetailModal");
     }
@@ -145,14 +154,18 @@
       for (var i = 0; i < definitions.length; i++) {
         var definition = definitions[i];
         if (definition.index < 0) continue;
-        table.column(definition.index).nodes().to$().each(function () {
-          var data = table.row($(this).closest("tr")).data() || [];
-          var raw = data[definition.index];
-          $(this).toggleClass(
-            "summary-clickable",
-            definition.predicate(raw, data)
-          );
-        });
+        table
+          .column(definition.index)
+          .nodes()
+          .to$()
+          .each(function () {
+            var data = table.row($(this).closest("tr")).data() || [];
+            var raw = data[definition.index];
+            $(this).toggleClass(
+              "summary-clickable",
+              definition.predicate(raw, data),
+            );
+          });
       }
     };
     update();
@@ -166,7 +179,7 @@
       /(^|[\s,;]+)(_*)([A-Za-z][\w]*)/g,
       function (_m, sep, _us, name) {
         return sep + "_" + name;
-      }
+      },
     );
   }
 
@@ -218,7 +231,12 @@
           from = idx + 1;
           continue;
         }
-        matched.push({ name: name, explanation: map[name], start: idx, end: end });
+        matched.push({
+          name: name,
+          explanation: map[name],
+          start: idx,
+          end: end,
+        });
         used.push([idx, end]);
         from = end;
       }
@@ -252,15 +270,17 @@
           escapeHtml(m.name) +
           "</strong><br>" +
           escapeHtml(m.explanation) +
-          "</p>"
+          "</p>",
       );
     }
-    var content = out.join("<hr style=\"margin:8px 0;border:0;border-top:1px solid #ddd;\">");
+    var content = out.join(
+      '<hr style="margin:8px 0;border:0;border-top:1px solid #ddd;">',
+    );
     if (options.includeRaw) {
       return (
         "<p>" +
         rawHtml +
-        "</p><hr style=\"margin:8px 0;border:0;border-top:1px solid #ddd;\">" +
+        '</p><hr style="margin:8px 0;border:0;border-top:1px solid #ddd;">' +
         content
       );
     }
@@ -268,7 +288,12 @@
   }
 
   function formatExplainedCellDisplay(data, map, cssClass, options) {
-    if (data == null || data === "" || data === "null" || data === "undefined") {
+    if (
+      data == null ||
+      data === "" ||
+      data === "null" ||
+      data === "undefined"
+    ) {
       return data;
     }
     var display = String(data);
@@ -295,7 +320,7 @@
       data,
       window.errorExplanations,
       "error-has-explanation",
-      { ignoreNames: ERROR_EXPLAIN_IGNORE }
+      { ignoreNames: ERROR_EXPLAIN_IGNORE },
     );
   };
 
@@ -304,7 +329,7 @@
       data,
       window.unmetNeedsExplanations,
       "unmetNeeds-has-explanation",
-      { prefixUnderscore: true }
+      { prefixUnderscore: true },
     );
   };
 
@@ -313,9 +338,193 @@
       data,
       window.warningExplanations,
       "warning-has-explanation",
-      {}
+      {},
     );
   };
+
+  function parseCameraAttempt(raw) {
+    if (raw == null || raw === "") return null;
+    if (typeof raw === "object" && !Array.isArray(raw)) return raw;
+    try {
+      var parsed = JSON.parse(String(raw));
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed
+        : null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function hasCameraAttemptDetail(raw) {
+    return parseCameraAttempt(raw) !== null;
+  }
+
+  function cameraAttemptOutcomeText(attempt) {
+    var outcome = attempt.outcome;
+    if (outcome && outcome.reason) return String(outcome.reason);
+    if (outcome && outcome.type === "selected") {
+      return "selected: " + (attempt.selectedCamera?.name || "camera");
+    }
+    if (outcome && outcome.type) return String(outcome.type);
+    return "pending: " + (attempt.phase || "unknown");
+  }
+
+  window.formatCameraAttemptCellDisplay = function (data) {
+    var attempt = parseCameraAttempt(data);
+    if (!attempt) {
+      var plain = summaryDetailText(data);
+      return plain.length > 30
+        ? escapeHtml(plain.substr(0, 30)) + "..."
+        : escapeHtml(plain);
+    }
+    return (
+      '<span class="cameraAttempt-has-detail" style="text-decoration:underline;text-underline-offset:2px">' +
+      escapeHtml(cameraAttemptOutcomeText(attempt)) +
+      "</span>"
+    );
+  };
+
+  function cameraAttemptDetailRow(label, value) {
+    if (value == null || value === "") return "";
+    return (
+      "<tr><th style='text-align:left;vertical-align:top;padding:3px 12px 3px 0'>" +
+      escapeHtml(label) +
+      "</th><td style='padding:3px 0'>" +
+      escapeHtml(value) +
+      "</td></tr>"
+    );
+  }
+
+  function cameraAttemptErrorText(error) {
+    if (!error) return "";
+    if (typeof error === "string") return error;
+    var parts = [];
+    if (error.name) parts.push(error.name);
+    if (error.message && error.message !== error.name)
+      parts.push(error.message);
+    if (error.reason) parts.push("reason=" + error.reason);
+    if (error.cause) {
+      parts.push(
+        "cause=" + (error.cause.name || "") + " " + (error.cause.message || ""),
+      );
+    }
+    return parts.join("; ");
+  }
+
+  function cameraAttemptCameraList(title, cameras) {
+    if (!Array.isArray(cameras) || cameras.length === 0) return "";
+    var items = cameras
+      .map(function (camera) {
+        var name = camera.name || "Camera";
+        var classification = camera.class ? " (" + camera.class + ")" : "";
+        return "<li>" + escapeHtml(name + classification) + "</li>";
+      })
+      .join("");
+    return (
+      "<p><strong>" + escapeHtml(title) + "</strong></p><ul>" + items + "</ul>"
+    );
+  }
+
+  function formatCameraAttemptPopupContent(raw) {
+    var attempt = parseCameraAttempt(raw);
+    if (!attempt) return "<em>No camera attempt details</em>";
+    var rows = [];
+    rows.push(
+      cameraAttemptDetailRow("Outcome", cameraAttemptOutcomeText(attempt)),
+    );
+    rows.push(cameraAttemptDetailRow("Last phase", attempt.phase));
+    rows.push(cameraAttemptDetailRow("Permission", attempt.permission));
+    rows.push(
+      cameraAttemptDetailRow(
+        "Detected cameras",
+        Array.isArray(attempt.cameras) ? attempt.cameras.length : 0,
+      ),
+    );
+    rows.push(
+      cameraAttemptDetailRow(
+        "Eligible cameras",
+        Array.isArray(attempt.eligibleCameras)
+          ? attempt.eligibleCameras.length
+          : 0,
+      ),
+    );
+    rows.push(
+      cameraAttemptDetailRow("Selected camera", attempt.selectedCamera?.name),
+    );
+    rows.push(
+      cameraAttemptDetailRow("Unavailable reason", attempt.unavailableReason),
+    );
+    rows.push(
+      cameraAttemptDetailRow(
+        "Startup error",
+        cameraAttemptErrorText(attempt.startupError),
+      ),
+    );
+    rows.push(
+      cameraAttemptDetailRow(
+        "Enumeration error",
+        cameraAttemptErrorText(attempt.enumerationError),
+      ),
+    );
+    rows.push(cameraAttemptDetailRow("Last progress", attempt.lastProgressAt));
+    if (attempt.timings && typeof attempt.timings === "object") {
+      for (var key of Object.keys(attempt.timings)) {
+        if (attempt.timings[key] != null) {
+          rows.push(
+            cameraAttemptDetailRow("Timing: " + key, attempt.timings[key]),
+          );
+        }
+      }
+    }
+    if (
+      Array.isArray(attempt.previousOutcomes) &&
+      attempt.previousOutcomes.length
+    ) {
+      rows.push(
+        cameraAttemptDetailRow(
+          "Previous outcomes",
+          attempt.previousOutcomes
+            .map(function (outcome) {
+              return (
+                outcome.type + (outcome.reason ? ": " + outcome.reason : "")
+              );
+            })
+            .join("; "),
+        ),
+      );
+    }
+    var events = "";
+    if (Array.isArray(attempt.events) && attempt.events.length) {
+      events =
+        "<p><strong>Events</strong></p><ul>" +
+        attempt.events
+          .map(function (event) {
+            return (
+              "<li>" +
+              escapeHtml(
+                (event.at || "") +
+                  " — " +
+                  (event.type || "event") +
+                  (event.reason ? " — " + event.reason : ""),
+              ) +
+              "</li>"
+            );
+          })
+          .join("") +
+        "</ul>";
+    }
+    return (
+      "<table style='width:100%;border-collapse:collapse'><tbody>" +
+      rows.join("") +
+      "</tbody></table>" +
+      cameraAttemptCameraList("Detected cameras", attempt.cameras) +
+      cameraAttemptCameraList("Eligible cameras", attempt.eligibleCameras) +
+      events +
+      "<details style='margin-top:12px'><summary>Raw JSON</summary><pre style='white-space:pre-wrap;word-break:break-word'>" +
+      escapeHtml(JSON.stringify(attempt, null, 2)) +
+      "</pre></details>"
+    );
+  }
 
   function longTaskSecValues(raw) {
     var plain = cellTextToPlain(raw).replace(/\s+/g, " ").trim();
@@ -371,9 +580,13 @@
   }
 
   function formatUnmetNeedsPopupContent(rawHtml) {
-    return formatExplanationPopupContent(rawHtml, window.unmetNeedsExplanations, {
-      prefixUnderscore: true,
-    });
+    return formatExplanationPopupContent(
+      rawHtml,
+      window.unmetNeedsExplanations,
+      {
+        prefixUnderscore: true,
+      },
+    );
   }
 
   function formatWarningPopupContent(rawHtml) {
@@ -411,10 +624,12 @@
     // unmetNeeds / longTaskSec: look up by header (indexes shift when columns change)
     var unmetIdx = -1;
     var longTaskIdx = -1;
+    var cameraAttemptIdx = -1;
     table.columns().every(function () {
       var header = $(this.header()).text().trim();
       if (header === "unmetNeeds") unmetIdx = this.index();
       if (header === "longTaskSec") longTaskIdx = this.index();
+      if (header === "cameraAttempt") cameraAttemptIdx = this.index();
     });
     watchSummaryDetailCursors(table, [
       { index: 18, predicate: hasErrorDetail },
@@ -426,6 +641,7 @@
           return longTaskSecValues(raw).length > 0;
         },
       },
+      { index: cameraAttemptIdx, predicate: hasCameraAttemptDetail },
       { index: 34, predicate: hasSummaryDetail },
       { index: 35, predicate: hasSummaryDetail },
       { index: 36, predicate: hasSummaryDetail },
@@ -435,7 +651,7 @@
       { index: 4, predicate: hasProlificInfoDetail },
     ]);
 
-    if (unmetIdx >= 0 || longTaskIdx >= 0) {
+    if (unmetIdx >= 0 || longTaskIdx >= 0 || cameraAttemptIdx >= 0) {
       table.on("click", "tbody td", function () {
         var cell = table.cell(this);
         if (!cell || !cell.index) return;
@@ -443,11 +659,19 @@
         if (!info) return;
         var rowData = table.row($(this).closest("tr")).data();
         if (!rowData) return;
+        if (info.column === cameraAttemptIdx) {
+          if (!hasCameraAttemptDetail(rowData[cameraAttemptIdx])) return;
+          showSummaryDetailModal(
+            "Camera attempt",
+            formatCameraAttemptPopupContent(rowData[cameraAttemptIdx]),
+          );
+          return;
+        }
         if (info.column === unmetIdx) {
           if (!hasSummaryDetail(rowData[unmetIdx])) return;
           showSummaryDetailModal(
             "unmetNeeds",
-            formatUnmetNeedsPopupContent(rowData[unmetIdx])
+            formatUnmetNeedsPopupContent(rowData[unmetIdx]),
           );
           return;
         }
@@ -456,7 +680,7 @@
           if (!longTaskSecValues(raw).length) return;
           showSummaryDetailModal(
             "longTaskSec",
-            formatLongTaskSecPopupContent(raw)
+            formatLongTaskSecPopupContent(raw),
           );
         }
       });
