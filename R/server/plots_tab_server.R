@@ -434,8 +434,9 @@ register_plots_tab_server <- function(output,
       }
     }
 
-    # Persian RSVP: pre-training vs post-training (shared participant colors).
-    # Pre = before First Training Session; post = that day and after.
+    # Persian RSVP: pre / during / post training (shared participant colors).
+    # Pre = before First Training Session; training = start..end inclusive;
+    # post = after Last Training Session.
     rsvp_pre_post <- plot_rsvp_pre_post_sessions(
       files()$data_list,
       files()$summary_list,
@@ -445,6 +446,16 @@ register_plots_tab_server <- function(output,
       pre_plot <- add_experiment_title(rsvp_pre_post$pre, experiment_names())
       res <- append_plot_list(
         l, fileNames, pre_plot, "rsvp-pre-training-sessions"
+      )
+      l <- res$plotList
+      fileNames <- res$fileNames
+    }
+    if (!is.null(rsvp_pre_post$training)) {
+      training_plot <- add_experiment_title(
+        rsvp_pre_post$training, experiment_names()
+      )
+      res <- append_plot_list(
+        l, fileNames, training_plot, "rsvp-during-training-sessions"
       )
       l <- res$plotList
       fileNames <- res$fileNames

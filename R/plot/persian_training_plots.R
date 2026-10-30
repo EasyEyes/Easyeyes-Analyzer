@@ -450,11 +450,14 @@ prepare_persian_rsvp_session_data <- function(data_list,
     ) %>%
     dplyr::left_join(status_dates, by = "ParticipantCode") %>%
     dplyr::mutate(
-      # Pre = before first training day; post = first training day and after.
+      # Per-participant window from the status spreadsheet:
+      # pre = before First Training Session; training = start..end inclusive;
+      # post = after Last Training Session.
       phase = dplyr::case_when(
-        is.na(training_start) ~ "unknown",
+        is.na(training_start) | is.na(training_end) ~ "unknown",
         session_date < training_start ~ "pre",
-        TRUE ~ "post"
+        session_date > training_end ~ "post",
+        TRUE ~ "training"
       )
     ) %>%
     dplyr::select(ParticipantCode, session_date, wpm, phase)
@@ -463,7 +466,7 @@ prepare_persian_rsvp_session_data <- function(data_list,
 # Sessions numbered by date within a phase filter (or all phases).
 # `participant_colors` / `y_limits` keep related plots comparable.
 plot_rsvp_phase_sessions <- function(session_df,
-                                     phase = c("pre", "post", "all"),
+                                     phase = c("pre", "training", "post", "all"),
                                      participant_colors = NULL,
                                      y_limits = NULL,
                                      title = NULL) {
@@ -498,11 +501,23 @@ plot_rsvp_phase_sessions <- function(session_df,
     title <- switch(
       phase,
       pre = "RSVP reading speed — pre-training",
+      training = "RSVP reading speed — during training",
       post = "RSVP reading speed — post-training",
       all = "RSVP reading speed across sessions",
       "RSVP reading speed across sessions"
     )
   }
+
+  # Keep every shared participant in the legend (with color) even when this
+  # phase has no points for them — scale drop=FALSE alone still omits keys.
+  legend_df <- tibble::tibble(
+    session_number = 1,
+    wpm = min(plot_df$wpm, na.rm = TRUE),
+    ParticipantCode = factor(
+      names(participant_colors),
+      levels = names(participant_colors)
+    )
+  )
 
   p <- ggplot2::ggplot(
     plot_df,
@@ -513,6 +528,7 @@ plot_rsvp_phase_sessions <- function(session_df,
       group = ParticipantCode
     )
   ) +
+    ggplot2::geom_blank(data = legend_df) +
     ggplot2::geom_line(linewidth = 0.7, alpha = 0.85) +
     ggplot2::geom_point(size = 2.2) +
     ggplot2::scale_x_continuous(
@@ -523,8 +539,14 @@ plot_rsvp_phase_sessions <- function(session_df,
     ggplot2::scale_color_manual(
       values = participant_colors,
       breaks = names(participant_colors),
+      limits = names(participant_colors),
       drop = FALSE,
       name = "Participant"
+    ) +
+    ggplot2::guides(
+      color = ggplot2::guide_legend(
+        override.aes = list(alpha = 1, linewidth = 0.7, shape = 16, size = 2.2)
+      )
     ) +
     ggplot2::labs(
       # Visible figure title: use subtitle so add_experiment_title() can put the
@@ -547,10 +569,10 @@ plot_rsvp_phase_sessions <- function(session_df,
   p
 }
 
-# Pre-training and post-training RSVP plots (shared participant colors + y-scale).
-# Pre = before First Training Session; post = on/after that day (includes
-# training-window days and anything after Last Training Session).
-# Returns list(pre=, post=); each ggplot or NULL.
+# Pre / during / post RSVP plots (shared participant colors + y-scale).
+# Pre = before First Training Session; training = start..end inclusive;
+# post = after Last Training Session.
+# Returns list(pre=, training=, post=); each ggplot or NULL.
 plot_rsvp_pre_post_sessions <- function(data_list,
                                         summary_list = NULL,
                                         pretest = NULL,
@@ -564,7 +586,7 @@ plot_rsvp_pre_post_sessions <- function(data_list,
     status_path = status_path
   )
   if (nrow(session_df) == 0) {
-    return(list(pre = NULL, post = NULL))
+    return(list(pre = NULL, training = NULL, post = NULL))
   }
 
   colors <- persian_participant_colors(session_df$ParticipantCode)
@@ -582,6 +604,12 @@ plot_rsvp_pre_post_sessions <- function(data_list,
       participant_colors = colors,
       y_limits = y_limits
     ),
+    training = plot_rsvp_phase_sessions(
+      session_df,
+      phase = "training",
+      participant_colors = colors,
+      y_limits = y_limits
+    ),
     post = plot_rsvp_phase_sessions(
       session_df,
       phase = "post",
@@ -591,7 +619,7 @@ plot_rsvp_pre_post_sessions <- function(data_list,
   )
 }
 
-# Backward-compatible alias: post-training longitudinal plot.
+# Backward-compatible alias: during-training longitudinal plot.
 plot_rsvp_training_sessions <- function(data_list,
                                         summary_list = NULL,
                                         pretest = NULL,
@@ -603,5 +631,5 @@ plot_rsvp_training_sessions <- function(data_list,
     pretest = pretest,
     status = status,
     status_path = status_path
-  )$post
+  )$training
 }
