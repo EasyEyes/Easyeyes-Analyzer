@@ -5,7 +5,10 @@
 .DS_Store
 www/firebase-config.js
 tmp.svg
+tmp/
 Rplots.pdf
+# Excel lock files
+~$*
 docs/
 .logs/
 .positai

@@ -353,16 +353,27 @@ resolve_included_participant_code <- function(participant,
   hit$`Participant Code`[[1]]
 }
 
-# Longitudinal RSVP for Plots-tab scatters.
-# All RSVP sessions for included participants, ordered by date
-# (earliest date = session 1). Not limited to the spreadsheet training window.
-# Returns ggplot or NULL when there is nothing to plot.
-plot_rsvp_training_sessions <- function(data_list,
-                                        summary_list = NULL,
-                                        pretest = NULL,
-                                        status = NULL,
-                                        status_path = default_persian_status_path()) {
-  if (is.null(data_list) || length(data_list) == 0) return(NULL)
+persian_participant_colors <- function(codes) {
+  codes <- sort(unique(as.character(codes)))
+  codes <- codes[!is.na(codes) & nzchar(codes)]
+  if (length(codes) == 0) return(character(0))
+  stats::setNames(scales::hue_pal()(length(codes)), codes)
+}
+
+# RSVP days for included participants, with pre / training / post labels from
+# the status spreadsheet training window.
+prepare_persian_rsvp_session_data <- function(data_list,
+                                             summary_list = NULL,
+                                             pretest = NULL,
+                                             status = NULL,
+                                             status_path = default_persian_status_path()) {
+  empty <- tibble::tibble(
+    ParticipantCode = character(),
+    session_date = as.Date(character()),
+    wpm = numeric(),
+    phase = character()
+  )
+  if (is.null(data_list) || length(data_list) == 0) return(empty)
 
   status_df <- if (is.null(status)) {
     tryCatch(
@@ -372,15 +383,14 @@ plot_rsvp_training_sessions <- function(data_list,
   } else {
     status
   }
-  if (is.null(status_df) || nrow(status_df) == 0) return(NULL)
+  if (is.null(status_df) || nrow(status_df) == 0) return(empty)
   status_included <- status_df %>% dplyr::filter(!exclude)
-  if (nrow(status_included) == 0) return(NULL)
+  if (nrow(status_included) == 0) return(empty)
 
   pretest_map <- pretest_code_lookup(pretest)
   rsvp <- extract_session_rsvp_thresholds(data_list, summary_list)
-  if (nrow(rsvp) == 0) return(NULL)
+  if (nrow(rsvp) == 0) return(empty)
 
-  # Attach raw ParticipantCode from each session file when present.
   code_raw <- purrr::map_dfr(seq_along(data_list), function(i) {
     df <- data_list[[i]]
     if (is.null(df) || !is.data.frame(df) || nrow(df) < 1) return(NULL)
@@ -423,15 +433,48 @@ plot_rsvp_training_sessions <- function(data_list,
       wpm > 0
     )
 
-  if (nrow(rsvp) == 0) return(NULL)
+  if (nrow(rsvp) == 0) return(empty)
 
-  # One value per participant × calendar day, then number days in date order.
-  plot_df <- rsvp %>%
+  status_dates <- status_included %>%
+    dplyr::select(
+      ParticipantCode = `Participant Code`,
+      training_start,
+      training_end
+    )
+
+  rsvp %>%
     dplyr::group_by(ParticipantCode, session_date) %>%
     dplyr::summarize(
       wpm = exp(mean(log(wpm), na.rm = TRUE)),
       .groups = "drop"
     ) %>%
+    dplyr::left_join(status_dates, by = "ParticipantCode") %>%
+    dplyr::mutate(
+      # Pre = before first training day; post = first training day and after.
+      phase = dplyr::case_when(
+        is.na(training_start) ~ "unknown",
+        session_date < training_start ~ "pre",
+        TRUE ~ "post"
+      )
+    ) %>%
+    dplyr::select(ParticipantCode, session_date, wpm, phase)
+}
+
+# Sessions numbered by date within a phase filter (or all phases).
+# `participant_colors` / `y_limits` keep related plots comparable.
+plot_rsvp_phase_sessions <- function(session_df,
+                                     phase = c("pre", "post", "all"),
+                                     participant_colors = NULL,
+                                     y_limits = NULL,
+                                     title = NULL) {
+  phase <- match.arg(phase)
+  if (is.null(session_df) || nrow(session_df) == 0) return(NULL)
+
+  plot_df <- session_df
+  if (!identical(phase, "all")) {
+    plot_df <- plot_df %>% dplyr::filter(phase == !!phase)
+  }
+  plot_df <- plot_df %>%
     dplyr::arrange(ParticipantCode, session_date) %>%
     dplyr::group_by(ParticipantCode) %>%
     dplyr::mutate(session_number = dplyr::row_number()) %>%
@@ -439,9 +482,29 @@ plot_rsvp_training_sessions <- function(data_list,
 
   if (nrow(plot_df) == 0) return(NULL)
 
-  max_sess <- max(plot_df$session_number, na.rm = TRUE)
+  if (is.null(participant_colors) || length(participant_colors) == 0) {
+    participant_colors <- persian_participant_colors(plot_df$ParticipantCode)
+  }
+  plot_df <- plot_df %>%
+    dplyr::mutate(
+      ParticipantCode = factor(
+        ParticipantCode,
+        levels = names(participant_colors)
+      )
+    )
 
-  ggplot2::ggplot(
+  max_sess <- max(plot_df$session_number, na.rm = TRUE)
+  if (is.null(title) || !nzchar(title)) {
+    title <- switch(
+      phase,
+      pre = "RSVP reading speed — pre-training",
+      post = "RSVP reading speed — post-training",
+      all = "RSVP reading speed across sessions",
+      "RSVP reading speed across sessions"
+    )
+  }
+
+  p <- ggplot2::ggplot(
     plot_df,
     ggplot2::aes(
       x = session_number,
@@ -457,15 +520,88 @@ plot_rsvp_training_sessions <- function(data_list,
       limits = c(1, max_sess),
       name = "Session number (by date)"
     ) +
-    ggplot2::scale_y_log10() +
-    ggplot2::labs(
-      title = "RSVP reading speed across sessions",
-      y = "RSVP reading speed (word/min)",
-      color = "Participant"
+    ggplot2::scale_color_manual(
+      values = participant_colors,
+      breaks = names(participant_colors),
+      drop = FALSE,
+      name = "Participant"
     ) +
-    ggplot2::theme_bw(base_size = 13) +
+    ggplot2::labs(
+      # Visible figure title: use subtitle so add_experiment_title() can put the
+      # short experiment name in plot.title (size 9); subtitle stays size 18.
+      subtitle = title,
+      y = "RSVP reading speed (word/min)"
+    ) +
+    ggplot2::theme_bw() +
+    plt_theme_scatter +
     ggplot2::theme(
-      legend.position = "right",
+      legend.position = "top",
       panel.grid.minor = ggplot2::element_blank()
     )
+
+  if (!is.null(y_limits) && length(y_limits) == 2 && all(is.finite(y_limits))) {
+    p <- p + ggplot2::scale_y_log10(limits = y_limits)
+  } else {
+    p <- p + ggplot2::scale_y_log10()
+  }
+  p
+}
+
+# Pre-training and post-training RSVP plots (shared participant colors + y-scale).
+# Pre = before First Training Session; post = on/after that day (includes
+# training-window days and anything after Last Training Session).
+# Returns list(pre=, post=); each ggplot or NULL.
+plot_rsvp_pre_post_sessions <- function(data_list,
+                                        summary_list = NULL,
+                                        pretest = NULL,
+                                        status = NULL,
+                                        status_path = default_persian_status_path()) {
+  session_df <- prepare_persian_rsvp_session_data(
+    data_list,
+    summary_list = summary_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path
+  )
+  if (nrow(session_df) == 0) {
+    return(list(pre = NULL, post = NULL))
+  }
+
+  colors <- persian_participant_colors(session_df$ParticipantCode)
+  y_limits <- range(session_df$wpm, na.rm = TRUE)
+  if (!all(is.finite(y_limits)) || y_limits[1] <= 0) {
+    y_limits <- NULL
+  } else {
+    y_limits <- c(y_limits[1] / 1.15, y_limits[2] * 1.15)
+  }
+
+  list(
+    pre = plot_rsvp_phase_sessions(
+      session_df,
+      phase = "pre",
+      participant_colors = colors,
+      y_limits = y_limits
+    ),
+    post = plot_rsvp_phase_sessions(
+      session_df,
+      phase = "post",
+      participant_colors = colors,
+      y_limits = y_limits
+    )
+  )
+}
+
+# Backward-compatible alias: post-training longitudinal plot.
+plot_rsvp_training_sessions <- function(data_list,
+                                        summary_list = NULL,
+                                        pretest = NULL,
+                                        status = NULL,
+                                        status_path = default_persian_status_path()) {
+  plot_rsvp_pre_post_sessions(
+    data_list,
+    summary_list = summary_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path
+  )$post
 }

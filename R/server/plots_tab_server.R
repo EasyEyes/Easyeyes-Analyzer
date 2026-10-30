@@ -434,16 +434,25 @@ register_plots_tab_server <- function(output,
       }
     }
 
-    # Persian RSVP training sessions 1–6 (participant colors; do not force colorPalette).
-    rsvp_training_plot <- plot_rsvp_training_sessions(
+    # Persian RSVP: pre-training vs post-training (shared participant colors).
+    # Pre = before First Training Session; post = that day and after.
+    rsvp_pre_post <- plot_rsvp_pre_post_sessions(
       files()$data_list,
       files()$summary_list,
       pretest = files()$pretest
     )
-    if (!is.null(rsvp_training_plot)) {
-      rsvp_training_plot <- add_experiment_title(rsvp_training_plot, experiment_names())
+    if (!is.null(rsvp_pre_post$pre)) {
+      pre_plot <- add_experiment_title(rsvp_pre_post$pre, experiment_names())
       res <- append_plot_list(
-        l, fileNames, rsvp_training_plot, "rsvp-training-sessions"
+        l, fileNames, pre_plot, "rsvp-pre-training-sessions"
+      )
+      l <- res$plotList
+      fileNames <- res$fileNames
+    }
+    if (!is.null(rsvp_pre_post$post)) {
+      post_plot <- add_experiment_title(rsvp_pre_post$post, experiment_names())
+      res <- append_plot_list(
+        l, fileNames, post_plot, "rsvp-post-training-sessions"
       )
       l <- res$plotList
       fileNames <- res$fileNames
