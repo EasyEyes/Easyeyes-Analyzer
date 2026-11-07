@@ -2263,9 +2263,10 @@ For example, with a default of 3 s, we normally proceed earlier as soon as the p
 Would you prefer this combined approach, or would you rather have the participant explicitly press a key/button to end every spoken response? (edited)"
 rsvpReadingSTTIgnoreOrderBool,rsvpReadingSTTIgnoreOrderBool (default TRUE) Ignore word order when scoring accuracy of the spoken relative to the displayed words. The published literature mostly ignores order.
 rsvpReadingSTTMaxSec,"rsvpReadingSTTMaxSec (default 5) Sets a maximum waiting time for the provider's transcript, once EasyEyes has sent the audio to the provider. This is a safety limit; normally the provider responds much sooner. If no transcript arrives in time, EasyEyes treats the trial as invalid and repeats it, with fresh stimuli."
-rsvpReadingSTTProvider,"rsvpReadingSTTProvider (default elevenlabs) lets the experimenter choose the realtime speech-to-text (STT) provider for each RSVP condition. Allowed values:
-• elevenlabs
-• deepgram"
+rsvpReadingSTTProvider,"rsvpReadingSTTProvider (default elevenlabs) lets the scientist choose the realtime speech-to-text (STT) provider for each RSVP condition. Allowed values:
+• elevenlabs http://elevenlabs.io
+• deepgram http://deepgram.com
+• chirp3 https://docs.cloud.google.com/speech-to-text/docs/models/chirp-3"
 rsvpReadingSTTUseKeytermsBool,"rsvpReadingSTTUseKeytermsBool (default TRUE) If TRUE, then, for each trial, EasyEyes sends the (typically three) displayed target words for that trial to the STT provider as ""keyterms"". This biases recognition toward those words if the speech is acoustically close to them, but it does not restrict the provider's output to those three words. If the speech cannot be recognized, then the STT indicates that nothing was transcribed.
 
 ElevenLabs describes keyterms as words or phrases used to “bias the model towards transcribing them”, while still using context to decide how to transcribe the speech. A spoken word is not automatically replaced by the most similar target word. The STT can still return another word outside the three targets. If a spoken word is outside the keyterm list, the STT transcription may return another word, not a keyterm. 
