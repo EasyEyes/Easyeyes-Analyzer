@@ -1091,6 +1091,9 @@ generate_summary_table <- function(data_list, stairs, pretest, prolific) {
       comment,
       snapshotsLink
     )
+  # (No cameraAttempt here: this distinct() runs before the left_join below
+  # creates that column, so listing it crashed every upload with
+  # "Must use existing variables". combineProlific's distinct dedupes it.)
 
   #### order block_condition by splitting and order block and condition order ####
   block_condition_parts <- stringr::str_split_fixed(summary_df$`block condition`, "_", 2)
@@ -1161,6 +1164,68 @@ empty_summary_datatable <- function() {
     data.frame(),
     options = list(dom = "t", searching = FALSE, paging = FALSE, info = FALSE)
   )
+}
+
+# Keep only each Prolific participant's latest session — all rows of that
+# participant's chronologically last color group in the Sessions table. A
+# session can occupy several rows (one per block/condition), so the whole
+# latest session is kept, not just its last row. Rows without a Prolific
+# participant ID (participant unknown) are all kept. Returns df unchanged if
+# any required column is missing — renderDataTable must not crash on
+# unexpected shapes.
+latest_sessions_per_participant <- function(df) {
+  required <- c("Prolific participant ID", "date", "Pavlovia session ID")
+  if (!all(required %in% names(df))) {
+    return(df)
+  }
+  # The displayed date ("Jun 01, 2026, 09:00:00") sorts alphabetically by
+  # month, not chronologically, so rank sessions by a parsed date (same
+  # orders as combineProlific's "tried again" logic). Unparseable dates
+  # (e.g. "") sort first, so a dated session always wins as "latest".
+  df <- df %>%
+    dplyr::arrange(`Prolific participant ID`, date, `Pavlovia session ID`) %>%
+    dplyr::mutate(
+      .participant_id = trimws(as.character(`Prolific participant ID`)),
+      .unknown_id = is.na(.participant_id) | .participant_id == "",
+      .date_order = suppressWarnings(
+        lubridate::parse_date_time(
+          date,
+          orders = c("b d Y HMS", "ymdHMS", "ymd"),
+          quiet = TRUE
+        )
+      )
+    ) %>%
+    dplyr::arrange(
+      `Prolific participant ID`,
+      !is.na(.date_order),
+      .date_order,
+      `Pavlovia session ID`
+    )
+  unknown <- dplyr::filter(df, .unknown_id)
+  # Per participant, the arranged-last row sits in the latest session; keep
+  # every row sharing that session's (date, Pavlovia session ID). %in% is
+  # NA-safe for participants whose dates never parse.
+  known_latest <- df %>%
+    dplyr::filter(!.unknown_id) %>%
+    dplyr::group_by(.participant_id) %>%
+    dplyr::mutate(
+      .latest_date_order = dplyr::last(.date_order),
+      .latest_session = dplyr::last(`Pavlovia session ID`)
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(
+      .date_order %in% .latest_date_order,
+      `Pavlovia session ID` %in% .latest_session
+    )
+  dplyr::bind_rows(unknown, known_latest) %>%
+    dplyr::select(
+      -.participant_id,
+      -.unknown_id,
+      -.date_order,
+      -.latest_date_order,
+      -.latest_session
+    ) %>%
+    dplyr::arrange(`Prolific participant ID`, date, `Pavlovia session ID`)
 }
 
 render_summary_datatable <- function(dt, prolific_id) {

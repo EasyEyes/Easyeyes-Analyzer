@@ -120,7 +120,11 @@ function warningClickHarness(raw, headers = {}) {
   };
   const window = loadSummaryTable($);
   window.initSummaryTableCallbacks(table);
-  return { handlers, drawHandlers, modal, child, cells, rowData, window };
+  // Replays the registered draw callbacks, as DataTables would on each draw.
+  const redraw = () => {
+    for (const fn of drawHandlers["draw.dt"] || []) fn();
+  };
+  return { handlers, drawHandlers, redraw, modal, child, cells, rowData, window };
 }
 
 test("warning cells are underlined only when a Sheet explanation matches", () => {
@@ -260,7 +264,7 @@ test("Warning cursor tracks actual detail across redraws, including whitespace",
   const h = warningClickHarness("tabHiddenAt:titlePage");
   assert.equal(h.cells[19].classes.has("summary-clickable"), true);
   h.rowData[19] = "   ";
-  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  h.redraw();
   assert.equal(h.cells[19].classes.has("summary-clickable"), false);
   h.handlers["td.warnC-control"].call(h.cells[19]);
   assert.equal(h.modal.shown, false);
@@ -275,14 +279,14 @@ for (const [index, selector, name] of [
   test(`${name} uses the shared detail guard for cursor and expansion`, () => {
     const h = warningClickHarness("");
     h.rowData[index] = "details";
-    for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+    h.redraw();
     assert.equal(h.cells[index].classes.has("summary-clickable"), true);
     h.handlers[selector].call(h.cells[index]);
     assert.equal(h.child.shown, true);
     h.child.shown = false;
     h.child.html = "";
     h.rowData[index] = "  ";
-    for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+    h.redraw();
     assert.equal(h.cells[index].classes.has("summary-clickable"), false);
     h.handlers[selector].call(h.cells[index]);
     assert.equal(h.child.shown, false);
@@ -293,14 +297,14 @@ test("unmetNeeds and longTaskSec use content-aware cursor and click guards", () 
   const h = warningClickHarness("", { 17: "unmetNeeds", 20: "longTaskSec" });
   h.rowData[17] = "_needMemoryGB";
   h.rowData[20] = "1.2, 3.4";
-  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  h.redraw();
   assert.equal(h.cells[17].classes.has("summary-clickable"), true);
   assert.equal(h.cells[20].classes.has("summary-clickable"), true);
   h.handlers["tbody td"].call(h.cells[17]);
   assert.equal(h.modal.title, "unmetNeeds");
   h.modal.shown = false;
   h.rowData[17] = "  ";
-  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  h.redraw();
   assert.equal(h.cells[17].classes.has("summary-clickable"), false);
   h.handlers["tbody td"].call(h.cells[17]);
   assert.equal(h.modal.shown, false);
@@ -311,11 +315,11 @@ test("unmetNeeds and longTaskSec use content-aware cursor and click guards", () 
 test("info columns point when any included field has detail, never when all are empty", () => {
   const h = warningClickHarness("");
   h.rowData[3] = "Prolific ID";
-  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  h.redraw();
   for (const index of [2, 3, 4])
     assert.equal(h.cells[index].classes.has("summary-clickable"), true);
   for (const index of [2, 3, 4]) h.rowData[index] = " ";
-  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  h.redraw();
   for (const index of [2, 3, 4])
     assert.equal(h.cells[index].classes.has("summary-clickable"), false);
   h.handlers["td.information-control1"].call(h.cells[2]);
@@ -324,7 +328,7 @@ test("info columns point when any included field has detail, never when all are 
 
 test("compatibilityNotMet remains nonclickable in the Error column", () => {
   const h = warningClickHarness("compatibilityNotMet");
-  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  h.redraw();
   assert.equal(h.cells[18].classes.has("summary-clickable"), false);
   h.handlers["td.errorC-control"].call(h.cells[18]);
   assert.equal(h.modal.shown, false);
@@ -390,7 +394,7 @@ test("Camera modal shows readable details, retry history, and escaped labels", (
     timings: { cameraFindSec: 4.2 },
     events: [{ at: "2026-10-08T00:00:00Z", type: "camera-unavailable" }],
   });
-  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  h.redraw();
   assert.equal(h.cells[41].classes.has("summary-clickable"), true);
   h.handlers["tbody td"].call(h.cells[41]);
   assert.equal(h.modal.title, "Camera attempt");
@@ -406,7 +410,7 @@ test("Camera modal shows readable details, retry history, and escaped labels", (
 test("Camera cell is inert for old archives and missing details", () => {
   const h = warningClickHarness("", { 41: "cameraAttempt" });
   h.rowData[41] = "  ";
-  for (const fn of h.drawHandlers["draw.dt"] || []) fn();
+  h.redraw();
   assert.equal(h.cells[41].classes.has("summary-clickable"), false);
   h.handlers["tbody td"].call(h.cells[41]);
   assert.equal(h.modal.shown, false);
@@ -430,8 +434,15 @@ test("R camera aggregation takes the latest snapshot and appends one column", ()
   assert.match(src, /camera_attempt_chunks/);
   assert.match(src, /last_nonempty_string\(cameraAttemptJSON\)/);
   assert.match(src, /left_join\(cameraAttempt/);
+  assert.match(src, /left_join\(cameraAttempt/);
   // Joined after the early Sessions distinct() — must not be required there
-  // (older CSVs have no cameraAttempt column yet).
+  // (older CSVs have no cameraAttempt column yet); an ifelse guard fills the
+  // column when no uploaded CSV had one.
   assert.match(src, /cameraAttempt = ifelse\(is\.na\(cameraAttempt\)/);
+  // The pre-join distinct must not list cameraAttempt — it runs before the
+  // join creates the column; listing it crashed every upload ("Must use
+  // existing variables").
+  assert.doesNotMatch(src, /snapshotsLink,\s*cameraAttempt/);
+  assert.match(read("R/report/prolific.R"), /snapshotsLink,\s*cameraAttempt/);
   assert.match(read("R/report/prolific.R"), /snapshotsLink,\s*cameraAttempt/);
 });

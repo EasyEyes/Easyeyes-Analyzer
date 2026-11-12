@@ -231,6 +231,9 @@ shinyServer(function(input, output, session) {
     if (is.null(summary) || nrow(summary) == 0) {
       return(empty_summary_datatable())
     }
+    if (isTRUE(input$latestSessionOnly)) {
+      summary <- latest_sessions_per_participant(summary)
+    }
     prolific_id <- unique(summary$`Prolific participant ID`)
     render_summary_datatable(summary, prolific_id)
   })
