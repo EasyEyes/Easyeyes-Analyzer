@@ -239,6 +239,64 @@ build_persian_session_meta <- function(data_list,
     dplyr::distinct()
 }
 
+# Shared RSVP row filter for one session file (summary preferred over raw).
+# Returns rows with finite questMeanAtEndOfTrialsLoop; practice removed.
+persian_session_rsvp_rows <- function(df, sm = NULL) {
+  src <- if (!is.null(sm) && is.data.frame(sm) && nrow(sm) > 0) sm else df
+  if (is.null(src) || !is.data.frame(src) || nrow(src) < 1) return(NULL)
+  if (!"questMeanAtEndOfTrialsLoop" %in% names(src)) return(NULL)
+
+  has_kind <- "targetKind" %in% names(src)
+  has_cond <- "conditionName" %in% names(src)
+  rsvp <- src %>%
+    dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>%
+    dplyr::mutate(
+      questMeanAtEndOfTrialsLoop = suppressWarnings(
+        as.numeric(questMeanAtEndOfTrialsLoop)
+      )
+    ) %>%
+    dplyr::filter(is.finite(questMeanAtEndOfTrialsLoop))
+
+  if (nrow(rsvp) == 0) return(NULL)
+
+  if (has_kind) {
+    rsvp <- rsvp %>%
+      dplyr::filter(
+        targetKind == "rsvpReading" |
+          (!is.na(targetKind) & grepl("rsvp", targetKind, ignore.case = TRUE))
+      )
+  } else if (has_cond) {
+    rsvp <- rsvp %>%
+      dplyr::filter(grepl("rsvp", conditionName, ignore.case = TRUE))
+  } else {
+    return(NULL)
+  }
+
+  if (has_cond) {
+    rsvp <- rsvp %>%
+      dplyr::filter(!grepl("practice", conditionName, ignore.case = TRUE))
+  }
+  if (nrow(rsvp) == 0) return(NULL)
+  rsvp
+}
+
+persian_session_date_from_df <- function(df) {
+  date_raw <- if ("date" %in% names(df)) {
+    persian_first_nonempty_chr(df$date)
+  } else {
+    NA_character_
+  }
+  if (is.na(date_raw) || !nzchar(date_raw)) return(as.Date(NA))
+  if (exists("parse_pavlovia_date", mode = "function")) {
+    return(as.Date(parse_pavlovia_date(date_raw)))
+  }
+  as.Date(lubridate::parse_date_time(
+    date_raw,
+    orders = c("ymdHMS", "ymd", "mdyHMS"),
+    quiet = TRUE
+  ))
+}
+
 # Per uploaded file: one RSVP WPM (geomean across non-practice conditions).
 # Keeps session_date so the same ParticipantCode across days stays separate
 # (generate_threshold would otherwise average them together).
@@ -256,63 +314,12 @@ extract_session_rsvp_thresholds <- function(data_list, summary_list = NULL) {
     df <- data_list[[i]]
     if (is.null(df) || !is.data.frame(df) || nrow(df) < 1) return(NULL)
 
-    pav <- persian_first_nonempty_chr(df$participant)
-    date_raw <- if ("date" %in% names(df)) {
-      persian_first_nonempty_chr(df$date)
-    } else {
-      NA_character_
-    }
-    session_dt <- if (is.na(date_raw) || !nzchar(date_raw)) {
-      as.Date(NA)
-    } else if (exists("parse_pavlovia_date", mode = "function")) {
-      as.Date(parse_pavlovia_date(date_raw))
-    } else {
-      as.Date(lubridate::parse_date_time(
-        date_raw,
-        orders = c("ymdHMS", "ymd", "mdyHMS"),
-        quiet = TRUE
-      ))
-    }
-
     sm <- NULL
-    if (!is.null(summary_list) && length(summary_list) >= i &&
-          is.data.frame(summary_list[[i]]) && nrow(summary_list[[i]]) > 0) {
+    if (!is.null(summary_list) && length(summary_list) >= i) {
       sm <- summary_list[[i]]
     }
-    src <- if (!is.null(sm)) sm else df
-    if (!"questMeanAtEndOfTrialsLoop" %in% names(src)) return(NULL)
-
-    has_kind <- "targetKind" %in% names(src)
-    has_cond <- "conditionName" %in% names(src)
-    rsvp <- src %>%
-      dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>%
-      dplyr::mutate(
-        questMeanAtEndOfTrialsLoop = suppressWarnings(
-          as.numeric(questMeanAtEndOfTrialsLoop)
-        )
-      ) %>%
-      dplyr::filter(is.finite(questMeanAtEndOfTrialsLoop))
-
-    if (nrow(rsvp) == 0) return(NULL)
-
-    if (has_kind) {
-      rsvp <- rsvp %>%
-        dplyr::filter(
-          targetKind == "rsvpReading" |
-            (!is.na(targetKind) & grepl("rsvp", targetKind, ignore.case = TRUE))
-        )
-    } else if (has_cond) {
-      rsvp <- rsvp %>%
-        dplyr::filter(grepl("rsvp", conditionName, ignore.case = TRUE))
-    } else {
-      return(NULL)
-    }
-
-    if (has_cond) {
-      rsvp <- rsvp %>%
-        dplyr::filter(!grepl("practice", conditionName, ignore.case = TRUE))
-    }
-    if (nrow(rsvp) == 0) return(NULL)
+    rsvp <- persian_session_rsvp_rows(df, sm)
+    if (is.null(rsvp) || nrow(rsvp) == 0) return(NULL)
 
     # Same transform as generate_threshold: log_duration_s → log10 WPM.
     wpm <- 10^(log10(60) - rsvp$questMeanAtEndOfTrialsLoop)
@@ -321,11 +328,60 @@ extract_session_rsvp_thresholds <- function(data_list, summary_list = NULL) {
 
     tibble::tibble(
       session_index = as.integer(i),
-      participant = pav,
-      session_date = session_dt,
+      participant = persian_first_nonempty_chr(df$participant),
+      session_date = persian_session_date_from_df(df),
       wpm = exp(mean(log(wpm))),
       n_conditions = length(wpm)
     )
+  }) %>%
+    {
+      if (nrow(.) == 0) empty else .
+    }
+}
+
+# Per uploaded file × font: RSVP WPM (for pre/during/post violins by font).
+extract_session_rsvp_by_font <- function(data_list, summary_list = NULL) {
+  empty <- tibble::tibble(
+    session_index = integer(),
+    participant = character(),
+    session_date = as.Date(character()),
+    font = character(),
+    wpm = numeric()
+  )
+  if (length(data_list) == 0) return(empty)
+
+  purrr::map_dfr(seq_along(data_list), function(i) {
+    df <- data_list[[i]]
+    if (is.null(df) || !is.data.frame(df) || nrow(df) < 1) return(NULL)
+
+    sm <- NULL
+    if (!is.null(summary_list) && length(summary_list) >= i) {
+      sm <- summary_list[[i]]
+    }
+    rsvp <- persian_session_rsvp_rows(df, sm)
+    if (is.null(rsvp) || nrow(rsvp) == 0) return(NULL)
+    if (!"font" %in% names(rsvp)) return(NULL)
+
+    rsvp %>%
+      dplyr::mutate(
+        font = trimws(as.character(font)),
+        wpm = 10^(log10(60) - questMeanAtEndOfTrialsLoop)
+      ) %>%
+      dplyr::filter(
+        !is.na(font), font != "",
+        is.finite(wpm), wpm > 0
+      ) %>%
+      dplyr::group_by(font) %>%
+      dplyr::summarize(
+        wpm = exp(mean(log(wpm))),
+        .groups = "drop"
+      ) %>%
+      dplyr::mutate(
+        session_index = as.integer(i),
+        participant = persian_first_nonempty_chr(df$participant),
+        session_date = persian_session_date_from_df(df)
+      ) %>%
+      dplyr::select(session_index, participant, session_date, font, wpm)
   }) %>%
     {
       if (nrow(.) == 0) empty else .
@@ -358,6 +414,51 @@ persian_participant_colors <- function(codes) {
   codes <- codes[!is.na(codes) & nzchar(codes)]
   if (length(codes) == 0) return(character(0))
   stats::setNames(scales::hue_pal()(length(codes)), codes)
+}
+
+# Lowercased keys for Exclude=TRUE rows in the Persian status spreadsheet.
+# Includes both raw and FA-normalized forms so "675321-FA" matches "FA-675321".
+persian_status_exclude_keys <- function(status_path = default_persian_status_path()) {
+  st <- tryCatch(
+    read_persian_participant_status(status_path),
+    error = function(e) NULL
+  )
+  if (is.null(st) || nrow(st) == 0) return(character())
+  codes <- st %>%
+    dplyr::filter(exclude) %>%
+    dplyr::pull(`Participant Code`)
+  codes <- trimws(as.character(codes))
+  codes <- codes[!is.na(codes) & nzchar(codes)]
+  if (length(codes) == 0) return(character())
+  unique(tolower(c(codes, normalize_persian_participant_code(codes))))
+}
+
+# TRUE when id matches an exclude key (raw lower or FA-normalized lower).
+participant_matches_exclude_keys <- function(ids, exclude_keys) {
+  keys <- unique(as.character(exclude_keys))
+  keys <- keys[!is.na(keys) & nzchar(keys)]
+  n <- length(ids)
+  if (n == 0 || length(keys) == 0) return(rep(FALSE, n))
+  ids_chr <- as.character(ids)
+  tolower(ids_chr) %in% keys |
+    tolower(normalize_persian_participant_code(ids_chr)) %in% keys
+}
+
+# Drop rows whose participant / ParticipantCode is Exclude=TRUE in the status file
+# (or already listed in basicExclude$lowerCaseParticipant from pretest Exclude?).
+filter_out_excluded_participants <- function(df, exclude_keys) {
+  if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) return(df)
+  keys <- unique(as.character(exclude_keys))
+  keys <- keys[!is.na(keys) & nzchar(keys)]
+  if (length(keys) == 0) return(df)
+  drop <- rep(FALSE, nrow(df))
+  if ("participant" %in% names(df)) {
+    drop <- drop | participant_matches_exclude_keys(df$participant, keys)
+  }
+  if ("ParticipantCode" %in% names(df)) {
+    drop <- drop | participant_matches_exclude_keys(df$ParticipantCode, keys)
+  }
+  df[!drop, , drop = FALSE]
 }
 
 # RSVP days for included participants, with pre / training / post labels from
@@ -632,4 +733,174 @@ plot_rsvp_training_sessions <- function(data_list,
     status = status,
     status_path = status_path
   )$training
+}
+
+# Attach included ParticipantCode + pre/training/post phase to session RSVP rows.
+annotate_persian_rsvp_phases <- function(rsvp,
+                                         data_list,
+                                         pretest = NULL,
+                                         status = NULL,
+                                         status_path = default_persian_status_path()) {
+  empty <- rsvp[0, , drop = FALSE]
+  if (is.null(rsvp) || nrow(rsvp) == 0) return(empty)
+
+  status_df <- if (is.null(status)) {
+    tryCatch(
+      read_persian_participant_status(status_path),
+      error = function(e) NULL
+    )
+  } else {
+    status
+  }
+  if (is.null(status_df) || nrow(status_df) == 0) return(empty)
+  status_included <- status_df %>% dplyr::filter(!exclude)
+  if (nrow(status_included) == 0) return(empty)
+
+  pretest_map <- pretest_code_lookup(pretest)
+  code_raw <- purrr::map_dfr(seq_along(data_list), function(i) {
+    df <- data_list[[i]]
+    if (is.null(df) || !is.data.frame(df) || nrow(df) < 1) return(NULL)
+    tibble::tibble(
+      session_index = as.integer(i),
+      ParticipantCode_raw = if ("ParticipantCode" %in% names(df)) {
+        persian_first_nonempty_chr(df$ParticipantCode)
+      } else {
+        NA_character_
+      }
+    )
+  })
+  if (!is.null(code_raw) && nrow(code_raw) > 0) {
+    rsvp <- rsvp %>% dplyr::left_join(code_raw, by = "session_index")
+  } else {
+    rsvp <- rsvp %>% dplyr::mutate(ParticipantCode_raw = NA_character_)
+  }
+
+  if (nrow(pretest_map) > 0) {
+    rsvp <- rsvp %>% dplyr::left_join(pretest_map, by = "participant")
+  } else {
+    rsvp <- rsvp %>% dplyr::mutate(pretest_code = NA_character_)
+  }
+
+  status_dates <- status_included %>%
+    dplyr::select(
+      ParticipantCode = `Participant Code`,
+      training_start,
+      training_end
+    )
+
+  rsvp %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(
+      ParticipantCode = resolve_included_participant_code(
+        participant,
+        ParticipantCode_raw,
+        pretest_code,
+        status_included
+      )
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(
+      !is.na(ParticipantCode),
+      !is.na(session_date),
+      is.finite(wpm),
+      wpm > 0
+    ) %>%
+    dplyr::left_join(status_dates, by = "ParticipantCode") %>%
+    dplyr::mutate(
+      phase = dplyr::case_when(
+        is.na(training_start) | is.na(training_end) ~ "unknown",
+        session_date < training_start ~ "pre",
+        session_date > training_end ~ "post",
+        TRUE ~ "training"
+      )
+    )
+}
+
+# One row per participant × font × phase (geomean across sessions in the phase).
+# Columns font/participant/y match create_violin_plot().
+prepare_persian_rsvp_font_phase_data <- function(data_list,
+                                                summary_list = NULL,
+                                                pretest = NULL,
+                                                status = NULL,
+                                                status_path = default_persian_status_path()) {
+  empty <- tibble::tibble(
+    participant = character(),
+    font = character(),
+    phase = character(),
+    y = numeric()
+  )
+  rsvp <- extract_session_rsvp_by_font(data_list, summary_list)
+  rsvp <- annotate_persian_rsvp_phases(
+    rsvp,
+    data_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path
+  )
+  if (nrow(rsvp) == 0) return(empty)
+
+  rsvp %>%
+    dplyr::filter(phase %in% c("pre", "training", "post")) %>%
+    dplyr::group_by(ParticipantCode, font, phase) %>%
+    dplyr::summarize(
+      y = exp(mean(log(wpm), na.rm = TRUE)),
+      .groups = "drop"
+    ) %>%
+    dplyr::filter(is.finite(y), y > 0) %>%
+    dplyr::transmute(
+      participant = ParticipantCode,
+      font,
+      phase,
+      y
+    )
+}
+
+# Pre / during / post RSVP violins by font (shared y-scale).
+# Returns list(pre=, training=, post=); each ggplot or NULL.
+plot_rsvp_phase_font_violins <- function(data_list,
+                                         summary_list = NULL,
+                                         pretest = NULL,
+                                         status = NULL,
+                                         status_path = default_persian_status_path()) {
+  phase_df <- prepare_persian_rsvp_font_phase_data(
+    data_list,
+    summary_list = summary_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path
+  )
+  empty <- list(pre = NULL, training = NULL, post = NULL)
+  if (nrow(phase_df) == 0) return(empty)
+  if (!exists("create_violin_plot", mode = "function")) return(empty)
+
+  y_limits <- range(phase_df$y, na.rm = TRUE)
+  if (!all(is.finite(y_limits)) || y_limits[1] <= 0) {
+    y_limits <- NULL
+  } else {
+    y_limits <- c(y_limits[1] / 1.15, y_limits[2] * 1.15)
+  }
+
+  titles <- c(
+    pre = "RSVP Reading Speed by Font — pre-training",
+    training = "RSVP Reading Speed by Font — during training",
+    post = "RSVP Reading Speed by Font — post-training"
+  )
+
+  out <- empty
+  for (ph in c("pre", "training", "post")) {
+    d <- phase_df %>% dplyr::filter(phase == !!ph)
+    if (nrow(d) == 0) next
+    p <- create_violin_plot(
+      d,
+      "RSVP Reading Speed (word/min)",
+      titles[[ph]]
+    )
+    if (is.null(p)) next
+    # Shared y-range without clipping violin density (scale limits would).
+    if (!is.null(y_limits)) {
+      p <- p + ggplot2::coord_cartesian(ylim = y_limits)
+    }
+    out[[ph]] <- p
+  }
+  out
 }

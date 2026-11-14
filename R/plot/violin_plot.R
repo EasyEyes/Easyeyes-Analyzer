@@ -11,59 +11,18 @@ add_log_jitter <- function(values, jitter_percent = 1, seed = 42) {
   return(values * 10^log_factor)
 }
 
-plot_violins <- function(df_list) {
-  crowding = df_list$crowding %>% mutate(y = 10^log_crowding_distance_deg)
-  # Participant crowding violins: L/R geomean pairs from unsummarized QUEST
-  # (quest is conditionName-averaged; quest_unsummarized keeps each staircase).
-  quest_u <- df_list$quest_unsummarized
-  if (is.null(quest_u) || !is.data.frame(quest_u) || nrow(quest_u) == 0) {
-    crowding_by_participant_data <- crowding
-  } else if (exists("crowding_lr_geomean_pairs", mode = "function")) {
-    crowding_raw <- quest_u %>%
-      filter(
-        questType == "Foveal crowding" |
-          questType == "Peripheral crowding"
-      )
-    crowding_pairs <- crowding_lr_geomean_pairs(crowding_raw)
-    if (is.null(crowding_pairs) || nrow(crowding_pairs) == 0) {
-      crowding_by_participant_data <- crowding
-    } else {
-      crowding_by_participant_data <- crowding_pairs %>%
-        mutate(y = 10^log_crowding_distance_deg)
-    }
-  } else {
-    crowding_by_participant_data <- crowding
-  }
-  rsvp = df_list$rsvp %>% mutate(y = 10^block_avg_log_WPM)
-  reading = df_list$reading %>%
-    mutate(log_WPM = suppressWarnings(as.numeric(log_WPM))) %>%
-    filter(!is.na(log_WPM), is.finite(log_WPM)) %>%
-    mutate(y = 10^log_WPM)
-  
-  # Linear acuity (deg), same transform as font-comparison bar plot
-  acuity = df_list$acuity %>% mutate(y = 10^questMeanAtEndOfTrialsLoop)
-  beauty = df_list$beauty %>%
-    mutate(y = questionAndAnswerResponse) %>%
-    filter(!is.na(y))
-  
-  comfort = df_list$comfort %>% 
-    mutate(y = questionAndAnswerResponse) %>%
-    filter(!is.na(y))
-  
-  familiarity_data = df_list$familiarity %>% 
-    mutate(y = questionAndAnswerResponse) %>%
-    filter(!is.na(y))
-  
-  create_plot <- function(data, ylabel, title, xlimits = NULL,
-                          abbreviate_fonts = FALSE,
-                          use_log_scale = FALSE,
-                          axis_label_scale = 1,
-                          color_by_phrase_group = FALSE,
-                          group_by = c("font", "participant")) {
-    group_by <- match.arg(group_by)
-    p <- NULL
-    
-    if (nrow(data) > 0) {
+# Shared violin builder (font or participant grouping). Used by plot_violins
+# and Persian pre/during/post RSVP-by-font violins.
+create_violin_plot <- function(data, ylabel, title, xlimits = NULL,
+                               abbreviate_fonts = FALSE,
+                               use_log_scale = FALSE,
+                               axis_label_scale = 1,
+                               color_by_phrase_group = FALSE,
+                               group_by = c("font", "participant")) {
+  group_by <- match.arg(group_by)
+  p <- NULL
+
+  if (!is.null(data) && nrow(data) > 0) {
 
       # Define font order
       font_order <- c(
@@ -235,20 +194,24 @@ plot_violins <- function(df_list) {
           )
       }
 
-      # Participant plots: keep subtitle over the panel (not the y-axis title)
-      # so "Crowding Distance (deg)" does not collide with the plot title, and
-      # lengthen only the x-axis with N (same point/font scale as other violins).
+      # Keep subtitle over the panel (not the full plot) so the y-axis title
+      # does not collide with "RSVP Reading Speed by Font" / similar titles.
+      p <- p + theme(
+        plot.title.position = "panel",
+        plot.subtitle = element_text(margin = margin(b = 8)),
+        axis.title.y = element_text(
+          size = axis_title_size,
+          margin = margin(r = 6)
+        )
+      )
+
+      # Participant plots: lengthen only the x-axis with N (same point/font
+      # scale as other violins).
       if (identical(group_by, "participant")) {
         # ~0.18 in per participant — enough for vertical IDs without fat violins.
         width_in <- max(7, min(0.18 * n_groups + 2.0, 48))
         x_text_size <- if (n_groups > 40) 8 else if (n_groups > 25) 9 else 10
         p <- p + theme(
-          plot.title.position = "panel",
-          plot.subtitle = element_text(margin = margin(b = 8)),
-          axis.title.y = element_text(
-            size = axis_title_size,
-            margin = margin(r = 6)
-          ),
           axis.text.x = element_text(
             angle = x_angle,
             hjust = 1,
@@ -281,37 +244,67 @@ plot_violins <- function(df_list) {
         )
       }
     }
-    return(p)
-  }
-  
-  # Calculate dynamic limits based on actual data
-  reading_limits <- if (nrow(reading) > 0 && !all(is.na(reading$y))) {
-    c(min(reading$y, na.rm = TRUE) * 0.8, max(reading$y, na.rm = TRUE) * 1.2)
+  return(p)
+}
+
+plot_violins <- function(df_list) {
+  crowding = df_list$crowding %>% mutate(y = 10^log_crowding_distance_deg)
+  # Participant crowding violins: L/R geomean pairs from unsummarized QUEST
+  # (quest is conditionName-averaged; quest_unsummarized keeps each staircase).
+  quest_u <- df_list$quest_unsummarized
+  if (is.null(quest_u) || !is.data.frame(quest_u) || nrow(quest_u) == 0) {
+    crowding_by_participant_data <- crowding
+  } else if (exists("crowding_lr_geomean_pairs", mode = "function")) {
+    crowding_raw <- quest_u %>%
+      filter(
+        questType == "Foveal crowding" |
+          questType == "Peripheral crowding"
+      )
+    crowding_pairs <- crowding_lr_geomean_pairs(crowding_raw)
+    if (is.null(crowding_pairs) || nrow(crowding_pairs) == 0) {
+      crowding_by_participant_data <- crowding
+    } else {
+      crowding_by_participant_data <- crowding_pairs %>%
+        mutate(y = 10^log_crowding_distance_deg)
+    }
   } else {
-    NULL  # Let ggplot auto-scale
+    crowding_by_participant_data <- crowding
   }
-  
-  rsvp_limits <- if (nrow(rsvp) > 0 && !all(is.na(rsvp$y))) {
-    c(min(rsvp$y, na.rm = TRUE) * 0.8, max(rsvp$y, na.rm = TRUE) * 1.2)
-  } else {
-    NULL  # Let ggplot auto-scale
-  }
+  rsvp = df_list$rsvp %>% mutate(y = 10^block_avg_log_WPM)
+  reading = df_list$reading %>%
+    mutate(log_WPM = suppressWarnings(as.numeric(log_WPM))) %>%
+    filter(!is.na(log_WPM), is.finite(log_WPM)) %>%
+    mutate(y = 10^log_WPM)
+
+  # Linear acuity (deg), same transform as font-comparison bar plot
+  acuity = df_list$acuity %>% mutate(y = 10^questMeanAtEndOfTrialsLoop)
+  beauty = df_list$beauty %>%
+    mutate(y = questionAndAnswerResponse) %>%
+    filter(!is.na(y))
+
+  comfort = df_list$comfort %>%
+    mutate(y = questionAndAnswerResponse) %>%
+    filter(!is.na(y))
+
+  familiarity_data = df_list$familiarity %>%
+    mutate(y = questionAndAnswerResponse) %>%
+    filter(!is.na(y))
 
   return(list(
-    reading = create_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font"),
-    rsvp = create_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font"),
-    crowding = create_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
-    crowding_by_participant = create_plot(
+    reading = create_violin_plot(reading, "Reading Speed (word/min)", "Reading Speed by Font"),
+    rsvp = create_violin_plot(rsvp, "RSVP Reading Speed (word/min)", "RSVP Reading Speed by Font"),
+    crowding = create_violin_plot(crowding, "Crowding Distance (deg)", "Crowding Threshold by Font"),
+    crowding_by_participant = create_violin_plot(
       crowding_by_participant_data,
       "Crowding Distance (deg)",
       "Crowding Threshold by Participant",
       group_by = "participant"
     ),
-    acuity = create_plot(acuity, "Acuity (deg)", "Acuity vs. font",
+    acuity = create_violin_plot(acuity, "Acuity (deg)", "Acuity vs. font",
                          abbreviate_fonts = TRUE,
                          use_log_scale = TRUE,
                          axis_label_scale = 1.4),
-    acuity_by_participant = create_plot(
+    acuity_by_participant = create_violin_plot(
       acuity,
       "Acuity (deg)",
       "Acuity by Participant",
@@ -319,7 +312,7 @@ plot_violins <- function(df_list) {
       axis_label_scale = 1.4,
       group_by = "participant"
     ),
-    acuity_by_phrase_group = create_plot(
+    acuity_by_phrase_group = create_violin_plot(
       acuity,
       "Acuity (deg)",
       "Acuity vs. font (colored by phrase group)",
@@ -328,8 +321,8 @@ plot_violins <- function(df_list) {
       axis_label_scale = 1.4,
       color_by_phrase_group = TRUE
     ),
-    beauty = create_plot(beauty, "Beauty Rating", "Beauty Rating by Font"),
-    cmfrt = create_plot(comfort, "Comfort Rating", "Comfort Rating by Font"),
-    familiarity = create_plot(familiarity_data, "familiarity", "Familiarity by Font")
+    beauty = create_violin_plot(beauty, "Beauty Rating", "Beauty Rating by Font"),
+    cmfrt = create_violin_plot(comfort, "Comfort Rating", "Comfort Rating by Font"),
+    familiarity = create_violin_plot(familiarity_data, "familiarity", "Familiarity by Font")
   ))
 }

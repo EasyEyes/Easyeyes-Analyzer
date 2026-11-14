@@ -876,6 +876,33 @@ generate_threshold <-
     } else {
       basicExclude <- tibble(lowerCaseParticipant = '')
     }
+
+    # Persian study status spreadsheet Exclude=TRUE → same basicExclude path used
+    # by all Plots (not only the three RSVP pre/during/post session plots).
+    persian_exclude_keys <- character()
+    if (exists("persian_status_exclude_keys", mode = "function")) {
+      persian_exclude_keys <- persian_status_exclude_keys()
+    }
+    if (length(persian_exclude_keys) > 0) {
+      basicExclude <- dplyr::bind_rows(
+        basicExclude,
+        tibble::tibble(lowerCaseParticipant = persian_exclude_keys)
+      ) %>%
+        dplyr::filter(!is.na(lowerCaseParticipant), lowerCaseParticipant != "") %>%
+        dplyr::distinct()
+      log_info(
+        "Persian status Exclude: ",
+        length(persian_exclude_keys),
+        " key(s) merged into basicExclude"
+      )
+    }
+    exclude_keys_all <- unique(c(
+      basicExclude$lowerCaseParticipant,
+      persian_exclude_keys
+    ))
+    exclude_keys_all <- exclude_keys_all[
+      !is.na(exclude_keys_all) & nzchar(exclude_keys_all)
+    ]
     
     
     ################################ READING #######################################
@@ -965,6 +992,11 @@ generate_threshold <-
         filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant) %>% 
         mutate(participant = as.character(participant),
                block_condition = as.character(block_condition))
+      if (exists("filter_out_excluded_participants", mode = "function")) {
+        all_summary <- filter_out_excluded_participants(
+          all_summary, exclude_keys_all
+        )
+      }
     }
     
     all_summary <- all_summary %>%
@@ -1048,6 +1080,9 @@ generate_threshold <-
                   by = 'participant',
                   relationship = "many-to-many") %>% 
         filter(!tolower(participant) %in% basicExclude$lowerCaseParticipant)
+      if (exists("filter_out_excluded_participants", mode = "function")) {
+        reading <- filter_out_excluded_participants(reading, exclude_keys_all)
+      }
       if ('Include' %in% names(pretest)) {
         reading <- reading %>% filter(!participant %in% (pretest %>% filter(Include == 'no') %>% select(participant)))
       }
@@ -1439,6 +1474,27 @@ generate_threshold <-
     # threshold_each <- filter_out_short_ruler(threshold_each, short_ruler_ids)
     all_summary <- filter_out_short_ruler(all_summary, short_ruler_ids)
     QA <- filter_out_short_ruler(QA, short_ruler_ids)
+
+    # Apply Persian status + pretest Exclude to QA/ratings and any tables that
+    # were derived before ParticipantCode joins (covers all Plots outputs).
+    if (exists("filter_out_excluded_participants", mode = "function") &&
+        length(exclude_keys_all) > 0) {
+      reading <- filter_out_excluded_participants(reading, exclude_keys_all)
+      crowding <- filter_out_excluded_participants(crowding, exclude_keys_all)
+      rsvp_speed <- filter_out_excluded_participants(rsvp, exclude_keys_all)
+      rsvp <- rsvp_speed
+      acuity <- filter_out_excluded_participants(acuity, exclude_keys_all)
+      repeatedLetters <- filter_out_excluded_participants(
+        repeatedLetters, exclude_keys_all
+      )
+      quest <- filter_out_excluded_participants(quest, exclude_keys_all)
+      quest_unsummarized <- filter_out_excluded_participants(
+        quest_unsummarized, exclude_keys_all
+      )
+      age <- filter_out_excluded_participants(age, exclude_keys_all)
+      all_summary <- filter_out_excluded_participants(all_summary, exclude_keys_all)
+      QA <- filter_out_excluded_participants(QA, exclude_keys_all)
+    }
     
     #### Generate ratings summary stat table ####
     # Exclude the "readin5" shuffle-group typo from ratings only — not from

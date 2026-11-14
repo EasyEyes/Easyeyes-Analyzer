@@ -1,7 +1,7 @@
 plotsTabUI <- function(maxPlotsHistSlots = 36,
                        maxPlotsAgeSlots = 12,
                        maxPlotsScatterSlots = 30,
-                       maxPlotsViolinSlots = 10,
+                       maxPlotsViolinSlots = 13,
                        maxPlotsFontComparisonSlots = 10) {
 
   plots_plot_cell <- function(prefix, download_prefix, i, show_title = TRUE) {

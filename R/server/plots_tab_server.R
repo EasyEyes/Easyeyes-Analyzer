@@ -120,7 +120,7 @@ register_plots_tab_server <- function(output,
                                       maxPlotsHistSlots = 36,
                                       maxPlotsAgeSlots = 12,
                                       maxPlotsScatterSlots = 30,
-                                      maxPlotsViolinSlots = 10,
+                                      maxPlotsViolinSlots = 13,
                                       maxPlotsFontComparisonSlots = 10) {
 
   crowdingPlot <- reactive({
@@ -330,6 +330,32 @@ register_plots_tab_server <- function(output,
         if (!isTRUE(call$keep_colors)) {
           plot <- plot + scale_color_manual(values = colorPalette)
         }
+        plot <- add_experiment_title(plot, experiment_names())
+      }
+      res <- append_plot_list(l, fileNames, plot, call$fname)
+      l <- res$plotList
+      fileNames <- res$fileNames
+    }
+
+    # Persian RSVP: pre / during / post violins by font (shared y-scale).
+    # Same training-window classification as the longitudinal session plots.
+    rsvp_phase_violins <- plot_rsvp_phase_font_violins(
+      files()$data_list,
+      files()$summary_list,
+      pretest = files()$pretest
+    )
+    phase_violin_calls <- list(
+      list(plot = rsvp_phase_violins$pre, fname = "rsvp-violin-by-font-pre-training"),
+      list(
+        plot = rsvp_phase_violins$training,
+        fname = "rsvp-violin-by-font-during-training"
+      ),
+      list(plot = rsvp_phase_violins$post, fname = "rsvp-violin-by-font-post-training")
+    )
+    for (call in phase_violin_calls) {
+      plot <- call$plot
+      if (!is.null(plot)) {
+        plot <- plot + scale_color_manual(values = colorPalette)
         plot <- add_experiment_title(plot, experiment_names())
       }
       res <- append_plot_list(l, fileNames, plot, call$fname)
@@ -1984,12 +2010,10 @@ register_plots_tab_server <- function(output,
                 plot_to_save <- if (is_placeholder_plot(plot_obj)) {
                   plot_obj
                 } else {
-                  # Keep participant-violin panel title position (avoids y-label clash).
-                  themed <- plot_obj + plt_theme
-                  if (!is.null(attr(plot_obj, "plots_display_width_in", exact = TRUE))) {
-                    themed <- themed + ggplot2::theme(plot.title.position = "panel")
-                  }
-                  themed
+                  # plt_theme sets plot.title.position = "plot", which makes the
+                  # y-axis title overlap the subtitle; force panel for all violins.
+                  plot_obj + plt_theme +
+                    ggplot2::theme(plot.title.position = "panel")
                 }
                 plot_to_save <- copy_png_axis_scale_attrs(plot_obj, plot_to_save)
                 # Grow canvas width with N, but keep the same px/in as a normal
@@ -2068,10 +2092,8 @@ register_plots_tab_server <- function(output,
           } else {
             violin_h <- as.numeric(violin_h[1])
           }
-          plot_to_save <- plot_obj + plt_theme
-          if (!is.null(attr(plot_obj, "plots_display_width_in", exact = TRUE))) {
-            plot_to_save <- plot_to_save + ggplot2::theme(plot.title.position = "panel")
-          }
+          plot_to_save <- plot_obj + plt_theme +
+            ggplot2::theme(plot.title.position = "panel")
           violin_disp_w <- round(700 * (violin_w / 8))
           save_plots_display_download(
             file = file,
