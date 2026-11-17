@@ -778,7 +778,8 @@ apply_reading_comprehension_filter <- function(reading, QA, minCQAccuracy) {
 generate_threshold <- 
   function(data_list, summary_list, df, pretest, stairs, prolific, filterInput, skillFilter, minNQuestTrials, 
            minWrongTrials, maxQuestSD, conditionNameInput, maxReadingSpeed, minCQAccuracy,
-           sessions_summary = NULL, shortRulerParticipantIDs = NULL) {
+           sessions_summary = NULL, shortRulerParticipantIDs = NULL,
+           persian_status_path = NULL) {
     
     log_info("generate_threshold: data_list=", length(data_list), " summary_list=", length(summary_list))
     if (is.null(data_list)) {
@@ -879,9 +880,15 @@ generate_threshold <-
 
     # Persian study status spreadsheet Exclude=TRUE → same basicExclude path used
     # by all Plots (not only the three RSVP pre/during/post session plots).
+    # Prefer uploaded/zip status path from read_files; else data/ fallback.
     persian_exclude_keys <- character()
     if (exists("persian_status_exclude_keys", mode = "function")) {
-      persian_exclude_keys <- persian_status_exclude_keys()
+      status_path_resolved <- if (exists("resolve_persian_status_path", mode = "function")) {
+        resolve_persian_status_path(persian_status_path)
+      } else {
+        persian_status_path
+      }
+      persian_exclude_keys <- persian_status_exclude_keys(status_path_resolved)
     }
     if (length(persian_exclude_keys) > 0) {
       basicExclude <- dplyr::bind_rows(

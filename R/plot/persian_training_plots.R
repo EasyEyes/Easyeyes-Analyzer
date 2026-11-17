@@ -5,6 +5,18 @@ default_persian_status_path <- function() {
   file.path("data", "Persian_Study_Participant_Status.xlsx")
 }
 
+# Prefer an uploaded status spreadsheet (direct or extracted from zip);
+# otherwise fall back to data/Persian_Study_Participant_Status.xlsx.
+resolve_persian_status_path <- function(uploaded_path = NULL) {
+  if (!is.null(uploaded_path) && length(uploaded_path) >= 1) {
+    p <- as.character(uploaded_path[[1]])
+    if (!is.na(p) && nzchar(p) && file.exists(p)) {
+      return(normalizePath(p, winslash = "/", mustWork = FALSE))
+    }
+  }
+  default_persian_status_path()
+}
+
 # FA-675321 and legacy "675321-FA" both map to FA-675321.
 normalize_persian_participant_code <- function(x) {
   x <- trimws(as.character(x))
@@ -21,6 +33,8 @@ normalize_persian_participant_code <- function(x) {
 }
 
 read_persian_participant_status <- function(path = default_persian_status_path()) {
+  # NULL / missing upload → data/Persian_Study_Participant_Status.xlsx
+  path <- resolve_persian_status_path(path)
   if (is.null(path) || !nzchar(path) || !file.exists(path)) {
     return(tibble::tibble(
       `Participant Code` = character(),
@@ -564,7 +578,45 @@ prepare_persian_rsvp_session_data <- function(data_list,
     dplyr::select(ParticipantCode, session_date, wpm, phase)
 }
 
+# One row per participant × font × session_date, with pre/training/post phase.
+prepare_persian_rsvp_session_font_data <- function(data_list,
+                                                  summary_list = NULL,
+                                                  pretest = NULL,
+                                                  status = NULL,
+                                                  status_path = default_persian_status_path()) {
+  empty <- tibble::tibble(
+    ParticipantCode = character(),
+    font = character(),
+    session_date = as.Date(character()),
+    wpm = numeric(),
+    phase = character()
+  )
+  rsvp <- extract_session_rsvp_by_font(data_list, summary_list)
+  rsvp <- annotate_persian_rsvp_phases(
+    rsvp,
+    data_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path
+  )
+  if (nrow(rsvp) == 0) return(empty)
+
+  rsvp %>%
+    dplyr::filter(
+      phase %in% c("pre", "training", "post"),
+      !is.na(font), font != ""
+    ) %>%
+    dplyr::group_by(ParticipantCode, font, session_date, phase) %>%
+    dplyr::summarize(
+      wpm = exp(mean(log(wpm), na.rm = TRUE)),
+      .groups = "drop"
+    ) %>%
+    dplyr::filter(is.finite(wpm), wpm > 0) %>%
+    dplyr::select(ParticipantCode, font, session_date, wpm, phase)
+}
+
 # Sessions numbered by date within a phase filter (or all phases).
+# Facets by font when a `font` column is present.
 # `participant_colors` / `y_limits` keep related plots comparable.
 plot_rsvp_phase_sessions <- function(session_df,
                                      phase = c("pre", "training", "post", "all"),
@@ -578,11 +630,23 @@ plot_rsvp_phase_sessions <- function(session_df,
   if (!identical(phase, "all")) {
     plot_df <- plot_df %>% dplyr::filter(phase == !!phase)
   }
-  plot_df <- plot_df %>%
-    dplyr::arrange(ParticipantCode, session_date) %>%
-    dplyr::group_by(ParticipantCode) %>%
-    dplyr::mutate(session_number = dplyr::row_number()) %>%
-    dplyr::ungroup()
+  facet_by_font <- "font" %in% names(plot_df) &&
+    any(!is.na(plot_df$font) & nzchar(as.character(plot_df$font)))
+
+  if (facet_by_font) {
+    plot_df <- plot_df %>%
+      dplyr::filter(!is.na(font), font != "") %>%
+      dplyr::arrange(ParticipantCode, font, session_date) %>%
+      dplyr::group_by(ParticipantCode, font) %>%
+      dplyr::mutate(session_number = dplyr::row_number()) %>%
+      dplyr::ungroup()
+  } else {
+    plot_df <- plot_df %>%
+      dplyr::arrange(ParticipantCode, session_date) %>%
+      dplyr::group_by(ParticipantCode) %>%
+      dplyr::mutate(session_number = dplyr::row_number()) %>%
+      dplyr::ungroup()
+  }
 
   if (nrow(plot_df) == 0) return(NULL)
 
@@ -619,6 +683,10 @@ plot_rsvp_phase_sessions <- function(session_df,
       levels = names(participant_colors)
     )
   )
+  if (facet_by_font) {
+    fonts <- sort(unique(as.character(plot_df$font)))
+    legend_df <- tidyr::crossing(legend_df, font = fonts)
+  }
 
   p <- ggplot2::ggplot(
     plot_df,
@@ -633,8 +701,12 @@ plot_rsvp_phase_sessions <- function(session_df,
     ggplot2::geom_line(linewidth = 0.7, alpha = 0.85) +
     ggplot2::geom_point(size = 2.2) +
     ggplot2::scale_x_continuous(
-      breaks = seq_len(as.integer(max_sess)),
-      limits = c(1, max_sess),
+      breaks = function(x) {
+        lo <- max(1L, as.integer(ceiling(min(x, na.rm = TRUE))))
+        hi <- as.integer(floor(max(x, na.rm = TRUE)))
+        if (!is.finite(lo) || !is.finite(hi) || hi < lo) return(1L)
+        seq.int(lo, hi)
+      },
       name = "Session number (by date)"
     ) +
     ggplot2::scale_color_manual(
@@ -662,15 +734,32 @@ plot_rsvp_phase_sessions <- function(session_df,
       panel.grid.minor = ggplot2::element_blank()
     )
 
+  if (facet_by_font) {
+    # free_x: during training some fonts have far fewer sessions than others.
+    p <- p +
+      ggplot2::facet_wrap(~font, ncol = 2, scales = "free_x") +
+      ggplot2::theme(strip.text = ggplot2::element_text(size = 12))
+  } else {
+    p <- p + ggplot2::coord_cartesian(xlim = c(1, max_sess))
+  }
+
   if (!is.null(y_limits) && length(y_limits) == 2 && all(is.finite(y_limits))) {
     p <- p + ggplot2::scale_y_log10(limits = y_limits)
   } else {
     p <- p + ggplot2::scale_y_log10()
   }
+
+  if (facet_by_font) {
+    n_fonts <- length(unique(as.character(plot_df$font)))
+    n_rows <- as.integer(ceiling(n_fonts / 2))
+    attr(p, "plots_display_width_in") <- 10
+    attr(p, "plots_display_height_in") <- max(7, 3.5 * n_rows + 1.5)
+  }
   p
 }
 
-# Pre / during / post RSVP plots (shared participant colors + y-scale).
+# Pre / during / post RSVP plots (shared participant colors + y-scale),
+# faceted by font within each phase.
 # Pre = before First Training Session; training = start..end inclusive;
 # post = after Last Training Session.
 # Returns list(pre=, training=, post=); each ggplot or NULL.
@@ -679,7 +768,7 @@ plot_rsvp_pre_post_sessions <- function(data_list,
                                         pretest = NULL,
                                         status = NULL,
                                         status_path = default_persian_status_path()) {
-  session_df <- prepare_persian_rsvp_session_data(
+  session_df <- prepare_persian_rsvp_session_font_data(
     data_list,
     summary_list = summary_list,
     pretest = pretest,
@@ -735,14 +824,17 @@ plot_rsvp_training_sessions <- function(data_list,
   )$training
 }
 
-# Attach included ParticipantCode + pre/training/post phase to session RSVP rows.
+# Attach included ParticipantCode + pre/training/post phase to session rows.
+# `value_col` is the measure to require finite & > 0 (e.g. "wpm", "crowding_deg").
 annotate_persian_rsvp_phases <- function(rsvp,
                                          data_list,
                                          pretest = NULL,
                                          status = NULL,
-                                         status_path = default_persian_status_path()) {
+                                         status_path = default_persian_status_path(),
+                                         value_col = "wpm") {
   empty <- rsvp[0, , drop = FALSE]
   if (is.null(rsvp) || nrow(rsvp) == 0) return(empty)
+  if (!value_col %in% names(rsvp)) return(empty)
 
   status_df <- if (is.null(status)) {
     tryCatch(
@@ -788,7 +880,10 @@ annotate_persian_rsvp_phases <- function(rsvp,
       training_end
     )
 
+  value_ok <- is.finite(rsvp[[value_col]]) & rsvp[[value_col]] > 0
+
   rsvp %>%
+    dplyr::mutate(.value_ok = value_ok) %>%
     dplyr::rowwise() %>%
     dplyr::mutate(
       ParticipantCode = resolve_included_participant_code(
@@ -802,9 +897,9 @@ annotate_persian_rsvp_phases <- function(rsvp,
     dplyr::filter(
       !is.na(ParticipantCode),
       !is.na(session_date),
-      is.finite(wpm),
-      wpm > 0
+      .value_ok
     ) %>%
+    dplyr::select(-.value_ok) %>%
     dplyr::left_join(status_dates, by = "ParticipantCode") %>%
     dplyr::mutate(
       phase = dplyr::case_when(
@@ -855,6 +950,42 @@ prepare_persian_rsvp_font_phase_data <- function(data_list,
     )
 }
 
+# Shared helper: build pre/during/post font violins from phase_df (font/participant/y/phase).
+plot_persian_phase_font_violins <- function(phase_df,
+                                            ylabel,
+                                            titles,
+                                            use_log_scale = TRUE) {
+  empty <- list(pre = NULL, training = NULL, post = NULL)
+  if (is.null(phase_df) || nrow(phase_df) == 0) return(empty)
+  if (!exists("create_violin_plot", mode = "function")) return(empty)
+
+  y_limits <- range(phase_df$y, na.rm = TRUE)
+  if (!all(is.finite(y_limits)) || y_limits[1] <= 0) {
+    y_limits <- NULL
+  } else {
+    y_limits <- c(y_limits[1] / 1.15, y_limits[2] * 1.15)
+  }
+
+  out <- empty
+  for (ph in c("pre", "training", "post")) {
+    d <- phase_df %>% dplyr::filter(phase == !!ph)
+    if (nrow(d) == 0) next
+    p <- create_violin_plot(
+      d,
+      ylabel,
+      titles[[ph]],
+      use_log_scale = use_log_scale
+    )
+    if (is.null(p)) next
+    # Shared y-range without clipping violin density (scale limits would).
+    if (!is.null(y_limits)) {
+      p <- p + ggplot2::coord_cartesian(ylim = y_limits)
+    }
+    out[[ph]] <- p
+  }
+  out
+}
+
 # Pre / during / post RSVP violins by font (shared y-scale).
 # Returns list(pre=, training=, post=); each ggplot or NULL.
 plot_rsvp_phase_font_violins <- function(data_list,
@@ -869,38 +1000,161 @@ plot_rsvp_phase_font_violins <- function(data_list,
     status = status,
     status_path = status_path
   )
-  empty <- list(pre = NULL, training = NULL, post = NULL)
-  if (nrow(phase_df) == 0) return(empty)
-  if (!exists("create_violin_plot", mode = "function")) return(empty)
-
-  y_limits <- range(phase_df$y, na.rm = TRUE)
-  if (!all(is.finite(y_limits)) || y_limits[1] <= 0) {
-    y_limits <- NULL
-  } else {
-    y_limits <- c(y_limits[1] / 1.15, y_limits[2] * 1.15)
-  }
-
-  titles <- c(
-    pre = "RSVP Reading Speed by Font — pre-training",
-    training = "RSVP Reading Speed by Font — during training",
-    post = "RSVP Reading Speed by Font — post-training"
+  plot_persian_phase_font_violins(
+    phase_df,
+    ylabel = "RSVP Reading Speed (word/min)",
+    titles = c(
+      pre = "RSVP Reading Speed by Font — pre-training",
+      training = "RSVP Reading Speed by Font — during training",
+      post = "RSVP Reading Speed by Font — post-training"
+    ),
+    use_log_scale = TRUE
   )
+}
 
-  out <- empty
-  for (ph in c("pre", "training", "post")) {
-    d <- phase_df %>% dplyr::filter(phase == !!ph)
-    if (nrow(d) == 0) next
-    p <- create_violin_plot(
-      d,
-      "RSVP Reading Speed (word/min)",
-      titles[[ph]]
-    )
-    if (is.null(p)) next
-    # Shared y-range without clipping violin density (scale limits would).
-    if (!is.null(y_limits)) {
-      p <- p + ggplot2::coord_cartesian(ylim = y_limits)
-    }
-    out[[ph]] <- p
+# Crowding rows for one session (letter + spacingDeg/spacing, practice removed).
+persian_session_crowding_rows <- function(df, sm = NULL) {
+  src <- if (!is.null(sm) && is.data.frame(sm) && nrow(sm) > 0) sm else df
+  if (is.null(src) || !is.data.frame(src) || nrow(src) < 1) return(NULL)
+  if (!"questMeanAtEndOfTrialsLoop" %in% names(src)) return(NULL)
+
+  crowding <- src %>%
+    dplyr::filter(!is.na(questMeanAtEndOfTrialsLoop)) %>%
+    dplyr::mutate(
+      questMeanAtEndOfTrialsLoop = suppressWarnings(
+        as.numeric(questMeanAtEndOfTrialsLoop)
+      )
+    ) %>%
+    dplyr::filter(is.finite(questMeanAtEndOfTrialsLoop))
+
+  if (nrow(crowding) == 0) return(NULL)
+
+  if ("targetKind" %in% names(crowding)) {
+    crowding <- crowding %>% dplyr::filter(targetKind == "letter")
   }
-  out
+  if ("thresholdParameter" %in% names(crowding)) {
+    crowding <- crowding %>%
+      dplyr::filter(thresholdParameter %in% c("spacingDeg", "spacing"))
+  } else {
+    return(NULL)
+  }
+  if ("conditionName" %in% names(crowding)) {
+    crowding <- crowding %>%
+      dplyr::filter(!grepl("practice", conditionName, ignore.case = TRUE))
+  }
+  if (nrow(crowding) == 0) return(NULL)
+  crowding
+}
+
+# Per uploaded file × font: crowding distance (deg). L/R geomean within font.
+extract_session_crowding_by_font <- function(data_list, summary_list = NULL) {
+  empty <- tibble::tibble(
+    session_index = integer(),
+    participant = character(),
+    session_date = as.Date(character()),
+    font = character(),
+    crowding_deg = numeric()
+  )
+  if (length(data_list) == 0) return(empty)
+
+  purrr::map_dfr(seq_along(data_list), function(i) {
+    df <- data_list[[i]]
+    if (is.null(df) || !is.data.frame(df) || nrow(df) < 1) return(NULL)
+
+    sm <- NULL
+    if (!is.null(summary_list) && length(summary_list) >= i) {
+      sm <- summary_list[[i]]
+    }
+    crowding <- persian_session_crowding_rows(df, sm)
+    if (is.null(crowding) || nrow(crowding) == 0) return(NULL)
+    if (!"font" %in% names(crowding)) return(NULL)
+
+    crowding %>%
+      dplyr::mutate(font = trimws(as.character(font))) %>%
+      dplyr::filter(!is.na(font), font != "") %>%
+      dplyr::group_by(font) %>%
+      # L/R (and any repeats): mean of log10 spacing → linear geomean.
+      dplyr::summarize(
+        log_crowding = mean(questMeanAtEndOfTrialsLoop, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      dplyr::mutate(
+        crowding_deg = 10^log_crowding,
+        session_index = as.integer(i),
+        participant = persian_first_nonempty_chr(df$participant),
+        session_date = persian_session_date_from_df(df)
+      ) %>%
+      dplyr::filter(is.finite(crowding_deg), crowding_deg > 0) %>%
+      dplyr::select(
+        session_index, participant, session_date, font, crowding_deg
+      )
+  }) %>%
+    {
+      if (nrow(.) == 0) empty else .
+    }
+}
+
+# One row per participant × font × phase (geomean across sessions in the phase).
+prepare_persian_crowding_font_phase_data <- function(data_list,
+                                                    summary_list = NULL,
+                                                    pretest = NULL,
+                                                    status = NULL,
+                                                    status_path = default_persian_status_path()) {
+  empty <- tibble::tibble(
+    participant = character(),
+    font = character(),
+    phase = character(),
+    y = numeric()
+  )
+  crowding <- extract_session_crowding_by_font(data_list, summary_list)
+  crowding <- annotate_persian_rsvp_phases(
+    crowding,
+    data_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path,
+    value_col = "crowding_deg"
+  )
+  if (nrow(crowding) == 0) return(empty)
+
+  crowding %>%
+    dplyr::filter(phase %in% c("pre", "training", "post")) %>%
+    dplyr::group_by(ParticipantCode, font, phase) %>%
+    dplyr::summarize(
+      y = exp(mean(log(crowding_deg), na.rm = TRUE)),
+      .groups = "drop"
+    ) %>%
+    dplyr::filter(is.finite(y), y > 0) %>%
+    dplyr::transmute(
+      participant = ParticipantCode,
+      font,
+      phase,
+      y
+    )
+}
+
+# Pre / during / post crowding violins by font (shared y-scale).
+# One point per participant per font (L/R geomeaned) — up to 4 fonts each.
+plot_crowding_phase_font_violins <- function(data_list,
+                                             summary_list = NULL,
+                                             pretest = NULL,
+                                             status = NULL,
+                                             status_path = default_persian_status_path()) {
+  phase_df <- prepare_persian_crowding_font_phase_data(
+    data_list,
+    summary_list = summary_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path
+  )
+  plot_persian_phase_font_violins(
+    phase_df,
+    ylabel = "Crowding Distance (deg)",
+    titles = c(
+      pre = "Crowding Threshold by Font — pre-training",
+      training = "Crowding Threshold by Font — during training",
+      post = "Crowding Threshold by Font — post-training"
+    ),
+    use_log_scale = TRUE
+  )
 }

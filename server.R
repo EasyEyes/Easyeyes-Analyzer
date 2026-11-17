@@ -323,7 +323,8 @@ shinyServer(function(input, output, session) {
       maxReadingSpeed(),
       minCQAccuracy(),
       sessions_summary = sessions_summary,
-      shortRulerParticipantIDs = shortRulerParticipantIDs()
+      shortRulerParticipantIDs = shortRulerParticipantIDs(),
+      persian_status_path = files()$persian_status_path
     )
     })
     return(

@@ -120,7 +120,7 @@ register_plots_tab_server <- function(output,
                                       maxPlotsHistSlots = 36,
                                       maxPlotsAgeSlots = 12,
                                       maxPlotsScatterSlots = 30,
-                                      maxPlotsViolinSlots = 13,
+                                      maxPlotsViolinSlots = 16,
                                       maxPlotsFontComparisonSlots = 10) {
 
   crowdingPlot <- reactive({
@@ -337,12 +337,20 @@ register_plots_tab_server <- function(output,
       fileNames <- res$fileNames
     }
 
-    # Persian RSVP: pre / during / post violins by font (shared y-scale).
+    # Persian study: pre / during / post violins by font (shared y-scale).
     # Same training-window classification as the longitudinal session plots.
+    persian_status_path <- files()$persian_status_path
     rsvp_phase_violins <- plot_rsvp_phase_font_violins(
       files()$data_list,
       files()$summary_list,
-      pretest = files()$pretest
+      pretest = files()$pretest,
+      status_path = persian_status_path
+    )
+    crowding_phase_violins <- plot_crowding_phase_font_violins(
+      files()$data_list,
+      files()$summary_list,
+      pretest = files()$pretest,
+      status_path = persian_status_path
     )
     phase_violin_calls <- list(
       list(plot = rsvp_phase_violins$pre, fname = "rsvp-violin-by-font-pre-training"),
@@ -350,7 +358,19 @@ register_plots_tab_server <- function(output,
         plot = rsvp_phase_violins$training,
         fname = "rsvp-violin-by-font-during-training"
       ),
-      list(plot = rsvp_phase_violins$post, fname = "rsvp-violin-by-font-post-training")
+      list(plot = rsvp_phase_violins$post, fname = "rsvp-violin-by-font-post-training"),
+      list(
+        plot = crowding_phase_violins$pre,
+        fname = "crowding-violin-by-font-pre-training"
+      ),
+      list(
+        plot = crowding_phase_violins$training,
+        fname = "crowding-violin-by-font-during-training"
+      ),
+      list(
+        plot = crowding_phase_violins$post,
+        fname = "crowding-violin-by-font-post-training"
+      )
     )
     for (call in phase_violin_calls) {
       plot <- call$plot
@@ -466,7 +486,8 @@ register_plots_tab_server <- function(output,
     rsvp_pre_post <- plot_rsvp_pre_post_sessions(
       files()$data_list,
       files()$summary_list,
-      pretest = files()$pretest
+      pretest = files()$pretest,
+      status_path = files()$persian_status_path
     )
     if (!is.null(rsvp_pre_post$pre)) {
       pre_plot <- add_experiment_title(rsvp_pre_post$pre, experiment_names())

@@ -515,6 +515,17 @@ pick_pretest_zip_entry <- function(all_pretest, zip_path, tmp = tempdir()) {
   all_pretest[1]
 }
 
+# Exact basename match for the Persian study status spreadsheet (ignores
+# browser download suffixes like " (1)" via normalize_filename).
+is_persian_status_filename <- function(name) {
+  if (is.null(name) || length(name) == 0) return(FALSE)
+  grepl(
+    "^Persian_Study_Participant_Status\\.xlsx$",
+    normalize_filename(basename(as.character(name))),
+    ignore.case = TRUE
+  )
+}
+
 check_file_names <- function(file) {
   file_names <- file$name
   valid_endings <- c(".results.zip", ".csv", ".prolific.csv", ".pretest.xlsx")
@@ -522,10 +533,11 @@ check_file_names <- function(file) {
   # Normalize filenames to handle browser download suffixes
   normalized_names <- sapply(file_names, normalize_filename)
   
-  is_valid <- sapply(normalized_names, function(name) {
+  is_valid <- sapply(seq_along(normalized_names), function(i) {
+    name <- normalized_names[[i]]
     any(sapply(valid_endings, function(ext) {
       grepl(paste0(ext, "$"), name)
-    }))
+    })) || is_persian_status_filename(file_names[[i]])
   })
   invalid_files <- file_names[!is_valid]
 
@@ -544,6 +556,7 @@ check_file_names <- function(file) {
     "&nbsp;&nbsp;&nbsp;• .csv<br>",
     "&nbsp;&nbsp;&nbsp;• .prolific.csv<br>",
     "&nbsp;&nbsp;&nbsp;• .pretest.xlsx<br>",
+    "&nbsp;&nbsp;&nbsp;• Persian_Study_Participant_Status.xlsx<br>",
     "<em>Note: Browser download suffixes like ' (1)' ",
     "or '_(1)' are automatically ignored.</em>"
   )
@@ -1012,6 +1025,20 @@ append_parsed_session <- function(
   unchanged
 }
 
+# Copy a zip entry to a durable tempfile (survives tmpdir cleanup of unzip).
+extract_zip_entry_to_temp <- function(zip_path, entry, tmp = tempdir()) {
+  try(
+    unzip(zip_path, files = entry, exdir = tmp),
+    silent = TRUE
+  )
+  src <- file.path(tmp, entry)
+  if (!file.exists(src)) return(NA_character_)
+  dest <- tempfile(fileext = paste0(".", tools::file_ext(entry)))
+  ok <- file.copy(src, dest, overwrite = TRUE)
+  if (!isTRUE(ok) || !file.exists(dest)) return(NA_character_)
+  dest
+}
+
 read_files <- function(file, progress = NULL){
   if(is.null(file)) return(list())
   file_list <- file$data
@@ -1029,6 +1056,9 @@ read_files <- function(file, progress = NULL){
   j <- 1
   pretest <- tibble()
   prolificDT <- tibble()
+  # Persian status spreadsheet: prefer direct upload, else zip entry, else data/.
+  status_from_upload <- NULL
+  status_from_zip <- NULL
 
   for (i in 1 : n) {
     if (!is.null(progress)) {
@@ -1040,6 +1070,17 @@ read_files <- function(file, progress = NULL){
     }
     log_debug("Processing file ", i, "/", n, ": ", file_names[i])
     t <- tibble(placeholder = "")
+
+    if (is_persian_status_filename(file_names[i])) {
+      if (is.null(status_from_upload)) {
+        status_from_upload <- file_list[i]
+        log_info(
+          "Persian status spreadsheet from upload: ",
+          basename(file_names[i])
+        )
+      }
+      next
+    }
     
     is_pretest <- grepl("pretest.xlsx", file_names[i]) |
       grepl("pretest.csv", file_names[i])
@@ -1123,6 +1164,22 @@ read_files <- function(file, progress = NULL){
           grepl("pretest\\.xlsx$", zip_file_names, ignore.case = TRUE)
       ]
       all_pretest <- all_pretest[!grepl("__MACOSX", all_pretest)]
+      status_xlsx <- zip_file_names[
+        vapply(zip_file_names, is_persian_status_filename, logical(1)) &
+          !grepl("__MACOSX", zip_file_names)
+      ]
+      if (length(status_xlsx) > 0 && is.null(status_from_zip)) {
+        extracted <- extract_zip_entry_to_temp(
+          file_list[i], status_xlsx[[1]], tmp = tempdir()
+        )
+        if (!is.na(extracted) && nzchar(extracted)) {
+          status_from_zip <- extracted
+          log_info(
+            "Persian status spreadsheet from zip: ",
+            status_xlsx[[1]]
+          )
+        }
+      }
       m <- length(all_csv)
       log_debug("ZIP contains ", m, " CSV files")
       tmp <- tempdir()
@@ -1226,6 +1283,22 @@ read_files <- function(file, progress = NULL){
   stair_list <- stair_list[!sapply(stair_list, is.null)]
   summary_list <- summary_list[!sapply(summary_list, is.null)]
 
+  persian_status_path <- if (exists("resolve_persian_status_path", mode = "function")) {
+    resolve_persian_status_path(
+      if (!is.null(status_from_upload)) {
+        status_from_upload
+      } else {
+        status_from_zip
+      }
+    )
+  } else if (!is.null(status_from_upload)) {
+    status_from_upload
+  } else if (!is.null(status_from_zip)) {
+    status_from_zip
+  } else {
+    file.path("data", "Persian_Study_Participant_Status.xlsx")
+  }
+
   # Safety check: if no data was processed, return empty structure
   if (length(data_list) == 0) {
     return(list(
@@ -1234,7 +1307,8 @@ read_files <- function(file, progress = NULL){
       summary_list = list(),
       pretest = tibble(),
       experiment = character(0),
-      prolific = tibble()
+      prolific = tibble(),
+      persian_status_path = persian_status_path
     ))
   }
 
@@ -1348,7 +1422,12 @@ read_files <- function(file, progress = NULL){
   experiment <- experiment[experiment != ""]
   stairs <- do.call(rbind, stair_list)
 
-  log_info("Preprocess complete: ", length(data_list), " sessions loaded")
+  log_info(
+    "Preprocess complete: ",
+    length(data_list),
+    " sessions loaded; Persian status=",
+    basename(persian_status_path)
+  )
   return(list(
     data_list = data_list,
     summary_list = summary_list,
@@ -1356,7 +1435,8 @@ read_files <- function(file, progress = NULL){
     df = df,
     pretest = pretest,
     stairs = stairs,
-    prolific = prolificDT
+    prolific = prolificDT,
+    persian_status_path = persian_status_path
   ))
 }
 
