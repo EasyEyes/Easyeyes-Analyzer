@@ -670,7 +670,6 @@ _online2Participants,"⭑ _online2Participants [Prolific ""Recruit participants"
 _online2Pay,"_online2Pay [Prolific ""How much do you want to pay them?""] TYPICALLY YOU SHOULD USE _online2PayPerHour INSTEAD BECAUSE THAT'S WHAT PARTICIPANTS CARE ABOUT MOST. _online2Pay (default zero) specifies the payment (a number) to offer to each participant. The currency is specified by _online2PayCurrencyCode.  If _online2Pay and _online2PayPerHour are both nonzero, then the participant is offered the sum of the two contributions.  In deciding whether to participate, potential participants mainly consider _online2PayPerHour, _online0Title, _online2Description, and _online2Minutes. Some participants mentioned selecting my study because it seemed interesting. Others said that in their rush to sign up for a $15+/hour study, they often skip the description. 
 
 A statement of payment to the participant appears below the consent form. The amount is _online2Pay plus the product of expected duration _online2Minutes / 60 and pay per hour _online2PayPerHour. That number is followed by _online2PayCurrencyCode as the unit of currency. For example ""15.00 USD"". Use _online2PayShow to control what's shown."
-_online2PayCurrency,❌ Use _online2PayCurrencyCode instead.
 _online2PayCurrencyCode,"_online2PayCurrencyCode (default USD) allows the scientist to specify the ISO 4217 three-letter currency code of the currency of payment to the participant. For example ""USD"" for US Dollars, ""EUR"" for Euros, and ""GBP"" for British Pounds.
 https://en.wikipedia.org/wiki/ISO_4217
 
@@ -1233,7 +1232,7 @@ The values of fontDirection are:
 ""vertical-lr"";   Vertical, top to bottom, columns left to right.
 The vertical options, not yet implemented, will enhance support for Japanese, which can be written either ltr or vertical-rl.
 
-Use LTR (or the equivalent ltr) for languages, like English, that are written from left to right, and RTL (or rtl) for right-to-left languages, like Arabic, Hebrew, and Persian.  Throughout EasyEyes, left-to-right text is left-aligned, and right-to-left text is right aligned. If fontDirection is set incorrectly, text may fall off the screen.
+Use LTR (or the equivalent ltr) for languages, like English, that are written from left to right, and RTL (or rtl) for right-to-left languages, like Arabic, Hebrew, and Persian. Throughout EasyEyes, left-to-right text is left-aligned, and right-to-left text is right aligned. If fontDirection is set incorrectly, text may fall off the screen.
 
 NOTE. fontDirection controls only the current condition's stimulus. The direction of instructional messages to the participant, for the whole study, is set by EE_languageDirection in the international phrases, which is selected by _language. The scientist sets _language in the study spreadsheet. It normally has only one value for the whole study. 
 
@@ -1241,7 +1240,7 @@ LIMITED SUPPORT. _languageSelectionByParticipantBool allows runtime selection of
 
 fontDirection affects several aspects of layout. EasyEyes left-aligns LTR text and right-aligns RTL text. It also arranges controls, such as buttons, with a left-to-right emphasis on LTR pages and a right-to-left emphasis on RTL pages.
 
-The direction of strongly directional text (such as words written in Arabic or English) is determined by the characters themselves. However, the placement of words and weakly directional characters (such as punctuation) is determined by the Unicode Bidirectional (bidi) algorithm, which considers both the directionality of individual characters and the base direction of the surrounding text block. fontDirection sets that base direction for every block of text.
+The direction of strongly directional text (such as words written in Arabic or English) is determined by the characters themselves. However, the placement of words and weakly directional characters (such as punctuation) is determined by the Unicode Bidirectional (bidi) algorithm, which considers both the directionality of individual characters and the base direction of the surrounding text block. fontDirection sets that base direction for every block of stimulus text.
 
 Also see fontPunctuationRTL, a brute force technique that tells the bidi algorithm to treat some punctuation as RTL.
 
@@ -1362,7 +1361,7 @@ Turkish:               tr
 Ukrainian:             uk
 Urdu:                  ur
 Vietnamese:            vi"
-fontLatencyPt,"🕑 fontLatencyPt (default empty) accepts a comma-separated list of point sizes, and, at the beginning of the block, for each size, measures how long it takes to draw the fontLatencyString using this condition's font, fontMaxPhysicalPx, and fontRenderMaxPx. At the beginning of the block, before the first trial, measure how long it takes (sec) to draw each size on the screen. It's ok for this to temporarily take over the screen. A block can have several conditions, and each can set fontLatencyPt. Before running the block's first trial, measure timing for all the conditions in the block that requested fontLatencyPt. Save the results in the CSV file. We will plot latency (s) vs. size (pt), so the results.csv file should provide the two vectors."
+fontLatencyPt,"🕑 fontLatencyPt (default empty) accepts a comma-separated list of nominal point sizes, and, at the beginning of the block, for each size, measures how long it takes to draw the fontLatencyString using this condition's font, fontMaxPhysicalPx, and fontRenderMaxPx. At the beginning of the block, before the first trial, measure how long it takes (sec) to draw each size on the screen. It's ok for this to temporarily take over the screen. A block can have several conditions, and each can set fontLatencyPt. Before running the block's first trial, measure timing for all the conditions in the block that requested fontLatencyPt. Save the results in the CSV file. We will plot latency (s) vs. nominal size (pt), so the results.csv file should provide the two vectors."
 fontLatencyString,fontLatencyString (default 'abc') accepts a string to be drawn by fontLatencyPt.
 fontLeftToRightBool,❌ Use fontDirection instead.
 fontLimitTripletExtentBool,"fontLimitTripletExtentBool (default TRUE) when TRUE tells EasyEyes, in the crowding task, to directly limit triplet size to stay on screen. When FALSE, EasyEyes is indirect. It uses another string, possibly the alphabet, to compute a maximum font size. This indirect scheme risks that a particularly long triplet will extend off screen, but has the virtue that font size per se offers the participant no clue to the target identify. We recommend 
@@ -1607,6 +1606,16 @@ https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/letter
 fontTrackingForWords,"🕑 fontTrackingForWords (default 0) uses the ""wordSpacing"" Canvas command to adjust the spacing between words.
 https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/wordSpacing
 The distance inserted (in px) is the product of the value provided and the point side of the font. This works for Chrome, Edge, and Samsung, not for Safari and Firefox."
+fontTransparency,"🕑 fontTransparency (default 1), range 0 to 1, scales the transparency of the font. If fontTransparency is a and fontColorRGBA transparency is A, then the effective transparency of the font will be a*A. Both a and A are restricted to the range 0 to 1.
+The font color is presented faithfully when fontTransparency is 1.
+
+EXPLANATION OF TRANSPARENCY A.
+(I think it should have been called ""opacity"".)
+Suppose the background-only area shows (r, g, b), then a foreground area (R, G, B) will blend with the background. Let A be the transparency of the foreground, ranging from 0 to 1.
+BackgroundRGB = (r, g, b)
+ForegroundRGB = A * (R, G, B) + (1 - A) * BackgroundRGB
+
+See also targetContrast (which doesn't affect fonts)."
 fontVariableSettings,"fontVariableSettings accepts a string to control a variable font (default is the empty string). All modern browsers support variable fonts, but Internet Explorer does not. Variable fonts have one or more axes of variation, and fontVariableSettings allows you to pick any numerical value along each axis to control the font rendering. You set all the axes at once. Any axis you don't set will revert to the font's built-in default. Each axis has a four-character name. Standard axes have lowercase names, like 'wght' for weight. Novel axes are called ""unique"" and have UPPERCASE names, like 'GRAD', which typically adjusts letter weight without affecting line length. 
 
 HOW TO USE IT
@@ -1902,7 +1911,6 @@ movieValues,"movieValues (default empty) is a comma-separated list of numbers. T
 NOTE: movieSec is ignored if movieValues is not empty."
 needBatteryFullPowerModeBool,"🕑 needBatteryFullPowerModeBool (default FALSE), when TRUE, requires that the phone not be in low-power mode. If it is in low power mode, then we encourage the participant to charge the phone, and they’re allowed to PROCEED when the phone switches from low-power to full-power mode. Relies on a requestAnimationFrame test recommended by Stack Overflow that we hope will work on all phones."
 needBatteryLevel,"🕑 needBatteryLevel (default 0.1) specifies the required minimum battery level (where 0 is empty and 1.0 is full). If the battery is below required level, then we encourage the participant to charge the phone, and they’re allowed to PROCEED when the battery reaches the required level. Based on the web URL BatteryManager.level which is available on all Android and Samsung browsers, and not available on iOS. needBatteryLevel is ignored when the battery manager API is not supported."
-needEasyEyesKeypadBeyondCm,Use needKeypadBeyondCm instead.
 needKeypadBeyondCm,"needKeypadBeyondCm (default 75). If any block has 
 viewingDistanceDesiredCm > needKeypadBeyondCm, 
 EasyEyes will recruit the participant's smartphone once on the Device Compatibility page for the whole study. EasyEyes will provide a keypad on that phone during each block that requires it. The phone remains connected through the whole study. The keypad is enabled only for blocks with a viewingDistanceDesiredCm that exceeds needKeypadBeyondCm. While the keypad is enabled, the participant is free to type on either or both the computer's keyboard and the phone keypad. Set needKeypadBeyondCm to zero to enable the keypad regardless of viewingDistanceDesiredCm. Set it to a huge value to never provide a keypad.
@@ -2188,8 +2196,6 @@ If any characters in the rendered text are clipping at large size, see fontPaddi
 responseAllowedEarlyBool,"When responseAllowedEarlyBool is TRUE, the participant can respond at any time after target onset. When FALSE, the participant can only respond after target offset plus markingOnsetAfterTargetOffsetSecs. For demos and debugging, it is handy to set responseAllowedEarlyBool to TRUE with a long targetDurationSec (e.g. 999) so that the stimulus stays up while the audience examines it, yet you can quickly click through several stimuli to see the progression. Note that enabling early response while clicked responses are allowed forces EasyEyes to show the characterSet early, since clicking requires something to click on. And if responseRequiresCharacterSetBool is TRUE then setting responseAllowedEarlyBool TRUE will force early display of the fontCharacterSet regardless of which response modalities are enabled.
 Also see markingOnsetAfterTargetOffsetSecs."
 responseClickedBool,"⭑ responseClickedBool (default TRUE). Allow participant to respond at every occasion by clicking (e.g. clicking the target letter in the fontCharacterSet). When ready for stimulus, allow clicking fixation instead of hitting SPACE. The various response modes are not exclusive. Enable as many as you like. And simulateParticipantBool can provide responses too. Note that, just for initiating the trial, responseMustTrackContinuouslyBool overrides other responseXXX settings so that the only way to initiate the trial is by tracking with the cursor; it has no effect on other screens, including the stimulus response at the end of the trial."
-responseEscapeOptionsBool,"Once debugged, responseEscapeOptionsBool will be TRUE by default. If TRUE, then pressing SHIFT RIGHT-ARROW (⇧▶) offers two or three options. The mildest option is to continue from where ⇧▶ was presssed, deleting any trial for which the response was not yet collected. The middle option is only presented if we suppose that we're testing the scientist, not a typical participant. This option skips to the next block. The last option ends testing and goes to debriefing (if requested). Our rule for supposing that the participant is the scientist is either that the Prolific URL parameters are absent or we are in Prolific Preview mode.
-     If responseEscapeOptionsBool is TRUE, then, at any prompt, the participant can hit <SHIFT RIGHT-ARROW> to be asked whether to cancel the trial (hit space), the block (hit return), or the whole study (hit SHIFT RIGHT-ARROW again)."
 responseIdentifyBy,"responseIdentifyBy (default ""image"") specifies how participant will identify the target. Valid choices are:
 """" = requests default value.
 image = participant will identify by image.
@@ -2508,7 +2514,10 @@ targetBoundingBoxHorizontalAlignment,"targetBoundingBoxHorizontalAlignment (defa
 targetColorRGBA,"targetColorRGBA (default 0, 0, 0, 1 i.e. black) is a comma-separated list of four numbers (each ranging from 0 to 1) that specify traget color for each condition. ""RGB"" are the red, green, and blue channels; ""A"" controls transparency (0 to 1). 0,0,0,1 is black and 1, 1, 1, 1 is white. For Venier, screenColorRGBA=""0, 0, 0, 1"" sets the background black, and targetColorRGBA=""1, 1, 1, 1"" sets the target white, markingColorRGBA=”1, 1, 1, 1” sets the fixation mark white, and instructionFontColorRGBA=”1, 1, 1, 1” set the instructions white. The ColorRGBA controls include fontColorRGBA, instructionFontColorRGBA, markingColorRGBA, screenColorRGBA, and targetColorRGBA. WHEN ENTERING SEVERAL NUMBERS IN ONE CELL, WE STRONGLY SUGGEST BEGINNING WITH A SPACE, AND PUTTING A SPACE AFTER EVERY COMMA. THIS PREVENTS EXCEL FROM MISINTERPRETING THE STRING AS A SINGLE NUMBER. 
 
 See also targetContrast, targetContrastOrTransparency, targetTransparency"
-targetContrast,"targetContrast (default 1) is the desired luminance contrast of the target. For letters we use Weber contrast, 
+targetContrast,"targetContrast (default 1) is the desired luminance contrast of the target. 
+DISABLED FOR TEXT; USE fontTransparency INSTEAD.
+
+For letters we use Weber contrast, 
 c=(LLetter-LBackground)/LBackground. 
 A white letter has contrast +1; a black letter has contrast -1.
 For gabors, we use Michelson contrast, 
@@ -2516,10 +2525,7 @@ c=(LMax-LMin)/(LMax+LMin).
 For scientist-supplied images, the image is presented faithfully when targetContrast is 1, and scaled in contrast proportionally when targetContrast is not 1.
 NOTE: Until we shift to using HDR movies, contrast is only accurate for values of -1, 0, and 1.
 
-See also targetContrast, targetContrastOrTransparency, targetTransparency"
-targetContrastOrTransparency,"🕑 targetContrastOrTransparency (default transparency). Specifies whether the scientist is using targetContrast or targetTransparency. The other parameter is ignored.
-
-See also targetContrast, targetContrastOrTransparency, targetTransparency."
+See also fontTransparency."
 targetCyclePerDeg,"targetCyclePerDeg (default 0) is the target spatial frequency in cycles per deg. Sine of zero is zero and cosine of zero is 1, so if you're using zero targetCyclePerDeg to get a Gaussian blob, then set targetPhaseDeg to 90."
 targetDelaySec,"targetDelaySec (default 0) delays presentation of the target in a movie. By default, time is zero at the middle of the movie. EasyEyes will subtract targetDelaySec from that default to produce the time coordinate used to compute the target (and envelope). This is unlike targetPhaseTemporalDeg which affects only the target, not the envelope."
 targetDurationSec,"⭑ targetDurationSec (default 0.15) is the duration of target presentation. For demos and debugging, it is handy to set responseAllowedEarlyBool to TRUE with a long targetDurationSec (e.g. 999) so that the stimulus stays up while you examine it, yet you can quickly click through several stimuli to see the progression. Set responseAllowedEarlyBool to FALSE if you want to allow response only after target offset."
@@ -2655,16 +2661,6 @@ targetTask,"⭑ targetTask (default empty). Can be one or more of the following 
 🕑 rate: The participant is invited to rate on a scale of 1 to 7. The targetKind can be reading, image, or sound."
 targetThicknessDeg,targetThicknessDeg (default 5/60=0.083) is the stroke thickness of Vernier target.
 targetTimeConstantSec,"targetTimeConstantSec (default practically infinite, 1e10) is the time for the temporal Gaussian envelope modulating target contrast to drop from 1 to 1/e."
-targetTransparency,"🕑  targetTransparency (default 1), range 0 to 1, scales the transparency of the  target. If targetTransparency is a and targetColorRGBA transparency is A, then the effective transparency of the target will be a*A. Both a and A are restricted to the range 0 to 1. 
-The target is presented faithfully when targetTransparency is 1.
-
-EXPLANATION OF TRANSPARENCY A. It should have been called opacity.
-Suppose the background-only area shows (r, g, b), then a foreground area (R, G, B) will blend with the background.
-Let A be the transparency of the foreground, ranging from 0 to 1. 
-Background RGB = (r, g, b) 
-Foreground RGB = A * (R, G, B) + (1 - A) * Background RGB
-
-See also targetContrast, targetContrastOrTransparency, targetTransparency"
 targetWhenSec,🕑 targetWhenSec (default 0) indicates how much later the middle time of the target occurs relative to the middle of the movie.
 thresholdAllowedBlackoutBool,"thresholdAllowedBlackoutBool (default FALSE). Does nothing when set to TRUE. Set it FALSE to enable blackout detection. If blackout is detected, the trial is marked as ""bad"" and the participant's response is not passed to QUEST. A blackout occurs when a font-rendering failure produces a large black square (RGBA=[0,0,0,1] on more than half of the screen) instead of the stimulus, ruining the trial. We suspect that it occurs in the font-rendering software when the browser provides insufficient heap space to the EasyEyes web app. As far as we know, no API reports the failure, though it's obvious to the participant. EasyEyes detects blackout by checking 13 dispersed pixels in the suspected blackout area after rendering each text stimulus. Blackouts are terrible, and it's good to detect them (and discard those trials), but it's conceivable that once blackouts are under control we'll want to stop this test because it takes too long or gives false alarms. In that case you can set thresholdAllowedBlackoutBool=TRUE to prevent testing for blackout, which will unknowingly accept them as good trials.  
 
