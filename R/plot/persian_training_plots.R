@@ -360,7 +360,8 @@ extract_session_rsvp_by_font <- function(data_list, summary_list = NULL) {
     participant = character(),
     session_date = as.Date(character()),
     font = character(),
-    wpm = numeric()
+    wpm = numeric(),
+    n_obs = integer()
   )
   if (length(data_list) == 0) return(empty)
 
@@ -387,6 +388,7 @@ extract_session_rsvp_by_font <- function(data_list, summary_list = NULL) {
       ) %>%
       dplyr::group_by(font) %>%
       dplyr::summarize(
+        n_obs = dplyr::n(),
         wpm = exp(mean(log(wpm))),
         .groups = "drop"
       ) %>%
@@ -395,7 +397,9 @@ extract_session_rsvp_by_font <- function(data_list, summary_list = NULL) {
         participant = persian_first_nonempty_chr(df$participant),
         session_date = persian_session_date_from_df(df)
       ) %>%
-      dplyr::select(session_index, participant, session_date, font, wpm)
+      dplyr::select(
+        session_index, participant, session_date, font, wpm, n_obs
+      )
   }) %>%
     {
       if (nrow(.) == 0) empty else .
@@ -911,7 +915,106 @@ annotate_persian_rsvp_phases <- function(rsvp,
     )
 }
 
-# One row per participant × font × phase (geomean across sessions in the phase).
+# Multi-file same participant in pre/post (interrupted resume, partial + retest,
+# failed then restart): do not average split attempts.
+# For each font keep the session with the most observations; ties → session with
+# more total obs in that phase, then later date. Fonts only in the other file
+# are kept (complementary union). Training days stay multi-session (geomeaned).
+persian_collapse_phase_sessions <- function(df, value_col, n_obs_col = "n_obs") {
+  if (is.null(df) || nrow(df) == 0) return(df)
+  if (!value_col %in% names(df)) return(df)
+  needed <- c("ParticipantCode", "font", "phase", "session_index")
+  if (!all(needed %in% names(df))) return(df)
+
+  if (!n_obs_col %in% names(df)) {
+    df[[n_obs_col]] <- 1L
+  }
+
+  df <- df %>%
+    dplyr::mutate(
+      .n_obs = suppressWarnings(as.integer(.data[[n_obs_col]])),
+      .n_obs = dplyr::if_else(is.finite(.n_obs) & .n_obs > 0L, .n_obs, 1L)
+    )
+
+  session_tot <- df %>%
+    dplyr::group_by(ParticipantCode, phase, session_index) %>%
+    dplyr::summarize(.session_n = sum(.n_obs, na.rm = TRUE), .groups = "drop")
+
+  df %>%
+    dplyr::left_join(
+      session_tot,
+      by = c("ParticipantCode", "phase", "session_index")
+    ) %>%
+    dplyr::group_by(ParticipantCode, font, phase) %>%
+    dplyr::arrange(
+      dplyr::desc(.n_obs),
+      dplyr::desc(.session_n),
+      dplyr::desc(session_date),
+      dplyr::desc(session_index),
+      .by_group = TRUE
+    ) %>%
+    dplyr::slice(1L) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(-.n_obs, -.session_n)
+}
+
+# Aggregate annotated session rows → one y per participant × font × phase.
+# Pre/post: complementary collapse of split files. Training: geomean/mean.
+persian_aggregate_font_phase <- function(df,
+                                         value_col,
+                                         use_geomean = TRUE) {
+  empty <- tibble::tibble(
+    participant = character(),
+    font = character(),
+    phase = character(),
+    y = numeric()
+  )
+  if (is.null(df) || nrow(df) == 0) return(empty)
+  if (!value_col %in% names(df)) return(empty)
+
+  df <- df %>% dplyr::filter(phase %in% c("pre", "training", "post"))
+  if (nrow(df) == 0) return(empty)
+
+  pre_post <- persian_collapse_phase_sessions(
+    df %>% dplyr::filter(phase %in% c("pre", "post")),
+    value_col = value_col
+  )
+  training <- df %>% dplyr::filter(phase == "training")
+  combined <- dplyr::bind_rows(pre_post, training)
+  if (nrow(combined) == 0) return(empty)
+
+  if (use_geomean) {
+    combined %>%
+      dplyr::group_by(ParticipantCode, font, phase) %>%
+      dplyr::summarize(
+        y = exp(mean(log(.data[[value_col]]), na.rm = TRUE)),
+        .groups = "drop"
+      ) %>%
+      dplyr::filter(is.finite(y), y > 0) %>%
+      dplyr::transmute(
+        participant = ParticipantCode,
+        font,
+        phase,
+        y
+      )
+  } else {
+    combined %>%
+      dplyr::group_by(ParticipantCode, font, phase) %>%
+      dplyr::summarize(
+        y = mean(.data[[value_col]], na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      dplyr::filter(is.finite(y), y > 0) %>%
+      dplyr::transmute(
+        participant = ParticipantCode,
+        font,
+        phase,
+        y
+      )
+  }
+}
+
+# One row per participant × font × phase.
 # Columns font/participant/y match create_violin_plot().
 prepare_persian_rsvp_font_phase_data <- function(data_list,
                                                 summary_list = NULL,
@@ -933,41 +1036,41 @@ prepare_persian_rsvp_font_phase_data <- function(data_list,
     status_path = status_path
   )
   if (nrow(rsvp) == 0) return(empty)
-
-  rsvp %>%
-    dplyr::filter(phase %in% c("pre", "training", "post")) %>%
-    dplyr::group_by(ParticipantCode, font, phase) %>%
-    dplyr::summarize(
-      y = exp(mean(log(wpm), na.rm = TRUE)),
-      .groups = "drop"
-    ) %>%
-    dplyr::filter(is.finite(y), y > 0) %>%
-    dplyr::transmute(
-      participant = ParticipantCode,
-      font,
-      phase,
-      y
-    )
+  persian_aggregate_font_phase(rsvp, value_col = "wpm", use_geomean = TRUE)
 }
 
-# Shared helper: build pre/during/post font violins from phase_df (font/participant/y/phase).
+# Shared helper: build phase font violins from phase_df (font/participant/y/phase).
+# Shared y-limits across `phases` so pre/during/post on one row are comparable.
 plot_persian_phase_font_violins <- function(phase_df,
                                             ylabel,
                                             titles,
-                                            use_log_scale = TRUE) {
+                                            use_log_scale = TRUE,
+                                            phases = c("pre", "training", "post")) {
   empty <- list(pre = NULL, training = NULL, post = NULL)
   if (is.null(phase_df) || nrow(phase_df) == 0) return(empty)
   if (!exists("create_violin_plot", mode = "function")) return(empty)
 
+  phases <- intersect(phases, c("pre", "training", "post"))
+  if (length(phases) == 0) return(empty)
+
+  phase_df <- phase_df %>% dplyr::filter(phase %in% phases)
+  if (nrow(phase_df) == 0) return(empty)
+
   y_limits <- range(phase_df$y, na.rm = TRUE)
-  if (!all(is.finite(y_limits)) || y_limits[1] <= 0) {
+  if (!all(is.finite(y_limits))) {
     y_limits <- NULL
-  } else {
+  } else if (use_log_scale && y_limits[1] <= 0) {
+    y_limits <- NULL
+  } else if (use_log_scale) {
     y_limits <- c(y_limits[1] / 1.15, y_limits[2] * 1.15)
+  } else {
+    pad <- diff(y_limits)
+    if (!is.finite(pad) || pad <= 0) pad <- 1
+    y_limits <- c(y_limits[1] - 0.15 * pad, y_limits[2] + 0.15 * pad)
   }
 
   out <- empty
-  for (ph in c("pre", "training", "post")) {
+  for (ph in phases) {
     d <- phase_df %>% dplyr::filter(phase == !!ph)
     if (nrow(d) == 0) next
     p <- create_violin_plot(
@@ -1053,7 +1156,8 @@ extract_session_crowding_by_font <- function(data_list, summary_list = NULL) {
     participant = character(),
     session_date = as.Date(character()),
     font = character(),
-    crowding_deg = numeric()
+    crowding_deg = numeric(),
+    n_obs = integer()
   )
   if (length(data_list) == 0) return(empty)
 
@@ -1075,6 +1179,7 @@ extract_session_crowding_by_font <- function(data_list, summary_list = NULL) {
       dplyr::group_by(font) %>%
       # L/R (and any repeats): mean of log10 spacing → linear geomean.
       dplyr::summarize(
+        n_obs = dplyr::n(),
         log_crowding = mean(questMeanAtEndOfTrialsLoop, na.rm = TRUE),
         .groups = "drop"
       ) %>%
@@ -1086,7 +1191,7 @@ extract_session_crowding_by_font <- function(data_list, summary_list = NULL) {
       ) %>%
       dplyr::filter(is.finite(crowding_deg), crowding_deg > 0) %>%
       dplyr::select(
-        session_index, participant, session_date, font, crowding_deg
+        session_index, participant, session_date, font, crowding_deg, n_obs
       )
   }) %>%
     {
@@ -1094,7 +1199,7 @@ extract_session_crowding_by_font <- function(data_list, summary_list = NULL) {
     }
 }
 
-# One row per participant × font × phase (geomean across sessions in the phase).
+# One row per participant × font × phase.
 prepare_persian_crowding_font_phase_data <- function(data_list,
                                                     summary_list = NULL,
                                                     pretest = NULL,
@@ -1116,21 +1221,9 @@ prepare_persian_crowding_font_phase_data <- function(data_list,
     value_col = "crowding_deg"
   )
   if (nrow(crowding) == 0) return(empty)
-
-  crowding %>%
-    dplyr::filter(phase %in% c("pre", "training", "post")) %>%
-    dplyr::group_by(ParticipantCode, font, phase) %>%
-    dplyr::summarize(
-      y = exp(mean(log(crowding_deg), na.rm = TRUE)),
-      .groups = "drop"
-    ) %>%
-    dplyr::filter(is.finite(y), y > 0) %>%
-    dplyr::transmute(
-      participant = ParticipantCode,
-      font,
-      phase,
-      y
-    )
+  persian_aggregate_font_phase(
+    crowding, value_col = "crowding_deg", use_geomean = TRUE
+  )
 }
 
 # Pre / during / post crowding violins by font (shared y-scale).
@@ -1155,6 +1248,371 @@ plot_crowding_phase_font_violins <- function(data_list,
       training = "Crowding Threshold by Font — during training",
       post = "Crowding Threshold by Font — post-training"
     ),
-    use_log_scale = TRUE
+    use_log_scale = TRUE,
+    phases = c("pre", "training", "post")
+  )
+}
+
+# Map Persian comfort/beauty labels (CMFRT-Barik, beauty-Nazanin, …) to font files.
+persian_map_rating_font <- function(font_or_label) {
+  x <- as.character(font_or_label)
+  if (exists("comparison_rating_font", mode = "function")) {
+    x <- comparison_rating_font(x)
+  }
+  key <- tolower(sub(
+    "^(cmfrt-|beauty-|fmlrty-|familiarity-)",
+    "",
+    x,
+    ignore.case = TRUE
+  ))
+  mapped <- dplyr::case_when(
+    grepl("nazanin", key) ~ "B-NAZANIN.TTF",
+    grepl("iran.?nastaliq|nastaliq", key) ~ "IranNastaliq.ttf",
+    grepl("hoor|mj_hoor", key) ~ "Mj_Hoor_0.ttf",
+    grepl("barik", key) ~ "Mj_Barik.ttf",
+    grepl("titr", key) ~ "Titr.bold.woff2",
+    grepl("kalameh", key) ~ "Kalameh-Regular.ttf",
+    grepl("moalla", key) ~ "Moalla.ttf",
+    TRUE ~ x
+  )
+  mapped
+}
+
+# Ordinary reading page rows (targetKind reading; WPM from words/duration).
+# Persian files often have readingPages = -1, so threshold's readingPages > 1
+# filter drops them — recompute WPM here from page metrics.
+persian_session_reading_rows <- function(df) {
+  if (is.null(df) || !is.data.frame(df) || nrow(df) < 1) return(NULL)
+  needed <- c(
+    "targetKind", "font", "readingPageWords",
+    "readingPageDurationOnsetToOffsetSec"
+  )
+  if (!all(needed %in% names(df))) return(NULL)
+
+  reading <- df %>%
+    dplyr::filter(
+      targetKind == "reading",
+      !is.na(font),
+      trimws(as.character(font)) != ""
+    )
+  if ("conditionName" %in% names(reading)) {
+    reading <- reading %>%
+      dplyr::filter(!grepl("practice", conditionName, ignore.case = TRUE))
+  }
+  if (nrow(reading) == 0) return(NULL)
+
+  reading %>%
+    dplyr::mutate(
+      font = trimws(as.character(font)),
+      words = suppressWarnings(as.numeric(readingPageWords)),
+      dur_sec = suppressWarnings(
+        as.numeric(readingPageDurationOnsetToOffsetSec)
+      ),
+      wpm = dplyr::if_else(
+        is.finite(words) & is.finite(dur_sec) & dur_sec > 0.2 & words > 0,
+        words / dur_sec * 60,
+        NA_real_
+      )
+    ) %>%
+    dplyr::filter(is.finite(wpm), wpm > 0, wpm <= 2000)
+}
+
+# Per uploaded file × font: ordinary reading WPM (geomean of page WPMs).
+extract_session_reading_by_font <- function(data_list, summary_list = NULL) {
+  empty <- tibble::tibble(
+    session_index = integer(),
+    participant = character(),
+    session_date = as.Date(character()),
+    font = character(),
+    wpm = numeric(),
+    n_obs = integer()
+  )
+  if (length(data_list) == 0) return(empty)
+  # summary_list unused; reading page metrics live on raw trial rows.
+  invisible(summary_list)
+
+  purrr::map_dfr(seq_along(data_list), function(i) {
+    df <- data_list[[i]]
+    if (is.null(df) || !is.data.frame(df) || nrow(df) < 1) return(NULL)
+    reading <- persian_session_reading_rows(df)
+    if (is.null(reading) || nrow(reading) == 0) return(NULL)
+
+    reading %>%
+      dplyr::group_by(font) %>%
+      dplyr::summarize(
+        n_obs = dplyr::n(),
+        wpm = exp(mean(log(wpm), na.rm = TRUE)),
+        .groups = "drop"
+      ) %>%
+      dplyr::mutate(
+        session_index = as.integer(i),
+        participant = persian_first_nonempty_chr(df$participant),
+        session_date = persian_session_date_from_df(df)
+      ) %>%
+      dplyr::filter(is.finite(wpm), wpm > 0) %>%
+      dplyr::select(
+        session_index, participant, session_date, font, wpm, n_obs
+      )
+  }) %>%
+    {
+      if (nrow(.) == 0) empty else .
+    }
+}
+
+prepare_persian_reading_font_phase_data <- function(data_list,
+                                                   summary_list = NULL,
+                                                   pretest = NULL,
+                                                   status = NULL,
+                                                   status_path = default_persian_status_path()) {
+  empty <- tibble::tibble(
+    participant = character(),
+    font = character(),
+    phase = character(),
+    y = numeric()
+  )
+  reading <- extract_session_reading_by_font(data_list, summary_list)
+  reading <- annotate_persian_rsvp_phases(
+    reading,
+    data_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path,
+    value_col = "wpm"
+  )
+  if (nrow(reading) == 0) return(empty)
+  persian_aggregate_font_phase(reading, value_col = "wpm", use_geomean = TRUE)
+}
+
+plot_reading_phase_font_violins <- function(data_list,
+                                            summary_list = NULL,
+                                            pretest = NULL,
+                                            status = NULL,
+                                            status_path = default_persian_status_path()) {
+  phase_df <- prepare_persian_reading_font_phase_data(
+    data_list,
+    summary_list = summary_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path
+  )
+  plot_persian_phase_font_violins(
+    phase_df,
+    ylabel = "Ordinary Reading Speed (word/min)",
+    titles = c(
+      pre = "Ordinary Reading Speed by Font — pre-training",
+      training = "Ordinary Reading Speed by Font — during training",
+      post = "Ordinary Reading Speed by Font — post-training"
+    ),
+    use_log_scale = TRUE,
+    phases = c("pre", "training", "post")
+  )
+}
+
+# Expand Q&A nicknames for one session (uses threshold helper when available).
+persian_session_qa_rows <- function(df) {
+  if (is.null(df) || !is.data.frame(df) || nrow(df) < 1) return(NULL)
+  if (exists("session_question_answers", mode = "function")) {
+    qa <- tryCatch(session_question_answers(df), error = function(e) NULL)
+  } else {
+    qa <- NULL
+  }
+  if (is.null(qa) || nrow(qa) == 0) return(NULL)
+
+  resp <- qa$questionAndAnswerResponse
+  if (exists("arabic_to_western", mode = "function")) {
+    resp <- arabic_to_western(resp)
+  }
+  qa %>%
+    dplyr::mutate(
+      questionAndAnswerResponse = suppressWarnings(as.numeric(resp)),
+      questionAndAnswerNickname = as.character(questionAndAnswerNickname),
+      conditionName = if ("conditionName" %in% names(.)) {
+        as.character(conditionName)
+      } else {
+        NA_character_
+      }
+    ) %>%
+    dplyr::filter(is.finite(questionAndAnswerResponse))
+}
+
+# Per uploaded file × font: comfort / beauty / familiarity rating.
+# rating_type: "CMFRT" | "BTY" | "FAMILIARITY"
+extract_session_rating_by_font <- function(data_list,
+                                           rating_type = c("CMFRT", "BTY", "FAMILIARITY"),
+                                           summary_list = NULL) {
+  rating_type <- match.arg(rating_type)
+  empty <- tibble::tibble(
+    session_index = integer(),
+    participant = character(),
+    session_date = as.Date(character()),
+    font = character(),
+    rating = numeric(),
+    n_obs = integer()
+  )
+  if (length(data_list) == 0) return(empty)
+  invisible(summary_list)
+
+  purrr::map_dfr(seq_along(data_list), function(i) {
+    df <- data_list[[i]]
+    if (is.null(df) || !is.data.frame(df) || nrow(df) < 1) return(NULL)
+    qa <- persian_session_qa_rows(df)
+    if (is.null(qa) || nrow(qa) == 0) return(NULL)
+
+    typed <- qa %>%
+      dplyr::mutate(
+        type = dplyr::case_when(
+          substr(questionAndAnswerNickname, 1, 5) == "CMFRT" ~ "CMFRT",
+          grepl("bty", tolower(questionAndAnswerNickname)) &
+            toupper(questionAndAnswerNickname) != "BTYSFL" ~ "BTY",
+          grepl("familiarity|^fmlrty$", tolower(questionAndAnswerNickname)) ~
+            "FAMILIARITY",
+          TRUE ~ ""
+        )
+      ) %>%
+      dplyr::filter(type == !!rating_type)
+    if (nrow(typed) == 0) return(NULL)
+
+    if (rating_type == "CMFRT") {
+      typed <- typed %>%
+        dplyr::mutate(font = persian_map_rating_font(questionAndAnswerNickname))
+    } else {
+      # Beauty / familiarity: font from beauty-* conditionName.
+      typed <- typed %>%
+        dplyr::filter(grepl("^beauty-", conditionName, ignore.case = TRUE)) %>%
+        dplyr::mutate(font = persian_map_rating_font(conditionName))
+    }
+    if (nrow(typed) == 0) return(NULL)
+
+    typed %>%
+      dplyr::mutate(font = trimws(as.character(font))) %>%
+      dplyr::filter(!is.na(font), font != "") %>%
+      dplyr::group_by(font) %>%
+      dplyr::summarize(
+        n_obs = dplyr::n(),
+        rating = mean(questionAndAnswerResponse, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      dplyr::mutate(
+        session_index = as.integer(i),
+        participant = persian_first_nonempty_chr(df$participant),
+        session_date = persian_session_date_from_df(df)
+      ) %>%
+      dplyr::filter(is.finite(rating), rating > 0) %>%
+      dplyr::select(
+        session_index, participant, session_date, font, rating, n_obs
+      )
+  }) %>%
+    {
+      if (nrow(.) == 0) empty else .
+    }
+}
+
+prepare_persian_rating_font_phase_data <- function(data_list,
+                                                  rating_type = c("CMFRT", "BTY", "FAMILIARITY"),
+                                                  summary_list = NULL,
+                                                  pretest = NULL,
+                                                  status = NULL,
+                                                  status_path = default_persian_status_path()) {
+  rating_type <- match.arg(rating_type)
+  empty <- tibble::tibble(
+    participant = character(),
+    font = character(),
+    phase = character(),
+    y = numeric()
+  )
+  ratings <- extract_session_rating_by_font(
+    data_list,
+    rating_type = rating_type,
+    summary_list = summary_list
+  )
+  ratings <- annotate_persian_rsvp_phases(
+    ratings,
+    data_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path,
+    value_col = "rating"
+  )
+  if (nrow(ratings) == 0) return(empty)
+  persian_aggregate_font_phase(
+    ratings, value_col = "rating", use_geomean = FALSE
+  )
+}
+
+plot_comfort_phase_font_violins <- function(data_list,
+                                            summary_list = NULL,
+                                            pretest = NULL,
+                                            status = NULL,
+                                            status_path = default_persian_status_path()) {
+  phase_df <- prepare_persian_rating_font_phase_data(
+    data_list,
+    rating_type = "CMFRT",
+    summary_list = summary_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path
+  )
+  plot_persian_phase_font_violins(
+    phase_df,
+    ylabel = "Comfort Rating",
+    titles = c(
+      pre = "Comfort Rating by Font — pre-training",
+      training = "Comfort Rating by Font — during training",
+      post = "Comfort Rating by Font — post-training"
+    ),
+    use_log_scale = FALSE,
+    phases = c("pre", "training", "post")
+  )
+}
+
+plot_beauty_phase_font_violins <- function(data_list,
+                                           summary_list = NULL,
+                                           pretest = NULL,
+                                           status = NULL,
+                                           status_path = default_persian_status_path()) {
+  phase_df <- prepare_persian_rating_font_phase_data(
+    data_list,
+    rating_type = "BTY",
+    summary_list = summary_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path
+  )
+  plot_persian_phase_font_violins(
+    phase_df,
+    ylabel = "Beauty Rating",
+    titles = c(
+      pre = "Beauty Rating by Font — pre-training",
+      training = "Beauty Rating by Font — during training",
+      post = "Beauty Rating by Font — post-training"
+    ),
+    use_log_scale = FALSE,
+    phases = c("pre", "training", "post")
+  )
+}
+
+plot_familiarity_phase_font_violins <- function(data_list,
+                                                summary_list = NULL,
+                                                pretest = NULL,
+                                                status = NULL,
+                                                status_path = default_persian_status_path()) {
+  phase_df <- prepare_persian_rating_font_phase_data(
+    data_list,
+    rating_type = "FAMILIARITY",
+    summary_list = summary_list,
+    pretest = pretest,
+    status = status,
+    status_path = status_path
+  )
+  plot_persian_phase_font_violins(
+    phase_df,
+    ylabel = "Familiarity Rating",
+    titles = c(
+      pre = "Familiarity Rating by Font — pre-training",
+      training = "Familiarity Rating by Font — during training",
+      post = "Familiarity Rating by Font — post-training"
+    ),
+    use_log_scale = FALSE,
+    phases = c("pre", "training", "post")
   )
 }

@@ -120,8 +120,9 @@ register_plots_tab_server <- function(output,
                                       maxPlotsHistSlots = 36,
                                       maxPlotsAgeSlots = 12,
                                       maxPlotsScatterSlots = 30,
-                                      maxPlotsViolinSlots = 16,
-                                      maxPlotsFontComparisonSlots = 10) {
+                                      maxPlotsViolinSlots = 10,
+                                      maxPlotsFontComparisonSlots = 10,
+                                      maxPlotsPersianPhaseSlots = 24) {
 
   crowdingPlot <- reactive({
     if (is.null(crowdingBySide())) {
@@ -337,56 +338,193 @@ register_plots_tab_server <- function(output,
       fileNames <- res$fileNames
     }
 
-    # Persian study: pre / during / post violins by font (shared y-scale).
-    # Same training-window classification as the longitudinal session plots.
-    persian_status_path <- files()$persian_status_path
-    rsvp_phase_violins <- plot_rsvp_phase_font_violins(
-      files()$data_list,
-      files()$summary_list,
-      pretest = files()$pretest,
-      status_path = persian_status_path
-    )
-    crowding_phase_violins <- plot_crowding_phase_font_violins(
-      files()$data_list,
-      files()$summary_list,
-      pretest = files()$pretest,
-      status_path = persian_status_path
-    )
-    phase_violin_calls <- list(
-      list(plot = rsvp_phase_violins$pre, fname = "rsvp-violin-by-font-pre-training"),
-      list(
-        plot = rsvp_phase_violins$training,
-        fname = "rsvp-violin-by-font-during-training"
-      ),
-      list(plot = rsvp_phase_violins$post, fname = "rsvp-violin-by-font-post-training"),
-      list(
-        plot = crowding_phase_violins$pre,
-        fname = "crowding-violin-by-font-pre-training"
-      ),
-      list(
-        plot = crowding_phase_violins$training,
-        fname = "crowding-violin-by-font-during-training"
-      ),
-      list(
-        plot = crowding_phase_violins$post,
-        fname = "crowding-violin-by-font-post-training"
-      )
-    )
-    for (call in phase_violin_calls) {
-      plot <- call$plot
-      if (!is.null(plot)) {
-        plot <- plot + scale_color_manual(values = colorPalette)
-        plot <- add_experiment_title(plot, experiment_names())
-      }
-      res <- append_plot_list(l, fileNames, plot, call$fname)
-      l <- res$plotList
-      fileNames <- res$fileNames
-    }
-    
     list(
       plotList = l,
       fileNames = fileNames
     )
+    })
+  })
+
+  # Persian pre/during/post block (only when status spreadsheet was uploaded).
+  persianPhasePlots <- reactive({
+    if (is.null(input$file) || is.null(files())) {
+      return(list(plotList = list(), fileNames = list()))
+    }
+    if (!isTRUE(files()$persian_status_uploaded)) {
+      return(list(plotList = list(), fileNames = list()))
+    }
+    app_profile_time(app_profiler, "Plots Persian phase plot list", {
+      l <- list()
+      fileNames <- list()
+      persian_status_path <- files()$persian_status_path
+
+      rsvp_phase_violins <- plot_rsvp_phase_font_violins(
+        files()$data_list,
+        files()$summary_list,
+        pretest = files()$pretest,
+        status_path = persian_status_path
+      )
+      crowding_phase_violins <- plot_crowding_phase_font_violins(
+        files()$data_list,
+        files()$summary_list,
+        pretest = files()$pretest,
+        status_path = persian_status_path
+      )
+      reading_phase_violins <- plot_reading_phase_font_violins(
+        files()$data_list,
+        files()$summary_list,
+        pretest = files()$pretest,
+        status_path = persian_status_path
+      )
+      comfort_phase_violins <- plot_comfort_phase_font_violins(
+        files()$data_list,
+        files()$summary_list,
+        pretest = files()$pretest,
+        status_path = persian_status_path
+      )
+      beauty_phase_violins <- plot_beauty_phase_font_violins(
+        files()$data_list,
+        files()$summary_list,
+        pretest = files()$pretest,
+        status_path = persian_status_path
+      )
+      familiarity_phase_violins <- plot_familiarity_phase_font_violins(
+        files()$data_list,
+        files()$summary_list,
+        pretest = files()$pretest,
+        status_path = persian_status_path
+      )
+      rsvp_pre_post <- plot_rsvp_pre_post_sessions(
+        files()$data_list,
+        files()$summary_list,
+        pretest = files()$pretest,
+        status_path = persian_status_path
+      )
+
+      # Each measure is a pre/during/post triplet → one UI row (3 columns).
+      # Keep all three slots when any phase has data so the row stays aligned.
+      phase_triplets <- list(
+        list(
+          plots = list(
+            rsvp_pre_post$pre, rsvp_pre_post$training, rsvp_pre_post$post
+          ),
+          fnames = c(
+            "rsvp-pre-training-sessions",
+            "rsvp-during-training-sessions",
+            "rsvp-post-training-sessions"
+          ),
+          is_session = TRUE
+        ),
+        list(
+          plots = list(
+            rsvp_phase_violins$pre,
+            rsvp_phase_violins$training,
+            rsvp_phase_violins$post
+          ),
+          fnames = c(
+            "rsvp-violin-by-font-pre-training",
+            "rsvp-violin-by-font-during-training",
+            "rsvp-violin-by-font-post-training"
+          ),
+          is_session = FALSE
+        ),
+        list(
+          plots = list(
+            crowding_phase_violins$pre,
+            crowding_phase_violins$training,
+            crowding_phase_violins$post
+          ),
+          fnames = c(
+            "crowding-violin-by-font-pre-training",
+            "crowding-violin-by-font-during-training",
+            "crowding-violin-by-font-post-training"
+          ),
+          is_session = FALSE
+        ),
+        list(
+          plots = list(
+            reading_phase_violins$pre,
+            reading_phase_violins$training,
+            reading_phase_violins$post
+          ),
+          fnames = c(
+            "reading-violin-by-font-pre-training",
+            "reading-violin-by-font-during-training",
+            "reading-violin-by-font-post-training"
+          ),
+          is_session = FALSE
+        ),
+        list(
+          plots = list(
+            comfort_phase_violins$pre,
+            comfort_phase_violins$training,
+            comfort_phase_violins$post
+          ),
+          fnames = c(
+            "comfort-violin-by-font-pre-training",
+            "comfort-violin-by-font-during-training",
+            "comfort-violin-by-font-post-training"
+          ),
+          is_session = FALSE
+        ),
+        list(
+          plots = list(
+            beauty_phase_violins$pre,
+            beauty_phase_violins$training,
+            beauty_phase_violins$post
+          ),
+          fnames = c(
+            "beauty-violin-by-font-pre-training",
+            "beauty-violin-by-font-during-training",
+            "beauty-violin-by-font-post-training"
+          ),
+          is_session = FALSE
+        ),
+        list(
+          plots = list(
+            familiarity_phase_violins$pre,
+            familiarity_phase_violins$training,
+            familiarity_phase_violins$post
+          ),
+          fnames = c(
+            "familiarity-violin-by-font-pre-training",
+            "familiarity-violin-by-font-during-training",
+            "familiarity-violin-by-font-post-training"
+          ),
+          is_session = FALSE
+        )
+      )
+      for (triplet in phase_triplets) {
+        is_gg <- vapply(
+          triplet$plots,
+          function(p) inherits(p, "gg") || inherits(p, "ggplot"),
+          logical(1)
+        )
+        if (!any(is_gg)) next
+        for (j in seq_along(triplet$fnames)) {
+          plot <- triplet$plots[[j]]
+          fname <- triplet$fnames[[j]]
+          if (!isTRUE(is_gg[[j]])) {
+            res <- append_plot_list(
+              l, fileNames, NULL, fname, show_placeholder = TRUE
+            )
+            l <- res$plotList
+            fileNames <- res$fileNames
+            next
+          }
+          if (!isTRUE(triplet$is_session)) {
+            plot <- plot + scale_color_manual(values = colorPalette)
+          }
+          plot <- add_experiment_title(plot, experiment_names())
+          res <- append_plot_list(
+            l, fileNames, plot, fname, show_placeholder = FALSE
+          )
+          l <- res$plotList
+          fileNames <- res$fileNames
+        }
+      }
+
+      list(plotList = l, fileNames = fileNames)
     })
   })
   
@@ -480,42 +618,6 @@ register_plots_tab_server <- function(output,
       }
     }
 
-    # Persian RSVP: pre / during / post training (shared participant colors).
-    # Pre = before First Training Session; training = start..end inclusive;
-    # post = after Last Training Session.
-    rsvp_pre_post <- plot_rsvp_pre_post_sessions(
-      files()$data_list,
-      files()$summary_list,
-      pretest = files()$pretest,
-      status_path = files()$persian_status_path
-    )
-    if (!is.null(rsvp_pre_post$pre)) {
-      pre_plot <- add_experiment_title(rsvp_pre_post$pre, experiment_names())
-      res <- append_plot_list(
-        l, fileNames, pre_plot, "rsvp-pre-training-sessions"
-      )
-      l <- res$plotList
-      fileNames <- res$fileNames
-    }
-    if (!is.null(rsvp_pre_post$training)) {
-      training_plot <- add_experiment_title(
-        rsvp_pre_post$training, experiment_names()
-      )
-      res <- append_plot_list(
-        l, fileNames, training_plot, "rsvp-during-training-sessions"
-      )
-      l <- res$plotList
-      fileNames <- res$fileNames
-    }
-    if (!is.null(rsvp_pre_post$post)) {
-      post_plot <- add_experiment_title(rsvp_pre_post$post, experiment_names())
-      res <- append_plot_list(
-        l, fileNames, post_plot, "rsvp-post-training-sessions"
-      )
-      l <- res$plotList
-      fileNames <- res$fileNames
-    }
-    
     # Shared prep for by-font / native-legend / full-row scatters (once per list build).
     # Remember fonts/ paths only for ee_* plots; systemfonts registration stays
     # deferred until PNG render (ensure_* skips faces already loaded).
@@ -628,12 +730,14 @@ register_plots_tab_server <- function(output,
     })
   })
   # Progressive rendering follows Plots tab page order:
-  # histograms → violin → font comparison → scatter → age / RSVP later sections.
+  # histograms → violin → persian phase → font comparison → scatter → age.
   plotsRenderCount <- reactiveVal(0)
   histRenderCount <- reactiveVal(0)
   histRenderedCount <- reactiveVal(0)
   violinRenderCount <- reactiveVal(0)
   violinRenderedCount <- reactiveVal(0)
+  persianPhaseRenderCount <- reactiveVal(0)
+  persianPhaseRenderedCount <- reactiveVal(0)
   fontComparisonRenderCount <- reactiveVal(0)
   fontComparisonRenderedCount <- reactiveVal(0)
   scatterRenderCount <- reactiveVal(0)
@@ -712,6 +816,8 @@ register_plots_tab_server <- function(output,
   reset_downstream_render_counts <- function() {
     violinRenderCount(0)
     violinRenderedCount(0)
+    persianPhaseRenderCount(0)
+    persianPhaseRenderedCount(0)
     fontComparisonRenderCount(0)
     fontComparisonRenderedCount(0)
     scatterRenderCount(0)
@@ -923,19 +1029,46 @@ register_plots_tab_server <- function(output,
 
   observeEvent(violinImagesReady(), {
     if (!isTRUE(violinImagesReady())) return(invisible(NULL))
+    persianPhaseRenderCount(0)
+    persianPhaseRenderedCount(0)
+  }, ignoreInit = TRUE)
+
+  observe({
+    req(plots_tab_active())
+    req(violinImagesReady())
+    total <- min(
+      length(persianPhasePlots()$plotList),
+      maxPlotsPersianPhaseSlots
+    )
+    advance_render_gate(
+      persianPhaseRenderCount, persianPhaseRenderedCount, total
+    )
+  })
+
+  persianPhaseImagesReady <- reactive({
+    if (!isTRUE(violinImagesReady())) return(FALSE)
+    total <- min(
+      length(persianPhasePlots()$plotList),
+      maxPlotsPersianPhaseSlots
+    )
+    is.null(total) || total <= 0 || persianPhaseRenderedCount() >= total
+  })
+
+  observeEvent(persianPhaseImagesReady(), {
+    if (!isTRUE(persianPhaseImagesReady())) return(invisible(NULL))
     fontComparisonRenderCount(0)
     fontComparisonRenderedCount(0)
   }, ignoreInit = TRUE)
 
   observe({
     req(plots_tab_active())
-    req(violinImagesReady())
+    req(persianPhaseImagesReady())
     total <- min(length(fontComparisonPlots()$plotList), maxPlotsFontComparisonSlots)
     advance_render_gate(fontComparisonRenderCount, fontComparisonRenderedCount, total)
   })
 
   fontComparisonImagesReady <- reactive({
-    if (!isTRUE(violinImagesReady())) return(FALSE)
+    if (!isTRUE(persianPhaseImagesReady())) return(FALSE)
     total <- min(length(fontComparisonPlots()$plotList), maxPlotsFontComparisonSlots)
     is.null(total) || total <= 0 || fontComparisonRenderedCount() >= total
   })
@@ -1012,6 +1145,7 @@ register_plots_tab_server <- function(output,
 
     hist_done <- histRenderedCount()
     violin_done <- violinRenderedCount()
+    persian_done <- persianPhaseRenderedCount()
     font_done <- fontComparisonRenderedCount()
     scatter_done <- scatterRenderedCount()
     age_done <- ageRenderedCount()
@@ -1058,6 +1192,21 @@ register_plots_tab_server <- function(output,
         ""
       }
       push("Plotting violins …", detail)
+      return(invisible(NULL))
+    }
+
+    persian_total <- min(
+      length(persianPhasePlots()$plotList),
+      maxPlotsPersianPhaseSlots
+    )
+    if (!(is.null(persian_total) || persian_total <= 0 ||
+          persian_done >= persian_total)) {
+      detail <- if (is.finite(persian_total) && persian_total > 0) {
+        sprintf("%d / %d", min(persian_done, persian_total), persian_total)
+      } else {
+        ""
+      }
+      push("Plotting Persian pre/during/post …", detail)
       return(invisible(NULL))
     }
 
@@ -1121,6 +1270,14 @@ register_plots_tab_server <- function(output,
       return(FALSE)
     }
   })
+
+  # True only when Persian_Study_Participant_Status.xlsx was in the upload/zip
+  # (not the data/ fallback). Gates the Persian pre/during/post Plots block.
+  output$hasPersianStudyStatus <- reactive({
+    if (is.null(files())) return(FALSE)
+    isTRUE(files()$persian_status_uploaded)
+  })
+  outputOptions(output, "hasPersianStudyStatus", suspendWhenHidden = FALSE)
   
   output$isRepeated <- reactive({
     if ('repeatedLetters' %in% names(df_list())) {
@@ -2139,19 +2296,19 @@ register_plots_tab_server <- function(output,
 
       output[[paste0("hasFontComparison", ii)]] <- reactive({
         if (!isTRUE(plots_tab_active())) return(FALSE)
-        req(violinImagesReady())
+        req(persianPhaseImagesReady())
         length(fontComparisonPlots()$plotList) >= ii
       })
       outputOptions(output, paste0("hasFontComparison", ii), suspendWhenHidden = FALSE)
 
       output[[paste0("fontComparisonTitle", ii)]] <- renderText({
-        req(violinImagesReady())
+        req(persianPhaseImagesReady())
         req(length(fontComparisonPlots()$fileNames) >= ii)
         fontComparisonPlots()$fileNames[[ii]]
       })
 
       output[[paste0("fontComparison", ii)]] <- renderImage({
-        req(violinImagesReady())
+        req(persianPhaseImagesReady())
         req_plots_slot_unlocked(ii, fontComparisonRenderCount)
         req(length(fontComparisonPlots()$plotList) >= ii)
         content_gen <- isolate(plotsContentGen())
@@ -2222,7 +2379,7 @@ register_plots_tab_server <- function(output,
           downloadFileType()
         ),
         content = function(file) {
-          req(violinImagesReady())
+          req(persianPhaseImagesReady())
           req(length(fontComparisonPlots()$plotList) >= ii)
           if (is_placeholder_plot(fontComparisonPlots()$plotList[[ii]])) return(invisible(NULL))
 
@@ -2241,11 +2398,211 @@ register_plots_tab_server <- function(output,
     })
   }
 
+  #### fixed Persian pre/during/post slots ####
+  for (i in seq_len(maxPlotsPersianPhaseSlots)) {
+    local({
+      ii <- i
+
+      output[[paste0("hasPersianPhase", ii)]] <- reactive({
+        if (!isTRUE(plots_tab_active())) return(FALSE)
+        if (!isTRUE(files()$persian_status_uploaded)) return(FALSE)
+        req(violinImagesReady())
+        length(persianPhasePlots()$plotList) >= ii
+      })
+      outputOptions(
+        output, paste0("hasPersianPhase", ii), suspendWhenHidden = FALSE
+      )
+
+      output[[paste0("persianPhaseFullWidth", ii)]] <- reactive({
+        if (!isTRUE(plots_tab_active())) return(FALSE)
+        plots <- persianPhasePlots()
+        if (is.null(plots) || length(plots$plotList) < ii) {
+          return(FALSE)
+        }
+        isTRUE(attr(plots$plotList[[ii]], "plots_full_row", exact = TRUE))
+      })
+      outputOptions(
+        output, paste0("persianPhaseFullWidth", ii), suspendWhenHidden = FALSE
+      )
+
+      output[[paste0("persianPhaseTitle", ii)]] <- renderText({
+        req(violinImagesReady())
+        req(length(persianPhasePlots()$fileNames) >= ii)
+        persianPhasePlots()$fileNames[[ii]]
+      })
+
+      output[[paste0("persianPhase", ii)]] <- renderImage({
+        req(violinImagesReady())
+        req_plots_slot_unlocked(ii, persianPhaseRenderCount)
+        req(length(persianPhasePlots()$plotList) >= ii)
+        content_gen <- isolate(plotsContentGen())
+        with_plots_png_cache(
+          paste("persianPhase", content_gen, ii, sep = ":"),
+          on_hit = function() {
+            if (isolate(persianPhaseRenderedCount()) < ii) {
+              persianPhaseRenderedCount(ii)
+            }
+          },
+          render_fn = function() {
+            app_profile_time(
+              app_profiler,
+              plots_profile_image_label(
+                "persianPhase", ii, persianPhasePlots()$fileNames
+              ),
+              {
+                tryCatch({
+                  plot_obj <- persianPhasePlots()$plotList[[ii]]
+                  plot_w <- attr(
+                    plot_obj, "plots_display_width_in", exact = TRUE
+                  )
+                  if (!is.numeric(plot_w) || length(plot_w) < 1 ||
+                        !is.finite(plot_w[1]) || plot_w[1] <= 0) {
+                    plot_w <- 8
+                  } else {
+                    plot_w <- as.numeric(plot_w[1])
+                  }
+                  plot_h <- attr(
+                    plot_obj, "plots_display_height_in", exact = TRUE
+                  )
+                  if (!is.numeric(plot_h) || length(plot_h) < 1 ||
+                        !is.finite(plot_h[1]) || plot_h[1] <= 0) {
+                    plot_h <- 6
+                  } else {
+                    plot_h <- as.numeric(plot_h[1])
+                  }
+                  fname <- persianPhasePlots()$fileNames[[ii]]
+                  is_session <- grepl("sessions$", fname)
+                  plot_to_save <- if (is_placeholder_plot(plot_obj)) {
+                    plot_obj
+                  } else if (is_session) {
+                    apply_plt_theme_scatter(plot_obj)
+                  } else {
+                    plot_obj + plt_theme +
+                      ggplot2::theme(plot.title.position = "panel")
+                  }
+                  plot_to_save <- copy_png_axis_scale_attrs(
+                    plot_obj, plot_to_save
+                  )
+                  disp_w <- round(700 * (plot_w / 8))
+                  result <- render_plots_display_png(
+                    plot_to_save,
+                    width_in = plot_w,
+                    height_in = plot_h,
+                    disp_w = disp_w,
+                    text_scale = 1.4,
+                    scale_axis_text = FALSE,
+                    limitsize = FALSE
+                  )
+                  mark_stage_rendered(
+                    persianPhaseRenderedCount,
+                    ii,
+                    "Plotting Persian pre/during/post …",
+                    min(
+                      length(persianPhasePlots()$plotList),
+                      maxPlotsPersianPhaseSlots
+                    )
+                  )
+                  result
+                }, error = function(e) {
+                  error_plot <- ggplot() +
+                    annotate(
+                      "text",
+                      x = 0.5,
+                      y = 0.5,
+                      label = paste("Error:", e$message),
+                      color = "red",
+                      size = 5,
+                      hjust = 0.5,
+                      vjust = 0.5
+                    ) +
+                    theme_void() +
+                    labs(subtitle = persianPhasePlots()$fileNames[[ii]])
+                  result <- render_plots_display_png(
+                    error_plot,
+                    width_in = 6,
+                    height_in = 4,
+                    disp_w = 700,
+                    use_png_theme = FALSE
+                  )
+                  mark_stage_rendered(
+                    persianPhaseRenderedCount,
+                    ii,
+                    "Plotting Persian pre/during/post …",
+                    min(
+                      length(persianPhasePlots()$plotList),
+                      maxPlotsPersianPhaseSlots
+                    )
+                  )
+                  result
+                })
+              }
+            )
+          }
+        )
+      }, deleteFile = FALSE)
+      outputOptions(
+        output, paste0("persianPhase", ii), suspendWhenHidden = TRUE
+      )
+
+      output[[paste0("downloadPersianPhase", ii)]] <- downloadHandler(
+        filename = function() paste0(
+          get_short_experiment_name(experiment_names()),
+          persianPhasePlots()$fileNames[[ii]],
+          ".",
+          downloadFileType()
+        ),
+        content = function(file) {
+          req(violinImagesReady())
+          req(length(persianPhasePlots()$plotList) >= ii)
+          if (is_placeholder_plot(persianPhasePlots()$plotList[[ii]])) {
+            return(invisible(NULL))
+          }
+
+          plot_obj <- persianPhasePlots()$plotList[[ii]]
+          plot_w <- attr(plot_obj, "plots_display_width_in", exact = TRUE)
+          if (!is.numeric(plot_w) || length(plot_w) < 1 ||
+                !is.finite(plot_w[1]) || plot_w[1] <= 0) {
+            plot_w <- 8
+          } else {
+            plot_w <- as.numeric(plot_w[1])
+          }
+          plot_h <- attr(plot_obj, "plots_display_height_in", exact = TRUE)
+          if (!is.numeric(plot_h) || length(plot_h) < 1 ||
+                !is.finite(plot_h[1]) || plot_h[1] <= 0) {
+            plot_h <- 6
+          } else {
+            plot_h <- as.numeric(plot_h[1])
+          }
+          fname <- persianPhasePlots()$fileNames[[ii]]
+          is_session <- grepl("sessions$", fname)
+          plot_to_save <- if (is_session) {
+            apply_plt_theme_scatter(plot_obj)
+          } else {
+            plot_obj + plt_theme +
+              ggplot2::theme(plot.title.position = "panel")
+          }
+          save_plots_display_download(
+            file = file,
+            plot = plot_to_save,
+            file_type = downloadFileType(),
+            width_in = plot_w,
+            height_in = plot_h,
+            disp_w = round(700 * (plot_w / 8)),
+            text_scale = 1.4,
+            scale_axis_text = FALSE,
+            limitsize = FALSE
+          )
+        }
+      )
+    })
+  }
+
   list(
     agePlots = agePlots,
     histograms = histograms,
     scatterDiagrams = scatterDiagrams,
     violinPlots = violinPlots,
+    persianPhasePlots = persianPhasePlots,
     fontComparisonPlots = fontComparisonPlots,
     laterSectionsReady = laterSectionsReady
   )

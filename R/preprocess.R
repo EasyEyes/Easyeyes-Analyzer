@@ -1283,6 +1283,7 @@ read_files <- function(file, progress = NULL){
   stair_list <- stair_list[!sapply(stair_list, is.null)]
   summary_list <- summary_list[!sapply(summary_list, is.null)]
 
+  persian_status_uploaded <- !is.null(status_from_upload) || !is.null(status_from_zip)
   persian_status_path <- if (exists("resolve_persian_status_path", mode = "function")) {
     resolve_persian_status_path(
       if (!is.null(status_from_upload)) {
@@ -1308,7 +1309,8 @@ read_files <- function(file, progress = NULL){
       pretest = tibble(),
       experiment = character(0),
       prolific = tibble(),
-      persian_status_path = persian_status_path
+      persian_status_path = persian_status_path,
+      persian_status_uploaded = persian_status_uploaded
     ))
   }
 
@@ -1426,7 +1428,9 @@ read_files <- function(file, progress = NULL){
     "Preprocess complete: ",
     length(data_list),
     " sessions loaded; Persian status=",
-    basename(persian_status_path)
+    basename(persian_status_path),
+    " uploaded=",
+    persian_status_uploaded
   )
   return(list(
     data_list = data_list,
@@ -1436,7 +1440,8 @@ read_files <- function(file, progress = NULL){
     pretest = pretest,
     stairs = stairs,
     prolific = prolificDT,
-    persian_status_path = persian_status_path
+    persian_status_path = persian_status_path,
+    persian_status_uploaded = persian_status_uploaded
   ))
 }
 

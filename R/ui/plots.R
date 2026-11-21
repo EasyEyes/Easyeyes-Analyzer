@@ -1,8 +1,9 @@
 plotsTabUI <- function(maxPlotsHistSlots = 36,
                        maxPlotsAgeSlots = 12,
                        maxPlotsScatterSlots = 30,
-                       maxPlotsViolinSlots = 16,
-                       maxPlotsFontComparisonSlots = 10) {
+                       maxPlotsViolinSlots = 10,
+                       maxPlotsFontComparisonSlots = 10,
+                       maxPlotsPersianPhaseSlots = 24) {
 
   plots_plot_cell <- function(prefix, download_prefix, i, show_title = TRUE) {
     availability_id <- paste0(
@@ -41,6 +42,32 @@ plotsTabUI <- function(maxPlotsHistSlots = 36,
         } else {
           ""
         }
+      )
+    }
+    rows
+  }
+
+  # Pre / during / post triplets: three equal columns per row.
+  three_column_plot_rows <- function(prefix, download_prefix, max_slots, show_title = TRUE) {
+    rows <- list()
+    for (i in seq(1, max_slots, by = 3)) {
+      cells <- lapply(0:2, function(offset) {
+        idx <- i + offset
+        if (idx <= max_slots) {
+          plots_plot_cell(prefix, download_prefix, idx, show_title = show_title)
+        } else {
+          ""
+        }
+      })
+      rows[[length(rows) + 1]] <- do.call(
+        splitLayout,
+        c(
+          list(
+            cellWidths = c("33.33%", "33.33%", "33.33%"),
+            style = "overflow-x: hidden;"
+          ),
+          cells
+        )
       )
     }
     rows
@@ -215,6 +242,25 @@ plotsTabUI <- function(maxPlotsHistSlots = 36,
     h2("Violin plots"),
     # Participant violins can be very wide (plots_full_row); use flex layout.
     flexible_plot_rows("violin", "downloadViolin", maxPlotsViolinSlots),
+    # Persian pre/during/post block: only when status spreadsheet was uploaded.
+    # Each measure is one row of three plots (shared y within the measure).
+    conditionalPanel(
+      "output.hasPersianStudyStatus",
+      h2("Persian study — pre / during / post"),
+      tags$p(
+        style = "color: #555; margin-top: -0.4em; margin-bottom: 0.8em;",
+        paste(
+          "Shown when Persian_Study_Participant_Status.xlsx is uploaded",
+          "with the result files. Each row is one measure (pre / during / post)",
+          "with a shared y-axis; fonts are shown within each plot."
+        )
+      ),
+      tags$div(three_column_plot_rows(
+        "persianPhase",
+        "downloadPersianPhase",
+        maxPlotsPersianPhaseSlots
+      ))
+    ),
     h2("Font comparison plots"),
     tags$div(two_column_plot_rows("fontComparison", "downloadFontComparison", maxPlotsFontComparisonSlots)),
     h2("Scatter diagrams"),
